@@ -2,11 +2,14 @@ import type { EvalBatch, EvalGrid } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { evalBatch, evalBatches } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
+import { EvalAgentsEditor } from "./eval-agents";
+import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
-import { EvalReport } from "./eval-report";
+import { EvalReport, EvalReportSkeleton } from "./eval-report";
 import { EvalScenarios } from "./eval-scenarios-view";
 import { EvalSection } from "./eval-section";
 import { ORDER, StatusChip, spent } from "./eval-status";
@@ -31,6 +34,7 @@ export function EvalsPage({
 }): JSX.Element {
 	const [batches, setBatches] = useState<EvalBatch[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [agents] = useState(() => new EvalAgentsEditor());
 	// Read each time the list is shown: batches land while it is away.
 	useEffect(() => {
 		if (open !== null || plan !== null) {
@@ -70,6 +74,7 @@ export function EvalsPage({
 					{error}
 				</p>
 			)}
+			{open === null && plan === null && <EvalAgentsView editor={agents} />}
 			{open === null && plan === null && (
 				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} feed={feed} />
 			)}
@@ -82,7 +87,22 @@ export function EvalsPage({
 			) : open !== null ? (
 				<Batch id={open} onOpen={(each) => onOpen(open, each)} />
 			) : batches === null ? (
-				error === null && <ReadingNow label="Reading evals…" />
+				error === null && (
+					<div className="flex flex-col gap-3">
+						<ReadingNow label="Reading evals…" />
+						<ul aria-hidden className="flex flex-col gap-3">
+							{[0, 1, 2].map((row) => (
+								<li
+									key={row}
+									className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3 shadow-xs"
+								>
+									<Skeleton className="h-3.5 w-[40%] animate-pulse" />
+									<Skeleton className="h-2.5 w-[60%] animate-pulse" />
+								</li>
+							))}
+						</ul>
+					</div>
+				)
 			) : batches.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No eval has run on this machine yet. Each run of{" "}
@@ -185,9 +205,7 @@ function Batch({
 					{error}
 				</p>
 			)}
-			{grid === null && error === null && (
-				<ReadingNow label="Reading the batch…" />
-			)}
+			{grid === null && error === null && <EvalReportSkeleton />}
 			{grid !== null && <EvalReport grid={grid} onOpen={onOpen} />}
 		</div>
 	);

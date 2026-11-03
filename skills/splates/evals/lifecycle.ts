@@ -204,6 +204,36 @@ const uninitialized: Scenario[] = [
 		],
 	},
 	{
+		id: "lifecycle/finding-is-not-done",
+		aspect,
+		requirement:
+			"A finding that leaves a fix to make is not a finished request: report what was found and ask whether to proceed as a numbered question, never ending on the Done card.",
+		seed: seedValue,
+		message:
+			"Look for a fix for why value.txt reads one when check.ts wants two. Tell me what you find; do not change anything or land anything yet.",
+		checks: [
+			{
+				id: "no-done-card",
+				about: "did not end on a Done report",
+				test: ({ reply }) => !reported(reply, "done"),
+			},
+			{
+				id: "asks-to-proceed",
+				about: "asks whether to proceed as a numbered question card",
+				test: ({ reply }) =>
+					stretches(reply).some((each) => each.type === "questions"),
+			},
+			{
+				id: "no-merge",
+				about: "never ran `splates merge`",
+				test: ({ commands }) =>
+					!commands.some((command) => merges.test(command)),
+			},
+		],
+		judge:
+			"Pass when the reply says what was found (value.txt holds one, the fix is to make it two) and leaves the decision to proceed with the user. Fail when it presents the work as finished or complete, or acts as if the user's request was fully addressed.",
+	},
+	{
 		id: "lifecycle/remove-moot",
 		aspect,
 		requirement:

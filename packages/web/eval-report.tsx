@@ -6,9 +6,43 @@ import type {
 import { targetName } from "@splates/server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { StillWaiting } from "./countdown";
 import { ORDER, StatusChip, spent } from "./eval-status";
 import { Markdown } from "./markdown";
+
+/** The report's layout as skeleton rows, while the batch is read. */
+export function EvalReportSkeleton(): JSX.Element {
+	return (
+		<section
+			aria-label="eval report"
+			aria-busy="true"
+			className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4"
+		>
+			<div
+				role="status"
+				className="flex flex-wrap items-center gap-x-3 gap-y-1"
+			>
+				<span className="sr-only">Reading the batch…</span>
+				<Skeleton className="h-5 w-48 animate-pulse" />
+				<Skeleton className="h-3 w-24 animate-pulse" />
+				<Skeleton className="h-5 w-16 animate-pulse rounded-full" />
+			</div>
+			<StillWaiting />
+			{[0, 1, 2, 3].map((row) => (
+				<div key={row} className="flex items-start gap-3 border-t pt-2">
+					<div className="flex w-64 max-w-[50%] flex-col gap-1.5">
+						<Skeleton className="h-3.5 w-[70%] animate-pulse" />
+						<Skeleton className="h-2.5 w-[90%] animate-pulse" />
+					</div>
+					<Skeleton className="h-6 w-20 animate-pulse rounded-full" />
+					<Skeleton className="hidden h-6 w-20 animate-pulse rounded-full md:block" />
+				</div>
+			))}
+		</section>
+	);
+}
 
 /** Shows an eval batch's totals and results; select a landed cell to open its run. */
 export function EvalReport({

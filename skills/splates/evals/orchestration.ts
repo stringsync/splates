@@ -160,4 +160,86 @@ export const scenarios: Scenario[] = [
 			},
 		],
 	},
+	{
+		id: "orchestration/offers-lane",
+		aspect,
+		requirement:
+			"A request that is several medium changes gets a numbered Yes/No offer of a lane, with the split named, before any of the work.",
+		initialized: true,
+		async seed(repo) {
+			await repo.write(
+				"csv.ts",
+				'export function toCsv(): string {\n\treturn "";\n}\n',
+			);
+			await repo.write("server.ts", "export const routes: string[] = [];\n");
+			await repo.write("page.ts", 'export const page = "<main></main>";\n');
+		},
+		message:
+			"Add CSV export: a writer that turns rows into CSV, an /export endpoint that uses it, and a button on the page that calls the endpoint. Stop at the first decision or report; do not implement anything before I answer.",
+		checks: [
+			{
+				id: "no-lane-yet",
+				about: "did not add a lane before the user answered",
+				test: ({ commands }) =>
+					!commands.some((command) => /\bsplates\s+lane\s+add\b/.test(command)),
+			},
+		],
+		judge:
+			"Pass when the reply asks, as a numbered question with Yes and No choices, whether to split the request into a lane of separate tasks, naming the pieces (the writer, the endpoint, the button), and has not written the code. Fail when it starts implementing, or splits without asking.",
+	},
+	{
+		id: "orchestration/one-change-no-offer",
+		aspect,
+		requirement:
+			"A request that is one medium change gets no lane offer: the agent does the change in its task.",
+		initialized: true,
+		async seed(repo) {
+			await repo.write(
+				"csv.ts",
+				'export function toCsv(rows: string[][]): string {\n\treturn rows.map((row) => row.join(",")).join("\\n");\n}\n',
+			);
+		},
+		message: "Make the CSV writer in csv.ts quote fields that contain commas.",
+		checks: [
+			{
+				id: "no-lane",
+				about: "never added a lane or a queued task",
+				test: ({ commands }) =>
+					!commands.some((command) =>
+						/\bsplates\s+(lane\s+add|task\s+add)\b/.test(command),
+					),
+			},
+		],
+		judge:
+			"Pass when the agent works on the change itself and does not ask whether to split it into a lane or several tasks. Fail when the reply offers a lane.",
+	},
+	{
+		id: "orchestration/declined-lane",
+		aspect,
+		requirement:
+			"When the user chooses one task over a lane, the agent does all of it in that task and does not queue split points.",
+		initialized: true,
+		async seed(repo) {
+			await repo.write(
+				"csv.ts",
+				'export function toCsv(): string {\n\treturn "";\n}\n',
+			);
+			await repo.write("server.ts", "export const routes: string[] = [];\n");
+			await repo.write("page.ts", 'export const page = "<main></main>";\n');
+		},
+		message:
+			"Add CSV export: a writer that turns rows into CSV, an /export endpoint that uses it, and a button on the page that calls the endpoint. Do all of it in one task, not as a lane.",
+		checks: [
+			{
+				id: "no-split",
+				about: "never added a lane or a queued task",
+				test: ({ commands }) =>
+					!commands.some((command) =>
+						/\bsplates\s+(lane\s+add|task\s+add|task\s+defer)\b/.test(command),
+					),
+			},
+		],
+		judge:
+			"Pass when the agent carries out the export in one task without asking again about a lane. Fail when it offers to split, or leaves pieces as follow-up tasks.",
+	},
 ];

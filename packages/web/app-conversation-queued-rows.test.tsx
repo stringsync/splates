@@ -107,6 +107,14 @@ describe("App's queued rows in the sidebar", () => {
 		);
 	});
 
+	it("shows a queued row's Unqueue as busy, and disabled, until the server answers", async () => {
+		const view = await testing.openConversations([], undefined, board);
+		const button = await view.findByRole("button", { name: "Unqueue #2" });
+		fireEvent.click(button);
+		await waitFor(() => expect(button.getAttribute("aria-busy")).toBe("true"));
+		expect((button as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it("opens a queued task on its own page, which puts it back on the board", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Fix login" })],

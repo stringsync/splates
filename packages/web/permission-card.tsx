@@ -65,9 +65,6 @@ export function PermissionCard({
 			return <QueueCard proposal={proposal} />;
 		case "grant":
 			return <GrantCard proposal={proposal} />;
-		default:
-			// Nothing draws a card for an action the web no longer knows.
-			return <></>;
 	}
 }
 

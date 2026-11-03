@@ -89,7 +89,7 @@ describe("App's run evals card", () => {
 		});
 
 		const view = await testing.openConversations([asking]);
-		expect(view.getByText("Loading evals")).toBeTruthy();
+		expect(view.getByLabelText("Loading evals")).toBeTruthy();
 		expect(view.queryByRole("button", { name: "Run" })).toBeNull();
 
 		await act(async () => arrive());

@@ -8,7 +8,8 @@ import { upNext } from "./blocked-fix";
 import { Board, still, touchArea } from "./board";
 import { queued } from "./board-expectations";
 import { Dispatching } from "./dispatching";
-import { useExpectSnapshot } from "./expecting";
+import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
+import { PendingSpinner, useShowPending } from "./pending";
 import { TONES, type Tone } from "./task-sections";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
@@ -198,6 +199,8 @@ export function QueueToggle({
 }): JSX.Element | null {
 	const { refuseTodo } = useContext(Board);
 	const expect = useExpectSnapshot();
+	const pending = usePendingSnapshot(`todo:${todo.id}`);
+	const shown = useShowPending(pending);
 	const stage = stageOf(todo);
 	if (stage === "running") {
 		return null;
@@ -211,6 +214,8 @@ export function QueueToggle({
 			type="button"
 			aria-label={`${label} #${todo.id}`}
 			title={row ? label : undefined}
+			disabled={pending}
+			aria-busy={pending}
 			onClick={() =>
 				void expect(queued(todo.id, queue), queueTodo(todo.id, queue)).catch(
 					(error: unknown) =>
@@ -229,7 +234,11 @@ export function QueueToggle({
 				row && phone && "size-11",
 			)}
 		>
-			<Icon aria-hidden className={row ? "size-4" : "size-3"} />
+			{shown ? (
+				<PendingSpinner shown className={row ? "size-4" : "size-3"} />
+			) : (
+				<Icon aria-hidden className={row ? "size-4" : "size-3"} />
+			)}
 			{row ? null : label}
 		</button>
 	);

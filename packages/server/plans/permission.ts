@@ -22,13 +22,9 @@ export function queueIsSettled(
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
-	return [
-		LOOP_CARD,
-		PERMISSION,
-		GRANT_PERMISSION,
-		EVALS_PERMISSION,
-		RUN_PERMISSION,
-	].some((each) => each.test(line));
+	return [PERMISSION, GRANT_PERMISSION, EVALS_PERMISSION, RUN_PERMISSION].some(
+		(each) => each.test(line),
+	);
 }
 
 /** What the permission card titled `line`, with `body` under it, asks; null for any other line. */
@@ -36,17 +32,6 @@ export function permissionOf(
 	line: string,
 	body: string,
 ): PermissionProposal | null {
-	const loop = LOOP_CARD.exec(line);
-	if (loop !== null) {
-		return {
-			action: "eval-loop",
-			lane: null,
-			tasks: [],
-			title: null,
-			body,
-			loop: { id: loop[1] as string, version: Number(loop[2]) },
-		};
-	}
 	const permission = PERMISSION.exec(line);
 	const evals = EVALS_PERMISSION.exec(line);
 	const run = RUN_PERMISSION.exec(line);
@@ -87,15 +72,7 @@ export function permissionOf(
 		let baseline: string | null = null;
 		let reps: number | undefined;
 		let agents: string[] | undefined;
-		let loop: { id: string; version: number } | undefined;
 		const prose = body.split("\n").filter((each) => {
-			const linked = /^Loop: `([a-zA-Z0-9][a-zA-Z0-9._-]*)` at (\d+)$/.exec(
-				each,
-			);
-			if (linked !== null) {
-				loop = { id: linked[1] as string, version: Number(linked[2]) };
-				return false;
-			}
 			const scenario = EVAL_PROBE.exec(each);
 			if (scenario !== null) {
 				scenarios.push(scenario[1] as string);
@@ -133,7 +110,6 @@ export function permissionOf(
 				baseline,
 				...(reps === undefined ? {} : { reps }),
 				...(agents === undefined ? {} : { agents }),
-				...(loop === undefined ? {} : { loop }),
 			},
 		};
 	}
@@ -166,14 +142,7 @@ export interface PermissionProposal {
 	 * a heavy command, the whole test suite among them, or let one project
 	 * reach further into another.
 	 */
-	action:
-		| "queue"
-		| "remove-lane"
-		| "run-evals"
-		| "run-command"
-		| "grant"
-		| "eval-loop";
-	loop?: { id: string; version: number };
+	action: "queue" | "remove-lane" | "run-evals" | "run-command" | "grant";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
@@ -215,7 +184,6 @@ export interface ReachAsk {
  * need not leave out the ones that need no rerun.
  */
 export interface EvalAsk {
-	loop?: { id: string; version: number };
 	skill: string;
 	scenarios: string[];
 	baseline: string | null;
@@ -224,9 +192,6 @@ export interface EvalAsk {
 	/** The saved agents to run on, as `agent:model@effort`; every saved agent when absent. */
 	agents?: string[];
 }
-
-const LOOP_CARD =
-	/^## 🧪 Eval loop ([a-zA-Z0-9][a-zA-Z0-9._-]*) at (\d+)[ \t]*$/;
 
 const EVALS_PERMISSION =
 	/^## 🔐 Permission: run evals (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;

@@ -6,7 +6,6 @@ export type {
 	EvalPlan,
 	EvalScenario,
 } from "./launch";
-export type { StoredEvalLoop } from "./loops";
 export { targetName, targetOf } from "./target";
 export type {
 	EvalBatch,

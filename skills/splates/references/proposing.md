@@ -45,9 +45,14 @@ table or flow, and any visible frontend change. A small change needs none.
   process.exit(0); // the WASM runtime keeps the process alive otherwise
   ```
 
-  Open the SVG in the browser tool and screenshot it to a PNG: cards show
-  attached images, not SVGs. `splates attach` the PNG and put it in the
-  proposal under a short heading for what it shows. Keep the sections beside
+  Cards show attached images, not SVGs, so the SVG becomes a PNG: with `d2`
+  on the PATH, `d2 in.d2 out.png` renders the PNG directly, no browser
+  needed; otherwise open the SVG in the browser tool and screenshot it.
+  A proposal for such a change is not ready until its diagram is attached,
+  so do not send it as text alone. `splates attach` works from a task's
+  worktree: when no task is under way, `splates add` one for the proposal
+  first (the Goal says what is proposed), rather than skipping the picture.
+  Put the PNG in the proposal under a short heading for what it shows. Keep the sections beside
   it in the same order each time (`Flow`, `Data`, `Risks`), each a few lines,
   so the page can fold them later.
 - **Frontend: a lo-fi screenshot.** Build a throwaway mock in plain HTML,
@@ -58,7 +63,7 @@ table or flow, and any visible frontend change. A small change needs none.
 
 Every visual is a before and after, side by side or one under the other, so
 the change is what the eye finds. The before is the code as it is now: a D2
-diagram of today's flow, a real screenshot of today's screen (a new screen has
+diagram of today's flow, drawn from the code (find it with `git grep`, not a truncated file listing; when there truly is none, draw today's flow as the user described it and say so), a real screenshot of today's screen (a new screen has
 no before, so say so). The after is the intent: the proposed diagram, or the
 lo-fi mock. Label each `Before` and `After`, and label a mock as a mock.
 

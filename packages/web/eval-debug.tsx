@@ -1,9 +1,10 @@
 import type { EvalDetail, EvalStep } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
-import { ReadingNow } from "./countdown";
+import { StillWaiting } from "./countdown";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
 import { HEADING } from "./markdown";
@@ -29,11 +30,33 @@ export function EvalDebug({ id }: { id: string }): JSX.Element {
 					{error}
 				</p>
 			)}
-			{run === null && error === null && (
-				<ReadingNow label="Reading the run…" />
-			)}
+			{run === null && error === null && <RunSkeleton />}
 			{run !== null && <Run run={run} />}
 		</section>
+	);
+}
+
+/** The run's loaded layout in pulsing blocks, so the page does not jump open. */
+function RunSkeleton(): JSX.Element {
+	return (
+		<div
+			role="status"
+			aria-label="Reading the run…"
+			className="flex flex-col gap-5"
+		>
+			<div className="flex flex-col gap-2">
+				<div className="flex items-center gap-2">
+					<Skeleton className="h-5 w-16 animate-pulse rounded-full" />
+					<Skeleton className="h-5 w-[40%] animate-pulse" />
+				</div>
+				<Skeleton className="h-3 w-[30%] animate-pulse" />
+				<Skeleton className="h-4 w-[70%] animate-pulse" />
+			</div>
+			<Skeleton className="h-20 animate-pulse rounded-lg" />
+			<Skeleton className="h-28 animate-pulse rounded-lg" />
+			<Skeleton className="h-16 animate-pulse rounded-lg" />
+			<StillWaiting />
+		</div>
 	);
 }
 

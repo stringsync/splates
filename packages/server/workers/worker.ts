@@ -42,6 +42,7 @@ export const CALL_BOUNDS: CallBounds = {
 	processes: Duration.mins(1),
 	listening: Duration.mins(1),
 	scratch: Duration.mins(1),
+	stopUnder: Duration.mins(1),
 };
 
 /**
@@ -185,6 +186,10 @@ export class ConnectedWorker implements WorkerMachine {
 
 	async scratch(agent: string, cwd: string): Promise<void> {
 		await this.call({ method: "scratch", agent, cwd });
+	}
+
+	async stopUnder(path: string): Promise<void> {
+		await this.call({ method: "stopUnder", path });
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

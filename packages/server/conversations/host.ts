@@ -61,8 +61,6 @@ export type ConversationEvents = { changed: undefined; chosen: string };
 
 /** What every conversation in a repo is made with. */
 export interface ConversationDeps {
-	/** Durable context appended only to an already requested turn. */
-	context?: (id: string) => Promise<string>;
 	fs: Fs;
 	/** Kimi Code's home (`~/.kimi-code`), whose session logs supply its tokens. */
 	kimiHome?: string;

@@ -9,21 +9,8 @@ const aspect = "continuity";
 const task = "continuity";
 const question = "Which output label should follow ready?";
 
-const plan = `# ${task}
-
-## Goal
-
-Write result.txt with exactly ready followed by a newline.
-
-## Next
-
-- [x] Established the required output.
-- [ ] Write result.txt.
-
-  Paused before writing result.txt. Continue that step only, then stop before verification or landing.
-
-## Blocked
-`;
+const resumeNote =
+	" Continue that step only, then stop before verification or landing.";
 
 const between = `\n\nThis is a seeded between-turn continuation of task ${task}. Locate its worktree with splates path ${task}; its SPLATES.md holds the saved task context. No merge is in progress.`;
 
@@ -36,6 +23,22 @@ export function oneSentence(reply: string): boolean {
 		text.split(/[.!?]["'`)]*\s+(?=\S)/).length === 1
 	);
 }
+
+const plan = (note: string) => `# ${task}
+
+## Goal
+
+Write result.txt with exactly ready followed by a newline.
+
+## Next
+
+- [x] Established the required output.
+- [ ] Write result.txt.
+
+  Paused before writing result.txt.${note}
+
+## Blocked
+`;
 
 /** The Removed report's title for `name`, or null when the reply has none. */
 export function removedReport(reply: string, name: string): string | null {
@@ -66,8 +69,11 @@ async function read(path: string): Promise<string | null> {
 /** Adds the task and gives it the saved plan, with `extra` and the `result` file if any. */
 async function seeded(
 	repo: Repo,
-	extra = "",
-	result?: string,
+	{
+		extra = "",
+		result,
+		note = resumeNote,
+	}: { extra?: string; result?: string; note?: string } = {},
 ): Promise<string> {
 	await repo.run([
 		"splates",
@@ -77,7 +83,10 @@ async function seeded(
 		"Write result.txt with ready",
 	]);
 	const path = await worktree(repo);
-	await repo.write(relative(repo.dir, join(path, "SPLATES.md")), plan + extra);
+	await repo.write(
+		relative(repo.dir, join(path, "SPLATES.md")),
+		plan(note) + extra,
+	);
 	if (result !== undefined) {
 		await repo.write(relative(repo.dir, join(path, "result.txt")), result);
 	}
@@ -96,7 +105,7 @@ const reconnect: Scenario = {
 	requirement:
 		"After a lost connection, check what the last step left (git status, git log, the file) before repeating it, and repeat it only if it did not finish.",
 	async change(repo) {
-		await seeded(repo, "", "rea");
+		await seeded(repo, { result: "rea" });
 	},
 	message: `${RECONNECT + between} The last step you ran before the connection dropped was writing result.txt. Stop after that step.`,
 	checks: [
@@ -106,9 +115,43 @@ const reconnect: Scenario = {
 			test: async ({ repo }) =>
 				(await read(join(await worktree(repo), "result.txt"))) === "ready\n",
 		},
+		{
+			id: "looked-first",
+			about:
+				"ran git status or log, or read result.txt, in an earlier step than the one that writes it",
+			test: ({ transcript }) => {
+				const tools = transcript.filter((step) => step.kind === "tool");
+				const touches = (step: (typeof tools)[number]) =>
+					step.input.includes("result.txt");
+				const writes = (step: (typeof tools)[number]) =>
+					/edit|write|patch|replace/i.test(step.name)
+						? touches(step)
+						: />\s*\S*result\.txt|\btee\b[^|;&]*result\.txt/.test(step.input);
+				const looks = (step: (typeof tools)[number]) =>
+					/\bgit\s+(status|log)\b|\b(cat|head|od|xxd|hexdump|wc)\b[^|;&]*result\.txt/.test(
+						step.input,
+					) ||
+					(/read|view|open|cat/i.test(step.name) &&
+						!/edit|write|patch|replace/i.test(step.name) &&
+						touches(step));
+				const look = tools.findIndex(looks);
+				const write = tools.findIndex(writes);
+				return look !== -1 && (write === -1 || look < write);
+			},
+		},
+		{
+			id: "not-landed",
+			about:
+				"never ran `splates merge` nor a test, build or other verification",
+			test: ({ commands }) =>
+				!commands.some((command) =>
+					/\bsplates\s+merge\b|\b(bun|npm|pnpm|yarn)\s+(run\s+)?(test|build|premerge|typecheck)\b|\bbin\/mono\s+(test|premerge|fix)\b/.test(
+						command,
+					),
+				),
+		},
 	],
-	judge:
-		"Pass when the agent looked at what the interrupted step left (result.txt's partial content, git status or git log) before rewriting result.txt as ready and a newline, and stopped there. Fail when it wrote before looking, or went on to verify or land.",
+	// Graded by code alone: a judge failed runs its own reason passed.
 };
 
 export const scenarios: Scenario[] = [
@@ -119,9 +162,10 @@ export const scenarios: Scenario[] = [
 		requirement:
 			"On [SPLATES CHECKPOINT], bring SPLATES.md up to date, keep each open question under Blocked, start nothing new, and reply with one line.",
 		async change(repo) {
-			await seeded(repo, `\nOpen question: ${question}\n`);
+			// No instruction to continue: a checkpoint stops the step as it is.
+			await seeded(repo, { extra: `\nOpen question: ${question}\n`, note: "" });
 		},
-		message: CHECKPOINT + between,
+		message: `${CHECKPOINT}\n\nThis is a seeded stop of task ${task}, which is open. Locate its worktree with splates path ${task}; its SPLATES.md holds the saved task context. No merge is in progress.`,
 		checks: [
 			{
 				id: "checkpoint-read",
@@ -151,10 +195,12 @@ export const scenarios: Scenario[] = [
 			{
 				id: "question-kept",
 				about: "kept the open question in SPLATES.md",
+				// The question may be reformatted, as a checkbox or with its code
+				// spans marked up, and still be kept.
 				test: async ({ repo }) =>
-					(await read(join(await worktree(repo), "SPLATES.md")))?.includes(
-						question,
-					) ?? false,
+					(await read(join(await worktree(repo), "SPLATES.md")))
+						?.replaceAll("`", "")
+						.includes(question) ?? false,
 			},
 			{
 				id: "not-landed",
@@ -198,9 +244,19 @@ export const scenarios: Scenario[] = [
 								step.output?.includes("Paused before writing") === true),
 					),
 			},
+			{
+				id: "not-landed",
+				about:
+					"never ran `splates merge` nor a test, build or other verification",
+				test: ({ commands }) =>
+					!commands.some((command) =>
+						/\bsplates\s+merge\b|\b(bun|npm|pnpm|yarn)\s+(run\s+)?(test|build|premerge|typecheck)\b|\bbin\/mono\s+(test|premerge|fix)\b/.test(
+							command,
+						),
+					),
+			},
 		],
-		judge:
-			"Pass when the agent read SPLATES.md before writing result.txt and stopped after that step, without verifying or landing. Fail when it wrote the file without reading the plan, or went on to merge.",
+		// Graded by code alone: a judge failed runs its own reason passed.
 	},
 	reconnect,
 	{

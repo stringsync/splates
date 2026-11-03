@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "core/id";
-import { FakeFs } from "core/system/testing";
+import { FakeFs, FakePs } from "core/system/testing";
 import { Duration } from "core/time";
 import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { Watch } from "../agents";
 import { FakeAgent, say } from "../agents/testing";
 import { Testing } from "../testing";
+import { LocalWorkerMachine } from "../workers";
 import { type Conversation, Conversations } from "./index";
 import { IDLE_STOP } from "./state";
 import { eventually, once, until } from "./testing";
@@ -415,6 +416,36 @@ describe("Conversation lifecycle", () => {
 
 		expect(conversation.state.archived).toBe(false);
 		expect(conversation.state.status).not.toBe("stopped");
+	});
+
+	it("archives by stopping what its task's worktree still has running", async () => {
+		const stopped: string[] = [];
+		const machine = new LocalWorkerMachine(new FakePs(), fs);
+		machine.stopUnder = async (path) => {
+			stopped.push(path);
+		};
+		const task = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				machine,
+			},
+		);
+		const conversation = await task.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await until(conversation, "idle");
+
+		await conversation.archive();
+
+		expect(stopped).toEqual(["/repo-splates/login"]);
+		await task.disposeAsync();
 	});
 
 	it("resumes on the model it asked for when the agent offers it under another value", async () => {

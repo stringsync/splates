@@ -455,22 +455,6 @@ describe("Conversation turns", () => {
 		await reread.disposeAsync();
 	});
 
-	it("refreshes durable context only on a requested turn, including reconnect", async () => {
-		let reads = 0;
-		conversations.context = async () => `durable version ${++reads}`;
-		expect(reads).toBe(0);
-		const conversation = await working(conversations, held);
-		expect(said[0]).toContain("durable version 1");
-		held.finish = undefined;
-		agent.crash();
-		await until(conversation, "failed");
-		timer.fireTimeouts();
-		await eventually(() => held.finish !== undefined);
-		expect(said[1]).toContain(RECONNECT);
-		expect(said[1]).toContain("durable version 2");
-		expect(reads).toBe(2);
-	});
-
 	it("reconnects by itself once a crash cuts the turn short", async () => {
 		const conversation = await working(conversations, held);
 		held.finish = undefined;

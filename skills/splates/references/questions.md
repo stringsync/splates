@@ -19,6 +19,14 @@ and carry on, saying nothing of it to the user; in a task, write it in a line
 under the `## Next` step it concerns only when whoever resumes the task would
 need it; otherwise the conversation and commits hold it.
 
+A small choice that is cheap to undo (a retry count, a timeout, a limit, a
+default between two plausible values, all local to the repo) is one of these,
+however many values are open: "when in doubt, ask" does not reach it. Pick,
+never put it under `## Blocked` or in the reply as a question, and in a task
+write the pick and the alternative in a line under the `## Next` step it
+belongs to (`- retry limit 3; 5 is the alternative`), since whoever resumes
+needs to know it was a choice.
+
 Ask in your reply, as [Reporting](reporting.md) says, in the format below and
 nowhere else: a numbered list, a lone question numbered `1.` too, so the page
 shows its question card. Put every question there, even one raised in

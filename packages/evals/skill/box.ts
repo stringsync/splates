@@ -6,28 +6,23 @@ import {
 	type Sandbox,
 } from "@evals/evals/sandbox";
 import type { Scenario as Base } from "@evals/evals/scenario";
+import type { Scenario } from "@splates/skill-evals/scenario";
+
+export type { Scenario };
 
 const splates = join(import.meta.dir, "../../splates/index.ts");
 
 const INSTALLS = [".claude/skills/splates", ".agents/skills/splates"];
 
-/** A scenario of the splates skill, which can also start in a project `splates init` has set up. */
-export interface Scenario extends Base {
-	/**
-	 * Runs `splates init` after the seed commit, so `splates add` works as in
-	 * a real project; the agent then starts a task like the skill says.
-	 */
-	initialized?: boolean;
-}
-
 /**
- * The sandbox of one run of `scenario`: the shared one, with a private splates
- * home whose only agent can never start and this checkout's `splates` first on
- * PATH, so the agent's splates commands reach neither the person's server nor
- * their tasks. `scenarios` is where `scenario` is found to know if it is
- * `initialized`.
+ * Makes the sandbox each run of a splates scenario starts in, so the agent's
+ * splates commands reach neither the person's server nor their tasks. Pass
+ * every scenario of the batch: one marked `initialized` starts in a project
+ * `splates init` has set up.
  */
 export function splatesSandbox(scenarios: readonly Scenario[]): MakeSandbox {
+	// A private splates home whose only agent can never start, and this
+	// checkout's `splates` first on PATH.
 	return async (skill, scenario) => {
 		const initialized =
 			scenarios.find((each) => each.id === scenario.id)?.initialized ?? false;

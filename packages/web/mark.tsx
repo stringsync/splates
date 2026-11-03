@@ -3,7 +3,6 @@ import {
 	CircleCheckIcon,
 	CirclePauseIcon,
 	CircleSlashIcon,
-	FlaskConicalIcon,
 	GitMergeIcon,
 	HourglassIcon,
 	Loader2Icon,
@@ -95,18 +94,6 @@ export function Mark({
 						{need.mergePlace}
 					</span>
 				)}
-			</span>
-		);
-	}
-	if (need.kind === "working" && need.evals === true) {
-		return (
-			<span
-				role="status"
-				aria-label="running evals"
-				title="Running evals"
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<FlaskConicalIcon className="size-3.5 animate-pulse text-muted-foreground" />
 			</span>
 		);
 	}

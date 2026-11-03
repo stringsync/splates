@@ -11,7 +11,6 @@ import {
 	SERVER_TOLD,
 } from "../conversations";
 import { CredRoutes } from "../creds";
-import { EvalLoopStore, EvalStore, LoopRuns } from "../evals";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { needs, taskNumberReference, waitsOnYou } from "../plans";
@@ -46,6 +45,12 @@ export async function serveProject(
 	context: DevContext,
 ): Promise<Served> {
 	const { service, format, storage, log, journal } = project;
+	// Durable eval loops are gone; clearing what an older splates left behind
+	// changes nothing when there is none, so no records format moves.
+	await storage
+		.collection("eval-loops")
+		.clear()
+		.catch((error: unknown) => log.error(String(error)));
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
 	const slug = () => context.everywhere.slug(project.service.git.root);
@@ -198,30 +203,6 @@ export async function serveProject(
 	const taskRoutes = new TaskRoutes(project, conversations, watch);
 	return {
 		...taskRoutes,
-		checkEvalLoop: async (request) => {
-			await new LoopRuns(new EvalLoopStore(storage)).check(
-				await request.json(),
-			);
-			return Response.json(null);
-		},
-		finishEvalLoop: async (reference, directory, id) => {
-			const grid = await new EvalStore(directory).grid(id);
-			if (grid === null) {
-				throw new Error("Loop completion batch unavailable");
-			}
-			await new LoopRuns(new EvalLoopStore(storage)).record(reference, grid);
-		},
-		evalLoop: async (request) => {
-			const params = new URL(request.url).searchParams;
-			if (!params.has("id")) {
-				return Response.json(await new EvalLoopStore(storage).list());
-			}
-			const saved = await new EvalLoopStore(storage).at(
-				params.get("id") ?? "",
-				Number(params.get("version") ?? -1),
-			);
-			return Response.json(saved);
-		},
 		...new MergeRoutes(project),
 		...new BoardRoutes(project, talks, watch, {
 			boards: context.boards,

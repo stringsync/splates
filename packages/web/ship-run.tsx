@@ -263,8 +263,11 @@ function ShipJobs({
 		cascade.steps.find((each) => each.slug === asked?.slug) ??
 		current;
 	return (
-		<div className="grid min-w-0 overflow-hidden rounded-lg border bg-card md:grid-cols-[24rem_minmax(0,1fr)] md:divide-x">
-			<nav aria-label="Ship jobs" className="flex flex-col gap-1.5 p-2">
+		<div className="grid min-w-0 items-start gap-4 md:grid-cols-[24rem_minmax(0,1fr)]">
+			<nav
+				aria-label="Ship jobs"
+				className="flex flex-col gap-1.5 rounded-lg border bg-card p-2"
+			>
 				<h3 className="px-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Jobs
 				</h3>
@@ -300,7 +303,7 @@ function ShipJobs({
 				))}
 			</nav>
 			{step !== undefined && (
-				<div className="min-w-0 p-4">
+				<div className="min-w-0 rounded-lg border bg-card p-4">
 					<ol aria-label="Ship cascade" className="flex flex-col">
 						<ProjectStage
 							key={step.slug}

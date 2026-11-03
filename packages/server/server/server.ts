@@ -13,7 +13,6 @@ import {
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
-	LoopRecovery,
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
@@ -196,10 +195,6 @@ export async function dev(
 					service,
 					journal,
 				}) ?? null;
-			if (conversations !== null) {
-				const recovery = new LoopRecovery(storage, machineStorage, git.root);
-				conversations.context = (id) => recovery.conversation(id);
-			}
 			return conversations;
 		},
 		transcriberFor: transcriber,
@@ -496,9 +491,9 @@ export async function dev(
 	// to take the person through what to do next.
 	const unwatch = evalLaunches.events.on(
 		"finished",
-		({ launch, results, conversation, loop }) => {
+		({ launch, results, conversation }) => {
 			void (async () => {
-				let text = await evals.donePrompt(results, launch.batch ?? "");
+				const text = await evals.donePrompt(results, launch.batch ?? "");
 				let owner = await holding(conversation);
 				if (owner === null) {
 					await everywhere.openAll();
@@ -506,17 +501,6 @@ export async function dev(
 				}
 				if (owner?.conversations == null) {
 					return;
-				}
-				if (loop !== undefined && launch.batch !== null) {
-					try {
-						if (!("finishEvalLoop" in owner)) {
-							throw new Error("Loop requires a project conversation");
-						}
-						await owner.finishEvalLoop(loop, results, launch.batch);
-						text = `${text ?? ""}\n\nLoop ${loop.id} recorded this batch. Run splates evals show ${loop.id}, then publish its new guided card.`;
-					} catch (error) {
-						text = `${text ?? ""}\n\nLoop ${loop.id} did not record this batch: ${String(error)}. Inspect the evidence and reconcile through the CLI; do not rerun paid evals automatically.`;
-					}
 				}
 				const told = await owner.conversations.find(conversation);
 				if (text === null) {
@@ -817,19 +801,13 @@ export async function dev(
 						GET: guarded(evalAgents.read),
 						PUT: guarded(evalAgents.save),
 					},
-					"/api/evals/loop": guarded(async (request) =>
-						(await projectFor(request)).evalLoop(request),
-					),
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
 					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),
-						POST: guarded(async (request) => {
-							await (await projectFor(request)).checkEvalLoop(request.clone());
-							return evalLaunchRoutes.start(request);
-						}),
+						POST: guarded(evalLaunchRoutes.start),
 						DELETE: guarded(evalLaunchRoutes.stop),
 					},
 					"/api/identity": guarded(async (request) =>

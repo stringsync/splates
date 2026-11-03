@@ -168,9 +168,6 @@ export class EvalLaunchRoutes {
 			agents,
 			baseline: baseline ?? null,
 			...(reps == null ? {} : { reps }),
-			...(sent.loop === undefined
-				? {}
-				: { loop: sent.loop as { id: string; version: number } }),
 		};
 	}
 }

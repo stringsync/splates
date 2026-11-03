@@ -156,6 +156,8 @@ describe("App's queue", () => {
 				}),
 			).toBeTruthy(),
 		);
+		await act(async () => testing.release());
+		testing.holdWrites();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /^retry the upload/ })),
 		);

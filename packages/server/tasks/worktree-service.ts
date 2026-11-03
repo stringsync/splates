@@ -70,7 +70,7 @@ export class WorktreeService {
 			opts.store?.storage ?? opts.storage ?? new FsStorage(splatesDir, this.fs);
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
-		this.worktrees = new WorktreeCheckouts(git, this.fs);
+		this.worktrees = new WorktreeCheckouts(git, this.fs, this.ps);
 		this.records = new StartedRecords(
 			opts.store ?? new TaskStore(this.storage),
 		);

@@ -34,7 +34,7 @@ under `## Notes` in `SPLATES.md`, never into a task, a lane or another fix.
    file per batch and rewrite it whole; write them again on a rerun's batch.
 3. **Fix one thing**: the label most of the failures share, in its own
    layer. Harness in `packages/evals/skill/*.ts`, scenario in
-   `packages/evals/skill/scenarios/`, judge in the scenario's rubric, skill in
+   `skills/splates/evals/`, judge in the scenario's rubric, skill in
    `skills/splates/`. Never special-case the scenario in the skill: change
    what any agent in that moment would need to read. Commit it.
 4. **Rerun**: the same run card, now with `Baseline:` the commit your task

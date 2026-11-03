@@ -126,13 +126,6 @@ export interface Served extends AsyncResource {
 	open: Handler;
 	paths: Handler;
 	diff: Handler;
-	checkEvalLoop: Handler;
-	finishEvalLoop: (
-		reference: { id: string; version: number },
-		directory: string,
-		id: string,
-	) => Promise<void>;
-	evalLoop: Handler;
 	finishedTasks: Handler;
 	mergeEstimates: Handler;
 	quarantined: Handler;

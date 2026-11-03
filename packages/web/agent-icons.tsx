@@ -1,10 +1,10 @@
 import type { ConversationState } from "@splates/server/conversations";
-import { BotIcon, ShipIcon, ZapIcon } from "lucide-react";
+import { BotIcon, FlaskConicalIcon, ShipIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import { automated, shipped } from "./conversation-rows";
+import { automated, evaluating, shipped } from "./conversation-rows";
 
 /** OpenCode's mark: a tall frame around a hollow, on a 24 by 24 box. */
 const OPENCODE_PATH = "M5 2h14v20H5zM9 6.5v11h6v-11z";
@@ -43,6 +43,19 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
+	if (evaluating(conversation)) {
+		return (
+			<FlaskConicalIcon
+				role="img"
+				aria-label={name}
+				className={cn(
+					"size-4 shrink-0",
+					className,
+					"text-orange-600 dark:text-orange-400",
+				)}
+			/>
+		);
+	}
 	if (shipped(conversation)) {
 		return (
 			<ShipIcon

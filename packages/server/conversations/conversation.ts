@@ -967,6 +967,10 @@ export class Conversation
 		{ rest = false }: { rest?: boolean } = {},
 	): Promise<void> {
 		await this.stop();
+		// What it left running in its task's worktree, reparented away from it.
+		if (this.state.task !== null && this.dir !== null) {
+			await this.deps.machine.stopUnder(this.dir).catch(() => {});
+		}
 		await put(this, { archived: true, with: withConversation, rest });
 		await this.artifacts.archive();
 	}

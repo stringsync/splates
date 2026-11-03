@@ -85,6 +85,11 @@ export function automated(conversation: ConversationState): boolean {
 	);
 }
 
+/** Whether a run its `run evals` card started is going in `conversation`. */
+export function evaluating(conversation: ConversationState): boolean {
+	return conversation.evaluating === true;
+}
+
 /**
  * Whether `conversation` runs the adoption task of a ship, which the sidebar
  * and the inbox mark with a ship, as they mark an automation's with a bolt.

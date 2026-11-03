@@ -1,6 +1,6 @@
 # Splates skill evals
 
-`bin/evals check` validates these scenarios and `bin/evals list` lists them.
-Only the person starts a paid run. The shared runner discovers each scenario's
-`sandbox` export; the older `splates dev eval` registry does not discover
-these new scenarios.
+The one home of the splates skill's eval scenarios: each file here exporting
+`scenarios` is an aspect. `bin/evals check` validates them, and both
+`bin/evals list` and `splates dev eval list` (the Evals page) find them here,
+so a new file needs no registering. Only the person starts a paid run.

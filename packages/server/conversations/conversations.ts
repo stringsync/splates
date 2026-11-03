@@ -93,7 +93,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	url: string | null = null;
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift: Lift | null = null;
-	context?: (id: string) => Promise<string>;
 
 	/** Replaces the agents new conversations can start with; running ones keep theirs. */
 	refreshRoster(agents: Agent[]): void {
@@ -146,10 +145,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			// opens, which reads back every conversation from before a restart.
 			get url() {
 				return conversations.url;
-			},
-			// Set once the project opens too, as Auto pick reads the project.
-			get context() {
-				return conversations.context;
 			},
 			get lift() {
 				return conversations.lift;

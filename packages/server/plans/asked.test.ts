@@ -618,18 +618,3 @@ async function skillExample(title: string): Promise<string> {
 	}
 	return example;
 }
-
-it("reads guided loop snapshots and the loop link on a paid run card", () => {
-	const found = stretches("## 🧪 Eval loop loop at 4\n\nContract evidence.");
-	expect(found[0]).toMatchObject({
-		type: "permission",
-		permission: { action: "eval-loop", loop: { id: "loop", version: 4 } },
-	});
-	const run = stretches(
-		"## 🔐 Permission: run evals splates\n\n- `landing/merge-message`\nLoop: `loop` at 4\nRepetitions: 2",
-	);
-	expect(run[0]).toMatchObject({
-		type: "permission",
-		permission: { evals: { loop: { id: "loop", version: 4 }, reps: 2 } },
-	});
-});

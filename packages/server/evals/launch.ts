@@ -30,7 +30,6 @@ export interface EvalCommands {
 
 /** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
 export interface EvalLaunchSpec {
-	loop?: { id: string; version: number };
 	/** Names the card, so a reload finds its run again. */
 	key: string;
 	/** The card's label, the skill or suite it names. */
@@ -197,24 +196,6 @@ export class EvalLaunches
 		commands: EvalCommands,
 		spec: EvalLaunchSpec,
 	): Promise<EvalLaunch> {
-		if (spec.loop !== undefined) {
-			const existing = Object.values((await this.record.read()) ?? {}).find(
-				(each) =>
-					each.commands.root === commands.root &&
-					each.spec.loop?.id === spec.loop?.id &&
-					each.spec.loop?.version === spec.loop?.version &&
-					each.launch.status !== "refused",
-			);
-			if (existing !== undefined) {
-				await this.storage
-					.document<Record<string, string>>("eval-launch-aliases.json")
-					.update((all) => ({
-						...all,
-						[idOf(commands, spec.key)]: idOf(commands, existing.spec.key),
-					}));
-				return (await this.get(commands, existing.spec.key)) ?? existing.launch;
-			}
-		}
 		const id = idOf(commands, spec.key);
 		const held = this.launches.get(id);
 		if (held !== undefined && held.status === "running") {
@@ -265,7 +246,7 @@ export class EvalLaunches
 		return this.read(launch);
 	}
 
-	/** Recover saved launches after a server restart without rerunning paid loop requests. */
+	/** Recover saved launches after a server restart without rerunning paid commands. */
 	async resume(commands: EvalCommands[]): Promise<void> {
 		const current = new Map(commands.map((each) => [each.root, each]));
 		for (const [id, saved] of Object.entries(
@@ -278,7 +259,7 @@ export class EvalLaunches
 				continue;
 			}
 			const commandsNow = current.get(saved.commands.root);
-			if (commandsNow?.run != null && saved.spec.loop === undefined) {
+			if (commandsNow?.run != null) {
 				await this.start(commandsNow, saved.spec);
 			}
 		}
@@ -363,7 +344,6 @@ export class EvalLaunches
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
 				results: launch.commands.results,
-				...(launch.spec.loop === undefined ? {} : { loop: launch.spec.loop }),
 				conversation: launch.spec.conversation,
 			});
 		} else {
@@ -515,7 +495,6 @@ function viewOf(launch: Launched): EvalLaunch {
 
 /** A run that finished with its batch written, for the conversation whose card started it. */
 export interface EvalFinished {
-	loop?: { id: string; version: number };
 	launch: EvalLaunch;
 	/** The directory the batch is in. */
 	results: string;

@@ -612,10 +612,6 @@ export class ConversationTurns {
 	/** What `messages` say, as one prompt, for the tree the agent runs in. */
 	private async content(messages: Message[]) {
 		const content = await this.files.content(messages, this.connection.sees);
-		const context = await this.deps.context?.(this.host.state.id);
-		if (context) {
-			content.push({ type: "text", text: context });
-		}
 		return content;
 	}
 

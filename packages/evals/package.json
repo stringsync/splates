@@ -4,10 +4,11 @@
 	"type": "module",
 	"dependencies": {
 		"@evals/evals": "workspace:*",
-		"@splates/server": "workspace:*"
+		"@splates/server": "workspace:*",
+		"@splates/skill-evals": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"
 	},
-	"version": "2.0.0"
+	"version": "2.0.1"
 }

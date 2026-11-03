@@ -188,32 +188,6 @@ describe("EvalLaunches", () => {
 		});
 	});
 
-	it("reattaches loop requests across cards and restart without rerunning paid commands", async () => {
-		const request = {
-			...spec,
-			loop: { id: "loop", version: 0 },
-			conversation: "c-1",
-		};
-		commands = { ...commands, run: "sleep 30" };
-		const [first, second] = await Promise.all([
-			launches.start(commands, request),
-			launches.start(commands, { ...request, key: "another-card" }),
-		]);
-		expect(second.id).toBe(first.id);
-		await launches.disposeAsync();
-		launches = new EvalLaunches(deps.ps, deps.machine);
-		await launches.resume([commands]);
-		const recovered = await launches.start(commands, {
-			...request,
-			key: "fresh-agent-card",
-		});
-		expect(recovered.id).toBe(first.id);
-		expect(recovered.status).toBe("running");
-		expect((await launches.get(commands, "fresh-agent-card"))?.id).toBe(
-			first.id,
-		);
-	});
-
 	it("resumes an in-progress run with its card and conversation through a restart", async () => {
 		const run = `count=$(cat "$SPLATES_EVALS_RESULTS/attempt" 2>/dev/null || printf 0); count=$((count + 1)); printf %s "$count" > "$SPLATES_EVALS_RESULTS/attempt"; if [ "$count" -eq 1 ]; then mkdir -p "$SPLATES_EVALS_RESULTS/first"; sleep 30; else mkdir -p "$SPLATES_EVALS_RESULTS/second"; printf resumed; fi`;
 		commands = { ...commands, run };

@@ -12,6 +12,7 @@ import {
 	useState,
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
@@ -96,9 +97,35 @@ export function EvalsCard({
 			<CardShell
 				label={`run evals ${run.ask.skill}`}
 				Icon={FlaskConicalIcon}
-				title="Loading evals"
+				title={`Run ${run.ask.skill} evals`}
 				tone="eval"
-			/>
+			>
+				<div
+					role="status"
+					aria-busy="true"
+					aria-label="Loading evals"
+					className="flex flex-col gap-3 px-4 py-3"
+				>
+					<Skeleton className="h-3 w-[30%] animate-pulse" />
+					<div className="ml-3 flex flex-col gap-1.5">
+						<Skeleton className="h-2.5 w-[80%] animate-pulse" />
+						<Skeleton className="h-2.5 w-[45%] animate-pulse" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-3.5 animate-pulse" />
+						<Skeleton className="h-3 w-[35%] animate-pulse" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-3.5 animate-pulse" />
+						<Skeleton className="h-3 w-[30%] animate-pulse" />
+					</div>
+					<Skeleton className="h-16 animate-pulse rounded-lg" />
+				</div>
+				<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+					<Skeleton className="h-8 w-20 animate-pulse rounded-lg" />
+					<Skeleton className="h-8 w-16 animate-pulse rounded-lg" />
+				</div>
+			</CardShell>
 		);
 	}
 	const note = (): string => written.current.trim();
