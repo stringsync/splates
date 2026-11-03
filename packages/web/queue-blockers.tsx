@@ -101,8 +101,8 @@ export function QueueBlockersIcon({
 			title={label(chain.length)}
 			onClick={run}
 			className={cn(
-				"flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-warning outline-none hover:bg-foreground/[0.08] focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-				phone && "mr-3 size-9",
+				"flex shrink-0 cursor-pointer items-center justify-center rounded-full text-warning outline-none hover:bg-foreground/[0.08] focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+				phone ? "size-11" : "size-6",
 			)}
 		>
 			{busy ? (

@@ -4,7 +4,11 @@ import type {
 	EvalGrid,
 	EvalScenario,
 } from "@splates/server/evals/browser";
-import { FlaskConicalIcon } from "lucide-react";
+import {
+	ChevronDownIcon,
+	ChevronRightIcon,
+	FlaskConicalIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -16,6 +20,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { evalBatch, evalBatches, evalRun, evalScenarios } from "./api";
 import { CardShell } from "./card-shell";
 import { promptConversation, startAutoPick } from "./conversation-api";
@@ -360,13 +365,34 @@ function ScenarioCard({
 	const earlier = history.filter((grid) =>
 		grid.grid.some((cell) => cell.scenario === scenario.id),
 	).length;
+	// A card whose latest run passed everything folds to a summary; any other
+	// is the one to look at, so it starts open.
+	const passing = result?.status === "pass";
+	const [opened, setOpened] = useState<boolean | null>(null);
+	const open = opened ?? !passing;
+	const about = scenario.about ?? "No description supplied.";
+	const testing = result?.requirement ?? "";
+	const report =
+		result === undefined ? (
+			<span className="text-muted-foreground text-xs">No runs yet</span>
+		) : (
+			<button
+				type="button"
+				aria-label={`Report of ${scenario.id}`}
+				className="text-info text-xs underline"
+				onClick={() => onOpenBatch(result.batch)}
+			>
+				Last run {new Date(result.startedAt).toLocaleString()} · report
+				{earlier > 1 ? ` · ${earlier - 1} earlier` : ""}
+			</button>
+		);
 	return (
 		<li className="min-w-0 [&>section]:my-0">
 			<CardShell
 				label={scenario.id}
 				Icon={FlaskConicalIcon}
 				title={scenario.id}
-				tone="info"
+				tone="eval"
 				aside={
 					result === undefined ? (
 						<span className="text-muted-foreground text-xs">never run</span>
@@ -380,42 +406,48 @@ function ScenarioCard({
 					)
 				}
 			>
-				<div className="flex flex-col gap-3 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5">
-					<Part title="About">
-						<p className="text-sm">
-							{scenario.about ?? "No description supplied."}
-						</p>
-					</Part>
-					{result !== undefined && result.requirement !== "" && (
-						<Part title="Testing">
-							<p className="text-sm">{result.requirement}</p>
-						</Part>
-					)}
-					{checks.length > 0 && (
-						<Part title="Outcomes wanted">
-							<ul className="list-disc pl-5 text-sm">
-								{checks.map((check) => (
-									<li key={check.id}>{check.about}</li>
-								))}
-							</ul>
-						</Part>
-					)}
-					<div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-						{result === undefined ? (
-							<span className="text-muted-foreground text-xs">No runs yet</span>
-						) : (
-							<button
-								type="button"
-								aria-label={`Report of ${scenario.id}`}
-								className="text-info text-xs underline"
-								onClick={() => onOpenBatch(result.batch)}
-							>
-								Last run {new Date(result.startedAt).toLocaleString()} · report
-								{earlier > 1 ? ` · ${earlier - 1} earlier` : ""}
-							</button>
-						)}
-						{children}
+				<div className="flex flex-col gap-2 px-4 py-3 @max-md:px-3 @max-md:py-2.5">
+					<div className="flex items-center justify-between gap-3">
+						<div className="flex min-w-0 flex-col gap-1">
+							<p className={cn("text-sm", !open && "line-clamp-2")}>{about}</p>
+							<div className="flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
+								{checks.length > 0 && (
+									<button
+										type="button"
+										aria-expanded={open}
+										aria-label={`${open ? "Hide" : "Show"} the checks of ${scenario.id}`}
+										className="flex items-center gap-0.5 hover:text-foreground"
+										onClick={() => setOpened(!open)}
+									>
+										{open ? (
+											<ChevronDownIcon className="size-3" />
+										) : (
+											<ChevronRightIcon className="size-3" />
+										)}
+										{checks.length} {checks.length === 1 ? "check" : "checks"}
+									</button>
+								)}
+								{report}
+							</div>
+						</div>
+						<div className="shrink-0">{children}</div>
 					</div>
+					{open && (
+						<>
+							{testing !== "" && testing !== about && (
+								<Part title="Testing">
+									<p className="text-sm">{testing}</p>
+								</Part>
+							)}
+							{checks.length > 0 && (
+								<ul className="grid list-disc gap-x-6 border-t pt-2 pl-5 text-muted-foreground text-xs @md:grid-cols-2">
+									{checks.map((check) => (
+										<li key={check.id}>{check.about}</li>
+									))}
+								</ul>
+							)}
+						</>
+					)}
 				</div>
 			</CardShell>
 		</li>

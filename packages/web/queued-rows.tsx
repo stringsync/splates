@@ -28,7 +28,10 @@ export function QueuedRows({
 	return (
 		<ul aria-label={`${folder.name} queue`} className="flex flex-col">
 			{folder.queue.map((queued, place) => (
-				<li key={queued.todo.id} className="group flex items-center">
+				<li
+					key={queued.todo.id}
+					className={cn("group flex items-center", phone ? "pr-2" : "pr-1")}
+				>
 					<button
 						type="button"
 						data-row
@@ -51,12 +54,12 @@ export function QueuedRows({
 							</span>
 						</span>
 					</button>
-					<QueueToggle todo={queued.todo} phone={phone} />
 					<QueueBlockersIcon
 						todo={queued.todo}
 						chain={queued.unqueued}
 						phone={phone}
 					/>
+					<QueueToggle todo={queued.todo} phone={phone} />
 				</li>
 			))}
 		</ul>

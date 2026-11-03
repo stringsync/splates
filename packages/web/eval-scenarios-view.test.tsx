@@ -18,10 +18,58 @@ it("browses never-run scenarios without offering execution controls", async () =
 	const view = render(<EvalScenarios onOpenBatch={() => {}} />);
 	await waitFor(() => expect(view.getByText("never run")).toBeTruthy());
 	expect(view.getByText("a/one")).toBeTruthy();
-	expect(view.getByText("About")).toBeTruthy();
 	expect(view.getByText("A requirement")).toBeTruthy();
 	expect(view.queryByText("Scenario details and history")).toBeNull();
 	expect(view.queryByRole("button", { name: /Plan|Run|Improve/ })).toBeNull();
+});
+const passingFetch = (status: "pass" | "fail") =>
+	(async (input) => {
+		const url = String(input);
+		if (url.includes("/api/evals/run")) {
+			return Response.json({
+				checks: [
+					{ id: "c1", about: "wrote result.txt" },
+					{ id: "c2", about: "never ran merge" },
+				],
+			});
+		}
+		if (url.includes("/api/evals/batch")) {
+			return Response.json({
+				id: "b1",
+				startedAt: "2026-01-01T00:00:00Z",
+				grid: [
+					{
+						scenario: "a/one",
+						aspect: "a",
+						requirement: "A requirement",
+						target: "t",
+						repetition: 0,
+						run: { id: "r1", status },
+					},
+				],
+			});
+		}
+		if (url.includes("/api/evals/scenarios") || url.includes("scenarios")) {
+			return Response.json([{ id: "a/one", skill: "a", about: "About it" }]);
+		}
+		return Response.json([{ id: "b1" }]);
+	}) as typeof fetch;
+it("folds a card whose checks all passed to its summary, open on request", async () => {
+	globalThis.fetch = passingFetch("pass");
+	const view = render(<EvalScenarios onOpenBatch={() => {}} />);
+	const toggle = await waitFor(() =>
+		view.getByRole("button", { name: "Show the checks of a/one" }),
+	);
+	expect(view.getByText("About it")).toBeTruthy();
+	expect(view.getByText("2 checks")).toBeTruthy();
+	expect(view.queryByText("wrote result.txt")).toBeNull();
+	fireEvent.click(toggle);
+	expect(view.getByText("wrote result.txt")).toBeTruthy();
+});
+it("leaves a card with a failing check open", async () => {
+	globalThis.fetch = passingFetch("fail");
+	const view = render(<EvalScenarios onOpenBatch={() => {}} />);
+	await waitFor(() => expect(view.getByText("wrote result.txt")).toBeTruthy());
 });
 const feed = {
 	agents: [],

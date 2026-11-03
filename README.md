@@ -2,34 +2,21 @@
 
 Run many agents, land every change on trunk.
 
-Run many coding agents on one repository at once: see
-[`packages/splates`](packages/splates/README.md), published to npm as
-`@stringsync/splates`.
+## Get started
 
-- `packages/splates`: the CLI command definitions and entry point, published as
-  `@stringsync/splates`.
-- `packages/server`: the server and shared backend operations, with its entry
-  point in `index.ts`. It is not published on its own: `@stringsync/splates`
-  carries it folded in.
-- `packages/web`: the browser app, the `splates server` page, and its build
-  toolchain.
-- `packages/splates/dev`: `splates dev`, the commands for working on this
-  repository (`fix`, `test`, `eval`, `ship`), which `bin/splates` mounts on
-  the cli from a checkout and which never ship.
-- `skills/splates`: the agent skill, installed from a release's tag.
-- `packages/evals/skill`: the skill's eval harness.
-- `docs/evals.md`: the `splates-evals/1` format any eval framework can write for the Evals page.
-- `docs/shipping.md`: shipping a project to npm from splates, and what agents do about it.
-
-Add the checkout's commands to your shell PATH (once, in `~/.zshrc`):
+In your repository, install the splates skill for your agents:
 
 ```sh
-export PATH="$HOME/Projects/splates/bin:$PATH"
+bunx @stringsync/splates init
 ```
 
-Run `source ~/.zshrc` in an existing terminal to pick it up. The shim runs
-the checkout you are standing in, including its worktrees.
+Commit what it writes. Your agents now start each change with `splates add` and
+land it with `splates merge`.
 
-`splates` prints help. `splates server` starts the server. `splates dev`
-prints help for this repository's development commands; the development
-namespace is absent from the package published to npm.
+Optionally, start the server for a page that shows tasks, the queue and merges:
+
+```sh
+bunx @stringsync/splates server
+```
+
+See [`packages/splates`](packages/splates/README.md) for more.

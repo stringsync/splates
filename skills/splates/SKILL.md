@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land your work on trunk, or a base branch given as an argument, from an isolated git worktree without pull requests. Read this before investigating anything that may lead to a code change in a splates repository, since it decides where the work happens, and whenever you need to add, claim, merge, remove, list, show, locate, or defer a task, or queue, pick up, link, or reorder a task for later, or work down a lane of them. Read it too before running a project's tests, a build or anything else heavy, since it says which runs stay off the machine. Also read it before asking the user a question or proposing anything in a splates repository, with a task open or not, and first whenever a message holds a `[SPLATES ...]` directive, such as `[SPLATES TASK <task>]`.
-version: 1.13.12
+version: 2.0.0
 ---
 
 # Using splates
@@ -188,6 +188,10 @@ user's Allow sends `[SPLATES RUN ALLOWED]`, and only then do you run it.
 Takes about two minutes.
 ```
 
+Run `splates evals agents` first: it prints the saved eval agents, and an
+`Agents:` line copies those targets verbatim and names no other (with none
+saved, leave the line out).
+
 Evals cost the user tokens, so only they start them. To ask for a run (in
 a project whose `splates.config.ts` names `evals.list` and `evals.run`, as
 splates's own does, its list naming the scenarios), end your reply with the
@@ -212,7 +216,7 @@ Checks the new wording of the scoped-tests rule.
 
 Baseline: `main`
 Repetitions: 3
-Agents: `claude:haiku@high`, `claude:sonnet@high`
+Agents: `<agent:model@effort>`, `<agent:model@effort>`
 ```
 
 In another project, evals from any framework show on the Evals page when the

@@ -46,6 +46,29 @@ function runCards(reply: string): string[] {
 	);
 }
 
+/** The saved eval agents the card-agents scenario seeds, as targets. */
+const savedAgents = [
+	{ agent: "claude", model: "sonnet" },
+	{ agent: "claude", model: "haiku", effort: "high" },
+	{ agent: "codex", model: "gpt-6-astra" },
+	{ agent: "opencode" },
+];
+const savedTargets = savedAgents.map(
+	(pick) =>
+		`${pick.agent}${pick.model === undefined ? "" : `:${pick.model}`}${
+			"effort" in pick ? `@${pick.effort}` : ""
+		}`,
+);
+
+/** The `Agents:` targets of every run evals card in `reply`. */
+function cardAgents(reply: string): string[] {
+	return stretches(reply).flatMap((part) =>
+		part.type === "permission" && part.permission.action === "run-evals"
+			? (part.permission.evals?.agents ?? [])
+			: [],
+	);
+}
+
 /** A small library with a test file per module, so a whole run and a focused one differ. */
 async function library(repo: Repo): Promise<void> {
 	await repo.write(
@@ -133,6 +156,45 @@ const uninitialized: Scenario[] = [
 				id: "not-asked",
 				about: "asked no run-command card for the install",
 				test: ({ reply }) => !runCards(reply).some(installs),
+			},
+		],
+	},
+	{
+		id: "resources/card-agents-saved",
+		aspect,
+		requirement:
+			"A run evals card's Agents line copies targets from the saved eval agents and names no other.",
+		async seed(repo) {
+			await repo.write(
+				"splates.config.ts",
+				'export default { evals: { results: "./results", list: "echo", run: "echo" } };\n',
+			);
+		},
+		async change(repo) {
+			await repo.run([
+				"sh",
+				"-c",
+				`mkdir -p "$SPLATES_HOME" && printf '%s' '${JSON.stringify({ format: 1, agents: savedAgents })}' > "$SPLATES_HOME/eval-agents.json"`,
+			]);
+		},
+		message:
+			"I reworded the scoped-tests rule in the splates skill. Give me a run evals card for `resources/focused-tests`, rerun only on the agents that were failing it: skip claude:haiku@high, it already passes.",
+		checks: [
+			{
+				id: "card",
+				about: "ended with a run evals card naming an Agents line",
+				test: ({ reply }) => cardAgents(reply).length > 0,
+			},
+			{
+				id: "saved-only",
+				about: "every Agents target is in the saved list",
+				test: ({ reply }) =>
+					cardAgents(reply).every((target) => savedTargets.includes(target)),
+			},
+			{
+				id: "skips-passing",
+				about: "left the passing claude:haiku@high out",
+				test: ({ reply }) => !cardAgents(reply).includes("claude:haiku@high"),
 			},
 		],
 	},

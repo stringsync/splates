@@ -39,8 +39,8 @@ under `## Notes` in `SPLATES.md`, never into a task, a lane or another fix.
    what any agent in that moment would need to read. Commit it.
 4. **Rerun**: the same run card, now with `Baseline:` the commit your task
    branched from, and an `Agents:` line naming only the agents worth the
-   tokens, each picked from the saved eval agents the project allows (never
-   one outside that list): leave out one that passed every repetition last round and that
+   tokens, each copied verbatim from `splates evals agents` (never one it
+   does not print): leave out one that passed every repetition last round and that
    the fix cannot plausibly break, and keep those that failed, errored or
    could be moved by the change. With no `Agents:` line every saved agent
    runs, so name them whenever any can be skipped. A harness, scenario or judge fix changes both columns,

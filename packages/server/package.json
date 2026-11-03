@@ -1,6 +1,6 @@
 {
 	"name": "@splates/server",
-	"version": "1.13.12",
+	"version": "2.0.0",
 	"private": true,
 	"description": "The Spinning Plates server and shared backend",
 	"type": "module",

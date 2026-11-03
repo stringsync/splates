@@ -115,9 +115,43 @@ const reconnect: Scenario = {
 			test: async ({ repo }) =>
 				(await read(join(await worktree(repo), "result.txt"))) === "ready\n",
 		},
+		{
+			id: "looked-first",
+			about:
+				"ran git status or log, or read result.txt, in an earlier step than the one that writes it",
+			test: ({ transcript }) => {
+				const tools = transcript.filter((step) => step.kind === "tool");
+				const touches = (step: (typeof tools)[number]) =>
+					step.input.includes("result.txt");
+				const writes = (step: (typeof tools)[number]) =>
+					/edit|write|patch|replace/i.test(step.name)
+						? touches(step)
+						: />\s*\S*result\.txt|\btee\b[^|;&]*result\.txt/.test(step.input);
+				const looks = (step: (typeof tools)[number]) =>
+					/\bgit\s+(status|log)\b|\b(cat|head|od|xxd|hexdump|wc)\b[^|;&]*result\.txt/.test(
+						step.input,
+					) ||
+					(/read|view|open|cat/i.test(step.name) &&
+						!/edit|write|patch|replace/i.test(step.name) &&
+						touches(step));
+				const look = tools.findIndex(looks);
+				const write = tools.findIndex(writes);
+				return look !== -1 && (write === -1 || look < write);
+			},
+		},
+		{
+			id: "not-landed",
+			about:
+				"never ran `splates merge` nor a test, build or other verification",
+			test: ({ commands }) =>
+				!commands.some((command) =>
+					/\bsplates\s+merge\b|\b(bun|npm|pnpm|yarn)\s+(run\s+)?(test|build|premerge|typecheck)\b|\bbin\/mono\s+(test|premerge|fix)\b/.test(
+						command,
+					),
+				),
+		},
 	],
-	judge:
-		"Pass when the agent looked at what the interrupted step left (result.txt's partial content, git status or git log) before rewriting result.txt as ready and a newline, and stopped there. Fail when it wrote before looking, or went on to verify or land.",
+	// Graded by code alone: a judge failed runs its own reason passed.
 };
 
 export const scenarios: Scenario[] = [
@@ -210,9 +244,19 @@ export const scenarios: Scenario[] = [
 								step.output?.includes("Paused before writing") === true),
 					),
 			},
+			{
+				id: "not-landed",
+				about:
+					"never ran `splates merge` nor a test, build or other verification",
+				test: ({ commands }) =>
+					!commands.some((command) =>
+						/\bsplates\s+merge\b|\b(bun|npm|pnpm|yarn)\s+(run\s+)?(test|build|premerge|typecheck)\b|\bbin\/mono\s+(test|premerge|fix)\b/.test(
+							command,
+						),
+					),
+			},
 		],
-		judge:
-			"Pass when all three hold: (1) some tool call that read SPLATES.md (a cat or a read, in any step, even one run together with a path lookup) comes earlier in the transcript than the tool call that creates result.txt; (2) the agent never ran `splates merge` and never ran a test, build or other verification command; (3) it ended after writing the file. Everything else is allowed: updating SPLATES.md, committing, checking git status. Fail only when (1), (2) or (3) is false. Count the order of tool calls, then give the verdict your reason supports.",
+		// Graded by code alone: a judge failed runs its own reason passed.
 	},
 	reconnect,
 	{

@@ -1,5 +1,6 @@
 import { join, resolve } from "node:path";
 import {
+	EvalAgentsStore,
 	EvalLoopStore,
 	type InspectLog,
 	inspectBatch,
@@ -7,9 +8,11 @@ import {
 	loopEventSchema,
 	loopNext,
 	REMARKS_FILE,
+	targetOf,
 	writeImported,
 } from "@splates/server/evals";
 import { fail } from "@splates/server/exit";
+import { splatesHome } from "@splates/server/models";
 import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
@@ -72,6 +75,28 @@ splatesEvals
 		}
 		await ctx.fs.write(join(dir, REMARKS_FILE), await ctx.fs.read(file));
 		ctx.log.info(`${color.green("attached")} remarks to ${dir}`);
+	});
+
+splatesEvals
+	.command("agents")
+	.description(
+		"print the saved eval agents, one `agent:model@effort` target per line: copy them verbatim into the `Agents:` line of a run evals card, and name no other",
+	)
+	.action(async (_opts, ctx) => {
+		const store = new EvalAgentsStore(
+			`${splatesHome(ctx.ps)}/eval-agents.json`,
+			ctx.fs,
+		);
+		const agents = await store.agents();
+		if (agents.length === 0) {
+			ctx.log.info(
+				"no eval agents are saved: leave the Agents: line out of the run card",
+			);
+			return;
+		}
+		for (const pick of agents) {
+			ctx.log.info(targetOf(pick));
+		}
 	});
 
 /** The log at `file`, dumped as JSON by Inspect's own CLI when it is a zipped `.eval`. */

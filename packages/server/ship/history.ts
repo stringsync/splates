@@ -147,5 +147,6 @@ export class ShipHistory {
 
 /** The id a cascade from `from`, started at `started`, is kept under. */
 export function cascadeId(from: string, started: string): string {
-	return `${started.replace(/[:.]/g, "-")}-${from}`;
+	// A scoped slug like `@stringsync/splates` would nest the folder and fail read's name check.
+	return `${started.replace(/[:.]/g, "-")}-${from.replace(/[^\w.+-]/g, "-")}`;
 }

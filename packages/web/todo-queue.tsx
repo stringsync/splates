@@ -222,10 +222,11 @@ export function QueueToggle({
 			// stays quiet; always there on a touch screen.
 			className={cn(
 				row
-					? "flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					? "flex shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/[0.08] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 					: "relative inline-flex cursor-pointer items-center gap-1 rounded opacity-0 pointer-coarse:opacity-100 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100",
 				!row && touchArea,
-				row && phone && "size-9",
+				row && !phone && "size-6",
+				row && phone && "size-11",
 			)}
 		>
 			<Icon aria-hidden className={row ? "size-4" : "size-3"} />
