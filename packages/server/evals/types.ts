@@ -57,6 +57,8 @@ export interface EvalCell {
 	requirement: string;
 	target: string;
 	repetition: number;
+	/** What its verdict depended on when it ran, as its framework hashed it; absent when the batch says none. */
+	fingerprint?: string;
 	/** Null while it has yet to land. */
 	run: EvalRun | null;
 }
@@ -107,4 +109,32 @@ export interface EvalDetail extends EvalRun {
 	/** The agent's reply, as written; empty when it gave none. */
 	reply: string;
 	transcript: EvalStep[];
+}
+
+/**
+ * Where a scenario stands: `failing` when its latest batch has a run that
+ * failed or errored, `never-run` with no landed run in any batch, `stale` when
+ * the latest run's fingerprint differs from the scenario's today, else `passing`.
+ */
+export type EvalScenarioStatus = "failing" | "never-run" | "stale" | "passing";
+
+/** One agent's runs of a scenario in its latest batch. */
+export interface EvalScenarioTarget {
+	/** `EvalTarget.key`. */
+	target: string;
+	passed: number;
+	/** Runs that landed, so `2/3` is `passed` of `total`. */
+	total: number;
+}
+
+/** A scenario's state, as the Evals page reads it. */
+export interface EvalScenarioState {
+	scenario: string;
+	state: EvalScenarioStatus;
+	/** Per agent, from the latest batch that ran it; empty when never run. */
+	targets: EvalScenarioTarget[];
+	/** When the latest batch that ran it started, as ISO 8601; null when never run. */
+	lastRunAt: string | null;
+	/** The run to open: the first that failed in the latest batch, else its first; null when never run. */
+	run: string | null;
 }

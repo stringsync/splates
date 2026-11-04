@@ -9,6 +9,12 @@ few words on what you would build, then what you recommend and why, briefly.
 It ends with each call it rests on that the user has not settled, as
 questions numbered from 1 (see [Questions](questions.md)).
 
+**Before you write one, decide whether it needs a picture.** Any visible
+frontend change, and any backend change across several services, tables or
+flows, is proposed with attached images, never in text alone: capture them
+first, as [Showing the change](#showing-the-change) says, then write the
+block. A text description or ASCII sketch does not stand in for them.
+
 ```markdown
 ## 💡 Proposed a card for proposals
 
@@ -60,6 +66,15 @@ table or flow, and any visible frontend change. A small change needs none.
   capture it with the browser tool. `splates attach` it and put it under the
   question or choice it shows. For variants, one choice each, lettered
   A, B, C in order, each with its own image.
+
+To capture, use the browser tool when you have one; otherwise headless
+Chrome from Bash (`"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+--headless=new --screenshot=out.png --window-size=720,480 file:///…`), or any
+installed Chromium. A text sketch in a code block is no screenshot: capture one.
+`splates attach` works only from a task worktree or a conversation
+(`$SPLATES_CONVERSATION`). With neither, `splates add` the task the proposal
+would become first, as every proposal needs one, and attach from its worktree
+(keeping the scratch files outside it).
 
 Every visual is a before and after, side by side or one under the other, so
 the change is what the eye finds. The before is the code as it is now: a D2

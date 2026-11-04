@@ -10,10 +10,12 @@ import {
 	RUN_DENIED,
 	UNTRIAGED,
 } from "@splates/server/plans/browser";
+import type { FinishedTask } from "@splates/server/tasks";
 import { UtensilsIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
+import { FinishedReferences } from "./finished-references";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
@@ -66,6 +68,7 @@ export function Directed({ text }: { text: string }): JSX.Element {
 function about(
 	directive: string,
 	board: BoardContext,
+	finished: readonly FinishedTask[],
 ): {
 	kind: string;
 	name: string;
@@ -86,10 +89,18 @@ function about(
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
+			const saved = finished.find(
+				(each) => each.id === id || each.took.some((taken) => taken.id === id),
+			);
 			return {
 				kind: `Task ${argument}`,
-				name: todo?.subject ?? "",
-				open: todo === undefined ? undefined : () => board.open(id),
+				name: todo?.subject ?? saved?.subject ?? "",
+				open:
+					todo !== undefined
+						? () => board.open(id)
+						: saved === undefined
+							? undefined
+							: () => board.openTask(saved.task),
 			};
 		}
 		case "LANE": {
@@ -140,7 +151,11 @@ export function DirectiveChip({
 	inline?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { kind, name, open, missing } = about(directive, board);
+	const { kind, name, open, missing } = about(
+		directive,
+		board,
+		useContext(FinishedReferences),
+	);
 	return (
 		<ReferenceChip
 			Icon={UtensilsIcon}

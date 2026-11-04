@@ -4,6 +4,7 @@ import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
 import { type ComponentProps, type JSX, memo, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
+import { FinishedReferences } from "./finished-references";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
 import { NamedContext } from "./mentioned";
@@ -33,8 +34,7 @@ export interface MarkdownProps {
 }
 
 /**
- * Renders markdown with markdown-to-jsx: GitHub's flavor, nesting, tables and
- * task lists included, styled to sit quietly in the page.
+ * Renders GitHub-flavored markdown, including nested lists, tables and task lists.
  */
 export const Markdown = memo(function Markdown({
 	text,
@@ -151,8 +151,7 @@ function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
 const TODO_LINK = /^#(?:todo|task)-(\d+)$/;
 
 /**
- * `text` with each `#N` outside code made a link to that todo, which a link
- * drawn through `mentionIn` shows as a `Mention`.
+ * Links task numbers such as `#404` outside code.
  */
 export function linkMentions(text: string): string {
 	return outsideCode(text, (prose) =>
@@ -160,14 +159,10 @@ export function linkMentions(text: string): string {
 	);
 }
 
-/** Where a mention of another project's task links to, read back by `elsewhereIn`. */
+// Where a mention of another project's task links to, read back by elsewhereIn.
 const ELSEWHERE_LINK = /^#todo-(\d+)&project=([^&]+)$/;
 
-/**
- * `text` with each `#N` outside code that names the task of another project
- * among `projects`, as `wren #404` does, made a link that `elsewhereIn`
- * reads back, its `#` escaped so `linkMentions` leaves it to this one.
- */
+/** Links task numbers qualified by another project, such as `wren #404`. */
 export function linkElsewhere(
 	text: string,
 	projects: readonly { slug: string }[],
@@ -285,18 +280,17 @@ export function mentionIn(href: string | undefined): number | null {
 	return mention ? Number(mention[1]) : null;
 }
 
-/**
- * A todo mentioned as `#N`: a tap opens it while it is on the list, and once
- * it is gone (merged or removed, since ids never come back) it is archived,
- * struck through beside an archive box, so nobody reads it as still to do.
- */
+/** Opens a numbered task on the board or in its saved finished record. */
 export function Mention({ id }: { id: number }): JSX.Element {
 	const board = useContext(Board);
 	const todo = board.todos.find((each) => each.id === id);
+	const saved = useContext(FinishedReferences).find(
+		(each) => each.id === id || each.took.some((taken) => taken.id === id),
+	);
 	if (!board.linked) {
 		return <span>#{id}</span>;
 	}
-	if (todo === undefined) {
+	if (todo === undefined && saved === undefined) {
 		return (
 			<span
 				title={`#${id} is archived: merged or removed`}
@@ -313,9 +307,13 @@ export function Mention({ id }: { id: number }): JSX.Element {
 			{...still}
 			onClick={(event) => {
 				event.stopPropagation();
-				board.open(id);
+				if (todo !== undefined) {
+					board.open(id);
+				} else if (saved !== undefined) {
+					board.openTask(saved.task);
+				}
 			}}
-			title={todo.subject}
+			title={todo?.subject ?? saved?.subject}
 			className="relative cursor-pointer font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid"
 		>
 			#{id}

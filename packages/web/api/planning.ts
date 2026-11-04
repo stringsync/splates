@@ -1,4 +1,4 @@
-import type { ElsewhereOpen } from "@splates/server/board/browser";
+import type { BoardRecord, ElsewhereOpen } from "@splates/server/board/browser";
 import type { AgentPick } from "@splates/server/models";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
@@ -73,11 +73,6 @@ export async function arrangeTodo(
 	name?: string,
 ): Promise<void> {
 	await sendJson(`/api/todos/${id}/lane`, "PUT", { lane, before, name });
-}
-
-/** Puts queued todo `id` at `position` in the queue, 1 the next to start. */
-export async function moveInQueue(id: number, position: number): Promise<void> {
-	await sendJson(`/api/todos/${id}/queue-position`, "PUT", { position });
 }
 
 /** Has `assignee` work todo `id`, or nobody in particular for null. */
@@ -212,8 +207,8 @@ export async function elsewhereTasks(): Promise<ElsewhereOpen[]> {
 }
 
 /** Starts a board called `name`, after the others. */
-export async function addBoard(name: string): Promise<void> {
-	await sendJson("/api/boards", "POST", { name });
+export async function addBoard(name: string): Promise<BoardRecord> {
+	return (await sendJson("/api/boards", "POST", { name })) as BoardRecord;
 }
 
 /** Calls board `id` by another name. */

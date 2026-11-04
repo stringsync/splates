@@ -13,6 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -24,9 +25,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { ApiError, answered, scoped } from "./api";
 import { ReadFailed, ReadingNow } from "./countdown";
-import { useFolded } from "./folded";
 import { Markdown } from "./markdown";
-import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
+import { QueueColumn } from "./queue-column";
+import { QueueEmpty } from "./queue-rows";
 import { ActionButton } from "./task-actions";
 import { useDemo } from "./task-demo";
 import { TaskIcon } from "./task-icon";
@@ -41,29 +42,15 @@ import {
 	TASK_DIALOG,
 	TONES,
 } from "./task-sections";
-import { TasksCard } from "./tasks-card";
 
-/** Where the Tasks page keeps whether Finished is open. */
-const FOLDED = "splates.tasks.finished";
-
-/**
- * The tasks that merged or were removed in this project, under Finished,
- * folded away until opened: read only then, and again whenever `moved`
- * changes while open, as when a task ends. Each opens its plan as it ended.
- */
+/** Shows what finished today, with a button for earlier tasks. Pass a new `moved` to refresh the list. */
 export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
-	// Folded unless this browser opened it: `useFolded` keeps the keys it
-	// folds, so here the one key kept is "shown", kept while open.
-	const { folded, fold } = useFolded(FOLDED);
-	const open = folded.has("shown");
 	const [listed, setListed] = useState<FinishedTask[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [opened, setOpened] = useState<string | null>(null);
+	const [earlier, setEarlier] = useState(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `moved` is what says to read the list again
 	useEffect(() => {
-		if (!open) {
-			return;
-		}
 		let current = true;
 		finishedTasks().then(
 			(read) => {
@@ -77,34 +64,50 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 		return () => {
 			current = false;
 		};
-	}, [open, moved]);
+	}, [moved]);
+	const today = (listed ?? []).filter((task) => endedToday(task));
+	const older = (listed ?? []).length - today.length;
+	const shown = earlier ? (listed ?? []) : today;
 	return (
 		<>
-			<TasksCard
-				label="finished tasks"
-				title="Finished"
-				count={listed?.length ?? null}
-				open={open}
-				onOpenChange={(opening) => fold("shown", !opening)}
+			<QueueColumn
+				title="Done"
+				why="Permanent column: tasks that ended today. A card arrives when its task is merged or removed."
+				count={listed === null ? "" : today.length}
 			>
 				{failed && listed === null ? (
-					<p className="py-2 text-muted-foreground text-sm">
-						Couldn’t read the finished tasks.
-					</p>
-				) : listed === null ? null : listed.length === 0 ? (
-					<p className="py-2 text-muted-foreground text-sm">
-						No task has merged or been removed yet.
-					</p>
-				) : (
-					<ul aria-label="finished task list" className="flex flex-col">
-						{listed.map((task) => (
-							<li key={task.key}>
-								<FinishedRow task={task} onOpen={() => setOpened(task.key)} />
-							</li>
-						))}
-					</ul>
+					<QueueEmpty>Couldn’t read the done tasks.</QueueEmpty>
+				) : listed === null ? null : (
+					<>
+						{shown.length === 0 && <QueueEmpty>Nothing done today</QueueEmpty>}
+						{shown.length > 0 && (
+							<ul
+								aria-label="finished task list"
+								className="flex flex-col gap-1.5"
+							>
+								{shown.map((task) => (
+									<li key={task.key}>
+										<FinishedRow
+											task={task}
+											onOpen={() => setOpened(task.key)}
+										/>
+									</li>
+								))}
+							</ul>
+						)}
+						{older > 0 && (
+							<Button
+								size="xs"
+								variant="ghost"
+								className="self-start text-muted-foreground"
+								onClick={() => setEarlier(!earlier)}
+							>
+								{earlier ? "Today only" : `Show ${older} earlier`}
+							</Button>
+						)}
+					</>
 				)}
-			</TasksCard>
+			</QueueColumn>
 			<Dialog
 				open={opened !== null}
 				onOpenChange={(opening) => {
@@ -122,6 +125,11 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 			</Dialog>
 		</>
 	);
+}
+
+/** Whether `task` ended on today's date, here. */
+function endedToday(task: FinishedTask): boolean {
+	return new Date(task.endedAt).toDateString() === new Date().toDateString();
 }
 
 /**
@@ -186,12 +194,9 @@ function FinishedRow({
 		<button
 			type="button"
 			onClick={onOpen}
-			className={cn(
-				"-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
-				PHONE_ROW,
-			)}
+			className="flex w-full items-center gap-2 rounded-lg border border-border/60 bg-card p-2 pl-3 text-left text-card-foreground transition-colors hover:border-border"
 		>
-			<span aria-hidden className={PHONE_TILE}>
+			<span aria-hidden className="shrink-0">
 				<Icon
 					className={cn(
 						"size-4",
@@ -199,7 +204,7 @@ function FinishedRow({
 					)}
 				/>
 			</span>
-			<span className={cn("flex min-w-0 flex-1 flex-col", PHONE_NAME)}>
+			<span className="flex min-w-0 flex-1 flex-col">
 				<span className="truncate text-sm">{task.task}</span>
 				{task.subject !== task.task && (
 					<span className="truncate text-muted-foreground text-xs">

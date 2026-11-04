@@ -4,7 +4,6 @@ import {
 	act,
 	cleanup,
 	clickShown,
-	details,
 	fireEvent,
 	Testing,
 	waitFor,
@@ -23,16 +22,44 @@ describe("App's finished tasks", () => {
 		testing.dispose();
 	});
 
-	it("folds them away, reading none until opened", async () => {
+	it("opens a saved task from its Queue URL", async () => {
 		testing.finished = [finished()];
-		const view = await testing.openTasks({
-			tasks: [details({ task: "beta" })],
+		const view = await testing.openTasks({ tasks: [] });
+		await act(async () => {
+			location.hash = "#tasks/alpha";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
-
-		expect(view.getByRole("button", { name: /Finished/ })).toBeTruthy();
-		expect(testing.asked.some((path) => path.startsWith("/api/finished"))).toBe(
-			false,
+		await waitFor(() =>
+			expect(view.getByRole("dialog").textContent).toContain("ship alpha"),
 		);
+	});
+
+	it("lists today's and keeps earlier ones behind a button", async () => {
+		const longAgo = new Date(Date.now() - 3 * 86_400_000).toISOString();
+		testing.finished = [
+			finished(),
+			finished({
+				key: "8-1760000000000",
+				id: 8,
+				task: "gamma",
+				subject: "try gamma",
+				endedAt: longAgo,
+			}),
+		];
+		const view = await testing.openTasks({ tasks: [] });
+
+		const list = await waitFor(() =>
+			view.getByRole("list", { name: "finished task list" }),
+		);
+		expect(list.textContent).toContain("alpha");
+		expect(list.textContent).not.toContain("gamma");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Show 1 earlier" })),
+		);
+		expect(
+			view.getByRole("list", { name: "finished task list" }).textContent,
+		).toContain("gamma");
 	});
 
 	it("marks the tasks that have a demo", async () => {
@@ -47,9 +74,6 @@ describe("App's finished tasks", () => {
 		];
 		const view = await testing.openTasks({ tasks: [] });
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
-		);
 		const list = await waitFor(() =>
 			view.getByRole("list", { name: "finished task list" }),
 		);
@@ -79,9 +103,6 @@ describe("App's finished tasks", () => {
 		];
 		const view = await testing.openTasks({ tasks: [] });
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
-		);
 		const list = await waitFor(() =>
 			view.getByRole("list", { name: "finished task list" }),
 		);
@@ -115,9 +136,6 @@ describe("App's finished tasks", () => {
 		];
 		const view = await testing.openTasks({ tasks: [] });
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
-		);
 		await clickShown(() =>
 			within(view.getByRole("list", { name: "finished task list" })).getByRole(
 				"button",
@@ -142,7 +160,7 @@ function finished(more: Partial<FinishedPlan> = {}): FinishedPlan {
 		base: "main",
 		commit: "abc1234",
 		startedAt: new Date(Date.now() - 7_200_000).toISOString(),
-		endedAt: new Date(Date.now() - 3_600_000).toISOString(),
+		endedAt: new Date().toISOString(),
 		conversation: null,
 		took: [{ id: 7, subject: "Ship alpha" }],
 		plan: "# alpha\n\n## Goal\n\nship alpha\n\n## Notes\n\nkept the old flag\n",

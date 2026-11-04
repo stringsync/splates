@@ -2,7 +2,7 @@ import { color, type Logger } from "core/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";
-import { BACKLOG_LANE, ungroomed } from "./backlog";
+import { BACKLOG_LANE, PLACED, ungroomed } from "./backlog";
 import { cleared, deferralBlockers } from "./deferral";
 import {
 	type ElsewhereBlockerNow,
@@ -188,6 +188,8 @@ export async function taskShow(
 	const record = records.find((each) => each.id === task.lane);
 	const steps = record === undefined ? [] : lane(states, record).todos;
 	const step = steps.findIndex((other) => other.id === task.id);
+	const claimed =
+		task.state.grooming !== undefined && task.state.grooming !== PLACED;
 	const lines = [
 		`${color.bold(project === undefined ? `task ${task.id}` : `${project} #${task.id}`)} ${task.subject}`,
 		// The name to start it under: `splates add <slug> --task <n>`.
@@ -199,8 +201,8 @@ export async function taskShow(
 		`  position:  ${task.position}`,
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.
-		`  groomed:   ${ungroomed(task.state) ? "no, groom it before work on it" : task.lane === BACKLOG_LANE ? "yes, it was groomed and stays in Backlog" : "yes, it is in a lane"}`,
-		...(task.state.grooming === undefined
+		`  groomed:   ${ungroomed(task.state) || claimed ? "no, groom it before work on it" : task.lane === BACKLOG_LANE ? "yes, it was groomed and stays in Backlog" : "yes, it is in a lane"}`,
+		...(!claimed
 			? []
 			: [`  grooming:  the groomer has it, until it is groomed or taken`]),
 		`  from:      ${cameFrom(task.state) ?? "added by hand"}`,

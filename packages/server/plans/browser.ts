@@ -24,6 +24,7 @@ export {
 	DIRECTIVES,
 	demoReference,
 	directive,
+	EVALS_BUDGET_USED_UP,
 	GRANT_DENIED,
 	GRANTED,
 	handOffReference,
@@ -53,5 +54,5 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
-export { isWholeSuite, retryOf, shipOf } from "./run-command";
+export { retryOf, shipOf } from "./run-command";
 export { unanswered, waitsOnYou } from "./unanswered";

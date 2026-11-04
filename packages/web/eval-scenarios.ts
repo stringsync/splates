@@ -1,87 +1,122 @@
 import type {
-	EvalGrid,
 	EvalScenario,
-	EvalStatus,
+	EvalScenarioState,
+	EvalScenarioStatus,
 } from "@splates/server/evals/browser";
-import { ORDER } from "./eval-status";
 
-/** How a scenario last went: the newest batch that ran it, and its cells' outcomes. */
-export interface LastResult {
-	batch: string;
-	startedAt: string;
-	cells: number;
-	passed: number;
-	/** The worst outcome among its cells, in the order `ORDER` reads them. */
-	status: EvalStatus;
-	/** What the scenario requires, from its first cell. */
-	requirement: string;
-	/** A landed run to read its checks from; null while none has landed. */
-	run: string | null;
+/** The states in the order the table reads them, worst first. */
+export const STATES: EvalScenarioStatus[] = [
+	"failing",
+	"never-run",
+	"stale",
+	"passing",
+];
+
+/** What a state is called on a chip. */
+export const STATE_LABEL: Record<EvalScenarioStatus, string> = {
+	failing: "Failing",
+	"never-run": "Never run",
+	stale: "Stale",
+	passing: "Passing",
+};
+
+/** One table row: a listed scenario with where it stands. */
+export interface ScenarioRow {
+	scenario: EvalScenario;
+	state: EvalScenarioState;
 }
 
-/** A skill's scenarios, under the heading the index shows. */
-export interface ScenarioSection {
-	heading: string;
-	scenarios: EvalScenario[];
+/** What the table is narrowed to; null for no narrowing on that part. */
+export interface ScenarioFilter {
+	state: EvalScenarioStatus | null;
+	/** A skill or group heading, as `headingOf` has it. */
+	project: string | null;
 }
 
-/** The scenarios grouped by the skill that owns them, else by their `group`, in the order first seen. */
-export function sectionsOf(scenarios: EvalScenario[]): ScenarioSection[] {
-	const sections: ScenarioSection[] = [];
-	for (const scenario of scenarios) {
-		const heading = scenario.skill ?? scenario.group ?? "";
-		let section = sections.find((each) => each.heading === heading);
-		if (section === undefined) {
-			section = { heading, scenarios: [] };
-			sections.push(section);
-		}
-		section.scenarios.push(scenario);
-	}
-	return sections;
+/** The heading a scenario sits under: its skill, else its group, else none. */
+export function headingOf(scenario: EvalScenario): string {
+	return scenario.skill ?? scenario.group ?? "";
+}
+
+/** The fraction of runs that passed, 0 for none landed. */
+function rate(state: EvalScenarioState): number {
+	const total = state.targets.reduce((sum, each) => sum + each.total, 0);
+	const passed = state.targets.reduce((sum, each) => sum + each.passed, 0);
+	return total === 0 ? 0 : passed / total;
 }
 
 /**
- * Each scenario's result in the newest of `grids` that ran it, a cell still
- * to land counting as pending. `grids` may come in any order.
+ * The listed scenarios paired with their states, worst first, for the table
+ * to show. A scenario the states do not know counts as never run.
  */
-export function lastResults(grids: EvalGrid[]): Map<string, LastResult> {
-	const results = new Map<string, LastResult>();
-	const newest = [...grids].sort((left, right) =>
-		right.startedAt.localeCompare(left.startedAt),
-	);
-	for (const grid of newest) {
-		const seen = new Set<string>();
-		for (const cell of grid.grid) {
-			seen.add(cell.scenario);
-		}
-		for (const id of seen) {
-			if (results.has(id)) {
-				continue;
-			}
-			const statuses = grid.grid
-				.filter((cell) => cell.scenario === id)
-				.map((cell): EvalStatus => cell.run?.status ?? "pending");
-			results.set(id, {
-				batch: grid.id,
-				startedAt: grid.startedAt,
-				cells: statuses.length,
-				passed: statuses.filter((each) => each === "pass").length,
-				status: ORDER.find((each) => statuses.includes(each)) ?? "pass",
-				requirement:
-					grid.grid.find((cell) => cell.scenario === id)?.requirement ?? "",
-				run:
-					grid.grid.find((cell) => cell.scenario === id && cell.run !== null)
-						?.run?.id ?? null,
-			});
-		}
-	}
-	return results;
+export function rowsOf(
+	scenarios: EvalScenario[],
+	states: EvalScenarioState[],
+): ScenarioRow[] {
+	return scenarios
+		.map((scenario, at) => ({
+			at,
+			scenario,
+			state: states.find((each) => each.scenario === scenario.id) ?? {
+				scenario: scenario.id,
+				state: "never-run" as const,
+				targets: [],
+				lastRunAt: null,
+				run: null,
+			},
+		}))
+		.sort(
+			(left, right) =>
+				STATES.indexOf(left.state.state) - STATES.indexOf(right.state.state) ||
+				(left.state.state === "failing"
+					? rate(left.state) - rate(right.state)
+					: 0) ||
+				left.at - right.at,
+		)
+		.map(({ scenario, state }) => ({ scenario, state }));
 }
 
-/** What a queued task says to have an agent work the eval loop on `scenario`. */
-export function loopTask(scenario: string): { subject: string; text: string } {
-	return {
-		subject: `Run the eval loop for ${scenario}`,
-		text: `Work the eval loop in the splates skill's \`references/evals.md\` for the scenario \`${scenario}\`: ask for a run with the run evals card (3 repetitions for its starting pass rate), read the report when it is done, leave remarks on the batch, fix one thing in the layer that failed (harness, scenario, judge or skill), and ask for the next run, until it passes every repetition or three rounds bring no gain, then stop. Never start an eval yourself.`,
-	};
+/** How many rows are in each state. */
+export function countStates(
+	rows: ScenarioRow[],
+): Record<EvalScenarioStatus, number> {
+	const counts = { failing: 0, "never-run": 0, stale: 0, passing: 0 };
+	for (const row of rows) {
+		counts[row.state.state] += 1;
+	}
+	return counts;
+}
+
+/** The rows that fit the filter. */
+export function filterRows(
+	rows: ScenarioRow[],
+	filter: ScenarioFilter,
+): ScenarioRow[] {
+	return rows.filter(
+		(row) =>
+			(filter.state === null || row.state.state === filter.state) &&
+			(filter.project === null || headingOf(row.scenario) === filter.project),
+	);
+}
+
+/** The distinct headings of the rows, in the order first seen; scenarios under none are left out. */
+export function projectsOf(rows: ScenarioRow[]): string[] {
+	return [...new Set(rows.map((row) => headingOf(row.scenario)))].filter(
+		(each) => each !== "",
+	);
+}
+
+/** The header line, such as `17 of 31 scenarios passing`. */
+export function summaryOf(rows: ScenarioRow[]): string {
+	const passing = rows.filter((row) => row.state.state === "passing").length;
+	return `${passing} of ${rows.length} ${rows.length === 1 ? "scenario" : "scenarios"} passing`;
+}
+
+/** The pass count a row shows for an agent: `2/3`, or none when it did not run there. */
+export function passCount(
+	state: EvalScenarioState,
+	target: string,
+): string | null {
+	const each = state.targets.find((entry) => entry.target === target);
+	return each === undefined ? null : `${each.passed}/${each.total}`;
 }

@@ -3,6 +3,7 @@ export {
 	removeWorker,
 	setQueuePaused,
 } from "./admin";
+export { strained } from "./browser";
 export { WorkerChannel } from "./channel";
 export { CoordinatorState } from "./coordinator-state";
 export { WorkerDaemon } from "./daemon";

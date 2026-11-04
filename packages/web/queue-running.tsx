@@ -3,7 +3,6 @@ import type { ConversationState } from "@splates/server/conversations";
 import type { HeldListing, QueueListing } from "@splates/server/workers";
 import { type JSX, useContext } from "react";
 import { DropdownMenuItem } from "#web/components/ui/dropdown-menu.tsx";
-import { moveQueued } from "./api";
 import {
 	archiveConversation,
 	cancelConversation,
@@ -15,7 +14,7 @@ import { useEverywhere } from "./everywhere-context";
 import type { InProject } from "./everywhere-feed";
 import { NavigationContext } from "./navigation";
 import { usePendingWrites } from "./pending";
-import { QueueEmpty, QueueRow, QueueSection, SortableRows } from "./queue-rows";
+import { QueueRow, QueueSection } from "./queue-rows";
 import { Refusal, useRefusal } from "./refusal";
 
 /** What the Queue page knows of the conversations of every project. */
@@ -79,9 +78,8 @@ function startedBy(
 }
 
 /**
- * The agents running that splates started on its own: those automations,
- * hooks and the groomer started, in any project, each opened on its
- * conversation and stopped from its row.
+ * Lists the agents running that splates started on its own (automations,
+ * hooks and the groomer, in any project); open or stop each from its card.
  */
 export function Running({
 	held,
@@ -89,7 +87,7 @@ export function Running({
 }: {
 	held: HeldListing[];
 	known: Known;
-}): JSX.Element {
+}): JSX.Element | null {
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
 	const automatic = held.filter((each) => each.automatic);
@@ -97,72 +95,68 @@ export function Running({
 	const attempt = (id: string, title: string, write: () => Promise<void>) =>
 		void writes.run(id, write).catch((error: unknown) => refuse(title, error));
 	return (
-		<QueueSection title="Started by splates" count={automatic.length}>
+		<>
 			<Refusal refusal={refusal} />
-			{automatic.length === 0 ? (
-				<QueueEmpty>Nothing splates started runs</QueueEmpty>
-			) : (
-				automatic.map((held) => {
-					const conversation = known.of(held.id);
-					const here = known.here(held.project);
-					const project = here
-						? undefined
-						: (known.project(held.project)?.slug ?? held.project);
-					return (
-						<QueueRow
-							key={held.id}
-							pending={writes.pending(held.id)}
-							name={
-								held.task ??
-								(conversation ? nameOf(conversation) : "A conversation")
-							}
-							by={startedBy(conversation)}
-							age={age(held.since)}
-							id={here ? undefined : known.project(held.project)?.name}
-							quiet={{
-								label: "Stop",
-								onClick: () =>
-									attempt(held.id, "Not stopped", () =>
-										cancelConversation(held.id, project),
-									),
-							}}
-							main={{
-								label: "Open",
-								onClick: () => known.open(held.project, held.id),
-							}}
-							menu={
-								<>
-									<DropdownMenuItem
-										onClick={() =>
-											attempt(held.id, "Not restarted", () =>
-												restartConversation(held.id, project),
-											)
-										}
-									>
-										Restart
-									</DropdownMenuItem>
-									<DropdownMenuItem
-										onClick={() =>
-											attempt(held.id, "Not archived", () =>
-												archiveConversation(held.id, true, project),
-											)
-										}
-									>
-										Archive
-									</DropdownMenuItem>
-								</>
-							}
-						/>
-					);
-				})
-			)}
-		</QueueSection>
+			{automatic.map((held) => {
+				const conversation = known.of(held.id);
+				const here = known.here(held.project);
+				const project = here
+					? undefined
+					: (known.project(held.project)?.slug ?? held.project);
+				return (
+					<QueueRow
+						key={held.id}
+						pending={writes.pending(held.id)}
+						name={
+							held.task ??
+							(conversation ? nameOf(conversation) : "A conversation")
+						}
+						by={startedBy(conversation)}
+						age={age(held.since)}
+						id={here ? undefined : known.project(held.project)?.name}
+						quiet={{
+							label: "Stop",
+							onClick: () =>
+								attempt(held.id, "Not stopped", () =>
+									cancelConversation(held.id, project),
+								),
+						}}
+						main={{
+							label: "Open",
+							onClick: () => known.open(held.project, held.id),
+						}}
+						menu={
+							<>
+								<DropdownMenuItem
+									onClick={() =>
+										attempt(held.id, "Not restarted", () =>
+											restartConversation(held.id, project),
+										)
+									}
+								>
+									Restart
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() =>
+										attempt(held.id, "Not archived", () =>
+											archiveConversation(held.id, true, project),
+										)
+									}
+								>
+									Archive
+								</DropdownMenuItem>
+							</>
+						}
+					/>
+				);
+			})}
+		</>
 	);
 }
 
 /**
- * The agents waiting to start, as while paused, first in line first,
- * dragged into another order; each opened, sent to the front, or put away.
+ * Lists the agents waiting to start, first in line first, each to open or
+ * cancel. Pass `queue` as read, and `known` to name each one's conversation.
  */
 export function Waiting({
 	queue,
@@ -170,35 +164,26 @@ export function Waiting({
 }: {
 	queue: QueueListing[];
 	known: Known;
-}): JSX.Element {
+}): JSX.Element | null {
 	const nameOf = useNameOf();
 	const { refusal, refuse } = useRefusal();
 	const writes = usePendingWrites();
-	const move = (id: string, to: number) =>
-		void writes
-			.run(id, () => moveQueued(id, to + 1))
-			.catch((error: unknown) => refuse("Not moved", error));
+	if (queue.length === 0 && refusal === null) {
+		return null;
+	}
 	return (
 		<QueueSection title="Waiting to start" count={queue.length}>
 			<Refusal refusal={refusal} />
-			{queue.length === 0 ? (
-				<QueueEmpty>Nothing waits</QueueEmpty>
-			) : (
-				<SortableRows
-					items={queue}
-					idOf={(entry) => entry.id}
-					label="waiting to start"
-					onMove={move}
-					row={(entry, { grip, dragging }) => {
-						const conversation = known.of(entry.id);
-						const here = known.here(entry.project);
-						const project = here
-							? undefined
-							: (known.project(entry.project)?.slug ?? entry.project);
-						return (
+			<ol aria-label="waiting to start" className="flex flex-col gap-1.5">
+				{queue.map((entry) => {
+					const conversation = known.of(entry.id);
+					const here = known.here(entry.project);
+					const project = here
+						? undefined
+						: (known.project(entry.project)?.slug ?? entry.project);
+					return (
+						<li key={entry.id}>
 							<QueueRow
-								grip={grip}
-								dragging={dragging}
 								pending={writes.pending(entry.id)}
 								name={
 									entry.task ??
@@ -216,33 +201,25 @@ export function Waiting({
 									onClick: () => known.open(entry.project, entry.id),
 								}}
 								menu={
-									<>
-										<DropdownMenuItem
-											disabled={entry.position === 1}
-											onClick={() => move(entry.id, 0)}
-										>
-											Move to front
-										</DropdownMenuItem>
-										<DropdownMenuItem
-											onClick={() =>
-												void writes
-													.run(entry.id, () =>
-														archiveConversation(entry.id, true, project),
-													)
-													.catch((error: unknown) =>
-														refuse("Not cancelled", error),
-													)
-											}
-										>
-											Cancel
-										</DropdownMenuItem>
-									</>
+									<DropdownMenuItem
+										onClick={() =>
+											void writes
+												.run(entry.id, () =>
+													archiveConversation(entry.id, true, project),
+												)
+												.catch((error: unknown) =>
+													refuse("Not cancelled", error),
+												)
+										}
+									>
+										Cancel
+									</DropdownMenuItem>
 								}
 							/>
-						);
-					}}
-				/>
-			)}
+						</li>
+					);
+				})}
+			</ol>
 		</QueueSection>
 	);
 }

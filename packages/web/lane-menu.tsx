@@ -10,6 +10,7 @@ import {
 	ListXIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
+	PlusIcon,
 	Trash2Icon,
 } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -34,7 +35,7 @@ import {
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { dropLane, moveLaneToBoard, queueLane } from "./api";
+import { addBoard, dropLane, moveLaneToBoard, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
 import { laneDropped, laneOnBoard, laneQueued } from "./board-expectations";
 import { copiedLabel, useCopy } from "./card";
@@ -131,13 +132,28 @@ export function LaneMenu({
 							</DropdownMenuItem>
 						</>
 					)}
-					{lane.id !== BACKLOG_LANE && boards.length > 1 && (
+					{lane.id !== BACKLOG_LANE && (
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger>
 								<KanbanIcon />
 								Move to board
 							</DropdownMenuSubTrigger>
 							<DropdownMenuSubContent className={cn("w-56", touchItems)}>
+								<DropdownMenuItem
+									onClick={() =>
+										void expect(
+											laneOnBoard(lane.id, nextBoardId(boards), undefined),
+											addBoard(newBoardName(boards)).then((added) =>
+												moveLaneToBoard(lane.id, added.id),
+											),
+										).catch((error: unknown) =>
+											refuseLane(lane.id, "Not moved", error),
+										)
+									}
+								>
+									<PlusIcon />
+									New board
+								</DropdownMenuItem>
 								{boards
 									.filter((each) => !each.archived && each.id !== lane.board)
 									.map((each) => (
@@ -211,6 +227,21 @@ export function LaneMenu({
 			</Dialog>
 		</>
 	);
+}
+
+/** The first "Board N" no board is called yet. */
+function newBoardName(boards: readonly { name: string }[]): string {
+	const taken = new Set(boards.map((each) => each.name.toLowerCase()));
+	let count = boards.length + 1;
+	while (taken.has(`board ${count}`)) {
+		count += 1;
+	}
+	return `Board ${count}`;
+}
+
+/** The id the server will give the next board. */
+function nextBoardId(boards: readonly { id: number }[]): number {
+	return Math.max(0, ...boards.map((each) => each.id)) + 1;
 }
 
 /** The places a lane can go on `board`: first, after each lane there, the last of them meaning the end. */

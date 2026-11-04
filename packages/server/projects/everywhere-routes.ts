@@ -1,6 +1,6 @@
 import type { AsyncResource, Resource } from "core/disposable";
 import type { Logger } from "core/log";
-import { type LaneRecord, lanesTaken } from "../board";
+import { type LaneRecord, lanesTaken, type TaskRecord } from "../board";
 import {
 	type ConversationState,
 	type Conversations,
@@ -53,6 +53,8 @@ export interface EverywhereBoard {
 	laneNames: LaneRecord[];
 	/** The lane each of its tasks at work on a lane is on, by task name, as `lanesTaken` reads it. */
 	lanesTaken: Record<string, number>;
+	/** Its board's queued and blocked tasks, for every folder to list its queue. */
+	todos?: TaskRecord[];
 }
 
 /** What the global General destination contributes to the same feed. */
@@ -124,6 +126,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				tasks: [],
 				laneNames: [],
 				lanesTaken: {},
+				todos: [],
 				conversations: (await general.conversations.list()).map(({ state }) =>
 					listed(state),
 				),
@@ -325,6 +328,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				tasks,
 				laneNames,
 				lanesTaken: lanesTaken(todos),
+				todos,
 			};
 		} catch (error) {
 			this.home.log.error(`${root} left out of every project's feed: ${error}`);

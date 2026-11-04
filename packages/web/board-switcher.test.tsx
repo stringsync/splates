@@ -51,6 +51,16 @@ describe("BoardSwitcher controls", () => {
 	});
 	afterEach(cleanup);
 
+	it("offers a drag grip on each board, and none while a filter hides some", () => {
+		const view = open();
+		expect(view.getByRole("button", { name: "Drag Default" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Drag Website" })).toBeTruthy();
+		fireEvent.change(view.getByLabelText("Find a board"), {
+			target: { value: "web" },
+		});
+		expect(view.queryByRole("button", { name: "Drag Website" })).toBeNull();
+	});
+
 	it("moves a board's lanes to the picked board, then deletes it", async () => {
 		const view = open();
 		fireEvent.click(

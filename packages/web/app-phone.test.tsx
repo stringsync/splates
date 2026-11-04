@@ -600,9 +600,9 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		await act(async () =>
-			fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
+			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);
-		expect(location.hash).toBe("#tasks");
+		expect(location.hash).toBe("#stats");
 
 		await act(async () =>
 			fireEvent.click(
@@ -661,7 +661,7 @@ describe("App on a phone", () => {
 				fireEvent.click(within(drawer).getByRole("button", { name })),
 			);
 		};
-		await pick(/Queue/);
+		await pick(/Stats/);
 		await pick(/Stats/);
 		await pick(/Creds/);
 
@@ -1192,9 +1192,9 @@ describe("App on a phone", () => {
 			view.getByRole("dialog", { name: "Pages" }),
 		);
 		await act(async () =>
-			fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
+			fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 		);
-		expect(location.hash).toBe("#tasks");
+		expect(location.hash).toBe("#stats");
 
 		expect(view.getByRole("status", { name: "2 waiting on you" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: /Next waiting/ })).toBeNull();

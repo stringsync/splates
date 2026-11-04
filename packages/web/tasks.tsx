@@ -1,28 +1,35 @@
 import { age } from "@splates/server/age";
-import type { TaskRecord } from "@splates/server/board/browser";
+import { named, type TaskRecord } from "@splates/server/board/browser";
 import type { ConversationState } from "@splates/server/conversations";
 import { type Needing, needs } from "@splates/server/plans/browser";
 import type { Details, Snapshot } from "@splates/server/tasks";
 import { useDisposerEffect, useReactive } from "core/react";
 import { Duration } from "core/time";
-import { type JSX, useContext } from "react";
+import { type JSX, useContext, useRef } from "react";
 import { Dialog } from "#web/components/ui/dialog.tsx";
+import { Board as BoardContextOf, NO_BOARD } from "./board";
 import { Badge } from "./components/ui/badge";
 import { reportedAs } from "./conversation-names";
 import { Dispatching, OnIt } from "./dispatching";
 import { useEverywhere } from "./everywhere-context";
 import type { EverywhereSummary, InProject } from "./everywhere-feed";
-import { FinishedTasks } from "./finished-tasks";
+import { FinishedReferences } from "./finished-references";
+import { FinishedByName, FinishedTasks } from "./finished-tasks";
+import { fadeOf, useEdges } from "./hooks/use-edges";
 import { useNow } from "./hooks/use-now";
+import { LaneChip } from "./lane-chip";
 import { Orphaned } from "./list-rows";
 import { useMachine } from "./machine";
 import { Mark } from "./mark";
 import { NavigationContext } from "./navigation";
 import { useReading } from "./page-readings";
+import { PermanentLock, QUEUE_BOARD_WHY, QueueColumn } from "./queue-column";
 import { QueueControls } from "./queue-controls";
-import { QueueEmpty, QueueRow, QueueSection } from "./queue-rows";
+import { QueueEmpty, QueueRow } from "./queue-rows";
 import { Running, useKnown, Waiting } from "./queue-running";
-import { QueueMark } from "./slot-queue";
+import { useRefusals } from "./refusal";
+import { RouteTrail } from "./route-trail";
+import { QueueMark } from "./start-queue";
 import { Task } from "./task-dialog";
 import {
 	type Filtered,
@@ -30,24 +37,24 @@ import {
 	type TaskFilter,
 	tagOptions,
 } from "./task-filter";
-import { taskFilterAction } from "./task-filter-menu";
-import { BlockedTasks, UpNext } from "./task-queue";
+import { TaskFilterBar } from "./task-filter-menu";
+import { BlockedColumn, QueuedColumn } from "./task-queue";
 import { TopBar } from "./top-bar";
 import { WorkerPoolView } from "./worker-pool";
 
 /**
- * The Queue page: atop it, Pause and how many agents run at once; then one
- * card of all the queue holds, the agents holding a slot (Running), those
- * waiting for one, the queued tasks yet to start (Up next), the lanes queued
- * whole, and every other task at work (Started by you), a line each, from
- * every project. Where a task stands in splates waits behind a tap; another
- * project's opens on that project's page. Finished's card follows.
+ * The Queue page, a board of all the work: what runs in every project, what
+ * is queued in start order, what is stuck, and what finished today. Pause sits
+ * in its bar. A task opens where it stands, another project's on that
+ * project's page.
  */
 export function Tasks({
 	project,
 	open,
 	onOpen,
 	onOpenTodo,
+	onOpenLane,
+	onBoards,
 	filter,
 }: {
 	/** The projects and tags the page is narrowed to, shared with the board. */
@@ -59,12 +66,19 @@ export function Tasks({
 	onOpen: (task: string | null) => void;
 	/** Opens queued task `id` on the board. */
 	onOpenTodo: (id: number) => void;
+	/** Opens lane `id` on its board. */
+	onOpenLane: (id: number) => void;
+	/** Opens the list of boards. */
+	onBoards?: () => void;
 }): JSX.Element {
 	useReactive(filter, ({ projects, tags }) => ({ projects, tags }), [
 		"changed",
 	]);
 	const everyTask = project.tasks;
 	const tasks = everyTask.filter((task) => filter.passes(task));
+	const saved = useContext(FinishedReferences).some(
+		(task) => task.task === open,
+	);
 	const opened = everyTask.find((task) => task.task === open) ?? null;
 	const view = useReading("workers", () => new WorkerPoolView());
 	useDisposerEffect((disposer) => disposer.use(view.watch()), [view]);
@@ -88,84 +102,135 @@ export function Tasks({
 					.length
 			: groups.reduce((sum, group) => sum + group.tasks.length, 0);
 	useNow(yours + held.length > 0, Duration.mins(1));
+	const scroller = useRef<HTMLDivElement>(null);
+	const { edges, read: readEdges } = useEdges(scroller);
 
+	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
+	const lanes = named(project.todos, project.lanes);
+	const board = {
+		...NO_BOARD,
+		linked: true,
+		todos: project.todos,
+		lanes,
+		boards: project.boards,
+		elsewhere: project.elsewhere,
+		open: onOpenTodo,
+		openTask: (name: string) => onOpen(name),
+		openLane: onOpenLane,
+		tasks: everyTask.map((each) => each.task),
+		taskTags: new Map(everyTask.map((each) => [each.task, each.tags])),
+		refusedTodos,
+		refuseTodo,
+	};
+	const shown = (todo: TaskRecord) => filter.passes(todoFiltered(todo));
+	const running = yours + held.filter((each) => each.automatic).length;
 	return (
-		<section aria-label="queue" className="flex flex-col gap-4">
-			<TopBar
-				title="Queue"
-				actions={[
-					taskFilterAction({
-						filter,
-						projects: projectOptions(
+		<BoardContextOf value={board}>
+			<section
+				aria-label="queue"
+				className="flex min-h-0 min-w-0 flex-1 flex-col"
+			>
+				<TopBar
+					title={
+						<div className="flex min-w-0 items-center gap-3">
+							{/* A phone has Queue in its menu, and no room for the way back. */}
+							<div className="shrink-0 max-md:[&_li:first-child]:hidden max-md:[&_svg]:hidden">
+								<RouteTrail
+									items={[
+										{ label: "Boards", onClick: onBoards },
+										{ label: "Queue" },
+									]}
+								/>
+							</div>
+							<PermanentLock why={QUEUE_BOARD_WHY} />
+							{pool !== null && (
+								<QueueControls
+									view={view}
+									pool={pool}
+									waiting={queue.length}
+									busy={
+										queue.filter((each) => each.reason === "machine busy")
+											.length
+									}
+								/>
+							)}
+						</div>
+					}
+				/>
+				<div className="mb-2">
+					<TaskFilterBar
+						filter={filter}
+						projects={projectOptions(
 							[...project.todos.map(todoFiltered), ...everyTask],
 							filter.projects,
-						),
-						tags: tagOptions(
+						)}
+						tags={tagOptions(
 							project.allowedTags,
 							[...project.todos.map(todoFiltered), ...everyTask],
 							filter.tags,
-						),
-					}),
-				]}
-			/>
-			{pool !== null && (
-				<QueueControls
-					view={view}
-					pool={pool}
-					waiting={queue.length}
-					busy={queue.filter((each) => each.reason === "machine busy").length}
-				/>
-			)}
-			<section
-				aria-label="queue card"
-				className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs"
-			>
-				<Running held={held} known={known} />
-				<Waiting queue={queue} known={known} />
-				<UpNext
-					todos={project.todos}
-					lanes={project.lanes}
-					onOpen={onOpenTodo}
-					shown={(todo) => filter.passes(todoFiltered(todo))}
-				/>
-				<BlockedTasks
-					todos={project.todos}
-					lanes={project.lanes}
-					onOpen={onOpenTodo}
-					shown={(todo) => filter.passes(todoFiltered(todo))}
-				/>
-				<QueueSection title="Started by you" count={yours}>
-					{groups === null ? (
-						<TaskRows
-							rows={tasks.filter(
-								(task) => !slotted.has(`${project.root}\n${task.task}`),
-							)}
-							onOpen={onOpen}
-						/>
+						)}
+					/>
+				</div>
+				<div
+					ref={scroller}
+					onScroll={readEdges}
+					style={{ maskImage: fadeOf(edges) }}
+					className="relative -mx-4 -mt-1 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pt-1 pb-4 max-md:snap-mandatory"
+				>
+					<BlockedColumn shown={shown} staleness={project.taskStalenessMs} />
+					<QueuedColumn shown={shown} staleness={project.taskStalenessMs} />
+					<QueueColumn
+						title="Running"
+						why="Permanent column: tasks an agent is working on. A card arrives when an agent starts it, and leaves when the task ends."
+						count={running}
+					>
+						<Running held={held} known={known} />
+						{groups === null ? (
+							<TaskRows
+								rows={tasks.filter(
+									(task) => !slotted.has(`${project.root}\n${task.task}`),
+								)}
+								onOpen={onOpen}
+							/>
+						) : (
+							<ProjectRows groups={groups} onOpen={onOpen} />
+						)}
+						{running === 0 && <QueueEmpty>Nothing running</QueueEmpty>}
+						<Waiting queue={queue} known={known} />
+					</QueueColumn>
+					<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
+				</div>
+				<Dialog
+					open={opened !== null || saved}
+					onOpenChange={(opening) => {
+						if (!opening) {
+							onOpen(null);
+						}
+					}}
+				>
+					{opened ? (
+						<Task task={opened} />
 					) : (
-						<ProjectRows groups={groups} onOpen={onOpen} />
+						open !== null && <FinishedByName name={open} />
 					)}
-				</QueueSection>
+				</Dialog>
 			</section>
-			<FinishedTasks moved={tasks.map((task) => task.task).join("\n")} />
-			<Dialog
-				open={opened !== null}
-				onOpenChange={(opening) => {
-					if (!opening) {
-						onOpen(null);
-					}
-				}}
-			>
-				{opened && <Task task={opened} />}
-			</Dialog>
-		</section>
+		</BoardContextOf>
 	);
 }
 
 /** What the Tasks page reads of this project's snapshot. */
 type Here = Pick<
 	Snapshot,
-	"tasks" | "todos" | "lanes" | "root" | "repo" | "allowedTags"
+	| "tasks"
+	| "todos"
+	| "lanes"
+	| "boards"
+	| "elsewhere"
+	| "root"
+	| "repo"
+	| "allowedTags"
+	| "taskStalenessMs"
 >;
 
 /** What the filter reads of a queued task. */
@@ -281,19 +346,16 @@ function ProjectRows({
 }: {
 	groups: Group[];
 	onOpen: (task: string) => void;
-}): JSX.Element {
+}): JSX.Element | null {
 	const navigation = useContext(NavigationContext);
 	const rows = groups.flatMap((group) =>
 		group.tasks.map((task) => ({ group, task })),
 	);
 	if (rows.length === 0) {
-		return <QueueEmpty>No tasks at work</QueueEmpty>;
+		return null;
 	}
 	return (
-		<ul
-			aria-label="task list"
-			className="flex flex-col divide-y divide-border/50"
-		>
+		<ul aria-label="task list" className="flex flex-col gap-1.5">
 			{rows.map(({ group, task }) => {
 				const { project } = group;
 				return (
@@ -330,15 +392,12 @@ function TaskRows({
 }: {
 	rows: Details[];
 	onOpen: (task: string) => void;
-}): JSX.Element {
+}): JSX.Element | null {
 	if (rows.length === 0) {
-		return <QueueEmpty>No tasks at work</QueueEmpty>;
+		return null;
 	}
 	return (
-		<ul
-			aria-label="task list"
-			className="flex flex-col divide-y divide-border/50"
-		>
+		<ul aria-label="task list" className="flex flex-col gap-1.5">
 			{rows.map((task) => (
 				<li key={task.task}>
 					<TaskRow
@@ -374,10 +433,16 @@ function TaskRow({
 	needing: Needing[] | null;
 	onOpen: () => void;
 }): JSX.Element {
+	const { todos } = useContext(BoardContextOf);
+	const taken =
+		project === null
+			? todos.find((todo) => todo.takenBy === task.task)
+			: undefined;
 	return (
 		<QueueRow
 			name={task.task}
 			tags={task.tags}
+			by={project ?? (taken && <LaneChip lane={taken.lane} />)}
 			marks={
 				<>
 					{task.comingConflict && task.comingConflict.length > 0 && (
@@ -398,7 +463,6 @@ function TaskRow({
 					)}
 				</>
 			}
-			by={project ?? undefined}
 			age={
 				task.createdAt !== null || task.age !== null ? (
 					<span title="Elapsed time since this task started, including waits">

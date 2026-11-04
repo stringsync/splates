@@ -36,7 +36,19 @@ export interface ContractBatch {
 	title?: string;
 	/** Who wrote the batch; `splates` for splates's own harness, which the page gives its skill controls. */
 	producer?: string;
+	/** Which skill and scenarios the batch ran, to compare pass rates only between batches that ran the same scenarios. */
+	revision?: ContractRevision;
 	cells: ContractCell[];
+}
+
+/** The skill and scenarios a batch ran. */
+export interface ContractRevision {
+	/** The git commit the skill was at, when it is in a repository. */
+	commit?: string;
+	/** SHA-256 of the skill as a sandbox installs it: everything but its top-level `evals/`. */
+	skillHash: string;
+	/** SHA-256 of the skill's `evals/` directory: the scenario files, with their checks and judge prompts. */
+	scenarioHash: string;
 }
 
 /** One case on one target at one repetition. */
@@ -50,6 +62,8 @@ export interface ContractCell {
 	about?: string;
 	target: ContractTarget;
 	repetition?: number;
+	/** A hash of everything the case's verdict depends on, so a page can tell a case's latest run is stale once it changes. */
+	fingerprint?: string;
 }
 
 /** Free-form labels for what a cell ran on. */
@@ -85,4 +99,6 @@ export interface ContractDetail {
 	checks?: EvalCheck[];
 	judge?: EvalVerdict;
 	transcript?: EvalStep[];
+	/** Files in the batch's directory holding the run's repo as it ended: a git bundle, and the uncommitted work as a patch when there was any. */
+	repo?: { bundle: string; diff?: string };
 }

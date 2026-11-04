@@ -1,32 +1,5 @@
 /** What runs splates: on the PATH, this repository's `bin/splates`, or bunx. */
 const SPLATES = /^(?:\S*\/)?splates$|^@stringsync\/splates(?:@\S+)?$/;
-/** What runs the mono root's dev commands: `bin/mono` by any path. */
-const MONO = /^(?:\S*\/)?mono$/;
-
-/**
- * Whether `command`, from a run-command card, may need a suite grant: a
- * `bin/mono test` (including scopes reaching half the test files), or a
- * `bin/mono premerge` or `bun run premerge` without `--evals`, which an agent is
- * refused until the person approves one run. Leading `VAR=value` words are
- * passed over.
- */
-export function isWholeSuite(command: string): boolean {
-	const words = command.trim().split(/\s+/);
-	let at = 0;
-	while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[at] ?? "")) {
-		at++;
-	}
-	if (words[at] === "bun" && words[at + 1] === "run") {
-		return words[at + 2] === "premerge" && !words.includes("--evals");
-	}
-	if (!MONO.test(words[at] ?? "")) {
-		return false;
-	}
-	const which = words[at + 1];
-	return (
-		(which === "test" || which === "premerge") && !words.includes("--evals")
-	);
-}
 
 /**
  * The task a run-command card's `splates retry <task>` asks another round of

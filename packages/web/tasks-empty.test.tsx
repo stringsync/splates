@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { act, cleanup, fireEvent, Testing } from "./testing";
+import { act, cleanup, Testing } from "./testing";
 
 describe("Queue page's empty state", () => {
 	let testing: Testing;
@@ -15,11 +15,12 @@ describe("Queue page's empty state", () => {
 
 	it("says the list is empty in one line, offering nothing", async () => {
 		const view = await testing.openConversations([], null, { tasks: [] });
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 
-		expect(view.getByText("No tasks at work")).toBeTruthy();
+		expect(view.getByText("Nothing running")).toBeTruthy();
 		expect(
 			view.queryByRole("button", { name: "Start a conversation" }),
 		).toBeNull();

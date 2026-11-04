@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { EvalGrid, EvalLaunch } from "@splates/server/evals/browser";
+import type {
+	EvalBudgetStatus,
+	EvalGrid,
+	EvalLaunch,
+} from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
 import { FakeTimer } from "core/time/testing";
 import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
+import { budgetText, roundsText, stoppedText } from "./eval-status";
 
 describe("EvalRun", () => {
 	const proposal = () => ({
@@ -44,6 +49,44 @@ describe("EvalRun", () => {
 
 		expect(reloaded.key).toBe(first.key);
 		expect(resent.key).not.toBe(first.key);
+	});
+
+	it("sets the default budget on a conversation's first run, with edits", async () => {
+		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
+		await run.load();
+		expect(run.limits).toEqual({ usd: 10, rounds: 3 });
+		run.setLimits({ usd: 4 });
+		await run.run();
+		expect(server.started[0]).toMatchObject({
+			conversation: "c-1",
+			budget: { usd: 4, rounds: 3 },
+		});
+		run.dispose();
+	});
+
+	it("reads the spend and the round count, and the limit that stopped it", async () => {
+		server.status = {
+			budget: { usd: 10, rounds: 3 },
+			spentUsd: 3.5,
+			tokens: 1200,
+			roundsUsed: 1,
+			stoppedBy: null,
+		};
+		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
+		await run.load();
+		expect(run.budget).toMatchObject({ spentUsd: 3.5, roundsUsed: 1 });
+		expect(budgetText(run.budget as EvalBudgetStatus)).toBe(
+			"$3.50 of $10.00 · 1,200 tokens",
+		);
+		expect(roundsText(run.budget as EvalBudgetStatus)).toBe("round 1 of 3");
+		expect(stoppedText(run.budget as EvalBudgetStatus)).toBeNull();
+		expect(
+			stoppedText({ ...(run.budget as EvalBudgetStatus), stoppedBy: "usd" }),
+		).toBe("Stopped: the dollar budget is used up.");
+		expect(
+			stoppedText({ ...(run.budget as EvalBudgetStatus), stoppedBy: "rounds" }),
+		).toBe("Stopped: the round cap is reached.");
+		run.dispose();
 	});
 
 	it("configures repetitions", async () => {
@@ -138,6 +181,7 @@ describe("EvalRun", () => {
 				...ASK,
 				agents: [{ agent: "claude", model: "opus" }],
 				conversation: "c-1",
+				budget: { usd: 10, rounds: 3 },
 			},
 		]);
 		expect(run.grid?.tally.pending).toBe(2);
@@ -189,7 +233,11 @@ class FakeEvalServer implements EvalRunServer {
 	started: unknown[] = [];
 	launched: EvalLaunch | null = null;
 	pending = 2;
+	status: EvalBudgetStatus | null = null;
 
+	async budget() {
+		return this.status;
+	}
 	async savedAgents() {
 		return this.agents;
 	}

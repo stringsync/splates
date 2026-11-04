@@ -403,6 +403,24 @@ describe.concurrent("task", () => {
 		expect(deps.out()).toContain("groomed:   yes");
 	});
 
+	it("reports a groomer claim as unfinished and a Backlog placement as groomed", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "awaiting grooming", null);
+		await deps.tasks.add("placed in Backlog", null, { lane: 0 });
+		await (await deps.tasks.find(1)).groom("groomer-a");
+
+		deps.log.clear();
+		await taskShow(deps, 1);
+		expect(deps.out()).toContain("groomed:   no, groom it before work on it");
+		expect(deps.out()).toContain("grooming:  the groomer has it");
+		deps.log.clear();
+		await taskShow(deps, 2);
+		expect(deps.out()).toContain(
+			"groomed:   yes, it was groomed and stays in Backlog",
+		);
+		expect(deps.out()).not.toContain("grooming:");
+	});
+
 	it("is claimed for one groomer at a time, until a take or a lane ends the claim", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "rough", null);

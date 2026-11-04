@@ -53,6 +53,7 @@ export function foldersOf(
 						conversations: conversations.filter(
 							(each) => each.project === project.project,
 						),
+						todos: project.todos,
 					},
 					project.laneNames,
 					project.lanesTaken,

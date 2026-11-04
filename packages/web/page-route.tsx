@@ -24,7 +24,6 @@ import {
 } from "./page-address";
 import type { ShortcutKey } from "./settings";
 import { useShipPushOpens } from "./ship-badge";
-import { TaskIcon } from "./task-icon";
 
 /** Where the page is, from its address, and the actions that move it. */
 export function usePageRoute(): PageRoute {
@@ -117,7 +116,7 @@ export const PAGES: {
 	scope: "project" | "everywhere";
 }[] = [
 	{
-		value: "todos",
+		value: "boards",
 		label: "Boards",
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
@@ -130,7 +129,6 @@ export const PAGES: {
 		Icon: ZapIcon,
 		scope: "project",
 	},
-	{ value: "tasks", label: "Queue", Icon: TaskIcon, scope: "everywhere" },
 	{
 		value: "stats",
 		label: "Stats",
@@ -155,8 +153,8 @@ export const PAGES: {
 export function navPage(page: Page): Page {
 	return page === "auto-pick"
 		? "automations"
-		: page === "boards"
-			? "todos"
+		: page === "todos"
+			? "boards"
 			: page;
 }
 
@@ -199,7 +197,7 @@ export function PageShortcuts({
 	onSettings: () => void;
 	onTerminal: (() => void) | null;
 }): null {
-	useShortcut("shortcuts.todos", () => onPage("todos"));
+	useShortcut("shortcuts.todos", () => onPage("boards"));
 	useShipPushOpens(() => onPage("ships"));
 	useShortcut("shortcuts.back", () => onBack?.(), onBack !== null);
 	useShortcut("shortcuts.forward", () => onForward?.(), onForward !== null);

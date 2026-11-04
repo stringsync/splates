@@ -663,9 +663,10 @@ export class Testing implements Resource {
 	/** Renders the page as `open` does, and goes to its tasks. */
 	async openTasks(overrides: Partial<Snapshot> = {}) {
 		const view = await this.open(overrides);
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		return view;
 	}
 

@@ -7,6 +7,8 @@ export {
 	refuseAgentQueue,
 	sayUnqueuedBlockers,
 } from "./commands";
+export type { QueueCapacityReading } from "./load";
+export { QueueCapacity } from "./load";
 export { QueueMoves } from "./moves";
 export { taskName } from "./name";
 export {

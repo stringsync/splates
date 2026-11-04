@@ -804,7 +804,9 @@ export async function dev(
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
 					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
+					"/api/evals/states": guarded(evalLaunchRoutes.states),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
+					"/api/evals/budget": guarded(evalLaunchRoutes.budget),
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),
 						POST: guarded(evalLaunchRoutes.start),
@@ -1064,9 +1066,6 @@ export async function dev(
 					},
 					"/api/conversations/:id/prompt": {
 						POST: talk(owned((project) => project.promptConversation)),
-					},
-					"/api/conversations/:id/suite": {
-						POST: talk(owned((project) => project.approveSuite)),
 					},
 					"/api/conversations/:id/attachments/:name": {
 						GET: talk(owned((project) => project.conversationAttachment)),

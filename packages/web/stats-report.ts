@@ -251,7 +251,7 @@ export interface Row {
 	durationPerTask: number | null;
 	/** How long a task's agent worked, in milliseconds, over those with usage kept. */
 	workedPerTask: number | null;
-	/** What made workers cost its tasks in all; null when none held a slot on one. */
+	/** What made workers cost its tasks in all; null when none ran on one. */
 	workers: {
 		dollars: number;
 		slotHours: number;

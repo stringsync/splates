@@ -137,7 +137,11 @@ describe("Ship plan", () => {
 			target: { value: "  Keep this exactly.\n" },
 		});
 		expect(body).toBeNull();
-		fireEvent.click(view.getByRole("button", { name: /^Ship \d/ }));
+		fireEvent.click(view.getByRole("button", { name: /^Review \d/ }));
+		expect(body).toBeNull();
+		fireEvent.click(
+			view.getByRole("button", { name: "Accept and start ship" }),
+		);
 		await waitFor(() =>
 			expect(body).toEqual({
 				projects: [
@@ -158,7 +162,7 @@ describe("Ship plan", () => {
 		);
 		expect(await view.findByRole("alert")).toBeTruthy();
 	});
-	it("previews each release with the version it gets and marks a dependent added automatically", async () => {
+	it("reviews each release on its own page, keeps the picks on Back, and marks a dependent added automatically", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
 			constructor() {
@@ -182,13 +186,21 @@ describe("Ship plan", () => {
 		await view.findByText("base");
 		expect(view.getByText("Nothing chosen")).toBeTruthy();
 		fireEvent.click(view.getByRole("checkbox", { name: "Ship base" }));
-		const preview = view.getByRole("region", { name: "What Start will do" });
-		expect(preview.textContent).toContain("base 0.0.53 → 0.0.54: publish");
-		expect(preview.textContent).toContain(
-			"consumer 0.0.53 → 0.0.54: pin base 0.0.54, then publish",
-		);
+		expect(
+			view.queryByRole("region", { name: "What Start will do" }),
+		).toBeNull();
 		expect(view.getAllByText("added automatically")).toHaveLength(1);
-		expect(view.getByRole("button", { name: "Ship 2 projects" })).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: "Review 2 projects" }));
+		const preview = view.getByRole("region", { name: "What Start will do" });
+		expect(preview.textContent).toContain("base0.0.53 → 0.0.54");
+		expect(preview.textContent).toContain("First: pin base 0.0.54");
+		fireEvent.click(view.getByRole("button", { name: "Back" }));
+		expect(ticked(view.getByRole("checkbox", { name: "Ship base" }))).toBe(
+			true,
+		);
+		expect(
+			view.getByRole("button", { name: "Review 2 projects" }),
+		).toBeTruthy();
 	});
 	it("shows the plan without a steps card", async () => {
 		let stream: Stream | null = null;

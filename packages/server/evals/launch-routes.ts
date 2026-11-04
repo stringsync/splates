@@ -3,7 +3,9 @@ import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body, type Handler } from "../server/shared";
 import { NATIVE_AGENTS } from "./agents";
+import type { EvalBudget } from "./budget";
 import type { EvalCommands, EvalLaunches, EvalLaunchSpec } from "./launch";
+import { EvalStore } from "./store";
 
 /** Where a conversation works, for a run its card starts to use the code there. */
 export interface ConversationDirs {
@@ -44,6 +46,15 @@ export class EvalLaunchRoutes {
 		);
 	};
 
+	/** Each listed case with its state (failing, never run, stale or passing), from the batches saved. */
+	readonly states: Handler = async (request) => {
+		const scenarios = await (await this.scenarios(request)).json();
+		const commands = await this.commands(request);
+		return Response.json(
+			await new EvalStore(commands.results).states(scenarios),
+		);
+	};
+
 	/** The free plan for the body's cases and agents: what the run would reserve. */
 	readonly plan: Handler = async (request) => {
 		const commands = await this.runnable(request);
@@ -67,14 +78,35 @@ export class EvalLaunchRoutes {
 			fail("usage", "a run names its card by `key`", {});
 		}
 		const conversation = this.conversation(sent);
+		if (conversation !== null && sent.budget != null) {
+			// Set once, when the eval starts: a later ask changes nothing.
+			const { usd, rounds } = sent.budget as Partial<EvalBudget>;
+			if (typeof usd !== "number" || typeof rounds !== "number") {
+				fail("usage", "a budget names its `usd` and `rounds`", {});
+			}
+			await this.launches.budgets.set(conversation, { usd, rounds });
+		}
 		return Response.json(
 			await this.launches.start(commands, {
 				...spec,
 				key,
 				conversation,
+				...(sent.auto === true ? { auto: true } : {}),
 				// The conversation's task worktree, so a run checks the change it makes.
 				cwd: await this.cwdOf(conversation),
 			}),
+		);
+	};
+
+	/** `?conversation=` names the conversation; its budget, what it has spent and the rounds used. */
+	readonly budget: Handler = async (request) => {
+		const commands = await this.commands(request);
+		const conversation = new URL(request.url).searchParams.get("conversation");
+		if (conversation === null || conversation === "") {
+			fail("usage", "a budget names its `conversation`", {});
+		}
+		return Response.json(
+			await this.launches.budgetStatus(commands, conversation),
 		);
 	};
 

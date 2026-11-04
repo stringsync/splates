@@ -18,16 +18,18 @@ export function unused(): Usage {
 	};
 }
 
-/** Where an agent waits for a place, as the page shows it. */
+/** Where a queued task waits to start, as the page shows it. */
 export interface QueueSpot {
-	/** From 1, the next to be placed. */
+	/** From 1, the next to start. */
 	position: number;
 	/** How many wait in all, on every project. */
 	of: number;
 	/** When it joined the queue. */
 	since: string;
-	/** Why it waits: "no free place", or "needs macOS" for a platform no worker runs. */
+	/** Why it waits: "starting", "paused", "machine busy", "could not start: …" or a blocker wait. */
 	reason: string;
+	/** Measurements used by the scheduler while capacity holds a start. */
+	capacity?: import("../queue").QueueCapacityReading;
 }
 
 /** Everything the page shows of one conversation. */
@@ -70,7 +72,7 @@ export interface ConversationState {
 	 * and again once it starts.
 	 */
 	stoppedIdle: string | null;
-	/** Where its agent waits for a place on a worker; null once it has one, or wants none. */
+	/** Where its agent waits to start; null once it has, or wants none. */
 	queue: QueueSpot | null;
 	messages: Message[];
 	/** What splates did at its agent's word, oldest first, shown among its messages. */

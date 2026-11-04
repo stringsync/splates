@@ -18,7 +18,7 @@ export const PAUSE_HOLDS =
 	"Nothing caps how many agents run; merges take turns and agents ask before other heavy work. Pause holds back what splates starts on its own: the queue, automations, hooks and the groomer. Agents you start still start.";
 
 /**
- * What splates starts on its own, atop the Queue page: Pause, or Resume
+ * What splates starts on its own, in the Queue page's bar: Pause, or Resume
  * while paused, and a line on how many agents run and wait.
  */
 export function QueueControls({
@@ -60,12 +60,12 @@ export function QueueControls({
 	return (
 		<section
 			aria-label="queue controls"
-			className="flex flex-col gap-1 rounded-xl border bg-card px-4 py-2.5 shadow-xs"
+			className="flex min-w-0 flex-col gap-1"
 		>
-			<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-				<span className="flex items-center gap-1">
+			<div className="flex min-w-0 items-center gap-x-3">
+				<span className="flex shrink-0 items-center gap-1">
 					<Button
-						size="sm"
+						size="xs"
 						variant={paused ? "default" : "outline"}
 						disabled={writing}
 						aria-busy={writing}
@@ -100,7 +100,7 @@ export function QueueControls({
 				</span>
 				<span
 					role="status"
-					className="text-muted-foreground text-sm max-md:basis-full"
+					className="min-w-0 truncate text-muted-foreground text-sm"
 				>
 					{standing({ paused, running, waiting, busy })}
 				</span>
@@ -132,10 +132,8 @@ export function standing({
 	/** How many waiting agents the machine's load holds back. */
 	busy?: number;
 }): string {
-	const line =
-		waiting === 0
-			? `${running} running`
-			: `${running} running · ${waiting} waiting`;
+	const agents = `${running} ${running === 1 ? "agent" : "agents"} running`;
+	const line = waiting === 0 ? agents : `${agents} · ${waiting} waiting`;
 	if (paused) {
 		return `Paused · ${line} · yours still start`;
 	}

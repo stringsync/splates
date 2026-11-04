@@ -56,11 +56,11 @@ describe("App's Queue page, every project's tasks", () => {
 		history.replaceState(null, "", location.pathname);
 	});
 
-	/** The names of the tasks Started by you lists, in its order. */
+	/** The names of the tasks Running lists, in its order. */
 	const names = (view: Awaited<ReturnType<Testing["openTasks"]>>) =>
 		within(view.getByRole("list", { name: "task list" }))
 			.getAllByRole("listitem")
-			.map((row) => row.querySelector(".truncate")?.textContent);
+			.map((row) => row.querySelector(".font-medium")?.textContent);
 
 	it("lists every project's tasks in one list, by project, naming another project's on its row", async () => {
 		const view = await testing.openTasks({
@@ -134,9 +134,9 @@ describe("App's Queue page, every project's tasks", () => {
 		testing.everywhere = [listed("empty", "empty", "/code/empty", [])];
 		const view = await testing.openTasks({ tasks: [] });
 
-		const yours = view.getByRole("region", { name: "Started by you" });
+		const yours = view.getByRole("region", { name: "Running" });
 		await waitFor(() =>
-			expect(within(yours).getByText("No tasks at work")).toBeTruthy(),
+			expect(within(yours).getByText("Nothing running")).toBeTruthy(),
 		);
 		expect(view.queryByRole("region", { name: "empty" })).toBeNull();
 	});
@@ -146,6 +146,6 @@ describe("App's Queue page, every project's tasks", () => {
 
 		await waitFor(() => queueRow(view, "stripes"));
 		expect(names(view)).toEqual(["core", "core-part", "stripes"]);
-		expect(view.queryByText("No tasks at work")).toBeNull();
+		expect(view.queryByText("Nothing running")).toBeNull();
 	});
 });

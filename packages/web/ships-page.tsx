@@ -8,7 +8,7 @@ import { actOnShip, shipHistory, shipHistoryEntry, shipStageLog } from "./api";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { RouteTrail } from "./route-trail";
-import { LastShip, ShipHistory } from "./ship-history";
+import { LastShipSummary, ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
 import { ProjectStages } from "./ship-run";
 import { TopBar } from "./top-bar";
@@ -51,7 +51,7 @@ export function ShipsPage({
 	}, [viewed, live, closed]);
 	const [past, setPast] = useState<CascadeSummary[] | null>(null);
 	useEffect(() => {
-		shipHistory().then(setPast, () => undefined);
+		shipHistory().then(setPast, () => setPast([]));
 	}, []);
 	return (
 		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
@@ -123,6 +123,8 @@ export function ShipsPage({
 				<PastShip id={viewed} />
 			) : (
 				<ShipPlan
+					header={<LastShipSummary cascades={past} />}
+					ready={live !== null && past !== null}
 					ship={new URLSearchParams(location.search).get("ship")}
 					endedAt={live?.cascade?.ended ?? null}
 					busy={busy}
@@ -134,9 +136,7 @@ export function ShipsPage({
 						history.replaceState(null, "", url);
 						location.hash = `ships/${ACTIVE}`;
 					}}
-				>
-					<LastShip cascades={past} />
-				</ShipPlan>
+				></ShipPlan>
 			)}
 		</section>
 	);

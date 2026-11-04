@@ -1,5 +1,8 @@
 import type { EvalDetail } from "@splates/server/evals/browser";
-import { targetName } from "@splates/server/evals/browser";
+import {
+	DEFAULT_EVAL_BUDGET,
+	type EvalBudget,
+} from "@splates/server/evals/browser";
 import { ChevronDownIcon, WrenchIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -28,39 +31,44 @@ export function improvable(status: string): boolean {
 }
 
 /**
- * What asks an agent to work the eval loop on `run`'s scenario: the
- * requirement, each check and the judge's reason that held it back, the
- * reply, how to show the run in full, and the loop the skill's evals.md
- * lays out, whose runs the person starts from the permission card.
+ * What asks an agent to work the eval loop on `run`'s scenario: a splates
+ * directive naming the run, then the loop's dollar budget and round cap as
+ * plain text lines. The skill's SKILL.md maps it to its `references/evals.md`,
+ * which says how to read the run and the limits and work the loop. It is text
+ * only, so any harness can follow it without the splates page.
  */
-export function improvePrompt(run: EvalDetail): string {
-	const held = [
-		...run.checks
-			.filter((check) => !check.pass)
-			.map((check) => `- Check \`${check.id}\`: ${check.about}`),
-		...(run.judge?.pass === false ? [`- Judge: ${run.judge.reason}`] : []),
+export function improvePrompt(
+	run: Pick<EvalDetail, "id">,
+	limits: EvalBudget = DEFAULT_EVAL_BUDGET,
+): string {
+	return `[SPLATES EVAL LOOP ${run.id}]\nBudget: $${limits.usd}\nRounds: ${limits.rounds}`;
+}
+
+/**
+ * What asks an agent to work the eval loop from a scenario, which may have no
+ * run yet: the directive names the scenario, then the budget and rounds, then
+ * optionally an `Agents:` line of the saved agents to run it on and a
+ * `Repetitions:` line for how many times to run each. The agent
+ * runs the scenario first, then carries on as from a failed run.
+ */
+export function scenarioPrompt(
+	scenario: string,
+	limits: EvalBudget = DEFAULT_EVAL_BUDGET,
+	agents: readonly string[] = [],
+	reps: number | null = null,
+): string {
+	const lines = [
+		`[SPLATES EVAL LOOP scenario ${scenario}]`,
+		`Budget: $${limits.usd}`,
+		`Rounds: ${limits.rounds}`,
 	];
-	return `An eval scenario is not passing. Find why, which may be the skill, the scenario, its judge or the harness, and fix it, without special-casing the scenario in the skill.
-
-Scenario: \`${run.scenario}\` (${run.aspect})
-Requirement: ${run.requirement}
-Agent: ${targetName(run.target)}, repetition ${run.repetition + 1}
-
-It asked the agent:
-
-${run.input}
-
-What held it back:
-
-${held.length === 0 ? "- nothing named; read the transcript" : held.join("\n")}
-
-The agent's reply:
-
-${run.reply || "(none)"}
-
-The run opens on the Evals page as \`${run.id}\`, and in full with \`splates dev eval show ${run.id}\`.
-
-Start a splates task for it and work the loop in the splates skill's \`references/evals.md\`: run this one scenario with 3 repetitions for its starting pass rate, label each failure (harness, scenario, judge or skill), fix one thing in that layer, rerun, and log the round in SPLATES.md, until it passes every repetition or three rounds bring no gain. Never start an eval yourself: ask with the run evals card.`;
+	if (agents.length > 0) {
+		lines.push(`Agents: ${agents.map((agent) => `\`${agent}\``).join(", ")}`);
+	}
+	if (reps !== null) {
+		lines.push(`Repetitions: ${reps}`);
+	}
+	return lines.join("\n");
 }
 
 /**
@@ -78,6 +86,7 @@ export function ImproveMenu({
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const [error, setError] = useState<string | null>(null);
+	const [limits, setLimits] = useState<EvalBudget>({ ...DEFAULT_EVAL_BUDGET });
 	if (context === null) {
 		return null;
 	}
@@ -86,7 +95,7 @@ export function ImproveMenu({
 		setError(null);
 		(typeof run === "string" ? evalRun(run) : Promise.resolve(run))
 			.then((detail) =>
-				dispatch.beginWith({ agent }, null, improvePrompt(detail)),
+				dispatch.beginWith({ agent }, null, improvePrompt(detail, limits)),
 			)
 			.then(open)
 			.catch((failed: unknown) =>
@@ -95,6 +104,34 @@ export function ImproveMenu({
 	};
 	return (
 		<span className="flex items-center gap-2">
+			<label className="flex items-center gap-1 text-xs">
+				Budget ($)
+				<input
+					aria-label="Budget in dollars"
+					className="w-16 rounded border p-1"
+					type="number"
+					min={0.01}
+					step="any"
+					value={limits.usd}
+					onChange={(event) =>
+						setLimits({ ...limits, usd: Number(event.target.value) })
+					}
+				/>
+			</label>
+			<label className="flex items-center gap-1 text-xs">
+				Rounds
+				<input
+					aria-label="Max rounds"
+					className="w-14 rounded border p-1"
+					type="number"
+					min={1}
+					step={1}
+					value={limits.rounds}
+					onChange={(event) =>
+						setLimits({ ...limits, rounds: Number(event.target.value) })
+					}
+				/>
+			</label>
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					render={

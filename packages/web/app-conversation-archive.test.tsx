@@ -424,6 +424,88 @@ describe("App's archiving conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("offers Put back on board & archive for a taken task, which sends the Defer directive and archives only after a new Deferred report", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Fix login",
+					status: "stopped",
+					messages: [
+						message("user", "fix login"),
+						message("agent", "## ⏸ Deferred alpha: waiting on #1\n\nEarlier."),
+					],
+				}),
+			],
+			"c1",
+			{ tasks: [details({ task: "alpha", takenBy: "c1", ahead: 2 })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /^Archive/ },
+				),
+			),
+		);
+		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", {
+					name: "Put back on board & archive",
+				}),
+			),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
+		]);
+		// The task stays, and the earlier Deferred report does not count.
+		expect(testing.posted("/api/tasks/alpha")).toEqual([]);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+
+		// The archive goes on only now: the page still shows the task taken,
+		// so archiving asks again, rather than waiting on a report any more.
+		expect(view.queryByRole("dialog")).toBeNull();
+		await testing.say(
+			conversation({
+				id: "c1",
+				task: "alpha",
+				title: "Fix login",
+				status: "stopped",
+				messages: [
+					message("user", "fix login"),
+					message("agent", "## ⏸ Deferred alpha: waiting on #1\n\nEarlier."),
+					message("user", "[SPLATES DEFER]"),
+					message("agent", "## ⏸ Deferred alpha: waiting on #2\n\nNow."),
+				],
+			}),
+		);
+		await waitFor(() =>
+			expect(view.getByRole("dialog", { name: "Archive alpha?" })).toBeTruthy(),
+		);
+		expect(testing.posted("/api/tasks/alpha")).toEqual([]);
+	});
+
+	it("offers no Put back on board & archive when the conversation holds no task", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Fix login", status: "running" }),
+		]);
+
+		await pressArchive();
+
+		expect(
+			within(
+				view.getByRole("dialog", { name: "Archive Fix login?" }),
+			).queryByRole("button", { name: "Put back on board & archive" }),
+		).toBeNull();
+	});
+
 	it("archives the open conversation on ⌥⌘⌫ to a new one with none waiting, asking first while its agent runs", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Fix login", status: "running" }),

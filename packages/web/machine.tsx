@@ -1,3 +1,4 @@
+import { DEGREES, SHARE, strained } from "@splates/server/workers/browser";
 import { WindowBackgroundObserver } from "core/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useRef, useState } from "react";
@@ -18,10 +19,6 @@ const LIVE = Duration.secs(1);
 
 /** How old a live reading may be and still be shown as live. */
 const FRESH = Duration.secs(3);
-
-/** CPU and memory shares, and degrees, past which each is yellow, then red. */
-const SHARE = { warning: 0.8, destructive: 0.9 };
-const DEGREES = { warning: 80, destructive: 95 };
 
 /**
  * The machine's reading, asked every few seconds while the page is in front,
@@ -96,19 +93,6 @@ const ASK_NOW = "splates:machine";
  */
 export function askMachineNow(): void {
 	dispatchEvent(new Event(ASK_NOW));
-}
-
-/**
- * Whether the machine is working hard enough that agents may slow down: CPU
- * or memory red, or the hottest sensor red.
- */
-export function strained(reading: MachineStatus): boolean {
-	return (
-		toneOf(reading.cpu, SHARE) === "destructive" ||
-		toneOf(reading.memory, SHARE) === "destructive" ||
-		(reading.temperature !== null &&
-			toneOf(reading.temperature, DEGREES) === "destructive")
-	);
 }
 
 /**

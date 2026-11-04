@@ -634,6 +634,68 @@ describe("App's conversation thread", () => {
 		).toBe("#tasks");
 	});
 
+	it("says recovery is under way in one waiting banner without a second late warning", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				status: "stopped",
+				stoppedIdle: "2026-10-14T10:00:00.000Z",
+				heldForTask: 3,
+				queue: {
+					position: 3,
+					of: 3,
+					since: new Date(Date.now() - 6 * 60_000).toISOString(),
+					reason: "machine busy",
+					capacity: {
+						cpu: 0.32,
+						memory: 0.49,
+						load: 30.2,
+						cores: 16,
+						recoverySeconds: 5,
+					},
+				},
+			}),
+		]);
+		const banners = view.container.ownerDocument.querySelectorAll(
+			'[data-slot="queue-banner"]',
+		);
+		expect(banners.length).toBe(1);
+		expect(banners[0]?.textContent).toBe(
+			"Queued 3rd of 3: Capacity back, resuming in 5s",
+		);
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="idle-banner"]'),
+		).toBeNull();
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="queue-late"]'),
+		).toBeNull();
+	});
+
+	it("says which reading a machine-busy wait needs lower, and how low", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				status: "stopped",
+				heldForTask: 3,
+				queue: {
+					position: 3,
+					of: 3,
+					since: new Date(Date.now() - 6 * 60_000).toISOString(),
+					reason: "machine busy",
+					capacity: {
+						cpu: 0.94,
+						memory: 0.49,
+						load: 30.2,
+						cores: 16,
+						recoverySeconds: 0,
+					},
+				},
+			}),
+		]);
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="queue-banner"]')
+				?.textContent,
+		).toBe("Queued 3rd of 3: CPU 94%, needs under 80%");
+	});
+
 	it("says nothing is late of a wait under a minute", async () => {
 		const since = new Date(Date.now() - 20_000).toISOString();
 		const view = await testing.openConversations([

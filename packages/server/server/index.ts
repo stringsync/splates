@@ -20,7 +20,6 @@ export { dev } from "./server";
 export type { ServerChoice } from "./servers";
 export { serveDev } from "./start";
 export { rosterOf, savedTunnelOf, seeded } from "./start-settings";
-export { SUITE_GRANT_MS, SuiteGrants } from "./suite-grant";
 export { SERVING } from "./supervise";
 export type { PlacedAcquireOptions, PlacedLock } from "./ticketed-lock";
 export { refreshHere, update } from "./update";

@@ -22,7 +22,7 @@ export function EvalSection({
 }): JSX.Element {
 	const [open, setOpen] = useState(defaultOpen);
 	return (
-		<section aria-label={label} className="flex min-w-0 flex-col gap-3">
+		<section aria-label={label} className="flex min-w-0 flex-col gap-4">
 			<button
 				type="button"
 				aria-expanded={open}
@@ -43,7 +43,7 @@ export function EvalSection({
 			{open && about !== undefined && (
 				<p className="text-muted-foreground text-xs">{about}</p>
 			)}
-			{open && <div className="flex flex-col gap-3">{children}</div>}
+			{open && <div className="flex flex-col gap-5">{children}</div>}
 		</section>
 	);
 }

@@ -1,4 +1,8 @@
 import type { QueueSpot } from "@splates/server/conversations";
+import {
+	QUEUE_RESUME_CPU,
+	QUEUE_RESUME_MEMORY,
+} from "@splates/server/queue/browser";
 import type { QueueListing } from "@splates/server/workers";
 import { Duration } from "core/time";
 import {
@@ -123,7 +127,7 @@ function waitSays(spot: QueueSpot, _held: number | null, span: string): string {
 		return `The queue is paused, so what splates starts on its own waits. It has waited ${span}, and starts once you resume it on the Queue page.`;
 	}
 	if (reason === "machine busy") {
-		return `The machine is overloaded, so the queue starts no more agents until its load falls. It has waited ${span}, and starts once it does.`;
+		return busySays(spot);
 	}
 	if (reason === "worker draining") {
 		return `This machine's worker is draining, so it takes no new agents (as when it is being updated to the server's build). It has waited ${span}, and starts once a worker takes work again.`;
@@ -134,6 +138,30 @@ function waitSays(spot: QueueSpot, _held: number | null, span: string): string {
 	return `It ${reason}. It has waited ${span}.`;
 }
 
+/** A share as a whole percent. */
+function percent(share: number): string {
+	return `${Math.round(share * 100)}%`;
+}
+
+/**
+ * Where a machine-busy wait stands, short enough for one line: each reading
+ * still above what the queue resumes at, or the countdown once none is.
+ */
+function busySays({ capacity }: QueueSpot): string {
+	if (capacity === undefined) {
+		return "Waiting for machine capacity";
+	}
+	const over = [
+		capacity.cpu >= QUEUE_RESUME_CPU &&
+			`CPU ${percent(capacity.cpu)}, needs under ${percent(QUEUE_RESUME_CPU)}`,
+		capacity.memory >= QUEUE_RESUME_MEMORY &&
+			`Memory ${percent(capacity.memory)}, needs under ${percent(QUEUE_RESUME_MEMORY)}`,
+	].filter((said) => said !== false);
+	return over.length > 0
+		? over.join(" · ")
+		: `Capacity back, resuming in ${capacity.recoverySeconds}s`;
+}
+
 /**
  * What to try for a wait at `spot` that wants the person, past
  * `QUEUE_LATE` or at once, held for queued task `held` or else in line to start:
@@ -141,7 +169,11 @@ function waitSays(spot: QueueSpot, _held: number | null, span: string): string {
  */
 function lateSays(spot: QueueSpot, held: number | null): string | null {
 	const { reason } = spot;
-	if (reason.startsWith("needs you") || reason.startsWith(REFUSED)) {
+	if (
+		reason === "machine busy" ||
+		reason.startsWith("needs you") ||
+		reason.startsWith(REFUSED)
+	) {
 		return null;
 	}
 	if (reason === "starting") {
@@ -184,6 +216,8 @@ export function QueueBanner({
 	const late = wants ? lateSays(spot, held) : null;
 	const { reason } = spot;
 	const [blocker] = numbersIn(reason);
+	const busy = reason === "machine busy";
+	const says = waitSays(spot, held, waited(spot.since, now));
 	return (
 		<div
 			role="status"
@@ -197,13 +231,19 @@ export function QueueBanner({
 				<HourglassIcon
 					className={cn("size-4 shrink-0", wants && "text-warning")}
 				/>
-				<span className="min-w-0 flex-1">
+				<span
+					className={cn("min-w-0 flex-1", busy && "truncate")}
+					title={busy ? says : undefined}
+				>
 					<span className="font-medium text-foreground">
-						{held === null
-							? `Waiting to start, ${ordinal(spot.position)} of ${spot.of} in line.`
-							: `Queued, ${ordinal(spot.position)} of ${spot.of} to start.`}
+						{busy
+							? `Queued ${ordinal(spot.position)} of ${spot.of}:`
+							: held === null
+								? `Waiting to start, ${ordinal(spot.position)} of ${spot.of} in line.`
+								: `Queued, ${ordinal(spot.position)} of ${spot.of} to start.`}
 					</span>{" "}
-					{waitSays(spot, held, waited(spot.since, now))}
+					{says}
+					{late !== null && <span data-slot="queue-late"> {late}</span>}
 					{error !== null && (
 						<span className="block text-destructive">{error}</span>
 					)}
@@ -257,25 +297,17 @@ export function QueueBanner({
 						</Button>
 					)}
 			</div>
-			{late !== null && (
-				<div
-					data-slot="queue-late"
-					className="flex items-center gap-2 border-border/60 border-t pt-2"
-				>
-					<span className="min-w-0 flex-1 text-foreground">{late}</span>
-					{reason !== "starting" && (
-						<a
-							href="#tasks"
-							className={cn(
-								buttonVariants({ variant: "outline", size: "sm" }),
-								"shrink-0",
-							)}
-						>
-							<ServerIcon />
-							Open Queue
-						</a>
+			{wants && reason !== "starting" && !busy && (
+				<a
+					href="#tasks"
+					className={cn(
+						buttonVariants({ variant: "outline", size: "sm" }),
+						"self-start",
 					)}
-				</div>
+				>
+					<ServerIcon />
+					Open Queue
+				</a>
 			)}
 		</div>
 	);

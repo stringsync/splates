@@ -42,6 +42,7 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
+	onPage,
 	talk,
 	terminals,
 	drafts,
@@ -88,7 +89,12 @@ export function AppNav({
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
-			value={value}
+			value={value === navPage(page) ? page : value}
+			onClick={() => {
+				if (value === "boards") {
+					onPage("boards");
+				}
+			}}
 			aria-current={value === navPage(page) ? "page" : undefined}
 			// Folded, a tab stays mounted, so it still answers to its shortcut.
 			hidden={!pagesShown}

@@ -2,7 +2,7 @@ import { createContext, type JSX, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { TaskFilter } from "./task-filter";
 
-/** The filter a click on a tag chip sets, on the pages that have one. */
+/** The filter a modifier-click on a tag chip sets, on the pages that have one. */
 export const TagFilterContext = createContext<TaskFilter | null>(null);
 
 /** The color each tag's chips take, by tag, from `splates.config.ts`. */
@@ -28,6 +28,17 @@ const COLORS: Readonly<Record<string, string>> = {
 	pink: "border-transparent bg-pink-100 text-pink-800 dark:bg-pink-500/20 dark:text-pink-300",
 	gray: "border-transparent bg-zinc-200 text-zinc-700 dark:bg-zinc-500/25 dark:text-zinc-300",
 };
+
+/** What a click on a chip holds to narrow the board by its tag. */
+const FILTER_KEY = "Ctrl/\u2318";
+
+/** Whether `event` is a click that narrows the board, not an ordinary one. */
+export function filtersOnClick(event: {
+	metaKey: boolean;
+	ctrlKey: boolean;
+}): boolean {
+	return event.metaKey || event.ctrlKey;
+}
 
 const PLAIN = "border-border/60 text-muted-foreground";
 
@@ -73,13 +84,19 @@ export function TagChips({
 						<button
 							key={tag}
 							type="button"
-							title={`Filter by ${tag}`}
+							title={`Filter by ${tag} (${FILTER_KEY}-click)`}
 							aria-pressed={filter.tags.includes(tag)}
 							className={cn(
 								chip,
 								"hover:bg-accent aria-pressed:bg-accent aria-pressed:text-foreground",
 							)}
 							onClick={(event) => {
+								// A plain click is no choice to narrow the board, which a
+								// stray one left kept and hiding every other task; it goes
+								// on to whatever the chip sits in, as a click beside it does.
+								if (!filtersOnClick(event)) {
+									return;
+								}
 								event.stopPropagation();
 								filter.toggleTag(tag);
 							}}

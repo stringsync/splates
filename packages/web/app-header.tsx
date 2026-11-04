@@ -7,7 +7,7 @@ import { OfflineBanner } from "./freshness";
 import { MachineBadge } from "./machine";
 import { MergeBadge } from "./merge-badge";
 import { ProjectSwitcher } from "./projects";
-import { QueueBadge } from "./slot-queue";
+import { QueueBadge } from "./start-queue";
 import { STATUS_PILL } from "./status-pill";
 
 /**

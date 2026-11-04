@@ -1,0 +1,19 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-02T21:03:44.161Z",
+	"title": "splates",
+	"producer": "splates",
+	"cells": [
+		{
+			"id": "run-001",
+			"case": "continuity/resume",
+			"group": "continuity",
+			"about": "On [SPLATES RESUME], read SPLATES.md again and carry on from the step it says was paused.",
+			"target": {
+				"agent": "claude",
+				"model": "sonnet"
+			},
+			"repetition": 1
+		}
+	]
+}

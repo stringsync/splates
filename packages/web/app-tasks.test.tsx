@@ -29,7 +29,7 @@ describe("App's Queue page", () => {
 		const view = await testing.openTasks({ tasks: [] });
 
 		expect(view.getByRole("heading", { name: "Queue" })).toBeTruthy();
-		expect(view.getByText("No tasks at work")).toBeTruthy();
+		expect(view.getByText("Nothing running")).toBeTruthy();
 	});
 
 	it("opens a task's plan, and where it stands", async () => {
@@ -76,7 +76,7 @@ describe("App's Queue page", () => {
 		expect(
 			within(view.getByRole("list", { name: "task list" }))
 				.getAllByRole("listitem")
-				.map((item) => item.querySelector(".truncate")?.textContent),
+				.map((item) => item.querySelector(".font-medium")?.textContent),
 		).toEqual(["alpha-api", "alpha", "beta"]);
 	});
 

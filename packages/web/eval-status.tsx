@@ -1,4 +1,8 @@
-import type { EvalPlan, EvalStatus } from "@splates/server/evals/browser";
+import type {
+	EvalBudgetStatus,
+	EvalPlan,
+	EvalStatus,
+} from "@splates/server/evals/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 
@@ -75,4 +79,25 @@ export function planText(plan: EvalPlan): string {
 			? ""
 			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
 	return `At most $${plan.usd.toFixed(2)}${runs}.`;
+}
+
+/** `$spent of $budget` with the tokens beside it, as a budget line reads. */
+export function budgetText(status: EvalBudgetStatus): string {
+	const tokens =
+		status.tokens > 0 ? ` · ${status.tokens.toLocaleString()} tokens` : "";
+	return `$${status.spentUsd.toFixed(2)} of $${status.budget.usd.toFixed(2)}${tokens}`;
+}
+
+/** `round n of max`, n being the rounds started. */
+export function roundsText(status: EvalBudgetStatus): string {
+	return `round ${status.roundsUsed} of ${status.budget.rounds}`;
+}
+
+/** Which limit stopped the loop, or null while there is room. */
+export function stoppedText(status: EvalBudgetStatus): string | null {
+	return status.stoppedBy === "rounds"
+		? "Stopped: the round cap is reached."
+		: status.stoppedBy === "usd"
+			? "Stopped: the dollar budget is used up."
+			: null;
 }

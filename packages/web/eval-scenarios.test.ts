@@ -1,61 +1,99 @@
 import { describe, expect, test } from "bun:test";
-import type { EvalGrid } from "@splates/server/evals/browser";
-import { lastResults, sectionsOf } from "./eval-scenarios";
+import type {
+	EvalScenario,
+	EvalScenarioState,
+} from "@splates/server/evals/browser";
+import {
+	countStates,
+	filterRows,
+	passCount,
+	projectsOf,
+	rowsOf,
+	summaryOf,
+} from "./eval-scenarios";
 
-function grid(
-	id: string,
-	startedAt: string,
-	cells: [string, "pass" | "fail" | null][],
-): EvalGrid {
-	return {
-		id,
-		startedAt,
-		grid: cells.map(([scenario, status]) => ({
-			scenario,
-			run: status === null ? null : { status },
-		})),
-	} as unknown as EvalGrid;
+describe("the scenario table", () => {
+	test("rows read worst first, the lowest pass rate first among failing, a scenario without a state as never run", () => {
+		const { scenarios, states } = fixture();
+		expect(rowsOf(scenarios, states).map((row) => row.scenario.id)).toEqual([
+			"c",
+			"b",
+			"e",
+			"d",
+			"a",
+		]);
+	});
+
+	test("counts each state and summarises", () => {
+		const { scenarios, states } = fixture();
+		const rows = rowsOf(scenarios, states);
+		expect(countStates(rows)).toEqual({
+			failing: 2,
+			"never-run": 1,
+			stale: 1,
+			passing: 1,
+		});
+		expect(summaryOf(rows)).toBe("1 of 5 scenarios passing");
+	});
+
+	test("filters by state and by project together", () => {
+		const { scenarios, states } = fixture();
+		const rows = rowsOf(scenarios, states);
+		expect(
+			filterRows(rows, { state: "failing", project: "x" }).map(
+				(row) => row.scenario.id,
+			),
+		).toEqual(["b"]);
+		expect(filterRows(rows, { state: null, project: null })).toHaveLength(5);
+	});
+
+	test("lists projects without the unnamed", () => {
+		const { scenarios, states } = fixture();
+		expect(projectsOf(rowsOf(scenarios, states))).toEqual(["y", "x"]);
+	});
+
+	test("passCount is the agent's passed of total, null when it did not run", () => {
+		expect(passCount(state("b", "failing", 2, 3), "t")).toBe("2/3");
+		expect(passCount(state("b", "failing", 2, 3), "other")).toBeNull();
+	});
+});
+
+function scenario(id: string, skill?: string): EvalScenario {
+	return { id, group: null, about: null, ...(skill ? { skill } : {}) };
 }
 
-describe("sectionsOf", () => {
-	test("groups by skill, then group, keeping first-seen order", () => {
-		const sections = sectionsOf([
-			{ id: "a/1", group: "g", about: null, skill: "a" },
-			{ id: "b/1", group: "g", about: null, skill: "b" },
-			{ id: "a/2", group: "g", about: null, skill: "a" },
-			{ id: "c", group: "legacy", about: null },
-		]);
-		expect(sections.map((each) => each.heading)).toEqual(["a", "b", "legacy"]);
-		expect(sections[0]?.scenarios.map((each) => each.id)).toEqual([
-			"a/1",
-			"a/2",
-		]);
-	});
-});
+function state(
+	id: string,
+	status: EvalScenarioState["state"],
+	passed = 0,
+	total = 0,
+): EvalScenarioState {
+	return {
+		scenario: id,
+		state: status,
+		targets: total === 0 ? [] : [{ target: "t", passed, total }],
+		lastRunAt: total === 0 ? null : "2026-01-01T00:00:00Z",
+		run: null,
+	};
+}
 
-describe("lastResults", () => {
-	test("takes each scenario from the newest batch that ran it", () => {
-		const results = lastResults([
-			grid("old", "2026-01-01", [
-				["x", "pass"],
-				["y", "pass"],
-			]),
-			grid("new", "2026-02-01", [
-				["x", "fail"],
-				["x", "pass"],
-			]),
-		]);
-		expect(results.get("x")).toMatchObject({
-			batch: "new",
-			cells: 2,
-			passed: 1,
-			status: "fail",
-		});
-		expect(results.get("y")?.batch).toBe("old");
-	});
-
-	test("a cell yet to land is pending", () => {
-		const results = lastResults([grid("b", "2026-01-01", [["x", null]])]);
-		expect(results.get("x")?.status).toBe("pending");
-	});
-});
+function fixture(): {
+	scenarios: EvalScenario[];
+	states: EvalScenarioState[];
+} {
+	return {
+		scenarios: [
+			scenario("a", "x"),
+			scenario("b", "x"),
+			scenario("c", "y"),
+			scenario("d", "y"),
+			scenario("e"),
+		],
+		states: [
+			state("a", "passing", 3, 3),
+			state("b", "failing", 2, 3),
+			state("c", "failing", 0, 3),
+			state("d", "stale", 3, 3),
+		],
+	};
+}

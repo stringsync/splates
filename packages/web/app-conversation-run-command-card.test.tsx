@@ -50,7 +50,6 @@ describe.skip("App's run-command card", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "[SPLATES RUN ALLOWED]" } },
 		]);
-		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
 	it("opens the Ships page with the project picked and starts nothing itself", async () => {
@@ -109,7 +108,6 @@ describe.skip("App's run-command card", () => {
 			0,
 		);
 		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
-		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
 	it("sends Anything else with Deny and keeps it in the reopened card", async () => {
@@ -138,10 +136,9 @@ describe.skip("App's run-command card", () => {
 			0,
 		);
 		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
-		expect(testing.posted("/api/conversations/c1/suite")).toEqual([]);
 	});
 
-	it("grants the whole test suite's one run before telling the agent to run it", async () => {
+	it("allows the whole test suite as any other command, sending only the text", async () => {
 		const asking = conversation({
 			title: "Imports",
 			messages: [
@@ -165,7 +162,7 @@ describe.skip("App's run-command card", () => {
 			testing.posts
 				.map((each) => each.path)
 				.filter((path) => path.startsWith("/api/conversations/c1/")),
-		).toEqual(["/api/conversations/c1/suite", "/api/conversations/c1/prompt"]);
+		).toEqual(["/api/conversations/c1/prompt"]);
 	});
 
 	it("reads the machine each second while it waits, keeping the last reading with its age when asking fails", async () => {

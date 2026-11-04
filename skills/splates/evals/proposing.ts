@@ -14,7 +14,7 @@ const attached: Check = {
 	id: "attached",
 	about: "ran `splates attach` and embedded an attached image in the reply",
 	test: ({ commands, reply }) =>
-		commands.some((command) => /\bsplates\s+attach\b/.test(command)) &&
+		commands.some((command) => /\bsplates["']?\s+attach\b/.test(command)) &&
 		deliveredImages(reply).length > 0,
 };
 
@@ -100,7 +100,7 @@ export const scenarios: Scenario[] = [
 			notBuilt,
 		],
 		judge:
-			"Does the proposal carry two images, a Before of the current settings screen and an After that is a labelled mock of the theme picker? Answer yes or no.",
+			"Does the proposal carry two images, a Before of the current settings screen and an After that is a labelled mock of the theme picker? A screenshot of settings.html rendered in a browser counts as the Before, and an After mock of the whole page with the picker in it counts. Answer yes when both images are there, no when either is missing, and let your reason agree with that answer.",
 		limits: { turns: 40, minutes: 20 },
 	},
 	{
@@ -120,8 +120,9 @@ export const scenarios: Scenario[] = [
 				id: "no-image",
 				about: "attached nothing and embedded no image",
 				test: ({ commands, reply }) =>
-					!commands.some((command) => /\bsplates\s+attach\b/.test(command)) &&
-					deliveredImages(reply).length === 0,
+					!commands.some((command) =>
+						/\bsplates["']?\s+attach\b/.test(command),
+					) && deliveredImages(reply).length === 0,
 			},
 			notBuilt,
 		],

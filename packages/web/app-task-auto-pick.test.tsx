@@ -39,9 +39,10 @@ describe("App's Auto pick", () => {
 		await waitFor(() =>
 			view.getByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
 		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		await openQueueRow(view, "alpha");
 		return { view, dialog: await waitFor(() => view.getByRole("dialog")) };
 	};

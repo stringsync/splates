@@ -53,6 +53,36 @@ describe("App's composer references", () => {
 		};
 	};
 
+	it("offers finished tasks by number", async () => {
+		testing.finished = [
+			{
+				key: "77-1760000000000",
+				id: 77,
+				task: "finished-upload",
+				subject: "Finished upload",
+				ended: "merged",
+				reason: null,
+				base: "main",
+				commit: "abc1234",
+				startedAt: "2026-11-01T00:00:00Z",
+				endedAt: "2026-11-01T01:00:00Z",
+				conversation: null,
+				took: [],
+				hasDemo: false,
+				plan: "## Goal\n\nFinished upload",
+			},
+		];
+		const { view, box } = await opened();
+		await typeIn(box, "#77");
+		const option = await waitFor(() =>
+			view.getByRole("option", { name: /Finished upload/ }),
+		);
+		await act(async () => fireEvent.click(option));
+		await waitFor(() =>
+			expect(within(box).getByTitle("[SPLATES TASK #77]")).toBeTruthy(),
+		);
+	});
+
 	it("lists splates's items by category for a #, and writes the one picked as a chip", async () => {
 		const { view, box } = await opened();
 

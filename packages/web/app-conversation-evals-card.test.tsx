@@ -99,15 +99,60 @@ describe("App's run evals card", () => {
 		expect(view.getByText("Running evals")).toBeTruthy();
 		expect(view.queryByText("Run splates evals")).toBeNull();
 	});
+
+	it("shows spent of budget and the round count on a run's card", async () => {
+		serveOngoingEval(Promise.resolve());
+		const view = await testing.openConversations([ongoing()]);
+		await waitFor(() =>
+			expect(view.getByTestId("budget").textContent).toBe(
+				"$3.50 of $10.00 · 1,200 tokens · round 1 of 3",
+			),
+		);
+		expect(view.queryByText(/^Stopped:/)).toBeNull();
+	});
+
+	it("says which limit stopped the loop", async () => {
+		serveOngoingEval(Promise.resolve(), "rounds");
+		const view = await testing.openConversations([ongoing()]);
+		await waitFor(() =>
+			expect(view.getByText("Stopped: the round cap is reached.")).toBeTruthy(),
+		);
+	});
 });
 
-function serveOngoingEval(reading: Promise<void>): void {
+function ongoing() {
+	return conversation({
+		title: "Evals",
+		messages: [
+			message(
+				"agent",
+				"## 🔐 Permission: run evals splates: the decision probes\n\nChecks the ask-first rule.\n\n- `decisions/ask-first`",
+			),
+		],
+	});
+}
+
+function serveOngoingEval(
+	reading: Promise<void>,
+	stoppedBy: "usd" | "rounds" | null = null,
+): void {
 	const pageFetch = globalThis.fetch;
 	const answer = async (body: unknown) => {
 		await reading;
 		return Response.json(body);
 	};
 	const routes = new Map<string, () => Promise<Response>>([
+		[
+			"/api/evals/budget",
+			() =>
+				answer({
+					budget: { usd: 10, rounds: 3 },
+					spentUsd: 3.5,
+					tokens: 1200,
+					roundsUsed: stoppedBy === "rounds" ? 3 : 1,
+					stoppedBy,
+				}),
+		],
 		[
 			"/api/evals/agents",
 			() => answer({ agents: [], problem: null, roster: [] }),

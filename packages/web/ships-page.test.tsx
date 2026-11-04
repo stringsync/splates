@@ -72,13 +72,12 @@ describe("ShipsPage", () => {
 		} as unknown as typeof EventSource;
 		const bodies: Record<string, string> = {};
 		globalThis.fetch = (async (url: string, opts?: RequestInit) => {
-			if (opts?.method === "POST") {
-				bodies[String(url)] = String(opts.body ?? "");
-			}
-			if (String(url) === "/api/conversations/auto") {
-				return Response.json({ id: "c1" });
-			}
-			return Response.json(answer(String(url), []));
+			bodies[String(url)] = String(opts?.body ?? "");
+			return Response.json(
+				String(url) === "/api/conversations/auto"
+					? { id: "c1" }
+					: answer(String(url), []),
+			);
 		}) as unknown as typeof fetch;
 		const feed = {
 			agents: [],
@@ -122,6 +121,31 @@ describe("ShipsPage", () => {
 		location.hash = "";
 	});
 
+	it("shows only Loading until the ship state arrives, then the plan", async () => {
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				answer(String(url), [project({})]),
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		expect(view.getByText("Loading")).toBeTruthy();
+		await new Promise((done) => setTimeout(done, 50));
+		expect(view.queryByRole("list", { name: "Ship graph" })).toBeNull();
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		expect(await view.findByRole("list", { name: "Ship graph" })).toBeTruthy();
+		expect(view.queryByText("Loading")).toBeNull();
+	});
+
 	it("lists the projects in release order, a Ship checkbox on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "wren", packages: ["wren"] }),
@@ -139,7 +163,7 @@ describe("ShipsPage", () => {
 		];
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
+		const view = renderPlanner();
 		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
 			within(list)
@@ -173,7 +197,7 @@ describe("ShipsPage", () => {
 		];
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
+		const view = renderPlanner();
 		expect(await view.findByText("3 commits since v1.0.0")).toBeTruthy();
 		expect(view.getByText("Release status unknown").getAttribute("title")).toBe(
 			"Missing release tag",
@@ -188,7 +212,7 @@ describe("ShipsPage", () => {
 		];
 		globalThis.fetch = (async (url: string) =>
 			Response.json(answer(String(url), graph))) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
+		const view = renderPlanner();
 		await view.findByRole("list", { name: "Ship graph" });
 		expect(
 			view.queryByRole("button", { name: "Include all changed" }),
@@ -201,7 +225,7 @@ describe("ShipsPage", () => {
 			asked.push(String(url));
 			return Response.json(answer(String(url), [project({})]));
 		}) as unknown as typeof fetch;
-		const view = render(<ShipsPage />);
+		const view = renderPlanner();
 		const list = await view.findByRole("list", { name: "Ship graph" });
 		expect(
 			within(list)
@@ -211,6 +235,24 @@ describe("ShipsPage", () => {
 		expect(asked.some((url) => url.includes("/api/ship/run"))).toBe(false);
 	});
 });
+
+/** Renders the page once the server has said no ship is under way. */
+function renderPlanner(): ReturnType<typeof render> {
+	let stream: Stream | null = null;
+	globalThis.EventSource = class extends FakeStream {
+		constructor() {
+			super();
+			stream = this;
+		}
+	} as unknown as typeof EventSource;
+	const view = render(<ShipsPage />);
+	act(() =>
+		stream?.onmessage?.({
+			data: JSON.stringify({ cascade: null, ship: null }),
+		}),
+	);
+	return view;
+}
 
 function project(over: Partial<ShipProject>): ShipProject {
 	return {

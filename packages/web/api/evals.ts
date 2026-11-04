@@ -1,11 +1,14 @@
 import type {
 	EvalAgentsView,
 	EvalBatch,
+	EvalBudget,
+	EvalBudgetStatus,
 	EvalDetail,
 	EvalGrid,
 	EvalLaunch,
 	EvalPlan,
 	EvalScenario,
+	EvalScenarioState,
 } from "@splates/server/evals/browser";
 import { ApiError, answered, scoped, sendJson } from "./request";
 
@@ -86,6 +89,15 @@ export async function evalScenarios(
 	return (await response.json()) as EvalScenario[];
 }
 
+/** Where each listed scenario stands (failing, never run, stale or passing), from the saved batches. */
+export async function evalStates(): Promise<EvalScenarioState[]> {
+	const response = await answered(scoped("/api/evals/states"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/states: ${response.status}`);
+	}
+	return (await response.json()) as EvalScenarioState[];
+}
+
 /** Starts the paid run the person asked for, the card `key` naming it. */
 export async function startEvalRun(
 	key: string,
@@ -108,6 +120,21 @@ export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 	return (await response.json()) as EvalLaunch | null;
 }
 
+/** Where `conversation`'s budget stands: what it has spent, the rounds used and any limit reached. */
+export async function evalBudget(
+	conversation: string,
+): Promise<EvalBudgetStatus> {
+	const response = await answered(
+		scoped(
+			`/api/evals/budget?conversation=${encodeURIComponent(conversation)}`,
+		),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/budget: ${response.status}`);
+	}
+	return (await response.json()) as EvalBudgetStatus;
+}
+
 /** Stops the run of card `key`. */
 export async function stopEvalRun(key: string): Promise<void> {
 	await sendJson(
@@ -127,4 +154,6 @@ export interface EvalRunAsk {
 	reps?: number;
 	/** The conversation whose card asks, told once the run is done, and whose worktree it runs in. */
 	conversation?: string | null;
+	/** The dollars and rounds the conversation may spend; its first run sets them. */
+	budget?: EvalBudget;
 }

@@ -24,12 +24,12 @@ export function MergedBody({
 		text !== "" && outcome !== undefined ? outcome : "",
 	].filter((each) => each !== "");
 	return (
-		<div>
-			<CardBody text={`### Summary\n\n${first}`} />
+		<div className="flex flex-col gap-2 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5">
+			<CardBody className="p-0 @max-md:p-0" text={`### Summary\n\n${first}`} />
 			{more.length > 0 && (
-				<section aria-label="outcome">
+				<section aria-label="outcome" className="flex flex-col gap-2">
 					{more.map((each) => (
-						<CardBody key={each} text={each} />
+						<CardBody className="p-0 @max-md:p-0" key={each} text={each} />
 					))}
 				</section>
 			)}

@@ -49,10 +49,6 @@ describe("App's orphaned tasks", () => {
 		testing.talk = { agents: AGENTS, conversations: [failed] };
 		let view = await testing.openTasks({ tasks: [details({ task: "beta" })] });
 
-		const tab = view.getByRole("tab", { name: /Queue/ });
-		expect(
-			within(tab).getByRole("img", { name: "orphaned tasks" }),
-		).toBeTruthy();
 		const row = queueRow(view, "beta");
 		expect(within(row).getByRole("status", { name: "orphaned" })).toBeTruthy();
 
@@ -64,11 +60,6 @@ describe("App's orphaned tasks", () => {
 			conversations: [{ ...failed, status: "stopped", error: null }],
 		};
 		view = await testing.openTasks({ tasks: [details({ task: "beta" })] });
-		expect(
-			within(view.getByRole("tab", { name: /Queue/ })).queryByRole("img", {
-				name: "orphaned tasks",
-			}),
-		).toBeNull();
 	});
 
 	it("restarts a failed agent on its task from the task's dialog", async () => {

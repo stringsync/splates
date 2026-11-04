@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@splates/server/board/browser";
 import type { ConversationState } from "@splates/server/conversations";
 import { paused } from "@splates/server/conversations/browser";
 import type { AgentPick } from "@splates/server/models";
@@ -19,8 +20,14 @@ import {
 	WalletIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
+import {
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+} from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import type { Action } from "./actions";
+import { Board } from "./board";
 import { ReviewChanges } from "./changes";
 import { ContinueItems } from "./continue-in-project";
 import { NEW } from "./conversation-address";
@@ -31,7 +38,9 @@ import {
 	sendQueuedNow,
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
+import { lastReport } from "./conversation-names";
 import { TakingLong } from "./countdown";
+import { deferredTask } from "./deferred-body";
 import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
@@ -69,6 +78,11 @@ export function useThreadActions(
 	const dispatching = useContext(Dispatching);
 	const stamps = useStamps();
 	const writes = usePendingWrites();
+	const board = useContext(Board);
+	// The board task the latest Deferred report put back, while it is there.
+	const last = lastReport(conversation);
+	const onBoard =
+		last?.ending === "deferred" ? deferredTask(board.todos, last.task) : null;
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -95,7 +109,7 @@ export function useThreadActions(
 					},
 				]
 			: []),
-		...pauseActions(conversation, refused, writes),
+		...pauseActions(conversation, refused, writes, onBoard, board.open),
 		...(dispatching !== null && conversation.task !== null && !archived
 			? [
 					{
@@ -138,7 +152,12 @@ export function useThreadActions(
 			label: archived ? "Unarchive" : "Archive",
 			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
 			detail:
-				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
+				archived || (archiveKey === null && onBoard === null) ? undefined : (
+					<span className="flex items-center gap-1.5">
+						{onBoard !== null && <span className="text-xs">task stays</span>}
+						{archiveKey !== null && <Kbd>{archiveKey}</Kbd>}
+					</span>
+				),
 			run: () => archive.file(archived ? undefined : onLeft),
 		},
 	];
@@ -202,6 +221,8 @@ function pauseActions(
 	conversation: ConversationState,
 	refused: Refuse,
 	writes: ReturnType<typeof usePendingWrites>,
+	onBoard: TaskRecord | null,
+	openTask: (id: number) => void,
 ): Action[] {
 	const { id, status, checkpoint, pausing, archived } = conversation;
 	if (pausing && checkpoint === "asked") {
@@ -224,21 +245,46 @@ function pauseActions(
 	if (archived || checkpoint === "asked") {
 		return [];
 	}
-	const defer: Action = {
-		label: "Put back on board",
-		icon: <ListPlusIcon />,
-		// The chat stays open; Archive is its own action and leaves the task be.
-		detail: <span className="text-xs">keeps chat</span>,
-		// Sent now, stopping any turn, so the agent saves its work on the
-		// request rather than finishing it first.
-		pending: writes.pending("defer"),
-		run: () =>
-			void writes
-				.run("defer", () =>
-					promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
-				)
-				.catch((error: unknown) => refused("Not deferred", error)),
-	};
+	const saveFindings = () =>
+		void writes
+			.run("defer", () =>
+				promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
+			)
+			.catch((error: unknown) => refused("Not saved", error));
+	const defer: Action =
+		onBoard !== null
+			? {
+					label: `On board #${onBoard.id}`,
+					icon: <ListPlusIcon />,
+					pending: writes.pending("defer"),
+					run: null,
+					menu: (
+						<DropdownMenuGroup>
+							<DropdownMenuLabel>On board #{onBoard.id}</DropdownMenuLabel>
+							<DropdownMenuItem onClick={() => openTask(onBoard.id)}>
+								Open task
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={saveFindings}>
+								Save latest findings to it
+							</DropdownMenuItem>
+						</DropdownMenuGroup>
+					),
+				}
+			: {
+					label: "Put back on board",
+					icon: <ListPlusIcon />,
+					// The chat stays open; Archive is its own action and leaves the task be.
+					detail: <span className="text-xs">keeps chat</span>,
+					// Sent now, stopping any turn, so the agent saves its work on the
+					// request rather than finishing it first.
+					pending: writes.pending("defer"),
+					run: () =>
+						void writes
+							.run("defer", () =>
+								promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
+							)
+							.catch((error: unknown) => refused("Not deferred", error)),
+				};
 	if (status !== "running") {
 		// Carried on once the budget allows; Resume carries it on now.
 		const waits: Action[] =

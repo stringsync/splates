@@ -322,6 +322,31 @@ describe("App's lanes", () => {
 		});
 	});
 
+	it("starts a board from a lane's Move to board menu and moves the lane onto it", async () => {
+		const view = await testing.open({
+			todos: [],
+			boards: [{ id: 1, name: "Default", position: 1, archived: false }],
+			lanes: [
+				{ id: 0, name: "Backlog", board: 1 },
+				{ id: 3, name: "Editor", board: 1 },
+			],
+		});
+		await act(async () =>
+			fireEvent.click(
+				await view.findByRole("button", { name: /^Default \d+$/ }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Editor actions" })),
+		);
+		await clickShown(() =>
+			view.getByRole("menuitem", { name: "Move to board" }),
+		);
+		await clickShown(() => view.getByRole("menuitem", { name: "New board" }));
+
+		expect(testing.posts.map((post) => post.path)).toContain("/api/boards");
+	});
+
 	it("marks a lane blocked when its next task waits on one in another lane", async () => {
 		const view = await testing.open({
 			todos: sound2score().map((todo) =>

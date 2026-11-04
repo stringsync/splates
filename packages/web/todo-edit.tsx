@@ -73,7 +73,7 @@ export function Edit({
 	const lane = board.lanes.find((record) => record.id === todo.lane);
 	const place =
 		lane === undefined
-			? "Untriaged"
+			? "Backlog"
 			: lane.id === BACKLOG_LANE
 				? "In Backlog"
 				: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;

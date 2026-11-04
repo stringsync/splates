@@ -6,6 +6,9 @@ import type { Child, Ps } from "core/system";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";
+import { type EvalBudgetStatus, EvalBudgets, gate } from "./budget";
+import { parsed, parseScenarioList } from "./scenario-list";
+import { EvalStore } from "./store";
 
 /** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
 export function targetOf(pick: AgentPick): string {
@@ -44,6 +47,11 @@ export interface EvalLaunchSpec {
 	conversation?: string | null;
 	/** Where the commands run, the conversation's task worktree; the project's root when null. */
 	cwd?: string | null;
+	/**
+	 * Set when the agent starts the run on its own, not the person's Run button:
+	 * the conversation's budget then has to fit it, or it is not started.
+	 */
+	auto?: boolean;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -81,6 +89,8 @@ export interface EvalScenario {
 	about: string | null;
 	/** The skill the case belongs to, when the project's `list` says. */
 	skill?: string;
+	/** What the case's verdict depends on today, when the project's `list` says; runs stamped otherwise are stale. */
+	fingerprint?: string;
 }
 
 const TAIL = 20;
@@ -100,6 +110,8 @@ export class EvalLaunches
 	private readonly launches = new Map<string, Launched>();
 	private readonly watching = new Set<Promise<void>>();
 	private readonly record: Document<Record<string, SavedLaunch>>;
+	/** The dollar budget and round cap of each conversation, and the rounds it started. */
+	readonly budgets: EvalBudgets;
 	private writing: Promise<void> = Promise.resolve();
 	private disposing = false;
 
@@ -108,6 +120,7 @@ export class EvalLaunches
 		private readonly storage: Storage,
 	) {
 		this.record = storage.document("eval-launches.json");
+		this.budgets = new EvalBudgets(storage.document("eval-budgets.json"));
 	}
 
 	/** Every case the project's `list` prints. */
@@ -129,19 +142,7 @@ export class EvalLaunches
 				{},
 			);
 		}
-		return stdout.split("\n").flatMap((line) => {
-			const each = parsed(line);
-			return each === null || typeof each.case !== "string" || each.case === ""
-				? []
-				: [
-						{
-							id: each.case,
-							group: typeof each.group === "string" ? each.group : null,
-							about: typeof each.about === "string" ? each.about : null,
-							...(typeof each.skill === "string" ? { skill: each.skill } : {}),
-						},
-					];
-		});
+		return parseScenarioList(stdout);
 	}
 
 	/** Runs the project's free `plan` for `spec`; without one, nothing is refused and no ceiling shown. */
@@ -201,6 +202,15 @@ export class EvalLaunches
 		if (held !== undefined && held.status === "running") {
 			return this.read(held);
 		}
+		const conversation = spec.conversation ?? null;
+		let worstUsd = 0;
+		if (conversation !== null) {
+			const plan = await this.plan(commands, spec);
+			worstUsd = plan.usd ?? 0;
+			if (spec.auto === true) {
+				await this.checkBudget(commands, conversation, worstUsd);
+			}
+		}
 		const known = new Set(await batchesIn(commands.results));
 		const reserved: SavedLaunch = {
 			launch: {
@@ -215,6 +225,13 @@ export class EvalLaunches
 		};
 		// Persist the request before a process can spend, including a crash during spawn.
 		await this.record.update((all) => ({ ...all, [id]: reserved }));
+		if (conversation !== null) {
+			await this.budgets.begin(conversation, {
+				launch: reserved.launch.id,
+				worstUsd,
+				batch: null,
+			});
+		}
 		const child = this.ps.start(["sh", "-c", commands.run as string], {
 			cwd: spec.cwd ?? commands.root,
 			env: envOf(commands, spec),
@@ -244,6 +261,35 @@ export class EvalLaunches
 			() => {},
 		);
 		return this.read(launch);
+	}
+
+	/** Where the conversation's budget stands: spend, rounds used and any limit reached. */
+	budgetStatus(
+		commands: EvalCommands,
+		conversation: string,
+	): Promise<EvalBudgetStatus> {
+		return this.budgets.statusOf(conversation, new EvalStore(commands.results));
+	}
+
+	/**
+	 * Refuses with `budget_exhausted`, naming the limit, when a run of at most
+	 * `worstUsd` does not fit what the conversation has left. A run whose batch
+	 * has no cost counts at its own worst case.
+	 */
+	private async checkBudget(
+		commands: EvalCommands,
+		conversation: string,
+		worstUsd: number,
+	): Promise<void> {
+		const {
+			budget,
+			spentUsd: spent,
+			roundsUsed,
+		} = await this.budgetStatus(commands, conversation);
+		const verdict = gate(budget, spent, roundsUsed, worstUsd);
+		if (!verdict.ok) {
+			fail("budget_exhausted", verdict.reason, { limit: verdict.limit });
+		}
 	}
 
 	/** Recover saved launches after a server restart without rerunning paid commands. */
@@ -335,11 +381,17 @@ export class EvalLaunches
 					? "refused"
 					: "done";
 		await this.save(launch);
+		if (launch.status === "refused" && launch.spec.conversation != null) {
+			// A refusal spent nothing, so it is no round.
+			await this.budgets.refund(launch.spec.conversation, launch.id);
+		}
 		if (
-			launch.status === "done" &&
+			(launch.status === "done" || launch.status === "stopped") &&
 			launch.batch !== null &&
 			launch.spec.conversation != null
 		) {
+			// A stopped run reports what landed too, so the agent is never left
+			// waiting on a run that will not say it is over.
 			// Whoever tells the conversation ends its run once it has.
 			this.dispatcher.dispatch("finished", {
 				launch: viewOf(launch),
@@ -393,6 +445,13 @@ export class EvalLaunches
 			launch.batch = candidates.sort().at(-1) ?? null;
 			if (launch.batch !== null) {
 				await this.save(launch);
+				if (launch.spec.conversation != null) {
+					await this.budgets.landed(
+						launch.spec.conversation,
+						launch.id,
+						launch.batch,
+					);
+				}
 			}
 		}
 		return viewOf(launch);
@@ -468,18 +527,6 @@ async function ranCases(
 		);
 	} catch {
 		return false;
-	}
-}
-
-/** The JSON object `line` holds, or null for anything else. */
-function parsed(line: string): Record<string, unknown> | null {
-	try {
-		const value: unknown = JSON.parse(line);
-		return typeof value === "object" && value !== null && !Array.isArray(value)
-			? (value as Record<string, unknown>)
-			: null;
-	} catch {
-		return null;
 	}
 }
 

@@ -68,8 +68,7 @@ describe("App's pages and the project switcher", () => {
 		const view = await testing.open({ repo: "wren" });
 
 		const switchers = [
-			await switcherOn(view, "Board"),
-			await switcherOn(view, "Queue"),
+			await switcherOn(view, "Boards"),
 			await switcherOn(view, "Stats"),
 			await switcherOn(view, "Ship"),
 			await switcherOn(view, "Evals"),
@@ -104,7 +103,6 @@ describe("App's pages and the project switcher", () => {
 				"Boards",
 				"Creds",
 				"Automations",
-				"Queue",
 				"Stats",
 				"Ship",
 				"Evals",
@@ -122,8 +120,8 @@ describe("App's pages and the project switcher", () => {
 
 		expect([
 			view.getByRole("tab", { name: /Board/ }).textContent,
-			view.getByRole("tab", { name: /Queue/ }).textContent,
-		]).toEqual(["Boards", "Queue"]);
+			view.queryByRole("tab", { name: /Queue/ }),
+		]).toEqual(["Boards", null]);
 	});
 
 	it("heads a phone's drawer with the server and its pages, and a page's bar with the project, a separate row naming the page without chips", async () => {
@@ -140,8 +138,8 @@ describe("App's pages and the project switcher", () => {
 			within(drawer).getByRole("button", { name: /^Switch project/ })
 				.textContent,
 			within(drawer).getByRole("button", { name: "Boards" }).textContent,
-			within(drawer).getByRole("button", { name: "Queue" }).textContent,
-		]).toEqual([null, "wren", "Boards", "Queue"]);
+			within(drawer).queryByRole("button", { name: "Queue" }),
+		]).toEqual([null, "wren", "Boards", null]);
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Creds" })),
 		);
@@ -246,7 +244,7 @@ describe("App's pages and the project switcher", () => {
 		await act(async () =>
 			fireEvent.click(within(drawer).getByRole("button", { name: "Boards" })),
 		);
-		await waitFor(() => expect(location.hash).toBe("#todos"));
+		await waitFor(() => expect(location.hash).toBe("#boards"));
 		const bar = await waitFor(() => {
 			const header = view.container.querySelector("header");
 			expect(header).not.toBeNull();
@@ -264,7 +262,7 @@ describe("App's pages and the project switcher", () => {
 		await waitFor(() =>
 			expect([location.search, location.hash]).toEqual([
 				"?project=shop",
-				"#todos",
+				"#boards",
 			]),
 		);
 	});

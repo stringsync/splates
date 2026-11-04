@@ -18,11 +18,14 @@ import { Refusal, useRefusal } from "./refusal";
 // vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddLane({
 	dragging,
+	empty = false,
 	naming,
 	onName,
 	onUnname,
 }: {
 	dragging: boolean;
+	/** An empty board starts with its first lane form already visible. */
+	empty?: boolean;
 	/** The card dropped here, waiting for its lane's name. */
 	naming?: TaskRecord;
 	/** Starts the lane `naming` waits for. */
@@ -78,7 +81,9 @@ export function AddLane({
 				"w-72 shrink-0 snap-start max-md:w-full max-md:snap-always rounded-xl transition-colors",
 				dragging
 					? "border-2 border-dashed p-3"
-					: (open || naming) && "bg-muted/70 p-2 dark:bg-muted/30",
+					: empty
+						? "w-96 max-w-full self-start border bg-card p-5"
+						: (open || naming) && "bg-muted/70 p-2 dark:bg-muted/30",
 				isOver && "bg-primary/10 ring-2 ring-primary/40",
 			)}
 		>
@@ -87,8 +92,16 @@ export function AddLane({
 					<PlusIcon aria-hidden className="size-4" />
 					Drop here to start a lane
 				</p>
-			) : open || naming ? (
+			) : empty || open || naming ? (
 				<form onSubmit={save} className="flex flex-col gap-2">
+					{empty && (
+						<div className="mb-2 flex flex-col gap-1">
+							<h2 className="font-semibold">Create your first lane</h2>
+							<p className="text-muted-foreground text-sm">
+								Organize related tasks in a lane.
+							</p>
+						</div>
+					)}
 					{naming && (
 						<p className="truncate px-1 text-muted-foreground text-xs">
 							A lane for #{naming.id} {naming.subject}
@@ -96,10 +109,10 @@ export function AddLane({
 					)}
 					<input
 						// biome-ignore lint/a11y/noAutofocus: it opens because "Add another lane" was just pressed, or a card dropped here, to type its name
-						autoFocus
+						autoFocus={!empty}
 						aria-label="new lane name"
 						disabled={submitting}
-						placeholder="Enter lane name"
+						placeholder={empty ? "Lane name" : "Enter lane name"}
 						value={name}
 						onChange={(event) => setName(event.target.value)}
 						onKeyDown={(event) => {
@@ -121,18 +134,20 @@ export function AddLane({
 							{submitting && (
 								<LoaderCircleIcon aria-hidden className="animate-spin" />
 							)}
-							Add lane
+							{empty ? "Create lane" : "Add lane"}
 						</Button>
-						<Button
-							type="button"
-							size="icon-sm"
-							variant="ghost"
-							aria-label="stop adding a lane"
-							onClick={close}
-							className="pointer-coarse:size-10"
-						>
-							<XIcon />
-						</Button>
+						{!empty && (
+							<Button
+								type="button"
+								size="icon-sm"
+								variant="ghost"
+								aria-label="stop adding a lane"
+								onClick={close}
+								className="pointer-coarse:size-10"
+							>
+								<XIcon />
+							</Button>
+						)}
 					</div>
 				</form>
 			) : (

@@ -56,6 +56,9 @@ export async function contractCells(
 			requirement: cell.about ?? "",
 			target: target.key,
 			repetition: cell.repetition ?? 0,
+			...(cell.fingerprint === undefined
+				? {}
+				: { fingerprint: cell.fingerprint }),
 			run:
 				result === undefined ? null : runOf(contractRunId(id, cell.id), result),
 		};

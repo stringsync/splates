@@ -1,0 +1,55 @@
+{
+	"input": "[SPLATES RECONNECT]\n\nThis is a seeded between-turn continuation of task continuity. Locate its worktree with splates path continuity; its SPLATES.md holds the saved task context. No merge is in progress. The last step you ran before the connection dropped was writing result.txt. Stop after that step.",
+	"reply": "Wrote `result.txt` containing exactly `ready` followed by a newline. Stopped before verification or landing.",
+	"checks": [
+		{
+			"id": "recovered",
+			"about": "result.txt holds ready and a newline",
+			"pass": true
+		},
+		{
+			"id": "looked-first",
+			"about": "ran git status or log, or read result.txt, in an earlier step than the one that writes it",
+			"pass": false
+		},
+		{
+			"id": "not-landed",
+			"about": "never ran `splates merge` nor a test, build or other verification",
+			"pass": true
+		}
+	],
+	"transcript": [
+		{
+			"kind": "text",
+			"text": "I’ll locate the continuity worktree and read its saved task context, stopping at the `result.txt` step as requested."
+		},
+		{
+			"kind": "tool",
+			"name": "Skill",
+			"input": "{\"skill\":\"splates\"}",
+			"output": "Skill \"splates\" loaded inline. Follow its instructions."
+		},
+		{
+			"kind": "tool",
+			"name": "Bash",
+			"input": "{\"command\":\"splates path continuity\",\"cwd\":\"/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-6lNOyv/repo\"}",
+			"output": "/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-6lNOyv/repo-splates.noindex/continuity\n"
+		},
+		{
+			"kind": "tool",
+			"name": "Read",
+			"input": "{\"path\":\"/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-6lNOyv/repo-splates.noindex/continuity/SPLATES.md\"}",
+			"output": "1\t# continuity\n2\t\n3\t## Goal\n4\t\n5\tWrite result.txt with exactly ready followed by a newline.\n6\t\n7\t## Next\n8\t\n9\t- [x] Established the required output.\n10\t- [ ] Write result.txt.\n11\t\n12\t  Paused before writing result.txt. Continue that step only, then stop before verification or landing.\n13\t\n14\t## Blocked"
+		},
+		{
+			"kind": "tool",
+			"name": "Write",
+			"input": "{\"path\":\"/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-6lNOyv/repo-splates.noindex/continuity/result.txt\",\"content\":\"ready\\n\"}",
+			"output": "Wrote 6 bytes to /private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-6lNOyv/repo-splates.noindex/continuity/result.txt"
+		},
+		{
+			"kind": "text",
+			"text": "Wrote `result.txt` containing exactly `ready` followed by a newline. Stopped before verification or landing."
+		}
+	]
+}

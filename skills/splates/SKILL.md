@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.1
+version: 2.0.2
 ---
 
 # Using splates
@@ -25,27 +25,23 @@ the rest:
    edit only in the worktree path it prints.
 2. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Keep heavy work off the machine.** The person works on it beside many
-   other agents, so do exactly this:
-   - Never run the whole suite yourself (a bare `bun test` or `npm test`),
-     however small or quick: it runs only in the merge gate. When the user
-     asks for every test to pass, that ask is not their Allow: run the test
-     files the change reaches and end with a run-command card for the whole
-     suite.
+3. **Go easy on a busy machine.** The person works on it beside other agents.
+   What is heavy depends on the project and the hardware, and nothing enforces
+   this, so it is your best effort:
    - Check a change with `bun test --changed` or explicit test files. In
      the mono repo: `bin/mono test --since main` or file paths, and
-     `bin/mono fix` once per step.
-   - An unscoped `bin/mono test` or `bin/mono premerge` (or `bun run premerge`), or a scoped run
-     reaching half the test files, is refused (`not_granted`) until the
-     person allows one run.
-   - Heavy means a lot of CPU or memory: a full build,
-     docker, a benchmark, a profile, a browser test run, anything that keeps
-     cores busy for more than a minute. That, or any
-     cost that is not compute (tokens, a write outside the repository, a
-     deploy): ask with a run-command card
-     (`## 🔐 Permission: run command: <why>`, the command alone on a line in
-     backticks, the why under it), end your turn, and run it only on
+     `bin/mono fix` once per step. The merge gate runs the rest, so a whole
+     run of your own is usually the same work twice.
+   - Before a command you expect to take a lot of CPU or memory (a whole test
+     suite, a full build, docker, a benchmark, a profile, a browser test run,
+     anything that keeps cores busy for more than a minute), run
+     `splates machine`. Not busy: run the command. Busy: ask with a run-command
+     card (`## 🔐 Permission: run command: <why>`, the command alone on a line
+     in backticks, under it that you ask because the machine is busy and what
+     the command would add), end your turn, and run it only on
      `[SPLATES RUN ALLOWED]`.
+   - A cost that is not compute (tokens, a write outside the repository, a
+     deploy): ask with the same card, however the machine is, saying that cost.
    - Run anything else without a card: an install, a typecheck, a lint, a
      test file or two, a commit, a short script.
 4. **Commit as you go**, in plain messages with no attribution.
@@ -174,25 +170,32 @@ the user to queue):
 <A line on what the tasks add up to.>
 ```
 
-Anything heavy that is not a scoped test run (a lot of CPU or memory: a full
-build, docker, a benchmark, anything that keeps cores busy for more than a
-minute) is asked with the run-command card: the command alone on the first
-backticked line, and what it costs under it. End your turn after it; the
-user's Allow sends `[SPLATES RUN ALLOWED]`, and only then do you run it.
+A command you expect to take a lot of CPU or memory, asked for because
+`splates machine` says the machine is busy, is asked with the run-command card:
+the command alone on the first backticked line, and under it why you ask and
+what it adds. End your turn after it. The user's Allow sends
+`[SPLATES RUN ALLOWED]`, and only then do you run it. The card is text: outside
+the page the user can type that directive, or `[SPLATES RUN DENIED]`, or answer
+in plain words, and it means the same.
 
 ```markdown
 ## 🔐 Permission: run command: build the web app
 
 `bun run build`
 
-Takes about two minutes.
+Asking because the machine is busy (CPU 93%); this adds about two minutes of load.
 ```
 
 Run `splates evals agents` first: it prints the saved eval agents, and an
 `Agents:` line copies those targets verbatim and names no other (with none
 saved, leave the line out).
 
-Evals cost the user tokens, so only they start them. To ask for a run (in
+Evals cost the user tokens, so only they start them, with one standing
+permission: an eval conversation carries a dollar budget and a round cap, and
+a run card that fits both starts without a tap. Outside them it is refused with
+`budget_exhausted`, naming the limit; then stop and report (see
+[evals.md](references/evals.md), Stopping). You never edit the limits: the
+user tops them up. To ask for a run (in
 a project whose `splates.config.ts` names `evals.list` and `evals.run`, as
 splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
@@ -203,8 +206,8 @@ run on (`Agents:` then each as `` `agent:model@effort` ``), chosen only from the
 eval agents the project allows, never an agent you invent, leaving out those that need no
 rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
 the saved eval agents, only those named ticked, and, when the project prints a plan, what the run
-costs at most; it runs in your worktree, and its Run button is the user's:
-never run the eval command yourself.
+costs at most; it runs in your worktree, and its Run button is the user's
+unless the budget covers it: never run the eval command yourself.
 
 ```markdown
 ## 🔐 Permission: run evals splates: the resource scenarios
@@ -239,7 +242,11 @@ viewable and show in its card.
 Improving a scenario is a
 loop of run, diagnose, fix one thing, rerun and log, which
 [evals.md](references/evals.md) lays out: read it before the first run card
-of a task and when the run is done.
+of a task and when the run is done. The loop improves the skill, not the
+grader: a change to a check, judge prompt, seed or message cites the run it
+misjudged, shows the `bin/evals regrade` flips in `## Verification`, labels
+that run, and counts as a new baseline, never as a better pass rate; the
+landing commit names the batch that drove it (evals.md, Grader changes).
 
 ## In every conversation
 
@@ -311,6 +318,8 @@ the file when one arrives.
 | `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
+| `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes, within the `Budget: $<usd>` and `Rounds: <n>` lines that may follow | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
+| `[SPLATES EVALS BUDGET USED UP]` | The conversation's eval dollar budget or round cap is used up, so your run evals card was refused | Do not ask for another run or run the eval command yourself: stop and report which limit it was, and that the user can top it up ([evals.md](references/evals.md), Stopping) |
 | `[SPLATES RETRIED]`                 | The user granted your task another round of merge attempts, which the page has run `splates retry` for | Merge again, as [merge.md](references/merge.md) says under When a merge fails |
 | `[SPLATES GRANTED]`                 | The user gave the reach your grant card asked for, which the page has granted | Carry on with the work in the other project it was for, as [projects.md](references/projects.md) says |
 | `[SPLATES GRANT DENIED]`            | The user turned down the reach your grant card asked for | Nothing was granted: carry on without that reach, or ask what to do instead |
@@ -428,10 +437,10 @@ queuing work there and asking for a grant.
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
-   once share the tree, so give each its own files. Keep off heavy work on the host
-   machine the person works on, as step 3 of the short version says: test a
-   small portion, and ask with a run-command card before anything else
-   heavy. A subagent is bound by the same rule and asks through you.
+   once share the tree, so give each its own files. Go easy on the host machine the
+   person works on, as step 3 of the short version says: test a small portion,
+   and before anything heavy read `splates machine`, asking with a run-command
+   card only when it is busy. A subagent does the same and asks through you.
 5. **Land.** Once every step under `## Next` (including any user review) and
    every question under `## Blocked` is checked, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or

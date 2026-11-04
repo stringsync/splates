@@ -9,34 +9,6 @@ import {
 	within,
 } from "./testing";
 
-type View = Awaited<ReturnType<Testing["open"]>>;
-
-/** What the box under `name` holds. */
-function value(view: View, name: string): string {
-	return (view.getByRole("textbox", { name }) as HTMLInputElement).value;
-}
-
-/** Goes to the tasks and back to the todos. */
-async function away(view: View): Promise<void> {
-	await act(async () =>
-		fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-	);
-	await act(async () =>
-		fireEvent.click(view.getByRole("tab", { name: /Board/ })),
-	);
-}
-
-/** Opens todo `subject` to edit, and hands back its subject's box. */
-async function edit(view: View, subject: string): Promise<HTMLElement> {
-	await act(async () => fireEvent.click(view.getByText(subject)));
-	return waitFor(() => view.getByRole("textbox", { name: "subject" }));
-}
-
-/** Writes `text` into `box`, as typing it would. */
-async function change(box: HTMLElement, text: string): Promise<void> {
-	await act(async () => fireEvent.change(box, { target: { value: text } }));
-}
-
 describe("App's todo drafts", () => {
 	let testing: Testing;
 
@@ -166,3 +138,35 @@ describe("App's todo drafts", () => {
 		expect(view.queryByText("Unsaved changes kept from before")).toBeNull();
 	});
 });
+
+type View = Awaited<ReturnType<Testing["open"]>>;
+
+/** What the box under `name` holds. */
+function value(view: View, name: string): string {
+	return (view.getByRole("textbox", { name }) as HTMLInputElement).value;
+}
+
+/** Goes to the tasks and back to the todos. */
+async function away(view: View): Promise<void> {
+	await act(async () =>
+		fireEvent.click(view.getByRole("tab", { name: /Stats/ })),
+	);
+	await act(async () =>
+		fireEvent.click(view.getByRole("tab", { name: /Board/ })),
+	);
+	await act(async () => {
+		location.hash = "#todos";
+		window.dispatchEvent(new HashChangeEvent("hashchange"));
+	});
+}
+
+/** Opens todo `subject` to edit, and hands back its subject's box. */
+async function edit(view: View, subject: string): Promise<HTMLElement> {
+	await act(async () => fireEvent.click(view.getByText(subject)));
+	return waitFor(() => view.getByRole("textbox", { name: "subject" }));
+}
+
+/** Writes `text` into `box`, as typing it would. */
+async function change(box: HTMLElement, text: string): Promise<void> {
+	await act(async () => fireEvent.change(box, { target: { value: text } }));
+}

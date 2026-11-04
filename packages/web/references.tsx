@@ -5,6 +5,7 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
+	EVALS_BUDGET_USED_UP,
 	GRANT_DENIED,
 	GRANTED,
 	MERGE,
@@ -39,6 +40,7 @@ import type { Action } from "./actions";
 import { Board } from "./board";
 import type { Tone } from "./card-shell";
 import { Lanes } from "./conversation-names";
+import { FinishedReferences } from "./finished-references";
 import { useHeldConversations } from "./handed-out";
 import { TaskIcon } from "./task-icon";
 
@@ -81,6 +83,7 @@ export function useReferences(
 	projects: readonly ProjectRef[] = [],
 ): References {
 	const { todos } = useContext(Board);
+	const finished = useContext(FinishedReferences);
 	const conversations = useHeldConversations();
 	const namedLanes = useContext(Lanes);
 	return useMemo(() => {
@@ -93,20 +96,35 @@ export function useReferences(
 				description: about,
 				metadata: { directive },
 			})),
-			todo: todos.map((todo) => ({
+			todo: [
+				...todos,
+				...finished
+					.filter((task) => !todos.some((todo) => todo.id === task.id))
+					.map((task) => ({ id: task.id, subject: task.subject })),
+			].map((todo) => ({
 				id: taskNumberReference(todo.id),
 				type: "todo",
 				label: todo.subject,
 				description: `#${todo.id}`,
 				metadata: { directive: taskNumberReference(todo.id) },
 			})),
-			task: tasks.map((task) => ({
-				id: taskReference(task.task),
-				type: "task",
-				label: task.task,
-				description: task.status,
-				metadata: { directive: taskReference(task.task) },
-			})),
+			task: [
+				...tasks,
+				...finished
+					.filter((task) => !tasks.some((live) => live.task === task.task))
+					.map((task) => ({ task: task.task, status: task.ended })),
+			]
+				.filter(
+					(task, index, all) =>
+						all.findIndex((each) => each.task === task.task) === index,
+				)
+				.map((task) => ({
+					id: taskReference(task.task),
+					type: "task",
+					label: task.task,
+					description: task.status,
+					metadata: { directive: taskReference(task.task) },
+				})),
 			conversation: conversations.map((conversation) => ({
 				id: conversation.id,
 				type: "conversation",
@@ -166,7 +184,7 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [todos, tasks, actions, projects, conversations, namedLanes]);
+	}, [todos, tasks, actions, projects, conversations, namedLanes, finished]);
 }
 
 /**
@@ -251,6 +269,14 @@ export const BARE_DIRECTIVES = [
 			"carry on without the command the last run-command card asked to run",
 		icon: BanIcon,
 		tone: "neutral",
+	},
+	{
+		directive: EVALS_BUDGET_USED_UP,
+		label: "Evals budget used up",
+		about:
+			"stop and report: the run evals card was refused because the budget is used up, and only the user tops it up",
+		icon: BanIcon,
+		tone: "warning",
 	},
 ] as const satisfies {
 	directive: string;

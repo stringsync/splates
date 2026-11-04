@@ -33,7 +33,7 @@ import { reportedAs, useNameOf } from "./conversation-names";
 import { Dispatch } from "./dispatch";
 import type { Drafts } from "./drafts";
 import { Mark } from "./mark";
-import { QueueMark } from "./slot-queue";
+import { QueueMark } from "./start-queue";
 
 /**
  * The main tree's branch, which names it where a conversation's place is

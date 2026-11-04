@@ -1,11 +1,12 @@
 {
 	"name": "@evals/evals",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"private": true,
 	"type": "module",
 	"exports": {
 		"./agents": "./agents.ts",
 		"./contract": "./contract.ts",
+		"./labels": "./labels.ts",
 		"./run": "./run.ts",
 		"./sandbox": "./sandbox.ts",
 		"./scenario": "./scenario.ts"

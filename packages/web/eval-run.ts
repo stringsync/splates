@@ -1,4 +1,7 @@
 import {
+	DEFAULT_EVAL_BUDGET,
+	type EvalBudget,
+	type EvalBudgetStatus,
 	type EvalGrid,
 	type EvalLaunch,
 	type EvalPlan,
@@ -14,6 +17,7 @@ import {
 	type EvalRunAsk,
 	evalAgents,
 	evalBatch,
+	evalBudget,
 	evalLaunch,
 	evalPlan,
 	evalScenarios,
@@ -31,6 +35,8 @@ export interface EvalRunServer {
 	launch(key: string): Promise<EvalLaunch | null>;
 	stop(key: string): Promise<void>;
 	batch(id: string): Promise<EvalGrid>;
+	/** Where the conversation's budget stands; null when this server cannot say. */
+	budget(conversation: string): Promise<EvalBudgetStatus | null>;
 }
 
 export const HTTP_EVAL_RUN: EvalRunServer = {
@@ -41,6 +47,11 @@ export const HTTP_EVAL_RUN: EvalRunServer = {
 	launch: evalLaunch,
 	stop: stopEvalRun,
 	batch: evalBatch,
+	budget: (conversation) =>
+		evalBudget(conversation).then(
+			(status) => (typeof status?.spentUsd === "number" ? status : null),
+			() => null,
+		),
 };
 
 /** What a test swaps: the server, and the clock the run is followed by. */
@@ -86,6 +97,10 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	plan: EvalPlan | null = null;
 	launch: EvalLaunch | null = null;
 	grid: EvalGrid | null = null;
+	/** The conversation's spend against its limits; null outside a conversation or before it is read. */
+	budget: EvalBudgetStatus | null = null;
+	/** The limits a first run sets, prefilled with the defaults and editable until it starts. */
+	limits: EvalBudget = { ...DEFAULT_EVAL_BUDGET };
 	/** Why the last read or write refused, in the server's words. */
 	refusal: string | null = null;
 	loaded = false;
@@ -117,6 +132,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			this.plan = shown.plan;
 			this.launch = shown.launch;
 			this.grid = shown.grid;
+			this.budget = shown.budget;
 			this.loaded = true;
 		}
 	}
@@ -151,6 +167,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				this.server.scenarios(this.conversation),
 				this.server.launch(this.key),
 			]);
+			await this.readBudget();
 			const named = this.ask.agents;
 			this.agents = saved.map((pick) => ({
 				pick,
@@ -195,6 +212,15 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		}
 		this.repetitions = repetitions;
 		await this.replan();
+	}
+
+	/** Sets the dollars and rounds a first run starts the conversation with. */
+	setLimits(limits: Partial<EvalBudget>): void {
+		if (this.started) {
+			return;
+		}
+		this.limits = { ...this.limits, ...limits };
+		this.changed();
 	}
 
 	/** The person's Run: starts the paid run, then follows it. */
@@ -262,6 +288,9 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			baseline: this.ask.baseline,
 			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
 			conversation: this.conversation,
+			...(this.conversation === null || this.budget?.roundsUsed
+				? {}
+				: { budget: this.limits }),
 		};
 	}
 
@@ -298,6 +327,12 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		}
 	}
 
+	private async readBudget(): Promise<void> {
+		if (this.conversation !== null) {
+			this.budget = await this.server.budget(this.conversation);
+		}
+	}
+
 	private async read(): Promise<void> {
 		try {
 			this.launch = (await this.server.launch(this.key)) ?? this.launch;
@@ -305,6 +340,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			if (batch !== null) {
 				this.grid = await this.server.batch(batch);
 			}
+			await this.readBudget();
 			this.refusal = null;
 		} catch (error) {
 			this.refusal = refusalOf("Could not follow the run", error);
@@ -321,6 +357,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				plan: this.plan,
 				launch: this.launch,
 				grid: this.grid,
+				budget: this.budget,
 			});
 		}
 		this.dispatcher.dispatch("changed");
@@ -335,6 +372,7 @@ interface Shown {
 	plan: EvalPlan | null;
 	launch: EvalLaunch | null;
 	grid: EvalGrid | null;
+	budget: EvalBudgetStatus | null;
 }
 
 const SHOWN = new Map<string, Shown>();

@@ -4,7 +4,7 @@ import {
 	changedProjects,
 	nextVersion,
 } from "@splates/server/ship/browser";
-import { ShipIcon } from "lucide-react";
+import { ArrowLeftIcon, ShipIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Checkbox } from "#web/components/ui/checkbox.tsx";
@@ -21,6 +21,7 @@ import { shipGraph } from "./api";
 import { startShip } from "./api/ship";
 import { cn } from "./lib/utils";
 import { PlanLoading } from "./ship-plan-loading";
+import { PlanSteps } from "./ship-plan-steps";
 import { ShipPreview } from "./ship-preview";
 import { releaseOrder, shippable, staleOf, treeOrder } from "./ship-tree";
 
@@ -39,20 +40,25 @@ const BUMP_HINTS: Record<ShipBump, string> = {
 };
 
 /**
- * The plan for a ship: the projects as a tree of who pins whom, where each is
- * given a Ship checkbox, then started; shipping a project moves its
- * dependents' pins to the version released, and ships them too. `ship` is the project the page opened with picked, or `+changed`
- * for every changed one.
+ * Plan a ship: pick projects from the tree of who pins whom, then Start.
+ * Pass `ship` to pre-pick a project, or `+changed` for every changed one.
+ * Shows only Loading until `ready` and the projects have loaded.
  */
 export function ShipPlan({
 	ship,
 	endedAt,
 	busy,
 	loading,
+	ready = true,
+	header,
 	onStarted,
 	children,
 }: {
 	children?: ReactNode;
+	/** Shown above the plan, only once everything has loaded. */
+	header?: ReactNode;
+	/** Everything the page reads besides the projects has arrived. */
+	ready?: boolean;
 	ship: string | null;
 	/** When the last cascade ended, so versions are read again after one. */
 	endedAt: string | null;
@@ -71,8 +77,8 @@ export function ShipPlan({
 		window.addEventListener("focus", refresh);
 		return () => window.removeEventListener("focus", refresh);
 	}, [endedAt]);
-	if (graph === null) {
-		return failed ? (
+	if (graph === null || !ready) {
+		return failed && graph === null ? (
 			<p role="status" className="text-muted-foreground text-sm">
 				The projects did not load.
 			</p>
@@ -86,6 +92,7 @@ export function ShipPlan({
 	if (listed.length === 0) {
 		return (
 			<>
+				{header}
 				<p className="text-muted-foreground text-sm">
 					No project ships yet. One does once its splates.config.ts names a{" "}
 					<code>ship</code> command.
@@ -96,6 +103,7 @@ export function ShipPlan({
 	}
 	return (
 		<>
+			{header}
 			<Plan
 				// Read again once a ship has ended, so the choices follow the new versions.
 				key={endedAt ?? ""}
@@ -134,6 +142,7 @@ function Plan({
 	const [choices, setChoices] = useState<Record<string, Choice>>({});
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
+	const [reviewing, setReviewing] = useState(false);
 
 	// A shipped project's dependents ship after it, so they ship too.
 	const ships = new Set<string>();
@@ -191,230 +200,242 @@ function Plan({
 	};
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
-			{behind > 0 && (
-				<p className="text-muted-foreground text-xs">{behind} behind a pin</p>
-			)}
+			<PlanSteps reviewing={reviewing} />
+			{!reviewing && (
+				<>
+					{behind > 0 && (
+						<p className="text-muted-foreground text-xs">
+							{behind} behind a pin
+						</p>
+					)}
 
-			<div className="-mb-2 flex items-center justify-end gap-4 px-3 text-muted-foreground text-xs">
-				<span className="flex items-center gap-2">
-					All changed
-					<Checkbox
-						aria-label="All changed"
-						checked={changed.length > 0 && unshipped.length === 0}
-						disabled={pending || changed.length === 0}
-						onCheckedChange={(on) => {
-							setRoots(
-								on
-									? [...new Set([...roots, ...changed])]
-									: roots.filter((each) => !changed.includes(each)),
-							);
-							setExcluded(
-								on
-									? excluded.filter((each) => !changed.includes(each))
-									: [...new Set([...excluded, ...changed])],
-							);
-						}}
-					/>
-				</span>
-				<span className="flex items-center gap-2">
-					Select all
-					<span className="flex w-9 justify-center">
-						<Checkbox
-							aria-label="Select all"
-							checked={allShip}
-							disabled={pending || selectable.length === 0}
-							onCheckedChange={setAll}
-						/>
-					</span>
-				</span>
-			</div>
-			<ol
-				aria-label="Ship graph"
-				className="flex flex-col overflow-hidden rounded-lg border bg-card"
-			>
-				{treeOrder(projects).map(({ project: each, depth }) => {
-					const stale = staleOf(each, graph);
-					const shipping = ships.has(each.slug);
-					const commits = each.changes?.commits ?? 0;
-					const value = choice(each.slug);
-					const idle =
-						commits === 0 &&
-						each.changes?.commits !== null &&
-						stale.length === 0 &&
-						!shipping;
-					const adopts = shipping;
-					return (
-						<li
-							key={each.slug}
-							aria-label={each.slug}
-							className={cn(
-								"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
-								idle && "py-2 opacity-50",
-								shipping && "bg-primary/5",
-							)}
-							style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
-						>
-							{depth > 0 && (
-								<span
-									aria-hidden
-									className="absolute top-0 h-[1.65rem] w-3 rounded-bl-md border-b-2 border-l-2 border-primary/30"
-									style={{ left: `${0.75 + (depth - 1) * 1.5 + 0.4}rem` }}
+					<div className="-mb-2 flex items-center justify-end gap-4 px-3 text-muted-foreground text-xs">
+						<span className="flex items-center gap-2">
+							All changed
+							<Checkbox
+								aria-label="All changed"
+								checked={changed.length > 0 && unshipped.length === 0}
+								disabled={pending || changed.length === 0}
+								onCheckedChange={(on) => {
+									setRoots(
+										on
+											? [...new Set([...roots, ...changed])]
+											: roots.filter((each) => !changed.includes(each)),
+									);
+									setExcluded(
+										on
+											? excluded.filter((each) => !changed.includes(each))
+											: [...new Set([...excluded, ...changed])],
+									);
+								}}
+							/>
+						</span>
+						<span className="flex items-center gap-2">
+							Select all
+							<span className="flex w-9 justify-center">
+								<Checkbox
+									aria-label="Select all"
+									checked={allShip}
+									disabled={pending || selectable.length === 0}
+									onCheckedChange={setAll}
 								/>
-							)}
-							<div className="flex items-center gap-3">
-								<div className="flex min-w-0 flex-1 flex-col gap-1">
-									<span className="flex items-baseline gap-2">
-										<span className="font-medium text-sm">{each.slug}</span>
-										{each.version !== null && (
-											<span className="text-muted-foreground text-xs tabular-nums">
-												{each.version}
+							</span>
+						</span>
+					</div>
+					<ol
+						aria-label="Ship graph"
+						className="flex flex-col overflow-hidden rounded-lg border bg-card"
+					>
+						{treeOrder(projects).map(({ project: each, depth }) => {
+							const stale = staleOf(each, graph);
+							const shipping = ships.has(each.slug);
+							const commits = each.changes?.commits ?? 0;
+							const value = choice(each.slug);
+							const idle =
+								commits === 0 &&
+								each.changes?.commits !== null &&
+								stale.length === 0 &&
+								!shipping;
+							const adopts = shipping;
+							return (
+								<li
+									key={each.slug}
+									aria-label={each.slug}
+									className={cn(
+										"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
+										idle && "py-2 opacity-50",
+										shipping && "bg-primary/5",
+									)}
+									style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
+								>
+									{depth > 0 && (
+										<span
+											aria-hidden
+											className="absolute top-0 h-[1.65rem] w-3 rounded-bl-md border-b-2 border-l-2 border-primary/30"
+											style={{ left: `${0.75 + (depth - 1) * 1.5 + 0.4}rem` }}
+										/>
+									)}
+									<div className="flex items-center gap-3">
+										<div className="flex min-w-0 flex-1 flex-col gap-1">
+											<span className="flex items-baseline gap-2">
+												<span className="font-medium text-sm">{each.slug}</span>
+												{each.version !== null && (
+													<span className="text-muted-foreground text-xs tabular-nums">
+														{each.version}
+													</span>
+												)}
+												{each.deploy === true && (
+													<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs">
+														deploy
+													</span>
+												)}
+												{shipping && !roots.includes(each.slug) && (
+													<span className="rounded-full bg-success/15 px-2 text-success text-xs">
+														added automatically
+													</span>
+												)}
 											</span>
-										)}
-										{each.deploy === true && (
-											<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs">
-												deploy
-											</span>
-										)}
-										{shipping && !roots.includes(each.slug) && (
-											<span className="rounded-full bg-success/15 px-2 text-success text-xs">
-												added automatically
-											</span>
-										)}
-									</span>
-									<span className="flex flex-col text-xs">
-										{each.changes?.commits === null && (
-											<span
-												className="text-muted-foreground"
-												title={each.changes.error ?? undefined}
-											>
-												Release status unknown
-											</span>
-										)}
-										{commits > 0 && (
-											<span
-												className="text-warning"
-												title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
-											>
-												{commits} {commits === 1 ? "commit" : "commits"} since{" "}
-												{each.changes?.tag}
-											</span>
-										)}
-										{idle && each.changes?.commits === 0 && (
-											<span className="text-muted-foreground">Up to date</span>
-										)}
-										{stale.map((pin) => (
-											<span key={pin.name} className="text-muted-foreground">
-												{pin.name} {pin.from} → {pin.to}
-											</span>
-										))}
-									</span>
-								</div>
-								<div className="flex shrink-0 gap-4">
-									<span className="flex w-9 justify-center">
-										{shippable(each) ? (
-											<Checkbox
-												aria-label={`Ship ${each.slug}`}
-												checked={shipping}
-												disabled={pending}
-												onCheckedChange={(on) => setShip(each.slug, on)}
-											/>
-										) : (
-											!each.private && (
-												<span className="text-muted-foreground text-xs">
-													no ship
-												</span>
-											)
-										)}
-									</span>
-								</div>
-							</div>
-							{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
-							<div className={cn("text-sm", shippable(each) && "min-h-14")}>
-								{!shipping && shippable(each) && (
-									<p className="text-muted-foreground text-xs">
-										Tick to include in this ship.
-									</p>
-								)}
-								{shipping && (
-									<div className="flex flex-col gap-2">
-										<div className="flex flex-wrap items-center gap-4">
-											<span className="flex items-center gap-2">
-												<span className="text-muted-foreground">
-													Release as
-												</span>
-												<Select
-													items={BUMPS.map((bump) => ({
-														value: bump,
-														label: bump,
-													}))}
-													value={value.bump}
-													disabled={pending}
-													onValueChange={(bump) =>
-														bump !== null &&
-														change(each.slug, { bump: bump as ShipBump })
-													}
-												>
-													<SelectTrigger
-														aria-label={`${each.slug} version bump`}
+											<span className="flex flex-col text-xs">
+												{each.changes?.commits === null && (
+													<span
+														className="text-muted-foreground"
+														title={each.changes.error ?? undefined}
 													>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														{BUMPS.map((bump) => (
-															<SelectItem key={bump} value={bump}>
-																{bump}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
+														Release status unknown
+													</span>
+												)}
+												{commits > 0 && (
+													<span
+														className="text-warning"
+														title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
+													>
+														{commits} {commits === 1 ? "commit" : "commits"}{" "}
+														since {each.changes?.tag}
+													</span>
+												)}
+												{idle && each.changes?.commits === 0 && (
+													<span className="text-muted-foreground">
+														Up to date
+													</span>
+												)}
+												{stale.map((pin) => (
+													<span
+														key={pin.name}
+														className="text-muted-foreground"
+													>
+														{pin.name} {pin.from} → {pin.to}
+													</span>
+												))}
 											</span>
-											{adopts && (
-												<span className="flex items-center gap-2">
-													<Switch
-														size="sm"
-														aria-label={`Agent task for ${each.slug}`}
-														checked={value.adopt === "agent"}
-														disabled={pending}
-														onCheckedChange={(on) =>
-															change(each.slug, {
-																adopt: on ? "agent" : "mechanical",
-															})
-														}
-													/>
-													<span>Agent task</span>
-												</span>
-											)}
 										</div>
-										<p className="text-muted-foreground text-xs">
-											{BUMP_HINTS[value.bump]}
-										</p>
-										{adopts && value.adopt === "agent" && (
-											<>
+										<div className="flex shrink-0 gap-4">
+											<span className="flex w-9 justify-center">
+												{shippable(each) ? (
+													<Checkbox
+														aria-label={`Ship ${each.slug}`}
+														checked={shipping}
+														disabled={pending}
+														onCheckedChange={(on) => setShip(each.slug, on)}
+													/>
+												) : (
+													!each.private && (
+														<span className="text-muted-foreground text-xs">
+															no ship
+														</span>
+													)
+												)}
+											</span>
+										</div>
+									</div>
+									{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
+									<div className={cn("text-sm", shippable(each) && "min-h-14")}>
+										{!shipping && shippable(each) && (
+											<p className="text-muted-foreground text-xs">
+												Tick to include in this ship.
+											</p>
+										)}
+										{shipping && (
+											<div className="flex flex-col gap-2">
+												<div className="flex flex-wrap items-center gap-4">
+													<span className="flex items-center gap-2">
+														<span className="text-muted-foreground">
+															Release as
+														</span>
+														<Select
+															items={BUMPS.map((bump) => ({
+																value: bump,
+																label: bump,
+															}))}
+															value={value.bump}
+															disabled={pending}
+															onValueChange={(bump) =>
+																bump !== null &&
+																change(each.slug, { bump: bump as ShipBump })
+															}
+														>
+															<SelectTrigger
+																aria-label={`${each.slug} version bump`}
+															>
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																{BUMPS.map((bump) => (
+																	<SelectItem key={bump} value={bump}>
+																		{bump}
+																	</SelectItem>
+																))}
+															</SelectContent>
+														</Select>
+													</span>
+													{adopts && (
+														<span className="flex items-center gap-2">
+															<Switch
+																size="sm"
+																aria-label={`Agent task for ${each.slug}`}
+																checked={value.adopt === "agent"}
+																disabled={pending}
+																onCheckedChange={(on) =>
+																	change(each.slug, {
+																		adopt: on ? "agent" : "mechanical",
+																	})
+																}
+															/>
+															<span>Agent task</span>
+														</span>
+													)}
+												</div>
 												<p className="text-muted-foreground text-xs">
-													An agent moves the pins and fixes what breaks. When
-													its task merges, that tells splates it is OK to ship,
-													and splates then publishes.
+													{BUMP_HINTS[value.bump]}
 												</p>
-												<Textarea
-													aria-label={`Instructions for ${each.slug}`}
-													placeholder="Instructions for the agent"
-													disabled={pending}
-													value={value.instructions}
-													onChange={(event) =>
-														change(each.slug, {
-															instructions: event.target.value,
-														})
-													}
-												/>
-											</>
+												{adopts && value.adopt === "agent" && (
+													<>
+														<p className="text-muted-foreground text-xs">
+															An agent moves the pins and fixes what breaks.
+															When its task merges, that tells splates it is OK
+															to ship, and splates then publishes.
+														</p>
+														<Textarea
+															aria-label={`Instructions for ${each.slug}`}
+															placeholder="Instructions for the agent"
+															disabled={pending}
+															value={value.instructions}
+															onChange={(event) =>
+																change(each.slug, {
+																	instructions: event.target.value,
+																})
+															}
+														/>
+													</>
+												)}
+											</div>
 										)}
 									</div>
-								)}
-							</div>
-						</li>
-					);
-				})}
-			</ol>
+								</li>
+							);
+						})}
+					</ol>
+				</>
+			)}
 			<div className="sticky bottom-0 -mx-1 flex flex-col gap-2 bg-background/90 px-1 py-3 backdrop-blur">
 				{error !== null && (
 					<p role="alert" className="text-destructive text-xs">
@@ -426,45 +447,67 @@ function Plan({
 						A ship is under way.
 					</p>
 				)}
-				{ordered.length > 0 ? (
+				{reviewing && ordered.length > 0 && (
 					<ShipPreview
 						ordered={ordered}
 						shipsAll={ships}
 						versionAfter={versionAfter}
+						bumpOf={(slug) => choice(slug).bump}
+						adoptOf={(slug) => choice(slug).adopt}
 					/>
-				) : (
+				)}
+				{!reviewing && ordered.length === 0 && (
 					<p className="text-muted-foreground text-xs">Nothing chosen</p>
 				)}
-				<Button
-					className="min-h-11 w-full"
-					disabled={loading || busy || pending || ordered.length === 0}
-					onClick={() => {
-						setPending(true);
-						setError(null);
-						startShip({
-							projects: ordered.map((each) => ({
-								slug: each.slug,
-								...choice(each.slug),
-							})),
-						}).then(
-							() => {
-								setPending(false);
-								onStarted();
-							},
-							(reason: unknown) => {
-								setPending(false);
-								setError(String(reason));
-							},
-						);
-					}}
-				>
-					<ShipIcon />
-					{pending
-						? "Starting…"
-						: ordered.length > 0
-							? `Ship ${ordered.length} ${ordered.length === 1 ? "project" : "projects"}`
+				{reviewing ? (
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							className="min-h-11"
+							disabled={pending}
+							onClick={() => setReviewing(false)}
+						>
+							<ArrowLeftIcon />
+							Back
+						</Button>
+						<Button
+							className="min-h-11 flex-1"
+							disabled={loading || busy || pending || ordered.length === 0}
+							onClick={() => {
+								setPending(true);
+								setError(null);
+								startShip({
+									projects: ordered.map((each) => ({
+										slug: each.slug,
+										...choice(each.slug),
+									})),
+								}).then(
+									() => {
+										setPending(false);
+										onStarted();
+									},
+									(reason: unknown) => {
+										setPending(false);
+										setError(String(reason));
+									},
+								);
+							}}
+						>
+							<ShipIcon />
+							{pending ? "Starting…" : "Accept and start ship"}
+						</Button>
+					</div>
+				) : (
+					<Button
+						className="min-h-11 w-full"
+						disabled={busy || ordered.length === 0}
+						onClick={() => setReviewing(true)}
+					>
+						{ordered.length > 0
+							? `Review ${ordered.length} ${ordered.length === 1 ? "project" : "projects"}`
 							: "Choose a project to ship"}
-				</Button>
+					</Button>
+				)}
 			</div>
 		</section>
 	);

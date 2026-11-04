@@ -234,7 +234,6 @@ function LanePicker({
 		return () => clearTimeout(later);
 	}, [naming]);
 	const items = [
-		{ value: "none", label: "Untriaged" },
 		...lanes.map((lane) => ({
 			value: String(lane.id),
 			label: boardLabel(boards, lane),

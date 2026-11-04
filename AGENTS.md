@@ -16,11 +16,12 @@ which the server's tests import.
 
 Everything runs on the person's machine, beside their work and every other
 agent's, and nothing caps how many agents they run, so keep runs small.
-Anything heavy, meaning a lot of CPU or memory (a full build, a whole suite,
-docker, a benchmark, anything that keeps cores busy for more than a minute),
-you ask for with the run-command permission card the splates skill shows, end
-your turn, and run only on `[SPLATES RUN ALLOWED]`. An install, a typecheck or
-a lint is not heavy: run it.
+Before anything heavy, meaning a lot of CPU or memory (a full build, a whole
+suite, docker, a benchmark, anything that keeps cores busy for more than a
+minute), read `splates machine`. Not busy: run it. Busy: ask with the run-command
+permission card the splates skill shows, saying the machine is busy, end your
+turn, and run only on `[SPLATES RUN ALLOWED]`. An install, a typecheck or a lint
+is not heavy: run it. This is best effort: nothing enforces it.
 
 During a splates task, the user may be on the splates server from another device, so give every link as both its remote and its local URL.
 

@@ -55,6 +55,7 @@ import { splatesEvals } from "./evals";
 import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
+import { printMachine } from "./machine";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
@@ -520,6 +521,14 @@ splates
 	.action((opts, ctx) => showLog(ctx, { count: opts.count, json: opts.json }));
 
 splates.mount("server", splatesServer);
+
+splates
+	.command("machine")
+	.description(
+		"say how hard this machine is working and whether it is busy, as the page's Busy says: CPU or memory at 90% or the hottest sensor at 95°C. Needs no server. Read it before a command you expect to be heavy: run the command when the machine is not busy, and ask with a run-command card when it is",
+	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action(printMachine);
 
 splates
 	.command("ports")

@@ -1,50 +1,40 @@
-import { describe, expect, test } from "bun:test";
-import type { EvalDetail } from "@splates/server/evals/browser";
-import { improvable, improvePrompt } from "./eval-improve";
+import { expect, test } from "bun:test";
+import { improvable, improvePrompt, scenarioPrompt } from "./eval-improve";
 
-describe("improvePrompt", () => {
-	const run: EvalDetail = {
-		id: "batch-a#run-000",
-		producer: "splates",
-		status: "fail",
-		tokens: null,
-		costUsd: null,
-		milliseconds: 1,
-		scenario: "resources/install",
-		aspect: "resource-control",
-		requirement: "Ask before installing.",
-		target: {
-			key: "k",
-			agent: "claude",
-			model: "opus",
-			effort: null,
-			skill: null,
-		},
-		repetition: 0,
-		input: "Get the tests passing.",
-		rubric: null,
-		checks: [
-			{ id: "asked", about: "ended with a run-command card", pass: false },
-			{ id: "ok", about: "kept the repo", pass: true },
-		],
-		judge: { pass: false, reason: "installed without asking" },
-		reply: "Installed.",
-		transcript: [],
-	};
+test("improvePrompt is a directive naming the run, with the default limits as text", () => {
+	expect(improvePrompt({ id: "batch-a#run-000" })).toBe(
+		"[SPLATES EVAL LOOP batch-a#run-000]\nBudget: $10\nRounds: 3",
+	);
+});
 
-	test("names the scenario, what held it back, the reply and the run", () => {
-		const text = improvePrompt(run);
-		expect(text).toContain("resources/install");
-		expect(text).toContain("Check `asked`: ended with a run-command card");
-		expect(text).not.toContain("`ok`");
-		expect(text).toContain("Judge: installed without asking");
-		expect(text).toContain("Installed.");
-		expect(text).toContain("batch-a#run-000");
-	});
+test("improvePrompt carries the chosen budget and rounds", () => {
+	expect(improvePrompt({ id: "b#r" }, { usd: 2.5, rounds: 5 })).toBe(
+		"[SPLATES EVAL LOOP b#r]\nBudget: $2.5\nRounds: 5",
+	);
 });
 
 test("only a failing run is improvable", () => {
 	expect(improvable("fail")).toBe(true);
 	expect(improvable("error")).toBe(false);
 	expect(improvable("pass")).toBe(false);
+});
+
+test("scenarioPrompt names a scenario, with limits and no agents line by default", () => {
+	expect(scenarioPrompt("resources/focused-tests")).toBe(
+		"[SPLATES EVAL LOOP scenario resources/focused-tests]\nBudget: $10\nRounds: 3",
+	);
+});
+
+test("scenarioPrompt lists the picked agents", () => {
+	expect(
+		scenarioPrompt("a/b", { usd: 2, rounds: 1 }, ["x:m@high", "y:n@low"]),
+	).toBe(
+		"[SPLATES EVAL LOOP scenario a/b]\nBudget: $2\nRounds: 1\nAgents: `x:m@high`, `y:n@low`",
+	);
+});
+
+test("scenarioPrompt ends with the repetitions when asked", () => {
+	expect(scenarioPrompt("a/b", { usd: 2, rounds: 1 }, [], 5)).toBe(
+		"[SPLATES EVAL LOOP scenario a/b]\nBudget: $2\nRounds: 1\nRepetitions: 5",
+	);
 });

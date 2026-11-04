@@ -414,13 +414,6 @@ function SettingSelect({
 					onChange(String(value));
 				}
 			}}
-			onOpenChange={(open, details) => {
-				// With Auto pick's switch inside, a pick leaves the list open to
-				// change the switch too; a click outside or Escape still closes it.
-				if (!open && withSwitch && details.reason === "item-press") {
-					details.cancel();
-				}
-			}}
 		>
 			<SelectTrigger
 				id={id}

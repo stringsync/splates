@@ -65,6 +65,32 @@ describe("A conversation held for a queued task", () => {
 		expect(agent.launched).toEqual([]);
 	});
 
+	it("refreshes capacity measurements while position and reason stay the same", async () => {
+		const conversation = await held();
+		const spot = {
+			position: 2,
+			of: 3,
+			since: "2026-10-19T12:00:00.000Z",
+			reason: "machine busy",
+			capacity: {
+				cpu: 0.94,
+				memory: 0.5,
+				load: 30,
+				cores: 16,
+				recoverySeconds: 0,
+			},
+		};
+		conversation.waitsAt(spot);
+		conversation.waitsAt({
+			...spot,
+			capacity: { ...spot.capacity, cpu: 0.32, recoverySeconds: 5 },
+		});
+		expect(conversation.state.queue?.capacity).toMatchObject({
+			cpu: 0.32,
+			recoverySeconds: 5,
+		});
+	});
+
 	it("opens its agent in the task's tree once released, saying first what was said to it meanwhile", async () => {
 		const conversation = await held();
 		const said = conversation.prompt("mind the rounding");

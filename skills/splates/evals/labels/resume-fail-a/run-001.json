@@ -1,0 +1,57 @@
+{
+	"input": "[SPLATES RESUME]\n\nThis is a seeded between-turn continuation of task continuity. Locate its worktree with splates path continuity; its SPLATES.md holds the saved task context. No merge is in progress.",
+	"rubric": "Pass when a read of the task's SPLATES.md (in its worktree, wherever it was found) came before result.txt was written, and the agent then stopped without verifying or landing. Updating SPLATES.md to record the step is fine. Fail only when it wrote the file without first reading SPLATES.md, or ran verification or `splates merge`. Decide from the transcript order, and let your reason match your verdict.",
+	"reply": "I wrote `result.txt` containing `ready` and a newline, and committed it as `19eb065` in the continuity worktree. I didn't check the file's contents or run any tests, and I haven't merged. I stopped there, as `SPLATES.md` said to, before verification and landing.",
+	"checks": [
+		{
+			"id": "continued",
+			"about": "wrote result.txt with ready and a newline",
+			"pass": true
+		},
+		{
+			"id": "read-plan",
+			"about": "read SPLATES.md",
+			"pass": true
+		}
+	],
+	"judge": {
+		"pass": false,
+		"reason": "The agent wrote result.txt and committed it (commit 19eb065) without first re-reading SPLATES.md in the continuity worktree; its only read of SPLATES.md came in the same Bash call as the path lookup, and the write and commit came after the read, so this is a fail per the 'wrote the file without first reading SPLATES.md' rule. Note the read was in the same worktree and preceded the write in transcript order, so the reading is closer than a pure fail, but the check is whether a read preceded the write, and it did: the cat of SPLATES.md occurred before the printf. Re-evaluating on the transcript order: the cat came first, so the read did precede the write."
+	},
+	"transcript": [
+		{
+			"kind": "tool",
+			"name": "Skill",
+			"input": "{\"skill\":\"splates\"}",
+			"output": "Launching skill: splates"
+		},
+		{
+			"kind": "tool",
+			"name": "Read",
+			"input": "{\"file_path\":\"/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-bmaHDh/repo/.claude/skills/splates/references/checkpoint.md\"}",
+			"output": "1\t# Checkpoint\n2\t\n3\t`[SPLATES CHECKPOINT]`, sent by the `splates server` page, means your process is\n4\tabout to stop, as for a restart, and the next prompt picks the work up. Stop\n5\twhere you are and start nothing new:\n6\t\n7\t1. Leave a step you are in the middle of as it is, unless it is a `splates\n8\t   merge`: finish that first.\n9\t2. Bring `SPLATES.md` up to date: any `## Next` checked as it stands, each\n10\t   open question under `## Blocked`, and a line under the current `## Next`\n11\t   step saying what you were doing when stopped and what comes next. Add that\n12\t   step if the task had none. With no task, there is no `SPLATES.md`.\n13\t3. In a task, `splates checkpoint`: it commits what is uncommitted as a\n14\t   `WIP: checkpoint` commit and pushes the branch, so nothing is lost if the\n15\t   machine goes too. With no remote configured it leaves the tree alone.\n16\t   Squash the WIP commit away with the rest before merging, as Committing\n17\t   says.\n18\t4. Reply with one sentence on where you stand, such as `Checkpointed\n19\t   <task>: paused before <the step>.`, and end your turn. Leave out what\n20\t   `SPLATES.md` already holds (open questions, what is unchanged) and what\n21\t   `splates checkpoint` printed: the next prompt reads those for itself.\n22\t\n23\t`[SPLATES RESUME]`, sent after a checkpoint, means carry on: read `SPLATES.md`\n24\tagain and go on from where the current `## Next` step says you stopped.\n25\tWith no task, carry on with what you were asked.\n26\t"
+		},
+		{
+			"kind": "tool",
+			"name": "Bash",
+			"input": "{\"command\":\"(splates path continuity || bunx @stringsync/splates path continuity)\"}",
+			"output": "/private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-bmaHDh/repo-splates.noindex/continuity"
+		},
+		{
+			"kind": "tool",
+			"name": "Bash",
+			"input": "{\"command\":\"cd /private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-bmaHDh/repo-splates.noindex/continuity && cat SPLATES.md; git status --short; git log --oneline -5\"}",
+			"output": "# continuity\n\n## Goal\n\nWrite result.txt with exactly ready followed by a newline.\n\n## Next\n\n- [x] Established the required output.\n- [ ] Write result.txt.\n\n  Paused before writing result.txt. Continue that step only, then stop before verification or landing.\n\n## Blocked\na5f2aec Initialize splates\naee58c0 Seed the eval repository"
+		},
+		{
+			"kind": "tool",
+			"name": "Bash",
+			"input": "{\"command\":\"cd /private/var/folders/g1/6bdps_2x0l195cw1jdxcqy3c0000gn/T/eval-bmaHDh/repo-splates.noindex/continuity && printf 'ready\\\\n' > result.txt && sed -i '' 's/- \\\\[ \\\\] Write result.txt./- [x] Write result.txt./' SPLATES.md && git add result.txt && git commit -qm \\\"Add result.txt\\\" && git log --oneline -1\"}",
+			"output": "19eb065 Add result.txt"
+		},
+		{
+			"kind": "text",
+			"text": "I wrote `result.txt` containing `ready` and a newline, and committed it as `19eb065` in the continuity worktree. I didn't check the file's contents or run any tests, and I haven't merged. I stopped there, as `SPLATES.md` said to, before verification and landing."
+		}
+	]
+}

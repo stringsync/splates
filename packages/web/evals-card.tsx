@@ -1,9 +1,20 @@
 import { useAuiState } from "@assistant-ui/react";
 import type { PermissionProposal } from "@splates/server/plans";
-import { RUN_DENIED } from "@splates/server/plans/browser";
-import { useReactive } from "core/react";
-import { BanIcon, FlaskConicalIcon, PlayIcon, SquareIcon } from "lucide-react";
 import {
+	EVALS_BUDGET_USED_UP,
+	RUN_DENIED,
+} from "@splates/server/plans/browser";
+import { useReactive } from "core/react";
+import {
+	BanIcon,
+	CheckIcon,
+	FlaskConicalIcon,
+	PlayIcon,
+	SettingsIcon,
+	SquareIcon,
+} from "lucide-react";
+import {
+	type ComponentProps,
 	createContext,
 	type JSX,
 	useContext,
@@ -12,6 +23,12 @@ import {
 	useState,
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogTrigger,
+} from "#web/components/ui/dialog.tsx";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
@@ -21,7 +38,14 @@ import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
-import { ORDER, planText, spent } from "./eval-status";
+import {
+	budgetText,
+	ORDER,
+	planText,
+	roundsText,
+	spent,
+	stoppedText,
+} from "./eval-status";
 import { PendingSpinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -61,6 +85,8 @@ export function EvalsCard({
 			plan: each.plan,
 			launch: each.launch,
 			grid: each.grid,
+			budget: each.budget,
+			limits: each.limits,
 			refusal: each.refusal,
 			loaded: each.loaded,
 			running: each.running,
@@ -78,7 +104,9 @@ export function EvalsCard({
 	const turn = useCardDictationTurn(panel);
 	const send = reply?.send ?? null;
 	const turnedDown = sent?.includes(RUN_DENIED) ?? false;
-	const open = launch === null && !turnedDown;
+	const usedUp =
+		launch === null && state.budget !== null ? stoppedText(state.budget) : null;
+	const open = launch === null && !turnedDown && usedUp === null;
 	const showRejecting = useShowPending(rejecting);
 	const enterDoes = useEnterDoes(
 		panel,
@@ -92,6 +120,21 @@ export function EvalsCard({
 			? null
 			: () => turn(start),
 	);
+	// A card the budget cannot cover never runs: tell the agent once, so its
+	// turn is not left waiting on a tap that cannot start anything.
+	const told = useRef(false);
+	useEffect(() => {
+		if (usedUp === null || send === null || told.current || !state.budget) {
+			return;
+		}
+		told.current = true;
+		void attempt(
+			send(
+				`${EVALS_BUDGET_USED_UP}\n\nThe run your run evals card asked for was refused: ${usedUp.replace(/^Stopped: /, "")} ${budgetText(state.budget)} · ${roundsText(state.budget)}. Do not ask for another run or run the eval command yourself; only the user tops the budget up. Stop and report.`,
+			),
+			"Agent not told",
+		);
+	}, [usedUp, send, state.budget, attempt]);
 	if (!state.loaded) {
 		return (
 			<CardShell
@@ -160,40 +203,21 @@ export function EvalsCard({
 			title={
 				turnedDown
 					? "Evals rejected"
-					: launch === null
-						? `Run ${run.ask.skill} evals`
-						: state.running
-							? "Running evals"
-							: launch.status === "refused"
-								? "Evals refused"
-								: launch.status === "stopped"
-									? "Evals stopped"
-									: "Evals done"
+					: usedUp !== null
+						? "Evals refused"
+						: launch === null
+							? `Run ${run.ask.skill} evals`
+							: state.running
+								? "Running evals"
+								: launch.status === "refused"
+									? "Evals refused"
+									: launch.status === "stopped"
+										? "Evals stopped"
+										: "Evals done"
 			}
 			tone="eval"
 		>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{open && (
-				<details className="mx-4 mb-3 text-sm">
-					<summary>Configure run and saved agents</summary>
-					<EvalAgentsView editor={editor} />
-					<label>
-						Repetitions
-						<input
-							aria-label="Run repetitions"
-							className="ml-2 w-20 rounded border p-2"
-							type="number"
-							min={1}
-							defaultValue={run.ask.reps}
-							placeholder="Default"
-							onChange={(event) => void run.repeat(Number(event.target.value))}
-						/>
-					</label>
-					<Button size="sm" variant="outline" onClick={() => void run.load()}>
-						Refresh saved agents
-					</Button>
-				</details>
-			)}
 			{launch === null && !turnedDown ? (
 				<>
 					<section
@@ -230,33 +254,95 @@ export function EvalsCard({
 					</section>
 					<fieldset
 						aria-label="agents"
-						className="mx-4 mb-3 flex flex-col gap-1 text-sm"
+						className="mx-4 mb-3 flex flex-col gap-2 text-sm"
 					>
-						{state.agents.length === 0 && state.loaded && (
-							<p className="text-muted-foreground text-xs">
-								No saved agents: open Configure below to add some.
-							</p>
-						)}
+						<legend className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							Run on
+						</legend>
 						{state.unknownAgents.length > 0 && (
 							<p className="text-destructive text-xs">
 								Not a saved agent: {state.unknownAgents.join(", ")}
 							</p>
 						)}
-						{state.agents.map((each, index) => (
-							<label
-								key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
-								className="flex items-center gap-2"
-							>
-								<input
-									type="checkbox"
-									checked={each.on}
-									onChange={() => void run.toggle(index)}
+						<div className="flex flex-wrap items-center gap-2">
+							{state.agents.map((each, index) => (
+								<label
+									key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
+									className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring ${each.on ? "border-primary/50 bg-primary/10 text-foreground" : "text-muted-foreground opacity-70 hover:opacity-100"}`}
+								>
+									<input
+										type="checkbox"
+										className="sr-only"
+										checked={each.on}
+										onChange={() => void run.toggle(index)}
+									/>
+									{each.on ? (
+										<CheckIcon aria-hidden className="size-3" />
+									) : (
+										<span aria-hidden className="size-3" />
+									)}
+									{[each.pick.agent, each.pick.model, each.pick.effort]
+										.filter((part) => part !== undefined)
+										.join(" ")}
+								</label>
+							))}
+							<Dialog onOpenChange={(now) => now || void run.load()}>
+								<DialogTrigger
+									render={
+										<Button size="xs" variant="ghost" className="gap-1" />
+									}
+								>
+									<SettingsIcon data-icon="inline-start" />
+									{state.agents.length === 0 ? "Add agents" : "Edit agents"}
+								</DialogTrigger>
+								<DialogContent className="sm:max-w-2xl">
+									<DialogTitle>Saved eval agents</DialogTitle>
+									<EvalAgentsView editor={editor} />
+								</DialogContent>
+							</Dialog>
+						</div>
+						{state.agents.length === 0 && state.loaded && (
+							<p className="text-muted-foreground text-xs">
+								No saved agents yet.
+							</p>
+						)}
+					</fieldset>
+					<fieldset
+						aria-label="run settings"
+						className="mx-4 mb-3 grid grid-cols-3 gap-2 text-xs"
+					>
+						<SettingField
+							label="Repetitions"
+							aria-label="Run repetitions"
+							min={1}
+							defaultValue={run.ask.reps}
+							placeholder="Default"
+							onChange={(event) => void run.repeat(Number(event.target.value))}
+						/>
+						{conversation !== null && !state.budget?.roundsUsed && (
+							<>
+								<SettingField
+									label="Budget ($)"
+									aria-label="Budget in dollars"
+									min={0.01}
+									step="any"
+									value={state.limits.usd}
+									onChange={(event) =>
+										run.setLimits({ usd: Number(event.target.value) })
+									}
 								/>
-								{[each.pick.agent, each.pick.model, each.pick.effort]
-									.filter((part) => part !== undefined)
-									.join(" ")}
-							</label>
-						))}
+								<SettingField
+									label="Max rounds"
+									aria-label="Max rounds"
+									min={1}
+									step={1}
+									value={state.limits.rounds}
+									onChange={(event) =>
+										run.setLimits({ rounds: Number(event.target.value) })
+									}
+								/>
+							</>
+						)}
 					</fieldset>
 				</>
 			) : launch === null ? null : (
@@ -313,6 +399,23 @@ export function EvalsCard({
 					text={`> **Anything else?**\n\n${(sent ?? "").split("> **Anything else?**\n\n").slice(1).join("")}`}
 				/>
 			)}
+			{state.budget !== null && (
+				<div
+					data-testid="budget"
+					className="mx-4 mb-3 flex flex-col gap-0.5 text-muted-foreground text-xs"
+				>
+					<div>
+						{budgetText(state.budget)} · {roundsText(state.budget)}
+					</div>
+					{stoppedText(state.budget) !== null && (
+						<div className="text-destructive">
+							{stoppedText(state.budget)}
+							{launch === null &&
+								" This run was refused and the agent has been told; raise the budget to go on."}
+						</div>
+					)}
+				</div>
+			)}
 			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
 					{planText(state.plan)}
@@ -366,5 +469,21 @@ export function EvalsCard({
 			</div>
 			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
+	);
+}
+
+function SettingField({
+	label,
+	...input
+}: { label: string } & ComponentProps<"input">): JSX.Element {
+	return (
+		<label className="flex flex-col gap-1 text-muted-foreground">
+			{label}
+			<input
+				{...input}
+				type="number"
+				className="w-full rounded-md border bg-background px-2 py-1.5 text-foreground text-sm tabular-nums"
+			/>
+		</label>
 	);
 }

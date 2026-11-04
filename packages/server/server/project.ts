@@ -14,8 +14,7 @@ import { CredRoutes } from "../creds";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { needs, taskNumberReference, waitsOnYou } from "../plans";
-import { QUEUE_SWEEP, QueueRunner } from "../queue";
-import { queueOverloaded } from "../queue/load";
+import { QUEUE_SWEEP, QueueCapacity, QueueRunner } from "../queue";
 import { Replicator } from "../replica";
 import {
 	readGraph,
@@ -27,7 +26,7 @@ import {
 import { BudgetRoutes } from "../stats";
 import type { Details } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
-import { LOCAL_WORKER } from "../workers";
+import { LOCAL_WORKER, Machine, OsSensors } from "../workers";
 import { Automations } from "./automations";
 import { ConflictWatch } from "./conflict-watch";
 import { heldFor } from "./held";
@@ -108,6 +107,8 @@ export async function serveProject(
 	const replicator = context.replicas.of(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
+		const capacity = new QueueCapacity();
+		const machine = new Machine(new OsSensors(project.fs));
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
 			settle: async () => {
@@ -148,7 +149,9 @@ export async function serveProject(
 			},
 			held: heldFor(conversations, service, log),
 			paused: () => context.paused(),
-			overloaded: () => queueOverloaded(project.config.queueLoad),
+			overloaded: async () =>
+				capacity.overloaded(project.config.queueLoad, await machine.read()),
+			capacity: () => capacity.reading,
 			log,
 		});
 		const queue = queueRunner;

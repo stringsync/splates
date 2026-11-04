@@ -48,8 +48,7 @@ export class QueueRunner implements Resource {
 	// agent and model it names or Auto pick's; one blocked by a task not
 	// queued, or by one removed without merging, stays queued as blocked
 	// until the person queues that or drops the link, as the page offers.
-	// Checked as tasks change and every `QUEUE_SWEEP`. Queue starts take no
-	// slot, but go one at a time, in queue order, at most `QUEUE_STARTS_MAX`
+	// Checked as tasks change and every `QUEUE_SWEEP`. Queue starts go one at a time, in queue order, at most `QUEUE_STARTS_MAX`
 	// under way and `QUEUE_START_GAP` apart; each that ends, and each gap
 	// that passes, checks again. A task gets a held conversation only once it
 	// can start, so none
@@ -85,6 +84,9 @@ export class QueueRunner implements Resource {
 		private readonly deps: QueueRunnerDeps,
 		private readonly timer: Timer,
 	) {
+		this.#disposer.use(
+			timer.setInterval(() => void this.sweep(), Duration.secs(5)),
+		);
 		this.#disposer.use(
 			timer.setInterval(() => {
 				this.#waitOut();
@@ -149,7 +151,7 @@ export class QueueRunner implements Resource {
 		// it waits; the scheduler's change on resume sweeps again.
 		const paused = this.deps.paused?.() === true;
 		// Overloaded, the same: the machine is given room to catch up.
-		const busy = !paused && this.deps.overloaded?.() === true;
+		const busy = !paused && (await this.deps.overloaded?.()) === true;
 		// One start per check, while there is room and the gap has passed.
 		const room =
 			this.#gap === null && this.#starting.size < QUEUE_STARTS_MAX ? 1 : 0;
@@ -398,6 +400,9 @@ export class QueueRunner implements Resource {
 				of: queue.length,
 				since: this.#startingSince.get(queued.id) ?? each.createdAt,
 				reason,
+				...(busy && this.deps.capacity?.()
+					? { capacity: this.deps.capacity() }
+					: {}),
 			});
 		}
 		return held;
@@ -476,7 +481,8 @@ export interface QueueRunnerDeps {
 	 * queued task starts until the next check finds it down; the person's own
 	 * starts are never held. Absent, never overloaded.
 	 */
-	overloaded?: () => boolean;
+	overloaded?: () => boolean | Promise<boolean>;
+	capacity?: () => import("./load").QueueCapacityReading | undefined;
 	log: Logger;
 }
 
@@ -522,7 +528,7 @@ export interface HeldConversation {
 
 /**
  * The conversations held for queued tasks, one for each from the moment it
- * is queued, so the person sees it waiting: out of the line for a slot,
+ * is queued, so the person sees it waiting: out of the line to start,
  * which only the queue's starts join, until the queue starts its task.
  */
 export interface HeldConversations {

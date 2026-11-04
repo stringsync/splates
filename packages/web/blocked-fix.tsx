@@ -20,10 +20,9 @@ import { linked, queued } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 
 /**
- * What clears a blocked task, as its card offers: queue the tasks it waits
- * on that nothing will start, blockers first; drop its links to blockers
- * removed without merging; or nothing of its own, since blocked task `id`
- * holds the same fix, a task it waits on or one above it in its lane.
+ * Says how to clear a blocked task: queue the tasks it waits on, blockers
+ * first; drop its links to removed blockers; or apply the same fix on blocked
+ * task `id`, which clears this one too.
  */
 export type BlockedFix =
 	| { kind: "queue"; chain: TaskRecord[] }
@@ -158,16 +157,14 @@ export function useUndoQueued(): (ids: readonly number[]) => Promise<void> {
 	};
 }
 
-/**
- * A blocked card's fix on its line: its button, the chain it queues on
- * hover, or "Blocked with #3", which opens that card; once its blockers
- * are queued, which ones, with Undo, for a while. A refusal is said on the
- * card. Nothing for a card not blocked and nothing just queued.
- */
+/** Put on a blocked card to offer its fix and then Undo; pass `onFixed` to offer the Undo yourself. */
 export function BlockedFixButton({
 	todo,
+	onFixed,
 }: {
 	todo: TaskRecord;
+	/** Hears which tasks its fix queued, for a list the card leaves once it is no longer blocked. */
+	onFixed?: (ids: number[]) => void;
 }): JSX.Element | null {
 	const { todos, lanes, open, refuseTodo } = useContext(Board);
 	const apply = useApplyFix();
@@ -241,7 +238,7 @@ export function BlockedFixButton({
 				void apply(todo, fix)
 					.then((ids) => {
 						if (ids.length > 0) {
-							setDone(ids);
+							onFixed === undefined ? setDone(ids) : onFixed(ids);
 						}
 					})
 					.catch((error: unknown) =>

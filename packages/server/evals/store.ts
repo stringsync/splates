@@ -1,11 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { contractCells, contractDetail, isContractBatch } from "./contract";
+import type { EvalScenario } from "./launch";
+import { scenarioStates } from "./states";
 import type {
 	EvalBatch,
 	EvalCell,
 	EvalDetail,
 	EvalGrid,
+	EvalScenarioState,
 	EvalStatus,
 	EvalTarget,
 } from "./types";
@@ -30,6 +33,17 @@ export class EvalStore {
 			.filter((grid) => grid !== null)
 			.map(({ grid: _, remarks: __, ...batch }) => batch)
 			.sort((first, second) => second.startedAt.localeCompare(first.startedAt));
+	}
+
+	/** The state of each of `scenarios` from every batch saved. */
+	async states(scenarios: EvalScenario[]): Promise<EvalScenarioState[]> {
+		const grids = await Promise.all(
+			(await this.ids()).map((id) => this.grid(id)),
+		);
+		return scenarioStates(
+			scenarios,
+			grids.filter((grid) => grid !== null),
+		);
 	}
 
 	/** The batch `id` names with its every cell; null when there is none. */

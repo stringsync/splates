@@ -26,7 +26,7 @@ import { Board } from "./board";
 import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
-import { GroomUntriaged } from "./groom-untriaged";
+import { GroomBacklog } from "./groom-backlog";
 import { Cards, Column } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
@@ -50,7 +50,7 @@ export function columnOf(
 	return lane === "none" ? null : lane === "new" ? "new" : Number(lane);
 }
 
-/** The lane a `columnId` names when it is a lane's own, not the untriaged or new one. */
+/** The lane a `columnId` names when it is a lane's own, not the new one. */
 export function laneOf(id: string | number): number | undefined {
 	const lane = columnOf(id);
 	return typeof lane === "number" ? lane : undefined;
@@ -203,7 +203,7 @@ export function Lane({
 								/>
 							)}
 							{lane.id === BACKLOG_LANE && (
-								<GroomUntriaged
+								<GroomBacklog
 									empty={!lane.todos.some((todo) => ungroomed(todo))}
 								/>
 							)}

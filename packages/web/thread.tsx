@@ -40,7 +40,7 @@ import {
 	useProjects,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
-import { approveSuite, markRead } from "./conversation-api";
+import { markRead } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
@@ -66,9 +66,8 @@ import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
-import { SuiteGrant } from "./run-command-card";
 import { heldAfter, queuesNow } from "./sending";
-import { QueueBanner } from "./slot-queue";
+import { QueueBanner } from "./start-queue";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadControls } from "./thread-controls";
@@ -187,7 +186,6 @@ function Conversation({
 		(each) => each.at,
 		heldAfter(queuesNow(conversation)),
 	);
-	const suite = useMemo(() => () => approveSuite(id), [id]);
 	const superseded = useMemo(
 		() => supersededMerges(conversation.events),
 		[conversation.events],
@@ -304,7 +302,7 @@ function Conversation({
 						{details && <Task task={task} />}
 					</Dialog>
 				)}
-				{conversation.error !== null && (
+				{conversation.queue === null && conversation.error !== null && (
 					<ErrorBanner
 						conversation={conversation}
 						error={conversation.error}
@@ -312,6 +310,7 @@ function Conversation({
 					/>
 				)}
 				{!archived &&
+					conversation.queue === null &&
 					conversation.status === "stopped" &&
 					conversation.stoppedIdle !== null && (
 						<IdleBanner phone={onBack !== null} />
@@ -355,83 +354,81 @@ function Conversation({
 											<RestedUI />
 											<InterruptedUI />
 											<EvalsConversation value={id}>
-												<SuiteGrant value={suite}>
-													<ArchiveConversation
-														value={archivable ? fileAway : null}
-													>
-														<ArchiveOfferProvider value={offer}>
-															<StartNewContext value={startNew}>
-																<ReplyContext value={reply}>
-																	<NamedContext value={named}>
-																		<ThreadView
-																			docked
-																			occupied={
-																				(sending?.length ?? 0) > 0 ||
-																				(unsent?.length ?? 0) > 0 ||
-																				queued.length > 0
-																			}
-																			historyFailure={historyFailure}
-																			onRead={onRead}
-																			autoFocus={
-																				summary !== true && (!asking || typed)
-																			}
-																			stopping={stopping}
-																			mentions={mentions ?? undefined}
-																			references={references}
-																			commands={commands ?? undefined}
-																			placeholder={
-																				archived
-																					? "Send a message to unarchive and continue"
-																					: undefined
-																			}
-																			controls={
-																				<ThreadControls
-																					conversation={conversation}
-																					refused={refused}
-																				/>
-																			}
-																			above={
-																				<>
-																					<NeedsYouBar />
+												<ArchiveConversation
+													value={archivable ? fileAway : null}
+												>
+													<ArchiveOfferProvider value={offer}>
+														<StartNewContext value={startNew}>
+															<ReplyContext value={reply}>
+																<NamedContext value={named}>
+																	<ThreadView
+																		docked
+																		occupied={
+																			(sending?.length ?? 0) > 0 ||
+																			(unsent?.length ?? 0) > 0 ||
+																			queued.length > 0
+																		}
+																		historyFailure={historyFailure}
+																		onRead={onRead}
+																		autoFocus={
+																			summary !== true && (!asking || typed)
+																		}
+																		stopping={stopping}
+																		mentions={mentions ?? undefined}
+																		references={references}
+																		commands={commands ?? undefined}
+																		placeholder={
+																			archived
+																				? "Send a message to unarchive and continue"
+																				: undefined
+																		}
+																		controls={
+																			<ThreadControls
+																				conversation={conversation}
+																				refused={refused}
+																			/>
+																		}
+																		above={
+																			<>
+																				<NeedsYouBar />
 
-																					<Refusal
-																						refusal={refusal}
-																						className="px-2"
+																				<Refusal
+																					refusal={refusal}
+																					className="px-2"
+																				/>
+																				{offer !== null && barred && (
+																					<ArchiveBar offer={offer} />
+																				)}
+																				<PendingRow
+																					messages={agedSending}
+																					unsent={unsent ?? []}
+																					held={queued}
+																					edits={heldEdits(conversation, {
+																						sendNow,
+																						edit,
+																						discard,
+																						busy: queueBusy,
+																					})}
+																					retry={retry}
+																					edit={editUnsent}
+																				/>
+																				{conversation.ask !== null && (
+																					<AskPanel
+																						key={conversation.ask.id}
+																						drafts={drafts}
+																						conversation={conversation}
+																						agent={agent}
+																						ask={conversation.ask}
 																					/>
-																					{offer !== null && barred && (
-																						<ArchiveBar offer={offer} />
-																					)}
-																					<PendingRow
-																						messages={agedSending}
-																						unsent={unsent ?? []}
-																						held={queued}
-																						edits={heldEdits(conversation, {
-																							sendNow,
-																							edit,
-																							discard,
-																							busy: queueBusy,
-																						})}
-																						retry={retry}
-																						edit={editUnsent}
-																					/>
-																					{conversation.ask !== null && (
-																						<AskPanel
-																							key={conversation.ask.id}
-																							drafts={drafts}
-																							conversation={conversation}
-																							agent={agent}
-																							ask={conversation.ask}
-																						/>
-																					)}
-																				</>
-																			}
-																		/>
-																	</NamedContext>
-																</ReplyContext>
-															</StartNewContext>
-														</ArchiveOfferProvider>
-													</ArchiveConversation>
-												</SuiteGrant>
+																				)}
+																			</>
+																		}
+																	/>
+																</NamedContext>
+															</ReplyContext>
+														</StartNewContext>
+													</ArchiveOfferProvider>
+												</ArchiveConversation>
 											</EvalsConversation>
 										</Composing.Provider>
 									</AssistantRuntimeProvider>

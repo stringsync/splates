@@ -12,7 +12,7 @@ import { GroomerForm } from "./groomer-card";
 import { Refusal } from "./refusal";
 
 /** Starts the configured groomer, or lets the person choose its agent here. */
-export function GroomUntriaged({ empty }: { empty: boolean }): JSX.Element {
+export function GroomBacklog({ empty }: { empty: boolean }): JSX.Element {
 	const [groomer] = useState(() => new BoardGroomer());
 	const { picking, pending, refusal } = useReactive(
 		groomer,
@@ -37,7 +37,7 @@ export function GroomUntriaged({ empty }: { empty: boolean }): JSX.Element {
 			<Refusal refusal={refusal} />
 			<Dialog open={picking} onOpenChange={(open) => groomer.setPicking(open)}>
 				<DialogContent>
-					<DialogTitle>Groom Untriaged</DialogTitle>
+					<DialogTitle>Groom Backlog</DialogTitle>
 					<GroomerForm
 						pick={null}
 						title="Choose the groomer"

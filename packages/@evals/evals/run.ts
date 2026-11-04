@@ -16,7 +16,10 @@ import {
 	type ContractTarget,
 	RESULTS_FILE,
 } from "./contract";
+import { fingerprintOf } from "./fingerprint";
 import { judge, judgePrompt, type Verdict } from "./judge";
+import { type RepoSnapshot, saveSnapshot, snapshotRepo } from "./keep";
+import { revisionOf } from "./revision";
 import { type MakeSandbox, type Sandbox, sandbox } from "./sandbox";
 import type { Limits, Scenario, Step } from "./scenario";
 
@@ -77,6 +80,7 @@ export async function runOne(
 			result.error = run.error;
 			return result;
 		}
+		result.repo = await snapshotRepo(box.repo);
 		const outcome = {
 			reply: run.reply,
 			transcript: run.transcript,
@@ -181,6 +185,8 @@ export interface Result {
 	judge: Verdict | null;
 	reply: string;
 	transcript: Step[];
+	/** The repo as the agent left it, before the checks ran; kept beside the run. */
+	repo?: RepoSnapshot | null;
 	usage: {
 		usd: number | null;
 		tokens: number | null;
@@ -223,11 +229,14 @@ export async function runBatch(
 ): Promise<string> {
 	await mkdir(opts.directory, { recursive: true });
 	const dir = await mkdtemp(join(opts.directory, "batch-"));
+	const revision =
+		cells[0] === undefined ? undefined : await revisionOf(cells[0].skill.dir);
 	const batch: ContractBatch = {
 		format: CONTRACT_FORMAT,
 		startedAt: new Date().toISOString(),
 		title: opts.skill,
 		...(opts.producer === undefined ? {} : { producer: opts.producer }),
+		...(revision === undefined ? {} : { revision }),
 		cells: cells.map((cell, index) => ({
 			id: cellId(index),
 			case: cell.scenario.id,
@@ -235,6 +244,9 @@ export async function runBatch(
 			about: cell.scenario.requirement,
 			target: contractTarget(cell.agent, cell.skill.used),
 			repetition: cell.repetition,
+			...(revision === undefined
+				? {}
+				: { fingerprint: fingerprintOf(cell.scenario, revision.skillHash) }),
 		})),
 	};
 	await writeFile(join(dir, "batch.json"), JSON.stringify(batch, null, "\t"));
@@ -283,6 +295,8 @@ export async function saveResult(
 	cell: string,
 	result: Result,
 ): Promise<void> {
+	const kept =
+		result.repo == null ? null : await saveSnapshot(dir, cell, result.repo);
 	const detail: ContractDetail = {
 		input: result.scenario.message,
 		...(result.scenario.rubric === null
@@ -294,6 +308,7 @@ export async function saveResult(
 			? {}
 			: { judge: { pass: result.judge.pass, reason: result.judge.reason } }),
 		transcript: result.transcript,
+		...(kept === null ? {} : { repo: kept }),
 	};
 	await writeFile(
 		join(dir, `${cell}.json`),

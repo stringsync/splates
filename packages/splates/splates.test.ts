@@ -52,6 +52,20 @@ describe("splates cli", () => {
 		).toBe(true);
 	});
 
+	it("reads the machine and says whether it is busy, with no server", async () => {
+		await splates.run(deps, ["machine", "--json"]);
+
+		const reading = JSON.parse(String(env.log.entries.at(-1)?.message));
+		expect(typeof reading.busy).toBe("boolean");
+		expect(reading.cores).toBeGreaterThan(0);
+		expect(reading.cpu).toBeGreaterThanOrEqual(0);
+
+		await splates.run(deps, ["machine"]);
+		expect(String(env.log.entries.at(-1)?.message)).toMatch(
+			/^(not )?busy: CPU \d+%, memory \d+%, load [\d.]+ on \d+ cores/,
+		);
+	});
+
 	it("prints the roster from outside any repository", async () => {
 		const away = join(env.splatesHome, "..");
 		await env.fs.mkdir(away);

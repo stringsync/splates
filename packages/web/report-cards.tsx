@@ -29,6 +29,8 @@ import {
 	HeldBlockers,
 	heldTask,
 } from "./deferred-body";
+import { EvalDoneBody } from "./eval-done-card";
+import { evalRoundsOf } from "./eval-rounds";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
 import { MergedStats, useLanded } from "./merged-stats";
@@ -71,6 +73,8 @@ export function ReportCard({
 			? "Worked"
 			: ENDINGS[report.ending].title;
 	const text = reportText(report);
+	// A Done report that ends an eval loop carries its rounds table.
+	const rounds = report.ending === "done" ? evalRoundsOf(text) : null;
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
@@ -135,7 +139,9 @@ export function ReportCard({
 								className="-mb-1.5 px-4 pt-3.5 @max-md:px-3 @max-md:pt-2.5"
 							/>
 						)}
-						{merged ? (
+						{!merged && rounds !== null ? (
+							<EvalDoneBody read={rounds} lead={report.reason !== null} />
+						) : merged ? (
 							<MergedBody text={text} outcome={landed?.outcome.outcome} />
 						) : (
 							text !== "" && (
@@ -173,7 +179,7 @@ export interface Turn {
 /**
  * Renders a `data-todo` part, a run of todos proposed one after another, as
  * the cards for them. Those the reply's own task added while it ran are
- * gathered by the lane they went to, Untriaged for none, under a line saying
+ * gathered by the lane they went to, Backlog for none, under a line saying
  * so, for as long as the board has them; the rest stand alone, under "Next
  * up" when `next` says the run follows a task's end.
  */
@@ -278,7 +284,7 @@ function TodoRun({
 								<span className="font-medium text-foreground">
 									Added {proposals.length > 1 && `${proposals.length} `}to{" "}
 									{board.lanes.find((each) => each.id === lane)?.name ??
-										"Untriaged"}
+										"Backlog"}
 								</span>{" "}
 								by this task
 							</span>

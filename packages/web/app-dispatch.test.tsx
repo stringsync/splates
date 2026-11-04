@@ -66,9 +66,10 @@ describe("App's controls that put agents to work", () => {
 
 	/** Opens task alpha's dialog from the Queue page. */
 	const taskDialog = async (view: Awaited<ReturnType<typeof board>>) => {
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		await openQueueRow(view, "alpha");
 		return waitFor(() => view.getByRole("dialog"));
 	};

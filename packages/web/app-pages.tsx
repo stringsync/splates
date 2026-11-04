@@ -86,6 +86,7 @@ export function useAppPages({
 							<BoardsPage
 								snapshot={snapshot}
 								onPick={() => go("todos", null, "replace")}
+								onQueue={() => go("tasks")}
 							/>
 						),
 						todos: (
@@ -107,6 +108,8 @@ export function useAppPages({
 									project={snapshot}
 									open={task}
 									onOpen={openTask}
+									onBoards={() => go("boards")}
+									onOpenLane={openLane}
 									onOpenTodo={(id) => {
 										go("todos");
 										todoView.open(id);

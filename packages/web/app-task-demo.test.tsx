@@ -71,9 +71,6 @@ describe("App's task demos", () => {
 	const finishedDialog = async (
 		view: Awaited<ReturnType<typeof tasksPage>>,
 	) => {
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Finished/ })),
-		);
 		await clickShown(() =>
 			within(view.getByRole("list", { name: "finished task list" })).getByRole(
 				"button",
@@ -220,7 +217,7 @@ function finished(more: Partial<FinishedPlan> = {}): FinishedPlan {
 		base: "main",
 		commit: "abc1234",
 		startedAt: new Date(Date.now() - 7_200_000).toISOString(),
-		endedAt: new Date(Date.now() - 3_600_000).toISOString(),
+		endedAt: new Date().toISOString(),
 		conversation: null,
 		took: [],
 		plan: PLAN,

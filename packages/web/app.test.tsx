@@ -120,16 +120,17 @@ describe("App", () => {
 			),
 		).not.toHaveLength(0);
 		expect(view.queryByText("alpha")).toBeNull();
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		await waitFor(() => expect(view.getByText("alpha")).toBeTruthy());
 		expect(view.queryByText("later")).toBeNull();
 		expect(location.hash).toBe("#tasks");
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Board/ })),
 		);
-		expect(location.hash).toBe("#todos");
+		expect(location.hash).toBe("#boards");
 	});
 
 	/** happy-dom answers media queries against this, 1024 wide to start. */
@@ -159,9 +160,9 @@ describe("App", () => {
 				phone.getByRole("dialog", { name: "Pages" }),
 			);
 			await act(async () =>
-				fireEvent.click(within(drawer).getByRole("button", { name: /Queue/ })),
+				fireEvent.click(within(drawer).getByRole("button", { name: /Stats/ })),
 			);
-			expect(location.hash).toBe("#tasks");
+			expect(location.hash).toBe("#stats");
 			cleanup();
 
 			resize(1280);

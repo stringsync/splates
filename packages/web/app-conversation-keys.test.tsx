@@ -234,7 +234,7 @@ describe("App's sidebar keys", () => {
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
 		expect(key(/Board/)).toBe("T");
-		expect(key(/Queue/)).toBeNull();
+		expect(view.queryByRole("tab", { name: /Queue/ })).toBeNull();
 
 		await act(async () =>
 			fireEvent.keyDown(document.body, {

@@ -10,7 +10,7 @@ import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
 import { EvalReport, EvalReportSkeleton } from "./eval-report";
-import { EvalScenarios } from "./eval-scenarios-view";
+import { EvalScenarioTable } from "./eval-scenario-table";
 import { EvalSection } from "./eval-section";
 import { ORDER, StatusChip, spent } from "./eval-status";
 import type { EvalsOpen } from "./page-address";
@@ -47,7 +47,7 @@ export function EvalsPage({
 		);
 	}, [open, plan]);
 	return (
-		<section aria-label="evals" className="flex min-w-0 flex-col gap-4">
+		<section aria-label="evals" className="flex min-w-0 flex-col gap-6">
 			<TopBar
 				title={
 					open === null && plan === null ? (
@@ -76,7 +76,11 @@ export function EvalsPage({
 			)}
 			{open === null && plan === null && <EvalAgentsView editor={agents} />}
 			{open === null && plan === null && (
-				<EvalScenarios onOpenBatch={(batch) => onOpen(batch)} feed={feed} />
+				<EvalScenarioTable
+					agents={agents}
+					onOpenBatch={(batch) => onOpen(batch)}
+					feed={feed}
+				/>
 			)}
 			{plan !== null ? (
 				<p className="text-muted-foreground text-sm">
@@ -88,9 +92,9 @@ export function EvalsPage({
 				<Batch id={open} onOpen={(each) => onOpen(open, each)} />
 			) : batches === null ? (
 				error === null && (
-					<div className="flex flex-col gap-3">
+					<div className="flex flex-col gap-4">
 						<ReadingNow label="Reading evals…" />
-						<ul aria-hidden className="flex flex-col gap-3">
+						<ul aria-hidden className="flex flex-col gap-4">
 							{[0, 1, 2].map((row) => (
 								<li
 									key={row}
@@ -115,16 +119,16 @@ export function EvalsPage({
 					count={batches.length}
 					defaultOpen={false}
 				>
-					<ul className="flex flex-col gap-3">
+					<ul className="flex flex-col gap-4">
 						{batches.map((batch) => (
 							<li
 								key={batch.id}
-								className="overflow-hidden rounded-xl border bg-card px-4 shadow-xs"
+								className="overflow-hidden rounded-xl border bg-card px-5 shadow-xs"
 							>
 								<button
 									type="button"
 									onClick={() => onOpen(batch.id)}
-									className="flex w-full min-w-0 flex-col gap-1 py-3 text-left hover:bg-accent/50"
+									className="flex w-full min-w-0 flex-col gap-1.5 py-4 text-left hover:bg-accent/50"
 								>
 									<span className="flex min-w-0 flex-wrap items-center gap-2">
 										<span className="font-medium text-sm">
@@ -199,7 +203,7 @@ function Batch({
 		};
 	}, [id]);
 	return (
-		<div className="flex min-w-0 flex-col gap-3">
+		<div className="flex min-w-0 flex-col gap-4">
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

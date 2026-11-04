@@ -105,6 +105,26 @@ describe("EvalLaunches", () => {
 		expect(finished[0]?.launch.batch).toBe("nightly");
 	});
 
+	it("tells the conversation a run it stopped ended, so its agent is not left waiting", async () => {
+		const slow = {
+			...commands,
+			run: `mkdir -p "$SPLATES_EVALS_RESULTS/nightly" && sleep 30`,
+		};
+		await launches.start(slow, { ...spec, conversation: "c-1" });
+		await eventually(
+			async () => (await launches.get(slow, "card-1"))?.batch === "nightly",
+			2_000,
+		);
+		await launches.stop(slow, "card-1");
+		await done(launches, slow);
+
+		expect((await launches.get(slow, "card-1"))?.status).toBe("stopped");
+		expect(await eventually(async () => finished.length === 1, 2_000)).toBe(
+			true,
+		);
+		expect(finished[0]?.conversation).toBe("c-1");
+	});
+
 	it("tells no one of a run started from no conversation", async () => {
 		await launches.start(commands, spec);
 		await done(launches, commands);

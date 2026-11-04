@@ -28,14 +28,14 @@ import { RouteTrail } from "./route-trail";
 import { shownLanes } from "./shown-lanes";
 import { Task } from "./task-dialog";
 import { type Filtered, projectOptions, tagOptions } from "./task-filter";
-import { taskFilterAction } from "./task-filter-menu";
+import { TaskFilterBar } from "./task-filter-menu";
 import { TodoBoard } from "./todo-board";
 import { TodoDialog } from "./todo-dialog";
 import type { TodoView } from "./todo-view";
 import { TopBar } from "./top-bar";
 
 /**
- * Renders the board page for `snapshot`: its todos in Untriaged and the
+ * Renders the board page for `snapshot`: its todos in the
  * lanes, which the person orders by dragging cards and lanes.
  */
 export function Todos({
@@ -332,15 +332,18 @@ export function Todos({
 							{switcher}
 						</div>
 					}
-					filterOptions={{
-						projects: projectOptions(all.map(filtered), filter.projects),
-						tags: tagOptions(
+				/>
+				<div className="mb-2">
+					<TaskFilterBar
+						filter={filter}
+						projects={projectOptions(all.map(filtered), filter.projects)}
+						tags={tagOptions(
 							snapshot.allowedTags,
 							all.map(filtered),
 							filter.tags,
-						),
-					}}
-				/>
+						)}
+					/>
+				</div>
 				<div
 					ref={scroller}
 					onScroll={readEdges}
@@ -372,6 +375,7 @@ export function Todos({
 						))}
 					</SortableContext>
 					<AddLane
+						empty={lanes.length === 0}
 						dragging={dragging !== null}
 						naming={all.find((todo) => todo.id === naming)}
 						onName={(name) =>
@@ -405,11 +409,9 @@ function TodosBar({
 	lanes,
 	hidden,
 	view,
-	filterOptions,
 	switcher,
 }: {
 	switcher?: JSX.Element;
-	filterOptions: { projects: string[]; tags: string[] };
 	lanes: LaneState[];
 	hidden: number[];
 	view: TodoView;
@@ -424,7 +426,6 @@ function TodosBar({
 					onToggle: (lane) => view.toggleLane(lane),
 					onHide: (lanes) => view.hide(lanes),
 				}),
-				taskFilterAction({ filter: view.taskFilter, ...filterOptions }),
 			]}
 		/>
 	);

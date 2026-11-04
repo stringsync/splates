@@ -57,9 +57,10 @@ describe("App's budget", () => {
 	it("opens again on the budgets it last read, reading them afresh behind", async () => {
 		const view = await openBudget();
 		await card(view, "som");
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		const asked = testing.asked.filter((path) =>
 			path.endsWith("/api/budgets"),
 		).length;

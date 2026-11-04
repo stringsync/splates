@@ -26,7 +26,7 @@ const boards = [
 	{ id: 2, name: "Product", position: 2, archived: false },
 ];
 
-it("opens the chooser initially and resumes the chosen board after visiting another destination", async () => {
+it("opens the chooser each time Boards is opened", async () => {
 	const view = testing.render({ boards });
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	expect(view.getAllByRole("heading", { name: "Boards" })).toHaveLength(1);
@@ -45,12 +45,8 @@ it("opens the chooser initially and resumes the chosen board after visiting anot
 	await act(async () =>
 		fireEvent.click(view.getByRole("tab", { name: "Boards" })),
 	);
-	await waitFor(() => view.getByRole("button", { name: "Product actions" }));
-	expect(view.queryByRole("region", { name: "Boards" })).toBeNull();
-	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: /^Boards$/ })),
-	);
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
+	expect(view.getByRole("button", { name: "Product 0" })).toBeTruthy();
 });
 
 it("returns to the chooser if the remembered board is archived", async () => {

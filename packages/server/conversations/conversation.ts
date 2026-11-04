@@ -1354,7 +1354,8 @@ export class Conversation
 				spot !== null &&
 				was.position === spot.position &&
 				was.of === spot.of &&
-				was.reason === spot.reason)
+				was.reason === spot.reason &&
+				JSON.stringify(was.capacity) === JSON.stringify(spot.capacity))
 		) {
 			return;
 		}

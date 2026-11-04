@@ -1,0 +1,20 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-03T12:27:38.965Z",
+	"title": "splates",
+	"producer": "splates",
+	"cells": [
+		{
+			"id": "run-003",
+			"case": "continuity/reconnect",
+			"group": "continuity",
+			"about": "After a lost connection, check what the last step left (git status, git log, the file) before repeating it, and repeat it only if it did not finish.",
+			"target": {
+				"agent": "kimi",
+				"model": "kimi-code/k3.1-pro",
+				"variant": "bd8e6b45b"
+			},
+			"repetition": 0
+		}
+	]
+}

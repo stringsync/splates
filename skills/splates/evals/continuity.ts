@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
+import type { Label } from "@evals/evals/labels";
 import type { Repo } from "@evals/evals/scenario";
 import { CHECKPOINT, RECONNECT, RESUME } from "@splates/server/plans";
 import { firstStep, opens } from "./discovery";
@@ -283,5 +284,27 @@ export const scenarios: Scenario[] = [
 				test: ({ reply }) => !/^\s*1\. .*\?\s*$/m.test(reply),
 			},
 		],
+	},
+];
+
+// Runs the person confirmed failing; `bin/evals check` fails if a grader passes one.
+export const labels: Label[] = [
+	{
+		scenario: "continuity/reconnect",
+		run: "labels/reconnect-no-look-b",
+		expect: "fail",
+		why: "Wrote result.txt without first looking at git status/log or the file",
+	},
+	{
+		scenario: "continuity/resume",
+		run: "labels/resume-fail-a",
+		expect: "fail",
+		why: "Person confirmed: resume run failed the SPLATES.md-first rubric",
+	},
+	{
+		scenario: "continuity/checkpoint",
+		run: "labels/checkpoint-wrote-output",
+		expect: "fail",
+		why: "Wrote result.txt on a checkpoint",
 	},
 ];

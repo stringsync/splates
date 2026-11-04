@@ -31,6 +31,7 @@ import { BlockedFixButton } from "./blocked-fix";
 import { Board, still, touchArea } from "./board";
 import { openForPerson } from "./deferred-body";
 import { OnIt } from "./dispatching";
+import { LaneChip } from "./lane-chip";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
@@ -47,6 +48,12 @@ export interface CardProps {
 	grip?: HTMLAttributes<HTMLButtonElement> & {
 		ref?: (element: HTMLElement | null) => void;
 	};
+	/** On the Queue board: names its lane on a chip, without its detail, and draws no grip since it stays put. */
+	listed?: boolean;
+	/** A fact the card's list adds to its line, as how long it has waited. */
+	detail?: ReactNode;
+	/** Hears which tasks its blocked fix queued, for a list it leaves once unblocked. */
+	onFixed?: (ids: number[]) => void;
 	className?: string;
 }
 
@@ -56,6 +63,9 @@ export function Card({
 	step,
 	pointer,
 	grip,
+	listed = false,
+	detail,
+	onFixed,
 	className,
 }: CardProps): JSX.Element {
 	const board = useContext(Board);
@@ -172,7 +182,7 @@ export function Card({
 				)}
 				{/* A lane is read down the column, so its cards keep to their
 				    subject; the detail is a tap away. */}
-				{todo.text !== "" && step === undefined && (
+				{todo.text !== "" && step === undefined && !listed && (
 					<Markdown
 						text={todo.text}
 						preview
@@ -182,6 +192,7 @@ export function Card({
 				{/* One quiet line of what there is to know, in plain text. */}
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
 					<CopyLink id={todo.id} />
+					{listed && <LaneChip lane={todo.lane} />}
 					{todo.slug !== undefined && (
 						<span className="min-w-0 truncate" title="Its slug">
 							{todo.slug}
@@ -193,7 +204,8 @@ export function Card({
 						</span>
 					)}
 					<TagChips tags={todo.labels} />
-					<StageBadge todo={todo} />
+					{/* A list's column already says where it stands. */}
+					{!listed && <StageBadge todo={todo} />}
 					{/* With no agent named, it runs on whichever is picked then. */}
 					{todo.takenBy === null &&
 						todo.stage === "available" &&
@@ -204,8 +216,9 @@ export function Card({
 							</span>
 						)}
 					{/* Kept while queued, so its Undo outlives the block it cleared. */}
-					{held && <BlockedFixButton todo={todo} />}
+					{held && <BlockedFixButton todo={todo} onFixed={onFixed} />}
 					<Elsewhere todo={todo} />
+					{detail}
 					<Notes notes={notes} />
 					{todo.files.length > 0 && (
 						<Badge Icon={PaperclipIcon} label="files">
@@ -233,19 +246,23 @@ export function Card({
 				</span>
 				<Refusal refusal={board.refusedTodos.get(todo.id)} />
 			</div>
-			<button
-				type="button"
-				{...grip}
-				aria-label={`move ${todo.subject}`}
-				// Shown on a touch screen, which has no hover to bring it out.
-				className="relative flex w-7 pointer-coarse:w-10 shrink-0 cursor-grab items-center active:cursor-grabbing justify-center rounded-r-lg text-muted-foreground opacity-0 pointer-coarse:opacity-60 outline-none group-hover:opacity-60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				<GripVerticalIcon className="size-4" />
-			</button>
+			{listed ? (
+				<span aria-hidden className="w-7 pointer-coarse:w-10 shrink-0" />
+			) : (
+				<button
+					type="button"
+					{...grip}
+					aria-label={`move ${todo.subject}`}
+					// Shown on a touch screen, which has no hover to bring it out.
+					className="relative flex w-7 pointer-coarse:w-10 shrink-0 cursor-grab items-center active:cursor-grabbing justify-center rounded-r-lg text-muted-foreground opacity-0 pointer-coarse:opacity-60 outline-none group-hover:opacity-60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+				>
+					<GripVerticalIcon className="size-4" />
+				</button>
+			)}
 			{/* An agent at work spins in the top right, on every card the same
 			    place, in the grip's column so the subject keeps its width; a
 			    queued card free to start waits there for one. */}
-			{(todo.takenBy || held) && (
+			{(todo.takenBy || (held && !listed)) && (
 				<OnIt
 					task={todo.takenBy}
 					queued={held ? todo.id : undefined}
@@ -253,10 +270,12 @@ export function Card({
 					className="absolute top-2 right-0 w-7 pointer-coarse:w-10 flex-col"
 				/>
 			)}
-			<QueuedMark
-				todo={todo}
-				className="absolute top-2.5 right-0 w-7 pointer-coarse:w-10 justify-center"
-			/>
+			{!listed && (
+				<QueuedMark
+					todo={todo}
+					className="absolute top-2.5 right-0 w-7 pointer-coarse:w-10 justify-center"
+				/>
+			)}
 		</div>
 	);
 }

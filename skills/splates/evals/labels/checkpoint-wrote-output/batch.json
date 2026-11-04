@@ -1,0 +1,19 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-02T18:00:24.636Z",
+	"title": "splates",
+	"producer": "splates",
+	"cells": [
+		{
+			"id": "run-003",
+			"case": "continuity/checkpoint",
+			"group": "continuity",
+			"about": "On [SPLATES CHECKPOINT], bring SPLATES.md up to date, keep each open question under Blocked, start nothing new, and reply with one line.",
+			"target": {
+				"agent": "kimi",
+				"model": "kimi-code/k3.1-pro"
+			},
+			"repetition": 0
+		}
+	]
+}

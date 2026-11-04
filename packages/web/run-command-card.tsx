@@ -1,6 +1,5 @@
 import type { PermissionProposal } from "@splates/server/plans";
 import {
-	isWholeSuite,
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
@@ -14,7 +13,7 @@ import {
 	ShipIcon,
 	TerminalIcon,
 } from "lucide-react";
-import { createContext, type JSX, useContext, useRef, useState } from "react";
+import { type JSX, useContext, useRef, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
 import { ActiveShip } from "./active-ship";
 import { actOnShip } from "./api";
@@ -33,16 +32,9 @@ import { SplatesEvent } from "./splates-event";
 import { useLiveShips } from "./use-live-ships";
 
 /**
- * Lets the open conversation's agent run the whole test suite once, which
- * splates refuses it otherwise; null outside a conversation.
- */
-export const SuiteGrant = createContext<(() => Promise<void>) | null>(null);
-
-/**
  * Shows an agent's request to run a heavy command, with why and how loaded
- * the machine is, for the person to Allow or Deny. Allowing the whole test
- * suite grants the conversation its one run; Grant on `splates retry <task>`
- * runs the retry; Ship on `splates ship <project>` opens the Ships page with
+ * the machine is, for the person to Allow or Deny. Grant on
+ * `splates retry <task>` runs the retry; Ship on `splates ship <project>` opens the Ships page with
  * that project picked, which starts nothing itself.
  */
 export function RunCommandCard({
@@ -72,8 +64,6 @@ export function RunCommandCard({
 			?.split("\n\n> **Anything else?**\n\n")
 			.slice(1)
 			.join("\n\n> **Anything else?**\n\n") ?? more;
-	const grant = useContext(SuiteGrant);
-	const suite = isWholeSuite(proposal.command ?? "");
 	const retry = retryOf(proposal.command ?? "");
 	const ship = shipOf(proposal.command ?? "");
 	const choice =
@@ -111,19 +101,12 @@ export function RunCommandCard({
 			);
 			return;
 		}
-		const granted =
-			directive === RUN_ALLOWED && suite && grant !== null
-				? grant()
-				: Promise.resolve();
 		void attempt(
-			granted
-				.then(() =>
-					send(
-						written.current.trim() === ""
-							? directive
-							: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
-					),
-				)
+			send(
+				written.current.trim() === ""
+					? directive
+					: `${directive}\n\n> **Anything else?**\n\n${written.current.trim()}`,
+			)
 				.then(() => setChosen(directive))
 				.finally(() => setBusy(null)),
 			failed,

@@ -206,6 +206,13 @@ export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
 
 /**
+ * What tells an agent the conversation's eval budget (dollars or rounds) is
+ * used up, so the run evals card it asked for was refused and will not start:
+ * the splates skill says what it means.
+ */
+export const EVALS_BUDGET_USED_UP = "[SPLATES EVALS BUDGET USED UP]";
+
+/**
  * What tells an agent the person granted its task another round of merge
  * attempts, as `splates retry` does, from its retry card or the refused
  * merge's Grant: the page has granted them already, so the agent merges

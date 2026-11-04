@@ -21,14 +21,15 @@ describe("App's queue controls", () => {
 	const openQueue = async (shown: WorkerPool) => {
 		testing.workers = shown;
 		const view = await testing.open();
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		await waitFor(() => view.getByRole("region", { name: "queue controls" }));
 		return view;
 	};
 
-	it("counts every agent running, listing those splates started", async () => {
+	it("counts every agent running, carding those splates started under Running", async () => {
 		const view = await openQueue(
 			pool({
 				held: [
@@ -40,12 +41,9 @@ describe("App's queue controls", () => {
 		const controls = within(
 			view.getByRole("region", { name: "queue controls" }),
 		);
-		expect(controls.getByRole("status").textContent).toBe("2 running");
-		const started = within(
-			view.getByRole("region", { name: "Started by splates" }),
-		);
+		expect(controls.getByRole("status").textContent).toBe("2 agents running");
+		const started = within(view.getByRole("region", { name: "Running" }));
 		expect(started.getByText("groom-backlog")).toBeDefined();
-		expect(started.queryByText("mine")).toBeNull();
 	});
 
 	it("offers no limit on how many agents run", async () => {

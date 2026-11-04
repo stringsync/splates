@@ -4,7 +4,6 @@ import {
 	cleanup,
 	details,
 	fireEvent,
-	openQueueRow,
 	queueRow,
 	snapshot,
 	Testing,
@@ -13,7 +12,7 @@ import {
 	within,
 } from "./testing";
 
-describe("Queue page's Up next", () => {
+describe("Queue page's Queued and Blocked columns", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -37,7 +36,7 @@ describe("Queue page's Up next", () => {
 	it("shows the queue with nothing in it", async () => {
 		const view = await testing.openTasks({ tasks: [], todos: [] });
 
-		const next = view.getByRole("region", { name: "Up next" });
+		const next = view.getByRole("region", { name: "Queued" });
 		expect(within(next).getByText("Nothing queued")).toBeTruthy();
 	});
 
@@ -64,7 +63,7 @@ describe("Queue page's Up next", () => {
 		expect(view.queryByText("Nothing queued")).toBeNull();
 	});
 
-	it("lists blocked tasks under Blocked, not Up next, and queues one's blockers from its row", async () => {
+	it("lists blocked tasks under Blocked, not Queued, and queues one's blockers from its card", async () => {
 		const view = await testing.openTasks({
 			todos: [
 				todo({ id: 1, subject: "store licenses", stage: "available" }),
@@ -102,18 +101,16 @@ describe("Queue page's Up next", () => {
 		expect(names(view)).toEqual(["store licenses", "check them", "free"]);
 	});
 
-	it("holds the tasks at work and what waits next in one card", async () => {
+	it("shows the tasks at work and what waits next in their own columns", async () => {
 		const view = await testing.openTasks({
 			tasks: [details({ task: "at-work" })],
 			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
 		});
 
-		const queue = view.getByRole("region", { name: "queue card" });
-		const yours = within(queue).getByRole("region", { name: "Started by you" });
-		expect(within(yours).getByText("at-work")).toBeTruthy();
-		const next = within(queue).getByRole("region", { name: "Up next" });
+		const running = view.getByRole("region", { name: "Running" });
+		expect(within(running).getByText("at-work")).toBeTruthy();
+		const next = view.getByRole("region", { name: "Queued" });
 		expect(within(next).getByText("first")).toBeTruthy();
-		expect(view.queryByRole("region", { name: "in progress" })).toBeNull();
 	});
 
 	it("says how long each queued task has waited", async () => {
@@ -141,7 +138,9 @@ describe("Queue page's Up next", () => {
 			todos: [todo({ id: 3, subject: "first", stage: "queued" })],
 		});
 
-		await openQueueRow(view, "first", "queued tasks");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "first" })),
+		);
 
 		await waitFor(() => expect(view.getByRole("dialog")).toBeTruthy());
 		expect(location.hash).toBe("#todos");
@@ -151,55 +150,46 @@ describe("Queue page's Up next", () => {
 		todo({ id: 3, subject: "first", stage: "queued", position: 1 }),
 		todo({ id: 2, subject: "second", stage: "queued", position: 2 }),
 	];
-	/** Chooses `item` from the menu on queued task `name`'s row. */
-	const choose = async (
-		view: Awaited<ReturnType<Testing["openTasks"]>>,
-		name: string,
-		item: string,
-	) => {
-		await act(async () =>
-			fireEvent.click(
-				within(queueRow(view, name, "queued tasks")).getByRole("button", {
-					name: "More actions",
+	it("draws no grip, so no card on the Queue board can be moved", async () => {
+		const view = await testing.openTasks({
+			todos: [
+				...queue(),
+				todo({
+					id: 4,
+					subject: "held",
+					stage: "queued",
+					position: 3,
+					blockedBy: [9],
 				}),
-			),
-		);
-		const entry = await waitFor(() =>
-			view.getByRole("menuitem", { name: item }),
-		);
-		await act(async () => fireEvent.click(entry));
-	};
+				todo({ id: 9, subject: "blocker" }),
+			],
+		});
 
-	it("moves a task down the line at once", async () => {
+		expect(view.getByRole("list", { name: "queued tasks" })).toBeTruthy();
+		expect(view.getByRole("list", { name: "blocked tasks" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: /^move / })).toBeNull();
+		expect(view.queryByRole("button", { name: "Drag to reorder" })).toBeNull();
+	});
+
+	it("reads Blocked, Queued, Running, Done, with each column and the board locked", async () => {
 		const view = await testing.openTasks({ todos: queue() });
-		testing.holdWrites();
 
-		const grip = within(queueRow(view, "first", "queued tasks")).getByRole(
-			"button",
-			{ name: "Drag to reorder" },
-		);
-		// happy-dom lays nothing out, so each row is given its place in the list.
-		const [one, two] = within(
-			view.getByRole("list", { name: "queued tasks" }),
-		).getAllByRole("listitem") as [HTMLElement, HTMLElement];
-		one.getBoundingClientRect = () => new DOMRect(0, 0, 600, 40);
-		two.getBoundingClientRect = () => new DOMRect(0, 40, 600, 40);
-		grip.focus();
-		await act(async () => fireEvent.keyDown(grip, { code: "Space" }));
-		await act(async () => fireEvent.keyDown(grip, { code: "ArrowDown" }));
-		await act(async () => fireEvent.keyDown(grip, { code: "Space" }));
-
-		expect(testing.posted("/api/todos/3/queue-position")).toEqual([
-			{ method: "PUT", body: { position: 2 } },
-		]);
-		expect(names(view)).toEqual(["second", "first"]);
+		expect(
+			view
+				.getAllByRole("heading", { level: 3 })
+				.map((heading) => heading.firstChild?.textContent),
+		).toEqual(["Blocked", "Queued", "Running", "Done"]);
+		expect(view.getAllByLabelText(/^Permanent column: /).length).toBe(4);
+		expect(view.getByLabelText(/^Permanent board: /)).toBeTruthy();
 	});
 
 	it("holds a task in the queue, pending, until the server takes it out", async () => {
 		const view = await testing.openTasks({ todos: queue() });
 		testing.holdWrites();
 
-		await choose(view, "first", "Take out of queue");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Unqueue #3" })),
+		);
 
 		expect(testing.posted("/api/todos/3/queued")).toEqual([
 			{ method: "PUT", body: { queued: false } },
@@ -218,38 +208,24 @@ describe("Queue page's Up next", () => {
 		await waitFor(() => expect(view.queryByText("first")).toBeNull());
 	});
 
-	it("removes a task, and puts it back with Undo", async () => {
-		const view = await testing.openTasks({ todos: queue() });
+	it("names a card's lane on a chip that opens the lane", async () => {
+		const view = await testing.openTasks({
+			lanes: [{ id: 5, name: "Providers" }],
+			todos: [todo({ id: 3, subject: "first", stage: "queued", lane: 5 })],
+		});
 
-		await choose(view, "first", "Remove");
-
-		// Undo is offered only once the removal has landed.
-		await waitFor(() =>
-			expect(view.getByText("Removed #3 first")).toBeTruthy(),
-		);
-		expect(
-			(view.getByRole("button", { name: "Undo" }) as HTMLButtonElement)
-				.disabled,
-		).toBe(true);
-
-		await serve({ todos: queue().filter((each) => each.id !== 3) });
-
-		await waitFor(() =>
-			expect(
-				(view.getByRole("button", { name: "Undo" }) as HTMLButtonElement)
-					.disabled,
-			).toBe(false),
-		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Undo" })),
+			fireEvent.click(
+				view.getByRole("button", { name: "Open lane Providers" }),
+			),
 		);
-		expect(testing.posted("/api/todos/3/restore")).toHaveLength(1);
-		expect(view.queryByText("Removed #3 first")).toBeNull();
+
+		await waitFor(() => expect(location.hash).toBe("#lanes/5"));
 	});
 
-	/** The names of the queued tasks, in the order Up next lists them. */
+	/** The names of the queued tasks, in the order Queued lists them. */
 	const names = (view: Awaited<ReturnType<Testing["openTasks"]>>) =>
 		within(view.getByRole("list", { name: "queued tasks" }))
 			.getAllByRole("listitem")
-			.map((row) => row.querySelector(".truncate")?.textContent);
+			.map((row) => row.querySelector("button")?.textContent);
 });

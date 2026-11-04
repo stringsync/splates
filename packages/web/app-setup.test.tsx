@@ -98,19 +98,15 @@ describe("App's setup", () => {
 	it("returns to the index from a journey without starting work", async () => {
 		testing.setup = setupProgress();
 		const view = await openSetup(null);
-		await act(async () =>
-			fireEvent.click(
-				await view.findByRole("button", { name: "Set up Agents" }),
-			),
-		);
+		// the index loads lazily on its first open, which a loaded gate can slow
+		await waitFor(() => view.getByRole("button", { name: "Set up Agents" }), {
+			timeout: 5000,
+		});
+		await clickShown(() => view.getByRole("button", { name: "Set up Agents" }));
 		await step(view, "Choose the agents splates starts");
-		await act(async () =>
-			fireEvent.click(await view.findByRole("button", { name: "Setup" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await view.findByRole("button", { name: "Set up Dictation" }),
-			),
+		await clickShown(() => view.getByRole("button", { name: "Setup" }));
+		await clickShown(() =>
+			view.getByRole("button", { name: "Set up Dictation" }),
 		);
 		await step(view, "Dictate prompts");
 		expect(testing.posts).toEqual([]);
@@ -187,9 +183,10 @@ describe("App's setup", () => {
 		const view = await openSetup();
 		await step(view, "Choose the agents splates starts");
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Queue$/ })),
-		);
+		await act(async () => {
+			location.hash = "#tasks";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
 		expect(location.hash).toBe("#tasks");
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),

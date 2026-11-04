@@ -1,4 +1,19 @@
 import {
+	closestCenter,
+	DndContext,
+	KeyboardSensor,
+	MouseSensor,
+	TouchSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+	SortableContext,
+	sortableKeyboardCoordinates,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
 	type BoardRecord,
 	DEFAULT_BOARD,
 	type TaskRecord,
@@ -46,10 +61,11 @@ import {
 } from "./api";
 import { DeleteBoard } from "./board-delete-dialog";
 import { saveBoard } from "./board-places";
+import { NameField, needsLook, SortableRow } from "./board-row";
 
 /** Pass these operations to BoardSwitcher to create, edit, move, archive, or delete boards. */
 export interface BoardActions {
-	addBoard: (name: string) => Promise<void>;
+	addBoard: (name: string) => Promise<unknown>;
 	renameBoard: (id: number, name: string) => Promise<void>;
 	archiveBoard: (id: number, archived: boolean) => Promise<void>;
 	dropBoard: (id: number) => Promise<void>;
@@ -136,6 +152,15 @@ export function BoardSwitcher({
 	const shown = ordered.filter((each) =>
 		each.name.toLowerCase().includes(filter.toLowerCase()),
 	);
+	const sensors = useSensors(
+		useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+		useSensor(TouchSensor, {
+			activationConstraint: { delay: 200, tolerance: 6 },
+		}),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	);
 	const attempt = async (act: () => Promise<void>) => {
 		try {
 			await act();
@@ -149,6 +174,18 @@ export function BoardSwitcher({
 			ordered[ordered.findIndex((each) => each.id === board.id) + by];
 		if (next !== undefined) {
 			void attempt(() => actions.moveBoard(board.id, next.position));
+		}
+	};
+	const reorder = ({
+		active,
+		over,
+	}: {
+		active: { id: unknown };
+		over: { id: unknown } | null;
+	}) => {
+		const target = ordered.find((each) => each.id === over?.id);
+		if (target !== undefined && active.id !== over?.id) {
+			void attempt(() => actions.moveBoard(Number(active.id), target.position));
 		}
 	};
 	const submit = async (value: string) => {
@@ -247,74 +284,92 @@ export function BoardSwitcher({
 					className="h-11 w-full rounded-md border bg-transparent px-3 text-base outline-none md:h-9 md:text-sm"
 				/>
 			)}
-			<ul
-				className={
-					mode === "index"
-						? "flex flex-col divide-y"
-						: "flex max-h-72 flex-col overflow-y-auto"
-				}
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCenter}
+				modifiers={[restrictToVerticalAxis]}
+				onDragEnd={reorder}
 			>
-				{shown.length === 0 && (
-					<li className="py-6 text-muted-foreground text-sm">
-						No boards found.
-					</li>
-				)}
-				{shown.map((board) => {
-					const own = tasks.find((each) => each.id === board.id)?.tasks ?? [];
-					return (
-						<li
-							key={board.id}
-							className={
-								mode === "index"
-									? "group flex min-h-16 items-center gap-2 py-2"
-									: "group flex items-center gap-1"
-							}
-						>
-							{mode === "index" && isDefault(board) && (
-								<span title="The default board is permanent">
-									<LockKeyholeIcon
-										role="img"
-										aria-label="Permanent board"
-										className="size-3.5 shrink-0 text-muted-foreground"
-									/>
-								</span>
-							)}
-							{editing === board.id ? (
-								<NameField
-									initial={board.name}
-									onDone={(value) => void submit(value)}
-								/>
-							) : (
-								<button
-									type="button"
-									onClick={() => {
-										saveBoard(board.id);
-										onPick(board.id);
-										setOpen(false);
-									}}
-									className={cn(
-										"flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent",
-										board.id === now?.id && "font-medium",
-									)}
+				<SortableContext
+					items={shown.map((each) => each.id)}
+					strategy={verticalListSortingStrategy}
+				>
+					<ul
+						className={
+							mode === "index"
+								? "flex flex-col divide-y"
+								: "flex max-h-72 flex-col overflow-y-auto"
+						}
+					>
+						{shown.length === 0 && (
+							<li className="py-6 text-muted-foreground text-sm">
+								No boards found.
+							</li>
+						)}
+						{shown.map((board) => {
+							const own =
+								tasks.find((each) => each.id === board.id)?.tasks ?? [];
+							return (
+								<SortableRow
+									key={board.id}
+									board={board}
+									locked={filter !== ""}
+									className={
+										mode === "index"
+											? "group flex min-h-16 items-center gap-2 py-2"
+											: "group flex items-center gap-1"
+									}
 								>
-									<span className="truncate">{board.name}</span>
-									{own.some(needsLook) ? (
-										<span
-											role="img"
-											aria-label="Needs a look"
-											className="size-1.5 shrink-0 rounded-full bg-amber-500"
+									{mode === "index" &&
+										(isDefault(board) ? (
+											<span title="The default board is permanent">
+												<LockKeyholeIcon
+													role="img"
+													aria-label="Permanent board"
+													className="size-3.5 shrink-0 text-muted-foreground"
+												/>
+											</span>
+										) : (
+											<span aria-hidden className="size-3.5 shrink-0" />
+										))}
+									{editing === board.id ? (
+										<NameField
+											initial={board.name}
+											onDone={(value) => void submit(value)}
 										/>
-									) : null}
-									<span className="ml-auto text-muted-foreground text-xs">
-										{own.length}
-									</span>
-								</button>
-							)}
-							{management(board)}
-						</li>
-					);
-				})}
-			</ul>
+									) : (
+										<button
+											type="button"
+											onClick={() => {
+												saveBoard(board.id);
+												onPick(board.id);
+												setOpen(false);
+											}}
+											className={cn(
+												"flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent",
+												board.id === now?.id && "font-medium",
+											)}
+										>
+											<span className="truncate">{board.name}</span>
+											{own.some(needsLook) ? (
+												<span
+													role="img"
+													aria-label="Needs a look"
+													className="size-1.5 shrink-0 rounded-full bg-amber-500"
+												/>
+											) : null}
+											<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
+												{own.length}
+											</span>
+										</button>
+									)}
+									{management(board)}
+								</SortableRow>
+							);
+						})}
+					</ul>
+				</SortableContext>
+			</DndContext>
 			{editing === "new" ? (
 				<NameField initial="" onDone={(value) => void submit(value)} />
 			) : (
@@ -411,57 +466,4 @@ export function BoardSwitcher({
 			/>
 		</>
 	);
-}
-
-/** A board's name being typed: Enter saves it, Escape drops it. */
-function NameField({
-	initial,
-	onDone,
-}: {
-	initial: string;
-	onDone: (value: string) => void;
-}): JSX.Element {
-	return (
-		<form
-			className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
-			onSubmit={(event) => {
-				event.preventDefault();
-				const field = event.currentTarget.elements.namedItem(
-					"boardName",
-				) as HTMLInputElement;
-				onDone(field.value);
-			}}
-		>
-			<input
-				// biome-ignore lint/a11y/noAutofocus: opened by the person's click on Create or Rename
-				autoFocus
-				name="boardName"
-				defaultValue={initial}
-				aria-label="Board name"
-				onKeyDown={(event) => {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onDone("");
-					}
-				}}
-				className="min-w-0 flex-1 rounded-md border bg-transparent px-2 py-2 text-base outline-none md:text-sm"
-			/>
-			<Button type="submit" size="sm">
-				Save
-			</Button>
-			<Button
-				type="button"
-				size="sm"
-				variant="ghost"
-				onClick={() => onDone("")}
-			>
-				Cancel
-			</Button>
-		</form>
-	);
-}
-
-/** Whether a task there needs a look: one running or blocked. */
-function needsLook(task: TaskRecord): boolean {
-	return task.stage === "running" || task.blockedBy.length > 0;
 }

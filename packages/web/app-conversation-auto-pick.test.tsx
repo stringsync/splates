@@ -47,7 +47,7 @@ describe("App's Auto pick in the composer's settings", () => {
 		await waitFor(() => expect(model.textContent).toContain("Auto · Small"));
 	});
 
-	it("keeps Auto pick on, and the list open, when the person picks a model", async () => {
+	it("keeps Auto pick on, and closes the list, when the person picks a model", async () => {
 		const view = await testing.openConversations([
 			conversation({ settings: [MODEL], autoPick: PICKED }),
 		]);
@@ -61,7 +61,9 @@ describe("App's Auto pick in the composer's settings", () => {
 			expect(testing.posted("/api/conversations/c1/setting")).toHaveLength(1),
 		);
 		expect(model.textContent).toContain("Auto");
-		expect(view.getByRole("switch", { name: "Auto pick" })).toBeTruthy();
+		await waitFor(() =>
+			expect(view.queryByRole("switch", { name: "Auto pick" })).toBeNull(),
+		);
 		expect(testing.posted("/api/conversations/c1/setting")).toEqual([
 			{ method: "PUT", body: { id: "model", value: "big" } },
 		]);

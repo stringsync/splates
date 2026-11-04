@@ -38,12 +38,14 @@ describe("Ship history", () => {
 		return view;
 	};
 
-	it("keeps history off the plan, naming the last ship with a way to all of them", async () => {
+	it("summarizes the last ship at the top until it is dismissed", async () => {
+		localStorage.clear();
 		const view = open();
-		const link = await view.findByRole("link", { name: "See all" });
-		expect(view.getByText(/vexml v2\.1\.0/)).toBeTruthy();
-		expect(link.getAttribute("href")).toBe("#ships/history");
-		expect(view.queryByLabelText("history")).toBeNull();
+		const summary = await view.findByLabelText("last ship summary");
+		expect(summary.textContent).toContain("Bumped");
+		expect(summary.textContent).toContain(" ago");
+		fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
+		expect(view.queryByLabelText("last ship summary")).toBeNull();
 	});
 
 	it("lists every ship by week and narrows them with the filters", async () => {
