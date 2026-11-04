@@ -89,6 +89,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 	/** The agents saved, each with whether this run uses it. */
 	agents: { pick: AgentPick; on: boolean }[] = [];
+	scenarios: EvalScenario[] = [];
 	groups: ScenarioGroup[] = [];
 	/** The scenarios the card names that the harness does not know. */
 	unknown: string[] = [];
@@ -127,6 +128,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			// Reopening a conversation: show the card as it was, and read it
 			// again behind it, rather than hold a placeholder of another height.
 			this.agents = shown.agents.map((each) => ({ ...each }));
+			this.scenarios = shown.scenarios;
 			this.groups = shown.groups;
 			this.unknown = shown.unknown;
 			this.plan = shown.plan;
@@ -175,6 +177,9 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			}));
 			const have = new Set(saved.map(targetOf));
 			this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
+			this.scenarios = scenarios.filter((each) =>
+				this.ask.scenarios.includes(each.id),
+			);
 			this.groups = groupsOf(
 				scenarios.filter((each) => this.ask.scenarios.includes(each.id)),
 			);
@@ -352,6 +357,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		if (this.loaded && this.refusal === null) {
 			SHOWN.set(this.key, {
 				agents: this.agents.map((each) => ({ ...each })),
+				scenarios: this.scenarios,
 				groups: this.groups,
 				unknown: this.unknown,
 				plan: this.plan,
@@ -366,6 +372,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 
 /** What a card last showed, kept so reopening its conversation paints it at once. */
 interface Shown {
+	scenarios: EvalScenario[];
 	agents: { pick: AgentPick; on: boolean }[];
 	groups: ScenarioGroup[];
 	unknown: string[];

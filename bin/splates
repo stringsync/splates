@@ -9,4 +9,9 @@ if [[ "${1:-}" == "dev" ]]; then
 	# test gate runs `dev test` and must test the checkout it is in, not the pin.
 	unset SPLATES_ROOT
 fi
+if [[ "${1:-}" == "build" ]]; then
+	# The page the server serves, built apart from the program, which imports it
+	# and so cannot start before it exists.
+	exec "$here/_run" packages/web/build.ts
+fi
 exec "$here/_run" packages/splates/checkout.ts "$@"

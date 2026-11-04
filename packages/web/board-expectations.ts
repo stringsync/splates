@@ -168,22 +168,6 @@ export function laneOnBoard(id: number, board: number, position?: number) {
 	});
 }
 
-/** Lane `from`'s todos at the bottom of lane `into`, in the order they had, and `from` gone. */
-export function lanesJoined(from: number, into: number) {
-	return keyed(`lane:${from}`, (snapshot: Snapshot): Snapshot => {
-		const moving = snapshot.todos
-			.filter((todo) => todo.lane === from)
-			.map((todo) => ({ ...todo, lane: into }));
-		const rest = snapshot.todos.filter((todo) => todo.lane !== from);
-		const tail = rest.findLastIndex((todo) => todo.lane === into);
-		return {
-			...snapshot,
-			todos: [...rest.slice(0, tail + 1), ...moving, ...rest.slice(tail + 1)],
-			lanes: snapshot.lanes.filter((lane) => lane.id !== from),
-		};
-	});
-}
-
 /**
  * Each todo of lane `id` no agent has queued, available, or when not
  * `queued`, each of its queued ones back to available.

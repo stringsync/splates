@@ -19,8 +19,8 @@ describe("the scenario table", () => {
 			"c",
 			"b",
 			"e",
-			"d",
 			"a",
+			"d",
 		]);
 	});
 
@@ -30,10 +30,9 @@ describe("the scenario table", () => {
 		expect(countStates(rows)).toEqual({
 			failing: 2,
 			"never-run": 1,
-			stale: 1,
-			passing: 1,
+			passing: 2,
 		});
-		expect(summaryOf(rows)).toBe("1 of 5 scenarios passing");
+		expect(summaryOf(rows)).toBe("2 of 5 scenarios passing");
 	});
 
 	test("filters by state and by project together", () => {
@@ -53,8 +52,11 @@ describe("the scenario table", () => {
 	});
 
 	test("passCount is the agent's passed of total, null when it did not run", () => {
-		expect(passCount(state("b", "failing", 2, 3), "t")).toBe("2/3");
-		expect(passCount(state("b", "failing", 2, 3), "other")).toBeNull();
+		const pick = { agent: "claude", model: "sonnet", effort: "high" } as const;
+		const ran = state("b", "failing", 2, 3);
+		ran.targets = [{ target: "claude/sonnet@high", passed: 2, total: 3 }];
+		expect(passCount(ran, pick)).toBe("2/3");
+		expect(passCount(ran, { ...pick, model: "opus" })).toBeNull();
 	});
 });
 
@@ -93,7 +95,7 @@ function fixture(): {
 			state("a", "passing", 3, 3),
 			state("b", "failing", 2, 3),
 			state("c", "failing", 0, 3),
-			state("d", "stale", 3, 3),
+			state("d", "passing", 3, 3),
 		],
 	};
 }

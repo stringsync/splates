@@ -1,8 +1,13 @@
 import type { Check } from "@evals/evals/scenario";
 import { deliveredImages } from "./delivery";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "proposing";
+
+/** Whether a run holds its final answer: a proposal block, not a line about what comes next. */
+const proposed = (run: { reply: string }) =>
+	/^## 💡 Proposed\b/m.test(run.reply);
 
 const titled: Check = {
 	id: "proposed",
@@ -76,6 +81,7 @@ export const scenarios: Scenario[] = [
 		judge:
 			"Does the proposal show the change as a diagram, with a Before of today's upload flow and an After of the proposed one, each labelled? Answer yes or no.",
 		limits: { turns: 40, minutes: 20 },
+		followUp: { turns: 3, done: proposed },
 	},
 	{
 		id: `${aspect}/frontend-mockup`,
@@ -102,6 +108,7 @@ export const scenarios: Scenario[] = [
 		judge:
 			"Does the proposal carry two images, a Before of the current settings screen and an After that is a labelled mock of the theme picker? A screenshot of settings.html rendered in a browser counts as the Before, and an After mock of the whole page with the picker in it counts. Answer yes when both images are there, no when either is missing, and let your reason agree with that answer.",
 		limits: { turns: 40, minutes: 20 },
+		followUp: { turns: 3, done: proposed },
 	},
 	{
 		id: `${aspect}/small-change-no-picture`,
@@ -127,5 +134,8 @@ export const scenarios: Scenario[] = [
 			notBuilt,
 		],
 		limits: { turns: 20, minutes: 10 },
+		followUp: { turns: 3, done: proposed },
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

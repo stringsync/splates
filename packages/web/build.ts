@@ -14,9 +14,8 @@ import { compile } from "tailwindcss";
  * the only place the compile can read our own configuration, since `splates server`
  * runs inside whatever repository the user is in.
  *
- * `bun run build` in this package or in splates's, which a release runs, and
- * `bun install` at the workspace root, which is what puts the output there for
- * a fresh checkout.
+ * `splates/bin/splates build` runs it; so do `splates server` in a checkout, before each
+ * start, and the server's tests, when the output is missing.
  */
 
 const here = import.meta.dirname;

@@ -38,6 +38,7 @@ import {
 	useFileMentions,
 	useNamed,
 	useProjects,
+	useRecSessions,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
 import { markRead } from "./conversation-api";
@@ -238,7 +239,12 @@ function Conversation({
 		summary !== true,
 	);
 	const projects = useProjects();
-	const references = useReferences(tasks, actions, projects ?? undefined);
+	const references = useReferences(
+		tasks,
+		actions,
+		projects ?? undefined,
+		useRecSessions(),
+	);
 	const root = useContext(TreesContext)?.root ?? null;
 	const named = useNamed(
 		paths,

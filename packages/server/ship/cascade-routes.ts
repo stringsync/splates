@@ -57,6 +57,13 @@ export class CascadeRoutes {
 		Response.json(await this.steps().retry());
 	readonly handToAgent = async (): Promise<Response> =>
 		Response.json(await this.steps().handToAgent());
+	readonly recordAgent = async (request: Request): Promise<Response> => {
+		const { id, project } = await request.json();
+		if (typeof id !== "string" || typeof project !== "string") {
+			fail("usage", "id and project must be strings");
+		}
+		return Response.json(await this.steps().recordAgent(id, project));
+	};
 	readonly abandon = async (): Promise<Response> =>
 		Response.json(await this.steps().abandon());
 

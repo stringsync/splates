@@ -13,6 +13,7 @@ import {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	RUN_ELSEWHERE,
 	taskNumberReference,
 	taskReference,
 } from "./prompts";
@@ -30,6 +31,7 @@ describe("the splates skill's Directives table", () => {
 				RECONNECT,
 				RUN_ALLOWED,
 				RUN_DENIED,
+				RUN_ELSEWHERE,
 				RETRIED,
 				GRANTED,
 				GRANT_DENIED,

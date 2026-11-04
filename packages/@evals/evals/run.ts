@@ -5,6 +5,7 @@ import {
 	type AgentRun,
 	commandFor,
 	commandsOf,
+	continueCommand,
 	type Format,
 	runAgent,
 } from "./agents";
@@ -67,6 +68,18 @@ export async function runOne(
 			cwd: box.repo.dir,
 			env: box.env,
 			minutes: scenario.limits?.minutes,
+			followUp:
+				scenario.followUp && pick.agent === "opencode"
+					? {
+							turns: scenario.followUp.turns,
+							argv: (runners.continue ?? defaultContinue)(
+								pick,
+								scenario.limits ?? {},
+							).argv,
+							done:
+								scenario.followUp.done ?? ((each) => each.reply.trim() !== ""),
+						}
+					: undefined,
 		});
 		result.reply = run.reply;
 		result.transcript = run.transcript;
@@ -202,8 +215,16 @@ export interface Runners {
 		message: string,
 		limits: Limits,
 	): { argv: string[]; format: Format };
+	/** The command that resumes the session for a follow-up turn; `continueCommand` by default. */
+	continue?(
+		pick: AgentPick,
+		limits: Limits,
+	): { argv: string[]; format: Format };
 	judge(prompt: string, env: Record<string, string>): Promise<Verdict>;
 }
+
+const defaultContinue = (pick: AgentPick, limits: Limits) =>
+	continueCommand(pick, undefined, limits);
 
 export const REAL: Runners = { command: commandFor, judge };
 

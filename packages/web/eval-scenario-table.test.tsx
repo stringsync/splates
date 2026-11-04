@@ -13,7 +13,7 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 });
 
-it("lists scenarios worst first with pass counts, a summary and the next up", async () => {
+it("lists scenarios worst first with what each tests, a summary and the next up", async () => {
 	serve([]);
 	const view = render(
 		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
@@ -21,7 +21,8 @@ it("lists scenarios worst first with pass counts, a summary and the next up", as
 	await waitFor(() =>
 		expect(view.getByText("0 of 2 scenarios passing")).toBeTruthy(),
 	);
-	expect(view.getByText("2/3")).toBeTruthy();
+	expect(view.getByText("About one")).toBeTruthy();
+	expect(view.queryByRole("columnheader", { name: /claude/ })).toBeNull();
 	await waitFor(() => expect(view.getByText("skipped merge")).toBeTruthy());
 	const rows = view.getAllByRole("row").map((row) => row.textContent ?? "");
 	expect(rows[1]).toContain("a/one");
@@ -43,10 +44,67 @@ it("runs a scenario on the ticked agents and repetitions in a conversation", asy
 		fireEvent.click(run);
 	});
 	await waitFor(() => expect(view.getByText("Run a/two")).toBeTruthy());
-	fireEvent.click(view.getByRole("button", { name: "Start" }));
+	fireEvent.change(view.getByLabelText("Budget in dollars"), {
+		target: { value: "7" },
+	});
+	fireEvent.click(view.getByRole("button", { name: "Run" }));
 	await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
 	const words = JSON.parse(posts[0] ?? "{}").words;
 	expect(words).toContain("[SPLATES EVAL LOOP scenario a/two]");
+	expect(words).toContain("Budget: $7");
+});
+
+it("opens a row to its prompt, how it is judged and its last run, with history folded", async () => {
+	serve([]);
+	const read = globalThis.fetch;
+	globalThis.fetch = (async (input, init) =>
+		String(input).includes("/api/evals/run")
+			? Response.json({
+					id: "batch-1#r1",
+					status: "fail",
+					target: {
+						agent: "claude",
+						model: "opus",
+						effort: "high",
+						skill: null,
+					},
+					input: "Merge this for me",
+					rubric: "Did it merge?",
+					checks: [{ id: "c", about: "merge ran", pass: false }],
+					judge: { pass: false, reason: "skipped merge" },
+				})
+			: read(input, init)) as typeof fetch;
+	const opened: string[] = [];
+	const view = render(
+		<EvalScenarioTable
+			agents={agents()}
+			onOpenBatch={(batch) => opened.push(batch)}
+			feed={feed}
+		/>,
+	);
+	fireEvent.click(
+		await waitFor(() => view.getByRole("button", { name: "Details of a/one" })),
+	);
+	await waitFor(() => expect(view.getByText("Merge this for me")).toBeTruthy());
+	expect(view.getByText("Did it merge?")).toBeTruthy();
+	expect(view.getByText("merge ran")).toBeTruthy();
+	expect(view.getByText("on claude opus high")).toBeTruthy();
+	expect(view.queryByText("Latest report")).toBeNull();
+	fireEvent.click(view.getByRole("button", { name: "Open report" }));
+	expect(opened).toEqual(["batch-1"]);
+	fireEvent.click(view.getByRole("button", { name: "History" }));
+	expect(view.getByRole("button", { name: "Hide history" })).toBeTruthy();
+});
+
+it("says a scenario never run has nothing to show yet", async () => {
+	serve([]);
+	const view = render(
+		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+	);
+	fireEvent.click(
+		await waitFor(() => view.getByRole("button", { name: "Details of a/two" })),
+	);
+	expect(view.getByText(/This has not run yet/)).toBeTruthy();
 });
 
 const feed = {
@@ -90,7 +148,7 @@ function serve(posts: string[]): void {
 					state: "failing",
 					targets: [{ target: "claude:opus@high", passed: 2, total: 3 }],
 					lastRunAt: "2026-01-01T00:00:00Z",
-					run: "r1",
+					run: "batch-1#r1",
 				},
 			]);
 		}

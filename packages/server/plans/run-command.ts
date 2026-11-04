@@ -14,6 +14,19 @@ export function retryOf(command: string): string | null {
 }
 
 /**
+ * Whether a run-command card's command opens rec, which only works on the
+ * machine it is installed on, so the person may not be at it.
+ */
+export function recOf(command: string): boolean {
+	const words = command.trim().split(/\s+/);
+	let at = 0;
+	while (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[at] ?? "")) {
+		at++;
+	}
+	return (words[at] ?? "").split("/").pop() === "rec";
+}
+
+/**
  * The project a run-command card's `splates ship [<project>]` asks to ship,
  * which the page starts itself on Allow, as only the person may: "" for the
  * conversation's own project when it names none; null for any other command,

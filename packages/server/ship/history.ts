@@ -41,7 +41,18 @@ export class ShipHistory {
 	async file(cascade: Cascade): Promise<void> {
 		await this.storage
 			.document<Cascade>(`${HISTORY}/${cascade.id}/cascade.json`)
-			.write(cascade);
+			.update((current) => {
+				for (const step of cascade.steps) {
+					if (
+						current?.steps.some(
+							(each) => each.slug === step.slug && each.sentToAgent,
+						)
+					) {
+						step.sentToAgent = true;
+					}
+				}
+				return cascade;
+			});
 	}
 
 	/** The cascade `id` names, or null when history has none. */

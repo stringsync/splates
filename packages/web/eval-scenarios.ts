@@ -3,20 +3,15 @@ import type {
 	EvalScenarioState,
 	EvalScenarioStatus,
 } from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
 
 /** The states in the order the table reads them, worst first. */
-export const STATES: EvalScenarioStatus[] = [
-	"failing",
-	"never-run",
-	"stale",
-	"passing",
-];
+export const STATES: EvalScenarioStatus[] = ["failing", "never-run", "passing"];
 
 /** What a state is called on a chip. */
 export const STATE_LABEL: Record<EvalScenarioStatus, string> = {
 	failing: "Failing",
 	"never-run": "Never run",
-	stale: "Stale",
 	passing: "Passing",
 };
 
@@ -80,7 +75,7 @@ export function rowsOf(
 export function countStates(
 	rows: ScenarioRow[],
 ): Record<EvalScenarioStatus, number> {
-	const counts = { failing: 0, "never-run": 0, stale: 0, passing: 0 };
+	const counts = { failing: 0, "never-run": 0, passing: 0 };
 	for (const row of rows) {
 		counts[row.state.state] += 1;
 	}
@@ -112,11 +107,19 @@ export function summaryOf(rows: ScenarioRow[]): string {
 	return `${passing} of ${rows.length} ${rows.length === 1 ? "scenario" : "scenarios"} passing`;
 }
 
-/** The pass count a row shows for an agent: `2/3`, or none when it did not run there. */
+/** The name to look a saved agent up by in a scenario state's targets, such as `claude/sonnet@high`; null for an agent with no model. */
+export function stateKeyOf(pick: AgentPick): string | null {
+	return pick.model === undefined
+		? null
+		: `${pick.agent}/${pick.model}${pick.effort === undefined ? "" : `@${pick.effort}`}`;
+}
+
+/** The pass count a row shows for a saved agent: `2/3`, or none when it did not run there. */
 export function passCount(
 	state: EvalScenarioState,
-	target: string,
+	pick: AgentPick,
 ): string | null {
-	const each = state.targets.find((entry) => entry.target === target);
+	const key = stateKeyOf(pick);
+	const each = state.targets.find((entry) => entry.target === key);
 	return each === undefined ? null : `${each.passed}/${each.total}`;
 }

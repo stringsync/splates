@@ -1,7 +1,10 @@
+import type { FileDiff } from "@splates/server/tasks";
 import { ChevronRightIcon, CircleCheckIcon } from "lucide-react";
-import { type JSX, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { commitDiff } from "./api";
 import { CardBody } from "./card-shell";
+import { DiffFiles } from "./changes";
 import {
 	type EvalRounds,
 	type Layer,
@@ -23,55 +26,82 @@ export function EvalDoneBody({
 	lead: boolean;
 }): JSX.Element {
 	const last = read.rounds[read.rounds.length - 1];
-	const passing =
-		last?.current != null && last.current.passed === last.current.of;
+	const first = read.rounds[0];
+	const start = first?.baseline ?? null;
+	const end = last?.current ?? null;
+	const passing = end !== null && end.passed === end.of;
 	return (
 		<>
+			<section aria-label="outcome" className="flex flex-col gap-3 px-4 py-3">
+				<Journey />
+				{end !== null && (
+					<div>
+						<strong
+							className={cn(
+								"block font-extrabold text-2xl tracking-tight tabular-nums",
+								passing ? "text-success" : "text-warning",
+							)}
+						>
+							{start !== null && `${start.passed}/${start.of} → `}
+							{end.passed}/{end.of} passing
+						</strong>
+						<p className="text-muted-foreground text-xs">
+							{passing
+								? "Every repetition passes"
+								: `Ended at ${end.passed} of ${end.of}`}
+						</p>
+					</div>
+				)}
+				<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs @md:grid-cols-4">
+					<Fact label="Decision">
+						{passing ? "Keep the change" : "Review before keeping"}
+					</Fact>
+					{read.stoppedBy !== null && (
+						<Fact label="Stopping rule">{read.stoppedBy}</Fact>
+					)}
+					<Fact label="Rounds">{read.rounds.length}</Fact>
+					<Fact label="Changed">{layerCounts(read.rounds) || "nothing"}</Fact>
+				</dl>
+			</section>
+			<Evidence read={read} />
 			{read.rest !== "" && <CardBody text={read.rest} lead={lead} />}
 			<ul aria-label="eval rounds" className="border-border/60 border-t">
 				{read.rounds.map((round) => (
 					<RoundRow key={round.round} round={round} />
 				))}
 			</ul>
-			<section
-				aria-label="how the loop went"
-				className="flex flex-col gap-3 border-t px-4 py-3 text-xs"
-			>
-				<dl className="grid grid-cols-2 gap-x-4 gap-y-2 @md:grid-cols-3">
-					<div className="flex flex-col">
-						<dt className="text-muted-foreground">Rounds</dt>
-						<dd className="font-medium text-sm tabular-nums">
-							{read.rounds.length}
-						</dd>
-					</div>
-					<div className="flex flex-col">
-						<dt className="text-muted-foreground">Changed</dt>
-						<dd className="font-medium text-sm">
-							{layerCounts(read.rounds) || "nothing"}
-						</dd>
-					</div>
-					{read.stoppedBy !== null && (
-						<div className="flex min-w-0 flex-col">
-							<dt className="text-muted-foreground">Stopped by</dt>
-							<dd className="font-medium text-sm">{read.stoppedBy}</dd>
-						</div>
-					)}
-				</dl>
-				{last?.current != null && (
-					<p
-						className={cn(
-							"flex items-center gap-1.5",
-							passing ? "text-success" : "text-warning",
-						)}
-					>
-						<CircleCheckIcon aria-hidden className="size-3.5" />
-						{passing
-							? "Every repetition passes"
-							: `Ended at ${last.current.passed}/${last.current.of}`}
-					</p>
-				)}
-			</section>
 		</>
+	);
+}
+
+const JOURNEY = ["Base", "Diagnose", "Change", "Compare", "Decide"] as const;
+
+/** The journey of an eval loop, every step behind it by the time it is done. */
+function Journey(): JSX.Element {
+	return (
+		<ol aria-label="journey" className="flex text-[10px] text-success">
+			{JOURNEY.map((name) => (
+				<li key={name} className="flex-1 text-center">
+					<CircleCheckIcon aria-hidden className="mx-auto mb-0.5 size-3" />
+					{name}
+				</li>
+			))}
+		</ol>
+	);
+}
+
+function Fact({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<div className="flex min-w-0 flex-col">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd className="font-medium text-sm">{children}</dd>
+		</div>
 	);
 }
 
@@ -169,4 +199,62 @@ function RoundRow({ round }: { round: Round }): JSX.Element {
 			)}
 		</li>
 	);
+}
+
+const ACTION =
+	"inline-flex h-7 items-center rounded-md border border-border px-2.5 font-medium text-xs hover:bg-muted/50";
+
+/** Final evidence and View diff, each shown only when the report names its target. */
+function Evidence({ read }: { read: EvalRounds }): JSX.Element | null {
+	const [open, setOpen] = useState(false);
+	if (read.finalBatch === null && read.commit === null) {
+		return null;
+	}
+	return (
+		<div className="flex flex-col gap-2 px-4 pb-3 @max-md:px-3">
+			<div className="flex gap-2">
+				{read.finalBatch !== null && (
+					<a
+						href={`#evals/${encodeURIComponent(read.finalBatch)}`}
+						className={ACTION}
+					>
+						Final evidence
+					</a>
+				)}
+				{read.commit !== null && (
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={() => setOpen(!open)}
+						className={ACTION}
+					>
+						View diff
+					</button>
+				)}
+			</div>
+			{open && read.commit !== null && <CommitDiff sha={read.commit} />}
+		</div>
+	);
+}
+
+function CommitDiff({ sha }: { sha: string }): JSX.Element {
+	const [files, setFiles] = useState<FileDiff[] | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	useEffect(() => {
+		let current = true;
+		commitDiff(sha).then(
+			(read) => current && setFiles(read),
+			(failed: unknown) => current && setError(String(failed)),
+		);
+		return () => {
+			current = false;
+		};
+	}, [sha]);
+	if (error !== null) {
+		return <p className="text-destructive text-xs">{error}</p>;
+	}
+	if (files === null) {
+		return <p className="text-muted-foreground text-xs">Reading the diff…</p>;
+	}
+	return <DiffFiles files={files} />;
 }

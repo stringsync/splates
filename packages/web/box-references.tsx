@@ -16,6 +16,7 @@ const POINTED_AT = new Set([
 	"system",
 	"project",
 	"conversation",
+	"rec",
 ]);
 
 /**

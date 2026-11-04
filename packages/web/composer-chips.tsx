@@ -32,8 +32,9 @@ export function serialize(item: TriggerItem): string {
 		return `[${item.id}]`;
 	}
 	const sign =
-		{ file: "@", project: "#", conversation: "#", command: "/" }[item.type] ??
-		"";
+		{ file: "@", project: "#", conversation: "#", rec: "#", command: "/" }[
+			item.type
+		] ?? "";
 	return `${sign}${item.id}`;
 }
 /**
@@ -151,6 +152,9 @@ function Chip({
 	}
 	if (directiveType === "command") {
 		return <span className={CHIP}>/{label}</span>;
+	}
+	if (directiveType === "rec") {
+		return <span className={CHIP}>#{directiveId}</span>;
 	}
 	if (directiveType === "attachment") {
 		return <AttachedChip name={directiveId} />;

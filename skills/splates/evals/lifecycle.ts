@@ -1,5 +1,6 @@
 import type { Check, Repo } from "@evals/evals/scenario";
 import { stretches } from "@splates/server/plans";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "lifecycle";
@@ -57,6 +58,7 @@ async function committedTask(repo: Repo): Promise<string> {
 const taskGone: Check = {
 	id: "task-gone",
 	about: "`splates list` no longer shows the task",
+	live: true,
 	test: async ({ repo }) =>
 		!(await repo.run(["splates", "list"])).includes("sample"),
 };
@@ -443,3 +445,5 @@ export const scenarios: Scenario[] = [...uninitialized, ...recoveries].map(
 		initialized: true,
 	}),
 );
+
+export const sandbox = splatesSandbox(scenarios);

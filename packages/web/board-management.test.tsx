@@ -54,9 +54,12 @@ describe("Board index and board header", () => {
 			/>,
 		);
 		expect(view.queryByRole("textbox", { name: "Find a board" })).toBeNull();
-		expect(view.getAllByRole("img", { name: "Permanent board" })).toHaveLength(
-			1,
-		);
+		expect(view.queryByRole("img", { name: "Permanent board" })).toBeNull();
+		const builtIn = view.getByRole("region", { name: "Built-in boards" });
+		expect(builtIn.textContent).toContain("Default");
+		expect(builtIn.textContent).not.toContain("Website");
+		expect(view.queryByRole("button", { name: "Drag Default" })).toBeNull();
+		expect(view.getByRole("button", { name: "Add board" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "Website actions" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "Default actions" })).toBeTruthy();
 	});

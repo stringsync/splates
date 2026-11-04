@@ -1,0 +1,3 @@
+[test]
+# The tests import the page's build; this makes it when it is missing.
+preload = ["./test-preload.ts"]

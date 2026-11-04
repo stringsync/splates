@@ -1,12 +1,6 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import {
-	ChevronDownIcon,
-	ChevronUpIcon,
-	CircleAlertIcon,
-	LoaderCircleIcon,
-	TriangleAlertIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -26,10 +20,19 @@ import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
 import { shipActivity } from "./ship-activity";
+import { useAcknowledged } from "./ship-recap-seen";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
+/** The dot on the Ships icon for each thing the ship can ask of the person. */
+const SHIP_DOTS = {
+	running: { label: "a ship runs", color: "animate-pulse bg-primary" },
+	waiting: { label: "a ship waits on you", color: "bg-warning" },
+	error: { label: "the ship failed", color: "bg-destructive" },
+	done: { label: "a ship recap is ready", color: "bg-green-500" },
+};
+
 export const WIDE = "(min-width: 768px)";
 
 /**
@@ -85,7 +88,7 @@ export function AppNav({
 		available && snapshot !== null
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
-	const shipping = shipActivity(useMachine()?.ship);
+	const shipping = shipActivity(useMachine()?.ship, useAcknowledged());
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
@@ -115,29 +118,13 @@ export function AppNav({
 				)}
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
+				{value === "ships" && shipping !== null && (
+					<span role="img" aria-label={SHIP_DOTS[shipping].label}>
+						<UpdateDot ring="ring-sidebar" color={SHIP_DOTS[shipping].color} />
+					</span>
+				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>
-			{value === "ships" && shipping === "running" && (
-				<LoaderCircleIcon
-					role="img"
-					aria-label="a ship runs"
-					className="size-3.5 animate-spin text-muted-foreground"
-				/>
-			)}
-			{value === "ships" && shipping === "error" && (
-				<CircleAlertIcon
-					role="img"
-					aria-label="the ship failed"
-					className="size-3.5 text-destructive"
-				/>
-			)}
-			{value === "ships" && shipping === "waiting" && (
-				<TriangleAlertIcon
-					role="img"
-					aria-label="a ship waits on you"
-					className="size-3.5 text-amber-500"
-				/>
-			)}
 			<HeldKey shortcut={shortcut} held={held} />
 		</TabsTrigger>
 	);

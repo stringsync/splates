@@ -7,14 +7,12 @@ import {
 import { useReactive } from "core/react";
 import {
 	BanIcon,
-	CheckIcon,
 	FlaskConicalIcon,
 	PlayIcon,
 	SettingsIcon,
 	SquareIcon,
 } from "lucide-react";
 import {
-	type ComponentProps,
 	createContext,
 	type JSX,
 	useContext,
@@ -23,6 +21,7 @@ import {
 	useState,
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -36,8 +35,12 @@ import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
+import { EvalCardScenarios } from "./eval-card-scenarios";
+import { useLoopAutostart } from "./eval-loop-autostart";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
+import { EvalRunCue } from "./eval-run-cue";
+import { SettingField } from "./eval-setting-field";
 import {
 	budgetText,
 	ORDER,
@@ -52,16 +55,7 @@ import { Refusal, useRefusal } from "./refusal";
 /** The conversation the card is in, which the server tells once its run is done; null outside one. */
 export const EvalsConversation = createContext<string | null>(null);
 
-/**
- * The card an agent asks to run evals with: the scenarios it picked, the saved
- * agents they run on (each can be left out for this run) and what the runner
- * would reserve. Only its Run button spends anything. Once it runs, the card
- * is the run's progress, cells landed of those planned, the tally and the
- * cost so far, linked to the report on the Evals page; a Stop button ends it.
- * Once done, it shows the report condensed, and the agent is told, with it.
- * Before it runs, Reject turns it down and tells the agent, and "Anything else"
- * carries a note to the agent with Reject or Run.
- */
+/** Plans evals, explains availability, and shows progress after a manual or budgeted start. */
 export function EvalsCard({
 	proposal,
 }: {
@@ -79,6 +73,7 @@ export function EvalsCard({
 		run,
 		(each) => ({
 			agents: each.agents.map((agent) => ({ ...agent })),
+			scenarios: each.scenarios,
 			groups: each.groups,
 			unknown: each.unknown,
 			unknownAgents: each.unknownAgents,
@@ -97,6 +92,7 @@ export function EvalsCard({
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
 	const [rejecting, setRejecting] = useState(false);
+	const [loopStopped, setLoopStopped] = useState(false);
 	const kept = useKept(`run-evals:${run.key}`, sent);
 	const [more, setMore] = useState(kept.read);
 	const written = useRef(more);
@@ -120,6 +116,16 @@ export function EvalsCard({
 			? null
 			: () => turn(start),
 	);
+	const automatic = useLoopAutostart(run, {
+		ready:
+			open &&
+			send !== null &&
+			state.loaded &&
+			state.unknown.length === 0 &&
+			state.unknownAgents.length === 0 &&
+			state.plan !== null &&
+			!state.plan.refused,
+	});
 	// A card the budget cannot cover never runs: tell the agent once, so its
 	// turn is not left waiting on a tap that cannot start anything.
 	const told = useRef(false);
@@ -172,6 +178,18 @@ export function EvalsCard({
 		);
 	}
 	const note = (): string => written.current.trim();
+	const stopLoop = (): void => {
+		if (send === null) {
+			return;
+		}
+		setLoopStopped(true);
+		void attempt(
+			send(
+				"Stop the eval loop here: start no further rounds and run no more evals. Report where it stands.",
+			),
+			"Agent not told",
+		);
+	};
 	const reject = (): void => {
 		if (send === null) {
 			return;
@@ -195,7 +213,6 @@ export function EvalsCard({
 			void attempt(send(note()), "Note not sent");
 		}
 	};
-	const landed = grid === null ? 0 : grid.cells - (grid.tally.pending ?? 0);
 	return (
 		<CardShell
 			label={`run evals ${run.ask.skill}`}
@@ -224,28 +241,7 @@ export function EvalsCard({
 						aria-label="scenarios"
 						className="mx-4 mb-3 flex flex-col gap-3 text-sm"
 					>
-						{state.groups.map((group) => (
-							<div key={group.group} className="flex flex-col gap-2">
-								{group.group !== "" && (
-									<div className="font-medium">{group.group}</div>
-								)}
-								{group.abouts.map((each) => (
-									<div
-										key={each.about}
-										className="ml-3 flex flex-col gap-0.5 border-border/60 border-t pt-2 text-muted-foreground text-xs"
-									>
-										{each.about !== "" && <p>{each.about}</p>}
-										<div className="flex flex-wrap gap-x-2 gap-y-0.5">
-											{each.scenarios.map((id) => (
-												<code key={id} className="text-foreground">
-													{id}
-												</code>
-											))}
-										</div>
-									</div>
-								))}
-							</div>
-						))}
+						<EvalCardScenarios scenarios={state.scenarios} />
 						{state.unknown.length > 0 && (
 							<p className="text-destructive text-xs">
 								Not a scenario: {state.unknown.join(", ")}
@@ -264,28 +260,28 @@ export function EvalsCard({
 								Not a saved agent: {state.unknownAgents.join(", ")}
 							</p>
 						)}
-						<div className="flex flex-wrap items-center gap-2">
+						<ul className="flex flex-col gap-1.5">
 							{state.agents.map((each, index) => (
-								<label
+								<li
 									key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
-									className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors has-focus-visible:ring-2 has-focus-visible:ring-ring ${each.on ? "border-primary/50 bg-primary/10 text-foreground" : "text-muted-foreground opacity-70 hover:opacity-100"}`}
 								>
-									<input
-										type="checkbox"
-										className="sr-only"
-										checked={each.on}
-										onChange={() => void run.toggle(index)}
-									/>
-									{each.on ? (
-										<CheckIcon aria-hidden className="size-3" />
-									) : (
-										<span aria-hidden className="size-3" />
-									)}
-									{[each.pick.agent, each.pick.model, each.pick.effort]
-										.filter((part) => part !== undefined)
-										.join(" ")}
-								</label>
+									<label
+										htmlFor={`eval-agent-${index}`}
+										className={`flex cursor-pointer items-center gap-2 text-sm ${each.on ? "text-foreground" : "text-muted-foreground"}`}
+									>
+										<Checkbox
+											id={`eval-agent-${index}`}
+											checked={each.on}
+											onCheckedChange={() => void run.toggle(index)}
+										/>
+										{[each.pick.agent, each.pick.model, each.pick.effort]
+											.filter((part) => part !== undefined)
+											.join(" ")}
+									</label>
+								</li>
 							))}
+						</ul>
+						<div>
 							<Dialog onOpenChange={(now) => now || void run.load()}>
 								<DialogTrigger
 									render={
@@ -350,7 +346,8 @@ export function EvalsCard({
 					{grid !== null && (
 						<>
 							<div>
-								{landed} of {grid.cells} cells landed
+								{grid.cells - (grid.tally.pending ?? 0)} of {grid.cells} cells
+								landed
 								{ORDER.filter((each) => each !== "pending" && grid.tally[each])
 									.map((each) => ` · ${grid.tally[each]} ${each}`)
 									.join("")}
@@ -416,6 +413,11 @@ export function EvalsCard({
 					)}
 				</div>
 			)}
+			<EvalRunCue
+				automatic={automatic && launch !== null}
+				open={open}
+				state={state}
+			/>
 			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
 					{planText(state.plan)}
@@ -455,6 +457,18 @@ export function EvalsCard({
 						Run
 					</Button>
 				)}
+				{launch !== null && !state.running && state.budget !== null && (
+					<Button
+						size="sm"
+						variant="outline"
+						className="gap-1.5"
+						disabled={send === null || loopStopped}
+						onClick={stopLoop}
+					>
+						<SquareIcon data-icon="inline-start" />
+						Stop
+					</Button>
+				)}
 				{state.running && (
 					<Button
 						size="sm"
@@ -469,21 +483,5 @@ export function EvalsCard({
 			</div>
 			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
-	);
-}
-
-function SettingField({
-	label,
-	...input
-}: { label: string } & ComponentProps<"input">): JSX.Element {
-	return (
-		<label className="flex flex-col gap-1 text-muted-foreground">
-			{label}
-			<input
-				{...input}
-				type="number"
-				className="w-full rounded-md border bg-background px-2 py-1.5 text-foreground text-sm tabular-nums"
-			/>
-		</label>
 	);
 }

@@ -45,7 +45,6 @@ export {
 	elsewhereTasks,
 	type FilesForm,
 	fileUrl,
-	joinLanes,
 	linkTodo,
 	moveBoard,
 	moveLane,
@@ -63,6 +62,20 @@ export {
 } from "./planning";
 export { pushKey, subscribePush, unsubscribePush } from "./push";
 export {
+	deleteRecSession,
+	openRec,
+	openRecFolder,
+	recFileUrl,
+	recLog,
+	recName,
+	recSession,
+	recSessions,
+	recState,
+	recVideoUrl,
+	renameRecSession,
+	searchRecSessions,
+} from "./rec";
+export {
 	ApiError,
 	answered,
 	answeredFrom,
@@ -74,6 +87,7 @@ export {
 } from "./request";
 export {
 	actOnShip,
+	recordShipAgent,
 	shipGraph,
 	shipHistory,
 	shipHistoryEntry,
@@ -87,6 +101,7 @@ export {
 } from "./spend";
 export {
 	bumpMerge,
+	commitDiff,
 	mergeEstimates,
 	openFile,
 	paths,

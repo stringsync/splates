@@ -38,6 +38,21 @@ export async function shipHistoryEntry(
 	return (await response.json()) as { cascade: Cascade; ship: Ship | null };
 }
 
+/** Retain a successful page handoff in the ship record. */
+export async function recordShipAgent(
+	id: string,
+	project: string,
+): Promise<void> {
+	const response = await answered("/api/ship/steps/agent-record", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ id, project }),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", await response.text());
+	}
+}
+
 /** What step `stage` of `project`'s part in cascade `id` printed, or null for none. */
 export async function shipStageLog(
 	id: string,

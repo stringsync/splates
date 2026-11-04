@@ -7,12 +7,14 @@ import {
 	wordsOf,
 } from "@splates/server/conversations/browser";
 import { goalLine, needs } from "@splates/server/plans/browser";
-import type { Details } from "@splates/server/tasks";
+import type { Details, FinishedTask } from "@splates/server/tasks";
 
 /** What ⌘K searches, from the shown project, since the page holds no other's. */
 export interface Searched {
 	tasks: Details[];
 	todos: TaskRecord[];
+	/** Tasks that have ended and are still stored, found by name and number. */
+	finished?: readonly FinishedTask[];
 	conversations: ConversationState[];
 	/**
 	 * What each conversation's words hold of the query, by its id, from the
@@ -66,6 +68,13 @@ export function search(query: string, searched: Searched): Group[] {
 	}
 	const candidates = [
 		...searched.tasks.map(taskOf),
+		...(searched.finished ?? [])
+			.filter(
+				(each, index, all) =>
+					all.findIndex((other) => other.task === each.task) === index &&
+					!searched.tasks.some((live) => live.task === each.task),
+			)
+			.map(finishedOf),
 		...searched.conversations.map((each) =>
 			conversationOf(each, searched.lanes, searched.said[each.id] ?? {}),
 		),
@@ -123,7 +132,29 @@ function taskOf(task: Details): Candidate {
 			at: task.createdAt,
 		},
 		inBody: inText(task.plan ?? ""),
+		also: task.number === null ? [] : numbered([task.number]),
 	};
+}
+
+function finishedOf(task: FinishedTask): Candidate {
+	return {
+		found: {
+			kind: "task",
+			key: `task:${task.task}`,
+			task: task.task,
+			title: task.task,
+			detail: `#${task.id} · ${task.ended}`,
+			score: 0,
+			at: task.endedAt,
+		},
+		inBody: inText(task.subject),
+		also: numbered([task.id, ...task.took.map((each) => each.id)]),
+	};
+}
+
+/** The ways a number is typed: with its `#` or without. */
+function numbered(ids: number[]): string[] {
+	return ids.flatMap((id) => [`#${id}`, String(id)]);
 }
 
 function conversationOf(
@@ -186,6 +217,7 @@ function todoOf(todo: TaskRecord, board: string | null): Candidate {
 			at: todo.createdAt,
 		},
 		inBody: inText(todo.text),
+		also: numbered([todo.id]),
 	};
 }
 

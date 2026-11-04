@@ -28,7 +28,12 @@ import type { AutoPickControl } from "./auto-pick-switch";
 import { Board } from "./board";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { composerIn } from "./composer-editor";
-import { useFileMentions, useNamed, useProjects } from "./composer-triggers";
+import {
+	useFileMentions,
+	useNamed,
+	useProjects,
+	useRecSessions,
+} from "./composer-triggers";
 import {
 	AUTO,
 	autoAddress,
@@ -269,7 +274,12 @@ export function useNewConversation({
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
 	const projects = useProjects();
-	const references = useReferences(tasks, [], projects ?? undefined);
+	const references = useReferences(
+		tasks,
+		[],
+		projects ?? undefined,
+		useRecSessions(),
+	);
 	const trees = useContext(TreesContext);
 	// As the page heads itself, which keeps the name for this tab.
 	const projectName = useProjectName(undefined);

@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates",
-	"version": "2.0.2",
+	"version": "2.0.3",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -34,8 +34,5 @@
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"
-	},
-	"scripts": {
-		"build": "bun run --cwd ../web build"
 	}
 }

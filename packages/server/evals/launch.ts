@@ -9,89 +9,7 @@ import type { Document, Storage } from "../storage";
 import { type EvalBudgetStatus, EvalBudgets, gate } from "./budget";
 import { parsed, parseScenarioList } from "./scenario-list";
 import { EvalStore } from "./store";
-
-/** `claude:MODEL@EFFORT` for a pick, as `--agent` takes it. */
-export function targetOf(pick: AgentPick): string {
-	return `${pick.agent}${pick.model === undefined ? "" : `:${pick.model}`}${
-		pick.effort === undefined ? "" : `@${pick.effort}`
-	}`;
-}
-
-/** A project's eval commands, from the `evals` block of its `splates.config.ts`. */
-export interface EvalCommands {
-	/** The project's root, where the commands run when a run names no worktree. */
-	root: string;
-	/** Where batches are written, absolute, as `SPLATES_EVALS_RESULTS` tells `run`. */
-	results: string;
-	/** Prints the cases, one JSON object a line; null when the project names none. */
-	list: string | null;
-	/** Runs the cases and targets in the env into a new batch; null when the project names none. */
-	run: string | null;
-	/** Prints what a run would come to and cost at most; null when the project names none. */
-	plan: string | null;
-}
-
-/** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
-export interface EvalLaunchSpec {
-	/** Names the card, so a reload finds its run again. */
-	key: string;
-	/** The card's label, the skill or suite it names. */
-	skill: string;
-	scenarios: string[];
-	agents: AgentPick[];
-	/** The revision the change is judged against; the runner's own default when null. */
-	baseline: string | null;
-	/** Runs of each cell; the runner's own default when absent. */
-	reps?: number;
-	/** The conversation whose card it is, told once it is done; null for none. */
-	conversation?: string | null;
-	/** Where the commands run, the conversation's task worktree; the project's root when null. */
-	cwd?: string | null;
-	/**
-	 * Set when the agent starts the run on its own, not the person's Run button:
-	 * the conversation's budget then has to fit it, or it is not started.
-	 */
-	auto?: boolean;
-}
-
-/** How a launch stands. `refused` is the runner declining before it wrote a batch. */
-export type EvalLaunchStatus = "running" | "done" | "refused" | "stopped";
-
-/** A launch as the card reads it. */
-export interface EvalLaunch {
-	id: string;
-	key: string;
-	status: EvalLaunchStatus;
-	/** The batch directory it writes, once the runner has made it. */
-	batch: string | null;
-	/** The runner's last words: a refusal's reason. */
-	output: string;
-}
-
-/** What a project's `plan` says a run comes to; without one, nothing is known of its cost. */
-export interface EvalPlan {
-	/** Case-by-target runs the plan comes to; null when the project prints no plan. */
-	cells: number | null;
-	/** The most they can cost, in dollars; null when there is no ceiling to show. */
-	usd: number | null;
-	/** Whether the plan turned the run down, its reason in `output`. */
-	refused: boolean;
-	/** The planner's output, for a refusal or anything the numbers leave out. */
-	output: string;
-}
-
-/** A case a project's `list` prints. */
-export interface EvalScenario {
-	id: string;
-	/** What the card heads the case with, as `group` in `batch.json`. */
-	group: string | null;
-	/** What the case checks, as `about` in `batch.json`. */
-	about: string | null;
-	/** The skill the case belongs to, when the project's `list` says. */
-	skill?: string;
-	/** What the case's verdict depends on today, when the project's `list` says; runs stamped otherwise are stale. */
-	fingerprint?: string;
-}
+import { targetOf } from "./target";
 
 const TAIL = 20;
 
@@ -273,8 +191,8 @@ export class EvalLaunches
 
 	/**
 	 * Refuses with `budget_exhausted`, naming the limit, when a run of at most
-	 * `worstUsd` does not fit what the conversation has left. A run whose batch
-	 * has no cost counts at its own worst case.
+	 * `worstUsd` does not fit what the conversation has left. A round whose batch
+	 * has no cost yet counts as spending nothing.
 	 */
 	private async checkBudget(
 		commands: EvalCommands,
@@ -318,6 +236,26 @@ export class EvalLaunches
 		return launch === undefined
 			? ((await this.record.read())?.[id]?.launch ?? null)
 			: this.read(launch);
+	}
+
+	/** Saved ownership of batches in this results directory, including earlier rounds of a card. */
+	async batchConversations(results: string): Promise<Map<string, string>> {
+		const owners = new Map<string, string>();
+		for (const saved of Object.values((await this.record.read()) ?? {})) {
+			const conversation = saved.spec.conversation;
+			if (saved.commands.results !== results || conversation == null) {
+				continue;
+			}
+			if (saved.launch.batch !== null) {
+				owners.set(saved.launch.batch, conversation);
+			}
+			for (const round of await this.budgets.roundsOf(conversation)) {
+				if (round.batch !== null) {
+					owners.set(round.batch, conversation);
+				}
+			}
+		}
+		return owners;
 	}
 
 	/** Stops the run of the card `key` names; its landed cells stay on the Evals page. */
@@ -475,6 +413,83 @@ export class EvalLaunches
 		this.writing = writing.catch(() => {});
 		return writing;
 	}
+}
+
+/** A project's eval commands, from the `evals` block of its `splates.config.ts`. */
+export interface EvalCommands {
+	/** The project's root, where the commands run when a run names no worktree. */
+	root: string;
+	/** Where batches are written, absolute, as `SPLATES_EVALS_RESULTS` tells `run`. */
+	results: string;
+	/** Prints the cases, one JSON object a line; null when the project names none. */
+	list: string | null;
+	/** Runs the cases and targets in the env into a new batch; null when the project names none. */
+	run: string | null;
+	/** Prints what a run would come to and cost at most; null when the project names none. */
+	plan: string | null;
+}
+
+/** What the person's Run button asks for: the evals of one card, on the agents it ended with. */
+export interface EvalLaunchSpec {
+	/** Names the card, so a reload finds its run again. */
+	key: string;
+	/** The card's label, the skill or suite it names. */
+	skill: string;
+	scenarios: string[];
+	agents: AgentPick[];
+	/** The revision the change is judged against; the runner's own default when null. */
+	baseline: string | null;
+	/** Runs of each cell; the runner's own default when absent. */
+	reps?: number;
+	/** The conversation whose card it is, told once it is done; null for none. */
+	conversation?: string | null;
+	/** Where the commands run, the conversation's task worktree; the project's root when null. */
+	cwd?: string | null;
+	/**
+	 * Set when the agent starts the run on its own, not the person's Run button:
+	 * the conversation's budget then has to fit it, or it is not started.
+	 */
+	auto?: boolean;
+}
+
+/** How a launch stands. `refused` is the runner declining before it wrote a batch. */
+export type EvalLaunchStatus = "running" | "done" | "refused" | "stopped";
+
+/** A launch as the card reads it. */
+export interface EvalLaunch {
+	id: string;
+	key: string;
+	status: EvalLaunchStatus;
+	/** The batch directory it writes, once the runner has made it. */
+	batch: string | null;
+	/** The runner's last words: a refusal's reason. */
+	output: string;
+}
+
+/** What a project's `plan` says a run comes to; without one, nothing is known of its cost. */
+export interface EvalPlan {
+	/** Case-by-target runs the plan comes to; null when the project prints no plan. */
+	cells: number | null;
+	/** The most they can cost, in dollars; null when there is no ceiling to show. */
+	usd: number | null;
+	/** Whether the plan turned the run down, its reason in `output`. */
+	refused: boolean;
+	/** The planner's output, for a refusal or anything the numbers leave out. */
+	output: string;
+}
+
+/** A case a project's `list` prints. */
+export interface EvalScenario {
+	id: string;
+	/** What the card heads the case with, as `group` in `batch.json`. */
+	group: string | null;
+	/** What the case checks, as `about` in `batch.json`. */
+	about: string | null;
+	/** The skill the case belongs to, when the project's `list` says. */
+	skill?: string;
+	prompt?: string;
+	checks?: { id: string; about: string }[];
+	judge?: string | null;
 }
 
 /**

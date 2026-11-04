@@ -42,7 +42,7 @@ export function SortableRow({
 					type="button"
 					ref={setActivatorNodeRef}
 					aria-label={`Drag ${board.name}`}
-					className="flex min-h-11 shrink-0 cursor-grab touch-none items-center rounded-sm text-muted-foreground/60 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
+					className="flex min-h-11 shrink-0 cursor-grab touch-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 items-center rounded-sm text-muted-foreground/60 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
 					{...attributes}
 					{...listeners}
 				>

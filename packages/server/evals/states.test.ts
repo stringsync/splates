@@ -3,7 +3,7 @@ import { scenarioStates } from "./states";
 import type { EvalCell, EvalGrid } from "./types";
 
 describe("scenarioStates", () => {
-	it("tells failing, never run, stale and passing apart", () => {
+	it("tells failing, never run and passing apart", () => {
 		const states = scenarioStates(
 			[list("f", "1"), list("n", "1"), list("s", "2"), list("p", "1")],
 			[
@@ -19,7 +19,7 @@ describe("scenarioStates", () => {
 		expect(states.map((each) => each.state)).toEqual([
 			"failing",
 			"never-run",
-			"stale",
+			"passing",
 			"failing",
 		]);
 		expect(states[3]?.targets).toEqual([
@@ -30,7 +30,7 @@ describe("scenarioStates", () => {
 		expect(states[0]).toMatchObject({ lastRunAt: "2026-01-02" });
 	});
 
-	it("reads the latest batch and never marks an unstamped run stale", () => {
+	it("reads the latest batch", () => {
 		const [first, second] = scenarioStates(
 			[list("x", "9"), list("y", "9")],
 			[

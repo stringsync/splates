@@ -60,6 +60,11 @@ describe("App's orphaned tasks", () => {
 			conversations: [{ ...failed, status: "stopped", error: null }],
 		};
 		view = await testing.openTasks({ tasks: [details({ task: "beta" })] });
+		expect(
+			within(queueRow(view, "beta")).queryByRole("status", {
+				name: "orphaned",
+			}),
+		).toBeNull();
 	});
 
 	it("restarts a failed agent on its task from the task's dialog", async () => {
@@ -70,7 +75,9 @@ describe("App's orphaned tasks", () => {
 			fireEvent.click(bar.getByRole("button", { name: "Restart" })),
 		);
 
-		expect(testing.posted("/api/conversations/c1/restart")).toHaveLength(1);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/restart")).toHaveLength(1),
+		);
 	});
 
 	it("hands a failed agent's task to a new conversation with the agent picked, sent the prompt that claims it", async () => {

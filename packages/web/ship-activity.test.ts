@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type { Cascade, CascadeStep, Ship } from "@splates/server/ship";
 import { shipActivity, shipLine } from "./ship-activity";
 
-describe("shipActivity", () => {
+describe("ship activity and line", () => {
 	it("is null for a failed ship with no cascade under way", () => {
 		const ship = { status: "failed" } as unknown as Ship;
 		expect(shipActivity({ cascade: null, ship })).toBeNull();
@@ -15,9 +15,17 @@ describe("shipActivity", () => {
 		};
 		expect(shipActivity({ cascade: stopped, ship: null })).toBe("error");
 	});
-});
 
-describe("shipLine", () => {
+	const done = {
+		...cascade([step({ status: "done" })]),
+		status: "done" as const,
+	};
+
+	it("is done until the recap is acknowledged", () => {
+		expect(shipActivity({ cascade: done, ship: null })).toBe("done");
+		expect(shipActivity({ cascade: done, ship: null }, done.id)).toBeNull();
+	});
+
 	it("says nothing before the cascade speaks", () => {
 		expect(shipLine(null)).toBeNull();
 	});

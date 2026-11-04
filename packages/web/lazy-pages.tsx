@@ -133,6 +133,9 @@ export const StatsPage = onDemand(async () => ({
 export const ShipsPage = onDemand(async () => ({
 	default: (await import("./ships-page")).ShipsPage,
 }));
+export const RecPage = onDemand(async () => ({
+	default: (await import("./rec-page")).RecPage,
+}));
 export const EvalsPage = onDemand(async () => ({
 	default: (await import("./evals-page")).EvalsPage,
 }));

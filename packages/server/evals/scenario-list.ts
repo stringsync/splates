@@ -9,12 +9,30 @@ export function parseScenarioList(stdout: string): EvalScenario[] {
 			: [
 					{
 						id: each.case,
+						...(typeof each.prompt === "string" ? { prompt: each.prompt } : {}),
+						...(typeof each.judge === "string" || each.judge === null
+							? { judge: each.judge }
+							: {}),
+						...(Array.isArray(each.checks)
+							? {
+									checks: each.checks.flatMap((check: unknown) => {
+										if (
+											typeof check !== "object" ||
+											check === null ||
+											!("id" in check) ||
+											!("about" in check) ||
+											typeof check.id !== "string" ||
+											typeof check.about !== "string"
+										) {
+											return [];
+										}
+										return [{ id: check.id, about: check.about }];
+									}),
+								}
+							: {}),
 						group: typeof each.group === "string" ? each.group : null,
 						about: typeof each.about === "string" ? each.about : null,
 						...(typeof each.skill === "string" ? { skill: each.skill } : {}),
-						...(typeof each.fingerprint === "string"
-							? { fingerprint: each.fingerprint }
-							: {}),
 					},
 				];
 	});

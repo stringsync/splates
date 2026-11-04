@@ -14,9 +14,11 @@ import {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	RUN_ELSEWHERE,
 	taskNumberReference,
 	taskReference,
 } from "@splates/server/plans/browser";
+import type { RecSessionSummary } from "@splates/server/rec/browser";
 import type { Details } from "@splates/server/tasks";
 import {
 	BanIcon,
@@ -29,11 +31,13 @@ import {
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleIcon,
+	MonitorOffIcon,
 	PlayIcon,
 	PlugIcon,
 	RotateCcwIcon,
 	TerminalIcon,
 	UtensilsIcon,
+	VideoIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
 import type { Action } from "./actions";
@@ -69,6 +73,7 @@ const CATEGORIES = [
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
+	{ id: "rec", label: "Rec sessions", icon: VideoIcon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
@@ -81,6 +86,7 @@ export function useReferences(
 	tasks: readonly Details[],
 	actions: readonly Action[] = [],
 	projects: readonly ProjectRef[] = [],
+	recSessions: readonly RecSessionSummary[] = [],
 ): References {
 	const { todos } = useContext(Board);
 	const finished = useContext(FinishedReferences);
@@ -98,9 +104,18 @@ export function useReferences(
 			})),
 			todo: [
 				...todos,
+				// A finished task answers to its own number and to each queued
+				// task it took up, which kept its number.
 				...finished
-					.filter((task) => !todos.some((todo) => todo.id === task.id))
-					.map((task) => ({ id: task.id, subject: task.subject })),
+					.flatMap((task) => [
+						{ id: task.id, subject: task.subject },
+						...task.took,
+					])
+					.filter(
+						(each, index, all) =>
+							all.findIndex((other) => other.id === each.id) === index &&
+							!todos.some((todo) => todo.id === each.id),
+					),
 			].map((todo) => ({
 				id: taskNumberReference(todo.id),
 				type: "todo",
@@ -140,6 +155,14 @@ export function useReferences(
 				description: project.root,
 				metadata: { project: project.slug },
 			})),
+			// Its age, length and moments as the description.
+			rec: recSessions.map((session) => ({
+				id: `rec:${session.name}`,
+				type: "rec",
+				label: session.name,
+				description: describeSession(session),
+				metadata: { rec: session.name },
+			})),
 			action: runnable.map((action, index) => ({
 				id: `action:${action.label}`,
 				type: "action",
@@ -163,7 +186,10 @@ export function useReferences(
 				}
 			},
 			chip: (item) => {
-				const { directive, project, conversation } = item.metadata ?? {};
+				const { directive, project, conversation, rec } = item.metadata ?? {};
+				if (typeof rec === "string") {
+					return { id: `rec:${rec}`, type: "rec", label: rec };
+				}
 				if (typeof conversation === "string") {
 					return { id: conversation, type: "conversation", label: item.label };
 				}
@@ -184,7 +210,35 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [todos, tasks, actions, projects, conversations, namedLanes, finished]);
+	}, [
+		todos,
+		tasks,
+		actions,
+		projects,
+		recSessions,
+		conversations,
+		namedLanes,
+		finished,
+	]);
+}
+
+/** "3h ago · 2m 5s · 4 moments". */
+function describeSession(session: RecSessionSummary): string {
+	const minutes = Math.floor((Date.now() - session.startedAt) / 60_000);
+	const age =
+		minutes < 1
+			? "just now"
+			: minutes < 60
+				? `${minutes}m ago`
+				: minutes < 1440
+					? `${Math.floor(minutes / 60)}h ago`
+					: `${Math.floor(minutes / 1440)}d ago`;
+	const seconds = Math.round(session.length);
+	const length =
+		seconds < 60
+			? `${seconds}s`
+			: `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+	return `${age} · ${length} · ${session.moments} ${session.moments === 1 ? "moment" : "moments"}`;
 }
 
 /**
@@ -261,6 +315,14 @@ export const BARE_DIRECTIVES = [
 		about: "run the command the last run-command card asked to",
 		icon: TerminalIcon,
 		tone: "success",
+	},
+	{
+		directive: RUN_ELSEWHERE,
+		label: "Not on this device",
+		about:
+			"carry on without rec: the person is not at the machine that can run it",
+		icon: MonitorOffIcon,
+		tone: "neutral",
 	},
 	{
 		directive: RUN_DENIED,

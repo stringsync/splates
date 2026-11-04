@@ -116,14 +116,9 @@ export async function retryQueuedStart(id: number): Promise<void> {
 	await send(`/api/todos/${id}/retry`, {});
 }
 
-/** Moves lane `from`'s todos to the bottom of lane `into`. */
-export async function joinLanes(from: number, into: number): Promise<void> {
-	await sendJson(`/api/lanes/${from}/join`, "POST", { into });
-}
-
 /** Starts an empty lane called `name`, after the others. */
-export async function addLane(name: string): Promise<void> {
-	await sendJson("/api/lanes", "POST", { name });
+export async function addLane(name: string, board?: number): Promise<void> {
+	await sendJson("/api/lanes", "POST", { name, board });
 }
 
 /** Calls lane `id` by another name. */

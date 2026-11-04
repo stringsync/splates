@@ -17,12 +17,15 @@ import { Refusal, useRefusal } from "./refusal";
  */
 // vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function AddLane({
+	board,
 	dragging,
 	empty = false,
 	naming,
 	onName,
 	onUnname,
 }: {
+	/** The board being viewed, where a new lane goes. */
+	board?: number;
 	dragging: boolean;
 	/** An empty board starts with its first lane form already visible. */
 	empty?: boolean;
@@ -64,7 +67,7 @@ export function AddLane({
 		// lane; refused, the name is there to try again.
 		setSubmitting(true);
 		void attempt(
-			expect(laneAdded(name.trim()), addLane(name)),
+			expect(laneAdded(name.trim()), addLane(name, board)),
 			"Lane not added",
 		).then((added) => {
 			setSubmitting(false);

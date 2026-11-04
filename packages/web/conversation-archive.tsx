@@ -140,7 +140,7 @@ export function useArchive(
 	const shell = asking && project === null && shellRunning(id);
 	const confirm = (
 		<Dialog open={asking} onOpenChange={setAsking}>
-			<DialogContent showCloseButton={false}>
+			<DialogContent showCloseButton={false} className="sm:max-w-xl">
 				<DialogHeader>
 					<DialogTitle>Archive {nameOf(conversation)}?</DialogTitle>
 					{task !== null && (
@@ -181,7 +181,7 @@ export function useArchive(
 						</DialogDescription>
 					)}
 				</DialogHeader>
-				<DialogFooter>
+				<DialogFooter className="sm:flex-wrap">
 					{/* Only its shell stands in the way: show it, to stop what runs
 					    there or see that nothing does. */}
 					{!working && live.length === 0 && shell && showTerminal !== null && (

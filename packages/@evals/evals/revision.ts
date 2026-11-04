@@ -16,9 +16,12 @@ export async function revisionOf(skill: string): Promise<ContractRevision> {
 	);
 	let scenarios: string;
 	try {
-		const inEvals = await files(join(skill, "evals"), () => false);
+		const inEvals = await files(join(skill, "evals"), isInstalledDependency);
 		scenarios = await hashOf(join(skill, "evals"), inEvals);
-	} catch {
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+			throw error;
+		}
 		scenarios = await hashOf(skill, []);
 	}
 	const git = Bun.spawnSync(["git", "-C", skill, "rev-parse", "HEAD"], {
@@ -31,6 +34,11 @@ export async function revisionOf(skill: string): Promise<ContractRevision> {
 		skillHash: installed,
 		scenarioHash: scenarios,
 	};
+}
+
+/** Installed dependencies (often symlinks to directories) are not scenarios. */
+function isInstalledDependency(relative: string): boolean {
+	return relative.split("/").includes("node_modules");
 }
 
 /** Every file under `dir` as a sorted relative path, skipping those `skip` names. */

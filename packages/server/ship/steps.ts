@@ -155,6 +155,20 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		return this.retry();
 	}
 
+	/** Remember a page handoff without changing adoption or restarting the ship. */
+	async recordAgent(id: string, slug: string): Promise<Cascade> {
+		const saved = await this.record.update((record) => {
+			const step = record?.cascade.steps.find((each) => each.slug === slug);
+			if (record === null || record.cascade.id !== id || step === undefined) {
+				fail("not_found", "no matching ship project", { id, slug });
+			}
+			step.sentToAgent = true;
+			return record;
+		});
+		await this.history.file(saved.cascade);
+		return saved.cascade;
+	}
+
 	/** Ends the plan, retaining every completed publication. No later stage may start. */
 	async abandon(): Promise<Cascade> {
 		const lock = this.storage.lock("ship-start.lock");
@@ -432,13 +446,24 @@ export class ShipSteps extends Cascades implements AsyncResource {
 	}
 	private async save(record: StepRecord): Promise<void> {
 		// Abandon can arrive while a process or registry read is in flight. It wins every later save.
-		const saved = await this.record.update((current) =>
-			current !== null &&
-			(current.cascade.id !== record.cascade.id ||
-				current.cascade.status === "abandoned")
+		const saved = await this.record.update((current) => {
+			if (current?.cascade.id === record.cascade.id) {
+				for (const step of record.cascade.steps) {
+					if (
+						current.cascade.steps.some(
+							(each) => each.slug === step.slug && each.sentToAgent,
+						)
+					) {
+						step.sentToAgent = true;
+					}
+				}
+			}
+			return current !== null &&
+				(current.cascade.id !== record.cascade.id ||
+					current.cascade.status === "abandoned")
 				? current
-				: record,
-		);
+				: record;
+		});
 		await this.history.file(saved.cascade);
 	}
 	private stamp(after = Duration.ms(0)): string {

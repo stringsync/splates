@@ -110,7 +110,10 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							// annotator's, bubbles here through React, not the page.
 							if (
 								event.currentTarget.contains(target) &&
-								!target.closest(CONTROL)
+								!target.closest(CONTROL) &&
+								// A tap in the editor already has the focus; focusing again
+								// resets the selection iOS's Paste menu hangs from.
+								!target.closest("[contenteditable]")
 							) {
 								focusComposer(event.currentTarget);
 							}

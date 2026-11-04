@@ -2,9 +2,10 @@ import {
 	ArchiveIcon,
 	CheckIcon,
 	CopyIcon,
+	LoaderCircleIcon,
 	type LucideIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useContext } from "react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
@@ -68,7 +69,18 @@ export function ActionCard({
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
 	const archive = useContext(ArchiveConversation);
-	const run = (): void => void attempt(action.run(), action.failed);
+	const [pending, setPending] = useState(false);
+	const run = async (): Promise<void> => {
+		if (pending) {
+			return;
+		}
+		setPending(true);
+		try {
+			await attempt(action.run(), action.failed);
+		} finally {
+			setPending(false);
+		}
+	};
 	return (
 		<CardShell
 			label={label}
@@ -108,10 +120,19 @@ export function ActionCard({
 						<Button
 							size="sm"
 							onClick={run}
+							disabled={pending}
+							aria-busy={pending}
 							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 						>
-							<action.VerbIcon data-icon="inline-start" />
-							{action.verb}
+							{pending ? (
+								<LoaderCircleIcon
+									data-icon="inline-start"
+									className="animate-spin"
+								/>
+							) : (
+								<action.VerbIcon data-icon="inline-start" />
+							)}
+							{pending ? "Working…" : action.verb}
 						</Button>
 					</>
 				)}

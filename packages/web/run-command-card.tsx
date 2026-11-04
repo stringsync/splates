@@ -3,12 +3,15 @@ import {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	RUN_ELSEWHERE,
+	recOf,
 	retryOf,
 	shipOf,
 } from "@splates/server/plans/browser";
 import {
 	BanIcon,
 	CheckIcon,
+	MonitorOffIcon,
 	RotateCcwIcon,
 	ShipIcon,
 	TerminalIcon,
@@ -66,13 +69,16 @@ export function RunCommandCard({
 			.join("\n\n> **Anything else?**\n\n") ?? more;
 	const retry = retryOf(proposal.command ?? "");
 	const ship = shipOf(proposal.command ?? "");
+	const rec = recOf(proposal.command ?? "");
 	const choice =
 		sent?.includes(RUN_ALLOWED) || sent?.includes(RETRIED)
 			? RUN_ALLOWED
 			: sent?.includes(RUN_DENIED)
 				? RUN_DENIED
-				: chosen;
-	const live = useLiveMachine(choice === null && retry === null);
+				: sent?.includes(RUN_ELSEWHERE)
+					? RUN_ELSEWHERE
+					: chosen;
+	const live = useLiveMachine(choice === null && retry === null && !rec);
 	const now = useNow(choice === null && retry === null);
 	const send = reply?.send ?? null;
 	const enterDoes = useEnterDoes(
@@ -127,7 +133,11 @@ export function RunCommandCard({
 										{ kind: "task", task: retry },
 									]
 								: [
-										choice === RUN_ALLOWED ? "Allowed" : "Denied",
+										choice === RUN_ALLOWED
+											? "Allowed"
+											: choice === RUN_ELSEWHERE
+												? "Not on this device for"
+												: "Denied",
 										{ kind: "command", command: proposal.command ?? "" },
 									],
 						title: choice,
@@ -154,7 +164,7 @@ export function RunCommandCard({
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
 			{ship !== null && choice === null && <ShipUnderWay />}
-			{choice === null && retry === null && ship === null && (
+			{choice === null && retry === null && ship === null && !rec && (
 				<MachineStats
 					reading={live?.reading ?? null}
 					at={live?.at}
@@ -193,7 +203,9 @@ export function RunCommandCard({
 							? retry !== null
 								? "Granted"
 								: "Allowed"
-							: "Denied"}
+							: choice === RUN_ELSEWHERE
+								? "Not on this device"
+								: "Denied"}
 					</span>
 				) : (
 					<>
@@ -211,6 +223,24 @@ export function RunCommandCard({
 							)}
 							Deny
 						</Button>
+						{rec && (
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={send === null || busy !== null}
+								onClick={() =>
+									turn(() => answer(RUN_ELSEWHERE, "Not answered"))
+								}
+								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
+							>
+								{busy === RUN_ELSEWHERE && showBusy ? (
+									<PendingSpinner shown />
+								) : (
+									<MonitorOffIcon data-icon="inline-start" />
+								)}
+								Not on this device
+							</Button>
+						)}
 						{ship !== null ? (
 							<a
 								href={shipsUrl(ship)}

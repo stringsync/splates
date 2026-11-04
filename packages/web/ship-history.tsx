@@ -92,64 +92,6 @@ function Group({
 	);
 }
 
-const DISMISSED = "splates.ships.dismissedSummary";
-
-/** A dismissible card for the newest ended ship: what it bumped, how long ago and when. */
-export function LastShipSummary({
-	cascades,
-}: {
-	cascades: CascadeSummary[] | null;
-}): JSX.Element | null {
-	const [dismissed, setDismissed] = useState(() =>
-		localStorage.getItem(DISMISSED),
-	);
-	const last = (cascades ?? []).find((each) => each.status !== "running");
-	if (last === undefined || last.id === dismissed) {
-		return null;
-	}
-	const outcome = outcomeOf(last);
-	const at = last.ended ?? last.started;
-	const bumped = last.projects.filter((each) => each.to != null);
-	return (
-		<section
-			aria-label="last ship summary"
-			className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm"
-		>
-			<div className="flex items-center gap-2">
-				<OutcomeIcon outcome={outcome} />
-				<span className="font-medium">
-					{OUTCOME_WORDS[outcome]}: {shipName(last.from)} {versionOf(last)}
-				</span>
-				<button
-					type="button"
-					aria-label="Dismiss"
-					onClick={() => {
-						localStorage.setItem(DISMISSED, last.id);
-						setDismissed(last.id);
-					}}
-					className="ml-auto text-muted-foreground"
-				>
-					<XIcon className="size-4" />
-				</button>
-			</div>
-			<p className="text-muted-foreground">
-				{bumped.length === 0
-					? "Nothing was bumped."
-					: `Bumped ${bumped
-							.map((each) => `${shipName(each.slug)} to v${each.to}`)
-							.join(", ")}.`}
-			</p>
-			<p className="text-muted-foreground text-xs">
-				<time dateTime={at}>{age(at)} ago</time> ·{" "}
-				{new Date(at).toLocaleString(undefined, {
-					dateStyle: "medium",
-					timeStyle: "short",
-				})}
-			</p>
-		</section>
-	);
-}
-
 type Outcome = "shipped" | "failed" | "neutral";
 
 /** How a past ship ended: shipped, failed (stopped), or neither (abandoned, still going). */

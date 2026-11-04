@@ -82,6 +82,24 @@ describe("BoardSwitcher controls", () => {
 		await waitFor(() => expect(calls).toEqual(["archive 2 true"]));
 	});
 
+	it("restores an archived board", async () => {
+		const view = render(
+			<BoardSwitcher
+				boards={[
+					...boards,
+					{ id: 3, name: "Old", position: 3, archived: true },
+				]}
+				current={1}
+				tasks={[]}
+				onPick={() => {}}
+				actions={actions}
+				mode="index"
+			/>,
+		);
+		fireEvent.click(await view.findByRole("button", { name: "Restore Old" }));
+		await waitFor(() => expect(calls).toEqual(["archive 3 false"]));
+	});
+
 	it("keeps Default from being archived or deleted", async () => {
 		const view = open();
 		fireEvent.click(

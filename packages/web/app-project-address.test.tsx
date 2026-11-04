@@ -59,6 +59,7 @@ describe("App at a project's address", () => {
 		const screen = within(document.body);
 		const status = await waitFor(() => screen.getByText("Opening shop"));
 		expect(status.getAttribute("role")).toBe("status");
+		expect(status.classList.contains("sr-only")).toBe(false);
 		arrive();
 		await opening;
 

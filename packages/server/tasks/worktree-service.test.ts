@@ -193,6 +193,10 @@ class RecordingFs implements Fs {
 		this.ops.push(`writeBytes ${path}`);
 		return this.inner.writeBytes(path, data);
 	}
+	appendBytes(path: string, data: Uint8Array): Promise<void> {
+		this.ops.push(`appendBytes ${path}`);
+		return this.inner.appendBytes(path, data);
+	}
 	rename(from: string, to: string): Promise<void> {
 		this.ops.push(`rename ${from} -> ${to}`);
 		return this.inner.rename(from, to);

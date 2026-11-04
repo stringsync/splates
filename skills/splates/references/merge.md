@@ -163,4 +163,7 @@ rewrite of the base's history:
    fix), and go on from the answer. A later task that builds on it is one
    to name, never to revert along with it unasked.
 
-A test that flakes in two merges within a week is quarantined: a gate it alone fails lands anyway, noted as a flake, and the Stats page lists it. Its fix is already a queued task.
+A test that flakes in two merges within a week is quarantined: a gate it alone fails lands anyway, noted as a flake, and the Stats page lists it. A fix task is created after recurrence on an independent task within seven days.
+Failures from one gate are grouped, existing incidents receive the latest
+evidence, and closed failures are not recreated for seven days. Inconclusive
+failures remain on the merge attempt rather than creating backlog tasks.

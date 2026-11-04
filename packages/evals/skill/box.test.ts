@@ -48,3 +48,32 @@ describe("splatesSandbox", () => {
 		expect(await box.repo.run(["git", "status", "--porcelain"])).toBe("");
 	});
 });
+
+// These are the aspect modules bin/evals discovers independently.
+it.each([
+	"budget",
+	"continuity",
+	"decisions",
+	"delivery",
+	"discovery",
+	"graders",
+	"lifecycle",
+	"orchestration",
+	"proposing",
+	"resources",
+])("exports an isolated sandbox from the %s aspect", async (aspect) => {
+	const module = await import(`${SKILL}/evals/${aspect}.ts`);
+	const scenario = module.scenarios[0];
+	expect(scenario).toBeDefined();
+	const box = await module.sandbox(SKILL, scenario);
+	try {
+		expect(box.env.SPLATES_HOME).toContain("splates-home");
+		expect(
+			(await box.repo.run(["git", "log", "--format=%s"]))
+				.split("\n")
+				.includes("Initialize splates"),
+		).toBe(scenario.initialized ?? false);
+	} finally {
+		await box.remove();
+	}
+});

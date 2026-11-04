@@ -1,10 +1,5 @@
 import { BrowserRecording } from "./browser-recording";
-import type {
-	AudioSink,
-	MicPermission,
-	Microphone,
-	Recording,
-} from "./microphone";
+import type { AudioSink, MicPermission, Microphone } from "./microphone";
 import { Pcm16Encoder } from "./pcm16-encoder";
 
 /** Hands each block of the mic's samples to the page, as it comes. */
@@ -15,7 +10,10 @@ const TAP = `registerProcessor("tap", class extends AudioWorkletProcessor {
 	}
 });`;
 
-/** The mic through `getUserMedia`, tapped by an `AudioWorklet` for its samples. */
+/**
+ * The browser's mic. `start` returns a `BrowserRecording`, whose `stream` a
+ * page can also record with `MediaRecorder`.
+ */
 export class BrowserMicrophone implements Microphone {
 	async permission(): Promise<MicPermission> {
 		try {
@@ -29,7 +27,7 @@ export class BrowserMicrophone implements Microphone {
 		}
 	}
 
-	start(sink: AudioSink): Promise<Recording> {
+	start(sink: AudioSink): Promise<BrowserRecording> {
 		// Made and resumed before any await, while the tap still counts as a
 		// gesture: iOS Safari leaves a context made later suspended, silent.
 		const context = new AudioContext();
@@ -44,7 +42,7 @@ export class BrowserMicrophone implements Microphone {
 		context: AudioContext,
 		resumed: Promise<void>,
 		sink: AudioSink,
-	): Promise<Recording> {
+	): Promise<BrowserRecording> {
 		const stream = await navigator.mediaDevices.getUserMedia({
 			audio: {
 				channelCount: 1,

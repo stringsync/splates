@@ -164,9 +164,10 @@ describe("dev tasks", () => {
 				(await send("PUT", "/api/todos/3/lane", { lane: "new" })).status,
 			).toBe(200);
 			expect((await state(3))?.lane).toBe(2);
-			expect(
-				(await send("POST", "/api/lanes/2/join", { into: 1 })).status,
-			).toBe(200);
+			expect((await send("PUT", "/api/todos/3/lane", { lane: 1 })).status).toBe(
+				200,
+			);
+			expect((await send("DELETE", "/api/lanes/2")).status).toBe(200);
 			expect(
 				(
 					await send("PUT", "/api/todos/2/lane", {
@@ -192,6 +193,11 @@ describe("dev tasks", () => {
 
 			const added = await send("POST", "/api/lanes", { name: "Docs" });
 			expect(await added.json()).toEqual({ id: 4, name: "Docs", board: 1 });
+			expect(
+				(await send("POST", "/api/boards", { name: "Product" })).status,
+			).toBe(200);
+			const onTwo = await send("POST", "/api/lanes", { name: "Ops", board: 2 });
+			expect(await onTwo.json()).toMatchObject({ name: "Ops", board: 2 });
 			expect(
 				(await send("PUT", "/api/lanes/4", { name: "Guides" })).status,
 			).toBe(200);

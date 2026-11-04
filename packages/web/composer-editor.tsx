@@ -186,6 +186,7 @@ export function CaretInPlacePlugin(): null {
 			const settled = new Debouncer(new SystemTimer(), CARET_SETTLE);
 			let frame = 0;
 			let last = "";
+			let touched = false;
 			const watch = () => {
 				const box = root.getBoundingClientRect();
 				// Where it sits on the page, which is where iOS keeps its caret:
@@ -193,7 +194,11 @@ export function CaretInPlacePlugin(): null {
 				const place = `${box.left + scrollX},${box.top + scrollY}`;
 				if (place !== last) {
 					if (last !== "") {
-						settled.call(() => redrawCaret(root));
+						settled.call(() => {
+							if (!touched) {
+								redrawCaret(root);
+							}
+						});
 					}
 					last = place;
 				}
@@ -208,7 +213,25 @@ export function CaretInPlacePlugin(): null {
 				if (!root.contains(event.relatedTarget as Node | null)) {
 					cancelAnimationFrame(frame);
 				}
+				touched = false;
 			};
+			// A touch in the editor may have raised iOS's callout menu (Paste,
+			// Select), which it dismisses when the selection is set again, so
+			// the caret is left alone until the person types.
+			// Only a touch in an editor that already had the focus: the first
+			// touch raises the keyboard, which moves the box and wants the redraw.
+			const touch = () => {
+				if (root.contains(document.activeElement)) {
+					touched = true;
+					settled.cancel();
+				}
+			};
+			const typed = () => {
+				touched = false;
+			};
+			root.addEventListener("touchstart", touch, { passive: true });
+			root.addEventListener("beforeinput", typed);
+			root.addEventListener("keydown", typed);
 			root.addEventListener("focusin", focused);
 			root.addEventListener("focusout", blurred);
 			if (root.contains(document.activeElement)) {
@@ -217,6 +240,9 @@ export function CaretInPlacePlugin(): null {
 			return () => {
 				cancelAnimationFrame(frame);
 				settled.dispose();
+				root.removeEventListener("touchstart", touch);
+				root.removeEventListener("beforeinput", typed);
+				root.removeEventListener("keydown", typed);
 				root.removeEventListener("focusin", focused);
 				root.removeEventListener("focusout", blurred);
 			};
@@ -233,6 +259,7 @@ function redrawCaret(root: HTMLElement): void {
 		selection === null ||
 		selection.rangeCount === 0 ||
 		!root.contains(selection.anchorNode) ||
+		!selection.isCollapsed ||
 		!root.contains(document.activeElement)
 	) {
 		return;
@@ -251,12 +278,13 @@ function letGo(editor: LexicalEditor): void {
 	editor.blur();
 }
 /**
- * Writes the chip of each attachment as it is attached, at the caret, once:
- * not when it comes back, marked up or with an unsent draft, or when its chip
- * is in the text already.
+ * Shows a chip at the caret for each file attached to the composer. Render it
+ * among the composer editor's plugins.
  */
 export function AttachmentChipsPlugin(): null {
 	const [editor] = useLexicalComposerContext();
+	// Each chip is written once: not when the attachment comes back, marked up
+	// or with an unsent draft, or when its chip is in the text already.
 	const attachments = useAuiState((state) => state.composer.attachments);
 	useEffect(() => {
 		const chips = new AttachmentChips(editor);

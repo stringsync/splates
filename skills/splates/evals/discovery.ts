@@ -1,4 +1,5 @@
 import type { Check, Repo, Step } from "@evals/evals/scenario";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "discovery";
@@ -62,6 +63,7 @@ const startsTask = (target: string) =>
 const taskStarted: Check = {
 	id: "task-listed",
 	about: "`splates list` names the message task afterwards",
+	live: true,
 	test: async ({ repo }) =>
 		(await repo.run(["splates", "list"])).includes("message"),
 };
@@ -160,8 +162,10 @@ const uninitialized: Scenario[] = [
 	},
 ];
 
-/** Each starts in an initialized project, so `splates add` works as the skill says. */
+// Each starts in an initialized project, so `splates add` works as the skill says.
 export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
 	...scenario,
 	initialized: true,
 }));
+
+export const sandbox = splatesSandbox(scenarios);

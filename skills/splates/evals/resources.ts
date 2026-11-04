@@ -1,5 +1,6 @@
 import type { Repo } from "@evals/evals/scenario";
 import { stretches } from "@splates/server/plans";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "resources";
@@ -354,3 +355,5 @@ export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
 	...scenario,
 	initialized: true,
 }));
+
+export const sandbox = splatesSandbox(scenarios);

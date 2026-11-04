@@ -2,17 +2,21 @@ import type { EvalBatch, EvalGrid } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { Duration, SystemTimer } from "core/time";
 import { type JSX, useEffect, useState } from "react";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { evalBatch, evalBatches } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
-import { ReadingNow } from "./countdown";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalDebug } from "./eval-debug";
 import { EvalReport, EvalReportSkeleton } from "./eval-report";
 import { EvalScenarioTable } from "./eval-scenario-table";
 import { EvalSection } from "./eval-section";
-import { ORDER, StatusChip, spent } from "./eval-status";
+import {
+	budgetText,
+	ORDER,
+	roundsText,
+	StatusChip,
+	spent,
+} from "./eval-status";
 import type { EvalsOpen } from "./page-address";
 import { RouteTrail } from "./route-trail";
 import { TopBar } from "./top-bar";
@@ -34,6 +38,7 @@ export function EvalsPage({
 }): JSX.Element {
 	const [batches, setBatches] = useState<EvalBatch[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [scenariosRead, setScenariosRead] = useState(false);
 	const [agents] = useState(() => new EvalAgentsEditor());
 	// Read each time the list is shown: batches land while it is away.
 	useEffect(() => {
@@ -46,6 +51,8 @@ export function EvalsPage({
 				setError(failed instanceof Error ? failed.message : String(failed)),
 		);
 	}, [open, plan]);
+	const listing = open === null && plan === null;
+	const ready = batches !== null && scenariosRead;
 	return (
 		<section aria-label="evals" className="flex min-w-0 flex-col gap-6">
 			<TopBar
@@ -74,13 +81,31 @@ export function EvalsPage({
 					{error}
 				</p>
 			)}
-			{open === null && plan === null && <EvalAgentsView editor={agents} />}
-			{open === null && plan === null && (
-				<EvalScenarioTable
-					agents={agents}
-					onOpenBatch={(batch) => onOpen(batch)}
-					feed={feed}
-				/>
+			{listing && !ready && error === null && (
+				<section
+					aria-label="evals loading"
+					aria-busy
+					className="flex min-h-64 items-center justify-center"
+				>
+					<p
+						role="status"
+						aria-label="Loading evals"
+						className="w-fit shimmer text-muted-foreground motion-reduce:animate-none"
+					>
+						Loading
+					</p>
+				</section>
+			)}
+			{listing && (
+				<div hidden={!ready && error === null} className="contents">
+					<EvalAgentsView editor={agents} />
+					<EvalScenarioTable
+						agents={agents}
+						onOpenBatch={(batch) => onOpen(batch)}
+						feed={feed}
+						onLoaded={() => setScenariosRead(true)}
+					/>
+				</div>
 			)}
 			{plan !== null ? (
 				<p className="text-muted-foreground text-sm">
@@ -90,24 +115,8 @@ export function EvalsPage({
 				<EvalDebug id={run} />
 			) : open !== null ? (
 				<Batch id={open} onOpen={(each) => onOpen(open, each)} />
-			) : batches === null ? (
-				error === null && (
-					<div className="flex flex-col gap-4">
-						<ReadingNow label="Reading evals…" />
-						<ul aria-hidden className="flex flex-col gap-4">
-							{[0, 1, 2].map((row) => (
-								<li
-									key={row}
-									className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3 shadow-xs"
-								>
-									<Skeleton className="h-3.5 w-[40%] animate-pulse" />
-									<Skeleton className="h-2.5 w-[60%] animate-pulse" />
-								</li>
-							))}
-						</ul>
-					</div>
-				)
-			) : batches.length === 0 ? (
+			) : batches === null ||
+				(!ready && error === null) ? null : batches.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No eval has run on this machine yet. Each run of{" "}
 					<code>evals run</code> is saved in ~/.splates/evals and shows here.
@@ -157,6 +166,11 @@ export function EvalsPage({
 										{batch.targets.map(targetName).join(", ")} · {batch.cells}{" "}
 										{batch.cells === 1 ? "cell" : "cells"} · {spent(batch)}
 									</span>
+									{batch.budget !== undefined && (
+										<span className="text-muted-foreground text-xs">
+											{budgetText(batch.budget)} · {roundsText(batch.budget)}
+										</span>
+									)}
 								</button>
 							</li>
 						))}

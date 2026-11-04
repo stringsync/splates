@@ -13,36 +13,6 @@ import type { Tasks } from "./tasks";
 export class TaskLanes {
 	constructor(private readonly tasks: Tasks) {}
 
-	/**
-	 * Moves every task in lane `from` to the bottom of lane `into`, in the
-	 * order they had, and the lane `from` is gone.
-	 */
-	async joinLanes(from: number, into: number): Promise<void> {
-		protectBacklog(from);
-		await this.tasks.locked(async () => {
-			const states = await this.tasks.stored();
-			const records = await this.records(states);
-			for (const lane of [from, into]) {
-				lacking(records, lane);
-			}
-			const moving = states
-				.filter((state) => state.lane === from)
-				.map((state) => ({ ...state, lane: into }));
-			const rest = states.filter((state) => state.lane !== from);
-			const tail = rest.findLastIndex((state) => state.lane === into);
-			const order = settle([
-				...rest.slice(0, tail + 1),
-				...moving,
-				...rest.slice(tail + 1),
-			]);
-			for (const state of moving) {
-				await this.tasks.save(state);
-			}
-			await this.tasks.renumber(order);
-			await this.writeLanes(records.filter((record) => record.id !== from));
-		});
-	}
-
 	/** Starts an empty lane called `name`, after the others, on `board` or the default one. */
 	async addLane(name: string, board = DEFAULT_BOARD): Promise<LaneRecord> {
 		return this.tasks.locked(async () => {

@@ -38,13 +38,9 @@ describe("Ship history", () => {
 		return view;
 	};
 
-	it("summarizes the last ship at the top until it is dismissed", async () => {
-		localStorage.clear();
+	it("shows no summary of the last ship above the plan", async () => {
 		const view = open();
-		const summary = await view.findByLabelText("last ship summary");
-		expect(summary.textContent).toContain("Bumped");
-		expect(summary.textContent).toContain(" ago");
-		fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
+		await view.findByLabelText("ship plan");
 		expect(view.queryByLabelText("last ship summary")).toBeNull();
 	});
 

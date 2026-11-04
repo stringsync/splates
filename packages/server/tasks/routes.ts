@@ -7,6 +7,7 @@ import { fail } from "../exit";
 import { mergeEstimates, quarantinedTests, TaskBranches } from "../merge";
 import type { Project, ProjectWatch } from "../server/shared";
 import { fileResponse, MEDIA_TYPES, refuse } from "../server/shared";
+import { parseDiff } from "./diff";
 import { editorOf } from "./editors";
 import { mergeOutput } from "./merge-output";
 import { inTree } from "./open";
@@ -168,6 +169,22 @@ export class TaskRoutes {
 			fail("not_found", `no branch for '${task}'`, { task });
 		}
 		return Response.json(files);
+	};
+
+	// What a landed commit changed, for the Done card of an eval loop.
+	readonly commitDiff = async (request: Request): Promise<Response> => {
+		const sha = decodeURIComponent(
+			new URL(request.url).pathname.split("/")[3] ?? "",
+		);
+		const text = /^[0-9a-f]{7,40}$/u.test(sha)
+			? await this.#project.service.git.commitDiff(sha)
+			: null;
+		if (text === null) {
+			return refuse(404, "not_found", `no commit ${sha}`);
+		}
+		return Response.json(
+			parseDiff(text).map((file) => ({ ...file, uncommitted: false })),
+		);
 	};
 
 	// `splates retry` from the page: another round of merge attempts for a

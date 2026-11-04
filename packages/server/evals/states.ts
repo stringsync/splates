@@ -11,7 +11,6 @@ export function scenarioStates(
 	scenarios: EvalScenario[],
 	grids: EvalGrid[],
 ): EvalScenarioState[] {
-	// Failing outranks stale; a run or scenario without a fingerprint is never stale.
 	const newestFirst = [...grids].sort((first, second) =>
 		second.startedAt.localeCompare(first.startedAt),
 	);
@@ -42,13 +41,6 @@ function stateOf(
 	const failed = landed.find(
 		(cell) => cell.run?.status === "fail" || cell.run?.status === "error",
 	);
-	const stale =
-		scenario.fingerprint !== undefined &&
-		landed.some(
-			(cell) =>
-				cell.fingerprint !== undefined &&
-				cell.fingerprint !== scenario.fingerprint,
-		);
 	const targets: EvalScenarioTarget[] = [];
 	for (const cell of landed) {
 		let entry = targets.find((each) => each.target === cell.target);
@@ -61,7 +53,7 @@ function stateOf(
 	}
 	return {
 		scenario: scenario.id,
-		state: failed !== undefined ? "failing" : stale ? "stale" : "passing",
+		state: failed !== undefined ? "failing" : "passing",
 		targets,
 		lastRunAt: startedAt,
 		run: (failed ?? landed[0])?.run?.id ?? null,

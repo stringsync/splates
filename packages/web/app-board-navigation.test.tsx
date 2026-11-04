@@ -81,3 +81,33 @@ it("switches away from a populated board without following an unassigned task ba
 	await waitFor(() => view.getByRole("button", { name: "Default actions" }));
 	expect(location.search).toBe("?board=1");
 });
+
+it("adds a lane to the board being viewed", async () => {
+	const view = testing.render({
+		boards,
+		lanes: [{ id: 1, name: "Plan", board: 2 }],
+		todos: [todo({ id: 1, subject: "Work", lane: 1 })],
+	});
+	await waitFor(() => view.getByRole("region", { name: "Boards" }));
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "Product 1" })),
+	);
+	await act(async () =>
+		fireEvent.click(
+			await view.findByRole("button", { name: "Add another lane" }),
+		),
+	);
+	await act(async () =>
+		fireEvent.change(view.getByRole("textbox", { name: "new lane name" }), {
+			target: { value: "Ops" },
+		}),
+	);
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "Add lane" })),
+	);
+	expect(testing.posts.at(-1)).toMatchObject({
+		path: "/api/lanes",
+		method: "POST",
+		body: JSON.stringify({ name: "Ops", board: 2 }),
+	});
+});

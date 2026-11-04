@@ -156,7 +156,7 @@ each agent, that is a success, not a task that went wrong: remove the task as
 `nothing`, but end on a Done report, not the Removed one, so the conversation
 reads as a result. When rounds ran, put the `## Rounds` table in the report
 (the Done card draws it as one row per round, the layer and rate each) and end
-it with a `Stopped by: <the limit>` line. Title it with the scenario and that it passes, then a table
+it with a `Stopped by: <the limit>` line and a `Final batch: <batch id>` line naming the batch of the last run, which the card's Final evidence button opens, and, when changes were kept, a `Commit: <sha>` line naming the commit they landed as, which its View diff button opens. Title it with the scenario and that it passes, then a table
 of each agent's pass rate and a line on what the baseline run showed. Name an
 agent that errored apart, as a harness problem that left it unmeasured. When
 the scenario did not pass, or no repetition ran, it is still Removed.

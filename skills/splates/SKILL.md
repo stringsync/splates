@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.2
+version: 2.0.3
 ---
 
 # Using splates
@@ -68,6 +68,7 @@ Use the stored path it returns, not the original capture path. In a task,
 every screenshot you attach also goes under `## Verification` in `SPLATES.md`
 as the same image, written before you reply, even when the task stays open,
 the reply already shows it, or the capture falls short of the change.
+When the user asks for a review, your reply is the Ready to merge card itself, carrying the attached image: a line saying you are about to attach, review or deliver it is not the reply, so run `splates attach` and send the card in the same turn.
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
 
@@ -175,7 +176,7 @@ A command you expect to take a lot of CPU or memory, asked for because
 the command alone on the first backticked line, and under it why you ask and
 what it adds. End your turn after it. The user's Allow sends
 `[SPLATES RUN ALLOWED]`, and only then do you run it. The card is text: outside
-the page the user can type that directive, or `[SPLATES RUN DENIED]`, or answer
+the page the user can type that directive, or `[SPLATES RUN DENIED]`, or `[SPLATES RUN ELSEWHERE]` (a `rec` card only: not at that machine), or answer
 in plain words, and it means the same.
 
 ```markdown
@@ -294,6 +295,30 @@ card for the user to queue it now or later.
 
 A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
 
+## Seeing a bug in a browser
+
+When watching the bug happen in a browser would settle what to change (a
+visual or interaction fault you cannot reproduce from code alone), offer a
+rec session, a narrated recording the person makes. Offer it only when `rec`
+is on the PATH (`command -v rec`), and ask with a run-command card, whether or
+not the machine is busy, naming the exact command with a name and the URL to
+open: `rec --name <name> --url <url>`, adding `--docker` or `--tail` when the
+app's container or log file should be followed. End your turn after the card
+and never run `rec` without `[SPLATES RUN ALLOWED]`; this is a rule you
+keep, not a lock. On `[SPLATES RUN ELSEWHERE]` or `[SPLATES RUN DENIED]`, carry
+on without rec and do not offer it again in that conversation.
+
+```markdown
+## 🔐 Permission: run command: record the broken checkout
+
+`rec --name checkout-bug --url http://localhost:3000/checkout`
+
+Opens rec's Chrome on the checkout page so you can show the bug while narrating.
+```
+
+A `#rec:<name>` reference in a message names a recorded session: run
+`rec sessions path <name>` and read the session as the rec skill says.
+
 ## Directives
 
 A prompt that has `[SPLATES ...]` comes from the `splates server` page or
@@ -317,6 +342,7 @@ the file when one arrives.
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize ungroomed Backlog task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
+| `[SPLATES RUN ELSEWHERE]`           | The user is not at the machine that can run the `rec` command your run-command card asked to run | Do not run it, and do not offer rec again in this conversation: carry on without it |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
 | `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes, within the `Budget: $<usd>` and `Rounds: <n>` lines that may follow | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
 | `[SPLATES EVALS BUDGET USED UP]` | The conversation's eval dollar budget or round cap is used up, so your run evals card was refused | Do not ask for another run or run the eval command yourself: stop and report which limit it was, and that the user can top it up ([evals.md](references/evals.md), Stopping) |
@@ -429,8 +455,12 @@ queuing work there and asking for a grant.
    A task that spans units is the rare exception, only when the change
    cannot land in steps, and its Goal names every unit it touches, so the
    reach is chosen and shown rather than crept into. A snag on the way, such as a lost
-   connection, a conflict or a retry, is no task to queue; `splates merge` queues one
-   itself for each test that failed its gate. Ask the user each call their
+   connection, a conflict or a retry, is no task to queue; `splates merge`
+   records failures on the merge attempt. It queues confirmed
+   trunk or environment failures as one incident, and flakes only after they
+   recur on independent tasks within seven days. It updates an open incident
+   and suppresses recreation for seven days after closure; inconclusive
+   failures stay with the merging agent. Ask the user each call their
    answer would change, and make the rest yourself (see [Questions](references/questions.md)), bringing
    `## Blocked` up to date before each step. A subagent of your harness that may
    change code works in your worktree, with no task of its own: tell it the

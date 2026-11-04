@@ -131,7 +131,13 @@ describe("General conversations", () => {
 			).json()) as ConversationState;
 			expect(there.scratch).toBeUndefined();
 			expect(there.task).toBeNull();
-			expect(agent.launched.at(-1)).toMatchObject({ cwd: deps.root });
+			// The agent launches after the continue answers.
+			expect(
+				await eventually(
+					async () => agent.launched.at(-1)?.cwd === deps.root,
+					5_000,
+				),
+			).toBe(true);
 			expect(agent.launched.at(-1)?.env.SPLATES_SCRATCH).toBeUndefined();
 			expect(
 				await eventually(async () => agent.prompts.length > 0, 5_000),

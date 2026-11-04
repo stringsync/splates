@@ -20,6 +20,7 @@ import { Roster, splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
+import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
 import {
 	OpenCodeSetup,
@@ -481,11 +482,12 @@ export async function dev(
 			(await configFiles.read(project.root)).evals ?? null,
 		);
 	};
+	const evalLaunches = new EvalLaunches(ps, machineStorage);
 	const evals = new EvalRoutes({
+		launches: evalLaunches,
 		directory: async (request) =>
 			(await evalCommandsOf(request))?.results ?? null,
 	});
-	const evalLaunches = new EvalLaunches(ps, machineStorage);
 	disposer.use(evalLaunches);
 	// The agent whose card started a run hears it is done, with its report,
 	// to take the person through what to do next.
@@ -576,6 +578,7 @@ export async function dev(
 	);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
+	const rec = new Rec(ps);
 	const pushes = await Pushes.start({
 		storage: FsStorage.ofMachine({ fs, ps, log }),
 		log,
@@ -835,6 +838,27 @@ export async function dev(
 					),
 					// Through a tunnel only once Access verified who is asking, as a
 					// conversation is: what an agent said goes to the device.
+					// Opening rec starts Chrome on this machine, so only as far as a
+					// conversation reaches.
+					"/api/rec": guarded(rec.read),
+					"/api/rec/name": guarded(rec.name),
+					"/api/rec/open": { POST: talk(guarded(rec.start)) },
+					// A recording can show anything on the person's screen, so these
+					// get the same guard as the rest; changes go as far as a conversation.
+					"/api/rec/sessions": guarded(rec.list),
+					"/api/rec/sessions/search": guarded(rec.search),
+					"/api/rec/sessions/:name": {
+						GET: guarded(rec.detail),
+						DELETE: talk(guarded(rec.remove)),
+					},
+					"/api/rec/sessions/:name/video": guarded(rec.video),
+					"/api/rec/sessions/:name/:kind/:file": guarded(rec.file),
+					"/api/rec/sessions/:name/rename": {
+						POST: talk(guarded(rec.rename)),
+					},
+					"/api/rec/sessions/:name/open-folder": {
+						POST: talk(guarded(rec.openFolder)),
+					},
 					"/api/push": talk(guarded(pushes.key)),
 					"/api/push/subscription": {
 						PUT: talk(guarded(pushes.subscribe)),
@@ -897,6 +921,7 @@ export async function dev(
 					"/api/open": { POST: talk(scoped((project) => project.open)) },
 					"/api/paths": scoped((project) => project.paths),
 					"/api/tasks/:task/diff": scoped((project) => project.diff),
+					"/api/commits/:sha/diff": scoped((project) => project.commitDiff),
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
@@ -910,6 +935,9 @@ export async function dev(
 						POST: guarded(cascadeRoutes.start),
 					},
 					"/api/ship/steps/agent": { POST: guarded(cascadeRoutes.handToAgent) },
+					"/api/ship/steps/agent-record": {
+						POST: guarded(cascadeRoutes.recordAgent),
+					},
 					"/api/ship/steps/retry": { POST: guarded(cascadeRoutes.retry) },
 					"/api/ship/steps/abandon": { POST: guarded(cascadeRoutes.abandon) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
@@ -978,9 +1006,6 @@ export async function dev(
 					},
 					"/api/todos/:id/retry": {
 						POST: scoped((project) => project.retryQueued),
-					},
-					"/api/lanes/:id/join": {
-						POST: scoped((project) => project.joinLane),
 					},
 					"/api/lanes": { POST: scoped((project) => project.addLane) },
 					"/api/boards": { POST: scoped((project) => project.addBoard) },

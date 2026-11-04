@@ -19,6 +19,10 @@ describe("eval budget", () => {
 		expect(verdict).toMatchObject({ ok: false, limit: "usd" });
 	});
 
+	it("always lets a loop's first run start, even when its worst case is over the budget", () => {
+		expect(gate(budget, 0, 0, 25.2)).toEqual({ ok: true });
+	});
+
 	it("stops at the round cap whatever is left to spend", () => {
 		expect(gate(budget, 0, 3, 1)).toMatchObject({ ok: false, limit: "rounds" });
 	});
@@ -67,13 +71,14 @@ describe("eval budget", () => {
 		return error as Exit;
 	};
 
-	it("counts a run with no recorded cost at its plan's worst case", async () => {
+	it("counts a run with no recorded cost as spending nothing yet", async () => {
 		await launches.start(commands, spec("one"));
 		await launches.start(commands, spec("two"));
-		// $4 + $4 spent as worst cases; a third $4 is $12 over $10.
-		const error = await refusal(launches.start(commands, spec("three")));
-		expect(error.reason).toBe("budget_exhausted");
-		expect(error.data).toEqual({ limit: "usd" });
+		await launches.start(commands, spec("three"));
+		expect(await launches.budgetStatus(commands, "c-1")).toMatchObject({
+			spentUsd: 0,
+			stoppedBy: "rounds",
+		});
 	});
 
 	it("stops at the round cap", async () => {
@@ -112,7 +117,7 @@ describe("eval budget", () => {
 		expect(await launches.budgetStatus(commands, "c-1")).toMatchObject({
 			budget: { usd: 100, rounds: 1 },
 			roundsUsed: 1,
-			spentUsd: 4,
+			spentUsd: 0,
 			stoppedBy: "rounds",
 		});
 	});

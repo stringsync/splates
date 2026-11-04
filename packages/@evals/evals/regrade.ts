@@ -132,6 +132,12 @@ export async function regradeBatch(
 			const checks: EvalCheck[] = [];
 			const unchecked: string[] = [];
 			for (const check of found.scenario.checks ?? []) {
+				const old = before.get(check.id);
+				if (check.live === true && old !== undefined) {
+					unchecked.push(check.id);
+					checks.push(old);
+					continue;
+				}
 				try {
 					checks.push({
 						id: check.id,
@@ -141,7 +147,6 @@ export async function regradeBatch(
 				} catch (error) {
 					if (error instanceof NoRepo) {
 						unchecked.push(check.id);
-						const old = before.get(check.id);
 						if (old !== undefined) {
 							checks.push(old);
 						}
@@ -294,7 +299,7 @@ export function formatReport(report: RegradeReport): string {
 	}
 	for (const each of report.unchecked) {
 		out.push(
-			`${each.run}\t${each.scenario}\tno repo kept; skipped checks: ${each.checks.join(", ")}`,
+			`${each.run}\t${each.scenario}\tskipped checks (no repo kept or live state): ${each.checks.join(", ")}`,
 		);
 	}
 	for (const each of report.skipped) {

@@ -11,6 +11,28 @@ import { ShipSteps } from "./steps";
 import { until } from "./testing";
 
 describe("ship steps", () => {
+	it("retains a page handoff through retry and in history", async () => {
+		const external = new FakeStepProjects();
+		external.failAdopt = true;
+		const ships = runner(external);
+		const started = await ships.start(selection);
+		await ships.settled();
+		await ships.recordAgent(started.id, "downstream");
+		external.failAdopt = false;
+		await ships.retry();
+		await ships.settled();
+		expect(
+			(await ships.current())?.steps.find((step) => step.slug === "downstream")
+				?.sentToAgent,
+		).toBe(true);
+		expect(
+			(await ships.kept(started.id))?.cascade.steps.find(
+				(step) => step.slug === "downstream",
+			)?.sentToAgent,
+		).toBe(true);
+		expect(ships.recordAgent("missing", "downstream")).rejects.toThrow();
+	});
+
 	it("hands a failed mechanical adopt to an agent and publishes after adoption", async () => {
 		const external = new FakeStepProjects();
 		external.failAdopt = true;
@@ -161,7 +183,7 @@ describe("ship steps", () => {
 			],
 		});
 		expect(external.calls).not.toContain("publish downstream minor");
-		await expect(ships.start(selection)).rejects.toMatchObject({
+		expect(ships.start(selection)).rejects.toMatchObject({
 			reason: "conflict",
 		});
 		external.failAdopt = false;
@@ -279,7 +301,7 @@ describe("ship steps", () => {
 		expect(await ships.current()).toMatchObject({ status: "abandoned" });
 		expect(external.calls).not.toContain("publish downstream minor");
 		expect(external.publications.has("upstream@1.0.1")).toBe(true);
-		await expect(ships.retry()).rejects.toMatchObject({ reason: "conflict" });
+		expect(ships.retry()).rejects.toMatchObject({ reason: "conflict" });
 	});
 
 	it("times out a lagging release without running downstream", async () => {
@@ -332,7 +354,7 @@ describe("ship steps", () => {
 	it("rejects duplicate or unknown projects before creating a run", async () => {
 		const external = new FakeStepProjects();
 		const ships = runner(external);
-		await expect(
+		expect(
 			ships.start({
 				projects: [
 					ensure.defined(selection.projects[0]),
@@ -340,7 +362,7 @@ describe("ship steps", () => {
 				],
 			}),
 		).rejects.toMatchObject({ reason: "usage" });
-		await expect(
+		expect(
 			ships.start({
 				projects: [
 					{ ...ensure.defined(selection.projects[0]), slug: "missing" },

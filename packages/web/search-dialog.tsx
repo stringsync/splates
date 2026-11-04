@@ -2,6 +2,7 @@ import { useReactive } from "core/react";
 import { ListTodoIcon, type LucideIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type JSX,
+	use,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -19,6 +20,7 @@ import { useShortcut } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import { ConversationSearch } from "./conversation-search";
+import { FinishedReferences } from "./finished-references";
 import { type Found, type Kind, type Searched, search } from "./search";
 import { TaskIcon } from "./task-icon";
 
@@ -72,6 +74,7 @@ export function SearchDialog({
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
 	const { tasks, todos, lanes } = searched;
+	const finished = use(FinishedReferences);
 	const subscribe = useCallback(
 		(changed: () => void) => feed.events.on("changed", changed),
 		[feed],
@@ -88,8 +91,8 @@ export function SearchDialog({
 	const said = useReactive(finder, (each) => each.said, ["changed"]);
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
-		() => search(query, { tasks, todos, conversations, said, lanes }),
-		[query, tasks, todos, conversations, said, lanes],
+		() => search(query, { tasks, todos, finished, conversations, said, lanes }),
+		[query, tasks, todos, finished, conversations, said, lanes],
 	);
 	const rows = groups.flatMap((group) => group.found);
 	const shown = Math.min(active, rows.length - 1);

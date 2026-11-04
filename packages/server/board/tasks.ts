@@ -289,11 +289,6 @@ export class Tasks {
 		return this.laneFiles.names(await this.stored());
 	}
 
-	/** Moves every task in lane `from` to the bottom of lane `into`; `from` is gone. */
-	joinLanes(from: number, into: number): Promise<void> {
-		return this.laneFiles.joinLanes(from, into);
-	}
-
 	/** Starts an empty lane called `name`, after the others, on `board` or the default one. */
 	addLane(name: string, board?: number): Promise<LaneRecord> {
 		return this.laneFiles.addLane(name, board);

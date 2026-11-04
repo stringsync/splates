@@ -1,6 +1,7 @@
 import { useDisposerEffect, useReactive } from "core/react";
 import {
 	ChartColumnIcon,
+	CircleDotIcon,
 	FlaskConicalIcon,
 	GaugeIcon,
 	KanbanIcon,
@@ -94,6 +95,7 @@ export type Page =
 	| "conversations"
 	| "stats"
 	| "ships"
+	| "rec"
 	| "evals"
 	| "creds"
 	| "billing"
@@ -136,6 +138,7 @@ export const PAGES: {
 		scope: "everywhere",
 	},
 	{ value: "ships", label: "Ship", Icon: ShipIcon, scope: "everywhere" },
+	{ value: "rec", label: "Rec", Icon: CircleDotIcon, scope: "everywhere" },
 	{
 		value: "evals",
 		label: "Evals",
@@ -168,6 +171,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
 	ships: "min-w-0 px-4 py-6",
+	rec: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	billing: "min-w-0 px-4 py-6",

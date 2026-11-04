@@ -54,7 +54,6 @@ export function ScenarioHistory({
 		);
 	return (
 		<div className="flex flex-col gap-2">
-			{scenario.about !== null && <p className="text-sm">{scenario.about}</p>}
 			{ran.length === 0 ? (
 				<p className="text-muted-foreground text-xs">No batch ran this yet.</p>
 			) : (

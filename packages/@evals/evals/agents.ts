@@ -144,8 +144,40 @@ export function commandFor(
 	throw new Error(`no eval runner for agent ${pick.agent}`);
 }
 
-/** Runs `argv` in `cwd` until it exits or `minutes` pass, reading its stream as `format`. */
+/**
+ * Runs `argv` in `cwd` until it exits or `minutes` pass, reading its stream
+ * as `format`. With `opts.followUp`, a turn that ends without a final answer
+ * is resumed in the same session, up to the cap, and the turns come back as
+ * one run.
+ */
 export async function runAgent(
+	argv: string[],
+	format: Format,
+	opts: AgentOptions,
+): Promise<AgentRun> {
+	let run = await runTurn(argv, format, opts);
+	const followUp = opts.followUp;
+	if (followUp === undefined) {
+		return run;
+	}
+	for (let i = 0; i < followUp.turns; i++) {
+		if (run.error !== null || followUp.done(run)) {
+			break;
+		}
+		const next = await runTurn(followUp.argv, format, opts);
+		run = {
+			reply: next.reply,
+			transcript: [...run.transcript, ...next.transcript],
+			usd: addOrNull(run.usd, next.usd),
+			tokens: addOrNull(run.tokens, next.tokens),
+			turns: addOrNull(run.turns, next.turns),
+			error: next.error,
+		};
+	}
+	return run;
+}
+
+async function runTurn(
 	argv: string[],
 	format: Format,
 	opts: AgentOptions,
@@ -197,8 +229,37 @@ export async function runAgent(
 export interface AgentOptions {
 	cwd: string;
 	env: Record<string, string>;
-	/** How long it may run, 10 minutes by default. */
+	/** How long each turn may run, 10 minutes by default. */
 	minutes?: number;
+	/** Off by default: the agent runs once. */
+	followUp?: FollowUp;
+}
+
+/** How `runAgent` resumes an agent whose turn ended without a final answer. */
+export interface FollowUp {
+	/** The most follow-up turns it may add. */
+	turns: number;
+	/** The command that resumes the same session, from `continueCommand`. */
+	argv: string[];
+	/** Whether the run so far holds its final answer. */
+	done: (run: AgentRun) => boolean;
+}
+
+/** Message a follow-up turn sends. */
+export const CONTINUE_MESSAGE =
+	"Continue with the task and finish it, then give your final answer.";
+
+/** The command that sends `message` to `pick`'s last session here, for `FollowUp.argv`. Throws for any agent but OpenCode. */
+export function continueCommand(
+	pick: AgentPick,
+	message: string = CONTINUE_MESSAGE,
+	limits: Limits = {},
+): { argv: string[]; format: Format } {
+	if (pick.agent !== "opencode") {
+		throw new Error(`no follow-up turns for agent ${pick.agent}`);
+	}
+	const { argv, format } = commandFor(pick, message, limits);
+	return { argv: [...argv.slice(0, -1), "--continue", message], format };
 }
 
 /** Claude's `stream-json`: assistant text and tool calls, tool results, then one result. */
@@ -443,6 +504,12 @@ function textOf(content: unknown): string {
 
 function lastText(transcript: readonly Step[]): string {
 	return transcript.findLast((step) => step.kind === "text")?.text ?? "";
+}
+
+function addOrNull(first: number | null, second: number | null): number | null {
+	return first === null && second === null
+		? null
+		: (first ?? 0) + (second ?? 0);
 }
 
 function numberOr(value: unknown): number | null {

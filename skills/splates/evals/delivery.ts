@@ -1,6 +1,7 @@
 import { join, relative } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import type { Outcome, Repo } from "@evals/evals/scenario";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 /** Whether a reply embeds an absolute image path outside fenced code. */
@@ -107,6 +108,7 @@ export const scenarios: Scenario[] = [
 				id: "task-evidence",
 				about:
 					"task Verification embeds the same stored screenshot as the reply",
+				live: true,
 				async test({ repo, reply }) {
 					const plan = await repo.run(["splates", "show", "screenshot"]);
 					const verification =
@@ -142,6 +144,7 @@ export const scenarios: Scenario[] = [
 			{
 				id: "task-evidence",
 				about: "task Verification embeds the same stored screenshot",
+				live: true,
 				async test({ repo, reply, transcript }) {
 					return deliveredAndKept(
 						reply,
@@ -187,6 +190,7 @@ export const scenarios: Scenario[] = [
 			{
 				id: "task-evidence",
 				about: "task Verification embeds the same stored screenshot",
+				live: true,
 				async test({ repo, reply, transcript }) {
 					return deliveredAndKept(
 						reply,
@@ -200,3 +204,5 @@ export const scenarios: Scenario[] = [
 			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and Verification embeds it too. Do not judge whether the path would render for the user, how the Demo line is worded, or whether the image appears once or twice: embedding it that way is the delivery. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

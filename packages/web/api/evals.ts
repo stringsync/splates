@@ -89,7 +89,7 @@ export async function evalScenarios(
 	return (await response.json()) as EvalScenario[];
 }
 
-/** Where each listed scenario stands (failing, never run, stale or passing), from the saved batches. */
+/** Where each listed scenario stands (failing, never run or passing), from the saved batches. */
 export async function evalStates(): Promise<EvalScenarioState[]> {
 	const response = await answered(scoped("/api/evals/states"));
 	if (!response.ok) {

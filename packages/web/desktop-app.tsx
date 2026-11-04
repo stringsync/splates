@@ -33,6 +33,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 		"flex h-[calc(100dvh-var(--top-bar-height))] min-w-0 flex-none flex-col px-4",
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	ships: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	rec: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
@@ -46,8 +47,8 @@ const DESKTOP_PAGES: Record<Page, string> = {
 };
 
 /**
- * The app on a wide screen, with the sidebar's tabs and agents at the left
- * and the page beside them. Pass `bodies`, what each page shows.
+ * The app laid out for a wide screen. Render it with the `page` to show and
+ * `bodies`, what each page holds.
  */
 export function DesktopApp({
 	page,

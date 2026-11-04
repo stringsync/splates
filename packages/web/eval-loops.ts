@@ -1,4 +1,5 @@
 import type { ConversationState } from "@splates/server/conversations";
+import type { EvalBudget } from "@splates/server/evals/browser";
 import { useEffect, useState } from "react";
 import { evalRun } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -29,6 +30,25 @@ export function loopTarget(
 		: match[1]
 			? { scenario: match[2] }
 			: { run: match[2] };
+}
+
+/**
+ * The dollars and rounds the person chose for a loop, read from the directive
+ * that opened its conversation; null when the text is no loop directive or
+ * names no limits. Choosing them is the standing permission to run its cards.
+ */
+export function loopLimits(text: string): EvalBudget | null {
+	if (!/\[SPLATES EVAL LOOP /.test(text)) {
+		return null;
+	}
+	const usd = Number(text.match(/^Budget: \$(\S+)/m)?.[1]);
+	const rounds = Number(text.match(/^Rounds: (\d+)/m)?.[1]);
+	return Number.isFinite(usd) &&
+		usd > 0 &&
+		Number.isInteger(rounds) &&
+		rounds > 0
+		? { usd, rounds }
+		: null;
 }
 
 /** Open eval loops by scenario, with their current conversation status. */

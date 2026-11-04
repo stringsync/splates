@@ -126,6 +126,7 @@ export interface Served extends AsyncResource {
 	open: Handler;
 	paths: Handler;
 	diff: Handler;
+	commitDiff: Handler;
 	finishedTasks: Handler;
 	mergeEstimates: Handler;
 	quarantined: Handler;
@@ -153,7 +154,6 @@ export interface Served extends AsyncResource {
 	moveInQueue: Handler;
 	/** Tries a queued task's refused start again. */
 	retryQueued: Handler;
-	joinLane: Handler;
 	addLane: Handler;
 	addBoard: Handler;
 	renameBoard: Handler;

@@ -179,7 +179,7 @@ describe.concurrent("task links and lanes", () => {
 		expect(out).toContain("asks: Which table?");
 	});
 
-	it("reshapes lanes: move, reorder, join and drop, never out of order", async () => {
+	it("reshapes lanes: move, reorder and drop, never out of order", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
 
@@ -196,7 +196,10 @@ describe.concurrent("task links and lanes", () => {
 			}),
 		).toBail("usage");
 
-		await deps.tasks.joinLanes(3, 2);
+		for (const id of [209, 207, 211, 201, 206, 198]) {
+			await taskUpdate(deps, id, { lane: 2 });
+		}
+		await deps.tasks.dropLane(3);
 		expect(await shape(deps)).toEqual([
 			[187, 191, 177, 196, 197, 184],
 			[200, 186, 208, 189, 209, 207, 211, 201, 206, 198],

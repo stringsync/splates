@@ -375,6 +375,7 @@ export function Todos({
 						))}
 					</SortableContext>
 					<AddLane
+						board={boardId ?? undefined}
 						empty={lanes.length === 0}
 						dragging={dragging !== null}
 						naming={all.find((todo) => todo.id === naming)}

@@ -76,8 +76,8 @@ export function QueuedTask({
 		<section
 			aria-label={`queued task ${id}`}
 			className={cn(
-				"flex min-h-0 min-w-0 flex-col gap-3",
-				onBack === null ? BELOW_BAR : "h-full",
+				"@container bg-background flex min-h-0 min-w-0 flex-col",
+				onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
 			)}
 		>
 			<TopBar
@@ -93,12 +93,14 @@ export function QueuedTask({
 					},
 				]}
 			/>
-			<QueuedThread
-				todo={todo}
-				changing={pending}
-				refusal={refusal}
-				refuse={refuse}
-			/>
+			<div className="relative min-h-0 flex-1">
+				<QueuedThread
+					todo={todo}
+					changing={pending}
+					refusal={refusal}
+					refuse={refuse}
+				/>
+			</div>
 		</section>
 	);
 }

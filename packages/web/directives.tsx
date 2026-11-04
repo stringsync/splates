@@ -8,6 +8,7 @@ import {
 	MERGE,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	RUN_ELSEWHERE,
 	UNTRIAGED,
 } from "@splates/server/plans/browser";
 import type { FinishedTask } from "@splates/server/tasks";
@@ -296,6 +297,7 @@ function wordsOf(
 	if (
 		directive === RUN_ALLOWED ||
 		directive === RUN_DENIED ||
+		directive === RUN_ELSEWHERE ||
 		directive === GRANTED ||
 		directive === GRANT_DENIED
 	) {

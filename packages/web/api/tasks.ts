@@ -28,6 +28,17 @@ export async function taskDiff(task: string): Promise<FileDiff[]> {
 	return (await response.json()) as FileDiff[];
 }
 
+/** What the landed commit `sha` changed against its parent. */
+export async function commitDiff(sha: string): Promise<FileDiff[]> {
+	const response = await answered(
+		scoped(`/api/commits/${encodeURIComponent(sha)}/diff`),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `${sha}'s diff: ${response.status}`);
+	}
+	return (await response.json()) as FileDiff[];
+}
+
 /** How long each step and premerge phase of a merge usually takes here. */
 export async function mergeEstimates(): Promise<MergeEstimates> {
 	const response = await answered(scoped("/api/merge-estimates"));

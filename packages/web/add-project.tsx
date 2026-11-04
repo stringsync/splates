@@ -9,8 +9,8 @@ import { projectUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
- * Adds a project by its path on this machine, running `splates init` there,
- * then asks before committing what init wrote, in place, and opens it.
+ * A form for adding a repository by its local path. Pass `autoFocus` to focus
+ * the path input and `className` to style the form.
  */
 export function AddProject({
 	className,
@@ -141,11 +141,8 @@ export function NoProject({ message }: { message: string }): JSX.Element {
 }
 
 /**
- * What the page shows before a project's first snapshot, its bar bare: the
- * server opens a project on its first read, which takes seconds, so only a
- * screen reader is told so. Offline or outdated, the
- * header already says why nothing came; with no project to show, the page
- * asks for one.
+ * Show loading feedback while a project opens. Pass its name and whether an
+ * answer is pending, or a missing-project message to offer the add form.
  */
 export function Opening({
 	missing,
@@ -162,7 +159,10 @@ export function Opening({
 		return <NoProject message={missing} />;
 	}
 	return waiting ? (
-		<div role="status" className="sr-only">
+		<div
+			role="status"
+			className="flex flex-1 items-center justify-center px-4 py-24 text-muted-foreground text-sm"
+		>
 			Opening {name}
 		</div>
 	) : null;

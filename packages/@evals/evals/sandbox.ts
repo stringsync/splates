@@ -39,6 +39,11 @@ export async function sandbox(
 		// opencode takes its project from PWD, not the cwd it is spawned in.
 		PWD: dir,
 		GIT_CONFIG_NOSYSTEM: "1",
+		// An inherited Playwright MCP denies screenshots written outside its
+		// output directory; the run's own directory is where they belong, and
+		// the agent already runs with no sandbox of its own.
+		PLAYWRIGHT_MCP_OUTPUT_DIR: join(root, "playwright"),
+		PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS: "true",
 	};
 	const repo = repoAt(dir, env);
 	for (const at of installs) {

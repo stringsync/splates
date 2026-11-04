@@ -25,8 +25,8 @@ USER splates
 
 # bun resolves `workspace:*` from the manifests, so every workspace package's
 # package.json has to land before the install, whichever project it is in.
-# --filter then installs only splates's packages and what they depend on; the
-# root postinstall builds the web page, which a worker never serves.
+# --filter then installs only splates's packages and what they depend on; a
+# worker never serves the web page, so none is built.
 WORKDIR /home/splates/mono
 COPY --chown=splates:splates package.json bun.lock bunfig.toml ./
 COPY --chown=splates:splates core/packages/core/package.json core/packages/core/

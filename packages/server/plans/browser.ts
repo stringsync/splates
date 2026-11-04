@@ -37,8 +37,10 @@ export {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	RUN_ELSEWHERE,
 	setupReference,
 	shipFailureReference,
+	shipSlowReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,
@@ -54,5 +56,5 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
-export { retryOf, shipOf } from "./run-command";
+export { recOf, retryOf, shipOf } from "./run-command";
 export { unanswered, waitsOnYou } from "./unanswered";

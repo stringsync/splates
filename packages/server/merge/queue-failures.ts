@@ -1,113 +1,214 @@
 import { color, type Logger } from "core/log";
+import { Duration, SystemWallClock, type WallClock } from "core/time";
 import { addedFacts, type Tasks, wording } from "../board";
-import type { Journal } from "../records";
+import type { Event, Journal } from "../records";
 import type { FailedTest } from "../tasks";
 import type { FailureAttribution } from "./attribution";
+import { testKey } from "./quarantine";
 
-/** Keep a failing test actionable even when the merge is held without an attempt. */
+const WINDOW = Duration.days(7).ms;
+const LATEST = "\n\n### Latest recurrence\n";
+
+/** Keep confirmed failures actionable without making each uncertain gate a task. */
 export async function queueFailedTests(
-	{ tasks, log, journal }: { tasks: Tasks; log: Logger; journal?: Journal },
+	{
+		tasks,
+		log,
+		journal,
+		wall = new SystemWallClock(),
+	}: {
+		tasks: Tasks;
+		log: Logger;
+		journal?: Journal;
+		wall?: WallClock;
+	},
 	task: string,
 	failed: FailedTest[],
 	kind: FailureAttribution,
 ): Promise<void> {
-	// The task fixes its own failures to land. A flake is queued by the caller
-	// once its rerun passed; if the rerun failed too, as `environment`.
-	if (kind === "task") {
+	// Evidence stays on the merge event. Its agent handles its own regressions.
+	if (kind === "task" || kind === "inconclusive" || failed.length === 0) {
 		return;
 	}
 	try {
-		const listed = new Set((await tasks.all()).map((each) => each.subject));
-		for (const { subject, text, slug } of wanted(task, failed, kind)) {
-			if (listed.has(subject)) {
+		const now = wall.now();
+		const history = (await journal?.all()) ?? [];
+		const known = failureHistory(history, now);
+		const listed = await tasks.all();
+		const eligible = failed.filter(
+			(test) =>
+				kind !== "flake" ||
+				history.some(
+					(event) =>
+						event.action === "merge" &&
+						event.reason === null &&
+						!!event.commit &&
+						event.task !== task &&
+						event.batch?.includes(task) !== true &&
+						event.failureAttribution === "flake" &&
+						recent(event, now) &&
+						event.failedTests.some((old) => testKey(old) === testKey(test)),
+				),
+		);
+		const pending: FailedTest[] = [];
+		const updates = new Map<number, FailedTest[]>();
+		for (const test of eligible) {
+			const keys = [testKey(test), ...legacyKeys(test.name)];
+			const existing = listed.find((item) =>
+				known.keys.has(item.id)
+					? keys.some((key) => known.keys.get(item.id)?.has(key))
+					: keys.includes(item.subject) ||
+						((item.subject.startsWith("Tests failed together:") ||
+							item.subject.startsWith("Flaky tests together:")) &&
+							item.text.includes(
+								`- ${test.name}${test.file === undefined ? "" : ` (${test.file})`}\n`,
+							)),
+			);
+			if (existing) {
+				updates.set(existing.id, [...(updates.get(existing.id) ?? []), test]);
+			} else if (!keys.some((key) => known.closed.has(key))) {
+				pending.push(test);
+			}
+		}
+		for (const [id, tests] of updates) {
+			const existing = listed.find((item) => item.id === id);
+			if (!existing) {
 				continue;
 			}
-			listed.add(subject);
-			const add = () => tasks.add(subject, task, { text, slug });
-			const added = journal
-				? await journal.record("task add", task, add, addedFacts)
-				: await add();
-			log.info(`  ${color.green("found")} task ${added.id}: ${subject}`);
+			const text =
+				existing.text.split(LATEST)[0] + LATEST + detail(task, tests, kind);
+			if (text === existing.text) {
+				continue;
+			}
+			const failureKeys = [
+				...new Set([...(known.keys.get(id) ?? []), ...tests.map(testKey)]),
+			];
+			const update = () => existing.update({ text });
+			if (journal) {
+				await journal.record("task update", task, update, {
+					number: id,
+					subject: existing.subject,
+					changed: { text: true },
+					failureKeys,
+				});
+			} else {
+				await update();
+			}
 		}
+		if (!pending.length) {
+			return;
+		}
+		const { subject, text, slug } = wanted(task, pending, kind);
+		const add = () => tasks.add(subject, task, { text, slug });
+		const added = journal
+			? await journal.record("task add", task, add, (item) => ({
+					...addedFacts(item),
+					failureKeys: pending.map(testKey),
+				}))
+			: await add();
+		log.info(`  ${color.green("found")} task ${added.id}: ${subject}`);
 	} catch (error) {
 		log.error(`Could not queue failing-test tasks: ${String(error)}`);
 	}
 }
 
-interface Wanted {
-	subject: string;
-	text: string;
-	slug: string;
+function recent(event: Event, now: number): boolean {
+	const age = now - Date.parse(event.at);
+	return age >= 0 && age <= WINDOW;
 }
 
-/**
- * A task per failing test, unless several failed together and none is
- * pinned on the code: tests failing at once in a gate blamed on the
- * environment, or as a flake, are one event, as sixteen page tests timing
- * out together in a loaded gate were (2026-10-23), not one bug each, so
- * they make one task to look into.
- */
-function wanted(
+function legacyKeys(name: string): string[] {
+	return [`Tests failed: ${name}`, `Flaky test: ${name}`];
+}
+
+/** Follow task ids through starts and closures, including tasks predating failure keys. */
+function failureHistory(history: Event[], now: number) {
+	const keys = new Map<number, Set<string>>();
+	const started = new Map<string, number[]>();
+	const closed = new Set<string>();
+	const rememberClosed = (ids: number[]) => {
+		for (const id of ids) {
+			for (const key of keys.get(id) ?? []) {
+				closed.add(key);
+			}
+		}
+	};
+	for (const event of history) {
+		if (event.reason !== null) {
+			continue;
+		}
+		if (event.action === "task add" || event.action === "task update") {
+			keys.set(
+				event.number,
+				new Set([
+					...(keys.get(event.number) ?? []),
+					...(event.failureKeys ??
+						(keys.has(event.number) ? [] : [event.subject])),
+				]),
+			);
+		} else if (event.action === "add" && event.task) {
+			started.set(event.task, event.tasks);
+		} else if (event.action === "task remove" && recent(event, now)) {
+			rememberClosed(event.tasks.map((item) => item.id));
+			for (const item of event.tasks) {
+				if (!keys.has(item.id)) {
+					closed.add(item.subject);
+				}
+			}
+		} else if (
+			(event.action === "remove" ||
+				(event.action === "merge" && !!event.commit)) &&
+			event.task &&
+			recent(event, now)
+		) {
+			rememberClosed(started.get(event.task) ?? []);
+		}
+	}
+	return { keys, closed };
+}
+
+function wanted(task: string, failed: FailedTest[], kind: FailureAttribution) {
+	const first = failed[0] as FailedTest;
+	const grouped = failed.length > 1;
+	const subject = grouped
+		? `${kind === "flake" ? "Flaky tests" : "Tests failed"} together: ${failed.length} tests (${kind})`
+		: `${kind === "flake" ? "Flaky test" : "Tests failed"}: ${first.name}`;
+	return {
+		...wording(subject, detail(task, failed, kind)),
+		slug: grouped
+			? `fix-gate-${kind}`
+			: failureSlug(first.name, kind === "flake" ? "flaky" : "fix"),
+	};
+}
+
+function detail(
 	task: string,
 	failed: FailedTest[],
 	kind: FailureAttribution,
-): Wanted[] {
-	const found = `Found while merging \`${task}\`. Attribution: ${kind}.`;
-	if (failed.length > 1 && kind === "environment") {
-		return [
-			{
-				...wording(
-					`Tests failed together in \`${task}\`'s gate: ${failed.length} tests (${kind})`,
-					[
-						found,
-						"",
-						`${failed.length} tests failed in one gate run and none was pinned on the code, so they are most likely one event (load, memory, or a run that ended early) rather than ${failed.length} bugs. Look for what they have in common; split out any that fails again on its own.`,
-						"",
-						...failed.map(
-							(test) =>
-								`- ${test.name}${test.file === undefined ? "" : ` (${test.file})`}${firstLine(test.message)}`,
-						),
-					].join("\n"),
-				),
-				slug: `fix-gate-${kind}`,
-			},
-		];
-	}
-	if (kind === "flake") {
-		return failed.map((test) => ({
-			...wording(
-				`Flaky test: ${test.name}`,
-				[
-					found,
+): string {
+	return [
+		`Found while merging \`${task}\`. Attribution: ${kind}.`,
+		...(kind === "flake"
+			? [
 					"",
-					"This test failed in the gate and then passed on a rerun, with no change to the code, so the merge landed. Treat it as flaky, not as a regression: look for what makes it nondeterministic (timing, ordering, shared state, ports, load) and make it deterministic. Do not just retry or loosen it.",
+					"This failure recurred on independent tasks within seven days and passed a full gate rerun. Treat it as flaky: make it deterministic rather than just retrying or loosening it.",
+				]
+			: []),
+		...(failed.length > 1
+			? [
 					"",
-					test.message,
-				].join("\n"),
-			),
-			slug: failureSlug(test.name, "flaky"),
-		}));
-	}
-	return failed.map((test) => ({
-		...wording(
-			`Tests failed: ${test.name}`,
-			[found, "", test.message].join("\n"),
+					"These tests failed together. Investigate them as one incident; split out a test only when it reproduces independently.",
+				]
+			: []),
+		"",
+		...failed.map(
+			(test) =>
+				`- ${test.name}${test.file === undefined ? "" : ` (${test.file})`}\n${test.message}`,
 		),
-		slug: failureSlug(test.name),
-	}));
+	].join("\n");
 }
 
-/** What a test said, its first line, after a colon; nothing when it said nothing. */
-function firstLine(message: string): string {
-	const line = message
-		.split("\n")
-		.map((each) => each.trim())
-		.find(Boolean);
-	return line === undefined ? "" : `: ${line}`;
-}
-
-/** A short slug for a failed test's task: the prefix and the test name's first words. */
-function failureSlug(name: string, prefix = "fix"): string {
+function failureSlug(name: string, prefix: string): string {
 	const words = name
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)

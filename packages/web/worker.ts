@@ -2,8 +2,8 @@
  * The page's service worker: it shows notifications, since a phone's browser
  * shows one only through a worker's registration, and hears of one the
  * server pushes while the page is frozen only through a worker; and it keeps
- * the page's own files, so a page opened again draws without waiting on the
- * network (see `PageCache`). It keeps nothing the server says under `/api`.
+ * the page's own files for offline use and content-stamped assets for reuse
+ * between loads (see `PageCache`). It keeps nothing the server says under `/api`.
  *
  * Clicking a notification focuses a window on the row's project and tells it
  * which row to open, or, with none on that project, opens one at the row's
@@ -88,9 +88,9 @@ scope.addEventListener("activate", (event) =>
 	event.waitUntil(scope.clients.claim()),
 );
 
-const cache = new PageCache(scope.caches, scope.clients);
+const cache = new PageCache(scope.caches);
 scope.addEventListener("fetch", (event) => {
-	const answer = cache.respond(event.request, event.resultingClientId);
+	const answer = cache.respond(event.request);
 	if (answer !== null) {
 		event.respondWith(answer.response);
 		event.waitUntil(answer.after.catch(() => {}));

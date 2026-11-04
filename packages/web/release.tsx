@@ -43,13 +43,17 @@ export function update(
  */
 export function UpdateDot({
 	ring = "ring-background",
+	color = "bg-warning",
 }: {
 	ring?: string;
+	/** The dot's background class; yellow, for something that waits on the person, by default. */
+	color?: string;
 }): JSX.Element {
 	return (
 		<span
 			className={cn(
-				"-top-0.5 -right-0.5 absolute size-2 rounded-full bg-warning ring-2",
+				"-top-0.5 -right-0.5 absolute size-2 rounded-full ring-2",
+				color,
 				ring,
 			)}
 		/>

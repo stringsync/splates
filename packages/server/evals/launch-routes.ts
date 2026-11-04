@@ -46,7 +46,7 @@ export class EvalLaunchRoutes {
 		);
 	};
 
-	/** Each listed case with its state (failing, never run, stale or passing), from the batches saved. */
+	/** Each listed case with its state (failing, never run or passing), from the batches saved. */
 	readonly states: Handler = async (request) => {
 		const scenarios = await (await this.scenarios(request)).json();
 		const commands = await this.commands(request);

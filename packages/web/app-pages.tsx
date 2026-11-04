@@ -10,6 +10,7 @@ import {
 	AutoPickPage,
 	BillingPage,
 	EvalsPage,
+	RecPage,
 	SetupPage,
 	ShipsPage,
 	StatsPage,
@@ -119,6 +120,7 @@ export function useAppPages({
 						),
 						stats: <StatsPage report={report} />,
 						ships: <ShipsPage feed={available ? talk : null} />,
+						rec: <RecPage feed={available ? talk : null} />,
 						evals: (
 							<EvalsPage
 								open={evals}

@@ -1,15 +1,25 @@
-import { shipFailureReference } from "@splates/server/plans/browser";
+import {
+	shipFailureReference,
+	shipSlowReference,
+} from "@splates/server/plans/browser";
 import type { CascadeSummary, StageKey } from "@splates/server/ship";
 import { shipName } from "@splates/server/ship/browser";
 import { HistoryIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { ActiveShip } from "./active-ship";
-import { actOnShip, shipHistory, shipHistoryEntry, shipStageLog } from "./api";
+import {
+	actOnShip,
+	recordShipAgent,
+	shipHistory,
+	shipHistoryEntry,
+	shipStageLog,
+} from "./api";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { RouteTrail } from "./route-trail";
-import { LastShipSummary, ShipHistory } from "./ship-history";
+import { ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
+import { useAcknowledged } from "./ship-recap-seen";
 import { ProjectStages } from "./ship-run";
 import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
@@ -26,6 +36,7 @@ export function ShipsPage({
 	const viewed = useViewedShip();
 	const live = useLiveShips();
 	const [closed, setClosed] = useState<string | null>(null);
+	const acknowledged = useAcknowledged();
 	// The cascade on show when Start was pressed: the stream still holds it
 	// until the new ship's first message, so it must not be shown as the new one.
 	const [previous, setPrevious] = useState<string | null>(null);
@@ -33,22 +44,30 @@ export function ShipsPage({
 		(live?.cascade?.status === "running" ||
 			live?.cascade?.status === "stopped") &&
 		live.cascade.id !== closed;
-	// Planning waits while a ship is under way: the Ship tab opens that ship.
+	// A finished ship's recap stays until the person acknowledges it.
+	const unacknowledged =
+		live?.cascade != null &&
+		["done", "abandoned"].includes(live.cascade.status) &&
+		live.cascade.id !== closed &&
+		live.cascade.id !== acknowledged;
+	// Planning waits while a ship is under way or its recap is unseen: the Ship tab opens that ship.
 	useEffect(() => {
-		if (viewed === null && busy) {
+		if (viewed === null && (busy || unacknowledged)) {
 			location.replace(`#ships/${ACTIVE}`);
 		}
-	}, [viewed, busy]);
+	}, [viewed, busy, unacknowledged]);
 	// A ship put away has no page left: land on the planner.
 	useEffect(() => {
 		if (
 			viewed === ACTIVE &&
 			live !== null &&
-			(live.cascade == null || live.cascade.id === closed)
+			(live.cascade == null ||
+				live.cascade.id === closed ||
+				live.cascade.id === acknowledged)
 		) {
 			location.replace("#ships");
 		}
-	}, [viewed, live, closed]);
+	}, [viewed, live, closed, acknowledged]);
 	const [past, setPast] = useState<CascadeSummary[] | null>(null);
 	useEffect(() => {
 		shipHistory().then(setPast, () => setPast([]));
@@ -65,7 +84,7 @@ export function ShipsPage({
 								{
 									label: "Ship",
 									onClick:
-										viewed === ACTIVE && busy
+										viewed === ACTIVE && (busy || unacknowledged)
 											? undefined
 											: () => {
 													location.hash = "ships";
@@ -108,6 +127,14 @@ export function ShipsPage({
 						location.hash = "ships";
 					}}
 					act={actOnShip}
+					sendSlowToAgent={
+						feed === null
+							? undefined
+							: async (slow) => {
+									const opened = await sendSlowShipToAgent(feed, slow);
+									location.hash = `conversations/${opened}`;
+								}
+					}
 					sendToAgent={
 						feed === null
 							? undefined
@@ -123,7 +150,6 @@ export function ShipsPage({
 				<PastShip id={viewed} />
 			) : (
 				<ShipPlan
-					header={<LastShipSummary cascades={past} />}
 					ready={live !== null && past !== null}
 					ship={new URLSearchParams(location.search).get("ship")}
 					endedAt={live?.cascade?.ended ?? null}
@@ -164,6 +190,32 @@ async function sendShipToAgent(
 				);
 	const text = shipFailureReference({ ...failure, log }, location.origin);
 	const state = await startAutoPick({ words: text, task: null });
+	await recordShipAgent(failure.id, failure.project);
+	feed.put(state);
+	const sending = feed.send(state.id, text);
+	void promptConversation(state.id, text, [], false, sending.id)
+		.then((answered) => feed.answered(state.id, sending, answered))
+		.catch((error: unknown) => feed.refused(state.id, sending, error));
+	return state.id;
+}
+
+/** Like {@link sendShipToAgent}, for a stage that is slow while the ship goes on. */
+async function sendSlowShipToAgent(
+	feed: ConversationFeed,
+	slow: {
+		id: string;
+		project: string;
+		stage: StageKey;
+		spent: number;
+		expected: number;
+	},
+): Promise<string> {
+	const log = await shipStageLog(slow.id, slow.project, slow.stage).catch(
+		() => null,
+	);
+	const text = shipSlowReference({ ...slow, log }, location.origin);
+	const state = await startAutoPick({ words: text, task: null });
+	await recordShipAgent(slow.id, slow.project);
 	feed.put(state);
 	const sending = feed.send(state.id, text);
 	void promptConversation(state.id, text, [], false, sending.id)

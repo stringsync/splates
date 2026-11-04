@@ -1,17 +1,8 @@
-import type {
-	Cascade,
-	CascadeStatus,
-	CascadeStep,
-	Ship,
-	ShipStep,
-	StageKey,
-	StageState,
-} from "@splates/server/ship";
+import type { Cascade, Ship, StageKey } from "@splates/server/ship";
 import { shipName } from "@splates/server/ship/browser";
-import { Duration } from "core/time";
-import { ExternalLinkIcon, RotateCcwIcon, SquareIcon } from "lucide-react";
-import { Fragment, type JSX, type ReactNode, useState } from "react";
-import { Button, buttonVariants } from "#web/components/ui/button.tsx";
+import { RotateCcwIcon, SquareIcon } from "lucide-react";
+import { type JSX, type ReactNode, useState } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -20,13 +11,25 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
-import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import { askMachineNow } from "./machine";
 import { Refusal, useRefusals } from "./refusal";
 import { type Attention, attentionOf } from "./ship-dock";
-import { ICONS, StageRow, span } from "./ship-stages";
+import {
+	AskCard,
+	askedSlug,
+	ChipFor,
+	HELD,
+	JobTime,
+	jobState,
+	statusLabel,
+} from "./ship-job-status";
+import { ProjectStage } from "./ship-project-stages";
+import { ShipRecap } from "./ship-recap";
+import type { SlowStage } from "./ship-slow-bar";
+import { ICONS } from "./ship-stages";
 
+export { ProjectStages } from "./ship-project-stages";
 /**
  * A ship under way, or one that stopped: a stage per project in the order
  * they go, every step of each checked off as it ends, and what waits on the
@@ -41,9 +44,12 @@ export function ShipRun({
 	retry,
 	agent,
 	sendToAgent,
+	sendSlowToAgent,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
+	/** Starts a conversation with an agent about a stage that runs past its expected time; the ship carries on. */
+	sendSlowToAgent?: (slow: SlowStage) => Promise<void>;
 	/** Ends the run; the cascade alone by default, the run and its conversation when it has one. */
 	abandon?: () => Promise<void>;
 	retry?: () => Promise<void>;
@@ -187,7 +193,7 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant={live ? "destructive" : "outline"}
-						className="gap-1.5 max-sm:order-1 max-sm:px-4 pointer-coarse:min-h-11"
+						className="gap-1.5 max-sm:order-1 max-sm:px-4 max-sm:only:flex-1 pointer-coarse:min-h-11"
 						disabled={acting || abandoning}
 						title={
 							live ? "Ends the ship; what published stays published" : undefined
@@ -221,10 +227,16 @@ export function ShipRun({
 				</DialogContent>
 			</Dialog>
 			<Refusal refusal={refusals.get("") ?? null} />
+			{cascade.status === "stopped" && <ShipRecap cascade={cascade} />}
 			<ShipJobs
 				cascade={cascade}
 				ship={ship}
 				live={running}
+				sendSlow={
+					sendSlowToAgent === undefined
+						? undefined
+						: (slow) => act(() => sendSlowToAgent(slow), "Not sent to an agent")
+				}
 				asked={asked}
 				ask={
 					asked !== null ? (
@@ -246,10 +258,12 @@ function ShipJobs({
 	live,
 	asked,
 	ask,
+	sendSlow,
 }: {
 	cascade: Cascade;
 	ship: Ship | null;
 	live: boolean;
+	sendSlow?: (slow: SlowStage) => void;
 	asked: { attention: Attention; slug: string | null } | null;
 	/** The ask to show on the step that needs it. */
 	ask: ReactNode;
@@ -315,285 +329,11 @@ function ShipJobs({
 							ship={step.status === "shipping" ? ship : null}
 							live={live}
 							ask={step.slug === asked?.slug ? ask : null}
+							sendSlow={sendSlow}
 						/>
 					</ol>
 				</div>
 			)}
-		</div>
-	);
-}
-
-/** Each project of `cascade` as a stage of its steps. */
-export function ProjectStages({
-	cascade,
-	ship,
-	live,
-	className,
-}: {
-	cascade: Cascade;
-	ship: Ship | null;
-	/** Whether the cascade is under way, so its times run and its log is followed. */
-	live: boolean;
-	className?: string;
-}): JSX.Element {
-	return (
-		<ol
-			aria-label="Ship cascade"
-			className={cn("flex flex-col gap-4", className)}
-		>
-			{cascade.steps.map((step) => (
-				<ProjectStage
-					key={step.slug}
-					cascade={cascade}
-					step={step}
-					ship={step.status === "shipping" ? ship : null}
-					live={live}
-				/>
-			))}
-		</ol>
-	);
-}
-
-function ProjectStage({
-	cascade,
-	step,
-	ship,
-	live,
-	ask = null,
-}: {
-	cascade: Cascade;
-	step: CascadeStep;
-	ship: Ship | null;
-	live: boolean;
-	ask?: ReactNode;
-}): JSX.Element {
-	const asking = step.stages.find((stage) =>
-		["asking", "failed", "hung"].includes(stage.state),
-	);
-	const notRun = step.status === "abandoned" && cascade.status === "stopped";
-	return (
-		<li
-			aria-label={step.slug}
-			className={cn("flex flex-col gap-3", notRun && "opacity-60")}
-		>
-			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-				<span aria-hidden className="shrink-0">
-					{ICONS[jobState(step)]}
-				</span>
-				<span className="font-medium">{step.slug}</span>
-				<span className="text-muted-foreground text-sm tabular-nums">
-					{step.action === "ship" ? versionOf(step) : "takes its bump"}
-				</span>
-				<span
-					className={cn(
-						"ml-auto text-sm",
-						HELD.includes(step.status)
-							? "text-destructive"
-							: step.status === "asking"
-								? "text-amber-600 dark:text-amber-400"
-								: "text-muted-foreground",
-					)}
-				>
-					{notRun ? "not run" : statusLabel(step)}
-				</span>
-			</div>
-			{step.task && (
-				<a
-					href={`?project=${encodeURIComponent(step.slug)}#todos/${encodeURIComponent(step.task)}`}
-					className="text-sm underline"
-				>
-					Task: {step.task}
-				</a>
-			)}
-			{step.adopt === "agent" && step.status === "bumping" && (
-				<p className="text-sm text-muted-foreground">
-					{step.adoptFailure
-						? "Handed to an agent after the mechanical adopt failed; waiting for its task to merge."
-						: "Waiting for the ship agent to adopt upstream; its task has no bump."}
-				</p>
-			)}
-			{step.takes.map((use) => (
-				<p key={use.project} className="text-muted-foreground text-sm">
-					Upstream: {use.project}{" "}
-					{use.pins.map((pin) => `${pin.name}@${pin.version}`).join(", ")}
-				</p>
-			))}
-			{step.note && (
-				<p className="text-sm text-muted-foreground">{step.note}</p>
-			)}
-			<ol
-				aria-label={`${step.slug} steps`}
-				className="ml-5 flex flex-col gap-1"
-			>
-				{step.stages.map((stage) => (
-					<Fragment key={stage.key}>
-						<StageRow
-							cascade={cascade}
-							step={step}
-							stage={stage}
-							ship={ship}
-							live={live}
-							opened={stage.state === "failed" && cascade.status === "stopped"}
-						/>
-						{ask !== null && stage.key === asking?.key && (
-							<li className="my-2">{ask}</li>
-						)}
-					</Fragment>
-				))}
-				{ask !== null && asking === undefined && (
-					<li className="my-2">{ask}</li>
-				)}
-			</ol>
-		</li>
-	);
-}
-
-/** The statuses a project stops the run in. */
-const HELD: CascadeStatus[] = ["failed", "stopped"];
-
-/** What each status says of a project, beside it. */
-function statusLabel(step: CascadeStep): string {
-	return step.adopt === "agent" && step.status === "bumping"
-		? "waiting for agent"
-		: STATUSES[step.status];
-}
-
-const STATUSES: Record<CascadeStatus, string> = {
-	waiting: "waiting",
-	registry: "waiting on npm",
-	bumping: "bumping",
-	asking: "asks you",
-	stopped: "stopped",
-	shipping: "publishing",
-	failed: "failed",
-	done: "done",
-	dropped: "dropped",
-	abandoned: "abandoned",
-};
-
-/** The icon state a project's job shows: its stages' worst, else where its status stands. */
-function jobState(step: CascadeStep): StageState {
-	switch (step.status) {
-		case "done":
-			return "done";
-		case "failed":
-		case "stopped":
-			return "failed";
-		case "asking":
-			return "asking";
-		case "waiting":
-		case "registry":
-		case "bumping":
-		case "shipping":
-			return step.stages.some((stage) => stage.started !== null)
-				? "running"
-				: "pending";
-		default:
-			return "skipped";
-	}
-}
-
-/** How long a project's job has run, from its first stage's start to its last's end. */
-function JobTime({
-	step,
-	live,
-}: {
-	step: CascadeStep;
-	live: boolean;
-}): JSX.Element | null {
-	const now = useNow(live, Duration.secs(1));
-	const started = step.stages
-		.map((stage) => stage.started)
-		.filter((at): at is string => at !== null)
-		.map((at) => Date.parse(at));
-	if (started.length === 0) {
-		return null;
-	}
-	const ended = step.stages.map((stage) => stage.ended);
-	const finished = ended.every((at) => at !== null) && !live;
-	const end = finished
-		? Math.max(...ended.map((at) => Date.parse(at as string)))
-		: now;
-	return (
-		<span className="text-muted-foreground text-xs tabular-nums">
-			{span(end - Math.min(...started))}
-		</span>
-	);
-}
-
-/** The version a step goes to from where it is, or where it stays for a bump. */
-export function versionOf(step: ShipStep): string {
-	if (step.to === null) {
-		return step.from ?? "";
-	}
-	return `${step.from ?? "?"} → ${step.to}`;
-}
-
-/** The project the person is asked about, or the run stopped at. */
-function askedSlug(cascade: Cascade, ship: Ship | null): string | null {
-	if (cascade.status === "running" && ship?.waiting != null) {
-		return ship.project;
-	}
-	return (
-		cascade.steps.find((step) =>
-			["asking", "failed", "stopped"].includes(step.status),
-		)?.slug ?? null
-	);
-}
-
-/** The run's state as a chip beside its title, when it needs the person. */
-function ChipFor({ tone }: { tone: Attention["tone"] }): JSX.Element {
-	return (
-		<span
-			className={cn(
-				"rounded-full px-2 py-0.5 font-medium text-xs",
-				tone === "asks"
-					? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-					: "bg-destructive/15 text-destructive",
-			)}
-		>
-			{tone === "asks" ? "Needs you" : "Stopped"}
-		</span>
-	);
-}
-
-/** What the person is asked for, or why the run stopped, with the actions that answer it. */
-function AskCard({
-	asked,
-	recovery,
-}: {
-	asked: Attention;
-	recovery: ReactNode;
-}): JSX.Element {
-	const action = asked.action;
-	return (
-		<div
-			role="status"
-			className={cn(
-				"flex flex-col gap-3 rounded-lg border p-4 text-sm",
-				asked.tone === "asks"
-					? "border-amber-500/50 bg-amber-500/10"
-					: "border-destructive/50 bg-destructive/10",
-			)}
-		>
-			<span className="font-medium">{asked.title}</span>
-			{asked.detail !== null && (
-				<span className="text-muted-foreground">{asked.detail}</span>
-			)}
-			<div className="flex flex-wrap items-center gap-2">
-				{action !== null && (
-					<a
-						href={action.href}
-						target={action.external ? "_blank" : undefined}
-						rel={action.external ? "noreferrer" : undefined}
-						className={buttonVariants({ size: "sm", variant: "outline" })}
-					>
-						{action.label}
-						{action.external && <ExternalLinkIcon />}
-					</a>
-				)}
-				{recovery}
-			</div>
 		</div>
 	);
 }

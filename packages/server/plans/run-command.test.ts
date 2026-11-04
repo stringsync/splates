@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { stretches } from "./asked";
-import { retryOf, shipOf } from "./run-command";
+import { recOf, retryOf, shipOf } from "./run-command";
 
 describe("a run-command permission card", () => {
 	it("takes its command from the first backticked line", () => {
@@ -42,5 +42,14 @@ describe("a run-command permission card", () => {
 		expect(shipOf("splates ship wren --json")).toBeNull();
 		expect(shipOf("splates merge --message x")).toBeNull();
 		expect(shipOf("npm ship wren")).toBeNull();
+	});
+});
+
+describe("recOf", () => {
+	it("recognizes a rec command, with env words or a path", () => {
+		expect(recOf("rec record")).toBe(true);
+		expect(recOf("FOO=1 bin/rec bench --fps 30")).toBe(true);
+		expect(recOf("bun run build")).toBe(false);
+		expect(recOf("splates ship wren")).toBe(false);
 	});
 });

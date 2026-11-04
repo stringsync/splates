@@ -1,6 +1,6 @@
 {
 	"name": "@splates/server",
-	"version": "2.0.2",
+	"version": "2.0.3",
 	"private": true,
 	"description": "The Spinning Plates server and shared backend",
 	"type": "module",
@@ -47,6 +47,8 @@
 		"./log": "./log.ts",
 		"./merge": "./merge/index.ts",
 		"./push/browser": "./push/browser.ts",
+		"./rec": "./rec/index.ts",
+		"./rec/browser": "./rec/browser.ts",
 		"./ports": "./ports/index.ts",
 		"./prices": "./prices/index.ts",
 		"./probe-runtime": "./probe-runtime.ts",
@@ -78,8 +80,5 @@
 		"./tunnel-provider": "./tunnel/index.ts",
 		"./server": "./server/index.ts",
 		"./server/browser": "./server/browser.ts"
-	},
-	"scripts": {
-		"build": "bun run --cwd ../web build"
 	}
 }

@@ -1,4 +1,5 @@
 import type { Repo } from "@evals/evals/scenario";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "orchestration";
@@ -243,3 +244,5 @@ export const scenarios: Scenario[] = [
 			"Pass when the agent carries out the export in one task without asking again about a lane. Fail when it offers to split, or leaves pieces as follow-up tasks.",
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

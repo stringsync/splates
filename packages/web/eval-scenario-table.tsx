@@ -5,6 +5,7 @@ import {
 	targetOf,
 } from "@splates/server/evals/browser";
 import { useReactive } from "core/react";
+import { Duration } from "core/time";
 import { ChevronDownIcon, ChevronRightIcon, PlayIcon } from "lucide-react";
 import { Fragment, type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -17,12 +18,11 @@ import { ReadingNow } from "./countdown";
 import type { EvalAgentsEditor } from "./eval-agents";
 import { scenarioPrompt } from "./eval-improve";
 import { loopLabel, useEvalLoops } from "./eval-loops";
-import { DEFAULT_REPS, RunDialog } from "./eval-run-dialog";
-import { ScenarioHistory } from "./eval-scenario-history";
+import { DEFAULT_REPS, type RunChoice, RunDialog } from "./eval-run-dialog";
+import { ScenarioDetails } from "./eval-scenario-details";
 import {
 	countStates,
 	filterRows,
-	passCount,
 	projectsOf,
 	rowsOf,
 	type ScenarioFilter,
@@ -30,32 +30,35 @@ import {
 	STATES,
 	summaryOf,
 } from "./eval-scenarios";
+import { useNow } from "./hooks/use-now";
+import { ago } from "./plan-limits";
 
 const STATE_TONE: Record<EvalScenarioStatus, string> = {
 	failing: "bg-destructive/15 text-destructive",
 	"never-run": "bg-muted text-muted-foreground",
-	stale: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
 	passing: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
 };
 
 /**
- * Every scenario the project lists as a table, worst first: how many are
- * passing, filter chips with counts, the worst failing one up top with the
- * judge's reason, and per row a pass count on each saved agent, when it last
- * ran and one button to run it. A row opens the batches that ran it. Browsing
- * costs nothing; Run only opens a card, and its Start opens a conversation to
- * work the scenario's loop.
+ * Browse every scenario the project lists, worst first, each by its name and
+ * what it tests, and filter by state or project. Open a row to see its prompt,
+ * how it is judged and its last run; pass feed so Run can
+ * start a conversation to work the scenario's loop. Browsing costs nothing.
+ * Pass onLoaded to learn when the scenarios have been read.
  */
 export function EvalScenarioTable({
 	agents,
 	onOpenBatch,
 	feed = null,
+	onLoaded,
 }: {
-	/** The saved eval agents: a column each, and the ones a run card ticks. */
+	/** The saved eval agents: the ones a run card ticks. */
 	agents: EvalAgentsEditor;
 	onOpenBatch: (batch: string) => void;
 	/** Where a conversation started from here is shown; null while there is none to start. */
 	feed?: ConversationFeed | null;
+	/** Called once the scenarios have been read. */
+	onLoaded?: () => void;
 }): JSX.Element {
 	const [scenarios, setScenarios] = useState<EvalScenario[] | null>(null);
 	const [states, setStates] = useState<EvalScenarioState[]>([]);
@@ -68,6 +71,7 @@ export function EvalScenarioTable({
 	const [open, setOpen] = useState<string | null>(null);
 	const [running, setRunning] = useState<string[] | null>(null);
 	const [pending, setPending] = useState(false);
+	const now = useNow(true, Duration.mins(1));
 	const saved = useReactive(agents, (each) => each.picks, ["changed"]);
 	const targets = saved.map(targetOf);
 	const loops = useEvalLoops(feed);
@@ -91,12 +95,13 @@ export function EvalScenarioTable({
 			if (current) {
 				setScenarios(Array.isArray(listed) ? listed : []);
 				setStates(Array.isArray(each) ? each : []);
+				onLoaded?.();
 			}
 		}, fail);
 		return () => {
 			current = false;
 		};
-	}, []);
+	}, [onLoaded]);
 	const rows = rowsOf(scenarios ?? [], states);
 	const counts = countStates(rows);
 	const shown = filterRows(rows, filter);
@@ -110,7 +115,7 @@ export function EvalScenarioTable({
 	const start = async (
 		ids: string[],
 		chosen: string[],
-		reps: number,
+		{ reps, limits }: Pick<RunChoice, "reps" | "limits">,
 	): Promise<void> => {
 		if (feed === null || ids.length === 0) {
 			return;
@@ -130,7 +135,7 @@ export function EvalScenarioTable({
 				}
 				const text = scenarioPrompt(
 					id,
-					undefined,
+					limits,
 					chosen.length === targets.length ? [] : chosen,
 					reps === DEFAULT_REPS ? null : reps,
 				);
@@ -232,16 +237,19 @@ export function EvalScenarioTable({
 								))}
 							</select>
 						)}
-						{picked.length > 0 && (
-							<Button
-								size="sm"
-								className="ml-auto min-h-9"
-								disabled={feed === null || pending}
-								onClick={() => runOrOpen(picked)}
-							>
-								Run {picked.length} selected
-							</Button>
-						)}
+						<Button
+							size="sm"
+							className={cn(
+								"ml-auto min-h-9",
+								picked.length === 0 && "invisible",
+							)}
+							aria-hidden={picked.length === 0}
+							tabIndex={picked.length === 0 ? -1 : undefined}
+							disabled={feed === null || pending || picked.length === 0}
+							onClick={() => runOrOpen(picked)}
+						>
+							Run {picked.length} selected
+						</Button>
 					</div>
 					{next !== undefined && (
 						<NextUp
@@ -260,21 +268,16 @@ export function EvalScenarioTable({
 								<tr className="border-b text-left text-muted-foreground text-xs">
 									<th className="w-8 py-2 pl-3" />
 									<th className="py-2 pr-3">Scenario</th>
-									<th className="py-2 pr-3">State</th>
-									{saved.map((pick) => (
-										<th key={targetOf(pick)} className="py-2 pr-3 font-normal">
-											{pickName(pick)}
-										</th>
-									))}
-									<th className="py-2 pr-3">Last run</th>
-									<th className="py-2 pr-3" />
+									<th className="w-28 py-2 pr-3">State</th>
+									<th className="w-24 py-2 pr-3 whitespace-nowrap">Last run</th>
+									<th className="w-24 py-2 pr-4" />
 								</tr>
 							</thead>
 							<tbody className="block md:table-row-group">
 								{shown.length === 0 && (
 									<tr className="block md:table-row">
 										<td
-											colSpan={5 + saved.length}
+											colSpan={5}
 											className="block py-4 text-center text-muted-foreground md:table-cell"
 										>
 											No scenario matches this filter.
@@ -284,18 +287,18 @@ export function EvalScenarioTable({
 								{shown.map(({ scenario, state }) => (
 									<Fragment key={scenario.id}>
 										<tr className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-3 py-3 last:border-b-0 hover:bg-accent/30 md:table-row md:p-0">
-											<td className="md:table-cell md:py-2 md:pl-3">
+											<td className="md:table-cell md:py-3 md:pl-3 md:align-middle">
 												<Checkbox
 													aria-label={`Select ${scenario.id}`}
 													checked={picked.includes(scenario.id)}
 													onCheckedChange={() => toggle(scenario.id)}
 												/>
 											</td>
-											<td className="min-w-0 flex-1 md:table-cell md:py-2 md:pr-3">
+											<td className="min-w-0 flex-1 md:table-cell md:py-3 md:pr-3">
 												<button
 													type="button"
 													aria-expanded={open === scenario.id}
-													aria-label={`History of ${scenario.id}`}
+													aria-label={`Details of ${scenario.id}`}
 													onClick={() =>
 														setOpen(open === scenario.id ? null : scenario.id)
 													}
@@ -308,12 +311,22 @@ export function EvalScenarioTable({
 													)}
 													{scenario.id}
 												</button>
+												{scenario.about !== null && (
+													<p
+														className={cn(
+															"mt-0.5 ml-[1.125rem] text-muted-foreground text-xs",
+															open !== scenario.id && "line-clamp-2",
+														)}
+													>
+														{scenario.about}
+													</p>
+												)}
 											</td>
 											<td
 												aria-hidden
 												className="order-1 h-0 basis-full md:hidden"
 											/>
-											<td className="order-2 md:table-cell md:py-2 md:pr-3">
+											<td className="order-2 md:table-cell md:w-28 md:py-3 md:pr-3 md:align-middle">
 												<span
 													className={cn(
 														"inline-flex h-5 items-center rounded-full px-2 font-medium text-xs whitespace-nowrap",
@@ -323,27 +336,23 @@ export function EvalScenarioTable({
 													{STATE_LABEL[state.state]}
 												</span>
 											</td>
-											{saved.map((pick) => (
-												<td
-													key={targetOf(pick)}
-													className="order-2 text-xs tabular-nums md:table-cell md:py-2 md:pr-3 md:text-sm"
-												>
-													<span className="text-muted-foreground md:hidden">
-														{pickName(pick)}{" "}
-													</span>
-													{passCount(state, targetOf(pick)) ?? "n/a"}
-												</td>
-											))}
-											<td className="order-2 text-muted-foreground text-xs md:table-cell md:py-2 md:pr-3">
+											<td
+												title={
+													state.lastRunAt === null
+														? undefined
+														: new Date(state.lastRunAt).toLocaleString()
+												}
+												className="order-2 text-muted-foreground text-xs whitespace-nowrap md:table-cell md:w-24 md:py-3 md:pr-3 md:align-middle"
+											>
 												{state.lastRunAt === null
 													? "never"
-													: new Date(state.lastRunAt).toLocaleString()}
+													: ago(Date.parse(state.lastRunAt), now)}
 											</td>
-											<td className="order-1 md:table-cell md:py-2 md:pr-3 md:text-right">
+											<td className="order-1 md:table-cell md:w-24 md:py-3 md:pr-4 md:text-right md:align-middle">
 												<Button
 													size="sm"
 													variant="outline"
-													className="min-h-9"
+													className="min-h-9 md:min-h-8"
 													aria-label={`${loops.has(scenario.id) ? "Open loop for" : "Run"} ${scenario.id}`}
 													disabled={feed === null || pending}
 													onClick={() => runOrOpen([scenario.id])}
@@ -359,11 +368,13 @@ export function EvalScenarioTable({
 											<tr className="block border-b bg-muted/30 px-3 py-3 md:table-row md:p-0">
 												<td className="hidden md:table-cell" />
 												<td
-													colSpan={4 + saved.length}
+													colSpan={4}
 													className="block md:table-cell md:py-3 md:pr-3"
 												>
-													<ScenarioHistory
+													<ScenarioDetails
 														scenario={scenario}
+														state={state}
+														saved={saved}
 														onOpenBatch={onOpenBatch}
 													/>
 												</td>
@@ -380,7 +391,9 @@ export function EvalScenarioTable({
 				ids={running}
 				targets={targets}
 				onCancel={() => setRunning(null)}
-				onStart={(chosen, reps) => void start(running ?? [], chosen, reps)}
+				onStart={({ agents, reps, limits }) =>
+					void start(running ?? [], agents, { reps, limits })
+				}
 			/>
 		</section>
 	);
@@ -414,7 +427,7 @@ function NextUp({
 	return (
 		<section
 			aria-label="next up"
-			className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3"
+			className="flex items-start justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3"
 		>
 			<div className="flex min-w-0 flex-col gap-1">
 				<span className="text-muted-foreground text-xs uppercase">Next up</span>
@@ -433,13 +446,4 @@ function NextUp({
 			</Button>
 		</section>
 	);
-}
-
-/** An agent's column name: its agent, model and effort. */
-function pickName(pick: {
-	agent: string;
-	model?: string;
-	effort?: string;
-}): string {
-	return [pick.agent, pick.model, pick.effort].filter(Boolean).join(" ");
 }

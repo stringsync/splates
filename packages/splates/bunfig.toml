@@ -1,0 +1,4 @@
+[test]
+# The tests import the server, which imports the page's build; this makes it
+# when it is missing.
+preload = ["../server/test-preload.ts"]

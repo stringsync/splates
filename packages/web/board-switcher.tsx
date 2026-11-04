@@ -23,13 +23,13 @@ import {
 	ArrowDownIcon,
 	ArrowUpIcon,
 	ChevronDownIcon,
-	LockKeyholeIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
 	PlusIcon,
+	RotateCcwIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -103,6 +103,7 @@ export function BoardSwitcher({
 	actions = serverActions,
 	mode = "switcher",
 	onBrowse,
+	builtIn,
 }: {
 	boards: BoardRecord[];
 	current: number;
@@ -111,6 +112,8 @@ export function BoardSwitcher({
 	actions?: BoardActions;
 	mode?: "switcher" | "index" | "current";
 	onBrowse?: () => void;
+	/** Index only: the Queue row, shown with the Default board in its own section. */
+	builtIn?: ReactNode;
 }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [filter, setFilter] = useState("");
@@ -152,6 +155,9 @@ export function BoardSwitcher({
 	const shown = ordered.filter((each) =>
 		each.name.toLowerCase().includes(filter.toLowerCase()),
 	);
+	const pinned = mode === "index" ? shown.filter(isDefault) : [];
+	const sortable =
+		mode === "index" ? shown.filter((each) => !isDefault(each)) : shown;
 	const sensors = useSensors(
 		useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
 		useSensor(TouchSensor, {
@@ -229,14 +235,20 @@ export function BoardSwitcher({
 					Rename
 				</DropdownMenuItem>
 				<DropdownMenuItem
-					disabled={board.id === ordered[0]?.id}
+					disabled={
+						(isDefault(board) && mode === "index") ||
+						board.id === ordered[0]?.id
+					}
 					onClick={() => shift(board, -1)}
 				>
 					<ArrowUpIcon />
 					Move up
 				</DropdownMenuItem>
 				<DropdownMenuItem
-					disabled={board.id === ordered.at(-1)?.id}
+					disabled={
+						(isDefault(board) && mode === "index") ||
+						board.id === ordered.at(-1)?.id
+					}
 					onClick={() => shift(board, 1)}
 				>
 					<ArrowDownIcon />
@@ -265,8 +277,115 @@ export function BoardSwitcher({
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+	const row = (board: BoardRecord, draggable: boolean) => {
+		const own = tasks.find((each) => each.id === board.id)?.tasks ?? [];
+		const inner = (
+			<>
+				{editing === board.id ? (
+					<NameField
+						initial={board.name}
+						onDone={(value) => void submit(value)}
+					/>
+				) : (
+					<button
+						type="button"
+						onClick={() => {
+							saveBoard(board.id);
+							onPick(board.id);
+							setOpen(false);
+						}}
+						className={cn(
+							"flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent",
+							board.id === now?.id && "font-medium",
+						)}
+					>
+						<span className="truncate">{board.name}</span>
+						{own.some(needsLook) ? (
+							<span
+								role="img"
+								aria-label="Needs a look"
+								className="size-1.5 shrink-0 rounded-full bg-amber-500"
+							/>
+						) : null}
+						<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
+							{own.length}
+						</span>
+					</button>
+				)}
+				{management(board)}
+			</>
+		);
+		const className =
+			mode === "index"
+				? "group flex min-h-16 items-center gap-2 py-2"
+				: "group flex items-center gap-1";
+		return draggable ? (
+			<SortableRow
+				key={board.id}
+				board={board}
+				locked={filter !== ""}
+				className={className}
+			>
+				{inner}
+			</SortableRow>
+		) : (
+			<li key={board.id} className={className}>
+				{mode === "index" && <span aria-hidden className="w-4 shrink-0" />}
+				{inner}
+			</li>
+		);
+	};
+	const builtInSection =
+		mode === "index" && (builtIn !== undefined || pinned.length > 0) ? (
+			<section aria-label="Built-in boards" className="flex flex-col">
+				<h3 className="pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					Built in
+				</h3>
+				<ul className="flex flex-col divide-y">
+					{builtIn}
+					{pinned.map((board) => row(board, false))}
+				</ul>
+			</section>
+		) : null;
+	const archived = boards
+		.filter((each) => each.archived)
+		.filter((each) => each.name.toLowerCase().includes(filter.toLowerCase()));
+	const archivedSection =
+		archived.length > 0 ? (
+			<section aria-label="Archived boards" className="flex flex-col">
+				<h3 className="pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					Archived
+				</h3>
+				<ul className="flex flex-col">
+					{archived.map((board) => (
+						<li key={board.id} className="flex items-center gap-1">
+							<span className="min-w-0 flex-1 truncate px-2 text-muted-foreground">
+								{board.name}
+							</span>
+							<Button
+								size="sm"
+								variant="ghost"
+								aria-label={`Restore ${board.name}`}
+								onClick={() =>
+									void attempt(() => actions.archiveBoard(board.id, false))
+								}
+							>
+								<RotateCcwIcon />
+								Restore
+							</Button>
+						</li>
+					))}
+				</ul>
+			</section>
+		) : null;
 	const content = (
 		<>
+			{builtInSection}
+			{mode === "index" && sortable.length > 0 && (
+				<h3 className="-mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					Your boards
+				</h3>
+			)}
 			{mode !== "index" && (
 				<input
 					ref={field}
@@ -291,7 +410,7 @@ export function BoardSwitcher({
 				onDragEnd={reorder}
 			>
 				<SortableContext
-					items={shown.map((each) => each.id)}
+					items={sortable.map((each) => each.id)}
 					strategy={verticalListSortingStrategy}
 				>
 					<ul
@@ -301,72 +420,12 @@ export function BoardSwitcher({
 								: "flex max-h-72 flex-col overflow-y-auto"
 						}
 					>
-						{shown.length === 0 && (
+						{sortable.length === 0 && pinned.length === 0 && (
 							<li className="py-6 text-muted-foreground text-sm">
 								No boards found.
 							</li>
 						)}
-						{shown.map((board) => {
-							const own =
-								tasks.find((each) => each.id === board.id)?.tasks ?? [];
-							return (
-								<SortableRow
-									key={board.id}
-									board={board}
-									locked={filter !== ""}
-									className={
-										mode === "index"
-											? "group flex min-h-16 items-center gap-2 py-2"
-											: "group flex items-center gap-1"
-									}
-								>
-									{mode === "index" &&
-										(isDefault(board) ? (
-											<span title="The default board is permanent">
-												<LockKeyholeIcon
-													role="img"
-													aria-label="Permanent board"
-													className="size-3.5 shrink-0 text-muted-foreground"
-												/>
-											</span>
-										) : (
-											<span aria-hidden className="size-3.5 shrink-0" />
-										))}
-									{editing === board.id ? (
-										<NameField
-											initial={board.name}
-											onDone={(value) => void submit(value)}
-										/>
-									) : (
-										<button
-											type="button"
-											onClick={() => {
-												saveBoard(board.id);
-												onPick(board.id);
-												setOpen(false);
-											}}
-											className={cn(
-												"flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent",
-												board.id === now?.id && "font-medium",
-											)}
-										>
-											<span className="truncate">{board.name}</span>
-											{own.some(needsLook) ? (
-												<span
-													role="img"
-													aria-label="Needs a look"
-													className="size-1.5 shrink-0 rounded-full bg-amber-500"
-												/>
-											) : null}
-											<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
-												{own.length}
-											</span>
-										</button>
-									)}
-									{management(board)}
-								</SortableRow>
-							);
-						})}
+						{sortable.map((board) => row(board, true))}
 					</ul>
 				</SortableContext>
 			</DndContext>
@@ -376,12 +435,17 @@ export function BoardSwitcher({
 				<button
 					type="button"
 					onClick={() => setEditing("new")}
-					className="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+					className={
+						mode === "index"
+							? "flex min-h-14 items-center justify-center gap-2 rounded-lg border border-dashed text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
+							: "flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+					}
 				>
 					<PlusIcon className="size-3.5" />
-					Create board
+					{mode === "index" ? "Add board" : "Create board"}
 				</button>
 			)}
+			{archivedSection}
 			{refused === null ? null : (
 				<p role="alert" className="text-destructive text-xs">
 					{refused}

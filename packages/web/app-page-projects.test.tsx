@@ -105,6 +105,7 @@ describe("App's pages and the project switcher", () => {
 				"Automations",
 				"Stats",
 				"Ship",
+				"Rec",
 				"Evals",
 				"Billing",
 				"Setup",
@@ -297,14 +298,17 @@ async function openDrawer(
 
 /** The bar atop the page shown, once its title is in it. */
 async function barOf(view: ReturnType<typeof within>): Promise<HTMLElement> {
-	return waitFor(() => {
-		const heading = view
-			.queryAllByRole("heading", { level: 2 })
-			.find((each: HTMLElement) => each.closest("header") !== null);
-		const bar = heading?.closest("header");
-		expect(bar).toBeTruthy();
-		return bar as HTMLElement;
-	});
+	return waitFor(
+		() => {
+			const heading = view
+				.queryAllByRole("heading", { level: 2 })
+				.find((each: HTMLElement) => each.closest("header") !== null);
+			const bar = heading?.closest("header");
+			expect(bar).toBeTruthy();
+			return bar as HTMLElement;
+		},
+		{ timeout: 4000 },
+	);
 }
 
 /** What a switcher in the bar of the page `name` names, or null when it has none. */

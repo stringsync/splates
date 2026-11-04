@@ -53,6 +53,38 @@ describe("App's search", () => {
 		});
 	});
 
+	it("finds a todo by the start of its number", async () => {
+		const { results } = await searchFor("#7");
+		await waitFor(() =>
+			expect(within(results).getByText("Retry the upload")).toBeTruthy(),
+		);
+	});
+
+	it("finds a finished task by a number it took up", async () => {
+		testing.finished = [
+			{
+				key: "5-1760000000000",
+				id: 5,
+				task: "finished-upload",
+				subject: "Finished upload",
+				ended: "merged",
+				reason: null,
+				base: "main",
+				commit: "abc1234",
+				startedAt: "2026-11-01T00:00:00Z",
+				endedAt: "2026-11-01T01:00:00Z",
+				conversation: null,
+				took: [{ id: 1200, subject: "Queued retry" }],
+				hasDemo: false,
+				plan: "",
+			},
+		];
+		const { results } = await searchFor("12");
+		await waitFor(() =>
+			expect(within(results).getByText("finished-upload")).toBeTruthy(),
+		);
+	});
+
 	it("finds a conversation by its words, which the server searches", async () => {
 		testing.talk = {
 			agents: [],

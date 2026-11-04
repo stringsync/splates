@@ -35,7 +35,12 @@ export class BrowserRecording implements Recording {
 	private stopCue = false;
 
 	constructor(
-		private readonly stream: MediaStream,
+		/**
+		 * The mic's stream, for a page that records it too (a `MediaRecorder`)
+		 * without opening the mic again. It stays the recording's: its tracks stop
+		 * on `dispose`.
+		 */
+		readonly stream: MediaStream,
 		private readonly context: AudioContext,
 		private readonly tap: AudioWorkletNode,
 		private readonly encoder: Pcm16Encoder,

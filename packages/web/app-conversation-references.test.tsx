@@ -83,6 +83,32 @@ describe("App's composer references", () => {
 		);
 	});
 
+	it("offers a queued task a finished task took up, by the start of its number", async () => {
+		testing.finished = [
+			{
+				key: "5-1760000000000",
+				id: 5,
+				task: "finished-upload",
+				subject: "Finished upload",
+				ended: "merged",
+				reason: null,
+				base: "main",
+				commit: "abc1234",
+				startedAt: "2026-11-01T00:00:00Z",
+				endedAt: "2026-11-01T01:00:00Z",
+				conversation: null,
+				took: [{ id: 1200, subject: "Queued retry" }],
+				hasDemo: false,
+				plan: "## Goal\n\nFinished upload",
+			},
+		];
+		const { view, box } = await opened();
+		await typeIn(box, "#12");
+		await waitFor(() =>
+			expect(view.getByRole("option", { name: /Queued retry/ })).toBeTruthy(),
+		);
+	});
+
 	it("lists splates's items by category for a #, and writes the one picked as a chip", async () => {
 		const { view, box } = await opened();
 

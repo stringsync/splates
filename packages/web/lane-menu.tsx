@@ -43,8 +43,7 @@ import { useExpectSnapshot } from "./expecting";
 
 /**
  * What can be done to a whole lane: rename it, queue its tasks or take them
- * out, move it, fold
- * it into another, or remove it with its tasks, asking first when it has any.
+ * out, move it, or remove it with its tasks, asking first when it has any.
  */
 export function LaneMenu({
 	lane,

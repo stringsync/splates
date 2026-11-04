@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import {
-	type Answer,
-	PageCache,
-	type PageCaches,
-	type Stale,
-} from "./page-cache";
+import { type Answer, PageCache, type PageCaches } from "./page-cache";
 
 const ORIGIN = "https://splates.example.com";
 
@@ -12,14 +7,13 @@ describe("PageCache", () => {
 	let kept: Map<string, string>;
 	let served: Map<string, Response | "down">;
 	let asked: string[];
-	let told: { client: string; message: Stale }[];
+
 	let cache: PageCache;
 
 	beforeEach(() => {
 		kept = new Map();
 		served = new Map();
 		asked = [];
-		told = [];
 		const caches: PageCaches = {
 			open: async () => ({
 				match: async (key) =>
@@ -35,33 +29,27 @@ describe("PageCache", () => {
 					[...kept.keys()].map((key) => ({ url: `${ORIGIN}${key}` })),
 			}),
 		};
-		cache = new PageCache(
-			caches,
-			{
-				get: async (client) => ({
-					postMessage: (message) => told.push({ client, message }),
-				}),
-			},
-			async (request) => {
-				const url = new URL(
-					typeof request === "string" ? request : request.url,
-					ORIGIN,
-				);
-				const path = `${url.pathname}${url.search}`;
-				asked.push(path);
-				const answer = served.get(path);
-				if (answer === "down") {
-					throw new TypeError("no server");
-				}
-				return answer?.clone() ?? new Response(null, { status: 404 });
-			},
-		);
+		cache = new PageCache(caches, async (request) => {
+			if (request instanceof Request && request.mode === "navigate") {
+				expect(request.cache).toBe("no-cache");
+			}
+			const url = new URL(
+				typeof request === "string" ? request : request.url,
+				ORIGIN,
+			);
+			const path = `${url.pathname}${url.search}`;
+			asked.push(path);
+			const answer = served.get(path);
+			if (answer === "down") {
+				throw new TypeError("no server");
+			}
+			return answer?.clone() ?? new Response(null, { status: 404 });
+		});
 	});
 
 	const navigate = (path: string, init: RequestInit = {}) =>
 		cache.respond(
 			new Request(`${ORIGIN}${path}`, { ...init, mode: "navigate" }),
-			"w1",
 		);
 
 	async function text(answer: Answer | null): Promise<string> {
@@ -79,26 +67,21 @@ describe("PageCache", () => {
 		expect(kept.get("/")).toBe("shell 1");
 	});
 
-	it("serves a kept shell at once, saying nothing while the server's is the same", async () => {
+	it("serves the current shell when the server's is the same", async () => {
 		kept.set("/", "shell 1");
 		served.set("/", new Response("shell 1"));
 
 		expect(await text(navigate("/"))).toBe("shell 1");
-
-		expect(told).toEqual([]);
 	});
 
-	it("keeps a changed shell, drops the files the old one named and tells its window to reload", async () => {
+	it("keeps a changed shell, drops the files the old one named on the first navigation", async () => {
 		kept.set("/", "shell 1");
 		kept.set("/main.js?v=old", "old script");
 		served.set("/", new Response("shell 2"));
 
-		expect(await text(navigate("/"))).toBe("shell 1");
+		expect(await text(navigate("/"))).toBe("shell 2");
 
 		expect([...kept]).toEqual([["/", "shell 2"]]);
-		expect(told).toEqual([
-			{ client: "w1", message: { type: "splates:reload" } },
-		]);
 	});
 
 	it.each(["reload", "no-cache"] as const)(
@@ -111,18 +94,16 @@ describe("PageCache", () => {
 			expect(await text(navigate("/", { cache: cacheMode }))).toBe("shell 2");
 
 			expect([...kept]).toEqual([["/", "shell 2"]]);
-			expect(told).toEqual([]);
 		},
 	);
 
-	it("drops a shell the server refuses, as Access does once sign-in runs out, and reloads", async () => {
+	it("drops a shell the server refuses, as Access does once sign-in runs out, and returns the refusal", async () => {
 		kept.set("/", "shell 1");
 		served.set("/", new Response(null, { status: 403 }));
 
 		await text(navigate("/"));
 
 		expect(kept.has("/")).toBe(false);
-		expect(told).toHaveLength(1);
 	});
 
 	it.each(["default", "reload"] as const)(
@@ -134,15 +115,21 @@ describe("PageCache", () => {
 			expect(await text(navigate("/", { cache: cacheMode }))).toBe("shell 1");
 
 			expect(kept.get("/")).toBe("shell 1");
-			expect(told).toEqual([]);
 		},
 	);
+
+	it("propagates a network failure when no offline shell is available", async () => {
+		served.set("/", "down");
+		const answer = navigate("/");
+		expect(answer?.response).rejects.toThrow("no server");
+		expect(answer?.after).rejects.toThrow("no server");
+	});
 
 	it("keeps the files named by what they hold, and serves them without the network", async () => {
 		served.set("/main.js?v=abc", new Response("script"));
 		served.set("/chunk-x1y2.js", new Response("chunk"));
 		const get = (path: string) =>
-			cache.respond(new Request(`${ORIGIN}${path}`), "");
+			cache.respond(new Request(`${ORIGIN}${path}`));
 
 		await text(get("/main.js?v=abc"));
 		await text(get("/chunk-x1y2.js"));
@@ -156,7 +143,7 @@ describe("PageCache", () => {
 
 	it("leaves the server's reads, unstamped files and writes to the network", () => {
 		const get = (path: string, init?: RequestInit) =>
-			cache.respond(new Request(`${ORIGIN}${path}`, init), "");
+			cache.respond(new Request(`${ORIGIN}${path}`, init));
 
 		expect(get("/api/snapshot")).toBeNull();
 		expect(get("/main.js")).toBeNull();

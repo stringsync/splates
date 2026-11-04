@@ -1,4 +1,5 @@
 import type { ComponentProps, JSX } from "react";
+import { ShipRecap } from "./ship-recap";
 import { ShipRun } from "./ship-run";
 import type { Live } from "./use-live-ships";
 
@@ -13,7 +14,10 @@ export function ActiveShip({
 	onClose,
 	act,
 	sendToAgent,
+	sendSlowToAgent,
 }: {
+	/** Hands a slow project to an agent while the ship carries on; the button shows only when given. */
+	sendSlowToAgent?: ComponentProps<typeof ShipRun>["sendSlowToAgent"];
 	live: Live | null;
 	closed: string | null;
 	/** The run that ended before this one started, not yet replaced by it. */
@@ -33,6 +37,9 @@ export function ActiveShip({
 			</p>
 		);
 	}
+	if (["done", "abandoned"].includes(live.cascade.status)) {
+		return <ShipRecap cascade={live.cascade} />;
+	}
 	return (
 		<ShipRun
 			cascade={live.cascade}
@@ -42,6 +49,7 @@ export function ActiveShip({
 			retry={() => act("retry")}
 			agent={() => act("agent")}
 			sendToAgent={sendToAgent}
+			sendSlowToAgent={sendSlowToAgent}
 		/>
 	);
 }

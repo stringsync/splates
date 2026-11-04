@@ -2,10 +2,12 @@ import type { Cascade, CascadeStep, Ship, Stage } from "@splates/server/ship";
 import { shipName } from "@splates/server/ship/browser";
 
 /**
- * What the ship under way asks of the page: `waiting` while it needs the
- * person (a bump task's questions), `error` once its cascade stopped and so waits on the person to retry or abandon it, `running` while it goes on its own, null while none runs.
+ * What the ship asks of the page: `waiting` while it needs the person (a
+ * bump task's questions), `error` once its cascade stopped and so waits on
+ * the person to retry or abandon it, `done` once it shipped and its recap
+ * waits to be acknowledged, `running` while it goes on its own, null otherwise.
  */
-export type ShipActivity = "error" | "waiting" | "running" | null;
+export type ShipActivity = "error" | "waiting" | "done" | "running" | null;
 
 /** Whether the cascade under way, with its ship, waits on the person. */
 export function needsYou(cascade: Cascade): boolean {
@@ -17,12 +19,17 @@ export function needsYou(cascade: Cascade): boolean {
 	);
 }
 
+/** What the ship in `reading` asks of the page; `acknowledged` is the last ship whose recap the person saw. */
 export function shipActivity(
 	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
+	acknowledged: string | null = null,
 ): ShipActivity {
 	const { cascade, ship } = reading ?? { cascade: null, ship: null };
 	if (cascade?.status === "stopped") {
 		return "error";
+	}
+	if (cascade?.status === "done" && cascade.id !== acknowledged) {
+		return "done";
 	}
 	if (cascade === null || cascade.status !== "running") {
 		return ship?.status === "running" ? "running" : null;

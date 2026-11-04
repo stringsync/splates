@@ -93,6 +93,15 @@ describe("Git", () => {
 		);
 	});
 
+	it("diffs a landed commit against its parent, and null for an unknown one", async () => {
+		await env.commit(env.root, "a.txt", "one\n", "a");
+		await env.commit(env.root, "a.txt", "two\n", "change a");
+		const sha = (await env.gitCli(env.root, "rev-parse", "HEAD")).trim();
+
+		expect(await env.git.commitDiff(sha)).toContain("-one\n+two\n");
+		expect(await env.git.commitDiff("deadbeef")).toBeNull();
+	});
+
 	// vet-ignore simple-test-setup: this diverged branch and its uncommitted edits belong only to the diff case.
 	it("diffs a branch against where it left trunk, with its worktree's uncommitted edits", async () => {
 		await env.commit(env.root, "a.txt", "one\ntwo\n", "a");

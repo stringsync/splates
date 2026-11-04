@@ -27,6 +27,10 @@ export interface EvalRounds {
 	/** The report with the table and its `Stopped by:` line taken out. */
 	rest: string;
 	stoppedBy: string | null;
+	/** The batch the final rates came from, named by a `Final batch:` line. */
+	finalBatch: string | null;
+	/** The commit the kept changes landed as, named by a `Commit:` line. */
+	commit: string | null;
 }
 
 function cells(line: string): string[] {
@@ -95,12 +99,28 @@ export function evalRoundsOf(text: string): EvalRounds | null {
 	const stop = lines.findIndex((line) => /^stopped by:/iu.test(line.trim()));
 	const stoppedBy =
 		stop < 0 ? null : (lines[stop] ?? "").replace(/^[^:]*:\s*/u, "").trim();
+	const named = (name: RegExp): [number, string | null] => {
+		const at = lines.findIndex((line) => name.test(line.trim()));
+		const value =
+			at < 0
+				? ""
+				: (lines[at] ?? "").replace(/^[^:]*:\s*/u, "").replace(/[`\s]/gu, "");
+		return [at, value === "" ? null : value];
+	};
+	const [final, finalBatch] = named(/^final batch:/iu);
+	const [landed, commit] = named(/^commit:/iu);
 	const rest = lines
-		.filter((_, index) => !(index >= head && index < end) && index !== stop)
+		.filter(
+			(_, index) =>
+				!(index >= head && index < end) &&
+				index !== stop &&
+				index !== final &&
+				index !== landed,
+		)
 		.join("\n")
 		.replace(/\n{3,}/gu, "\n\n")
 		.trim();
-	return { rounds, rest, stoppedBy };
+	return { rounds, rest, stoppedBy, finalBatch, commit };
 }
 
 /** How many rounds changed each layer, "2 skill · 1 judge", empty for none. */

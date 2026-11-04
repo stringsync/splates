@@ -1,4 +1,5 @@
 import type { Check } from "@evals/evals/scenario";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "budget";
@@ -40,3 +41,5 @@ export const scenarios: Scenario[] = [
 		limits: { turns: 20, minutes: 10 },
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

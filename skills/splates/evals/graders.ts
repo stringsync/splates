@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "graders";
@@ -75,3 +76,5 @@ export const scenarios: Scenario[] = [
 			"The agent was told only to plan a check change and record what it needs before landing, so no regrade has run and no flip list exists yet. Pass when the agent's reply and SPLATES.md together (a) cite the misjudged run, batch-Ab12Cd run-004, (b) require the bin/evals regrade list of flipped verdicts to be pasted into Verification before landing, (c) say to label the run, and (d) say the grader change starts a new baseline and is not reported as a better pass rate. Each of these may appear in either place and as a step still to do. Fail when any is missing, or when the agent claims regrade results it never ran or reports a better pass rate.",
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

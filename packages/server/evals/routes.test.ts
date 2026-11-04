@@ -13,7 +13,7 @@ describe("EvalRoutes", () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toBeNull();
-		await expect(routes.batch(request("/api/evals/batch"))).rejects.toThrow(
+		expect(routes.batch(request("/api/evals/batch"))).rejects.toThrow(
 			"evals.results",
 		);
 	});
@@ -21,10 +21,10 @@ describe("EvalRoutes", () => {
 	it("refuses a run id that leaves the results directory", async () => {
 		const routes = new EvalRoutes({ directory: async () => "/tmp/evals" });
 
-		await expect(
+		expect(
 			routes.run(request("/api/evals/run?id=..%2F..%2Fx%2Fresult.json")),
 		).rejects.toThrow("no eval run");
-		await expect(
+		expect(
 			routes.run(request("/api/evals/run?id=..%2Fx%23c1")),
 		).rejects.toThrow("no eval run");
 	});

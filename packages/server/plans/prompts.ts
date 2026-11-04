@@ -143,6 +143,40 @@ export function shipFailureReference(
 }
 
 /**
+ * What asks an agent to look into why `project`'s `stage` is slow in ship
+ * `ship`, which is still going: `spent` ms against `expected`. The agent only
+ * looks and reports, since the ship carries on; it stops, retries and starts
+ * nothing unless the person says so.
+ */
+export function shipSlowReference(
+	ship: {
+		id: string;
+		project: string;
+		stage: string;
+		spent: number;
+		expected: number;
+		log?: string | null;
+	},
+	origin: string,
+): string {
+	const log = `${origin}/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage })}`;
+	const minutes = (ms: number) => `${Math.round(ms / 60_000)}m`;
+	const tail = ship.log
+		?.trimEnd()
+		.split("\n")
+		.slice(-SHIP_LOG_LINES)
+		.join("\n");
+	const printed = tail
+		? `\n\nThe end of the stage's log (the last ${SHIP_LOG_LINES} lines at most):\n\n\`\`\`\n${tail}\n\`\`\``
+		: "";
+	return `Ship \`${ship.id}\` is still going, but the \`${ship.stage}\` stage of \`${ship.project}\` is slow: ${minutes(ship.spent)} so far against about ${minutes(ship.expected)} expected. Examine its logs and find why.${printed}
+
+- The stage's log: \`curl '${log}'\`. The ship itself is at ${origin}/api/ship/steps (its cascade, every step and stage).
+- The ship keeps running while you look. Do not stop it, retry it, start a ship, bump a version or publish. If the stage is stuck, say so and what the person should do.
+- Report why it is slow and whether it will finish on its own.`;
+}
+
+/**
  * What asks an agent to make a change to the project's `splates.config.ts`
  * for a setup step, in a task named `task` so the page can show its diff,
  * and to merge it only once the person has seen the diff and approved.
@@ -204,6 +238,13 @@ export const MERGE = "[SPLATES MERGE]";
  */
 export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
+
+/**
+ * What tells an agent the person is not at the machine that can run the
+ * command its run-command card asked for (rec), as that card's Not on this
+ * device sends: the splates skill says what it means.
+ */
+export const RUN_ELSEWHERE = "[SPLATES RUN ELSEWHERE]";
 
 /**
  * What tells an agent the conversation's eval budget (dollars or rounds) is

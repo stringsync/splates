@@ -1,8 +1,9 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
 import type { Command, ProjectRef } from "@splates/server/conversations";
 import { nameOf } from "@splates/server/conversations/browser";
+import type { RecSessionSummary } from "@splates/server/rec/browser";
 import { useContext, useEffect, useMemo, useState } from "react";
-import { paths } from "./api";
+import { paths, recSessions } from "./api";
 import { Lanes } from "./conversation-names";
 import { useHeldConversations } from "./handed-out";
 import type { Named } from "./mentioned";
@@ -103,6 +104,27 @@ export function useProjects(): ProjectRef[] | null {
 		};
 	}, []);
 	return projects;
+}
+
+/**
+ * The sessions rec has recorded, for `#`; none until they come, and none
+ * when rec is not installed. Asked once.
+ */
+export function useRecSessions(): RecSessionSummary[] {
+	const [sessions, setSessions] = useState<RecSessionSummary[]>([]);
+	useEffect(() => {
+		let current = true;
+		recSessions().then(
+			(listed) =>
+				current &&
+				setSessions(Array.isArray(listed?.sessions) ? listed.sessions : []),
+			() => {},
+		);
+		return () => {
+			current = false;
+		};
+	}, []);
+	return sessions;
 }
 
 /**

@@ -183,24 +183,17 @@ export class BoardRoutes {
 		return Response.json(task.state);
 	};
 
-	readonly joinLane = async (request: Request): Promise<Response> => {
-		const { journal, tasks } = this.#project;
-		const from = laneAt(request);
-		const { into } = await body(request);
-		await journal.record("lane join", null, () =>
-			tasks.joinLanes(from, Number(into)),
-		);
-		this.#watch.tick();
-		return Response.json({ lane: Number(into) });
-	};
-
 	readonly addLane = async (request: Request): Promise<Response> => {
 		const { journal, tasks } = this.#project;
-		const { name } = await body(request);
+		const { name, board } = await body(request);
 		const lane = await journal.record(
 			"lane add",
 			null,
-			() => tasks.addLane(String(name ?? "")),
+			() =>
+				tasks.addLane(
+					String(name ?? ""),
+					board === undefined ? undefined : Number(board),
+				),
 			(added) => ({ lane: added.id, name: added.name }),
 		);
 		this.#watch.tick();

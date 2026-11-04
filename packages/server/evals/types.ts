@@ -15,6 +15,10 @@ export interface EvalTarget {
 
 /** One run of a project's evals: a `splates dev eval run`, or any framework's batch. */
 export interface EvalBatch {
+	/** Conversation that launched this batch, when known by this server. */
+	conversation?: string;
+	/** Current totals across that conversation’s rounds. */
+	budget?: import("./budget").EvalBudgetStatus;
 	/** Its directory under the results directory. */
 	id: string;
 	/** The skill it ran, or a framework batch's title, when it says. */
@@ -113,10 +117,9 @@ export interface EvalDetail extends EvalRun {
 
 /**
  * Where a scenario stands: `failing` when its latest batch has a run that
- * failed or errored, `never-run` with no landed run in any batch, `stale` when
- * the latest run's fingerprint differs from the scenario's today, else `passing`.
+ * failed or errored, `never-run` with no landed run in any batch, else `passing`.
  */
-export type EvalScenarioStatus = "failing" | "never-run" | "stale" | "passing";
+export type EvalScenarioStatus = "failing" | "never-run" | "passing";
 
 /** One agent's runs of a scenario in its latest batch. */
 export interface EvalScenarioTarget {

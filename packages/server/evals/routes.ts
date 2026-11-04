@@ -4,8 +4,9 @@ import type { Ps } from "core/system";
 import type { EvalsConfig } from "../config";
 import { fail } from "../exit";
 import type { Handler } from "../server/shared";
+import type { EvalBudgetStatus } from "./budget";
 import { evalsDonePrompt } from "./done";
-import type { EvalCommands } from "./launch";
+import type { EvalCommands, EvalLaunches } from "./launch";
 import { EvalStore } from "./store";
 
 /**
@@ -22,9 +23,27 @@ export class EvalRoutes {
 	/** The batches, or null when the project names no results. */
 	readonly list: Handler = async (request) => {
 		const directory = await this.opts.directory(request);
-		return Response.json(
-			directory === null ? null : await this.storeOf(directory).batches(),
-		);
+		if (directory === null) {
+			return Response.json(null);
+		}
+		const store = this.storeOf(directory);
+		const batches = await store.batches();
+		const owners = await this.opts.launches?.batchConversations(directory);
+		const budgets = new Map<string, EvalBudgetStatus>();
+		for (const batch of batches) {
+			const conversation = owners?.get(batch.id);
+			if (conversation === undefined || this.opts.launches === undefined) {
+				continue;
+			}
+			let budget = budgets.get(conversation);
+			if (budget === undefined) {
+				budget = await this.opts.launches.budgets.statusOf(conversation, store);
+				budgets.set(conversation, budget);
+			}
+			batch.conversation = conversation;
+			batch.budget = budget;
+		}
+		return Response.json(batches);
 	};
 
 	/** `?id=` names the batch, as `EvalBatch.id` does. */
@@ -128,6 +147,8 @@ export function projectEvalCommands(
 }
 
 interface EvalOptions {
+	/** Saved launches linking batches to their conversation budgets. */
+	launches?: EvalLaunches;
 	/** The directory the project `request` names reads its batches from, or null for none. */
 	directory: (request: Request) => Promise<string | null>;
 }

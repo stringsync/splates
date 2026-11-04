@@ -4,6 +4,7 @@ import type { Label } from "@evals/evals/labels";
 import type { Repo } from "@evals/evals/scenario";
 import { CHECKPOINT, RECONNECT, RESUME } from "@splates/server/plans";
 import { firstStep, opens } from "./discovery";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "continuity";
@@ -308,3 +309,5 @@ export const labels: Label[] = [
 		why: "Wrote result.txt on a checkpoint",
 	},
 ];
+
+export const sandbox = splatesSandbox(scenarios);

@@ -1,3 +1,5 @@
+import type { AgentRun } from "./agents";
+
 /**
  * One eval: a repo seeded for it, the person's message, the skill requirement
  * it checks in words, and how the outcome is graded: code checks for what is
@@ -19,6 +21,14 @@ export interface Scenario {
 	/** What the judge decides from the transcript; no judge when absent. */
 	judge?: string;
 	limits?: Limits;
+	/** Off by default. On opencode, a turn that ends without a final answer is resumed, up to `turns` more times. */
+	followUp?: ScenarioFollowUp;
+}
+
+export interface ScenarioFollowUp {
+	turns: number;
+	/** Whether the run so far holds its final answer; by default, when it has a reply. */
+	done?: (run: AgentRun) => boolean;
 }
 
 /** A plain question of the outcome, true when it holds. */
@@ -26,6 +36,8 @@ export interface Check {
 	id: string;
 	/** What it checks, in words, shown beside its result. */
 	about: string;
+	/** Set to true on a check that needs a task board or server, so regrading keeps its old result. */
+	live?: boolean;
 	test: (outcome: Outcome) => boolean | Promise<boolean>;
 }
 

@@ -56,7 +56,8 @@ export type EvalGateVerdict =
 
 /**
  * Whether a run whose plan comes to at most `worstUsd` fits `budget`, given
- * `spentUsd` so far and the `roundsUsed`. The round cap is checked first.
+ * `spentUsd` so far and the `roundsUsed`. The round cap is checked first, and
+ * a loop's first run is never refused for its dollars.
  */
 export function gate(
 	budget: EvalBudget,
@@ -70,6 +71,11 @@ export function gate(
 			limit: "rounds",
 			reason: `the round cap is reached: ${roundsUsed} of ${budget.rounds} rounds used`,
 		};
+	}
+	// A loop's first run always starts: its plan's worst case is a ceiling, not
+	// a charge, so it cannot use the budget up before anything is spent.
+	if (roundsUsed === 0) {
+		return { ok: true };
 	}
 	// Cents, so sums of fractions do not tip a run that exactly fits.
 	if (Math.round((spentUsd + worstUsd) * 100) > Math.round(budget.usd * 100)) {
@@ -96,8 +102,7 @@ export class EvalBudgets {
 
 	/**
 	 * What the conversation's budget stands at: its limits, the dollars and
-	 * tokens spent (a round with no cost in its batch counts at its plan's
-	 * worst case), the rounds started, and the limit that is used up.
+	 * tokens spent (a round with no cost in its batch counts as nothing yet), the rounds started, and the limit that is used up.
 	 */
 	async statusOf(
 		conversation: string,
@@ -109,7 +114,9 @@ export class EvalBudgets {
 		let tokens = 0;
 		for (const round of rounds) {
 			const grid = round.batch === null ? null : await store.grid(round.batch);
-			spentUsd += grid?.costUsd ?? round.worstUsd;
+			// A round whose cost is not known yet (still running, nothing landed)
+			// has spent nothing: its worst case is a ceiling, not a charge.
+			spentUsd += grid?.costUsd ?? 0;
 			tokens += grid?.tokens ?? 0;
 		}
 		const roundsUsed = rounds.length;

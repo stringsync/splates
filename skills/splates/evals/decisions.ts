@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check, Repo } from "@evals/evals/scenario";
 import { APPROVE, questions, stretches } from "@splates/server/plans";
+import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
 const aspect = "decisions";
@@ -86,6 +87,7 @@ const notMerged: Check = {
 const taskOpen: Check = {
 	id: "task-open",
 	about: "the task is still open",
+	live: true,
 	test: async ({ repo }) => {
 		const listed = JSON.parse(
 			await repo.run(["splates", "list", "--json"]),
@@ -121,11 +123,13 @@ const uninitialized: Scenario[] = [
 			{
 				id: "context-under-next",
 				about: "the choice and alternative are noted under a Next step",
+				live: true,
 				test: async ({ repo }) => nextHasContext(await planOf(repo)),
 			},
 			{
 				id: "no-question",
 				about: "left nothing under Blocked",
+				live: true,
 				test: async ({ repo }) => questions(await planOf(repo)).length === 0,
 			},
 			notMerged,
@@ -147,6 +151,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "blocked-large",
 				about: "one open large question is under Blocked",
+				live: true,
 				test: async ({ repo }) => {
 					const open = questions(await planOf(repo)).filter(
 						(each) => !each.done,
@@ -240,6 +245,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "answered",
 				about: "question 3 is checked off with reply b",
+				live: true,
 				test: async ({ repo }) => {
 					const found = questions(await planOf(repo)).filter(
 						(each) => each.number === "3",
@@ -265,6 +271,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "answered",
 				about: "question 3 is checked off with reply a",
+				live: true,
 				test: async ({ repo }) => {
 					const found = questions(await planOf(repo)).filter(
 						(each) => each.number === "3",
@@ -290,6 +297,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "step-recorded",
 				about: "SPLATES.md has the review step",
+				live: true,
 				test: async ({ repo }) => reviewRequested(await planOf(repo)),
 			},
 			reviewCard(),
@@ -308,6 +316,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "step-kept",
 				about: "SPLATES.md keeps the review step",
+				live: true,
 				test: async ({ repo }) => reviewRequested(await planOf(repo)),
 			},
 			reviewCard("main"),
@@ -326,6 +335,7 @@ const uninitialized: Scenario[] = [
 			{
 				id: "no-task",
 				about: "no task was started",
+				live: true,
 				test: async ({ repo }) =>
 					(
 						JSON.parse(
@@ -356,3 +366,5 @@ export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
 	...scenario,
 	initialized: true,
 }));
+
+export const sandbox = splatesSandbox(scenarios);

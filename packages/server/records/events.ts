@@ -162,6 +162,8 @@ export interface Facts {
 		attempts: number;
 	};
 	"task add": {
+		/** File/name identities of failures tracked by this automatic task. */
+		failureKeys?: string[];
 		/** The task it added, by number. */
 		number: number;
 		/** Its line, as the page names it. */
@@ -172,6 +174,8 @@ export interface Facts {
 		position: number;
 	};
 	"task update": {
+		/** Failure identities after adding recurrence evidence; absent on manual edits. */
+		failureKeys?: string[];
 		/** The task, by number. */
 		number: number;
 		/** Its subject once updated, so a line names it though it was reworded. */
@@ -517,8 +521,8 @@ export const FACTS = {
 	"artifact add": ["name", "version", "bytes"],
 	"artifact remove": ["name", "version"],
 	retry: ["attempts"],
-	"task add": ["number", "subject", "lane", "position"],
-	"task update": ["number", "subject", "changed"],
+	"task add": ["number", "subject", "lane", "position", "failureKeys"],
+	"task update": ["number", "subject", "changed", "failureKeys"],
 	"task take": ["tasks"],
 	"task wait": ["until", "began", "number", "subject"],
 	"task release": ["tasks"],
@@ -642,6 +646,8 @@ export function isCurrent(event: Event): boolean {
 					"conflictsLeft",
 				].includes(fact)) ||
 			(event.action === "auto" && fact === "lifted") ||
+			((event.action === "task add" || event.action === "task update") &&
+				fact === "failureKeys") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,
 	);
 }

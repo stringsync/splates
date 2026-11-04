@@ -2,16 +2,14 @@ import { createHash } from "node:crypto";
 import { JUDGE_MODEL, judgePrompt } from "./judge";
 import type { Scenario } from "./scenario";
 
-/**
- * What a scenario's verdict depends on, as one hash: the scenario itself (its
- * message, requirement, seed, change, checks with their code, judge rubric and
- * limits), the installed skill's hash, and the shared judge harness (prompt
- * template and model). Editing one scenario changes only its fingerprint;
- * editing the skill or the judge harness changes every one.
- */
+/** Associate a discovered scenario with the helper sources its graders import. */
+export const dependencyFingerprint = new WeakMap<Scenario, readonly string[]>();
+
+/** Fingerprint a scenario, its discovered helpers, the skill, and the judge harness. */
 export function fingerprintOf(scenario: Scenario, skillHash: string): string {
 	return digest({
 		skillHash,
+		helpers: dependencyFingerprint.get(scenario) ?? [],
 		judge: judgeHarness(),
 		scenario: {
 			id: scenario.id,
@@ -27,6 +25,9 @@ export function fingerprintOf(scenario: Scenario, skillHash: string): string {
 			]),
 			judge: scenario.judge ?? null,
 			limits: scenario.limits ?? null,
+			followUp: scenario.followUp
+				? [scenario.followUp.turns, scenario.followUp.done?.toString() ?? null]
+				: null,
 		},
 	});
 }

@@ -227,6 +227,24 @@ export class Git {
 	}
 
 	/**
+	 * What the commit `sha` changed against its first parent, as a unified
+	 * diff; null when it names no commit here. Untrimmed, like `diff`.
+	 */
+	async commitDiff(sha: string): Promise<string | null> {
+		const { code, stdout } = await this.runner.git(this.root, [
+			"--no-optional-locks",
+			"show",
+			"--format=",
+			"--no-color",
+			"--no-ext-diff",
+			"-m",
+			"--first-parent",
+			`${sha}^{commit}`,
+		]);
+		return code === 0 ? stdout : null;
+	}
+
+	/**
 	 * What `branch` changed since it left `trunk`, as a unified diff, along
 	 * with all the work still uncommitted in `worktree` when there is one, new
 	 * files git does not track yet among it; `uncommitted` names the paths

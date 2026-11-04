@@ -68,10 +68,9 @@ import {
 } from "./supervise";
 
 /**
- * Runs `splates server` with its flags: the page for every registered
- * project, wherever it is started, reached through the tunnel and Access
- * the flags name, or else the ones saved for this machine. Answers the
- * server in the child it runs as, and nothing in the supervisor, which exits.
+ * Runs `splates server` with its flags, serving the page for every registered
+ * project, wherever it is started, through the tunnel and Access the flags
+ * name, or else the ones saved for this machine.
  */
 export async function serveDev(
 	ctx: SplatesDeps,
@@ -141,14 +140,15 @@ async function start(
 			const home = ctx.ps.env("HOME") ?? homedir();
 			await moveLegacyDir(`${home}/.${LEGACY_DIR}`, `${home}/.splates`, ctx);
 		}
-		// A checkout's page is as its last `bun install` built it: installed
-		// again before each start, whose postinstall builds the page, a
-		// restart onto new source serves its page, even one whose commits
-		// added a package.
+		// A checkout builds its page before each start, so a restart onto new
+		// source serves its page.
 		const checkout = (await sourceCommit(ctx.ps)) !== null;
 		const [runtime = "bun"] = ctx.ps.self;
 		const build = checkout
-			? { argv: [runtime, "install"], cwd: dirname(import.meta.dirname) }
+			? {
+					argv: [runtime, `${dirname(import.meta.dirname)}/../web/build.ts`],
+					cwd: dirname(import.meta.dirname),
+				}
 			: null;
 		// The slot is readied here, once, and its child serves it as a bare
 		// `splates server` serves the machine's tunnel, from the slot's home.

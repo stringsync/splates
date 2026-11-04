@@ -3,7 +3,7 @@ export interface Stale {
 	type: "splates:reload";
 }
 
-/** The little of the worker's `caches` this uses. */
+/** Supplies persistent page storage. Pass the service worker’s `caches` object. */
 export interface PageCaches {
 	open(name: string): Promise<{
 		match(request: string): Promise<Response | undefined>;
@@ -11,11 +11,6 @@ export interface PageCaches {
 		delete(request: string): Promise<boolean>;
 		keys(): Promise<readonly { url: string }[]>;
 	}>;
-}
-
-/** A window the worker can tell its shell went stale. */
-export interface StaleWindows {
-	get(id: string): Promise<{ postMessage(message: Stale): void } | undefined>;
 }
 
 /** What `respond` gives back: the answer, and the work to finish after it. */
@@ -29,23 +24,13 @@ const CACHE = "splates.page";
 const SHELL = "/";
 
 /**
- * The page's own files, kept in the service worker so a page opened again,
- * on a phone above all, draws without waiting on the network: the shell at
- * once, checked behind it, and the files named by what they hold for good.
- * Nothing under `/api` or any other address is kept.
- *
- * A shell served from the cache can be one from before a restart, which the
- * page's script would not match: once the server's is found to differ, it is
- * kept in its place, the files the old one named are dropped, and the window
- * it was served to is told to reload. A reload instead goes straight to the
- * network and refreshes the kept shell, so it never paints the old one first.
- * A shell the server refuses, as Cloudflare Access does when sign-in runs out,
- * is dropped, so the reload goes to the network and the sign-in.
+ * Serves the current page online and the last saved page offline.
+ * Call `respond` for each fetch event, then pass its response to `respondWith`
+ * and its remaining work to `waitUntil`. API requests are left to the network.
  */
 export class PageCache {
 	constructor(
 		private readonly caches: PageCaches,
-		private readonly windows: StaleWindows,
 		// Wrapped: a browser refuses its `fetch` called as another object's method.
 		private readonly fetcher: (
 			request: Request | string,
@@ -54,69 +39,39 @@ export class PageCache {
 	) {}
 
 	/**
-	 * How to answer `request`, made for the window `client` (a navigation's
-	 * `resultingClientId`), or null to leave it to the network.
+	 * How to answer `request`, or null to leave it to the network.
 	 */
-	respond(request: Request, client: string): Answer | null {
+	respond(request: Request): Answer | null {
 		if (request.method !== "GET") {
 			return null;
 		}
 		const url = new URL(request.url);
 		if (request.mode === "navigate" && url.pathname === SHELL) {
-			return this.shell(request, client);
+			return this.shell(request);
 		}
 		return named(url)
 			? this.kept(request, `${url.pathname}${url.search}`)
 			: null;
 	}
 
-	/** A reload from the network; otherwise the shell from the cache, checked behind. */
-	private shell(request: Request, client: string): Answer {
-		if (request.cache === "reload" || request.cache === "no-cache") {
-			const response = this.fetcher(request).then(
-				async (fresh) => {
-					await this.replace(fresh.clone());
-					return fresh;
-				},
-				async (error: unknown) => {
-					const cached = await this.cache().then((cache) => cache.match(SHELL));
-					if (cached === undefined) {
-						throw error;
-					}
-					return cached;
-				},
-			);
-			return { response, after: response };
-		}
-		const kept = this.cache().then((cache) => cache.match(SHELL));
-		const response = kept.then(
-			(cached) =>
-				cached ??
-				this.fetcher(request).then((fresh) => {
-					this.keep(SHELL, fresh);
-					return fresh;
-				}),
+	/** Read the shell afresh before choosing the bundle this navigation runs. */
+	private shell(request: Request): Answer {
+		const response = this.fetcher(
+			new Request(request, { cache: "no-cache" }),
+		).then(
+			async (fresh) => {
+				await this.replace(fresh.clone());
+				return fresh;
+			},
+			async (error: unknown) => {
+				const cached = await this.cache().then((cache) => cache.match(SHELL));
+				if (cached === undefined) {
+					throw error;
+				}
+				return cached;
+			},
 		);
-		const after = kept.then((cached) =>
-			cached === undefined ? undefined : this.check(client),
-		);
-		return { response, after };
-	}
-
-	/** Reads the shell afresh and, when it moved on, tells `client`. */
-	private async check(client: string): Promise<void> {
-		const fresh = await this.fetcher(SHELL, {
-			cache: "no-cache",
-			credentials: "include",
-			redirect: "manual",
-		}).catch(() => null);
-		if (fresh === null) {
-			// Offline, or the server is down: what is kept is the best there is.
-			return;
-		}
-		if (await this.replace(fresh)) {
-			(await this.windows.get(client))?.postMessage({ type: "splates:reload" });
-		}
+		return { response, after: response };
 	}
 
 	/** Keeps `fresh`, dropping an old shell's files; whether the shell moved on. */

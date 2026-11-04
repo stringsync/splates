@@ -20,7 +20,7 @@ describe("Queue page's empty state", () => {
 			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
 
-		expect(view.getByText("Nothing running")).toBeTruthy();
+		expect(await view.findByText("Nothing running")).toBeTruthy();
 		expect(
 			view.queryByRole("button", { name: "Start a conversation" }),
 		).toBeNull();

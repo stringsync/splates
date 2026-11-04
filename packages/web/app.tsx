@@ -317,7 +317,7 @@ export function App({
 		wide,
 		openConversation,
 	});
-	// A seeded snapshot draws only the pages it holds; the rest stay empty,
+	// A seeded snapshot draws only the pages it holds; the rest say they open,
 	// until the project's own is in.
 	// Each keyed by project, so a switch starts the pages afresh while the
 	// sidebar and the bars around them stay.
@@ -330,11 +330,19 @@ export function App({
 						Object.entries(pages).map(([each, body]) => [
 							each,
 							<Fragment key={project}>
-								{!seeded || SEEDED_PAGES.has(each as Page) ? body : null}
+								{!seeded || SEEDED_PAGES.has(each as Page) ? (
+									body
+								) : (
+									<Opening
+										missing={missing}
+										waiting={!offline && outdated === null}
+										name={name}
+									/>
+								)}
 							</Fragment>,
 						]),
 					) as Record<Page, ReactNode>),
-		[pages, seeded, project],
+		[pages, seeded, project, missing, offline, outdated, name],
 	);
 	const reachable = !offline && outdated === null;
 	const opening =
@@ -369,7 +377,6 @@ export function App({
 							<SnapshotExpecting value={feed}>
 								<Talking feed={talk}>
 									<Lanes value={searched.lanes}>
-										{/* Here rather than in the sidebar's list, which a phone has none of. */}
 										{available && snapshot !== null && (
 											<Notifications
 												feed={talk}

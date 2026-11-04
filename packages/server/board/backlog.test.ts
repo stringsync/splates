@@ -11,10 +11,9 @@ describe("the permanent Backlog lane", () => {
 			{ id: BACKLOG_LANE, name: "Backlog", board: 1 },
 		]);
 		const task = await deps.tasks.add("deferred", null, { lane: BACKLOG_LANE });
-		const other = await deps.tasks.addLane("Editor");
+		const _other = await deps.tasks.addLane("Editor");
 		await expect(deps.tasks.renameLane(BACKLOG_LANE, "Gone")).toBail("usage");
 		await expect(deps.tasks.dropLane(BACKLOG_LANE)).toBail("usage");
-		await expect(deps.tasks.joinLanes(BACKLOG_LANE, other.id)).toBail("usage");
 		expect((await deps.tasks.find(task.id)).lane).toBe(BACKLOG_LANE);
 	});
 

@@ -231,7 +231,14 @@ export const UserMessage: FC = () => {
 				</Clamped>
 			</Bubble>
 			{(steered || at !== null || told !== null) && (
-				<div className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs">
+				<div
+					className={cn(
+						"text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs",
+						// The bubble sits at a phone's end; what is said of it
+						// starts at the thread's edge.
+						"max-sm:self-start",
+					)}
+				>
 					{at !== null && <Stamp at={at} />}
 					{at !== null && told !== null && <span aria-hidden>·</span>}
 					{told !== null && (
