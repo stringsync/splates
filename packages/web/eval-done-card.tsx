@@ -3,6 +3,7 @@ import { ChevronRightIcon, CircleCheckIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { commitDiff } from "./api";
+import { CardSection } from "./card-section";
 import { CardBody } from "./card-shell";
 import { DiffFiles } from "./changes";
 import {
@@ -65,11 +66,16 @@ export function EvalDoneBody({
 			</section>
 			<Evidence read={read} />
 			{read.rest !== "" && <CardBody text={read.rest} lead={lead} />}
-			<ul aria-label="eval rounds" className="border-border/60 border-t">
-				{read.rounds.map((round) => (
-					<RoundRow key={round.round} round={round} />
-				))}
-			</ul>
+			<CardSection label="rounds" title="Rounds" className="px-4 py-2.5">
+				<ul
+					aria-label="eval rounds"
+					className="-mx-4 border-border/60 border-t"
+				>
+					{read.rounds.map((round) => (
+						<RoundRow key={round.round} round={round} />
+					))}
+				</ul>
+			</CardSection>
 		</>
 	);
 }

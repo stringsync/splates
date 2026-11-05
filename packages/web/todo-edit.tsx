@@ -24,6 +24,7 @@ import { Board as BoardContext } from "./board";
 import { assigned } from "./board-expectations";
 import { CopyLink } from "./card";
 import { AttachPlus } from "./card-box";
+import { CardSection } from "./card-section";
 import { AssigneeMenu, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
 import { useExpectSnapshot } from "./expecting";
@@ -323,8 +324,8 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 }
 
 /**
- * A detail written as `## Before` and `## After` shows as that pair side by
- * side with the rest folded below; any other detail is plain markdown.
+ * A detail written as `## Before` and `## After` shows as that pair stacked,
+ * with the rest folded below; any other detail is plain markdown.
  */
 function DetailText({ text }: { text: string }): JSX.Element {
 	const parts = planParts(text);
@@ -336,12 +337,9 @@ function DetailText({ text }: { text: string }): JSX.Element {
 		<div className="flex min-w-0 flex-col gap-3">
 			<BeforeAfter record={{ before: parts.before, after: parts.goal }} />
 			{rest.length > 0 && (
-				<details>
-					<summary className="cursor-pointer text-muted-foreground text-xs">
-						More
-					</summary>
+				<CardSection label="More" title="More" defaultOpen={false}>
 					<Markdown text={rest.join("\n\n")} />
-				</details>
+				</CardSection>
 			)}
 		</div>
 	);

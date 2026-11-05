@@ -22,6 +22,11 @@ import type {
  */
 export interface ConversationHost {
 	readonly state: ConversationState;
+	/**
+	 * The person set the model or effort since the last turn ended, which
+	 * Auto pick leaves alone for the turn under way; a turn's end clears it.
+	 */
+	personChose: boolean;
 	readonly log: ConversationLog;
 	readonly events: Events<ConversationEvents>;
 	/** What runs it; null when its agent is no longer known. */

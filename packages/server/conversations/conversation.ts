@@ -101,6 +101,8 @@ export class Conversation
 	 * while it is not held.
 	 */
 	private latch: ((go: boolean) => void) | null = null;
+	/** The person set the model or effort since the last turn ended. */
+	personChose = false;
 	/**
 	 * What its next prompt is to follow, for an agent taken off a worker
 	 * while idle: its new session knows nothing of the task. Null for none.

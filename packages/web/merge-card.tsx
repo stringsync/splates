@@ -20,6 +20,7 @@ import {
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { bumpMerge, mergeEstimates } from "./api";
+import { CardSection } from "./card-section";
 import { CardShell } from "./card-shell";
 import { useNow } from "./hooks/use-now";
 import {
@@ -179,36 +180,42 @@ function BatchRole({
 	const chips = (list: string[]) =>
 		list.map((each) => <TaskChip key={each} task={each} inline />);
 	return (
-		<div
-			role="note"
-			aria-label="Batch role"
-			className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b px-4 py-2 text-muted-foreground text-xs @max-md:px-3"
+		<CardSection
+			label="Batch"
+			title="Batch"
+			className="border-b px-4 py-2 @max-md:px-3"
 		>
-			{leads ? (
-				<>
-					<span className="font-medium">
-						Leading a batch of {batch.others.length + 1}.
-					</span>
-					<span>One premerge run tests these together:</span>
-					{chips(batch.others)}
-				</>
-			) : (
-				<>
-					<span className="font-medium">Riding along with</span>
-					<TaskChip task={batch.leader} inline />
-					<span>
-						Its premerge run, shown below, tests this task too. If it fails for{" "}
-						{task} alone, {task} is told and the rest are tested again.
-					</span>
-					{batch.others.length > 0 && (
-						<>
-							<span>Also in the batch:</span>
-							{chips(batch.others)}
-						</>
-					)}
-				</>
-			)}
-		</div>
+			<div
+				role="note"
+				aria-label="Batch role"
+				className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground text-xs"
+			>
+				{leads ? (
+					<>
+						<span className="font-medium">
+							Leading a batch of {batch.others.length + 1}.
+						</span>
+						<span>One premerge run tests these together:</span>
+						{chips(batch.others)}
+					</>
+				) : (
+					<>
+						<span className="font-medium">Riding along with</span>
+						<TaskChip task={batch.leader} inline />
+						<span>
+							Its premerge run, shown below, tests this task too. If it fails
+							for {task} alone, {task} is told and the rest are tested again.
+						</span>
+						{batch.others.length > 0 && (
+							<>
+								<span>Also in the batch:</span>
+								{chips(batch.others)}
+							</>
+						)}
+					</>
+				)}
+			</div>
+		</CardSection>
 	);
 }
 

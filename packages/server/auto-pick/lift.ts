@@ -31,9 +31,10 @@ import { contextOf, journalPick, setOf } from "./start";
  * Builds the hook that, on each message the person sends to a conversation
  * Auto pick started, has the judge read what they have said and moves the
  * conversation to a stronger model or higher thinking level on the same
- * agent when the rules give one, logged with an Undo. Does nothing once the
- * person has moved its model or effort. An answer to the agent's first reply
- * that ended on a bare question moves it to the rules' pick one depth deeper.
+ * agent when the rules give one, logged with an Undo. Leaves alone a model
+ * or effort the person set since the last turn ended, for this turn, the
+ * judge still running or not. An answer to the agent's first reply that
+ * ended on a bare question moves it to the rules' pick one depth deeper.
  */
 export function lifting(
 	project: Project,
@@ -53,7 +54,12 @@ export function lifting(
 	return async (conversation, said) => {
 		const { state } = conversation;
 		const on = state.autoPick;
-		if (on === null || on.overridden || on.agent !== state.agent) {
+		if (
+			on === null ||
+			on.overridden ||
+			on.agent !== state.agent ||
+			conversation.personChose
+		) {
 			return;
 		}
 		if (on.rejudge) {
@@ -85,7 +91,8 @@ export function lifting(
 		if (
 			decision === null ||
 			agent === undefined ||
-			!higher(context.agents, on, decision.pick)
+			!higher(context.agents, on, decision.pick) ||
+			conversation.personChose
 		) {
 			return;
 		}
@@ -149,7 +156,11 @@ async function rejudging(
 		judge,
 		{ task: state.task, conversation: state.id },
 	);
-	if (judged === null || judged.decision.pick.agent !== state.agent) {
+	if (
+		judged === null ||
+		judged.decision.pick.agent !== state.agent ||
+		conversation.personChose
+	) {
 		return;
 	}
 	const { decision } = judged;

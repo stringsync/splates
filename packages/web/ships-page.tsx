@@ -188,7 +188,7 @@ async function sendShipToAgent(
 			: await shipStageLog(failure.id, failure.project, failure.stage).catch(
 					() => null,
 				);
-	const text = shipFailureReference({ ...failure, log }, location.origin);
+	const text = shipFailureReference({ ...failure, log });
 	const state = await startAutoPick({ words: text, task: null });
 	await recordShipAgent(failure.id, failure.project);
 	feed.put(state);
@@ -213,7 +213,7 @@ async function sendSlowShipToAgent(
 	const log = await shipStageLog(slow.id, slow.project, slow.stage).catch(
 		() => null,
 	);
-	const text = shipSlowReference({ ...slow, log }, location.origin);
+	const text = shipSlowReference({ ...slow, log });
 	const state = await startAutoPick({ words: text, task: null });
 	await recordShipAgent(slow.id, slow.project);
 	feed.put(state);

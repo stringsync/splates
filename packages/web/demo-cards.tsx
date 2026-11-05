@@ -4,6 +4,7 @@ import { ClapperboardIcon, ExternalLinkIcon } from "lucide-react";
 import type { JSX } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
 
@@ -30,8 +31,8 @@ export function DemoCard({ demo }: { demo: Demo }): JSX.Element {
 }
 
 /**
- * A demo inside another card: its title over its steps, set apart from what
- * the card says around it by a rule below, unless `className` says otherwise.
+ * A demo inside another card, as a section titled with its name that folds
+ * its steps. A rule sits below it unless `className` says otherwise.
  */
 export function DemoSection({
 	demo,
@@ -41,18 +42,18 @@ export function DemoSection({
 	className?: string;
 }): JSX.Element {
 	return (
-		<section
-			aria-label={`demo${demo.title === null ? "" : ` ${demo.title}`}`}
-			className={cn("border-b", className)}
-		>
-			<div className="flex items-center gap-2 px-4 pt-3">
-				<ClapperboardIcon className="size-4 text-info" />
-				<span className="font-medium text-[13px]">
+		<CardSection
+			label={`demo${demo.title === null ? "" : ` ${demo.title}`}`}
+			title={
+				<>
+					<ClapperboardIcon className="size-4 text-info" />
 					{demo.title === null ? "Demo" : `Demo: ${demo.title}`}
-				</span>
-			</div>
+				</>
+			}
+			className={cn("border-b px-4 pt-3", className)}
+		>
 			<DemoSteps demo={demo} />
-		</section>
+		</CardSection>
 	);
 }
 

@@ -93,6 +93,6 @@ describe("App's reminder of a conversation's task", () => {
 		);
 		expect(
 			shown.getAllByRole("button").map((each) => each.textContent),
-		).toEqual(["Open task"]);
+		).toEqual(["Open task", "Before", "After"]);
 	});
 });

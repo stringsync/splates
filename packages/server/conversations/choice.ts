@@ -29,6 +29,9 @@ export async function choose(
 		);
 	}
 	const aspect = overridden(setting);
+	if (aspect !== null && !byAutoPick) {
+		host.personChose = true;
+	}
 	if (host.state.assigned && aspect !== null && !byAutoPick) {
 		host.log.write({
 			kind: "override",

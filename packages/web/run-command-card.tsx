@@ -22,6 +22,7 @@ import { ActiveShip } from "./active-ship";
 import { actOnShip } from "./api";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
+import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { useNow } from "./hooks/use-now";
@@ -173,20 +174,21 @@ export function RunCommandCard({
 				/>
 			)}
 			{choice === null && send !== null ? (
-				<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
-					<p className="font-medium text-sm leading-snug">Anything else?</p>
-					<CardBox
-						aria-label="Anything else"
-						value={more}
-						placeholder="Your answer (optional)"
-						files={null}
-						onKeyDown={enterDoes}
-						onValue={(text) => {
-							written.current = text;
-							setMore(text);
-							kept.write(text);
-						}}
-					/>
+				<div ref={panel} className="border-t px-4 py-4">
+					<CardSection label="Anything else section" title="Anything else?">
+						<CardBox
+							aria-label="Anything else"
+							value={more}
+							placeholder="Your answer (optional)"
+							files={null}
+							onKeyDown={enterDoes}
+							onValue={(text) => {
+								written.current = text;
+								setMore(text);
+								kept.write(text);
+							}}
+						/>
+					</CardSection>
 				</div>
 			) : choice !== null && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />

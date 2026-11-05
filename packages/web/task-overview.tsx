@@ -1,7 +1,8 @@
 import { cleared, deferralBlockers } from "@splates/server/board/browser";
-import { type JSX, type ReactNode, useContext } from "react";
+import { type JSX, useContext } from "react";
 import { BeforeAfter } from "./before-after";
 import { Board } from "./board";
+import { CardSection } from "./card-section";
 import { deferredTask } from "./deferred-body";
 import { Markdown } from "./markdown";
 import type { PlanParts } from "./task-plan-parts";
@@ -43,10 +44,9 @@ export function Overview({
 					(each) => !cleared(each),
 				);
 	return (
-		<div className="flex min-w-0 flex-col gap-4 text-sm">
+		<div className="flex min-w-0 flex-col gap-6 text-sm">
 			{deferred !== undefined && (
-				<section aria-label="deferral" className="flex flex-col gap-1">
-					<SectionHeading>Deferred</SectionHeading>
+				<CardSection label="deferral" title="Deferred">
 					<p>{deferred.why}</p>
 					{open.length > 0 && (
 						<ul className="list-disc pl-5 text-muted-foreground">
@@ -62,7 +62,7 @@ export function Overview({
 							))}
 						</ul>
 					)}
-				</section>
+				</CardSection>
 			)}
 			{plan === null ? (
 				<p className="text-muted-foreground">{none}</p>
@@ -72,35 +72,31 @@ export function Overview({
 				<>
 					{record !== null && <BeforeAfter record={record} />}
 					{plan.verification !== "" && (
-						<section aria-label="verification" className="flex flex-col gap-1">
-							<SectionHeading>Verification</SectionHeading>
+						<CardSection label="verification" title="Verification">
 							<Markdown text={plan.verification} />
-						</section>
+						</CardSection>
 					)}
 					{plan.steps !== "" && (
-						<section aria-label="steps" className="flex flex-col gap-1">
-							<SectionHeading>
-								Steps
-								{steps.total > 0 && (
-									<span className="font-normal tabular-nums">
-										{steps.done} of {steps.total}
-									</span>
-								)}
-							</SectionHeading>
+						<CardSection
+							label="steps"
+							title={
+								<>
+									Steps
+									{steps.total > 0 && (
+										<span className="font-normal tabular-nums">
+											{steps.done} of {steps.total}
+										</span>
+									)}
+								</>
+							}
+							defaultOpen={steps.total === 0 || steps.done < steps.total}
+						>
 							<Markdown text={plan.steps} />
-						</section>
+						</CardSection>
 					)}
 				</>
 			)}
 			{ports && <TaskPorts task={task} />}
 		</div>
-	);
-}
-
-function SectionHeading({ children }: { children: ReactNode }): JSX.Element {
-	return (
-		<h3 className="flex items-baseline gap-2 font-medium text-muted-foreground text-xs">
-			{children}
-		</h3>
 	);
 }

@@ -40,10 +40,10 @@ export function WelcomePage({
 			<header className="flex items-center gap-6 px-3 pt-6">
 				<PlateIcon className="size-16 shrink-0 rounded-2xl" />
 				<div className="flex flex-col gap-1">
-					<h1 className="font-normal text-3xl tracking-tight">
+					<h1 className="font-medium text-2xl tracking-tight">
 						Welcome back to splates
 					</h1>
-					<p className="text-lg text-muted-foreground italic">
+					<p className="text-base text-muted-foreground">
 						Many agents, one trunk
 					</p>
 				</div>
@@ -87,7 +87,7 @@ function WelcomeGroup({
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2">
-			<h2 className="flex items-center gap-3 px-3 font-mono text-muted-foreground text-xs uppercase">
+			<h2 className="flex items-center gap-3 px-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 				{heading}
 				{loading && (
 					<Loader2Icon
@@ -128,7 +128,7 @@ function WelcomeRow({
 				<span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-5">
 					{icon}
 				</span>
-				<span className="flex-1 text-lg">{label}</span>
+				<span className="flex-1 text-base">{label}</span>
 				{hint && (
 					<span className="hidden truncate text-muted-foreground text-sm sm:block">
 						{hint}

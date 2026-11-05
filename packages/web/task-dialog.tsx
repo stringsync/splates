@@ -19,6 +19,7 @@ import {
 	useHeldConversation,
 	useHeldConversations,
 } from "./handed-out";
+import { HEADING } from "./markdown";
 import { TagChips } from "./tag-chips";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
@@ -76,9 +77,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					ports
 				/>
 				<details className="text-sm">
-					<summary className="cursor-pointer font-medium text-muted-foreground text-xs">
-						Details
-					</summary>
+					<summary className={cn(HEADING, "cursor-pointer")}>Details</summary>
 					<div className="mt-2 flex min-w-0 flex-col gap-4">
 						<Facts task={task} external={external !== null} />
 						{external !== null && caller === null && context !== null && (

@@ -261,7 +261,6 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		);
 		expect(view.getAllByRole("region", { name: /^review/ })).toHaveLength(1);
 		expect(panel.textContent).toContain("The header wraps on phones.");
-		expect(within(panel).getByRole("region", { name: "Checks" })).toBeTruthy();
 
 		await act(async () =>
 			fireEvent.click(within(panel).getByRole("button", { name: "Merge" })),

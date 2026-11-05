@@ -14,7 +14,6 @@ export function EvalCardScenarios({
 }) {
 	return (
 		<>
-			<p className="font-medium">{scenarios.length} scenarios</p>
 			{scenarios.map((scenario) => (
 				<Collapsible key={scenario.id}>
 					<CollapsibleTrigger className="group flex w-full flex-col gap-1 border-t py-2 text-left">

@@ -44,6 +44,12 @@ export interface ShippingOptions {
 	dir: string;
 	/** The `ship` command its `splates.config.ts` names, or null for none. */
 	command: string | null;
+	/**
+	 * Run in the root before the command, via `sh -c`: merges bring the main
+	 * tree dependencies it has never installed, and the command's checks need
+	 * them. A nonzero exit fails the ship before it releases anything.
+	 */
+	prepare?: string | null;
 	/** The project's slug, or the name of the ship target that `target` names. */
 	slug: () => Promise<string>;
 	/**
@@ -265,6 +271,21 @@ export class Shipping implements Resource {
 			...begun(stage, this.stamp()),
 			log: { from: this.bytes, to: null },
 		}));
+		const { prepare } = this.opts;
+		if (prepare) {
+			await this.say(`$ ${prepare}\n`);
+			const prepared = await this.watch(
+				ps.startOnTerminal(["sh", "-c", prepare], { ...TERMINAL, cwd: root }),
+				"ship",
+			);
+			if (prepared !== 0 || this.stopped) {
+				await this.end(
+					"failed",
+					this.stopped ? STOPPED : `${prepare} exited ${prepared}`,
+				);
+				return;
+			}
+		}
 		const code = await this.watch(
 			ps.startOnTerminal(quietly(command), {
 				...TERMINAL,

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { CardSection } from "./card-section";
 import { LANDED } from "./landed-outcomes";
 import { Markdown } from "./markdown";
 import { mergedFacts } from "./merged-facts";
@@ -59,72 +60,75 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 	// A removed task never went through the gate, so it has none to report.
 	const removed = landed.outcome.ended === "removed";
 	return (
-		<section
-			aria-label="how it went"
-			className="flex flex-col gap-3 border-t px-4 py-3 text-xs"
+		<CardSection
+			label="how it went"
+			title="How it went"
+			className="border-t px-4 py-3 text-xs"
 		>
-			<dl className="grid grid-cols-2 gap-x-4 gap-y-2 @md:grid-cols-4">
-				{facts.stats.map((stat) => (
-					<div key={stat.label} className="flex min-w-0 flex-col">
-						<dt className="text-muted-foreground">{stat.label}</dt>
-						<dd
-							className={cn(
-								"flex items-center gap-1 font-medium text-sm tabular-nums",
-								stat.high && "text-warning",
-							)}
-							title={stat.high ? "Above this project's usual" : undefined}
-						>
-							{typeof stat.value === "string" ? (
-								stat.value
-							) : (
-								<span>
-									<span className="text-success">+{stat.value.added}</span>{" "}
-									<span className="text-destructive">
-										−{stat.value.removed}
+			<div className="flex flex-col gap-3">
+				<dl className="grid grid-cols-2 gap-x-4 gap-y-2 @md:grid-cols-4">
+					{facts.stats.map((stat) => (
+						<div key={stat.label} className="flex min-w-0 flex-col">
+							<dt className="text-muted-foreground">{stat.label}</dt>
+							<dd
+								className={cn(
+									"flex items-center gap-1 font-medium text-sm tabular-nums",
+									stat.high && "text-warning",
+								)}
+								title={stat.high ? "Above this project's usual" : undefined}
+							>
+								{typeof stat.value === "string" ? (
+									stat.value
+								) : (
+									<span>
+										<span className="text-success">+{stat.value.added}</span>{" "}
+										<span className="text-destructive">
+											−{stat.value.removed}
+										</span>
 									</span>
-								</span>
+								)}
+								{stat.high && (
+									<ArrowUpIcon aria-label="above usual" className="size-3.5" />
+								)}
+							</dd>
+							{stat.detail !== null && (
+								<dd className="text-muted-foreground">{stat.detail}</dd>
 							)}
-							{stat.high && (
-								<ArrowUpIcon aria-label="above usual" className="size-3.5" />
-							)}
-						</dd>
-						{stat.detail !== null && (
-							<dd className="text-muted-foreground">{stat.detail}</dd>
-						)}
-					</div>
-				))}
-			</dl>
+						</div>
+					))}
+				</dl>
 
-			{!removed && (landed.outcome.batch?.length ?? 0) > 1 && (
-				<p className="text-muted-foreground">
-					Gated with{" "}
-					{landed.outcome.batch
-						?.filter((task) => task !== landed.outcome.task)
-						.join(", ")}
-				</p>
-			)}
-			{removed ? null : facts.gate === null ? (
-				<p className="flex items-center gap-1.5 text-success">
-					<CircleCheckIcon aria-hidden className="size-3.5" />
-					Gate passed first try
-				</p>
-			) : (
-				<Facts
-					label="gate"
-					facts={facts.gate}
-					Icon={CircleXIcon}
-					tone="text-destructive"
-				/>
-			)}
-			{facts.findings.length > 0 && (
-				<Facts
-					label="findings"
-					facts={facts.findings}
-					Icon={CircleAlertIcon}
-					tone="text-warning"
-				/>
-			)}
-		</section>
+				{!removed && (landed.outcome.batch?.length ?? 0) > 1 && (
+					<p className="text-muted-foreground">
+						Gated with{" "}
+						{landed.outcome.batch
+							?.filter((task) => task !== landed.outcome.task)
+							.join(", ")}
+					</p>
+				)}
+				{removed ? null : facts.gate === null ? (
+					<p className="flex items-center gap-1.5 text-success">
+						<CircleCheckIcon aria-hidden className="size-3.5" />
+						Gate passed first try
+					</p>
+				) : (
+					<Facts
+						label="gate"
+						facts={facts.gate}
+						Icon={CircleXIcon}
+						tone="text-destructive"
+					/>
+				)}
+				{facts.findings.length > 0 && (
+					<Facts
+						label="findings"
+						facts={facts.findings}
+						Icon={CircleAlertIcon}
+						tone="text-warning"
+					/>
+				)}
+			</div>
+		</CardSection>
 	);
 }
 

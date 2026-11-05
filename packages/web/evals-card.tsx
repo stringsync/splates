@@ -31,6 +31,7 @@ import {
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
+import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { EvalAgentsEditor } from "./eval-agents";
@@ -237,72 +238,72 @@ export function EvalsCard({
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
 			{launch === null && !turnedDown ? (
 				<>
-					<section
-						aria-label="scenarios"
-						className="mx-4 mb-3 flex flex-col gap-3 text-sm"
+					<CardSection
+						label="scenarios"
+						title={`${state.scenarios.length} scenarios`}
+						className="mx-4 mb-3 text-sm"
 					>
-						<EvalCardScenarios scenarios={state.scenarios} />
-						{state.unknown.length > 0 && (
-							<p className="text-destructive text-xs">
-								Not a scenario: {state.unknown.join(", ")}
-							</p>
-						)}
-					</section>
-					<fieldset
-						aria-label="agents"
-						className="mx-4 mb-3 flex flex-col gap-2 text-sm"
-					>
-						<legend className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-							Run on
-						</legend>
-						{state.unknownAgents.length > 0 && (
-							<p className="text-destructive text-xs">
-								Not a saved agent: {state.unknownAgents.join(", ")}
-							</p>
-						)}
-						<ul className="flex flex-col gap-1.5">
-							{state.agents.map((each, index) => (
-								<li
-									key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
-								>
-									<label
-										htmlFor={`eval-agent-${index}`}
-										className={`flex cursor-pointer items-center gap-2 text-sm ${each.on ? "text-foreground" : "text-muted-foreground"}`}
-									>
-										<Checkbox
-											id={`eval-agent-${index}`}
-											checked={each.on}
-											onCheckedChange={() => void run.toggle(index)}
-										/>
-										{[each.pick.agent, each.pick.model, each.pick.effort]
-											.filter((part) => part !== undefined)
-											.join(" ")}
-									</label>
-								</li>
-							))}
-						</ul>
-						<div>
-							<Dialog onOpenChange={(now) => now || void run.load()}>
-								<DialogTrigger
-									render={
-										<Button size="xs" variant="ghost" className="gap-1" />
-									}
-								>
-									<SettingsIcon data-icon="inline-start" />
-									{state.agents.length === 0 ? "Add agents" : "Edit agents"}
-								</DialogTrigger>
-								<DialogContent className="sm:max-w-2xl">
-									<DialogTitle>Saved eval agents</DialogTitle>
-									<EvalAgentsView editor={editor} />
-								</DialogContent>
-							</Dialog>
+						<div className="flex flex-col gap-3">
+							<EvalCardScenarios scenarios={state.scenarios} />
+							{state.unknown.length > 0 && (
+								<p className="text-destructive text-xs">
+									Not a scenario: {state.unknown.join(", ")}
+								</p>
+							)}
 						</div>
-						{state.agents.length === 0 && state.loaded && (
-							<p className="text-muted-foreground text-xs">
-								No saved agents yet.
-							</p>
-						)}
-					</fieldset>
+					</CardSection>
+					<CardSection label="agents" title="Run on" className="mx-4 mb-3">
+						<fieldset className="flex flex-col gap-2 text-sm">
+							<legend className="sr-only">Run on</legend>
+							{state.unknownAgents.length > 0 && (
+								<p className="text-destructive text-xs">
+									Not a saved agent: {state.unknownAgents.join(", ")}
+								</p>
+							)}
+							<ul className="flex flex-col gap-1.5">
+								{state.agents.map((each, index) => (
+									<li
+										key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
+									>
+										<label
+											htmlFor={`eval-agent-${index}`}
+											className={`flex cursor-pointer items-center gap-2 text-sm ${each.on ? "text-foreground" : "text-muted-foreground"}`}
+										>
+											<Checkbox
+												id={`eval-agent-${index}`}
+												checked={each.on}
+												onCheckedChange={() => void run.toggle(index)}
+											/>
+											{[each.pick.agent, each.pick.model, each.pick.effort]
+												.filter((part) => part !== undefined)
+												.join(" ")}
+										</label>
+									</li>
+								))}
+							</ul>
+							<div>
+								<Dialog onOpenChange={(now) => now || void run.load()}>
+									<DialogTrigger
+										render={
+											<Button size="xs" variant="ghost" className="gap-1" />
+										}
+									>
+										<SettingsIcon data-icon="inline-start" />
+										{state.agents.length === 0 ? "Add agents" : "Edit agents"}
+									</DialogTrigger>
+									<DialogContent className="sm:max-w-2xl">
+										<DialogTitle>Saved eval agents</DialogTitle>
+										<EvalAgentsView editor={editor} />
+									</DialogContent>
+								</Dialog>
+							</div>
+							{state.agents.length === 0 && state.loaded && (
+								<p className="text-muted-foreground text-xs">
+									No saved agents yet.
+								</p>
+							)}
+						</fieldset>
+					</CardSection>
 					<fieldset
 						aria-label="run settings"
 						className="mx-4 mb-3 grid grid-cols-3 gap-2 text-xs"

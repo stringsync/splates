@@ -333,7 +333,7 @@ export async function merge(
 				await enter("finish");
 				const holder = await git.worktreeFor(base);
 				await finishLanding(
-					{ service, git, config, log, tasks, slots, branches, timing },
+					{ service, git, config, log, shell, tasks, slots, branches, timing },
 					{
 						current: worktree,
 						head: await git.out(
@@ -608,7 +608,7 @@ export async function merge(
 			}
 			await enter("finish");
 			await finishLanding(
-				{ service, git, config, log, tasks, slots, branches, timing },
+				{ service, git, config, log, shell, tasks, slots, branches, timing },
 				{ ...result, testTimes },
 				facts,
 			);

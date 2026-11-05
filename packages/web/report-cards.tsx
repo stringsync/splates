@@ -18,7 +18,7 @@ import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { CardArchive, useArchivable } from "./archive-offer";
-import { BeforeAfter, cardRecord, FoldedProse } from "./before-after";
+import { BeforeAfter, cardRecord } from "./before-after";
 import { Board } from "./board";
 import { Badge } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
@@ -151,11 +151,7 @@ export function ReportCard({
 									record={record}
 									className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
 								/>
-								{text !== "" && (
-									<FoldedProse>
-										<MergedBody text={text} outcome={undefined} />
-									</FoldedProse>
-								)}
+								{text !== "" && <MergedBody text={text} outcome={undefined} />}
 							</>
 						) : merged ? (
 							<MergedBody text={text} outcome={landed?.outcome.outcome} />

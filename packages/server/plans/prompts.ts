@@ -104,27 +104,26 @@ const SHIP_LOG_LINES = 150;
 
 /**
  * What asks an agent to look into ship `ship`, stopped at `project`'s `stage`:
- * read its logs from the server at `origin`, prescribe a fix and land it,
- * then continue the ship. The person asked for the retry by sending this, so
- * the agent may make it; it starts no ship of its own. The failure's `note` and
- * the end of the stage's `log` go in the text, since an agent may not reach
- * the server to read them.
+ * read its logs from the server, prescribe a fix and land it, then continue
+ * the ship. The person asked for the retry by sending this, so the agent may
+ * make it; it starts no ship of its own. The failure's `note` and the end of
+ * the stage's `log` go in the text, since an agent may not reach the server to
+ * read them.
  */
-export function shipFailureReference(
-	ship: {
-		id: string;
-		project: string;
-		stage: string | null;
-		note?: string | null;
-		log?: string | null;
-	},
-	origin: string,
-): string {
+export function shipFailureReference(ship: {
+	id: string;
+	project: string;
+	stage: string | null;
+	note?: string | null;
+	log?: string | null;
+}): string {
+	// `$SPLATES_DEV`, as the page's own address may be a tunnel behind a login,
+	// and a write names it as its `Origin`, which the server asks of every write.
 	const where =
 		ship.stage === null
 			? `\`${ship.project}\``
 			: `the \`${ship.stage}\` stage of \`${ship.project}\``;
-	const log = `${origin}/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
+	const log = `$SPLATES_DEV/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
 	const note = ship.note ? `\n\nThe ship's note: ${ship.note}` : "";
 	const tail = ship.log
 		?.trimEnd()
@@ -136,9 +135,9 @@ export function shipFailureReference(
 		: "";
 	return `Ship \`${ship.id}\` stopped at ${where}. Examine its logs, find why it failed, and prescribe a fix.${note}${printed}
 
-- The stage's log: \`curl '${log}'\`. The ship itself is at ${origin}/api/ship/steps (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
+- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/ship/steps"\` (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
 - When the fix is a code change, make it as a task and land it as the splates skill says. When it is not (a registry, a credential, something outside the repository), say what the person must do.
-- Once the fix is in, continue the ship by retrying it in place: \`curl -X POST ${origin}/api/ship/steps/retry\`. The person asked for this by sending you here. Retry nothing else, and never start a ship, bump a version or publish by hand.
+- Once the fix is in, continue the ship by retrying it in place: \`curl -X POST -H "Origin: $SPLATES_DEV" "$SPLATES_DEV/api/ship/steps/retry"\`. The person asked for this by sending you here. Retry nothing else, and never start a ship, bump a version or publish by hand.
 - Report what failed, what you changed, and where the ship stands.`;
 }
 
@@ -148,18 +147,15 @@ export function shipFailureReference(
  * looks and reports, since the ship carries on; it stops, retries and starts
  * nothing unless the person says so.
  */
-export function shipSlowReference(
-	ship: {
-		id: string;
-		project: string;
-		stage: string;
-		spent: number;
-		expected: number;
-		log?: string | null;
-	},
-	origin: string,
-): string {
-	const log = `${origin}/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage })}`;
+export function shipSlowReference(ship: {
+	id: string;
+	project: string;
+	stage: string;
+	spent: number;
+	expected: number;
+	log?: string | null;
+}): string {
+	const log = `$SPLATES_DEV/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage })}`;
 	const minutes = (ms: number) => `${Math.round(ms / 60_000)}m`;
 	const tail = ship.log
 		?.trimEnd()
@@ -171,7 +167,7 @@ export function shipSlowReference(
 		: "";
 	return `Ship \`${ship.id}\` is still going, but the \`${ship.stage}\` stage of \`${ship.project}\` is slow: ${minutes(ship.spent)} so far against about ${minutes(ship.expected)} expected. Examine its logs and find why.${printed}
 
-- The stage's log: \`curl '${log}'\`. The ship itself is at ${origin}/api/ship/steps (its cascade, every step and stage).
+- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/ship/steps"\` (its cascade, every step and stage).
 - The ship keeps running while you look. Do not stop it, retry it, start a ship, bump a version or publish. If the stage is stuck, say so and what the person should do.
 - Report why it is slow and whether it will finish on its own.`;
 }

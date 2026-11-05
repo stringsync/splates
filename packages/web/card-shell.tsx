@@ -16,6 +16,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { WIDE } from "./app-nav";
+import { CardSection } from "./card-section";
 import { Markdown } from "./markdown";
 import { TaskOnto } from "./task-onto";
 
@@ -243,8 +244,79 @@ function Header({
 	);
 }
 
-/** Render a card's markdown with its spacing contained. */
+/** `text` cut at its headings, outside code fences: a lead and one part per heading. */
+export function partsOf(text: string): {
+	lead: string;
+	parts: { title: string; body: string }[];
+} {
+	const parts: { title: string; lines: string[] }[] = [];
+	const lead: string[] = [];
+	let fenced = false;
+	for (const line of text.split("\n")) {
+		if (/^\s*(```|~~~)/.test(line)) {
+			fenced = !fenced;
+		}
+		const heading = fenced ? null : /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
+		if (heading !== null) {
+			parts.push({ title: heading[1] ?? "", lines: [] });
+		} else {
+			(parts.at(-1)?.lines ?? lead).push(line);
+		}
+	}
+	return {
+		lead: lead.join("\n").trim(),
+		parts: parts.map((each) => ({
+			title: each.title,
+			body: each.lines.join("\n").trim(),
+		})),
+	};
+}
+
+/**
+ * Render a card's markdown with its spacing contained. Each heading in it
+ * opens and closes the text under it.
+ */
 export function CardBody({
+	text,
+	lead = false,
+	className,
+}: {
+	text: string;
+	/** Whether its first paragraph leads, set in a heavier weight. */
+	lead?: boolean;
+	className?: string;
+}): JSX.Element {
+	const cut = partsOf(text);
+	if (cut.parts.length === 0) {
+		return <CardMarkdown text={text} lead={lead} className={className} />;
+	}
+	return (
+		<div
+			className={cn(
+				"flex flex-col gap-3 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5",
+				className,
+			)}
+		>
+			{cut.lead !== "" && (
+				<CardMarkdown text={cut.lead} lead={lead} className="p-0 @max-md:p-0" />
+			)}
+			{cut.parts.map((part, i) => (
+				<CardSection
+					// biome-ignore lint/suspicious/noArrayIndexKey: headings may repeat
+					key={i}
+					label={part.title}
+					title={part.title}
+				>
+					{part.body !== "" && (
+						<CardMarkdown text={part.body} className="p-0 @max-md:p-0" />
+					)}
+				</CardSection>
+			))}
+		</div>
+	);
+}
+
+function CardMarkdown({
 	text,
 	lead = false,
 	className,

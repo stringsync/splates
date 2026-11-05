@@ -7,6 +7,7 @@ import { freedLine, type Slots } from "../ports";
 import type { Facts } from "../records";
 import type { DiffSize, Worktree, WorktreeService } from "../tasks";
 import { recommend, recommendation } from "../tasks";
+import type { Shell } from "../terminal";
 import { pushedLine, type TaskBranches } from "./branches";
 import type { TimedTest } from "./test-report";
 import type { MergeTiming } from "./timing";
@@ -28,6 +29,13 @@ export interface Landing {
 	testTimes: TimedTest[];
 }
 
+/** A file whose change means the tree's installed dependencies may be behind. */
+const LOCKFILE =
+	/(?:^|\/)(?:bun\.lock|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/;
+
+/** How long the main tree's install may run before the merge reports it stuck. */
+const INSTALL_DEADLINE_MS = 180_000;
+
 /**
  * Ends a merge whose work is on the base: discards the worktree, frees its
  * slot, drops any pushed branch, takes the queued tasks it took off the list
@@ -39,6 +47,7 @@ export async function finishLanding(
 		git,
 		config,
 		log,
+		shell,
 		tasks,
 		slots,
 		branches,
@@ -47,6 +56,7 @@ export async function finishLanding(
 		service: WorktreeService;
 		git: Git;
 		config: Config;
+		shell: Pick<Shell, "run">;
 		log: Logger;
 		tasks: Tasks;
 		slots: Slots;
@@ -84,6 +94,13 @@ export async function finishLanding(
 			{ task },
 		);
 	}
+	// Only a worktree's hook ran for this landing, so the main tree holds a lock
+	// its node_modules is behind, and whatever runs there next fails on it.
+	const here =
+		landing.landing === git.root &&
+		(landed === null || landed.local === "moved") &&
+		changed.some((path) => LOCKFILE.test(path));
+	const install = here ? await installMainTree(shell, config, git.root) : null;
 	const freed = await slots.release(current.path);
 	// Landed is landed: a remote that kept its copy only has a stray branch.
 	const unpushed = pushedLine(await branches.delete(task), "deleted");
@@ -113,6 +130,7 @@ export async function finishLanding(
 					),
 				]
 			: []),
+		...(install === null ? [] : [color.yellow(`  ${install}`)]),
 		...(facts.batch === undefined
 			? []
 			: [
@@ -138,4 +156,26 @@ export async function finishLanding(
 		);
 	}
 	log.info(lines.join("\n"));
+}
+
+/** Runs the install hook in the main tree; what went wrong, since the work has landed either way. */
+async function installMainTree(
+	shell: Pick<Shell, "run">,
+	config: Config,
+	root: string,
+): Promise<string | null> {
+	if (!config.postRewrite) {
+		return null;
+	}
+	const stuck = `could not install in ${root}; run \`${config.postRewrite}\` there`;
+	try {
+		const run = await shell.run(config.postRewrite, root, {
+			timeoutMs: INSTALL_DEADLINE_MS,
+		});
+		return run.exitCode === 0
+			? null
+			: `${stuck}: ${(run.stderr || run.stdout).trim()}`;
+	} catch (error) {
+		return `${stuck}: ${String(error)}`;
+	}
 }

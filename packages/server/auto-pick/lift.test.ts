@@ -183,6 +183,19 @@ describe("lifting", () => {
 		expect(conversation.state.autoPick?.overridden).toBe(false);
 	});
 
+	it("leaves a model the person set before their message alone for that turn only", async () => {
+		const conversation = await start();
+		judge = new FakeJudge(WIDE);
+		await conversation.choose("model", "small");
+		await say(conversation, WIDENING);
+
+		expect(on).toEqual(["small", "small"]);
+		expect(conversation.state.autoPick?.model).toBe("small");
+
+		await say(conversation, WIDENING);
+		expect(on).toEqual(["small", "small", "big"]);
+	});
+
 	it("moves the conversation up for the answer to a first reply that asked back", async () => {
 		answers = ["I can rename it in src or everywhere. Which do you want?\n"];
 		const conversation = await start();

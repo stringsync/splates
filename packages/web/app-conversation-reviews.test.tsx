@@ -48,7 +48,7 @@ describe("App's review panel and demo cards", () => {
 			name: "Message input",
 		});
 
-	it("leads with the live task's Before and After, its prose folded", async () => {
+	it("leads with the live task's Before and After, its prose below", async () => {
 		const view = await testing.openConversations([reviewing], undefined, {
 			tasks: [
 				details({
@@ -66,10 +66,6 @@ describe("App's review panel and demo cards", () => {
 			),
 		).toBeTruthy();
 		expect(within(panel).getByText("It fits.")).toBeTruthy();
-		expect(within(panel).queryByText("The header wraps on phones.")).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(panel).getByRole("button", { name: "Details" })),
-		);
 		expect(within(panel).getByText("The header wraps on phones.")).toBeTruthy();
 	});
 
@@ -377,72 +373,13 @@ describe("App's review panel and demo cards", () => {
 		const regions = within(panel)
 			.getAllByRole("region")
 			.map((each) => each.getAttribute("aria-label"));
-		expect(regions).toEqual(["demo dragging a card", "Checks", "Details"]);
+		expect(regions).toEqual(["demo dragging a card"]);
 		const text = panel.textContent ?? "";
 		expect(text.indexOf("The header wraps on phones.")).toBeLessThan(
 			text.indexOf("Drag it to another lane."),
 		);
-		// The checks wait behind their toggle, which says they passed.
-		expect(view.queryByText("bun run typecheck")).toBeNull();
-		fireEvent.click(
-			within(panel).getByRole("button", { name: "Checks passed" }),
-		);
-		const checks = within(panel).getByRole("region", { name: "Checks" });
-		await waitFor(() =>
-			expect(within(checks).getByText("bun run typecheck")).toBeTruthy(),
-		);
-		expect(within(checks).getByText("bun test")).toBeTruthy();
-		// The details show at once, under their header.
-		const details = within(panel).getByRole("region", { name: "Details" });
 		expect(
-			within(details).getByRole("heading", { name: "Details" }),
-		).toBeTruthy();
-		expect(
-			within(details).getByText("It breaks at 400px, kept in one constant."),
-		).toBeTruthy();
-	});
-
-	it("says on a review's folded checks when one failed, and which", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					title: "Header",
-					messages: [
-						message(
-							"agent",
-							[
-								"## 🔍 Ready to merge header onto main",
-								"",
-								"The header wraps on phones.",
-								"",
-								"Checks: `bun test`",
-								"",
-								"Failed: `bun run lint`",
-								"",
-								'Reply "merge", or say what to change.',
-							].join("\n"),
-						),
-					],
-				}),
-			],
-			"c1",
-		);
-
-		const panel = await waitFor(() =>
-			view.getByRole("region", { name: "review header" }),
-		);
-		fireEvent.click(
-			within(panel).getByRole("button", { name: "Checks failed" }),
-		);
-		const lint = await waitFor(() => within(panel).getByText("bun run lint"));
-		expect(
-			lint.closest("li")?.querySelector('[aria-label="failed"]'),
-		).toBeTruthy();
-		expect(
-			within(panel)
-				.getByText("bun test")
-				.closest("li")
-				?.querySelector('[aria-label="passed"]'),
+			within(panel).getByText("It breaks at 400px, kept in one constant."),
 		).toBeTruthy();
 	});
 });

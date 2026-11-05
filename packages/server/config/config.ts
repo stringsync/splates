@@ -26,7 +26,8 @@ export interface Config {
 	/**
 	 * Command run by `merge` after the rebase, before `preMerge`, via `sh -c`.
 	 * A rebase can bring in a dependency the worktree has never installed, and
-	 * whatever `preMerge` runs needs it.
+	 * whatever `preMerge` runs needs it. A ship runs it too, in the main tree
+	 * before its command, and so does a landing that changes a lockfile.
 	 */
 	postRewrite: string | null;
 	/**

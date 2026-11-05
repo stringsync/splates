@@ -1,15 +1,10 @@
-import { ChevronRightIcon } from "lucide-react";
-import { type JSX, type ReactNode, useMemo, useState } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+import { type JSX, useMemo, useState } from "react";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "#web/components/ui/toggle-group.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { CardSection } from "./card-section";
 import { Markdown } from "./markdown";
 import { paragraphs } from "./merged-body";
 import { planParts } from "./task-plan-parts";
@@ -33,9 +28,8 @@ export function cardRecord(plan: string | null | undefined): CardRecord | null {
 }
 
 /**
- * A record's opening: Before and After side by side, stacked where there is no
- * room for two. Their headings and first pictures start level, and each
- * column's words follow its own picture. An After with both Expected and
+ * A record's opening: Before and After stacked as two sections, each under a
+ * level-two heading, its words following its own picture. An After with both Expected and
  * Actual switches between them, opening on Actual.
  */
 export function BeforeAfter({
@@ -49,31 +43,11 @@ export function BeforeAfter({
 	const after = useMemo(() => sideOf(record.after), [record.after]);
 	return (
 		<div className={cn("@container min-w-0 text-sm", className)}>
-			<div className="grid min-w-0 items-start gap-4 @md:grid-cols-2">
+			<div className="flex min-w-0 flex-col gap-6">
 				{record.before !== "" && <Column label="Before" side={before} />}
 				{record.after !== "" && <Column label="After" side={after} />}
 			</div>
 		</div>
-	);
-}
-
-/** The prose a card keeps below its Before and After, closed until opened. */
-export function FoldedProse({
-	children,
-}: {
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<Collapsible
-			render={<section aria-label="Details" />}
-			className="group/prose"
-		>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/prose:rotate-90" />
-				Details
-			</CollapsibleTrigger>
-			<CollapsibleContent>{children}</CollapsibleContent>
-		</Collapsible>
 	);
 }
 
@@ -91,18 +65,18 @@ function Column({ label, side }: { label: string; side: Side }): JSX.Element {
 	const pictures = [...side.pictures, ...side.variants[shown].pictures];
 	const [line, ...rest] = [...side.words, ...side.variants[shown].words];
 	return (
-		<section
-			aria-label={label.toLowerCase()}
-			className="flex min-w-0 flex-col gap-2"
-		>
-			<h3 className="flex h-7 items-center justify-between gap-2 font-medium text-muted-foreground text-xs pointer-coarse:h-10">
+		<CardSection
+			label={label.toLowerCase()}
+			title={
 				<span>
 					{label}
 					{!both && holds(only) && (
 						<span className="font-normal"> · {NAMES[shown]}</span>
 					)}
 				</span>
-				{both && (
+			}
+			aside={
+				both && (
 					<ToggleGroup
 						aria-label="Expected or Actual"
 						variant="outline"
@@ -126,23 +100,26 @@ function Column({ label, side }: { label: string; side: Side }): JSX.Element {
 							</ToggleGroupItem>
 						))}
 					</ToggleGroup>
+				)
+			}
+		>
+			<div className="flex min-w-0 flex-col gap-2">
+				{pictures.length > 0 && (
+					<div className="min-w-0">
+						<Markdown text={pictures.join("\n\n")} />
+					</div>
 				)}
-			</h3>
-			{pictures.length > 0 && (
-				<div className="min-w-0">
-					<Markdown text={pictures.join("\n\n")} />
-				</div>
-			)}
-			{line !== undefined && (
-				<div className="flex min-w-0 flex-col gap-1">
-					<Markdown
-						text={line}
-						className="[&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-					/>
-					{rest.length > 0 && <Markdown text={rest.join("\n\n")} />}
-				</div>
-			)}
-		</section>
+				{line !== undefined && (
+					<div className="flex min-w-0 flex-col gap-1">
+						<Markdown
+							text={line}
+							className="[&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+						/>
+						{rest.length > 0 && <Markdown text={rest.join("\n\n")} />}
+					</div>
+				)}
+			</div>
+		</CardSection>
 	);
 }
 

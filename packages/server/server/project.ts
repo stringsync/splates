@@ -62,6 +62,7 @@ export async function serveProject(
 		log,
 		root: service.git.root,
 		dir: project.dir,
+		prepare: project.config.postRewrite,
 	};
 	const shipping = new Shipping({
 		...shippingOptions,

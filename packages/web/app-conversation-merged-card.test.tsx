@@ -42,7 +42,7 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
-	it("leads with the record's Before and After, its prose folded", async () => {
+	it("leads with the record's Before and After, its prose below", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -71,10 +71,6 @@ describe("App's merged card actions", () => {
 		expect(
 			within(card).getByText("The header stays on one line."),
 		).not.toBeNull();
-		expect(within(card).queryByText("The report's words.")).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Details" })),
-		);
 		expect(within(card).getByText("The report's words.")).not.toBeNull();
 	});
 
@@ -147,7 +143,6 @@ describe("App's merged card actions", () => {
 			view.getByRole("region", { name: "outcome" }),
 		);
 		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
-		expect(within(outcome).queryByRole("button")).toBeNull();
 		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
 
 		expect(within(card).queryByRole("button", { name: "Demo it" })).toBeNull();

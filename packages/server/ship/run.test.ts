@@ -51,6 +51,34 @@ describe("Shipping", () => {
 		);
 	});
 
+	it("prepares the root before the ship command, so its checks have what a merge added", async () => {
+		({ shipping, ps } = await project({ prepare: "bun install" }));
+		await shipping.start();
+		const install = await nth(ps, 0);
+		expect(ps.getCalls()).toEqual(["sh -c bun install"]);
+		expect(ps.getCallDirs()).toEqual(["/demo"]);
+		install.exit(0);
+		const child = await nth(ps, 1);
+		child.exit(0);
+		await shipping.settled();
+
+		expect(ps.getCalls()[1]).toBe(quietly("wiz dev ship").join(" "));
+		expect(await shipping.current()).toMatchObject({ status: "done" });
+	});
+
+	it("fails the ship without running its command when preparing fails", async () => {
+		({ shipping, ps } = await project({ prepare: "bun install" }));
+		await shipping.start();
+		(await nth(ps, 0)).exit(1);
+		await shipping.settled();
+
+		expect(ps.getCalls()).toEqual(["sh -c bun install"]);
+		expect(await shipping.current()).toMatchObject({
+			status: "failed",
+			error: "bun install exited 1",
+		});
+	});
+
 	it("keeps the release steps its command writes, and names the one that failed", async () => {
 		await shipping.start();
 		const child = await nth(ps, 0);
@@ -269,8 +297,10 @@ async function project({
 	fs = new FakeFs(),
 	storage = new FsStorage("/home/projects/1", fs),
 	git = new FakeReleaseGit(),
+	prepare = null as string | null,
 }: {
 	command?: string | null;
+	prepare?: string | null;
 	fs?: FakeFs;
 	storage?: FsStorage;
 	git?: FakeReleaseGit;
@@ -290,6 +320,7 @@ async function project({
 		root: "/demo",
 		dir: "/home/projects/1",
 		command,
+		prepare,
 		slug: async () => "demo",
 		clock: new FakeWallClock(Date.parse("2026-10-27T12:00:00.000Z")),
 	});

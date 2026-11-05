@@ -14,10 +14,11 @@ import { cn } from "#web/lib/utils.ts";
 import { linkTodo, queueTodo } from "./api";
 import { Board } from "./board";
 import { linked } from "./board-expectations";
+import { CardSection } from "./card-section";
 import { queueingAfter, useActs } from "./deferred-acts";
 import { useExpectSnapshot } from "./expecting";
 import { TodoPicker } from "./links";
-import { ElsewhereMention, HEADING } from "./markdown";
+import { ElsewhereMention } from "./markdown";
 import { Refusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
@@ -87,13 +88,11 @@ export function DeferredBody({
 		open.length > 0;
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
-			<section aria-label="why it stopped">
-				<h4 className={HEADING}>Why it stopped</h4>
+			<CardSection label="why it stopped" title="Why it stopped">
 				<p className="leading-relaxed">{deferred.why}</p>
-			</section>
+			</CardSection>
 			{blockers.length > 0 && (
-				<section aria-label="waits on">
-					<h4 className={HEADING}>Waits on</h4>
+				<CardSection label="waits on" title="Waits on">
 					<ol className="flex flex-col gap-2">
 						{blockers.map((blocker, i) => {
 							const key = `${blocker.kind}:${i}`;
@@ -127,7 +126,7 @@ export function DeferredBody({
 							);
 						})}
 					</ol>
-				</section>
+				</CardSection>
 			)}
 			{task.takenBy === null && (
 				<p className="text-muted-foreground text-xs">
@@ -174,8 +173,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
 			{blockers.length > 0 && (
-				<section aria-label="to unblock">
-					<h4 className={HEADING}>To unblock</h4>
+				<CardSection label="to unblock" title="To unblock">
 					<ol className="flex flex-col gap-2">
 						{blockers.map((blocker) => {
 							const key = `task:${blocker.id}`;
@@ -196,7 +194,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 							);
 						})}
 					</ol>
-				</section>
+				</CardSection>
 			)}
 			{waiting(task) && (
 				<div className="flex flex-wrap items-center gap-2">

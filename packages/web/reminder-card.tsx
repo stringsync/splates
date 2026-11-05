@@ -4,6 +4,7 @@ import { BellIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Board } from "./board";
+import { CardSection } from "./card-section";
 import { CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
 import { ago } from "./plan-limits";
@@ -44,9 +45,7 @@ export function ReminderCard({
 			}
 		>
 			<div className="flex flex-col gap-3 px-3 py-3 text-sm">
-				<p title={line} className="truncate font-medium">
-					{line}
-				</p>
+				<p className="break-words font-medium">{line}</p>
 				{(before !== "" || after !== "") && (
 					<div className="grid min-w-0 gap-4 @md:grid-cols-2">
 						{before !== "" && <Side name="Before" text={before} />}
@@ -70,13 +69,12 @@ function ReminderLine({ id }: { id: string }): JSX.Element | null {
 
 function Side({ name, text }: { name: string; text: string }): JSX.Element {
 	return (
-		<section aria-label={name} className="flex min-w-0 flex-col gap-1">
-			<h4 className="text-muted-foreground text-xs">{name}</h4>
+		<CardSection label={name} title={name}>
 			<Markdown
 				text={text}
 				unlinked
 				className="scroll-fade-y max-h-40 overflow-hidden leading-relaxed [--scroll-fade-b-size:3rem] [--scroll-fade-t-size:0px] [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
 			/>
-		</section>
+		</CardSection>
 	);
 }

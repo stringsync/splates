@@ -2,23 +2,12 @@ import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import type { Review } from "@splates/server/plans";
 import { directive, MERGE, replyOf } from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
-import {
-	CheckIcon,
-	ChevronRightIcon,
-	GitMergeIcon,
-	SendHorizontalIcon,
-	XIcon,
-} from "lucide-react";
+import { GitMergeIcon, SendHorizontalIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
-import { BeforeAfter, cardRecord, FoldedProse } from "./before-after";
+import { BeforeAfter, cardRecord } from "./before-after";
 import { BoxFiles } from "./box-files";
 import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
@@ -113,9 +102,6 @@ export function ReviewPanel({
 			)}
 		</>
 	);
-	const checks = review.checks.length + review.failed.length > 0 && (
-		<Checks passed={review.checks} failed={review.failed} />
-	);
 	const card = (
 		<CardShell
 			label={`review ${review.task}`}
@@ -138,8 +124,7 @@ export function ReviewPanel({
 				{record === null ? (
 					<>
 						{prose}
-						{checks}
-						{review.details !== "" && <Details text={review.details} />}
+						{review.details !== "" && <CardBody text={review.details} />}
 					</>
 				) : (
 					<>
@@ -147,14 +132,13 @@ export function ReviewPanel({
 							record={record}
 							className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
 						/>
-						{checks}
 						{(review.summary !== "" ||
 							review.demo !== null ||
 							review.details !== "") && (
-							<FoldedProse>
+							<>
 								{prose}
 								{review.details !== "" && <CardBody text={review.details} />}
-							</FoldedProse>
+							</>
 						)}
 					</>
 				)}
@@ -244,73 +228,6 @@ export function ReviewPanel({
 			/>
 			{shown && card}
 		</div>
-	);
-}
-
-/**
- * The checks a review ran, closed until opened: its title says whether they
- * all passed, and opened, each one's line says.
- */
-function Checks({
-	passed,
-	failed,
-}: {
-	passed: string[];
-	failed: string[];
-}): JSX.Element {
-	const ran = [
-		...failed.map((check) => ({ check, passed: false })),
-		...passed.map((check) => ({ check, passed: true })),
-	];
-	return (
-		<Collapsible
-			render={<section aria-label="Checks" />}
-			className="group/checks"
-		>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/checks:rotate-90" />
-				Checks
-				<Outcome passed={failed.length === 0} />
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<ul className="flex flex-col gap-1 px-4 pb-3">
-					{ran.map(({ check, passed }) => (
-						<li key={check} className="flex items-center gap-2 text-sm">
-							<Outcome passed={passed} />
-							<code className="min-w-0 truncate font-mono text-[13px]">
-								{check}
-							</code>
-						</li>
-					))}
-				</ul>
-			</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
-/** A green check for passed, a red x for failed. */
-function Outcome({ passed }: { passed: boolean }): JSX.Element {
-	return passed ? (
-		<CheckIcon
-			aria-label="passed"
-			className="size-3.5 shrink-0 text-success"
-			strokeWidth={3}
-		/>
-	) : (
-		<XIcon
-			aria-label="failed"
-			className="size-3.5 shrink-0 text-destructive"
-			strokeWidth={3}
-		/>
-	);
-}
-
-/** Whatever else a review says past its summary, under a Details header. */
-function Details({ text }: { text: string }): JSX.Element {
-	return (
-		<section aria-label="Details">
-			<CardBody text={`### Details\n\n${text}`} />
-		</section>
 	);
 }
 

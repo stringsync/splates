@@ -82,6 +82,43 @@ describe.concurrent("merge", () => {
 		);
 	});
 
+	it("installs in the main tree only when a landing changes a lockfile", async () => {
+		await using deps = await Testing.open();
+		deps.config.postRewrite = "touch installed.txt";
+		const installed = join(deps.root, "installed.txt");
+
+		await add(deps, "plain");
+		const plain = (await deps.service.find("plain")).path;
+		await deps.commit(plain, "plain.txt", "plain\n", "add plain");
+		await deps.finish(plain);
+		await merge(deps, plain);
+		expect(await deps.fs.exists(installed)).toBe(false);
+
+		await add(deps, "locked");
+		const locked = (await deps.service.find("locked")).path;
+		await deps.commit(locked, "bun.lock", "{}\n", "add lock");
+		await deps.finish(locked);
+		await merge(deps, locked);
+		expect(await deps.fs.exists(installed)).toBe(true);
+	});
+
+	it("still lands when the main tree's install fails", async () => {
+		await using deps = await Testing.open();
+		// Passes in the task's worktree and fails in the main tree, named `repo`.
+		deps.config.postRewrite = 'test "$(basename "$PWD")" != repo';
+
+		await add(deps, "locked");
+		const locked = (await deps.service.find("locked")).path;
+		await deps.commit(locked, "bun.lock", "{}\n", "add lock");
+		await deps.finish(locked);
+		await merge(deps, locked);
+
+		expect(await deps.gitCli(deps.root, "log", "-1", "--format=%s")).toBe(
+			"add lock",
+		);
+		expect(deps.out()).toContain("could not install in");
+	});
+
 	it("squashes the task's commits into one with --message", async () => {
 		await using deps = await Testing.open();
 

@@ -294,6 +294,7 @@ export class ConversationTurns {
 		if (state.status !== "running") {
 			return;
 		}
+		host.personChose = false;
 		if (error !== null) {
 			this.interrupt();
 		}
