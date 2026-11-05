@@ -3,7 +3,10 @@ import { checkPlan, outcomeOf } from "./plan";
 
 const GOOD = `# alpha
 
-## Goal
+## Before
+show checks nothing about the plan.
+
+## After
 Teach show to check the plan.
 
 ## Next
@@ -23,6 +26,20 @@ describe("checkPlan", () => {
 		).toEqual([]);
 	});
 
+	it("accepts a legacy plan with a Goal, Verification and Outcome", () => {
+		const legacy =
+			"# alpha\n\n## Goal\nStop retries.\n\n## Verification\nRan it.\n\n## Outcome\nDone.\n";
+		expect(checkPlan(legacy, { task: "alpha" })).toEqual([]);
+	});
+
+	it("says an After holding only its hint is empty", () => {
+		const fresh =
+			"# alpha\n\n## Before\n\n<!-- today -->\n\n## After\n\n<!-- done -->\n";
+		expect(checkPlan(fresh, { task: "alpha" })).toEqual([
+			"## After is empty: say in a line what done looks like",
+		]);
+	});
+
 	it("wants the title to name the task", () => {
 		expect(
 			checkPlan(GOOD.replace("# alpha", "# Alpha work"), { task: "alpha" }),
@@ -31,7 +48,7 @@ describe("checkPlan", () => {
 
 	it("names the required sections that are missing, which steps are not", () => {
 		const problems = checkPlan("# alpha\n", { task: "alpha" });
-		expect(problems).toEqual(["no ## Goal section"]);
+		expect(problems).toEqual(["no ## After section"]);
 	});
 
 	it("takes a Next with nothing left as a finished task", () => {
@@ -42,7 +59,7 @@ describe("checkPlan", () => {
 	it("flags a ## Done left from before the git log kept steps done", () => {
 		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
 		expect(checkPlan(old, { task: "alpha" })).toEqual([
-			'unexpected section "## Done" (line 6): keep to Goal, Next, Verification, Demo, Blocked, Outcome',
+			'unexpected section "## Done" (line 9): keep to Before, After, Details, Next, Blocked',
 		]);
 	});
 
@@ -98,7 +115,13 @@ Open the card.
 		expect(checkPlan(plan, { task: "alpha" })).toEqual([]);
 	});
 
-	it("reads no outcome from a plan without the section", () => {
-		expect(outcomeOf(GOOD)).toBe("");
+	it("keeps Before and After as the outcome of a plan without the section", () => {
+		expect(outcomeOf(GOOD)).toBe(
+			"## Before\n\nshow checks nothing about the plan.\n\n## After\n\nTeach show to check the plan.",
+		);
+	});
+
+	it("reads no outcome from a plan with neither", () => {
+		expect(outcomeOf("# alpha\n")).toBe("");
 	});
 });

@@ -55,7 +55,7 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 	}
 
 	/**
-	 * Adds the todo at the bottom of `lane`, or of the untriaged ones for
+	 * Adds the todo at the bottom of `lane`, or of the Backlog tasks for
 	 * null, shown there at once through `expect`, `known` the ids the list
 	 * holds now, and starts the draft over at once, for the next; does
 	 * nothing when not `ready`. A refusal is thrown, and puts the draft back

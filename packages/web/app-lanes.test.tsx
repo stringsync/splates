@@ -126,7 +126,7 @@ describe("App's lanes", () => {
 		expect(
 			within(third).getByLabelText("Blocked by #177 in Licensing"),
 		).toBeTruthy();
-		// Every todo is in a lane: the untriaged column is empty.
+		// Every todo is in a lane: the Backlog column is empty.
 		expect(
 			within(view.getByRole("list", { name: "Backlog tasks" })).queryAllByRole(
 				"listitem",

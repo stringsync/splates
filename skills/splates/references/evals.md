@@ -93,10 +93,11 @@ defaults, which only a refused card tells you.
 
 On each `[SPLATES EVALS DONE]`, reply with the round's row, the label of
 each failed run, the one change you made, and the run card for the rerun,
-asking nothing else. The user's standing permission is the conversation's
-dollar budget and round cap: a run card within both starts without a tap, so
-carry on to the next `[SPLATES EVALS DONE]`. A card the budget cannot cover is
-refused with `budget_exhausted` and the limit it names (`usd` or `rounds`):
+asking nothing else. Every round requires the user's approval: end your turn
+with the run card and wait for the user to review the selected agents and
+press Run, even when the conversation's dollar budget and round cap cover it.
+Those limits cap spending; they never authorize a run. A card the budget cannot
+cover is refused with `budget_exhausted` and the limit it names (`usd` or `rounds`):
 do not retry it or run the eval command yourself, and never edit the budget or
 cap, which only the user tops up. Stop and report instead.
 When the budget is already used up as a card appears, the page refuses it
@@ -110,13 +111,13 @@ prompt, a seed or a message is kept only when all of these hold:
 - **It cites the run it misjudged**, by batch and run id, in the commit and in
   the task's `## Verification`. No misjudged run, no grader change.
 - **It shows the flips.** Run `bin/evals regrade <batch>` (with `--judge` only
-  when the person allowed the cost) and paste the list of flipped verdicts
+  when the user allowed the cost) and paste the list of flipped verdicts
   into `## Verification`. A flip from fail to pass on a run where the agent
   misbehaved means the grader is being bent to fit: drop that change. Only
   flips that correct the misjudged run, or other runs a person would also
   call wrong, are acceptable.
 - **It labels the run.** Copy the misjudged run in with `bin/evals label` and
-  its correct verdict (the person's, when the call is not plain: ask it as a
+  its correct verdict (the user's, when the call is not plain: ask it as a
   numbered question), so the grader cannot regress.
 - **It is reported as a new baseline.** A grader change alters the scenario
   hash, so the batches before it are no longer comparable. Rerun the baseline

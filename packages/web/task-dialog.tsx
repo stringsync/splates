@@ -2,14 +2,7 @@ import { age } from "@splates/server/age";
 import { answersTo, type Need, need } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
 import { GitBranchIcon } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useContext,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useContext, useMemo, useRef } from "react";
 import {
 	DialogContent,
 	DialogDescription,
@@ -18,6 +11,7 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AreaChips } from "./area-chips";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Dispatching } from "./dispatching";
 import {
@@ -35,9 +29,6 @@ import { planParts } from "./task-plan-parts";
 import {
 	FactList,
 	PHONE_SHEET,
-	Section,
-	SectionTab,
-	SectionTabs,
 	TASK_DIALOG,
 	TONES,
 	type Tone,
@@ -53,7 +44,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 	const retry = useRetry(task);
 	const plan = useMemo(() => planParts(task.plan), [task.plan]);
 	const demo = useDemo(task.task, task.plan === null ? null : plan);
-	const [tab, setTab] = useState<Tab>("overview");
 	const context = useContext(Dispatching);
 	const external =
 		context === null ? null : context.dispatch.external(task.task);
@@ -71,35 +61,25 @@ export function Task({ task }: { task: Details }): JSX.Element {
 			className={cn(TASK_DIALOG, PHONE_SHEET)}
 		>
 			<Header task={task} goal={plan.goal} retry={retry.note} />
-			<SectionTabs
-				value={tab}
-				onValueChange={(value) => setTab(value as Tab)}
-				tabs={
-					<>
-						<SectionTab value="overview">Overview</SectionTab>
-						<SectionTab value="details">Details</SectionTab>
-					</>
-				}
-			>
-				<Section value="overview">
-					{caller !== null && context !== null && (
-						<div className="mb-4">
-							<SubagentComposer
-								task={task.task}
-								by={liveCaller ?? caller}
-								onOpen={(id) => context.open(id)}
-							/>
-						</div>
-					)}
-					<Overview
+			<div className="-mx-4 flex min-h-0 flex-col gap-4 overflow-y-auto px-4 pb-1">
+				{caller !== null && context !== null && (
+					<SubagentComposer
 						task={task.task}
-						plan={task.plan === null ? null : plan}
-						none="No SPLATES.md: whoever picks this up starts from the diff."
-						ports
+						by={liveCaller ?? caller}
+						onOpen={(id) => context.open(id)}
 					/>
-				</Section>
-				<Section value="details">
-					<div className="flex min-w-0 flex-col gap-4">
+				)}
+				<Overview
+					task={task.task}
+					plan={task.plan === null ? null : plan}
+					none="No SPLATES.md: whoever picks this up starts from the diff."
+					ports
+				/>
+				<details className="text-sm">
+					<summary className="cursor-pointer font-medium text-muted-foreground text-xs">
+						Details
+					</summary>
+					<div className="mt-2 flex min-w-0 flex-col gap-4">
 						<Facts task={task} external={external !== null} />
 						{external !== null && caller === null && context !== null && (
 							<Sessions
@@ -112,16 +92,14 @@ export function Task({ task }: { task: Details }): JSX.Element {
 							/>
 						)}
 					</div>
-				</Section>
-			</SectionTabs>
+				</details>
+			</div>
 			<DialogFooter className="sm:justify-between">
 				<ActionBar task={task} retry={retry.action} demo={demo} />
 			</DialogFooter>
 		</DialogContent>
 	);
 }
-
-type Tab = "overview" | "details";
 
 /**
  * The task's name, where it stands and why, and the line of facts a glance
@@ -172,7 +150,10 @@ function Header({
 					{why}
 				</DialogDescription>
 			)}
-			<TagChips tags={task.tags} />
+			<span className="flex min-w-0 flex-wrap items-center gap-1">
+				<TagChips tags={task.tags} />
+				<AreaChips areas={task.areas} divided={task.tags.length > 0} />
+			</span>
 			<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
 				<GitBranchIcon aria-hidden className="size-3 shrink-0" />
 				<span className="min-w-0 truncate" title={task.branch}>

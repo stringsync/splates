@@ -10,7 +10,7 @@
 	"devDependencies": {
 		"@types/bun": "catalog:"
 	},
-	"version": "2.0.3",
+	"version": "2.0.4",
 	"exports": {
 		"./scenario": "./scenario.ts",
 		"./sandbox": "./sandbox.ts"

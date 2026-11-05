@@ -57,14 +57,9 @@ Cap upload retries
 			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
 
-	/** The open task dialog's tab `name`, chosen. */
-	const tab = async (view: ConversationsView, name: string) => {
+	/** The open task dialog. */
+	const openDialog = async (view: ConversationsView) => {
 		const dialog = await waitFor(() => view.getByRole("dialog"));
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("tab", { name: new RegExp(name) }),
-			),
-		);
 		return dialog;
 	};
 
@@ -126,7 +121,7 @@ Cap upload retries
 			}),
 		).toBeNull();
 		await openQueueRow(view, "beta");
-		const dialog = await tab(view, "Details");
+		const dialog = await openDialog(view);
 		expect(dialog.textContent).toContain(
 			"Outside the page, running a splates command now",
 		);
@@ -145,7 +140,7 @@ Cap upload retries
 			tasks: [details({ task: "beta", lease: "held" })],
 		});
 		await go("#tasks/beta");
-		const dialog = await tab(view, "Details");
+		const dialog = await openDialog(view);
 		const sessions = within(dialog).getByRole("region", { name: "sessions" });
 		await waitFor(() =>
 			expect(sessions.textContent).toContain("Fix the upload"),
@@ -165,7 +160,10 @@ Cap upload retries
 		);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
-		expect(JSON.parse(String(testing.posts.at(-1)?.body))).toEqual({
+		const brought = testing.posts.findLast(
+			(post) => !post.path.endsWith("/visit"),
+		);
+		expect(JSON.parse(String(brought?.body))).toEqual({
 			agent: "claude",
 			session: "cli-1",
 			title: "Fix the upload",
@@ -181,7 +179,7 @@ Cap upload retries
 			tasks: [details({ task: "beta", lease: "held" })],
 		});
 		await go("#tasks/beta");
-		const dialog = await tab(view, "Details");
+		const dialog = await openDialog(view);
 
 		await waitFor(() =>
 			expect(

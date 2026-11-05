@@ -15,6 +15,8 @@ import type { Worktree } from "../tasks";
 export async function refuseUnready(
 	{ git, fs, config }: { git: Git; fs: Fs; config: Config; log: Logger },
 	worktree: Worktree,
+	/** The numbers of the question cards its conversation asked that nobody answered. */
+	asking: () => Promise<string[]> = async () => [],
 ): Promise<void> {
 	const { task, base } = worktree;
 	const dirty = await worktree.uncommitted();
@@ -71,7 +73,12 @@ export async function refuseUnready(
 	}
 	// An unchecked question is one the user has yet to answer, or an answer
 	// the agent has yet to act on; an unchecked step is work not yet done.
-	const left = unfinished((await new Plans(fs).read(worktree.path)) ?? "");
+	// A legacy `## Blocked` still counts beside the conversation's own cards.
+	const found = unfinished((await new Plans(fs).read(worktree.path)) ?? "");
+	const asked = (await asking()).filter(
+		(number) => !found.questions.includes(number),
+	);
+	const left = { ...found, questions: [...found.questions, ...asked] };
 	if (!ready(left)) {
 		fail(
 			"blocked",

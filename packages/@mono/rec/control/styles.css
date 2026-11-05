@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Tailwind emits only the utilities it finds in these files. */
+@source "./*.tsx";
+@source "./components/ui";
+
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn's neutral theme, dark only: the panel sits beside the page in
+   Chrome's side panel and never in the recording. */
+.dark {
+	--radius: 0.625rem;
+	--background: oklch(0.175 0.003 286);
+	--foreground: oklch(0.94 0 0);
+	--card: oklch(0.205 0.003 286);
+	--card-foreground: oklch(0.94 0 0);
+	--popover: oklch(0.235 0.004 286);
+	--popover-foreground: oklch(0.94 0 0);
+	--primary: oklch(0.922 0 0);
+	--primary-foreground: oklch(0.205 0 0);
+	--secondary: oklch(0.255 0.004 286);
+	--secondary-foreground: oklch(0.94 0 0);
+	--muted: oklch(0.235 0.004 286);
+	--muted-foreground: oklch(0.65 0.01 286);
+	--accent: oklch(0.255 0.004 286);
+	--accent-foreground: oklch(0.94 0 0);
+	--destructive: oklch(0.65 0.21 25);
+	--success: oklch(0.74 0.16 155);
+	--border: oklch(1 0 0 / 8%);
+	--input: oklch(1 0 0 / 12%);
+	--ring: oklch(0.556 0 0);
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-success: var(--success);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
+	body {
+		@apply bg-background text-foreground antialiased;
+		font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+		font-size: 13px;
+	}
+}

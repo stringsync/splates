@@ -5,9 +5,20 @@ placing and ordering it. Grooming one, whether you write it, start it or
 groom ungroomed Backlog tasks, is in [groom.md](groom.md). Ordering is the user's (see
 Positions).
 
+## Do, queue or drop
+
+When you notice something beyond what the task's After says, choose one:
+
+- **Do it in the task** when the After needs it, or when it is a small fix in
+  code the task already changes.
+- **Queue it** only when it is in another unit (project), needs its own
+  approval, or is unrelated to the goal.
+- **Drop it** when you would not bother doing it yourself. Do not queue or
+  offer it.
+
 ## Queueing tasks
 
-When something outside your Goal comes up, queue it as a task and move on:
+When something you chose to queue comes up, queue it as a task and move on:
 its subject and what you know. `splates task add` puts it in a lane, which
 says you groomed it: you checked no task already asks it, linked what
 blocks it, and put it in a lane (`--lane`, Backlog when none is plain; see
@@ -29,14 +40,27 @@ Give each task its tag with `--tag <name>` when the config lists tags
 (`splates task update <id> --tag <name>` adds one later), and leave the
 project's name out of the subject and the slug: the tag says it.
 
-Write a task's subject short enough to scan. Put the why, the where, the
-files and the feature in its detail, as markdown the `splates server` page
-renders: paragraphs, lists, `- [ ]` steps, inline code for paths and
-commands, and fenced blocks for snippets. Single quotes keep the shell off
-the backticks:
+Write a task's subject short enough to scan. Write its detail with both `## Before`
+and `## After`, never just After, the shape a task record has, as markdown the `splates server`
+page renders. Each is a line and a picture, as text alone rarely shows the
+change (a real screenshot of today's screen or a D2 diagram of today's flow for
+Before, `splates attach`ed; a lo-fi mock or D2 diagram for After). Before is
+always there: for a new thing it says what exists today in its place (that
+there is nothing yet, or what the user does instead). Leave the picture out
+only for a trivial change or when you have not looked at the code yet, for the
+agent that takes it to add. After's first line
+says what changes. Put the why, the where and the files after that line, with
+`- [ ]` steps, inline code for paths and commands, and fenced blocks for
+snippets. Single quotes keep the shell off the backticks:
 
 ```sh
-splates task add "Upload retries forever on a 413" --slug upload-413 'The client retries on any 4xx in `src/upload.ts`.
+splates task add "Upload retries forever on a 413" --slug upload-413 '## Before
+
+The client retries on any 4xx in `src/upload.ts`, so a 413 loops forever.
+
+## After
+
+An upload stops retrying on a 413 and tells the user the file is too big.
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big'
@@ -63,7 +87,7 @@ user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
 When `splates task show` prints a `deferred:` line, the task was set aside
-before, and the person's Resume on its Deferred card, or the queue, sends it
+before, and the user's Resume on its Deferred card, or the queue, sends it
 again: check each blocker under it still unticked (an upstream release, a
 key) before any other work. One that still holds defers it again with
 `splates remove <task> --reason blocked`, its why saying what you checked
@@ -163,7 +187,7 @@ they ask you to.
 
 ## Changing several units
 
-A task changes one unit of the repository, the package or project its Goal
+A task changes one unit of the repository, the package or project its After
 names, so a change that reaches several lands as several tasks, in order,
 rather than one that touches them all. When a unit's change breaks what
 another unit takes from it (an export's signature, a schema, a config
@@ -182,7 +206,7 @@ Queue steps 2 and 3 before merging step 1, each written as Queueing tasks
 says, its detail naming the old and new forms and the files it reaches.
 Only a change that cannot land in steps (a rename the old form cannot
 survive beside, a format both sides must switch at once) takes one task
-across units, and then its Goal names every unit it touches, so the reach
+across units, and then its After names every unit it touches, so the reach
 is chosen and shown rather than crept into.
 
 ## Links
@@ -193,7 +217,7 @@ say so with `--blocked-by` (`splates task add <subject> --blocked-by 12`, or
 then warns whoever takes it early, drops the link when 12 merges, and shows
 it on the board. Once 12 merges, `splates task show 14` names the commit it
 landed as; if 12 is removed without merging, 14 is held as Blocked for the
-person, who lets go of the link from its card (the page's remove lists such
+user, who lets go of the link from its card (the page's remove lists such
 tasks first). `--remove-blocked-by 12` undoes a link or lets go of a removed
 blocker. Several links go in one
 call, the flag repeated or a comma list: `--blocked-by 12 --blocked-by 13`, or
@@ -209,9 +233,9 @@ it first (see [projects.md](projects.md)). The queue holds this task until
 that one merges there, and the board, `splates task show` and `splates
 queue list` name it with where it stands, while `task show` there lists
 this task under `blocking:`. A blocker removed there without merging holds
-the task for the person, as one here does; `--remove-blocked-by
+the task for the user, as one here does; `--remove-blocked-by
 wren#404` lets go of it. Never leave such a wait only in a task's
-detail or a deferral's `--waiting-on`: unlinked, the person cannot see what
+detail or a deferral's `--waiting-on`: unlinked, the user cannot see what
 holds the work up.
 
 ## Lanes
@@ -265,7 +289,7 @@ cover. `splates board update <n>` renames (`--name`), reorders (`--position`)
 and archives (`--archived`, `--no-archived` to bring back), and `splates
 board show <n>` lists its lanes. Agents delete an empty board with `splates
 board remove <n>`; one whose lanes hold tasks is refused: move
-the lanes to another board, or ask the person, as a question, to delete it. The default board cannot be archived or
+the lanes to another board, or ask the user, as a question, to delete it. The default board cannot be archived or
 deleted. There is no `board queue`: queueing stays the user's, per lane.
 
 ## Positions
@@ -286,4 +310,4 @@ asked for.
 
 Agents may create empty lanes with `splates lane add` and remove empty lanes
 with `splates lane remove`. Removing a lane containing tasks needs the
-person's remove-lane permission card. Backlog remains permanent.
+user's remove-lane permission card. Backlog remains permanent.

@@ -240,7 +240,7 @@ describe("App's card answer boxes", () => {
 		);
 	});
 
-	it("sends on Enter from the last paged question's take, with its words", async () => {
+	it("turns to Anything else on Enter from the last paged question's take, then sends with its words", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([asking]);
 		await toThread(view);
@@ -267,6 +267,13 @@ describe("App's card answer boxes", () => {
 		act(() => microphone.speak(" more"));
 
 		await act(async () => fireEvent.keyDown(document.body, { key: "Enter" }));
+		await waitFor(() =>
+			within(sheet).getByRole("region", { name: "anything else" }),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Send" })),
+		);
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([

@@ -44,7 +44,6 @@ import { NEW } from "./conversation-address";
 import { markRead } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
-import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
@@ -60,11 +59,13 @@ import { QuestionsUI } from "./message-questions";
 import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
+import { ProgressCard, ProgressCards, ProgressUI } from "./progress";
 import { useArchiveAfterPutBack, usePutBack } from "./put-back";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
+import { Reminders, ReminderUI } from "./reminder-card";
 import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { heldAfter, queuesNow } from "./sending";
@@ -334,16 +335,16 @@ function Conversation({
 					on={onBack !== null}
 					whole={summary !== true}
 				>
-					<TaskRegistry>
-						{(version) => (
-							<div
-								className="relative min-h-0 flex-1"
-								style={{
-									["--thread-inset-end" as string]:
-										widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-								}}
-							>
-								<MergeCardContext value={mergeCard}>
+					<div
+						className="relative min-h-0 flex-1"
+						style={{
+							["--thread-inset-end" as string]:
+								widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+						}}
+					>
+						<MergeCardContext value={mergeCard}>
+							<ProgressCards value={conversation.progress}>
+								<Reminders value={conversation.reminders}>
 									<AssistantRuntimeProvider runtime={runtime}>
 										<Composing.Provider value={runtime.thread.composer}>
 											<QuestionsUI />
@@ -357,6 +358,8 @@ function Conversation({
 											<StoppedUI />
 											<CompactionUI />
 											<BackgroundUI />
+											<ProgressUI />
+											<ReminderUI />
 											<RestedUI />
 											<InterruptedUI />
 											<EvalsConversation value={id}>
@@ -438,28 +441,28 @@ function Conversation({
 											</EvalsConversation>
 										</Composing.Provider>
 									</AssistantRuntimeProvider>
-								</MergeCardContext>
-								<Widgets
-									phone={onBack !== null}
-									roomy={widgets.roomy}
-									open={widgets.open}
-									onClose={widgets.close}
-									actions={where === null ? actions : [where, ...actions]}
-								>
-									<BackgroundCard
-										conversation={id}
-										background={conversation.background}
-									/>
-									<ArtifactsCard
-										conversation={id}
-										artifacts={conversation.artifacts}
-									/>
-									<ReferencesCard conversation={conversation} />
-									<CurrentTask version={version} />
-								</Widgets>
-							</div>
-						)}
-					</TaskRegistry>
+								</Reminders>
+							</ProgressCards>
+						</MergeCardContext>
+						<Widgets
+							phone={onBack !== null}
+							roomy={widgets.roomy}
+							open={widgets.open}
+							onClose={widgets.close}
+							actions={where === null ? actions : [where, ...actions]}
+						>
+							<BackgroundCard
+								conversation={id}
+								background={conversation.background}
+							/>
+							<ProgressCard progress={conversation.progress} />
+							<ArtifactsCard
+								conversation={id}
+								artifacts={conversation.artifacts}
+							/>
+							<ReferencesCard conversation={conversation} />
+						</Widgets>
+					</div>
 				</PhoneSheets>
 			</section>
 		</>

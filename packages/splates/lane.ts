@@ -25,7 +25,7 @@ const laneNumber = z.union([
 
 /** `splates lane`, which the root cli mounts after `splates task`. */
 export const splatesLane = cli<SplatesDeps>("lane").description(
-	"lanes: named groups of tasks, for you to see related work together on the board; queue all its tasks at once with `splates lane queue`. Backlog (lane 0) is permanent and holds unmatched deferred work. Untriaged is groomed into lanes and cannot be queued as a lane",
+	"lanes: named groups of tasks, for you to see related work together on the board; queue all its tasks at once with `splates lane queue`. Backlog (lane 0) is permanent; tasks wait there until groomed into lanes. Backlog can be queued as a lane",
 );
 
 splatesLane
@@ -105,7 +105,7 @@ splatesLane
 	.command("queue")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open; one blocked by a task outside the queue waits queued until that is queued too, as the command names; a task put in the lane later is queued on its own. Untriaged cannot be queued as a lane",
+		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open; one blocked by a task outside the queue waits queued until that is queued too, as the command names; a task put in the lane later is queued on its own. Backlog can be queued as a lane",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",

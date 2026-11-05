@@ -17,7 +17,7 @@ export interface TodoForm {
 	position?: number;
 }
 
-/** Adds a todo at the bottom of `lane`, or of the untriaged ones for null; answers its id. */
+/** Adds a todo at the bottom of `lane`, or of the Backlog tasks for null; answers its id. */
 export async function addTodo(
 	{ subject, text, position }: TodoForm,
 	files: File[],

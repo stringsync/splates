@@ -453,6 +453,8 @@ export function setupAddress({ area, step }: SetupOpen): string {
 
 /** What the Evals page has open: a batch and one of its runs, or the plan of a scenario. */
 export interface EvalsOpen {
+	/** The listing tab, absent for the planner and reports. */
+	tab?: "active" | "history";
 	batch: string | null;
 	run: string | null;
 	/** The scenarios whose run is being planned; null for none. */
@@ -470,6 +472,9 @@ function evalsIn(hash: string): EvalsOpen {
 	if (batch === undefined) {
 		return NO_EVALS;
 	}
+	if (batch === "active" || batch === "history") {
+		return { ...NO_EVALS, tab: batch };
+	}
 	if (batch === PLAN) {
 		return NO_EVALS;
 	}
@@ -481,7 +486,10 @@ function evalsIn(hash: string): EvalsOpen {
 }
 
 /** The address of the Evals page with `open` open. */
-function evalsAddress({ batch, run, plan }: EvalsOpen): string {
+function evalsAddress({ batch, run, plan, tab }: EvalsOpen): string {
+	if (tab !== undefined) {
+		return `#evals/${tab}`;
+	}
 	if (plan !== null) {
 		return `#evals/${PLAN}/${plan.map(encodeURIComponent).join(",")}`;
 	}

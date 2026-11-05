@@ -58,12 +58,17 @@ export async function quarantined(): Promise<QuarantinedTest[]> {
 }
 
 /**
- * How `task` went once it merged, beside its project's week before; null
- * when it never merged here.
+ * How `task` went once it merged, or was removed, beside its project's week
+ * before; null when it never ended that way here.
  */
-export async function taskOutcome(task: string): Promise<Landed | null> {
+export async function taskOutcome(
+	task: string,
+	ended: "merged" | "removed" = "merged",
+): Promise<Landed | null> {
 	const response = await answered(
-		scoped(`/api/tasks/${encodeURIComponent(task)}/outcome`),
+		scoped(
+			`/api/tasks/${encodeURIComponent(task)}/outcome${ended === "removed" ? "?ended=removed" : ""}`,
+		),
 	);
 	if (!response.ok) {
 		throw new ApiError("error", `${task}'s outcome: ${response.status}`);

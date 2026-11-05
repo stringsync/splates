@@ -39,6 +39,7 @@ import { Trunk, whereRuns } from "./dispatching";
 import { useExpect, usePendingConversation } from "./expecting";
 import { Mark } from "./mark";
 import { pendingRow, useShowPending } from "./pending";
+import { backgrounded } from "./progress";
 import { useEnding } from "./queued-ending";
 import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
@@ -273,9 +274,7 @@ export function Item({
 						unread={conversation.unread}
 						hosting={hosting}
 						quiet={quiet}
-						background={conversation.background.some(
-							(each) => each.state === "running",
-						)}
+						background={backgrounded(conversation)}
 					/>
 				)}
 			</span>

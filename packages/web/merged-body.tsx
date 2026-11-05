@@ -5,8 +5,7 @@ import { CardBody } from "./card-shell";
  * A merged card's one body: the first paragraph of the agent's report, or of
  * the task's `## Outcome` when the report says nothing, under a Summary
  * heading, then the rest of both, the outcome's demo and verification among
- * them, all in one text color with no rule between. It is the last thing in a
- * conversation, so nothing of it is folded away.
+ * them, all in one text color with no rule between.
  */
 export function MergedBody({
 	text,
@@ -38,7 +37,7 @@ export function MergedBody({
 }
 
 /** `text`'s paragraphs, a blank line apart, outside any code fence. */
-function paragraphs(text: string): string[] {
+export function paragraphs(text: string): string[] {
 	const found: string[] = [];
 	let fenced = false;
 	let current: string[] = [];

@@ -1,3 +1,6 @@
+// vet-ignore-file doc-comments-address-users: its doc comments predate the rule
+
+import type { Conversations } from "../conversations";
 import { fail } from "../exit";
 import {
 	MergeAsk,
@@ -7,7 +10,7 @@ import {
 	WorktreePs,
 } from "../merge";
 import { openRepository } from "../records";
-import type { WorktreeService } from "../tasks";
+import { openQuestions, type WorktreeService } from "../tasks";
 import type { Project } from "./project-types";
 import { refuse } from "./shared";
 
@@ -15,22 +18,25 @@ import { refuse } from "./shared";
 export const MERGE_READ_WAIT_MS = 20_000;
 
 /**
- * The routes `splates merge` hands its merge to the server by: it asks for
- * the merge, reads what the merge says until it ends, then says it has read
- * the end. The server runs every merge with its own merge code, so a task's
- * edits to that code never run its own landing.
+ * The routes that run the merges `splates merge` asks the server for, so a
+ * task's edits to the merge code never run its own landing. Pass the
+ * project's conversations to have a merge refuse while its task has a
+ * question card nobody answered.
  */
+// `splates merge` asks for the merge, reads what it says until it ends, then
+// says it has read the end.
 export class MergeRoutes {
 	readonly merges: ServedMerges;
 
 	constructor(
 		readonly project: Project,
 		open: typeof openRepository = openRepository,
+		conversations: Conversations | null = null,
 	) {
 		this.merges = new ServedMerges({
 			storage: project.storage,
 			log: project.log,
-			run: servedMerge(project, open),
+			run: servedMerge(project, open, conversations),
 		});
 	}
 
@@ -82,7 +88,11 @@ function taskOf(url: URL): string {
  * to the command waiting on it, so its agent carries on with the task once
  * it ends.
  */
-function servedMerge(project: Project, open: typeof openRepository): RunMerge {
+function servedMerge(
+	project: Project,
+	open: typeof openRepository,
+	conversations: Conversations | null,
+): RunMerge {
 	return async (ask, log, facts) => {
 		const ps = new WorktreePs(project.ps, ask);
 		const repository = await open({ fs: project.fs, ps, log }, { at: ask.cwd });
@@ -97,7 +107,15 @@ function servedMerge(project: Project, open: typeof openRepository): RunMerge {
 			// The project's one premerge lock, whose tickets tell this process's
 			// merges apart, and whose bumps the page sends it.
 			await merge(
-				{ ...repository, premerge: project.premerge, log },
+				{
+					...repository,
+					premerge: project.premerge,
+					log,
+					asking: async (task) =>
+						(await openQuestions(conversations, task)).map(
+							(asked) => asked.number,
+						),
+				},
 				ask.cwd,
 				facts,
 				{

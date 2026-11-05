@@ -3,33 +3,31 @@ import { join } from "node:path";
 import { oneSentence, removedReport, scenarios } from "./continuity";
 
 it.each([
-	["checkpoint", undefined, "Which output label should follow ready?"],
-	["resume", undefined, "## Blocked\n"],
-	["reconnect", "rea", "## Blocked\n"],
-] as const)(
-	"seeds %s in the task worktree",
-	async (id, output, savedContext) => {
-		const files = new Map<string, string>();
-		const dir = "/sandbox/repo";
-		const task = "/sandbox/repo-splates.noindex/continuity";
-		await scenarios
-			.find((scenario) => scenario.id === `continuity/${id}`)
-			?.change?.({
-				dir,
-				async write(path, text) {
-					files.set(join(dir, path), text);
-				},
-				async run() {
-					return task;
-				},
-			});
-		const notes = files.get(join(task, "SPLATES.md"));
-		expect(notes).toContain("Paused before writing result.txt.");
-		expect(notes).toContain("## Blocked\n");
-		expect(notes).toContain(savedContext);
-		expect(files.get(join(task, "result.txt"))).toBe(output);
-	},
-);
+	["checkpoint", undefined],
+	["resume", undefined],
+	["reconnect", "rea"],
+] as const)("seeds %s in the task worktree", async (id, output) => {
+	const files = new Map<string, string>();
+	const dir = "/sandbox/repo";
+	const task = "/sandbox/repo-splates.noindex/continuity";
+	await scenarios
+		.find((scenario) => scenario.id === `continuity/${id}`)
+		?.change?.({
+			dir,
+			async write(path, text) {
+				files.set(join(dir, path), text);
+			},
+			async run() {
+				return task;
+			},
+		});
+	const notes = files.get(join(task, "SPLATES.md"));
+	expect(notes).toContain("Paused before writing result.txt.");
+	expect(notes).toContain("## Before\n");
+	expect(notes).toContain("## After\n");
+	expect(notes).not.toContain("## Blocked");
+	expect(files.get(join(task, "result.txt"))).toBe(output);
+});
 
 it("finds the Removed report for a task", () => {
 	const reply = "## 🧹 Removed continuity: moot\n\nIt set out to write a file.";

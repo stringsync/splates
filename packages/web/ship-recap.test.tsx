@@ -27,11 +27,13 @@ describe("ShipRecap", () => {
 	it("shows a failed ship recap alongside recovery and failure details", () => {
 		const cascade = shipped();
 		cascade.status = "stopped";
+		// vet-ignore matchers-over-test-logic: clear successful timing data for the failed-ship fixture
 		for (const step of cascade.steps) {
 			step.takes = [];
 		}
 		const step = cascade.steps[0];
 		const stage = step?.stages[1];
+		// vet-ignore matchers-over-test-logic: guard fixture mutation below
 		if (step === undefined || stage === undefined) {
 			throw new Error("Missing fixture stage");
 		}
@@ -51,9 +53,7 @@ describe("ShipRecap", () => {
 		expect(view.getByText("Stopped after 30m 00s")).toBeTruthy();
 		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "Send to agent" })).toBeTruthy();
-		expect(
-			view.queryByRole("button", { name: "Plan another ship" }),
-		).toBeNull();
+		expect(view.queryByRole("button", { name: "Done" })).toBeNull();
 	});
 
 	it("reports investigation handoffs without claiming upstream adoption", () => {
@@ -68,7 +68,7 @@ describe("ShipRecap", () => {
 
 	it("acknowledges the ship and returns to the plan", () => {
 		const view = render(<ShipRecap cascade={shipped()} />);
-		fireEvent.click(view.getByRole("button", { name: "Plan another ship" }));
+		fireEvent.click(view.getByRole("button", { name: "Done" }));
 		expect(acknowledged()).toBe("c1");
 		expect(location.hash).toBe("#ships");
 	});

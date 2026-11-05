@@ -181,7 +181,7 @@ describe("splates cli", () => {
 		]);
 		const { path } = await env.service.find("alpha");
 		expect(await env.fs.read(join(path, "SPLATES.md"))).toContain(
-			"## Goal\n\nStop the 413 retries.",
+			"## After\n\nStop the 413 retries.",
 		);
 		expect((await env.journal.tail(1))[0]).toMatchObject({
 			action: "add",

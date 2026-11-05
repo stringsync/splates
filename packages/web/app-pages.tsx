@@ -125,6 +125,7 @@ export function useAppPages({
 							<EvalsPage
 								open={evals}
 								onOpen={openEval}
+								onOpenConversation={openConversation}
 								feed={available ? talk : null}
 							/>
 						),

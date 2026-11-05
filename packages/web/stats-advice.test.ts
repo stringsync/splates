@@ -88,7 +88,12 @@ describe("advise", () => {
 				"Why merges failed",
 				period({
 					failedMerges: 7,
-					failedBy: { conflict: 5, tests_failed: 2, merge_failed: 0 },
+					failedBy: {
+						conflict: 5,
+						tests_failed: 2,
+						checks_failed: 0,
+						merge_failed: 0,
+					},
 				}),
 			),
 		).toMatchObject({ figure: "7", act: expect.stringContaining("one lane") });
@@ -114,7 +119,12 @@ describe("advise", () => {
 		const conflicted = (tasks: number) =>
 			period({
 				failedMerges: 20,
-				failedBy: { conflict: 20, tests_failed: 0, merge_failed: 0 },
+				failedBy: {
+					conflict: 20,
+					tests_failed: 0,
+					checks_failed: 0,
+					merge_failed: 0,
+				},
 				conflictedIn: {
 					"COVERAGE.md": { conflicts: 18, tasks },
 					"a.ts": { conflicts: 2, tasks: 2 },

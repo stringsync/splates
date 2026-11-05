@@ -126,6 +126,7 @@ export interface Served extends AsyncResource {
 	open: Handler;
 	paths: Handler;
 	diff: Handler;
+	questions: Handler;
 	commitDiff: Handler;
 	finishedTasks: Handler;
 	mergeEstimates: Handler;
@@ -218,6 +219,7 @@ export interface Served extends AsyncResource {
 	) => Promise<Promise<void>[]>;
 	moveConversation: Handler;
 	promptConversation: Handler;
+	reportProgress: Handler;
 	addArtifact: Handler;
 	removeArtifact: Handler;
 	deleteArtifactVersion: Handler;
@@ -237,6 +239,7 @@ export interface Served extends AsyncResource {
 	renameConversation: Handler;
 	markUnread: Handler;
 	markRead: Handler;
+	visitConversation: Handler;
 	pinConversation: Handler;
 	reparentConversation: Handler;
 	archiveConversation: Handler;

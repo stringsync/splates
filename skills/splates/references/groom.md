@@ -15,7 +15,8 @@ when.
 ## Grooming a task you write
 
 Give it its tag (`--tag <name>`) when the config lists tags, and none of the
-project's name in its subject or slug.
+project's name in its subject or slug. Write its detail as `## Before` and
+`## After` (see [queue.md](queue.md), Queueing tasks).
 
 Before `splates task add`, check none already asks it (see One that already
 asks it), give it `--blocked-by` for each task whose code it needs or whose
@@ -39,7 +40,7 @@ a lane (`groomed: yes`) was groomed when it was written: start work on it.
    would change files another task changes, never for priority. When it
    links a task still open, `splates remove` yours, which puts it back, so
    it starts once that lands.
-3. **Ask what the user's answer would change**, under `## Blocked`, as
+3. **Ask what the user's answer would change**, in your reply, as
    [questions.md](questions.md) says, each conflict from step 1 among them, and
    each question its detail holds under `#### Questions from grooming` or
    `#### Open questions` that it does not already answer; make every other
@@ -58,7 +59,7 @@ reading it again.
 - **Open, the same request**: add none. `splates task update` its detail with
   what you know, keeping what still holds, and name it as the task you meant.
 - **Taken by another task**: add none, and note in `SPLATES.md` what you would
-  have added, so that task's Goal in `splates list --files` can be checked
+  have added, so that task's After in `splates list --files` can be checked
   against it.
 - **Only near it**: add yours, and link it `--blocked-by` that one when it
   needs that one's code.
@@ -103,7 +104,13 @@ few `splates task` commands, then your turn ends.
    `#### From grooming` heading, with paths and line numbers, or attach a
    longer note with `--file`, and say there that the notes date from
    grooming, on today's date, and may be stale by the time it starts, for
-   its agent to check rather than trust. Only enough to judge what it
+   its agent to check rather than trust. Where the detail lacks `## Before` or `## After`,
+   fill in the missing one: draft After's first line from what you found, and
+   write Before (a line, and a real screenshot of today's screen when one is
+   cheap; for a new thing, what exists today instead), so no task holds only
+   an After; the what then reaches the user before any agent starts, the
+   cheapest point to propose at. The grooming notes stay under their own
+   heading below those. Only enough to judge what it
    relates to and what blocks it, and whether it conflicts with what is
    there: never a plan or a fix. Read `git log` for the files it touches,
    and the merged tasks they name, so you notice when it would undo work
@@ -159,7 +166,7 @@ Reading the board whole, as step 5 has you, shows what to prune:
 1. **Empty lanes**: `splates lane remove <n>` each lane with no tasks
    in it (neither queued nor started), left over from work that landed
    or moved. Never Backlog, which is permanent, and never a lane that
-   holds a task: removing one needs the person's remove-lane card.
+   holds a task: removing one needs the user's remove-lane card.
 2. **Obsolete tasks**: a task whose subject `git log` or the code shows
    already done, superseded, or against a call since made, is no longer
    needed. `splates task remove <id>` one that is plainly moot, saying why

@@ -43,7 +43,7 @@ describe("Groomer", () => {
 		await deps.disposeAsync();
 	});
 
-	it("grooms Untriaged in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
+	it("grooms ungroomed Backlog tasks in order, a turn at a time, in one conversation per run, archived resting as the run ends", async () => {
 		await taskAdd(deps, "rough", null);
 		await taskAdd(deps, "groomed", null, { lane: "new" });
 		await taskAdd(deps, "taken", null);
@@ -208,7 +208,7 @@ describe("Groomer", () => {
 		expect((await deps.tasks.find(1)).lane).toBe(lane.id);
 	});
 
-	it("places even a lone Untriaged task in the permanent Backlog when no themed lane fits", async () => {
+	it("places even a lone ungroomed Backlog task in the permanent Backlog when no themed lane fits", async () => {
 		await taskAdd(deps, "alone", null);
 
 		await groomer.wake({ agent: "fake" });

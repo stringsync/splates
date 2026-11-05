@@ -3,6 +3,7 @@ import type {
 	ConversationState,
 	Message,
 	Part,
+	Progress,
 } from "@splates/server/conversations";
 import type { TaskReport } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
@@ -15,7 +16,9 @@ import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt } from "./held-prompt";
+import { isReminderId, reminderId } from "./reminder-of";
 import { heldAfter, messageOf, queuesNow } from "./sending";
+import { supersedeQueues } from "./superseded-queues";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
@@ -92,30 +95,40 @@ export function useThreadMessages(
 				? kept
 				: [heldPrompt(held, conversation.createdAt), ...kept];
 		const happened = turnsOf(said, conversation.events);
+		const cardsIn = cardsOf(said, [
+			...conversation.progress,
+			...conversation.reminders.map((reminder) => ({
+				id: reminderId(reminder.at),
+				startedAt: reminder.at,
+			})),
+		]);
 		// An agent starting again may carry on the turn its last message holds.
 		const resumed = starting
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
-		const liked = workingTimes(
-			said.map((message, index) =>
-				like(
-					message,
-					index,
-					conversation.id,
-					!writing || index < said.length - 1,
-					said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
-					now,
-					conversation.lastTask,
-					happened[index],
-					writing &&
-						index === said.length - 1 &&
-						conversation.ask?.type === "permission"
-						? conversation.ask.at
-						: null,
-					said[index + 1]?.steered === true || index === resumed,
+		const liked = supersedeQueues(
+			workingTimes(
+				said.map((message, index) =>
+					like(
+						message,
+						index,
+						conversation.id,
+						!writing || index < said.length - 1,
+						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+						now,
+						conversation.lastTask,
+						happened[index],
+						writing &&
+							index === said.length - 1 &&
+							conversation.ask?.type === "permission"
+							? conversation.ask.at
+							: null,
+						said[index + 1]?.steered === true || index === resumed,
+						cardsIn[index],
+					),
 				),
+				said,
 			),
-			said,
 		);
 		// The reply's place while the agent has yet to say anything, under the
 		// id the reply will take: assistant-ui's own placeholder has an id of its
@@ -189,6 +202,8 @@ export function useThreadMessages(
 		conversation.createdAt,
 		conversation.ask,
 		conversation.events,
+		conversation.progress,
+		conversation.reminders,
 		conversation.id,
 		conversation.lastTask,
 		conversation.resting,
@@ -297,6 +312,7 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		events = [],
 		waiting = null,
 		cut = false,
+		cards = [],
 	] = args;
 	let cache = conversions.get(conversation);
 	if (cache === undefined) {
@@ -318,6 +334,8 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		task,
 		waiting,
 		cut,
+		cards.length,
+		...cards,
 		...events,
 	];
 	const previous = cache.get(message);
@@ -356,6 +374,8 @@ function convert(
 	waiting: string | null = null,
 	/** Its turn went on past it, steered into or carried on by an agent coming back. */
 	cut = false,
+	/** The progress cards that began in this message, as `<time> <id>`. */
+	cards: readonly string[] = [],
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -403,6 +423,10 @@ function convert(
 		events,
 		waiting,
 		cut || message.stopped !== undefined || message.interrupted !== undefined,
+		cards.map((card) => {
+			const space = card.indexOf(" ");
+			return { at: card.slice(0, space), id: card.slice(space + 1) };
+		}),
 	);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
@@ -437,20 +461,24 @@ function convert(
 											data: { compaction: stretch.compaction, going },
 										},
 									]
-								: stretch.type === "background"
-									? [
-											{
-												type: "data-background",
-												data: { tool: stretch.tool },
-											},
-										]
-									: at === reply
-										? replied(stretch.text, !going, {
-												task,
-												began,
-												until: message.until,
-											})
-										: [{ type: "text", text: stretch.text }],
+								: stretch.type === "progress"
+									? isReminderId(stretch.id)
+										? [{ type: "data-reminder", data: { id: stretch.id } }]
+										: [{ type: "data-progress", data: { id: stretch.id } }]
+									: stretch.type === "background"
+										? [
+												{
+													type: "data-background",
+													data: { tool: stretch.tool },
+												},
+											]
+										: at === reply
+											? replied(stretch.text, !going, {
+													task,
+													began,
+													until: message.until,
+												})
+											: [{ type: "text", text: stretch.text }],
 				),
 			),
 			...(message.stopped === undefined
@@ -466,6 +494,30 @@ function convert(
 					]),
 		],
 	};
+}
+
+/**
+ * The progress cards that began in each message, as `<time> <id>`: a card
+ * sits in the agent message that was the latest to begin by its start, or the
+ * first agent message when it began before any.
+ */
+function cardsOf(
+	messages: readonly Message[],
+	progress: readonly Pick<Progress, "id" | "startedAt">[],
+): string[][] {
+	const out = messages.map((): string[] => []);
+	const agents = messages.flatMap((message, index) =>
+		message.role === "agent" ? [index] : [],
+	);
+	for (const card of progress) {
+		const at =
+			agents.findLast((index) => {
+				const began = messages[index]?.at;
+				return began != null && began <= card.startedAt;
+			}) ?? agents[0];
+		out[at ?? -1]?.push(`${card.startedAt} ${card.id}`);
+	}
+	return out;
 }
 
 /**

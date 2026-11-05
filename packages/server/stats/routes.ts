@@ -10,9 +10,8 @@ import { overridesByRule } from "./overrides";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /**
- * What the page reads of how tasks ended, from the records every project on
- * this machine shares, so one not open here still counts: the Stats page's
- * sums, and how one merged task went.
+ * What the page reads of how tasks ended: the Stats page's sums, and how one
+ * merged or removed task went. Any project on this machine counts.
  */
 export class DevOutcomes {
 	private readonly outcomes: Outcomes;
@@ -56,15 +55,18 @@ export class DevOutcomes {
 		);
 	};
 
-	/** How `/api/tasks/:task/outcome`'s task went once it merged in `project`; null when it never did. */
+	/** How `/api/tasks/:task/outcome`'s task went once it merged in `project`, or with `?ended=removed` once it was removed; null when it never did. */
 	landed(project: string): Handler {
-		return async (request) =>
-			Response.json(
+		return async (request) => {
+			const url = new URL(request.url);
+			return Response.json(
 				landed(
 					await this.outcomes.list(),
 					project,
-					decodeURIComponent(new URL(request.url).pathname.split("/")[3] ?? ""),
+					decodeURIComponent(url.pathname.split("/")[3] ?? ""),
+					url.searchParams.get("ended") === "removed" ? "removed" : "merged",
 				),
 			);
+		};
 	}
 }

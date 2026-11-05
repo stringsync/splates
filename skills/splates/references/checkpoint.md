@@ -6,8 +6,7 @@ where you are and start nothing new:
 
 1. Leave a step you are in the middle of as it is, unless it is a `splates
    merge`: finish that first.
-2. Bring `SPLATES.md` up to date: any `## Next` checked as it stands, each
-   open question under `## Blocked`, and a line under the current `## Next`
+2. Bring `SPLATES.md` up to date: any `## Next` checked as it stands, and a line under the current `## Next`
    step saying what you were doing when stopped and what comes next. Add that
    step if the task had none. With no task, there is no `SPLATES.md`.
 3. In a task, `splates checkpoint`: it commits what is uncommitted as a

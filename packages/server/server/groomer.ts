@@ -95,17 +95,17 @@ export class Groomer implements Resource {
 			await this.#hold();
 			// Turned off or paused meanwhile, it stops after the turn it was on.
 			while (this.#pick !== null && this.#pick !== "paused") {
-				const untriaged = (await this.deps.tasks()).filter(
+				const ungroomedTasks = (await this.deps.tasks()).filter(
 					(task) => task.state.stage === "available" && ungroomed(task.state),
 				);
-				if (untriaged.length === 0) {
+				if (ungroomedTasks.length === 0) {
 					return;
 				}
 				if (conversation === null) {
 					conversation = await this.#start(pick);
 					this.#running = conversation;
 				}
-				const next = await claimFirst(untriaged, conversation.id);
+				const next = await claimFirst(ungroomedTasks, conversation.id);
 				if (next === null) {
 					return;
 				}
@@ -280,12 +280,12 @@ export interface GroomerDeps {
 /** What a conversation is at while a turn of its is under way. */
 const BUSY = new Set(["starting", "running"]);
 
-/** The first of `untriaged` claimed for `by`, or null when none would be. */
+/** The first of `ungroomed` claimed for `by`, or null when none would be. */
 async function claimFirst(
-	untriaged: readonly Task[],
+	ungroomed: readonly Task[],
 	by: string,
 ): Promise<Task | null> {
-	for (const task of untriaged) {
+	for (const task of ungroomed) {
 		if (await task.groom(by)) {
 			return task;
 		}

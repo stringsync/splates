@@ -1,6 +1,6 @@
 {
 	"name": "splates",
-	"version": "2.0.3",
+	"version": "2.0.4",
 	"private": true,
 	"type": "module",
 	"workspaces": {
@@ -12,7 +12,8 @@
 			"packages/web",
 			"skills/splates/evals",
 			"packages/core",
-			"packages/@evals/evals"
+			"packages/@evals/evals",
+			"packages/@mono/rec"
 		],
 		"catalog": {
 			"@types/bun": "^1.4",

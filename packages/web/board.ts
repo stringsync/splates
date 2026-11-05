@@ -57,7 +57,7 @@ export interface BoardContext {
 	refusedTodos: ReadonlyMap<number, string>;
 	/** Says on todo `id`'s card that a write to it was refused. */
 	refuseTodo: (id: number, title: string, error: unknown) => void;
-	/** What was refused of each lane, by its id, under its header; null for Untriaged. */
+	/** What was refused of each lane, by its id, under its header; null for ungroomed Backlog tasks. */
 	refusedLanes: ReadonlyMap<number | null, string>;
 	refuseLane: (id: number | null, title: string, error: unknown) => void;
 	/** Todos being added or edited and not yet sent, kept across pages. */

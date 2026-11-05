@@ -66,6 +66,7 @@ export async function refuseFailedChecks(
 			output: `${checked.stdout}\n${checked.stderr}`,
 			...(output === undefined ? {} : { log: output }),
 			exitCode: checked.exitCode,
+			reason: "checks_failed",
 			failing: [],
 			onto,
 			rebasedOnto: onto,

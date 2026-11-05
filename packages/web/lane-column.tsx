@@ -23,7 +23,7 @@ export function Column({
 	children,
 }: {
 	label: string;
-	/** The lane it shows, by id, for the board to find it by; none for the untriaged. */
+	/** The lane it shows, by id, for the board to find it by; none for the ungroomed Backlog tasks. */
 	lane?: number;
 	/** Where the column takes a dropped card. */
 	drop: Ref<HTMLElement>;

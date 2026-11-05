@@ -8,12 +8,14 @@ import { reportedAs } from "./conversation-names";
 /** The opening directive only: later messages can discuss unrelated loops. */
 export function loopTarget(
 	conversation: ConversationState,
+	includeFinished = false,
 ): { scenario: string } | { run: string } | null {
 	if (
 		conversation.archived ||
-		["merged", "removed", "deferred", "done"].includes(
-			reportedAs(conversation) ?? "",
-		)
+		(!includeFinished &&
+			["merged", "removed", "deferred", "done"].includes(
+				reportedAs(conversation) ?? "",
+			))
 	) {
 		return null;
 	}
@@ -35,7 +37,7 @@ export function loopTarget(
 /**
  * The dollars and rounds the person chose for a loop, read from the directive
  * that opened its conversation; null when the text is no loop directive or
- * names no limits. Choosing them is the standing permission to run its cards.
+ * names no limits. Each round requires the person’s approval.
  */
 export function loopLimits(text: string): EvalBudget | null {
 	if (!/\[SPLATES EVAL LOOP /.test(text)) {
@@ -121,4 +123,32 @@ export function loopLabel(conversation: ConversationState | undefined): string {
 		return "Loop running";
 	}
 	return conversation.status === "failed" ? "Loop failed" : "Loop stopped";
+}
+
+/** All unarchived conversations started for evals or containing an eval run card. */
+export function useEvalConversations(
+	feed: ConversationFeed | null,
+): ConversationState[] {
+	const [conversations, setConversations] = useState(feed?.conversations ?? []);
+	useEffect(() => {
+		setConversations(feed?.conversations ?? []);
+		return feed?.events.on("changed", () =>
+			setConversations(feed.conversations),
+		);
+	}, [feed]);
+	return conversations.filter(
+		(conversation) =>
+			!conversation.archived &&
+			(loopTarget(conversation, true) !== null ||
+				conversation.evaluating === true ||
+				conversation.messages.some(
+					(message) =>
+						message.role === "agent" &&
+						message.parts.some(
+							(part) =>
+								part.type === "text" &&
+								/## 🔐 Permission: run evals /.test(part.text),
+						),
+				)),
+	);
 }

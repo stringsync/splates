@@ -160,7 +160,14 @@ export class QueueRunner implements Resource {
 		const held =
 			this.deps.held === undefined
 				? new Map<number, string>()
-				: await this.#hold(this.deps.held, all, picks.of, paused, busy);
+				: await this.#hold(
+						this.deps.held,
+						all,
+						picks.of,
+						paused,
+						busy,
+						new Set(next.map((queued) => queued.id)),
+					);
 		if (next.length === 0) {
 			return;
 		}
@@ -329,7 +336,16 @@ export class QueueRunner implements Resource {
 		paused: boolean,
 		/** Whether the load holds the queue back, as `QueueRunnerDeps.overloaded` says. */
 		busy: boolean,
+		/** The ones that start now, which the queue has room and leave to start. */
+		starting: ReadonlySet<number>,
 	): Promise<Map<number, string>> {
+		// One that names no agent is assigned one only at the last moment, once
+		// it can run, so none waits at an agent Auto pick only guessed; one whose
+		// start was refused stays, so its conversation says why.
+		const assigned = (queued: TaskRecord): boolean =>
+			queued.assignee !== undefined ||
+			starting.has(queued.id) ||
+			this.#refused.has(queued.id);
 		const queue = queueOrder(all);
 		const listed = await conversations.list();
 		const kept = new Map<number, HeldConversation>();
@@ -342,6 +358,7 @@ export class QueueRunner implements Resource {
 				task === undefined ||
 				task.stage !== "queued" ||
 				(!busy && !canStart(task, all)) ||
+				(!busy && !assigned(task)) ||
 				(!busy &&
 					pick !== null &&
 					(pick.agent !== each.agent ||
@@ -354,7 +371,9 @@ export class QueueRunner implements Resource {
 				kept.set(each.queued, each);
 			}
 		}
-		for (const queued of queue.filter((each) => canStart(each, all))) {
+		for (const queued of queue.filter(
+			(each) => canStart(each, all) && assigned(each),
+		)) {
 			// One being judged is held once that lands on its record, which
 			// checks the queue again, so it never waits on the wrong agent.
 			if (

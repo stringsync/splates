@@ -1,7 +1,6 @@
 import { basename } from "node:path";
 import {
 	addedFacts,
-	BACKLOG_LANE,
 	recordUpdate,
 	taskAdd,
 	taskList,
@@ -47,7 +46,8 @@ async function projectFrom(ctx: {
 
 /**
  * `splates task add` or `defer`: one writes a task its agent groomed, which
- * goes in a lane, the other a rough one, left in Backlog for whoever grooms it.
+ * names its project, the other a rough one. Either lands in Backlog for the
+ * groomer unless given a lane.
  */
 function adding(name: string, description: string, groomed: boolean) {
 	splatesTask
@@ -171,7 +171,7 @@ function adding(name: string, description: string, groomed: boolean) {
 						files: commaList(opts.file.join(",")),
 						blockedBy,
 						blockedElsewhere,
-						lane: laneIn(opts.lane) ?? (groomed ? BACKLOG_LANE : null),
+						lane: laneIn(opts.lane),
 						assignee,
 						origin,
 						project,
@@ -186,7 +186,7 @@ function adding(name: string, description: string, groomed: boolean) {
 
 adding(
 	"add",
-	"queue a task to do later and move on, groomed, so it goes in a lane (Backlog by default): you checked no task already asks it, and linked what blocks it; run from a worktree, it records the task it came up in",
+	"queue a task to do later and move on, groomed by you: you checked no task already asks it, and linked what blocks it. Without --lane it lands in Backlog, where the groomer places it; run from a worktree, it records the task it came up in",
 	true,
 );
 

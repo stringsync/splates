@@ -2,10 +2,18 @@
 
 ## Merge or review
 
-A task ready to merge has every step under `## Next` and every question under
-`## Blocked` checked; `splates merge` refuses one that is not, and a review
+A task ready to merge has every step under `## Next` checked and every question
+your replies asked answered; `splates merge` refuses one that is not, and a review
 is sent once all work and questions are done, with only its review step
 left unchecked. Whether the user looks first is yours to decide:
+
+Merge only while the task's After is true. When it is not, keep working in the
+task rather than landing it and queuing the remainder as a follow-up; stop only
+to ask a decision of the user or, when blocked, to defer. A queued follow-up is
+for work outside the After, never for finishing it.
+When what remains is several tasks, add a lane of them (see
+[queue.md](queue.md), Asking the user to queue) and end your reply with its
+queue card; merge only once the After is true or rewritten to what landed.
 
 - **Merge** work you verified yourself, its evidence under `## Verification`
   (see SPLATES.md in the skill). This is the default, and the usual end of a small change.
@@ -54,6 +62,9 @@ alone. Leave a task you only suspect is done, and ask about it as a numbered
 question; never remove one that is started, since its agent owns it.
 
 ## When a merge fails
+
+A `checks_failed` is the same for the checks that run before any test (lint,
+typecheck): read the output the same way, and fix it as for `tests_failed`.
 
 A `tests_failed` shows the gate's output whole up to 400 lines, or its first 100
 and last 300 with a note of what it left out, and names the file holding all

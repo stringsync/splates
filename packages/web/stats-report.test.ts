@@ -39,7 +39,12 @@ describe("StatsReport", () => {
 						picksAsked: 20,
 						picksOverturned: 1,
 						failedMerges: 6,
-						failedBy: { conflict: 6, tests_failed: 0, merge_failed: 0 },
+						failedBy: {
+							conflict: 6,
+							tests_failed: 0,
+							checks_failed: 0,
+							merge_failed: 0,
+						},
 					}),
 				],
 			}),

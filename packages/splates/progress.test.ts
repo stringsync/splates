@@ -1,0 +1,93 @@
+import { afterEach, beforeEach, expect, it } from "bun:test";
+import { Testing } from "@splates/server/testing";
+import { splates } from "./splates";
+
+let testing: Testing;
+let server: ReturnType<typeof Bun.serve> | null;
+let sent: { path: string; body: unknown }[];
+
+beforeEach(async () => {
+	testing = await Testing.open();
+	testing.ps.cd(testing.root);
+	sent = [];
+	server = null;
+	await testing.service.conversationLog("c1").append({
+		kind: "start",
+		id: "c1",
+		agent: "fake",
+		task: null,
+		createdAt: "2026-10-16T10:00:00Z",
+	});
+});
+
+afterEach(async () => {
+	await server?.stop(true);
+	await testing.disposeAsync();
+});
+
+/** Runs `splates progress` against a stand-in server that records what it is sent. */
+async function progress(args: string[], reachable = true): Promise<void> {
+	server = Bun.serve({
+		port: 0,
+		fetch: async (request) => {
+			sent.push({
+				path: new URL(request.url).pathname,
+				body: await request.json(),
+			});
+			return Response.json({});
+		},
+	});
+	testing.proc.env.SPLATES_DEV = reachable
+		? `http://localhost:${server.port}`
+		: "http://localhost:1";
+	await splates.run(
+		{
+			log: testing.log,
+			fs: testing.fs,
+			ps: testing.ps,
+			assets: testing.assets,
+			secrets: testing.secrets,
+		},
+		["progress", ...args, "--conversation", "c1"],
+	);
+}
+
+it("sends the note, title and percent to the server and prints the card", async () => {
+	await progress([
+		"build",
+		"parsing score-05",
+		"--title",
+		"Import",
+		"--percent",
+		"40",
+	]);
+
+	expect(sent).toEqual([
+		{
+			path: "/api/conversations/c1/progress",
+			body: {
+				id: "build",
+				title: "Import",
+				percent: 40,
+				note: "parsing score-05",
+			},
+		},
+	]);
+	expect(testing.out()).toContain("⏳ Import 40% · parsing score-05");
+});
+
+it("finishes a card with --done", async () => {
+	await progress(["build", "--done"]);
+
+	expect(sent.map((each) => each.body)).toEqual([
+		{ id: "build", state: "done" },
+	]);
+	expect(testing.out()).toContain("✅ build");
+});
+
+it("only prints the card when the server cannot be reached", async () => {
+	await progress(["build", "still going"], false);
+
+	expect(sent).toEqual([]);
+	expect(testing.out()).toContain("⏳ build · still going");
+});

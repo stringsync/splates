@@ -182,7 +182,7 @@ export function ShipRun({
 						<Button
 							size="xs"
 							variant="outline"
-							className="gap-1.5 max-sm:order-2 max-sm:flex-1 max-sm:border-transparent max-sm:bg-foreground max-sm:font-medium max-sm:text-background pointer-coarse:min-h-11"
+							className="gap-1.5 max-sm:order-2 max-sm:min-h-12 max-sm:flex-1 max-sm:border-transparent max-sm:bg-foreground max-sm:font-medium max-sm:text-background pointer-coarse:min-h-11"
 							disabled={acting || abandoning}
 							onClick={() => act(retry, "Not retried")}
 						>
@@ -193,7 +193,7 @@ export function ShipRun({
 					<Button
 						size="xs"
 						variant={live ? "destructive" : "outline"}
-						className="gap-1.5 max-sm:order-1 max-sm:px-4 max-sm:only:flex-1 pointer-coarse:min-h-11"
+						className="gap-1.5 max-sm:order-1 max-sm:min-h-12 max-sm:px-4 max-sm:only:flex-1 pointer-coarse:min-h-11"
 						disabled={acting || abandoning}
 						title={
 							live ? "Ends the ship; what published stays published" : undefined

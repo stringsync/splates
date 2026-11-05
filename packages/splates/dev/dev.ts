@@ -2,6 +2,7 @@ import type { SplatesDeps } from "@splates/server/server";
 import type { Cli } from "core/cmd";
 import { z } from "zod";
 import { evalSkill } from "./eval";
+import { mirrorTest } from "./mirror-test";
 import { publish, ship, trust } from "./ship";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
@@ -49,4 +50,11 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			"have npm trust stringsync/splates's publish workflow to publish @stringsync/splates; once, signing in in a browser",
 		)
 		.action((_opts, { log, ps }) => trust({ log, ps }));
+
+	dev
+		.command("test")
+		.description(
+			"check that what rec reads from disk is in this checkout; a mirrored release runs it in the mirror before publishing",
+		)
+		.action(() => mirrorTest());
 }

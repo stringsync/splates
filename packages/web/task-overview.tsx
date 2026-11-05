@@ -1,5 +1,6 @@
 import { cleared, deferralBlockers } from "@splates/server/board/browser";
 import { type JSX, type ReactNode, useContext } from "react";
+import { BeforeAfter } from "./before-after";
 import { Board } from "./board";
 import { deferredTask } from "./deferred-body";
 import { Markdown } from "./markdown";
@@ -28,6 +29,10 @@ export function Overview({
 	ports?: boolean;
 }): JSX.Element {
 	const steps = stepsIn(plan?.steps ?? "");
+	const record =
+		plan === null || (plan.before === "" && plan.goal === "")
+			? null
+			: { before: plan.before, after: plan.goal };
 	const board = useContext(Board);
 	const deferredRecord = deferredTask(board.todos, task);
 	const deferred = deferredRecord?.deferred;
@@ -61,16 +66,11 @@ export function Overview({
 			)}
 			{plan === null ? (
 				<p className="text-muted-foreground">{none}</p>
-			) : plan.goal === "" && plan.steps === "" ? (
+			) : plan.goal === "" && plan.before === "" && plan.steps === "" ? (
 				<p className="text-muted-foreground">Its SPLATES.md has no Goal yet.</p>
 			) : (
 				<>
-					{plan.goal !== "" && (
-						<section aria-label="goal" className="flex flex-col gap-1">
-							<SectionHeading>Goal</SectionHeading>
-							<Markdown text={plan.goal} />
-						</section>
-					)}
+					{record !== null && <BeforeAfter record={record} />}
 					{plan.verification !== "" && (
 						<section aria-label="verification" className="flex flex-col gap-1">
 							<SectionHeading>Verification</SectionHeading>

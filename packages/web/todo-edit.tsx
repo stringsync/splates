@@ -18,6 +18,7 @@ import {
 } from "#web/components/ui/input-group.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { assignTodo } from "./api";
+import { BeforeAfter } from "./before-after";
 import { BlockedFixButton, blockedFix } from "./blocked-fix";
 import { Board as BoardContext } from "./board";
 import { assigned } from "./board-expectations";
@@ -34,6 +35,7 @@ import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
 import { TagChips } from "./tag-chips";
 import { TaskIcon } from "./task-icon";
+import { planParts } from "./task-plan-parts";
 import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
 import { STAGE_TONES, shownStage, stageLabel } from "./todo-queue";
@@ -307,7 +309,7 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 				}
 			}}
 		>
-			<Markdown text={detail.value} />
+			<DetailText text={detail.value} />
 			<Button
 				size="xs"
 				variant="ghost"
@@ -316,6 +318,31 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 			>
 				Edit
 			</Button>
+		</div>
+	);
+}
+
+/**
+ * A detail written as `## Before` and `## After` shows as that pair side by
+ * side with the rest folded below; any other detail is plain markdown.
+ */
+function DetailText({ text }: { text: string }): JSX.Element {
+	const parts = planParts(text);
+	if (parts.before === "" && parts.goal === "") {
+		return <Markdown text={text} />;
+	}
+	const rest = [parts.steps, parts.notes].filter((each) => each !== "");
+	return (
+		<div className="flex min-w-0 flex-col gap-3">
+			<BeforeAfter record={{ before: parts.before, after: parts.goal }} />
+			{rest.length > 0 && (
+				<details>
+					<summary className="cursor-pointer text-muted-foreground text-xs">
+						More
+					</summary>
+					<Markdown text={rest.join("\n\n")} />
+				</details>
+			)}
 		</div>
 	);
 }

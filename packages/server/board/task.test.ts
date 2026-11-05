@@ -202,7 +202,7 @@ describe.concurrent("task", () => {
 		expect(await deps.fs.exists(dir)).toBe(false);
 	});
 
-	it("names a queued task's files in the Goal of the task that takes it up", async () => {
+	it("names a queued task's files in the Details of the task that takes it up", async () => {
 		await using deps = await Testing.open();
 		const shot = `${deps.root}/shot.png`;
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
@@ -212,7 +212,7 @@ describe.concurrent("task", () => {
 
 		const worktree = (await deps.service.find("chart")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
-			`## Goal\n\nfix the chart\n\nAttached: \`${deps.tasks.dir}/1/0-shot.png\``,
+			`## After\n\nfix the chart\n\n## Details\n\nAttached: \`${deps.tasks.dir}/1/0-shot.png\``,
 		);
 	});
 
@@ -370,7 +370,7 @@ describe.concurrent("task", () => {
 
 		const worktree = (await deps.service.find("dark")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
-			"## Goal\n\nsupport dark mode\n\ncharts too\n",
+			"## After\n\nsupport dark mode\n\n## Details\n\ncharts too\n",
 		);
 		expect((await deps.tasks.find(1)).takenBy).toBe("dark");
 		await expect(add(deps, "other", { tasks: [1] })).toBail("exists", {
@@ -403,10 +403,10 @@ describe.concurrent("task", () => {
 		expect(deps.out()).toContain("groomed:   yes");
 	});
 
-	it("reports a groomer claim as unfinished and a Backlog placement as groomed", async () => {
+	it("reports a groomer claim as unfinished and any task in Backlog as ungroomed", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "awaiting grooming", null);
-		await deps.tasks.add("placed in Backlog", null, { lane: 0 });
+		await deps.tasks.add("named Backlog", null, { lane: 0 });
 		await (await deps.tasks.find(1)).groom("groomer-a");
 
 		deps.log.clear();
@@ -415,9 +415,7 @@ describe.concurrent("task", () => {
 		expect(deps.out()).toContain("grooming:  the groomer has it");
 		deps.log.clear();
 		await taskShow(deps, 2);
-		expect(deps.out()).toContain(
-			"groomed:   yes, it was groomed and stays in Backlog",
-		);
+		expect(deps.out()).toContain("groomed:   no, groom it before work on it");
 		expect(deps.out()).not.toContain("grooming:");
 	});
 

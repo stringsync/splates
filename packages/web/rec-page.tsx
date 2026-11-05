@@ -6,6 +6,7 @@ import {
 	Laser,
 	Mic,
 	MicOff,
+	SquareIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useEffect, useId, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
@@ -17,7 +18,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
-import { openRec, recName, recState } from "./api";
+import { closeRec, openRec, recName, recState } from "./api";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { RecHistory } from "./rec-history";
@@ -177,6 +178,17 @@ function RecStart(): JSX.Element {
 	];
 	const running = state?.status.running === true;
 
+	const reset = async () => {
+		setOpening(false);
+		setProblem(null);
+		try {
+			await closeRec();
+		} catch (error) {
+			setProblem((error as Error).message);
+		}
+		setState(await recState().catch(() => null));
+	};
+
 	const open = async () => {
 		setOpening(true);
 		setProblem(null);
@@ -224,13 +236,22 @@ function RecStart(): JSX.Element {
 			</div>
 			{state !== null && !available && (
 				<p role="alert" className="rounded-lg border p-4 text-sm">
-					Rec is not on this server's PATH. Put mono's <code>bin/rec</code> on
-					it as <code>rec</code>, then restart the server; until then Open rec
-					stays off.
+					Rec is not on this server's PATH. It comes with splates: install{" "}
+					<code>@stringsync/splates</code> globally (<code>bun add -g</code>) so
+					its <code>rec</code> is on the PATH, then restart the server; until
+					then Open rec stays off. Rec needs Chrome and ffmpeg;{" "}
+					<code>OPENAI_API_KEY</code> adds a transcript and{" "}
+					<code>TYPESAFE_API_KEY</code> ranks the moments better. Run{" "}
+					<code>rec skills add</code> in a project to teach its agent to read
+					sessions.
 				</p>
 			)}
 			{running && state !== null ? (
-				<Live status={state.status} host={state.host} />
+				<Live
+					status={state.status}
+					host={state.host}
+					onClosed={() => recState().then(setState, () => {})}
+				/>
 			) : (
 				<div className="flex flex-col gap-4 rounded-lg border bg-card p-4">
 					<div className="flex flex-col gap-1.5 text-sm">
@@ -358,6 +379,9 @@ function RecStart(): JSX.Element {
 								<span className="text-destructive">{problem}</span>
 							)}
 						</span>
+						<Button type="button" variant="ghost" size="sm" onClick={reset}>
+							Reset rec
+						</Button>
 						<Button
 							className="rounded-full bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
 							variant="destructive"
@@ -375,14 +399,30 @@ function RecStart(): JSX.Element {
 	);
 }
 
-/** Rec as it runs, read only: Start and Stop stay in Chrome's side panel. */
-function Live({
+/** Shows the running rec, and ends it with Close rec. */
+export function Live({
 	status,
 	host,
+	onClosed,
 }: {
 	status: RecState["status"];
 	host: string;
+	onClosed: () => void;
 }): JSX.Element {
+	const [closing, setClosing] = useState(false);
+	const [problem, setProblem] = useState<string | null>(null);
+	const close = async () => {
+		setClosing(true);
+		setProblem(null);
+		try {
+			await closeRec();
+			onClosed();
+		} catch (error) {
+			setProblem((error as Error).message);
+		} finally {
+			setClosing(false);
+		}
+	};
 	const [now, setNow] = useState(() => Date.now());
 	useEffect(() => {
 		const every = setInterval(() => setNow(Date.now()), 1000);
@@ -437,10 +477,31 @@ function Live({
 					</div>
 				)}
 			</div>
-			<p className="text-muted-foreground text-xs">
-				Start and Stop stay in Chrome's side panel. Each Stop saves a session,
-				then transcribes and ranks it.
-			</p>
+			<div className="flex items-end justify-between gap-3">
+				<span className="flex flex-col gap-1 text-muted-foreground text-xs">
+					<span>
+						Start and Stop stay in Chrome's side panel. Each Stop saves a
+						session, then transcribes and ranks it.
+					</span>
+					<span>
+						Close rec saves anything recording, closes rec's Chrome and ends
+						rec.
+					</span>
+					{problem !== null && (
+						<span className="text-destructive">{problem}</span>
+					)}
+				</span>
+				<Button
+					type="button"
+					variant="destructive"
+					size="sm"
+					disabled={closing}
+					onClick={close}
+				>
+					<SquareIcon className="size-3 fill-current" />
+					{closing ? "Closing…" : "Close rec"}
+				</Button>
+			</div>
 		</div>
 	);
 }

@@ -15,7 +15,7 @@ import { scheduleOf } from "./schedule";
 export type Hook =
 	| ({ kind: "agent"; prompt: string } & AgentPick)
 	| { kind: "run"; command: string }
-	/** The project's groomer, told to groom Untriaged, as built-in automation `groomer` runs. */
+	/** The project's groomer, told to groom ungroomed Backlog tasks, as built-in automation `groomer` runs. */
 	| ({ kind: "groom" } & AgentPick);
 
 /** Which tasks an event hook fires for; a field left out matches any. */

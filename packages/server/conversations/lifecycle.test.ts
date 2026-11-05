@@ -256,6 +256,126 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.unread).toBe(true);
 	});
 
+	const CARD = { task: "t", line: "One page.", before: "", after: "" };
+
+	it("reminds no one on the first visit", async () => {
+		const conversation = await started();
+
+		await conversation.visit(CARD);
+
+		expect(conversation.state.reminders).toEqual([]);
+	});
+
+	it("reminds the person back after ten minutes, keeping when they left", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+		const since = conversation.state.visited ?? "";
+
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+
+		const at = new Date(clock.now()).toISOString();
+		expect(conversation.state.reminders).toEqual([{ ...CARD, at, since }]);
+	});
+
+	it("skips identical reminders on repeated returns, including after a restart", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		expect(conversation.state.reminders).toHaveLength(1);
+
+		const reread = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+			},
+		);
+		try {
+			const restored = (await reread.list())[0];
+			clock.advance(Duration.mins(10));
+			await restored?.visit(CARD);
+			expect(restored?.state.reminders).toHaveLength(1);
+		} finally {
+			await reread.disposeAsync();
+		}
+	});
+
+	it("reminds again after intervening messages or a changed line", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(1));
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		expect(conversation.state.reminders).toHaveLength(2);
+		clock.advance(Duration.mins(10));
+		await conversation.visit({ ...CARD, line: "Two pages." });
+		expect(conversation.state.reminders).toHaveLength(3);
+	});
+
+	it("reminds again after a progress card appears", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(1));
+		conversation.reportProgress({ id: "import", title: "Import", percent: 10 });
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		expect(conversation.state.reminders).toHaveLength(2);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+		expect(conversation.state.reminders).toHaveLength(2);
+	});
+
+	it("does not remind one who stayed, past when the log last kept a visit", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+
+		clock.advance(Duration.mins(9));
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(9));
+		await conversation.visit(CARD);
+
+		expect(conversation.state.reminders).toEqual([]);
+	});
+
+	it("does not remind with no card to show", async () => {
+		const conversation = await started();
+		await conversation.visit(null);
+
+		clock.advance(Duration.mins(10));
+		await conversation.visit(null);
+
+		expect(conversation.state.reminders).toEqual([]);
+	});
+
+	it("keeps the visit and each reminder across a restart", async () => {
+		const conversation = await started();
+		await conversation.visit(CARD);
+		clock.advance(Duration.mins(10));
+		await conversation.visit(CARD);
+
+		const reread = await new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		).list();
+
+		expect(reread[0]?.state.reminders).toEqual(conversation.state.reminders);
+		expect(reread[0]?.state.visited).toBe(conversation.state.visited);
+	});
+
 	it("keeps how many messages were read, never fewer nor more than went out", async () => {
 		const conversation = await started();
 		await conversation.prompt("hello");

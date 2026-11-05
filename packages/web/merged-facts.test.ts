@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import type { Decision } from "@splates/server/plans";
 import type { Outcome } from "@splates/server/stats/browser";
 import { mergedFacts } from "./merged-facts";
 
@@ -16,10 +15,6 @@ describe("mergedFacts", () => {
 					cost: { amount: 4.5, currency: "USD" },
 				},
 				size: { files: 3, added: 120, removed: 30 },
-				decisions: [
-					decision("1", "large", "overturned"),
-					decision("2", null, "kept"),
-				],
 			}),
 			baseline: {
 				project: "/repo",
@@ -52,12 +47,6 @@ describe("mergedFacts", () => {
 				label: "Size",
 				value: { added: 120, removed: 30 },
 				detail: "3 files",
-				high: false,
-			},
-			{
-				label: "Decisions",
-				value: { byYou: 2 },
-				detail: null,
 				high: false,
 			},
 		]);
@@ -141,31 +130,29 @@ describe("mergedFacts", () => {
 		expect(facts.findings).toEqual([]);
 	});
 
-	it("says nothing of usage never kept, nor calls an older outcome never kept", () => {
+	it("says nothing of usage never kept, and never of the person's calls", () => {
 		const facts = mergedFacts({
 			outcome: merged({ questionsAsked: 0 }),
 			baseline: null,
 		});
-		const older = mergedFacts({ outcome: merged({}), baseline: null });
 
-		expect(facts.stats.map((stat) => stat.label)).toEqual([
-			"Time",
-			"Decisions",
-		]);
-		expect(facts.stats[1]?.value).toEqual({ byYou: 0 });
-		expect(older.stats.map((stat) => stat.label)).toEqual(["Time"]);
+		expect(facts.stats.map((stat) => stat.label)).toEqual(["Time"]);
+	});
+
+	it("says a removed task's figures the same way", () => {
+		const facts = mergedFacts({
+			outcome: merged({
+				ended: "removed",
+				size: { files: 1, added: 2, removed: 0 },
+			}),
+			baseline: null,
+		});
+
+		expect(facts.stats.map((stat) => stat.label)).toEqual(["Time", "Size"]);
 	});
 });
 
 const MINUTE = 60_000;
-
-function decision(
-	number: string,
-	size: Decision["size"],
-	ended: Decision["ended"],
-): Decision {
-	return { number, text: `Call ${number}`, size, ended };
-}
 
 /** A merged task 40 minutes long; a test overrides what it is about. */
 function merged(changes: Partial<Outcome>): Outcome {

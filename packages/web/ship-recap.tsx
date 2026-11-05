@@ -26,7 +26,7 @@ const TONES: Record<RecapRow["tone"], string> = {
  * how long it took, split into what the machine spent and what waited on
  * them, the step that ran longest past its expected time, any errors, and
  * every step of every project against the time it was expected to take.
- * Plan another ship acknowledges it and goes back to the plan.
+ * Done acknowledges it and goes back to the plan.
  */
 export function ShipRecap({ cascade }: { cascade: Cascade }): JSX.Element {
 	const recap = recapOf(cascade, Date.now());
@@ -66,13 +66,13 @@ export function ShipRecap({ cascade }: { cascade: Cascade }): JSX.Element {
 			</p>
 			{cascade.status !== "stopped" && (
 				<Button
-					className="self-start pointer-coarse:min-h-11"
+					className="min-h-11 w-full"
 					onClick={() => {
 						acknowledge(cascade.id);
 						location.hash = "ships";
 					}}
 				>
-					Plan another ship
+					Done
 				</Button>
 			)}
 		</section>

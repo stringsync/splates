@@ -195,7 +195,7 @@ function Runs({ hook, does }: { hook: Hook; does: string }): JSX.Element {
 			>
 				{hook.kind === "agent"
 					? hook.prompt
-					: "Grooms each task in Untriaged: checks no other task asks it, links what blocks it, and places it in a lane."}
+					: "Grooms each ungroomed task in Backlog: checks no other task asks it, links what blocks it, and places it in a lane."}
 			</p>
 		</div>
 	);

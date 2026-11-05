@@ -4,6 +4,7 @@ import { age } from "../age";
 import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
+import { areasOf } from "./areas";
 import type { FinishedPlan } from "./finished";
 import { landingNotices } from "./landings";
 import type { DiffSize, Gate, MergeProgress, Worktree } from "./worktree";
@@ -55,6 +56,8 @@ export interface Details {
 	project: string | null;
 	/** The tags grouping it. */
 	tags: string[];
+	/** The areas its changed paths touch, most first, for chips beside its tags; absent from older servers. */
+	areas?: string[];
 	/** Files predicted to conflict at the last checked committed tips. */
 	comingConflict?: string[];
 	landed?: string[];
@@ -187,12 +190,14 @@ export class TaskDetails {
 		const plan = worktree.exists
 			? await new Plans(this.fs).read(worktree.path)
 			: null;
-		const { stat, ahead, committedAt, uncommitted } = await this.git(worktree);
+		const { stat, ahead, committedAt, uncommitted, changed } =
+			await this.git(worktree);
 		return {
 			task: worktree.task,
 			number: state?.id ?? null,
 			project: worktree.scope,
 			tags: worktree.tags,
+			areas: areasOf(changed),
 			comingConflict: (await worktree.comingConflict())?.files ?? [],
 			landed: await landingNotices(worktree),
 			status: worktree.status,
@@ -279,11 +284,15 @@ export class TaskDetails {
 		const uncommitted = worktree.exists
 			? (await worktree.uncommitted().catch(() => [])).map(pathOf)
 			: [];
+		const changed = worktree.hasBranch
+			? ((await worktree.changedFiles().catch(() => null)) ?? [])
+			: [];
 		return {
 			stat,
 			ahead,
 			committedAt,
 			uncommitted,
+			changed,
 		};
 	}
 
@@ -329,6 +338,8 @@ interface GitFacts {
 	committedAt: number | null;
 	/** The paths it has uncommitted, relative to its worktree. */
 	uncommitted: string[];
+	/** The paths it has changed, committed or not, relative to the repository. */
+	changed: string[];
 }
 
 /** What a task's git facts are read from, so a task that changes any is read anew. */

@@ -125,7 +125,9 @@ describe("App's controls that put agents to work", () => {
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 
-		expect(within(dialog).getByRole("heading").textContent).toBe("alpha");
+		expect(within(dialog).getAllByRole("heading")[0]?.textContent).toBe(
+			"alpha",
+		);
 		expect(
 			within(dialog).queryByRole("textbox", { name: "subject" }),
 		).toBeNull();

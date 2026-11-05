@@ -4,21 +4,23 @@ import {
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
-	UserIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { LANDED } from "./landed-outcomes";
 import { Markdown } from "./markdown";
-import { type Decided, mergedFacts } from "./merged-facts";
+import { mergedFacts } from "./merged-facts";
 
 /**
  * What the page holds of `task`'s merge, for its card: undefined while it
  * loads, null for no task or for one whose merge was never recorded here.
  */
-export function useLanded(task: string | null): Landed | null | undefined {
+export function useLanded(
+	task: string | null,
+	ended: "merged" | "removed" = "merged",
+): Landed | null | undefined {
 	const [landed, setLanded] = useState<Landed | null | undefined>(
-		task === null ? null : LANDED.get(task),
+		task === null ? null : LANDED.get(task, ended),
 	);
 	useEffect(() => {
 		if (task === null) {
@@ -26,21 +28,21 @@ export function useLanded(task: string | null): Landed | null | undefined {
 		}
 		let current = true;
 		// A read that failed leaves the card without its footer, not unshown.
-		void LANDED.load(task).then(() => {
+		void LANDED.load(task, ended).then(() => {
 			if (current) {
-				setLanded(LANDED.get(task) ?? null);
+				setLanded(LANDED.get(task, ended) ?? null);
 			}
 		});
 		return () => {
 			current = false;
 		};
-	}, [task]);
+	}, [task, ended]);
 	return landed;
 }
 
 /**
  * How a task went once it merged, as its card's footer: its time, cost,
- * size and the calls the person made beside its project's usual, what the
+ * size beside its project's usual, what the
  * gate made of it, and anything that went worse than it could have. Nothing
  * while `landed` loads.
  */
@@ -54,6 +56,8 @@ export function MergedStats({
 
 function Went({ landed }: { landed: Landed }): JSX.Element {
 	const facts = mergedFacts(landed);
+	// A removed task never went through the gate, so it has none to report.
+	const removed = landed.outcome.ended === "removed";
 	return (
 		<section
 			aria-label="how it went"
@@ -72,15 +76,13 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 						>
 							{typeof stat.value === "string" ? (
 								stat.value
-							) : "added" in stat.value ? (
+							) : (
 								<span>
 									<span className="text-success">+{stat.value.added}</span>{" "}
 									<span className="text-destructive">
 										−{stat.value.removed}
 									</span>
 								</span>
-							) : (
-								<Decisions decided={stat.value} />
 							)}
 							{stat.high && (
 								<ArrowUpIcon aria-label="above usual" className="size-3.5" />
@@ -93,7 +95,7 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 				))}
 			</dl>
 
-			{(landed.outcome.batch?.length ?? 0) > 1 && (
+			{!removed && (landed.outcome.batch?.length ?? 0) > 1 && (
 				<p className="text-muted-foreground">
 					Gated with{" "}
 					{landed.outcome.batch
@@ -101,7 +103,7 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 						.join(", ")}
 				</p>
 			)}
-			{facts.gate === null ? (
+			{removed ? null : facts.gate === null ? (
 				<p className="flex items-center gap-1.5 text-success">
 					<CircleCheckIcon aria-hidden className="size-3.5" />
 					Gate passed first try
@@ -123,16 +125,6 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 				/>
 			)}
 		</section>
-	);
-}
-
-/** The calls the person made in the task. */
-function Decisions({ decided }: { decided: Decided }): JSX.Element {
-	return (
-		<span className="flex items-center gap-1.5">
-			<UserIcon aria-hidden className="size-3.5 text-muted-foreground" />
-			{decided.byYou} by you
-		</span>
 	);
 }
 

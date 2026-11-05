@@ -10,8 +10,8 @@ export class Plans {
 	constructor(private readonly fs: Fs) {}
 
 	/**
-	 * The plan in worktree `tree`, or null for none: an agent still on arbor's
-	 * skill keeps it as `ARBOR.md`, read when there is no `SPLATES.md`.
+	 * Read the worktree's plan, accepting the legacy `ARBOR.md` name too.
+	 * Returns null when neither plan exists.
 	 */
 	read(tree: string): Promise<string | null> {
 		return this.fs
@@ -40,8 +40,7 @@ export class Plans {
 }
 
 /**
- * The steps `splates add` once wrote under `## Next`, asking its agent to
- * plan: a plan that still holds them has no work under way.
+ * Placeholder steps to ignore when checking whether a legacy plan is finished.
  */
 // A fresh plan now holds only its Goal; plans of tasks started back then may
 // still hold these.
@@ -51,26 +50,40 @@ export const STUB_STEPS = [
 ];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Next", "Verification", "Demo", "Blocked", "Outcome"];
-// Steps are for work of several commits: for one, the Goal says it all.
-const REQUIRED = ["Goal"];
+const SECTIONS = ["Before", "After", "Details", "Next", "Blocked"];
+// Sections of plans written before Before and After, still read and accepted.
+const LEGACY = ["Goal", "Verification", "Demo", "Outcome", "Notes"];
+// Steps are for work of several commits: for one, After says it all.
+const REQUIRED = ["After"];
 // A `Q` before the number is how plans were numbered once, and still reads.
 const QUESTION = /^[ \t]*- \[[ xX]\] [Qq]?\d+\./m;
 
-/**
- * What an `SPLATES.md` says its task is for: the first line under `## Goal`, or
- * null when it says nothing yet. One line, since it sits beside other tasks'
- * in `splates list --files`.
- */
-export function goalLine(text: string): string | null {
+/** An empty section's hint is an HTML comment on one line: not content. */
+const HINT = /^<!--.*-->$/;
+
+/** The body of the first of `names` the plan has, hints taken out, or "". */
+function bodyOf(text: string, names: string[]): string | null {
 	const md = Markdown.parse(text);
-	if (!md.has("Goal")) {
+	const name = names.find((each) => md.has(each));
+	if (name === undefined) {
 		return null;
 	}
-	const line = md
-		.section("Goal")
+	return md
+		.section(name)
 		.body.split("\n")
-		.find((line) => line.trim() !== "");
+		.filter((line) => !HINT.test(line.trim()))
+		.join("\n")
+		.trim();
+}
+
+/**
+ * What an `SPLATES.md` says its task is for: the first line under `## After`
+ * (or `## Goal` in a plan from before it), or null when it says nothing yet.
+ * One line, since it sits beside other tasks' in `splates list --files`.
+ */
+export function goalLine(text: string): string | null {
+	const body = bodyOf(text, ["After", "Goal"]);
+	const line = body?.split("\n").find((line) => line.trim() !== "");
 	return line === undefined ? null : line.trim();
 }
 
@@ -104,22 +117,28 @@ export function sectionApart(
 }
 
 /**
- * What an `SPLATES.md` says came of its task: all of `## Outcome`, as
- * markdown, or "" when it says nothing. The merge record keeps it, since the
- * plan goes with the worktree.
+ * Read a task's Before and After as markdown for its merge record.
+ * Accepts legacy Outcome sections; returns an empty string for no outcome.
  */
 export function outcomeOf(text: string): string {
 	const md = Markdown.parse(text);
-	return md.has("Outcome") ? md.section("Outcome").body.trim() : "";
+	if (md.has("Outcome")) {
+		return md.section("Outcome").body.trim();
+	}
+	return ["Before", "After"]
+		.flatMap((name) => {
+			const body = bodyOf(text, [name]);
+			return body ? [`## ${name}\n\n${body}`] : [];
+		})
+		.join("\n\n");
 }
 
 /**
- * What an `SPLATES.md` says done means: all of `## Goal`, as markdown, or ""
- * when it says nothing yet.
+ * What an `SPLATES.md` says done means: all of `## After` (or `## Goal` in an
+ * older plan), as markdown, or "" when it says nothing yet.
  */
 export function goalOf(text: string): string {
-	const md = Markdown.parse(text);
-	return md.has("Goal") ? md.section("Goal").body.trim() : "";
+	return bodyOf(text, ["After", "Goal"]) ?? "";
 }
 
 /**
@@ -136,8 +155,7 @@ export interface Question {
 	/** The item's own line, without its checkbox, number, size or reply. */
 	text: string;
 	/**
-	 * The `(large)` that led its line in plans from when the skill sized
-	 * questions, which outcomes still keep; null when it has none.
+	 * Read the legacy question size, or null when none was specified.
 	 */
 	size: string | null;
 	/**
@@ -270,8 +288,7 @@ const INDENTS = new WeakMap<Choice, number>();
  * Adds what `line` offers to `asked`, saying whether it did: an indented
  * `- (a) text` picks one, `- [a] text` picks any, and `- a. text` is put in
  * order, and a line indented past a choice's dash, such as its screenshot,
- * belongs to that choice. The first choice says which for the question. The
- * same in a plan and in a conversation, which `asked.ts` reads with this.
+ * belongs to that choice. The first choice determines the question's pick mode.
  */
 export function offers(
 	asked: Pick<Question, "choices" | "pick">,
@@ -459,11 +476,11 @@ export function ready({ questions, steps }: Unfinished): boolean {
 	return questions.length === 0 && steps.length === 0;
 }
 
-/** What {@link unfinished} found, as a clause: `questions 1, 2 unchecked under ## Blocked`. */
+/** What {@link unfinished} found, as a clause: `questions 1, 2 unanswered in the conversation or task plan`. */
 export function whatIsLeft({ questions, steps }: Unfinished): string {
 	return [
 		questions.length > 0
-			? `questions ${questions.join(", ")} unchecked under ## Blocked`
+			? `questions ${questions.join(", ")} unanswered in the conversation or task plan`
 			: "",
 		steps.length > 0
 			? `${steps.length} step${steps.length === 1 ? "" : "s"} unchecked under ## Next`
@@ -588,12 +605,12 @@ export function checkPlan(text: string, { task }: PlanOptions): string[] {
 		);
 	}
 	for (const name of REQUIRED) {
-		if (!md.has(name)) {
+		if (!md.has(name) && !md.has("Goal")) {
 			problems.push(`no ## ${name} section`);
 		}
 	}
-	if (section("Goal") === "") {
-		problems.push("## Goal is empty: say in a line or two what done means");
+	if (goalOf(text) === "" && (md.has("After") || md.has("Goal"))) {
+		problems.push("## After is empty: say in a line what done looks like");
 	}
 	const blocked = section("Blocked");
 	if (blocked !== null && !QUESTION.test(blocked)) {
@@ -611,7 +628,9 @@ export function checkPlan(text: string, { task }: PlanOptions): string[] {
 		);
 	}
 	// Older tasks may still carry Notes; accept it without prescribing it.
-	const known = [...SECTIONS, "Notes"].map((section) => section.toLowerCase());
+	const known = [...SECTIONS, ...LEGACY].map((section) =>
+		section.toLowerCase(),
+	);
 	for (const section of md.sections) {
 		if (section.level === 2 && !known.includes(section.heading.toLowerCase())) {
 			problems.push(

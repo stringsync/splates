@@ -1,0 +1,57 @@
+[
+	[
+		"agent",
+		"## 💡 Proposed Before | After at the top of the review and merged cards\n\nBoth cards would open with the task's Before and After side by side, taken from its `SPLATES.md`. After shows Expected and As built when both exist. The one line comes next, then Checks and the button. The demo prose on the review card and the Outcome prose on the merged card move into a fold below. I have only mocked this so far and haven't touched any code.\n\n**Mock (lo-fi):**\n\n1. Where should the cards get the Before and After text?\n   The Review type is parsed from the agent's reply today. The task's plan is already read for the task dialog.\n   - (a) From the task's `SPLATES.md` on the server, as the dialog does, so the cards always match the record (chosen)\n   - (b) From the agent's reply, which would mean the skill asks for them in the card\n2. Should the review card's Demo section stay open?\n   - (a) Fold it with the details, under the Before | After pair (chosen)\n   - (b) Keep it open below Checks"
+	],
+	["user", "I don't really use demos a lot, do I still need it?"],
+	[
+		"agent",
+		"Probably not on these cards. Once a card shows Before and After with As built, a demo mostly repeats that picture. The one thing it might still add is a way to try the change live, but I haven't read the demo code or checked how often agents send one, so I can't say that for sure.\n\nRemoving demos altogether would be its own task, because it also touches the skill, the `[SPLATES DEMO]` directive and the task dialog. I'd queue that separately, and for now this card would show a demo only if the agent sent one, folded with the details. That way, agents that still send demos lose nothing.\n\n## 💡 Proposed Before | After at the top of the review and merged cards, with demos folded\n\nThe cards are the same as in the mock: the Before | After pair, the one line, Checks and the button, with prose folded below. Demos go in that fold.\n\n1. Where should the cards get the Before and After text?\n   The Review type is parsed from the agent's reply today. The task's plan is already read for the task dialog.\n   - (a) From the task's `SPLATES.md` on the server, as the dialog does, so the cards always match the record (chosen)\n   - (b) From the agent's reply, which would mean the skill asks for them in the card\n2. Should I queue a separate task to look at removing demos altogether?\n   It would check how often demos are used and what only they provide, then remove them if nothing is lost.\n   - (a) Yes, queue it (chosen)\n   - (b) No, keep demos, folded on these cards"
+	],
+	["user", "[SPLATES APPROVE]"],
+	[
+		"user",
+		"There should be screenshots or D2 diagrams for these. Text usually isn't enough. Would you make sure the splates skill mentions this and show me screenshots with a diagram and/or UI changes?"
+	],
+	[
+		"user",
+		"Rename to [Expected | Actual]\r\n\r\nWhen both [Expected | Actual] are both available, I would like to see a segmented button allowing me to switch between them, defaulting to Actual first if available."
+	],
+	[
+		"agent",
+		"The rename is merged: the splates skill and its evals now say Actual instead of As built. Agents will write it for new tasks, and the switch below covers older records.\n\n## 💡 Proposed an Expected | Actual switch in the After column\n\nWhen a task's After has both pictures, the card shows one at a time and opens on Actual. With only one of them, there's no switch and that picture shows as it does now. This also shortens the cards, because the two pictures no longer stack.\n\n**Before:** Expected and As built stack in the After column.\n\n1. Where should the switch sit?\n   I'd pick B because it keeps the Before and After pictures level with each other.\n   - (a) Mock A: at the top of the After column, above the picture\n\n     \n   - (b) Mock B: on the same line as the After heading (chosen)\n\n     \n2. Should the task dialog get the switch too?\n   It shows the same Before and After, so the two would otherwise look different.\n   - (a) Yes, cards and dialog alike (chosen)\n   - (b) No, only the cards\n3. Should records that still say As built get the switch too?\n   Tasks already written that way would otherwise keep stacking, with the old label.\n   - (a) Yes, and show their As built under the Actual label (chosen)\n   - (b) No, only records that say Actual"
+	],
+	[
+		"user",
+		"The before/after sections need to be neatly aligned. Make sure their contents start at the same place."
+	],
+	[
+		"agent",
+		"## 💡 Proposed aligned Before and After columns with an Expected | Actual switch\n\nBoth columns now share rows: the headings sit on one row, the lines on another and the pictures on a third, so each row starts at the same height even when one line wraps. The switch sits in the heading row, which stays the same height with or without it. It opens on Actual, and appears only when both pictures exist.\n\nTo line up this way, After's one line moves out from under the pair and into its column, next to Before's line.\n\n1. Which layout should the columns use?\n   I'd pick A because the words say what the picture is about before you look at it. B keeps the pictures level at the top of the card, whatever the text does.\n   - (a) Mock A: each line above its picture (chosen)\n\n     \n   - (b) Mock B: pictures first, each line below its picture\n\n     \n2. Should the task dialog get the same layout and switch?\n   It shows the same Before and After, so the two would otherwise look different.\n   - (a) Yes, cards and dialog alike (chosen)\n   - (b) No, only the cards\n3. Should records that still say As built get the switch too?\n   Tasks already written that way would otherwise keep stacking, with the old label.\n   - (a) Yes, and show their As built under the Actual label (chosen)\n   - (b) No, only records that say Actual"
+	],
+	[
+		"user",
+		"> **Should records that still say As built get the switch too?**\r\n\r\n- (a) Yes, and show their As built under the Actual label\r\n\r\nJust replace \"As built\" with \"Actual\"\r\n\r\n> **Anything else?**\r\n\r\nCould I also see the mobile treatments of this please?"
+	],
+	[
+		"agent",
+		"## 💡 Proposed aligned Before and After columns, with a phone layout and an Expected | Actual switch\n\nOlder records that say As built will now simply show Actual, with the same switch.\n\nOn a phone there isn't room for two columns, so Before sits above After and the row alignment doesn't apply. Each section keeps the same order, and the switch gets bigger for touch, on the After heading's line. It opens on Actual, as on desktop.\n\n1. Which layout should Before and After use?\n   I'd still pick A: on a phone, the line tells you what the picture shows before you've scrolled past it. B puts the pictures first, but each line lands below the picture it describes.\n   - (a) Mock A: each line above its picture (chosen)\n\n     \n\n     \n   - (b) Mock B: pictures first, each line below its picture\n\n     \n\n     \n2. Should the task dialog get the same layout and switch?\n   It shows the same Before and After, so the two would otherwise look different.\n   - (a) Yes, cards and dialog alike (chosen)\n   - (b) No, only the cards"
+	],
+	[
+		"user",
+		"> **Which layout should Before and After use?**\r\n\r\n- (b) Mock B: pictures first, each line below its picture"
+	],
+	[
+		"agent",
+		"## 💡 Proposed Mock B: pictures first, each line below its picture\n\nBefore and After share rows, so the headings, pictures and lines each start level. The switch sits on the After heading's line and opens on Actual, and records that say As built show Actual. A record with no picture starts its line where the picture would be. On a phone, Before sits above After in the same order.\n\n1. Should the task dialog get the same layout and switch?\n   It shows the same Before and After, so the two would otherwise look different.\n   - (a) Yes, cards and dialog alike (chosen)\n   - (b) No, only the cards"
+	],
+	["user", "[SPLATES APPROVE]"],
+	[
+		"user",
+		"There seems to be a gap, keep going: [Image 1]\r\n\r\nMarks on [Image 1]:\r\n1. what is this?"
+	],
+	[
+		"user",
+		"[Image 1]\r\n\r\nMarks on [Image 1]:\r\n1. This gap is awkward. Put the caption underneath it normally please"
+	]
+]

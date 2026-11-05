@@ -37,7 +37,6 @@ import {
 } from "#web/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#web/components/ui/button.tsx";
-import { useTaskViewport } from "#web/current-task.tsx";
 import { carriesOn } from "#web/directives.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
@@ -121,7 +120,6 @@ const ThreadRoot: FC<{
 	// keyboard over half the page.
 	const touch = useTouch();
 	// What the current task card beside the thread reads its cards against.
-	useTaskViewport(viewport);
 	// Every scroll jumps rather than glides: assistant-ui scrolls a new message
 	// to the top with `behavior: "smooth"`, which no stylesheet can override.
 	useEffect(() => {

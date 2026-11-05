@@ -391,6 +391,7 @@ const SUMMED = [
 const MERGE_FAILURES: MergeFailure[] = [
 	"conflict",
 	"tests_failed",
+	"checks_failed",
 	"merge_failed",
 ];
 

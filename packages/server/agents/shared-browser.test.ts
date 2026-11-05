@@ -61,6 +61,7 @@ describe("SharedBrowser", () => {
 				isolated: true,
 				launchOptions: { headless: true },
 			},
+			allowUnrestrictedFileAccess: true,
 			timeouts: { idle: IDLE.ms },
 		});
 

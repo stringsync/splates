@@ -31,27 +31,52 @@ it("lists scenarios worst first with what each tests, a summary and the next up"
 	expect(view.getByText("No scenario matches this filter.")).toBeTruthy();
 });
 
-it("runs a scenario on the ticked agents and repetitions in a conversation", async () => {
+it("reviews the selected scenarios before starting, preserves choices on Back, and opens activity", async () => {
 	const posts: string[] = [];
 	serve(posts);
+	let started = 0;
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+		<EvalScenarioTable
+			agents={agents()}
+			onOpenBatch={() => {}}
+			feed={feed}
+			onStarted={() => {
+				started += 1;
+			}}
+		/>,
 	);
-	const run = await waitFor(() =>
-		view.getByRole("button", { name: "Run a/two" }),
+	fireEvent.click(
+		await waitFor(() =>
+			view.getByRole("checkbox", { name: "Select all scenarios" }),
+		),
 	);
-	await act(async () => {
-		fireEvent.click(run);
-	});
-	await waitFor(() => expect(view.getByText("Run a/two")).toBeTruthy());
 	fireEvent.change(view.getByLabelText("Budget in dollars"), {
 		target: { value: "7" },
 	});
-	fireEvent.click(view.getByRole("button", { name: "Run" }));
-	await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
-	const words = JSON.parse(posts[0] ?? "{}").words;
-	expect(words).toContain("[SPLATES EVAL LOOP scenario a/two]");
-	expect(words).toContain("Budget: $7");
+	fireEvent.change(view.getByLabelText("Run repetitions"), {
+		target: { value: "2" },
+	});
+	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	expect(view.getByText(/Total authorized eval budget/).textContent).toContain(
+		"14.00",
+	);
+	expect(posts).toEqual([]);
+	fireEvent.click(view.getByRole("button", { name: "Back" }));
+	expect(view.getByLabelText("Budget in dollars").getAttribute("value")).toBe(
+		"7",
+	);
+	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	fireEvent.click(view.getByRole("button", { name: "Accept and start evals" }));
+	await waitFor(() => expect(started).toBe(1));
+	const plans = posts
+		.filter((post) => post.includes('"words"'))
+		.map((post) => JSON.parse(post).words);
+	expect(plans).toHaveLength(2);
+	expect(plans[0]).toContain("[SPLATES EVAL LOOP scenario a/one]");
+	expect(plans[1]).toContain("[SPLATES EVAL LOOP scenario a/two]");
+	expect(plans[0]).toContain("Budget: $7");
+	expect(plans[0]).toContain("Repetitions: 2");
+	expect(plans[0]).toContain("Agents: `claude:opus@high`");
 });
 
 it("opens a row to its prompt, how it is judged and its last run, with history folded", async () => {

@@ -43,4 +43,33 @@ describe("like", () => {
 			"notes.txt",
 		]);
 	});
+
+	it("puts a progress card in the turn at the time it began", () => {
+		const agent: Message = {
+			role: "agent",
+			parts: [
+				{ type: "text", text: "Starting." },
+				{ type: "text", text: "All built." },
+			],
+			plan: null,
+			at: "2026-01-01T00:00:00.000Z",
+			until: "2026-01-01T00:05:00.000Z",
+		};
+		const { content } = like(
+			agent,
+			0,
+			"c1",
+			true,
+			agent.at,
+			Number.POSITIVE_INFINITY,
+			null,
+			[],
+			null,
+			false,
+			["2026-01-01T00:01:00.000Z build"],
+		);
+		const parts = typeof content === "string" ? [] : content;
+		const card = parts.find((part) => part.type === "data-progress");
+		expect(card).toEqual({ type: "data-progress", data: { id: "build" } });
+	});
 });

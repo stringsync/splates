@@ -207,6 +207,9 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 					isolated: true,
 					launchOptions: { headless: true },
 				},
+				// Agents save screenshots under /tmp and open file: URLs, which
+				// the default guard refuses outside the working directory.
+				allowUnrestrictedFileAccess: true,
 				timeouts: { idle: IDLE.ms },
 			}),
 		);

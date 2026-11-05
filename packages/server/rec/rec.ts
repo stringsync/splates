@@ -1,4 +1,4 @@
-import type { Ps } from "core/system";
+import type { Child, Ps } from "core/system";
 import { z } from "zod";
 import type { Handler } from "../server/shared";
 import { body } from "../server/shared";
@@ -38,8 +38,18 @@ const OPEN = z.object({
  * Lets the Rec page see whether rec is there and running, and open a session.
  * Ask `state()` for the page, call `open()` with the choices to start Chrome.
  */
+/**
+ * A process recording, however it was started: `rec record`, bare `rec --url`
+ * (recording is rec's fallback command), or `bin/rec`, which runs the package's
+ * `index.ts`. Other subcommands, such as `rec sessions list`, do not match.
+ */
+const RECORDING_COMMAND =
+	/(^|[ /])rec(\/packages\/rec\/index\.ts)?( record)?( --.*)?$/;
+
 export class Rec {
 	readonly #ps: Ps;
+	/** The rec this server started, while it runs. */
+	#child: Child | null = null;
 
 	constructor(ps: Ps) {
 		this.#ps = ps;
@@ -111,7 +121,51 @@ export class Rec {
 		for (const stream of [child.stdout, child.stderr]) {
 			void stream.pipeTo(new WritableStream()).catch(() => {});
 		}
-		child.exited.catch(() => {});
+		this.#child = child;
+		child.exited.then(
+			() => {
+				if (this.#child === child) {
+					this.#child = null;
+				}
+			},
+			() => {},
+		);
+	}
+
+	/**
+	 * Ends the running rec, the way out when Chrome never shows or answers.
+	 * False when no rec runs.
+	 */
+	async interrupt(): Promise<boolean> {
+		const child = this.#child;
+		if (child === null) {
+			// Started elsewhere (a terminal, or before this server restarted).
+			return this.#interruptStranger();
+		}
+		child.kill("SIGINT");
+		const gone = await Promise.race([
+			child.exited.then(
+				() => true,
+				() => true,
+			),
+			new Promise<boolean>((resolve) => setTimeout(resolve, 5000, false)),
+		]);
+		if (!gone) {
+			child.kill("SIGKILL");
+		}
+		return true;
+	}
+
+	/** Interrupts `rec record` processes this server has no handle on. */
+	async #interruptStranger(): Promise<boolean> {
+		const found = (await this.#ps.processes()).filter(
+			(each) =>
+				each.pid !== this.#ps.pid && RECORDING_COMMAND.test(each.command),
+		);
+		for (const each of found) {
+			await this.#ps.spawn(["kill", "-INT", String(each.pid)]);
+		}
+		return found.length > 0;
 	}
 
 	/** Every saved session, newest first. */
@@ -336,4 +390,12 @@ export class Rec {
 		this.open(what);
 		return new Response(null, { status: 204 });
 	};
+
+	readonly stop: Handler = async () =>
+		(await this.interrupt())
+			? new Response(null, { status: 204 })
+			: Response.json(
+					{ reason: "no_rec", message: "no running rec was found to close" },
+					{ status: 409 },
+				);
 }

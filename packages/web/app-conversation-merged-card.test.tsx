@@ -42,6 +42,42 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
+	it("leads with the record's Before and After, its prose folded", async () => {
+		testing.landed.header = {
+			outcome: {
+				...header(),
+				outcome:
+					"## Before\n\nThe header wraps.\n\n## After\n\nThe header stays on one line.\n\nChecked at 390px.",
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message(
+						"agent",
+						"## ✅ Merged header onto main\n\nThe report's words.",
+					),
+				],
+			}),
+		]);
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "merged header" }),
+		);
+		const before = within(card).getByRole("region", { name: "before" });
+		expect(within(before).getByText("The header wraps.")).not.toBeNull();
+		const after = within(card).getByRole("region", { name: "after" });
+		expect(within(after).getByText("Checked at 390px.")).not.toBeNull();
+		expect(
+			within(card).getByText("The header stays on one line."),
+		).not.toBeNull();
+		expect(within(card).queryByText("The report's words.")).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Details" })),
+		);
+		expect(within(card).getByText("The report's words.")).not.toBeNull();
+	});
+
 	it("names the companions of a shared landing gate", async () => {
 		testing.landed.header = {
 			outcome: { ...header(), batch: ["sidebar", "header", "footer"] },
@@ -60,38 +96,33 @@ describe("App's merged card actions", () => {
 		);
 	});
 
-	it("says how many calls the person made", async () => {
+	it("gives a removed card its time and size, without the gate", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
-				decisions: [
-					{
-						number: "1",
-						text: "Keep the old endpoint?",
-						size: "large",
-						ended: "kept",
-					},
-					{
-						number: "2",
-						text: "Retry limit",
-						size: "small",
-						ended: "overturned",
-					},
-				],
+				ended: "removed",
+				size: { files: 2, added: 10, removed: 3 },
 			},
 			baseline: null,
 		};
 		const view = await testing.openConversations([
 			conversation({
-				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
+				messages: [
+					message(
+						"agent",
+						"## 🧹 Removed header: superseded by a fix on main\n\nThe task set out to move the header.",
+					),
+				],
 			}),
 		]);
 		const went = await waitFor(() =>
 			view.getByRole("region", { name: "how it went" }),
 		);
 
-		expect(within(went).getByText("2 by you")).not.toBeNull();
-		expect(within(went).queryByText(/by agent/)).toBeNull();
+		expect(within(went).getByText("Time")).not.toBeNull();
+		expect(within(went).getByText("2 files")).not.toBeNull();
+		expect(within(went).queryByText("Gate passed first try")).toBeNull();
+		expect(within(went).queryByText("Decisions")).toBeNull();
 	});
 
 	it("shows the outcome the plan ended on in full under the report's summary, without a demo action on the card", async () => {

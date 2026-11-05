@@ -166,6 +166,14 @@ export interface ConversationState {
 	 */
 	read: number | null;
 	/**
+	 * When the person last had it open, to the few minutes the log keeps it
+	 * to, so a restart still knows how long they have been away; null until
+	 * the page first reports a visit.
+	 */
+	visited: string | null;
+	/** What its task is for, as the page told the person each time they came back to it. */
+	reminders: Reminder[];
+	/**
 	 * Where the last checkpoint asked stands, kept in the log so a restart
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
@@ -187,6 +195,8 @@ export interface ConversationState {
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
+	/** The progress cards its agent reports, in the order first reported. */
+	progress: Progress[];
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
 	/**
@@ -505,6 +515,47 @@ export interface Background {
 
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
+/** How a progress card stands; "stopped" is the server's, when the agent's process ended with the task running. */
+export type ProgressState = "running" | "done" | "failed" | "stopped";
+
+/** What a task is for, as its record said it when the person came back to its conversation. */
+export interface ReminderCard {
+	task: string;
+	/** The one line that says what the task does. */
+	line: string;
+	/** Its Before, as markdown; "" when it has none. */
+	before: string;
+	/** The rest of its After, as markdown; "" when the line is all of it. */
+	after: string;
+}
+
+/** A card put in the thread as the person came back to the conversation. */
+export interface Reminder extends ReminderCard {
+	at: string;
+	/** When the person last had the conversation open. */
+	since: string;
+}
+
+/**
+ * A card the agent keeps current to show how a long task is going, as
+ * `splates progress` reports it. The server publishes only what
+ * `progress.ts` lets through, so a burst of updates shows as a few.
+ */
+export interface Progress {
+	/** The agent's name for the task, which its updates name; a background command's id closes it with the command. */
+	id: string;
+	title: string;
+	state: ProgressState;
+	/** How far along, 0 to 100; null when the agent cannot say. */
+	percent: number | null;
+	/** The latest line of text. */
+	note: string;
+	startedAt: string;
+	updatedAt: string;
+	/** The notes published before the latest, oldest first, capped. */
+	history: { at: string; note: string }[];
+}
+
 /** How the person answered an agent asking permission for a tool call. */
 export interface Decision {
 	/** When permission was requested; absent in older logs. */
@@ -673,6 +724,8 @@ export function blank(
 		unread: false,
 		seen: 0,
 		read: null,
+		visited: null,
+		reminders: [],
 		checkpoint: null,
 		pausing: false,
 		budgetStop: null,
@@ -684,6 +737,7 @@ export function blank(
 				: {}),
 		},
 		background: [],
+		progress: [],
 		artifacts: [],
 	};
 }

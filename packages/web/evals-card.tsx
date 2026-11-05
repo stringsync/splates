@@ -36,7 +36,7 @@ import { useEnterDoes } from "./enter-while-taking";
 import { EvalAgentsEditor } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
 import { EvalCardScenarios } from "./eval-card-scenarios";
-import { useLoopAutostart } from "./eval-loop-autostart";
+import { useLoopLimits } from "./eval-loop-limits";
 import { EvalSummary } from "./eval-report";
 import { EvalRun } from "./eval-run";
 import { EvalRunCue } from "./eval-run-cue";
@@ -116,7 +116,7 @@ export function EvalsCard({
 			? null
 			: () => turn(start),
 	);
-	const automatic = useLoopAutostart(run, {
+	useLoopLimits(run, {
 		ready:
 			open &&
 			send !== null &&
@@ -413,11 +413,7 @@ export function EvalsCard({
 					)}
 				</div>
 			)}
-			<EvalRunCue
-				automatic={automatic && launch !== null}
-				open={open}
-				state={state}
-			/>
+			<EvalRunCue open={open} state={state} />
 			{open && state.plan !== null && (
 				<p className="mx-4 mb-3 text-muted-foreground text-xs">
 					{planText(state.plan)}

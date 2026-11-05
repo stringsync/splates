@@ -20,7 +20,6 @@ import {
 	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
-	MessageSquarePlusIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -42,6 +41,9 @@ import { questionHeading } from "./question-heading";
 import { questionOutcome } from "./question-outcome";
 import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
+
+/** What a phone's Send says when nothing was written. */
+const NOTHING = "Nothing to add.";
 
 /**
  * The panel a thread's questions are answered in, by keyboard alone. Questions
@@ -177,11 +179,18 @@ export function QuestionCards({
 	const empty = !approving && out === "" && !attached;
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
-		if (!live || empty) {
+		// The phone's Send is always on, so an empty reply says so.
+		if (!live || (empty && !paging)) {
 			return;
 		}
 		const approved = (text: string) =>
-			!approving ? text : text === "" ? APPROVE : `${APPROVE}\n\n${text}`;
+			!approving
+				? text === ""
+					? NOTHING
+					: text
+				: text === ""
+					? APPROVE
+					: `${APPROVE}\n\n${text}`;
 		if (answer !== null) {
 			void attempt(
 				answer(saidOf()).then(() => {
@@ -227,8 +236,8 @@ export function QuestionCards({
 	// question opens only when asked.
 	const [page, setPage] = useState(0);
 	const end = questions.length;
-	// From the last question, or "Anything else", the footer sends.
-	const sending = page >= end - 1;
+	// From "Anything else", which always comes last, the footer sends.
+	const sending = page >= end;
 	// Whether the page turned to takes the focus, and raises the keyboard
 	// even on a touch screen, as when Enter turned it from a field; null when
 	// the focus stays where it is, as on the button that turned it.
@@ -248,12 +257,7 @@ export function QuestionCards({
 	const next = (number: string) => {
 		if (paging) {
 			const at = questions.findIndex((asked) => asked.number === number);
-			if (at + 1 < end) {
-				turn(at + 1, { typing: raises(document.activeElement) });
-			} else if (document.activeElement instanceof HTMLElement) {
-				// The last one goes on to Send: the keyboard drops to show it.
-				document.activeElement.blur();
-			}
+			turn(at + 1, { typing: raises(document.activeElement) });
 			return;
 		}
 		const all = stops();
@@ -280,7 +284,7 @@ export function QuestionCards({
 			?.getAttribute("aria-label")
 			?.replace("question ", "");
 		const at = questions.findIndex((asked) => asked.number === number);
-		if (number === undefined || at === -1 || (paging && at === end - 1)) {
+		if (number === undefined || at === -1) {
 			sendNow();
 		} else if (paging) {
 			next(number);
@@ -424,28 +428,6 @@ export function QuestionCards({
 						</div>
 					</div>
 				)}
-				{paging && page === end - 1 && (
-					<div className="px-5 pb-5">
-						<button
-							type="button"
-							onClick={() => turn(end)}
-							className="flex min-h-14 w-full items-center gap-3 rounded-xl bg-muted px-3 py-2.5 text-left active:bg-muted/70"
-						>
-							<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-primary">
-								<MessageSquarePlusIcon className="size-4.5" />
-							</span>
-							<span className="flex min-w-0 flex-1 flex-col">
-								<span className="font-medium text-sm">Anything else?</span>
-								<span className="truncate text-muted-foreground text-xs">
-									{written.more.trim() === ""
-										? "Something the questions didn't cover"
-										: written.more.trim()}
-								</span>
-							</span>
-							<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-						</button>
-					</div>
-				)}
 				{paging && page === end && (
 					<AnythingElsePage
 						questions={questions}
@@ -475,7 +457,8 @@ export function QuestionCards({
 							)}
 							{!sending ? (
 								<Button
-									className="h-11 flex-1 text-base"
+									variant="outline"
+									className="h-11 flex-1 border-border bg-white text-base text-black hover:bg-white/90 hover:text-black active:bg-white/80 active:text-black dark:border-border dark:bg-white dark:hover:bg-white/90 dark:active:bg-white/80"
 									onClick={() => turn(page + 1)}
 								>
 									Next
@@ -484,8 +467,11 @@ export function QuestionCards({
 							) : (
 								<Button
 									variant={approving ? "success" : "default"}
-									className="h-11 flex-1 text-base"
-									disabled={empty && !taking}
+									className={cn(
+										"h-11 flex-1 text-base",
+										!approving &&
+											"bg-black text-white hover:bg-black/90 active:bg-black/80",
+									)}
 									onClick={sendNow}
 								>
 									{approving ? (

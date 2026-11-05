@@ -24,6 +24,8 @@ import type {
 } from "./host";
 import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
+import { ConversationProgress, type ProgressUpdate } from "./progress";
+import { AWAY, VISIT_KEPT } from "./reminder";
 import {
 	type Answer,
 	type Ask,
@@ -35,7 +37,9 @@ import {
 	type Device,
 	IDLE_STOP,
 	type Limit,
+	type Progress,
 	type QueueSpot,
+	type ReminderCard,
 	runOn,
 	SERVER_TOLD,
 	switched,
@@ -68,10 +72,13 @@ export class Conversation
 	private readonly connection: AgentConnection;
 	private readonly turns: ConversationTurns;
 	private readonly background: ConversationBackground;
+	private readonly progress: ConversationProgress;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
 	opening: Promise<void> | null = null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
 	private resting: Resource | null = null;
+	/** When the page last said it shows this, closer than the log keeps it; null since a restart. */
+	private lastVisit: string | null = null;
 	/** Set when it left its task's worktree mid-turn: stop once the turn ends. */
 	private leftWorktree = false;
 	/** Says `[SPLATES RECONNECT]` once its wait is up; null while none is due. */
@@ -149,6 +156,7 @@ export class Conversation
 		});
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
+		this.progress = new ConversationProgress(this, deps);
 		this.unlistenDrain =
 			deps.placer?.events.on("drain", (worker) => {
 				if (this.grant?.worker === worker) {
@@ -556,6 +564,11 @@ export class Conversation
 			limits: heard(this.state.usage.limits, limits),
 		};
 		this.changed();
+	}
+
+	/** Takes the agent's `splates progress` update; the card as it stands. */
+	reportProgress(update: ProgressUpdate): Progress {
+		return this.progress.report(update);
 	}
 
 	/** Stops background command `id`, leaving the agent's turn as it is. */
@@ -971,6 +984,7 @@ export class Conversation
 		if (this.state.task !== null && this.dir !== null) {
 			await this.deps.machine.stopUnder(this.dir).catch(() => {});
 		}
+		this.progress.clear();
 		await put(this, { archived: true, with: withConversation, rest });
 		await this.artifacts.archive();
 	}
@@ -1043,6 +1057,45 @@ export class Conversation
 		await this.log.flush();
 	}
 
+	/**
+	 * Keeps that the person has it open now, adding `card` to the thread when
+	 * they were gone for `AWAY`. Call it each minute it shows.
+	 */
+	async visit(card: ReminderCard | null): Promise<void> {
+		// The log and the page hear of a visit only every `VISIT_KEPT`, so a
+		// conversation left open writes little and redraws nothing.
+		const now = this.deps.clock.now();
+		const at = new Date(now).toISOString();
+		const last = this.lastVisit ?? this.state.visited;
+		this.lastVisit = at;
+		const previous = this.state.reminders.at(-1);
+		const repeated =
+			previous !== undefined &&
+			previous.line === card?.line &&
+			!this.state.messages.some(
+				(message) => (message.until ?? message.at ?? "") >= previous.at,
+			) &&
+			!this.state.progress.some(
+				(progress) => progress.updatedAt >= previous.at,
+			);
+		if (
+			last !== null &&
+			card !== null &&
+			!repeated &&
+			now - Date.parse(last) >= AWAY.ms
+		) {
+			const reminder = { ...card, at, since: last };
+			this.log.write({ kind: "reminder", reminder });
+			this.set({ reminders: [...this.state.reminders, reminder] });
+		}
+		const kept = this.state.visited;
+		if (kept === null || now - Date.parse(kept) >= VISIT_KEPT.ms) {
+			this.log.write({ kind: "visit", at });
+			this.set({ visited: at });
+		}
+		await this.log.flush();
+	}
+
 	/** Stops it and deletes its log and files, for good. */
 	async delete(): Promise<void> {
 		await this.stop();
@@ -1053,6 +1106,7 @@ export class Conversation
 	}
 
 	dispose(): void {
+		this.progress.dispose();
 		this.resting?.dispose();
 		this.reconnecting?.dispose();
 		this.unlistenDrain?.();
@@ -1120,6 +1174,7 @@ export class Conversation
 		});
 		await this.log.flush();
 		endBackground(this.state, this.now());
+		this.progress.end();
 		this.set({
 			status: error === null ? "stopped" : "failed",
 			error,
@@ -1201,6 +1256,7 @@ export class Conversation
 	}
 
 	changed(): void {
+		this.progress.settle();
 		this.state.taking = this.turns.taking();
 		this.rest();
 		this.dispatcher.dispatch("changed");

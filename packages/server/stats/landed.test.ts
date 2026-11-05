@@ -24,6 +24,24 @@ describe("landed", () => {
 		expect(found?.baseline).toMatchObject({ project: "/repo", tasks: 12 });
 	});
 
+	it("finds a task's last removal when asked for one", () => {
+		const found = landed(
+			[
+				ended({ task: "alpha", endedAt: "2026-10-10T10:00:00.000Z" }),
+				ended({
+					task: "alpha",
+					ended: "removed",
+					endedAt: "2026-10-12T10:00:00.000Z",
+				}),
+			],
+			"/repo",
+			"alpha",
+			"removed",
+		);
+
+		expect(found?.outcome.endedAt).toBe("2026-10-12T10:00:00.000Z");
+	});
+
 	it("finds nothing for a task that never merged in the project", () => {
 		expect(landed([ended({ project: "/other" })], "/repo", "beta")).toBeNull();
 	});

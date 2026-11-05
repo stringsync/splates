@@ -12,6 +12,7 @@ import {
 	elsewhereName,
 	sameBlocker,
 } from "./elsewhere";
+import { similarTasks, similarWarning } from "./similar-warning";
 import type { Task, TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
 
@@ -67,6 +68,7 @@ export async function taskAdd(
 		tags,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
+	const open = await deps.tasks.all();
 	const task = await deps.tasks.add(subject, from, {
 		slug,
 		text,
@@ -94,6 +96,7 @@ export async function taskAdd(
 				: blockers === ""
 					? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
 					: `  blocked by: ${blockers}, which merge first`,
+			...similarWarning(task, similarTasks(subject, open)),
 		].join("\n"),
 	);
 	return task;

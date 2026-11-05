@@ -52,14 +52,13 @@ describe("eval budget", () => {
 		await deps.disposeAsync();
 	});
 
-	const spec = (key: string, auto = true) => ({
+	const spec = (key: string) => ({
 		key,
 		skill: "s",
 		scenarios: ["a"],
 		agents: [{ agent: "claude" }],
 		baseline: null,
 		conversation: "c-1",
-		auto,
 	});
 
 	const refusal = async (promise: Promise<unknown>) => {
@@ -88,10 +87,18 @@ describe("eval budget", () => {
 		expect(error.data).toEqual({ limit: "rounds" });
 	});
 
-	it("does not gate the person's own press", async () => {
+	it("checks the budget when the person presses Run", async () => {
 		await launches.budgets.set("c-1", { usd: 1, rounds: 1 });
-		await launches.start(commands, spec("one", false));
-		await launches.start(commands, spec("two", false));
+		await launches.start(commands, spec("one"));
+		const error = await refusal(launches.start(commands, spec("two")));
+		expect(error.data).toEqual({ limit: "rounds" });
+	});
+
+	it("refuses an approved rerun whose plan exceeds the dollar budget", async () => {
+		await launches.budgets.set("c-1", { usd: 1, rounds: 3 });
+		await launches.start(commands, spec("one"));
+		const error = await refusal(launches.start(commands, spec("two")));
+		expect(error.data).toEqual({ limit: "usd" });
 	});
 
 	it("keeps the budget it was first given", async () => {

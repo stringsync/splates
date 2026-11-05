@@ -14,6 +14,7 @@ export { follow, SERVER_WAIT_MS, serveProject } from "./follow";
 export type { Landing } from "./landings";
 export { landingNotice, landingsOverlapping } from "./landings";
 export { list } from "./list";
+export { openQuestions } from "./open-questions";
 export { overlapWarnings, TaskOverlaps } from "./overlaps";
 export { path } from "./path";
 export { recommend, recommendation } from "./recommend";

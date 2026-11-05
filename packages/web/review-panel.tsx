@@ -9,7 +9,7 @@ import {
 	SendHorizontalIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -18,6 +18,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
+import { BeforeAfter, cardRecord, FoldedProse } from "./before-after";
 import { BoxFiles } from "./box-files";
 import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
@@ -25,6 +26,7 @@ import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
+import { MergeCardContext } from "./merge-card";
 import { Sheeted } from "./phone-sheets";
 import { Refusal, useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
@@ -99,6 +101,21 @@ export function ReviewPanel({
 	// Approved, it is history: a line of splates's, the Merged report below
 	// it the one card that says how the task ended. Show opens it again.
 	const [shown, setShown] = useState(false);
+	const live = useContext(MergeCardContext)?.tasks.find(
+		(each) => each.task === review.task,
+	);
+	const record = cardRecord(live?.plan);
+	const prose = (
+		<>
+			{review.summary !== "" && <CardBody text={review.summary} />}
+			{review.demo !== null && (
+				<DemoSection demo={review.demo} className="last:border-b-0" />
+			)}
+		</>
+	);
+	const checks = review.checks.length + review.failed.length > 0 && (
+		<Checks passed={review.checks} failed={review.failed} />
+	);
 	const card = (
 		<CardShell
 			label={`review ${review.task}`}
@@ -114,17 +131,33 @@ export function ReviewPanel({
 				)
 			}
 		>
-			{/* What deciding to merge takes, in order: what changed, how to see
-			it, what passed, and the details. */}
+			{/* What deciding to merge takes, in order: the change as its record
+			has it, what passed, and the prose. A task with no record left, as
+			an older review's, keeps the prose open. */}
 			<div className="divide-y">
-				{review.summary !== "" && <CardBody text={review.summary} />}
-				{review.demo !== null && (
-					<DemoSection demo={review.demo} className="last:border-b-0" />
+				{record === null ? (
+					<>
+						{prose}
+						{checks}
+						{review.details !== "" && <Details text={review.details} />}
+					</>
+				) : (
+					<>
+						<BeforeAfter
+							record={record}
+							className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+						/>
+						{checks}
+						{(review.summary !== "" ||
+							review.demo !== null ||
+							review.details !== "") && (
+							<FoldedProse>
+								{prose}
+								{review.details !== "" && <CardBody text={review.details} />}
+							</FoldedProse>
+						)}
+					</>
 				)}
-				{review.checks.length + review.failed.length > 0 && (
-					<Checks passed={review.checks} failed={review.failed} />
-				)}
-				{review.details !== "" && <Details text={review.details} />}
 			</div>
 			{sent !== null && !approved && (
 				// What the person replied, as it was sent: the card keeps it.

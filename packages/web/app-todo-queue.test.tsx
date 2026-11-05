@@ -30,7 +30,7 @@ describe("App's queue", () => {
 		await act(async () => testing.stream?.onmessage?.());
 	}
 
-	/** The untriaged cards, top first, as text. */
+	/** The Backlog cards, top first, as text. */
 	const cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
 		within(view.getByRole("list", { name: "Backlog tasks", hidden: true }))
 			.getAllByRole("listitem", { hidden: true })

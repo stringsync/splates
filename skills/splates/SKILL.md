@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.3
+version: 2.0.4
 ---
 
 # Using splates
@@ -13,6 +13,19 @@ only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
 repository itself (its eval and ship commands).
 
+## Principles
+
+The rules below follow from these. When a case is not covered, reason from them.
+
+1. **Get approval for work that is costly or hard to undo.** A wrong idea costs a few lines in a proposal and a rewrite once built, so a large task needs approval even if it is easy to revert.
+2. **Build so the work is easy to undo.** This applies to every task, approved or not: small commits, nothing that cannot be reverted.
+3. **Ask only what the answer would change.** Every other call is yours; the user's attention is the scarce thing.
+4. **Keep each task to one goal.** Finish what that goal needs in the task, and queue only what really needs to be separate.
+5. **Leave the work resumable.** Your session can die at any moment: commit as you go and keep `SPLATES.md` current.
+6. **Leave spending and release decisions to the user.** Ships, evals, the queue, and heavy runs on a busy machine are theirs to start.
+7. **Show the change rather than describe it.** The user only sees what was actually delivered.
+8. **Finish what you start.** Land or remove the task, and queue follow-ups instead of offering them.
+
 ## The short version
 
 Most of what follows fills in these steps. Hold to them even when you skip
@@ -23,9 +36,15 @@ the rest:
    <project>` when the repository's config lists tags, and the project's name
    left out of the task name), then read and
    edit only in the worktree path it prints.
-2. **Ask as a numbered list.** Every question for the user is a `1.` item
+2. **Propose while it is cheap (principle 1).** After your first look, a task's first reply is
+   a proposal card (Before | After, the one line, the calls it rests on as
+   numbered questions), and code waits for Approve unless the task is easy
+   to reverse and takes little effort to execute. For those tasks, start and
+   build without asking permission or waiting for proposal approval; say so
+   in a line. See [proposing.md](references/proposing.md).
+3. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-3. **Go easy on a busy machine.** The person works on it beside other agents.
+4. **Go easy on a busy machine.** The user works on it beside other agents.
    What is heavy depends on the project and the hardware, and nothing enforces
    this, so it is your best effort:
    - Check a change with `bun test --changed` or explicit test files. In
@@ -44,15 +63,18 @@ the rest:
      deploy): ask with the same card, however the machine is, saying that cost.
    - Run anything else without a card: an install, a typecheck, a lint, a
      test file or two, a commit, a short script.
-4. **Commit as you go**, in plain messages with no attribution.
-5. **Queue what you would offer.** Each follow-up you would suggest, or ask
-   about, once the work lands, `splates task add` (or `defer`) before merging.
-6. **Land with `splates merge --message "<what the base gains>"`**, run in
+5. **Commit as you go**, in plain messages with no attribution.
+6. **Do, queue or drop what you notice.** Do what the After needs and small
+   fixes in code you already change. Queue (`splates task add` or `defer`,
+   before merging) only what is in another project, needs its own approval or
+   is unrelated to the goal. Drop what you would not bother doing, offering
+   nothing.
+7. **Land with `splates merge --message "<what the base gains>"`**, run in
    the foreground, never in the background, then `cd`
    to the main tree it prints. When it fails, do what its stderr says.
    Then close the board tasks the merge made moot, as
    [merge.md](references/merge.md) says.
-7. **End with the report**, its title copied from Formats below, one line on
+8. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
    report asks nothing and offers nothing.
 
@@ -71,6 +93,18 @@ the reply already shows it, or the capture falls short of the change.
 When the user asks for a review, your reply is the Ready to merge card itself, carrying the attached image: a line saying you are about to attach, review or deliver it is not the reply, so run `splates attach` and send the card in the same turn.
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
+
+**Show a long task's progress on a card, not in chat.** For a background task
+that takes minutes (an import, a build, a long test run), report with
+`splates progress <id> "<what it is doing now>" --title "<name>" --percent <n>`
+instead of a chat line per step. It updates one card beside the thread, and
+the conversation's row spins while it runs. Pipe a command's output in with
+`-` as the text (`long-command | splates progress build -`) to stream it: each
+line becomes the note, and a `NN%` in it sets the percent. The server shows a
+card at most every two seconds and keeps only the newest of a burst, so report
+as often as is natural. Finish it with `--done` or `--failed`; use a background
+command's id as `<id>` and it closes when the command ends. Archiving the
+conversation clears its cards.
 
 ## Formats
 
@@ -191,9 +225,10 @@ Run `splates evals agents` first: it prints the saved eval agents, and an
 `Agents:` line copies those targets verbatim and names no other (with none
 saved, leave the line out).
 
-Evals cost the user tokens, so only they start them, with one standing
-permission: an eval conversation carries a dollar budget and a round cap, and
-a run card that fits both starts without a tap. Outside them it is refused with
+Evals cost the user tokens, so only they start them, approving every round.
+An eval conversation carries a dollar budget and a round cap; every run card
+waits for the user to review its agents and press Run. The budget limits
+spending, never authorizes a start. Outside the limits a run is refused with
 `budget_exhausted`, naming the limit; then stop and report (see
 [evals.md](references/evals.md), Stopping). You never edit the limits: the
 user tops them up. To ask for a run (in
@@ -208,7 +243,7 @@ eval agents the project allows, never an agent you invent, leaving out those tha
 rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
 the saved eval agents, only those named ticked, and, when the project prints a plan, what the run
 costs at most; it runs in your worktree, and its Run button is the user's
-unless the budget covers it: never run the eval command yourself.
+for every round: never run the eval command yourself.
 
 ```markdown
 ## 🔐 Permission: run evals splates: the resource scenarios
@@ -245,7 +280,7 @@ loop of run, diagnose, fix one thing, rerun and log, which
 [evals.md](references/evals.md) lays out: read it before the first run card
 of a task and when the run is done. The loop improves the skill, not the
 grader: a change to a check, judge prompt, seed or message cites the run it
-misjudged, shows the `bin/evals regrade` flips in `## Verification`, labels
+misjudged, shows the `bin/evals regrade` flips in `## After`, labels
 that run, and counts as a new baseline, never as a better pass rate; the
 landing commit names the batch that drove it (evals.md, Grader changes).
 
@@ -256,16 +291,16 @@ open or not: a design talk, or a question answered from the main tree, asks,
 proposes and reports as a task does. A task adds only its record in
 `SPLATES.md`.
 
-Only the person runs `splates queue pause` or `splates queue resume`, which
+Only the user runs `splates queue pause` or `splates queue resume`, which
 pause or resume automatic starts across the server, as Pause on the Queue
-page does. Running agents finish, and the person can still start their own.
+page does. Running agents finish, and the user can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
-Only the person ships, and a ship starts on the Ships page, never from you.
+Only the user ships, and a ship starts on the Ships page, never from you.
 A project that cannot ship yet, or has no evals on the Evals page, has a setup
 journey for each on the welcome page and in Setup (`splates setup ships`,
 `splates setup evals`): see [setup.md](references/setup.md), Ships and evals.
-Never run `npm login` or `npm publish`: only the person starts a publish, and a ship signs in to nothing. When you think a release is due (a fix on
+Never run `npm login` or `npm publish`: only the user starts a publish, and a ship signs in to nothing. When you think a release is due (a fix on
 the base that users are waiting on), end your reply with a run-command card
 naming `splates ship <project>`, the why under it saying what the release
 carries. The page shows it as a ship card whose button opens the Ships page
@@ -281,7 +316,7 @@ The log rotation fix is on main and unreleased; mdom and vexml take it next.
 ```
 
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
-tasks needs the person's remove-lane permission card (see
+tasks needs the user's remove-lane permission card (see
 [reporting.md](references/reporting.md)). Backlog is permanent. Agents place
 every lane on a board and may add and remove empty boards (`splates board`);
 see Boards in [queue.md](references/queue.md).
@@ -293,13 +328,13 @@ offer a lane and add it once the user agrees (see
 asks you to queue work, add it; either way, end your reply with its queue
 card for the user to queue it now or later.
 
-A task started by a ship belongs to that ship alone. Follow its mechanical detail and the person’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
+A task started by a ship belongs to that ship alone. Follow its mechanical detail and the user’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
 
 ## Seeing a bug in a browser
 
 When watching the bug happen in a browser would settle what to change (a
 visual or interaction fault you cannot reproduce from code alone), offer a
-rec session, a narrated recording the person makes. Offer it only when `rec`
+rec session, a narrated recording the user makes. Offer it only when `rec`
 is on the PATH (`command -v rec`), and ask with a run-command card, whether or
 not the machine is busy, naming the exact command with a name and the URL to
 open: `rec --name <name> --url <url>`, adding `--docker` or `--tail` when the
@@ -367,9 +402,9 @@ which remembers none of it. These come up in most tasks:
   or ready for review): [references/reporting.md](references/reporting.md),
   the report formats in full, beyond those in Formats above.
 - Before asking the user a question, in a task or not, after a reply, or
-  when resuming a task with questions under `## Blocked`:
-  [references/questions.md](references/questions.md), asking, reading
-  answers and, in a task, keeping Blocked current. Also read it when you
+  when resuming a task `splates claim` lists open questions for:
+  [references/questions.md](references/questions.md), asking and reading
+  answers. Also read it when you
   cannot go on without the user.
 - Before `splates task add` or `splates task defer`, `splates lane add`,
   a queue card, or `splates task update` or `splates lane update` with
@@ -382,7 +417,8 @@ show` says is `groomed: no`, and as the project's groomer:
 - Before making a demo, starting a server for the user to try, attaching
   screenshots or recordings, or creating or managing an artifact:
   [references/demos.md](references/demos.md), demos, hosting and artifacts.
-- When the user asks what you think, or approves a proposal:
+- After your first look at any task, when the user asks what you think, and
+  when they approve a proposal:
   [references/proposing.md](references/proposing.md).
 
 These only when their moment comes:
@@ -412,7 +448,7 @@ queuing work there and asking for a grant.
 
 1. **Start before you look.** When a request may end in a code change,
    `splates add <task> --goal "<what done means>"` before reading any code,
-   the Goal one or two lines as you understand it so far, and investigate in
+   the goal one or two lines as you understand it so far (it seeds `## After`), and investigate in
    its worktree: the main tree changes under you as other tasks land, a worktree
    does not. A question that only needs an answer stays in the main tree,
    asking and answering as In every conversation says.
@@ -421,39 +457,46 @@ queuing work there and asking for a grant.
    directive, do what its row says. Pass `--base <branch>` only when invoked
    with a branch (`/splates feature/auth`) or the user names one; otherwise
    leave it off, whatever branch is checked out. Once `splates add` succeeds, the `splates server` page shows
-   it in your conversation as splates's own line, the Goal on its task, so say
+   it in your conversation as splates's own line, the After line on its task, so say
    nothing about adding it. When your harness asks right after for a word on
    what you are doing, say in one line what you will do next, without the
-   task's name or Goal, which that line already shows. A task is one
+   task's name or goal, which that line already shows. A task is one
    medium-sized change: when the request is several, offer a lane before
    investigating (see [queue.md](references/queue.md), Asking the user to
    queue).
-2. **Plan.** Once you know what done means, sharpen the Goal in `SPLATES.md`
-   before touching code, and when the work will take several commits, list
-   them under `## Next` (see SPLATES.md below).
-3. **Check for overlap.** Read `splates list --files`: each task's Goal and
+2. **Plan and propose.** After your first look at the code, fill in `## Before` and
+   `## After` in `SPLATES.md` before touching code (see SPLATES.md below), and when the work will take several commits, list
+   them under `## Next` (see SPLATES.md below). Then send the proposal card
+   from them and end your turn; touch no code until Approve, unless the task
+   is easy to reverse and takes little effort to execute: then start
+   building without asking and say so in a line (see
+   [proposing.md](references/proposing.md)). A queue-started task does the
+   same, waiting on its card with no one present when it needs one.
+3. **Check for overlap.** Read `splates list --files`: each task's After line and
    the files it has changed so far. Overlap is normal: work alongside, and
    resolve any conflict as the rebase brings it, without waiting on the
    other task or noting it anywhere. If it is doing the opposite of what you
    were asked, ask the user instead (see [Questions](references/questions.md)).
-   `splates add` warns when file paths in the Goal or the first changes overlap
+   `splates add` warns when file paths in the After or the first changes overlap
    open tasks. Coordinate those files or queue dependent work with `--blocked-by`.
    While the server runs, `splates list` and `show` name coming conflicts at
    committed branch tips, and a working agent hears a notice when one appears.
    These checks never rebase a worktree; commit in steps so they can see the work.
 4. **Work.** Commit each step with git as you go, and check off any under
    `## Next` as you commit it; splates never commits for you. A task changes
-   one unit of the repository, the package or project its Goal names (the
+   one unit of the repository, the package or project its After names (the
    repository's own instructions say what a unit is). When something outside
-   your Goal comes up (a bug next door, a follow-up, a reply that widens the
-   task, a change another unit needs), `splates task add` or `defer` it from
-   your worktree and move on, so the task stays one coherent change; the
-   conversation shows what you queued (see [queue.md](references/queue.md),
-   Queueing tasks). When your change breaks another unit's use of yours,
+   your After comes up (a bug next door, a follow-up, a reply that widens the
+   task, a change another unit needs), do, queue or drop it: do it when the
+   After needs it or it is a small fix in code you already change; otherwise
+   `splates task add` or `defer` it from your worktree and move on when it is
+   in another unit, needs its own approval or is unrelated to the goal; drop
+   it when you would not bother doing it. The conversation shows what you
+   queued (see [queue.md](references/queue.md), Do, queue or drop). When your change breaks another unit's use of yours,
    migrate it through expand/contract, one queued task per unit, rather than
    fix it here (see [queue.md](references/queue.md), Changing several units).
    A task that spans units is the rare exception, only when the change
-   cannot land in steps, and its Goal names every unit it touches, so the
+   cannot land in steps, and its After names every unit it touches, so the
    reach is chosen and shown rather than crept into. A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge`
    records failures on the merge attempt. It queues confirmed
@@ -462,17 +505,21 @@ queuing work there and asking for a grant.
    and suppresses recreation for seven days after closure; inconclusive
    failures stay with the merging agent. Ask the user each call their
    answer would change, and make the rest yourself (see [Questions](references/questions.md)), bringing
-   `## Blocked` up to date before each step. A subagent of your harness that may
+   what your last reply asked in step. A subagent of your harness that may
    change code works in your worktree, with no task of its own: tell it the
    path, to commit there, to run no `splates` command that adds, claims,
    merges or removes a task, and to list in its reply any call the user
    may need to settle, which you treat as your own. Subagents at work at
    once share the tree, so give each its own files. Go easy on the host machine the
-   person works on, as step 3 of the short version says: test a small portion,
+   user works on, as item 4 of the short version says: test a small portion,
    and before anything heavy read `splates machine`, asking with a run-command
    card only when it is busy. A subagent does the same and asks through you.
-5. **Land.** Once every step under `## Next` (including any user review) and
-   every question under `## Blocked` is checked, the task is ready to merge:
+5. **Land.** Merge only when the After is true: while it is not, keep working
+   in this task, unless you need a decision from the user (ask) or are blocked
+   (defer); never land it unmet and queue the rest as the next fix. When the
+   rest is several tasks, add a lane of them, end with its queue card, and
+   merge only once the After is true or cut to what landed. Once every step under `## Next` (including any user review) and
+   every question your replies asked is answered, the task is ready to merge:
    `splates task add` any step you will not do, then check it off, `splates task add` or
    `defer` each follow-up you would otherwise offer or ask about once it
    lands (see [Reporting](references/reporting.md)), and `splates merge --message
@@ -517,74 +564,55 @@ small change, a full record for a long one.
 ```markdown
 # <task>
 
-## Goal
+## Before
 
-One or two lines on what done means.
+Today, in one line, and a real screenshot (`splates attach`ed, inline as
+`![what](/abs/path.png)`) or a D2 diagram of the current flow. Leave it
+empty for a new thing.
+
+## After
+
+One or two sentences summarizing what will change, updated before merging
+to summarize what happened. Put supporting details in sections after After,
+such as `## Verification` for checks and evidence or `## Details` for context.
 
 ## Next
 
 - [ ] for work of several commits: every step you can foresee,
       roughly one commit each, checked off as it lands
 - [ ] also keep a step for a checkpoint or user review when needed
-
-## Verification
-
-What you checked and what it showed: each check run, and, where the change
-is something to see, screenshots or a recording you `splates attach`ed,
-inline as `![what](/abs/path.png)`.
-
-## Demo
-
-How to set up a demo of the change, in words, and what the user should see
-with it in.
-
-## Blocked
-
-- [ ] questions the user must answer before the task merges
-
-## Outcome
-
-What came of it, written just before you merge: a summary of what changed
-and any pivot from the original Goal, then `### Demo` (how to trigger it)
-and `### Verification` (checks run, screenshots as `![what](/abs/path.png)`).
 ```
 
-When the change was proposed with a picture (see
-[proposing.md](references/proposing.md), Showing the change), the Outcome
-carries a before and after right under the summary, each attached with
-`splates attach` and named as `![what](/abs/path.png)`, labelled `Before` and
-`After`. The before is the proposal's before. The after is as built: a backend
-change as a D2 diagram redrawn to match what landed, since the proposal's may
-no longer be true; a frontend change as a real screenshot of the shipped UI,
-not the mock. Show a before and after in the Done report too when the finding
-is something to see.
+A question is asked once, in your reply; the conversation is its record, so
+`SPLATES.md` has no section for it. `splates claim` prints the cards nobody
+has answered, and `splates merge` refuses while any is open. A `## Blocked`
+left by an older plan is still honored.
 
-Keep the summary quick to read, since the merged card shows it first and the
-user reads it to grasp what landed: one to three plain sentences, or up to
-five short bullets of one fact each. Say what the user can now do or what
-behavior changed. Leave out file names, internals and how it was checked, and
-never run a string of code-formatted terms together in one paragraph. Detail
-that matters, such as lookup order, migration behavior or a check against the
-real tool, goes under `### Demo` or `### Verification`.
+`splates add` writes `## Before` and `## After` empty, each with a one-line
+hint in an HTML comment, and no Goal. The `--goal` you give, or a queued
+task's words, seed After (only the first paragraph: the rest of a queued
+task's words go under `## Details`, never left in After); a queued task written with its own `## Before` and
+`## After` fills both. Fill them in after your first look at the code, not
+before it.
 
-The Goal's first line is what other agents see of your task in `splates list
---files`, so make it say what you are changing. `splates add` writes the
-Goal; for a change of one commit, leave out `## Next` unless a checkpoint
-or user review needs a step, since the Goal says it all otherwise, and the
-page shows the Goal as what you are doing. Keep the rest current as you go, not at the end: check steps off as they land; the git log records them. Run `splates show <task>` after writing it to check
-the shape. It is excluded from git, so leave it out of commit messages.
+After's first line is the sentence shown everywhere: `splates list
+--files`, the conversation line, the card and the merge commit title. Keep
+After to one or two short sentences about the outcome. Rewrite it if the
+work pivoted; do not append implementation notes, check results, lists or
+pictures. Put those in sections after After. Keep approved mocks or diagrams
+labelled *Expected* and the shipped screenshot or redrawn diagram labelled
+*Actual* under `## Verification`, along with what you checked. Every change
+but a trivial one carries a picture there and in Before unless new. Leave
+file names and internals out of the summary.
+`## Next` is optional: leave it out for a change of one commit unless a
+checkpoint or user review needs a step. Keep the rest current as you go, not
+at the end: check steps off as they land; the git log records them. Run
+`splates show <task>` after writing it to check the shape. It is excluded
+from git, so leave it out of commit messages.
 
-The page's task dialog shows `## Verification`, for an open task and once it
-has finished, as the evidence: what you checked and its screenshots, with,
-when there is a `## Demo`, Demo with an agent among its actions, which starts
-a conversation for an agent to show the change. The merged card shows `## Outcome`, kept
-with the merge record, and when it has a `### Demo`, a Demo it button
-that asks the agent of the conversation, you, for one: write it last, before `splates merge`. Fill in Verification before you merge:
-it is what the user reads instead of a demo. Write `## Demo` for any change the user can see or try, and leave it
-out otherwise. Keep it to what an agent needs to set the demo up later
-against the code of the day (what to run, the throwaway data to make, where
-to open it) and what it shows, never a script to keep in step with the
-code.
+A plan from before Before and After may still have `## Goal`, `## Verification`,
+`## Outcome`: the server reads Goal as After and shows the
+others for finished tasks, but use `## Verification` for new evidence and checks; do not write Goal or Outcome in a new plan.
 
 ## Committing
 

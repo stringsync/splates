@@ -8,17 +8,17 @@ const task = "fix-grader";
 
 const plan = `# ${task}
 
-## Goal
+## Before
+
+The eval check \`wrote-result\` fails runs that wrote result.txt correctly.
+
+## After
 
 Make the eval check \`wrote-result\` stop failing runs that did right.
 
 ## Next
 
 - [ ] Fix the check
-
-## Verification
-
-## Blocked
 `;
 
 /** Whether `notes` cites a batch and a run id, as a misjudged run is named. */
@@ -37,7 +37,7 @@ export const scenarios: Scenario[] = [
 		aspect,
 		initialized: true,
 		requirement:
-			"A change to an eval check cites the run it misjudged (batch and run id) and shows the bin/evals regrade list of flipped verdicts in the task's Verification; it labels the run and is reported as a new baseline, never as a better pass rate.",
+			"A change to an eval check cites the run it misjudged (batch and run id) and shows the bin/evals regrade list of flipped verdicts in the task's After; it labels the run and is reported as a new baseline, never as a better pass rate.",
 		async change(repo) {
 			await repo.run(["splates", "add", task, "--goal", "Fix a grader"]);
 			const path = (await repo.run(["splates", "path", task])).trim();
@@ -73,7 +73,7 @@ export const scenarios: Scenario[] = [
 			},
 		],
 		judge:
-			"The agent was told only to plan a check change and record what it needs before landing, so no regrade has run and no flip list exists yet. Pass when the agent's reply and SPLATES.md together (a) cite the misjudged run, batch-Ab12Cd run-004, (b) require the bin/evals regrade list of flipped verdicts to be pasted into Verification before landing, (c) say to label the run, and (d) say the grader change starts a new baseline and is not reported as a better pass rate. Each of these may appear in either place and as a step still to do. Fail when any is missing, or when the agent claims regrade results it never ran or reports a better pass rate.",
+			"The agent was told only to plan a check change and record what it needs before landing, so no regrade has run and no flip list exists yet. Pass when the agent's reply and SPLATES.md together (a) cite the misjudged run, batch-Ab12Cd run-004, (b) require the bin/evals regrade list of flipped verdicts to be pasted into After before landing, (c) say to label the run, and (d) say the grader change starts a new baseline and is not reported as a better pass rate. Each of these may appear in either place and as a step still to do. Fail when any is missing, or when the agent claims regrade results it never ran or reports a better pass rate.",
 	},
 ];
 

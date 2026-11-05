@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import { color, type Logger } from "core/log";
-import { MarkdownWriter } from "core/md";
+import { Markdown, MarkdownWriter } from "core/md";
 import type { Fs } from "core/system";
 import { Duration, sleep } from "core/time";
 import type { Task, Tasks } from "../board";
@@ -21,11 +21,11 @@ export interface AddOptions {
 	base?: string;
 	/**
 	 * The queued task this task starts, as a list of one: its words seed the
-	 * plan's Goal, and nobody else can take it while the task lives.
+	 * plan's After, and nobody else can take it while the task lives.
 	 */
 	tasks?: number[];
 	/**
-	 * One or two lines on what done means, written under `## Goal` ahead of
+	 * One or two lines on what done means, written under `## After` ahead of
 	 * whatever the queued tasks seed it with.
 	 */
 	goal?: string;
@@ -441,16 +441,44 @@ function goal(queued: Task[]): string {
 		.join("\n\n");
 }
 
-/** The plan a fresh task starts with: `## Goal`, the Goal it was given and
- * the queued tasks it takes up. `splates add` refuses a task with neither, so
- * only a caller that skips the CLI leaves it empty, which `splates show` nags
- * about. Its agent adds `## Next` when the work takes several commits. */
-function PLAN(task: string, goal: string | null): string {
-	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
-	if (goal !== null) {
-		writer.text(goal);
+const BEFORE_HINT =
+	"<!-- Today, in a line, with a screenshot or diagram of the current flow; leave empty for a new thing. -->";
+const AFTER_HINT =
+	"<!-- Done, in one sentence, with a lo-fi mock or redrawn diagram; a trivial change says so in a line. -->";
+
+/**
+ * The plan a fresh task starts with: `## Before` and `## After`, empty but for
+ * a hint each, or filled from the words it was given. Words with their own
+ * `## Before` and `## After` (a queued task written that way) are lifted into
+ * place; of other words only the first paragraph is After, which the agent
+ * sharpens after its first look, and the rest is `## Details`.
+ * Its agent adds `## Next` when the work takes several commits.
+ */
+function PLAN(task: string, words: string | null): string {
+	let before = "";
+	let after = "";
+	let details = "";
+	if (words !== null) {
+		const [first = "", ...rest] = words.trim().split(/\n\s*\n/);
+		after = first;
+		details = rest.join("\n\n");
+		const md = Markdown.parse(words);
+		if (md.has("Before") || md.has("After")) {
+			before = md.has("Before") ? md.section("Before").body.trim() : "";
+			after = md.has("After") ? md.section("After").body.trim() : "";
+			details = "";
+		}
 	}
-	return writer.toString();
+	const plan = new MarkdownWriter()
+		.heading(1, task)
+		.heading(2, "Before")
+		.text(before === "" ? BEFORE_HINT : before)
+		.heading(2, "After")
+		.text(after === "" ? AFTER_HINT : after);
+	if (details !== "") {
+		plan.heading(2, "Details").text(details);
+	}
+	return plan.toString();
 }
 
 /** Puts back on the list the queued tasks an add took and then gave up on. */

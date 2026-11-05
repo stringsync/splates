@@ -2,7 +2,7 @@ import { color, type Logger } from "core/log";
 import { age } from "../age";
 import { pickLabel } from "../models";
 import { table } from "../table";
-import { BACKLOG_LANE, PLACED, ungroomed } from "./backlog";
+import { BACKLOG_LANE, LEGACY_PLACED, ungroomed } from "./backlog";
 import { cleared, deferralBlockers } from "./deferral";
 import {
 	type ElsewhereBlockerNow,
@@ -189,7 +189,7 @@ export async function taskShow(
 	const steps = record === undefined ? [] : lane(states, record).todos;
 	const step = steps.findIndex((other) => other.id === task.id);
 	const claimed =
-		task.state.grooming !== undefined && task.state.grooming !== PLACED;
+		task.state.grooming !== undefined && task.state.grooming !== LEGACY_PLACED;
 	const lines = [
 		`${color.bold(project === undefined ? `task ${task.id}` : `${project} #${task.id}`)} ${task.subject}`,
 		// The name to start it under: `splates add <slug> --task <n>`.

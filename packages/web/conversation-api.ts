@@ -9,6 +9,7 @@ import type {
 	Attached,
 	ConversationState,
 	Image,
+	ReminderCard,
 	Said,
 	Session,
 } from "@splates/server/conversations";
@@ -326,6 +327,17 @@ export async function markUnread(
 /** Tells the server the person has read `read` messages of conversation `id`. */
 export async function markRead(id: string, read: number): Promise<void> {
 	await sendJson(`/api/conversations/${id}/read`, "PUT", { read });
+}
+
+/**
+ * Tells the server the person has conversation `id` open now, with what to
+ * remind them of its task if they have been away: the server judges that.
+ */
+export async function visitConversation(
+	id: string,
+	card: ReminderCard | null,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/visit`, "PUT", { card });
 }
 
 /** Keeps conversation `id` atop the list, or lets it go back among the rest. */

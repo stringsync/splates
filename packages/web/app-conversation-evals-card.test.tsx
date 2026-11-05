@@ -22,6 +22,37 @@ describe("App's run evals card", () => {
 		testing.dispose();
 	});
 
+	it("waits for Run in a budgeted loop", async () => {
+		const starts: unknown[] = [];
+		serveUnstartedEval(starts);
+		const view = await testing.openConversations([
+			conversation({
+				title: "Evals",
+				messages: [
+					message(
+						"user",
+						"[SPLATES EVAL LOOP scenario decisions/ask-first]\nBudget: $7\nRounds: 4",
+					),
+					...ongoing().messages,
+				],
+			}),
+		]);
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", { name: "Run" }).hasAttribute("disabled"),
+			).toBe(false),
+		);
+		expect(starts).toEqual([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Run" })),
+		);
+		await waitFor(() => expect(starts).toHaveLength(1));
+		expect(starts[0]).toMatchObject({
+			agents: [{ agent: "claude" }],
+			budget: { usd: 7, rounds: 4 },
+		});
+	});
+
 	it("rejects with Anything else, telling the agent and folding the card", async () => {
 		const asking = conversation({
 			title: "Evals",
@@ -199,5 +230,50 @@ function serveOngoingEval(
 	globalThis.fetch = ((path: string, init?: RequestInit) => {
 		const route = path.split("?")[0] ?? "";
 		return routes.get(route)?.() ?? pageFetch(path, init);
+	}) as typeof fetch;
+}
+
+function serveUnstartedEval(starts: unknown[]): void {
+	const pageFetch = globalThis.fetch;
+	globalThis.fetch = (async (path: string, init?: RequestInit) => {
+		const route = path.split("?")[0];
+		if (route === "/api/evals/agents") {
+			return Response.json({
+				agents: [{ agent: "claude" }],
+				problem: null,
+				roster: [],
+			});
+		}
+		if (route === "/api/evals/scenarios") {
+			return Response.json([
+				{ id: "decisions/ask-first", group: "decisions", about: "Ask first" },
+			]);
+		}
+		if (route === "/api/evals/plan") {
+			return Response.json({ cells: 1, usd: 1, refused: false, output: "" });
+		}
+		if (route === "/api/evals/budget") {
+			return Response.json({
+				budget: { usd: 7, rounds: 4 },
+				spentUsd: 0,
+				tokens: 0,
+				roundsUsed: 0,
+				stoppedBy: null,
+			});
+		}
+		if (route === "/api/evals/launch") {
+			if (init?.method === "POST") {
+				starts.push(JSON.parse(init.body as string));
+				return Response.json({
+					id: "launch-1",
+					key: "run-key",
+					status: "done",
+					batch: null,
+					output: "",
+				});
+			}
+			return Response.json(null);
+		}
+		return pageFetch(path, init);
 	}) as typeof fetch;
 }

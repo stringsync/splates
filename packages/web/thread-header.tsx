@@ -14,6 +14,7 @@ import { cn } from "#web/lib/utils.ts";
 import type { Action } from "./actions";
 import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
+import { backgrounded } from "./progress";
 import type { Refuse } from "./refusal";
 import { TakeUpItems } from "./take-up";
 import { BarButton, TopBar, TopBarFrame } from "./top-bar";
@@ -94,9 +95,7 @@ export function ThreadHeader({
 					icon: widgets.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
 					run: widgets.toggle,
 					expanded: widgets.open,
-					busy: conversation.background.some(
-						(each) => each.state === "running",
-					),
+					busy: backgrounded(conversation),
 					shortcut: key,
 				},
 				{

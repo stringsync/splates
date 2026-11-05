@@ -67,6 +67,7 @@ export async function merge(
 		trunk,
 		line = MergeLine.of(git.root, log),
 		clock = new SystemClock(),
+		asking,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -89,6 +90,8 @@ export async function merge(
 		/** Where this merge forms or joins a batch with the others waiting. */
 		line?: MergeLine;
 		clock?: Clock;
+		/** The numbers of a task's question cards no reply has answered, read from its conversation. */
+		asking?: (task: string) => Promise<string[]>;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -133,7 +136,11 @@ export async function merge(
 	Object.assign(facts, { base, failedTests: [], began: null });
 	delete facts.failureAttribution;
 	delete facts.output;
-	await refuseUnready({ git, fs, config, log }, worktree);
+	await refuseUnready(
+		{ git, fs, config, log },
+		worktree,
+		async () => (await asking?.(task)) ?? [],
+	);
 	const remote = base === config.trunk ? branches.remote() : null;
 
 	const runner = new MergeGate(

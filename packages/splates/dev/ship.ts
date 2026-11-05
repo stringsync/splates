@@ -32,6 +32,9 @@ const REPO = "stringsync/splates";
 /** What stringsync/splates's publish workflow runs, from the mirror's root. */
 const PUBLISH = "bin/splates dev publish";
 
+/** What the mirror runs after building, from its root, before anything is published. */
+const TEST = "bin/splates dev test";
+
 /** The package a release publishes, the server folded in. */
 const PACKAGES = ["@stringsync/splates"];
 
@@ -91,7 +94,14 @@ export async function ship(opts: ShipOptions = {}): Promise<void> {
 		// stringsync/splates would, with the server and the core the cli
 		// reaches folded in, since neither is published. The mirror's commit is
 		// pushed at the tag stage.
-		releases.mirrored({ ...MIRROR, ps, publish: PUBLISH, via }),
+		releases.mirrored({
+			...MIRROR,
+			ps,
+			publish: PUBLISH,
+			// Fails the release when the mirror left out a file rec reads from disk.
+			test: TEST,
+			via,
+		}),
 	);
 	await declared.release({
 		bump,

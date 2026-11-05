@@ -1,18 +1,16 @@
 import { useAuiState } from "@assistant-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { loopLimits } from "./eval-loops";
 import type { EvalRun } from "./eval-run";
 
 /**
- * Runs the evals card for you when its conversation opened with an eval loop
- * directive: pass `ready` once the card can start. Choosing the loop's budget
- * and rounds is the permission, so no tap waits; the server still refuses a
- * card the budget cannot cover.
+ * Prefills the limits from the opening eval directive once the card is ready.
+ * A budget limits spending; each round still waits for the person to press Run.
  */
-export function useLoopAutostart(
+export function useLoopLimits(
 	run: EvalRun,
 	{ ready }: { ready: boolean },
-): boolean {
+): void {
 	const opening = useAuiState((state) =>
 		state.thread.messages
 			.find((each) => each.role === "user")
@@ -21,15 +19,11 @@ export function useLoopAutostart(
 	);
 	const limits = opening === undefined ? null : loopLimits(opening);
 	const started = useRef(false);
-	const [automatic, setAutomatic] = useState(false);
 	useEffect(() => {
 		if (limits === null || started.current || !ready) {
 			return;
 		}
 		started.current = true;
-		setAutomatic(true);
 		run.setLimits(limits);
-		void run.run();
 	}, [limits, ready, run]);
-	return automatic;
 }

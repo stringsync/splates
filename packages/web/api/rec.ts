@@ -30,6 +30,11 @@ export async function openRec(what: RecOpen): Promise<void> {
 	await sendJson("/api/rec/open", "POST", what);
 }
 
+/** Ends the rec the server started, for when Chrome never shows or answers. */
+export async function closeRec(): Promise<void> {
+	await send("/api/rec/close", {});
+}
+
 const sessionPath = (name: string) =>
 	`/api/rec/sessions/${encodeURIComponent(name)}`;
 

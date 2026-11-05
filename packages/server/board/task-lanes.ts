@@ -1,5 +1,5 @@
 import { fail } from "../exit";
-import { BACKLOG_LANE, PLACED, protectBacklog } from "./backlog";
+import { BACKLOG_LANE, protectBacklog } from "./backlog";
 import { type BoardRecord, boardsOf, DEFAULT_BOARD } from "./boards";
 import { aptName, type LaneRecord, named, settle } from "./lanes";
 import { enqueued, type TaskRecord, unqueued } from "./task";
@@ -206,7 +206,6 @@ export class TaskLanes {
 				await this.tasks.save({
 					...state,
 					lane: BACKLOG_LANE,
-					grooming: state.grooming ?? PLACED,
 				});
 			}
 			await this.writeLanes(records.filter((record) => record.id !== id));

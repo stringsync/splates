@@ -70,6 +70,35 @@ describe("replyOf", () => {
 		expect(besides(reply, [one, two, three])).toBe("Looks good.");
 	});
 
+	it.each(["\n", "\r\n"])(
+		"reads quoted and hand-typed replies with %j line endings",
+		(ending) => {
+			const words = "- (a) literal words\n> **Which one?**";
+			const reply = replyOf(
+				[one, two, order],
+				[
+					{ picks: ["b"], words: "" },
+					{ picks: [], words },
+					{ picks: ["c", "a"], words: "" },
+				],
+				"Extra\nwords",
+			).replaceAll("\n", ending);
+			expect(answerIn(reply, one)).toEqual({ picks: ["b"], words: "" });
+			expect(answerIn(reply, two)).toEqual({ picks: [], words });
+			expect(answerIn(reply, order)).toEqual({ picks: ["c", "a"], words: "" });
+			expect(besides(reply, [one, two, order])).toBe("Extra\nwords");
+			const typed = ["1. b", "3. after a check", "", "Extra words"].join(
+				ending,
+			);
+			expect(answerIn(typed, one)).toEqual({ picks: ["b"], words: "" });
+			expect(answerIn(typed, three)).toEqual({
+				picks: [],
+				words: "after a check",
+			});
+			expect(besides(typed, [one, three])).toBe("Extra words");
+		},
+	);
+
 	it("leaves out questions without an answer", () => {
 		expect(replyOf([one, three], [{ picks: [], words: " " }, null], "")).toBe(
 			"",

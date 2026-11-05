@@ -1,4 +1,3 @@
-import { keptDecisions, madeByYou } from "@splates/server/plans/browser";
 import type { Landed } from "@splates/server/stats/browser";
 import {
 	type FoundFacts,
@@ -17,8 +16,8 @@ export interface MergedFacts extends FoundFacts {
 /** One figure, beside its project's usual. */
 export interface Stat {
 	label: string;
-	/** Lines added and removed for a size, and the calls the person made, which the card marks. */
-	value: string | Lines | Decided;
+	/** Lines added and removed for a size. */
+	value: string | Lines;
 	/** What it was made of, as working beside waiting; null for nothing more. */
 	detail: string | null;
 	/** Past its project's 90th percentile, or twice its median. */
@@ -82,18 +81,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			),
 		);
 	}
-	// Older outcomes kept no calls, so they say nothing of them.
-	if (keptDecisions(outcome)) {
-		stats.push(
-			stat("decidedByYou", "Decisions", { byYou: madeByYou(outcome) }, null),
-		);
-	}
 	return { stats, ...foundFacts({ outcome, baseline }) };
-}
-
-/** The calls the person made in a task. */
-export interface Decided {
-	byYou: number;
 }
 
 function dollars(amount: number): string {

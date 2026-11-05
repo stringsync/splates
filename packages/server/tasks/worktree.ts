@@ -475,7 +475,11 @@ export interface Escalation {
 }
 
 /** Why a merge failed, as `merge` refuses it. */
-export type MergeFailure = "conflict" | "tests_failed" | "merge_failed";
+export type MergeFailure =
+	| "conflict"
+	| "tests_failed"
+	| "checks_failed"
+	| "merge_failed";
 
 /** A test the gate named as failing, and what it said, as far as the runner printed. */
 export interface FailedTest {

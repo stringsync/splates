@@ -124,7 +124,7 @@ describe("App's work row", () => {
 	});
 
 	// vet-ignore simple-test-setup: its layout spy is its own, which no other test shares
-	it("shows the task added along the way beside the thread while its line is scrolled up out of sight, until a report that it merged comes up", async () => {
+	it("keeps the current-task widget absent as an added task and its report scroll", async () => {
 		const thread = await opened({
 			...turn([
 				tool({
@@ -174,7 +174,6 @@ describe("App's work row", () => {
 				hidden: true,
 			});
 		const view = () => within(document.body);
-		const shown = () => current()?.parentElement?.getAttribute("aria-hidden");
 		const scroll = () => act(async () => fireEvent.scroll(viewport));
 		try {
 			await scroll();
@@ -182,32 +181,29 @@ describe("App's work row", () => {
 
 			cardTop = -500;
 			await scroll();
-			await waitFor(() => expect(shown()).toBe("false"));
-			expect(current()?.textContent).toContain(
-				"Stop retrying an upload refused as too big.",
-			);
+			expect(current()).toBeNull();
 
-			// Over once its merge comes into view.
+			// Still absent once its merge comes into view.
 			reportTop = 400;
 			await scroll();
-			await waitFor(() => expect(shown()).toBe("true"));
+			expect(current()).toBeNull();
 
-			// And back when scrolled up above the merge again.
+			// Still absent when scrolled up above the merge again.
 			reportTop = 2000;
 			await scroll();
-			await waitFor(() => expect(shown()).toBe("false"));
+			expect(current()).toBeNull();
 
-			// Fading out, the line saying it in the thread again.
+			// Still absent when the line in the thread is visible again.
 			cardTop = 200;
 			await scroll();
-			await waitFor(() => expect(shown()).toBe("true"));
+			expect(current()).toBeNull();
 		} finally {
 			placed.mockRestore();
 		}
 	});
 
 	// vet-ignore simple-test-setup: its layout spy is its own, which no other test shares
-	it("shows the task the agent claimed beside the thread, not one it added for another agent after", async () => {
+	it("keeps the current-task widget absent after claiming a task and handing off another", async () => {
 		const thread = await opened({
 			...turn([
 				tool({
@@ -284,12 +280,12 @@ describe("App's work row", () => {
 		const view = within(document.body);
 		try {
 			await act(async () => fireEvent.scroll(viewport));
-			const current = await waitFor(() =>
-				view.getByRole("region", { name: "current upload-limit" }),
-			);
-			expect(current.textContent).toContain(
-				"Stop retrying an upload refused as too big.",
-			);
+			expect(
+				view.queryByRole("region", {
+					name: "current upload-limit",
+					hidden: true,
+				}),
+			).toBeNull();
 			expect(
 				view.queryByRole("region", { name: "current sibling", hidden: true }),
 			).toBeNull();

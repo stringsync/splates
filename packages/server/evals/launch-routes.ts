@@ -91,7 +91,6 @@ export class EvalLaunchRoutes {
 				...spec,
 				key,
 				conversation,
-				...(sent.auto === true ? { auto: true } : {}),
 				// The conversation's task worktree, so a run checks the change it makes.
 				cwd: await this.cwdOf(conversation),
 			}),

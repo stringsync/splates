@@ -127,9 +127,6 @@ describe("App's Auto pick", () => {
 
 	it("shows the last Auto pick in the task's Details", async () => {
 		const { dialog } = await taskDialog({ autoPick: PICKED });
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
-		);
 
 		const facts = within(dialog).getByLabelText("about the task");
 		expect(facts.textContent).toContain("Auto pick");

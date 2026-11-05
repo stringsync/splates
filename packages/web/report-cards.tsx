@@ -18,11 +18,11 @@ import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { CardArchive, useArchivable } from "./archive-offer";
+import { BeforeAfter, cardRecord, FoldedProse } from "./before-after";
 import { Board } from "./board";
 import { Badge } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
-import { useEndCard } from "./current-task";
 import {
 	DeferredBody,
 	deferredTask,
@@ -63,9 +63,10 @@ export function ReportCard({
 }: {
 	report: TaskReport;
 	timing?: ReportTiming;
-}): JSX.Element {
+}): JSX.Element | null {
 	const { Icon, tone } = ENDINGS[report.ending];
 	const merged = report.ending === "merged";
+	const removed = report.ending === "removed";
 	// A Working card whose time has stopped, once later words replace it,
 	// says the work is past.
 	const title =
@@ -75,10 +76,11 @@ export function ReportCard({
 	const text = reportText(report);
 	// A Done report that ends an eval loop carries its rounds table.
 	const rounds = report.ending === "done" ? evalRoundsOf(text) : null;
-	// One that merged or removed its task ends it beside the thread too.
-	const ended = useEndCard(report);
 	const archivable = useArchivable(report);
-	const landed = useLanded(merged ? report.task : null);
+	const landed = useLanded(
+		merged || removed ? report.task : null,
+		removed ? "removed" : "merged",
+	);
 	// A deferral follows the board record of its task, when it has one.
 	const board = useContext(Board);
 	const deferral =
@@ -96,12 +98,14 @@ export function ReportCard({
 	const { sent } = useCardReply();
 	const resumed =
 		deferral !== null && (sent !== null || deferral.takenBy !== null);
+	// A merge leads with the Before and After its record kept, when it did.
+	const record = merged ? cardRecord(landed?.outcome.outcome) : null;
 	// A merge shows once its outcome is read, so it never grows a footer.
 	if (landed === undefined) {
-		return <div ref={ended} data-ends={ended === undefined ? undefined : ""} />;
+		return null;
 	}
 	return (
-		<div ref={ended} data-ends={ended === undefined ? undefined : ""}>
+		<div>
 			<CardShell
 				label={`${report.ending} ${report.task}`.trim()}
 				Icon={Icon}
@@ -141,6 +145,18 @@ export function ReportCard({
 						)}
 						{!merged && rounds !== null ? (
 							<EvalDoneBody read={rounds} lead={report.reason !== null} />
+						) : merged && record !== null ? (
+							<>
+								<BeforeAfter
+									record={record}
+									className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+								/>
+								{text !== "" && (
+									<FoldedProse>
+										<MergedBody text={text} outcome={undefined} />
+									</FoldedProse>
+								)}
+							</>
 						) : merged ? (
 							<MergedBody text={text} outcome={landed?.outcome.outcome} />
 						) : (
@@ -149,7 +165,7 @@ export function ReportCard({
 							)
 						)}
 						{held !== null && <HeldBlockers task={held} />}
-						{merged && <MergedStats landed={landed} />}
+						{(merged || removed) && <MergedStats landed={landed} />}
 						<CardArchive report={report} unmerge={merged} />
 					</>
 				)}

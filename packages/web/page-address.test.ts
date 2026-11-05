@@ -98,6 +98,25 @@ describe("PageAddress", () => {
 		expect(address.evals.plan).toBeNull();
 	});
 
+	it("opens Active and History as eval tabs rather than batch reports", () => {
+		history.replaceState(null, "", "#evals/active");
+		window.dispatchEvent(new HashChangeEvent("hashchange"));
+		expect(address.evals).toEqual({
+			batch: null,
+			run: null,
+			plan: null,
+			tab: "active",
+		});
+		history.replaceState(null, "", "#evals/history");
+		window.dispatchEvent(new HashChangeEvent("hashchange"));
+		expect(address.evals).toEqual({
+			batch: null,
+			run: null,
+			plan: null,
+			tab: "history",
+		});
+	});
+
 	it("sets Setup on a journey and step, and the nav entry returns to them", () => {
 		address.openSetup("cloud", "coordinator-up");
 

@@ -94,7 +94,7 @@ export function changes(asked: Question, answer: Answer): boolean {
  * quote, up to the next question's.
  */
 export function quotedIn(text: string, asked: Asked): Answer | null {
-	const lines = text.split("\n");
+	const lines = text.split(/\r?\n/);
 	const at = lines.findIndex((line) => {
 		const quoted = QUOTED.exec(line);
 		return quoted !== null && sameLine(quoted[1] as string, asked.text);
@@ -133,7 +133,7 @@ export function answerIn(text: string, asked: Asked): Answer | null {
 	if (quoted !== null) {
 		return quoted;
 	}
-	for (const line of text.split("\n")) {
+	for (const line of text.split(/\r?\n/)) {
 		const found = replyLine(asked).exec(line);
 		if (found !== null) {
 			const [picks, rest] =
@@ -155,7 +155,7 @@ export function answerIn(text: string, asked: Asked): Answer | null {
  * its quoted "Anything else?", else what comes before its first quoted question, or around the lines typed by hand.
  */
 export function besides(text: string, asked: Asked[]): string {
-	const lines = text.split("\n");
+	const lines = text.split(/\r?\n/);
 	const last = lines.findLastIndex((line) => {
 		const quoted = QUOTED.exec(line);
 		return quoted !== null && sameLine(quoted[1] as string, ANYTHING_ELSE);
@@ -180,7 +180,7 @@ export function besides(text: string, asked: Asked[]): string {
  */
 function escaped(words: string, choices: Asked["choices"]): string {
 	return words
-		.split("\n")
+		.split(/\r?\n/)
 		.map((line, at) =>
 			QUOTED.test(line) || (at === 0 && picked(line, choices) !== null)
 				? `\\${line}`

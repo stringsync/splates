@@ -14,6 +14,9 @@ if [[ -n "${SPLATES_ROOT:-}" ]]; then
 	# An explicit pin that silently fell back would run the very code the
 	# caller pinned away from.
 	root="$SPLATES_ROOT"
+	# In mono the pin is the repository root (`splates path`), and splates sits
+	# in a subfolder of it.
+	[[ -f "$root/$entry" || ! -f "$root/splates/$entry" ]] || root="$root/splates"
 	if [[ ! -f "$root/$entry" ]]; then
 		echo "SPLATES_ROOT=$root has no $entry" >&2
 		exit 1

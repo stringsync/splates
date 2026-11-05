@@ -35,7 +35,7 @@ import { LaneIcon, TaskIcon } from "./task-icon";
  * it, when it has one: a red X for a command that failed, a green check for
  * one that landed. An early warning's mark, of a conflict or an overlap, is
  * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
- * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room it wraps, the hairlines going on a phone, and the names it
+ * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room it wraps onto more lines, and the names it
  * holds give way, each cut short and whole in its title. A burst of todos it
  * names lists each beneath, whole, with no hairlines of their own.
  */
@@ -519,12 +519,7 @@ export function Action({ act }: { act: Act }): JSX.Element {
 
 /** A plain hairline beside an event, taking what room the line leaves. */
 function Rule(): JSX.Element {
-	return (
-		<span
-			aria-hidden
-			className="hidden h-px min-w-3 flex-1 bg-border sm:block"
-		/>
-	);
+	return <span aria-hidden className="h-px min-w-3 flex-1 bg-border" />;
 }
 
 /** `ms` as `M:SS`: `9:00`, `12:30`. */

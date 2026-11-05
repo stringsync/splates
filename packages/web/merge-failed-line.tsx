@@ -259,6 +259,8 @@ function worded(event: MergeEvent): string {
 			return `Rebasing onto ${base} conflicted.`;
 		case "tests_failed":
 			return `The merge gate's tests failed after rebasing onto ${base}.`;
+		case "checks_failed":
+			return `The merge gate's checks failed after rebasing onto ${base}, before any test ran.`;
 		case "merge_failed":
 			return `Git could not rebase the task onto ${base} or land it there.`;
 		case "dirty":

@@ -224,7 +224,7 @@ function PagesFold({
 	return (
 		<div
 			className={cn(
-				"relative -mx-3 h-px shrink-0 bg-border",
+				"relative -mx-3 mb-3 h-px shrink-0 bg-border",
 				shown ? "mt-4" : "mt-3",
 			)}
 		>

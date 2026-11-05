@@ -206,7 +206,7 @@ export async function serveProject(
 	const taskRoutes = new TaskRoutes(project, conversations, watch);
 	return {
 		...taskRoutes,
-		...new MergeRoutes(project),
+		...new MergeRoutes(project, undefined, conversations),
 		...new BoardRoutes(project, talks, watch, {
 			boards: context.boards,
 			root: service.git.root,

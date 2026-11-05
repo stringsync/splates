@@ -6,17 +6,19 @@
 visible to you, not automatically to the user. Run `splates attach <file>`,
 then copy the image Markdown it prints into your reply, outside a code block.
 Use the stored path it returns, not the original capture path. For task
-evidence, put the same image under `## Verification` in `SPLATES.md`.
+evidence, put the same image under `## After` in `SPLATES.md`.
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
 
 ## Demos
 
-The norm is evidence, not a demo: the user reads what you verified under
-`## Verification` in the task dialog, and starts a demo from there only when
-they want one. Start one yourself only when the user must see something to
-answer a question, or to judge a review (see [Merge or review](merge.md#merge-or-review)). A demo is a
-`### 🎬 Demo: <what it shows>` heading, a line on where to open it, then the
+Demos belong in the conversation, not in `SPLATES.md`. The user can ask an
+agent to demo any task, open or finished. Offer one when mockups, screenshots
+or D2 diagrams alone do not convey the change well enough. Read the task's
+Before and After and inspect its code to work out what to show.
+
+A demo is a `### 🎬 Demo: <what it shows>` heading, a line on where to open
+it, then the
 steps, numbered from 1. Each step's line is one thing to do; indented under
 it, one line on what they should see, and a screenshot or recording only
 where words fall short. The `splates server` page shows a demo as a card of
@@ -79,8 +81,8 @@ the `SPLATES.md` it ended on too.
    one it landed as. `main`, and `before` while the task is open, stay where
    `splates add` put them. This reset is yours to run: a demo task never
    merges.
-3. Set it up as the task's `## Demo` says, on throwaway data, and start it
-   where the user can open it (see [Hosting a demo](#hosting-a-demo) on servers and links).
+3. Use the task's Before and After and its code to choose a useful example
+   on throwaway data, and start it where the user can open it (see [Hosting a demo](#hosting-a-demo) on servers and links).
 4. Say in a line what they should see at this point, then give the demo's
    steps, and talk it through. A fix it turns up is work for the task, while
    it is open, or for a new task, never for the demo's.

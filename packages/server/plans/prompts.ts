@@ -9,8 +9,8 @@ export function laneReference(id: number): string {
 }
 
 /**
- * What the untriaged lane, the tasks in no lane, goes by where a lane's
- * number would: `[SPLATES LANE untriaged]`, `splates lane show untriaged`.
+ * The old lane marker retained for reading `[SPLATES LANE untriaged]`
+ * in saved conversation logs.
  */
 export const UNTRIAGED = "untriaged";
 
@@ -39,7 +39,7 @@ export function scheduleReference(automation: string): string {
 }
 
 /**
- * What tells the project's groomer to groom Untriaged task `id`, which
+ * What tells the project's groomer to groom ungroomed Backlog task `id`, which
  * `splates server` claimed for it: the splates skill says what it means.
  */
 export function groomReference(id: number): string {

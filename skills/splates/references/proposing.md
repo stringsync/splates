@@ -1,8 +1,27 @@
 # Proposing
 
-Propose only when the user asks what you think, so they can approve it or
-challenge what it rests on. Otherwise build, asking each call the user's
-answer would change as a question (see [Questions](questions.md)) rather than a proposal.
+Two principles (1 and 2 in SKILL.md): **get approval for work that is costly
+or hard to undo**, and **build so every task is easy to undo**, approved or
+not. A wrong idea costs a few lines to correct in a
+proposal and a rewrite once built, so unless the task is easy to reverse
+and takes little effort to execute, its first reply after its first look is
+a proposal, and code waits for Approve. The same goes when the user
+asks what you think, and for a task the queue started: a non-trivial one
+waits on its card with no one present, as a task waiting on questions does.
+
+A proposal is the task's `## Before` and `## After` made into a card: Before
+and After side by side (see [Showing the change](#showing-the-change)), the
+one line, and the calls it rests on as questions (see [Questions](questions.md)).
+Write `## Before` and `## After` in `SPLATES.md` first, then the card from them.
+
+**Start low-effort, easily reversible tasks without asking permission.**
+These tasks need no proposal card or approval before building: a typo, a
+small fix, or a rename the compiler checks, for example. Judge by execution
+effort and how easily the result can be undone, rather than line count or
+whether the change is visible. Say so in one line, such as `Small and easy
+to revert: building directly.`, then proceed. Ask only when an unresolved
+choice materially changes the outcome; do not ask whether to start the task.
+Tasks that take substantial effort or are hard to reverse still need a proposal.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, then what you recommend and why, briefly.
@@ -57,15 +76,22 @@ table or flow, and any visible frontend change. A small change needs none.
   A proposal for such a change is not ready until its diagram is attached,
   so do not send it as text alone. `splates attach` works from a task's
   worktree: when no task is under way, `splates add` one for the proposal
-  first (the Goal says what is proposed), rather than skipping the picture.
+  first (After says what is proposed), rather than skipping the picture.
   Put the PNG in the proposal under a short heading for what it shows. Keep the sections beside
   it in the same order each time (`Flow`, `Data`, `Risks`), each a few lines,
   so the page can fold them later.
-- **Frontend: a lo-fi screenshot.** Build a throwaway mock in plain HTML,
-  grey boxes and system text, no styling, in a scratch directory, and
-  capture it with the browser tool. `splates attach` it and put it under the
-  question or choice it shows. For variants, one choice each, lettered
-  A, B, C in order, each with its own image.
+- **Frontend: lo-fi variants first, hi-fi only when asked.** UI work
+  proposes two or more lo-fi variants before any code. Build each as a
+  throwaway mock in plain HTML, grey boxes and system text, no styling, in a
+  scratch directory, and capture it with the browser tool. `splates attach`
+  each and put it under its own choice, lettered A, B, C in order, one image
+  each. Then read the answer:
+  - A pick means build it. Hi-fi is never required: most changes land from
+    the lo-fi pick.
+  - A pick with words, or a request for more, means another round of lo-fi.
+  - When the user asks to see the look rather than the layout, make hi-fi
+    mocks (real styling, real components or the app's own CSS) and work them
+    with the user until one is approved. Never build hi-fi mocks unasked.
 
 To capture, use the browser tool when you have one; otherwise headless
 Chrome from Bash (`"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -82,17 +108,25 @@ diagram of today's flow, drawn from the code (find it with `git grep`, not a tru
 no before, so say so). The after is the intent: the proposed diagram, or the
 lo-fi mock. Label each `Before` and `After`, and label a mock as a mock.
 
-In a task, write each call under `## Blocked` too, then end your turn; ask
-nothing else beside it.
+End your turn after it; ask nothing else beside it.
 
 The `splates server` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is
 answered and the user has changed none of your choices, its button approves,
 sending `[SPLATES APPROVE]`, then the answer to each call you chose nothing
-for, quoted as any answer is (see [Keeping Blocked current](questions.md#keeping-blocked-current)). That, or a reply
+for, quoted as any answer is. That, or a reply
 of "approve", means go ahead as proposed, taking in each answer, every call
 not quoted as you chose it, after `splates add` when no task is under way. A
 reply without it, as the card sends once the user picks another choice,
 changes a call or writes anything else, answers what it quotes: take that
 in and propose again.
 
+**Approve carries the pictures into the task.** On approval, before any code,
+make sure the task's `SPLATES.md` holds what was approved: `## Before` and
+`## After` with the proposal's short summary, and `## Verification` with its attached images inline
+(`![what](/abs/path.png)`, the stored paths `splates attach` printed, not the
+scratch captures), each answered call folded in. When the proposal was written
+before the task existed, `splates add` it now and write the sections then, with
+the same images, so they are the record that *Expected* later pairs with *As
+built* (see SPLATES.md in the skill). Never leave the pictures only in the
+reply, and never re-capture them.

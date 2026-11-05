@@ -56,6 +56,7 @@ import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
 import { printMachine } from "./machine";
+import { runProgress } from "./progress";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
@@ -297,8 +298,47 @@ splates
 			() => claim(ctx, opts.task),
 			(claimed) => claimed,
 		);
+		await printOpenQuestions(ctx, opts.task);
 		await follow(ctx, opts.task);
 	});
+
+/**
+ * Prints the question cards the task's conversation asked that nobody has
+ * answered, for an agent resuming it; says nothing with no server to ask.
+ */
+async function printOpenQuestions(
+	ctx: SplatesDeps & Repository,
+	task: string,
+): Promise<void> {
+	const server = await serverOf(ctx);
+	const slug = (await ctx.projects.list()).find(
+		(each) => each.root === ctx.git.root,
+	)?.slug;
+	if (server === null || slug === undefined) {
+		return;
+	}
+	const response = await server
+		.send(
+			`${server.url}/api/tasks/${encodeURIComponent(task)}/questions?project=${encodeURIComponent(slug)}`,
+			{ headers: { origin: server.url }, signal: AbortSignal.timeout(5000) },
+		)
+		.catch(() => null);
+	if (response === null || !response.ok) {
+		return;
+	}
+	const { questions } = (await response.json().catch(() => ({}))) as {
+		questions?: { number: string; text: string }[];
+	};
+	if (questions === undefined || questions.length === 0) {
+		return;
+	}
+	ctx.log.info(
+		[
+			"  open questions, asked in the conversation and not yet answered:",
+			...questions.map((asked) => `    ${asked.number}. ${asked.text}`),
+		].join("\n"),
+	);
+}
 
 splates
 	.command("merge")
@@ -666,6 +706,38 @@ splates
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) => recordRetry(ctx, opts.task));
+
+splates
+	.command("progress")
+	.use(repository({ needs: "own" }))
+	.description(
+		"show how a long task is going as a card on the conversation's page that updates in place, instead of a chat line per step. Name the card with <id> (a background command's id closes it when the command ends). Give the update as text, or pipe a command's output in and give `-` as the text to stream it: each line becomes the note, and a `NN%` in it sets the percent. The server publishes a card at most every two seconds and keeps only the newest of a burst, so report as often as is natural. Without `splates server` it only prints the card. The conversation is $SPLATES_CONVERSATION, or --conversation <id> from an agent outside `splates server`",
+	)
+	.arg("id", z.string(), { description: "the card's name" })
+	.arg("text", z.string().optional(), {
+		description: "the note; `-` reads lines from stdin as notes",
+	})
+	.option("title", z.string(), {
+		default: "",
+		description: "what the card is called; the id by default",
+	})
+	.option("percent", z.coerce.number().optional(), {
+		description: "how far along, 0 to 100",
+	})
+	.option("done", z.boolean(), {
+		default: false,
+		description: "the task finished well",
+	})
+	.option("failed", z.boolean(), {
+		default: false,
+		description: "the task failed",
+	})
+	.option("conversation", z.string(), {
+		default: "",
+		description:
+			"conversation id, when not run by an agent `splates server` started",
+	})
+	.action((opts, ctx) => runProgress(ctx, opts));
 
 splates
 	.mount("artifact", splatesArtifact)

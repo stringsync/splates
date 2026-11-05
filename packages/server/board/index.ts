@@ -1,4 +1,4 @@
-export { BACKLOG_LANE, PLACED, protectBacklog, ungroomed } from "./backlog";
+export { BACKLOG_LANE, protectBacklog, ungroomed } from "./backlog";
 export { blockedWarning } from "./blocked-warning";
 export {
 	boardAdd,
@@ -61,6 +61,7 @@ export {
 } from "./lanes";
 export { lanesFromTags } from "./lanes-from-tags";
 export { BoardRoutes } from "./routes";
+export { similarTasks, similarWarning } from "./similar-warning";
 export type { Started, StoredTask } from "./store";
 export { queuedOf, startedOf, TaskStore } from "./store";
 export type {

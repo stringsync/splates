@@ -10,17 +10,18 @@ export interface Landed {
 
 /**
  * The last merge of `task` in `project`, held against the week up to it, so
- * the comparison reads the same however long after it is asked. Null when it
- * never merged there.
+ * the comparison reads the same however long after it is asked. `ended` picks
+ * the last merge or the last removal. Null when it never ended that way there.
  */
 export function landed(
 	outcomes: Outcome[],
 	project: string,
 	task: string,
+	ended: Outcome["ended"] = "merged",
 ): Landed | null {
 	const outcome = outcomes.findLast(
 		(each) =>
-			each.project === project && each.task === task && each.ended === "merged",
+			each.project === project && each.task === task && each.ended === ended,
 	);
 	if (outcome === undefined) {
 		return null;

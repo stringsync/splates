@@ -20,7 +20,7 @@ const HIDDEN = "splates.hiddenLanes";
 
 /**
  * The todo list's choices: which todo or task is open, which todos the board
- * is narrowed to, and which lanes it leaves out, `null` for the untriaged. `show` applies them to a
+ * is narrowed to, and which lanes it leaves out, `null` for the ungroomed Backlog tasks. `show` applies them to a
  * snapshot, which can change under them: a choice the snapshot no longer has room for
  * shows as nothing picked.
  */

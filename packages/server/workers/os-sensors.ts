@@ -1,14 +1,12 @@
 import os from "node:os";
 import type { Fs, Ps } from "core/system";
 import { darwinFootprint } from "./darwin-footprint";
+import { darwinAvailable } from "./darwin-memory";
 import { darwinTemperature } from "./darwin-temperature";
 import type { MachineSensors, ProcessUse } from "./load";
 import { descendants } from "./process-host";
 
-/**
- * The machine this process runs on, for a `Machine` to read. Temperature
- * reads on Linux and Apple Silicon only, null elsewhere.
- */
+/** The machine this process runs on, for a `Machine` to read. */
 export class OsSensors implements MachineSensors {
 	readonly platform = process.platform;
 	private readonly ps: Ps | null;
@@ -41,7 +39,10 @@ export class OsSensors implements MachineSensors {
 	}
 
 	freemem(): number {
-		return os.freemem();
+		return (
+			(this.platform === "darwin" ? darwinAvailable(os.totalmem()) : null) ??
+			os.freemem()
+		);
 	}
 
 	totalmem(): number {
@@ -49,6 +50,7 @@ export class OsSensors implements MachineSensors {
 	}
 
 	async temperature(): Promise<number | null> {
+		// Only Linux and Apple Silicon can be read.
 		return this.platform === "linux"
 			? this.thermalZones()
 			: this.platform === "darwin"

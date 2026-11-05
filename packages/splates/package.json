@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates",
-	"version": "2.0.3",
+	"version": "2.0.4",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -13,7 +13,8 @@
 	"module": "index.ts",
 	"bin": {
 		"splates": "./index.ts",
-		"arbor": "./index.ts"
+		"arbor": "./index.ts",
+		"rec": "./rec.ts"
 	},
 	"exports": {
 		".": "./index.ts",
@@ -29,6 +30,7 @@
 	"dependencies": {
 		"@splates/server": "workspace:*",
 		"@evals/evals": "workspace:*",
+		"@mono/rec": "workspace:*",
 		"core": "workspace:*",
 		"zod": "catalog:"
 	},

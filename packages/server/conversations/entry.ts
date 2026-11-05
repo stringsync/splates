@@ -11,6 +11,8 @@ import type {
 	Device,
 	Image,
 	Limit,
+	Progress,
+	Reminder,
 	Setting,
 } from "./state";
 
@@ -117,6 +119,8 @@ type Said =
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
 	| { kind: "read"; read: number }
+	| { kind: "visit"; at: string }
+	| { kind: "reminder"; reminder: Reminder }
 	| { kind: "pin"; pinned: boolean }
 	| { kind: "parent"; parent: { id: string | null } }
 	/** `at` is missing from logs written before the page showed how long things took. */
@@ -172,6 +176,8 @@ type Said =
 	| { kind: "flags"; tool: string; flags: Flag[] }
 	/** How the person answered the agent asking permission for a tool call. */
 	| { kind: "decision"; tool: string; decision: Decision }
+	/** A progress card as the server published it: the whole card, replacing its earlier one. */
+	| { kind: "progress"; progress: Progress }
 	/** An artifact added, removed, or its bytes deleted. */
 	| { kind: "artifact"; change: ArtifactChange }
 	/**

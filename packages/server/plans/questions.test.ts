@@ -1,7 +1,40 @@
 import { describe, expect, it } from "bun:test";
+import type { Message } from "../conversations";
 import { type Question, questions } from "./plan";
+import { openCards } from "./unanswered";
 
 describe("questions", () => {
+	it.each(["\n", "\r\n"])(
+		"closes quoted cards with %j reply line endings",
+		(ending) => {
+			const message = (role: Message["role"], text: string): Message => ({
+				role,
+				parts: [{ type: "text", text }],
+				plan: null,
+				at: null,
+				until: null,
+			});
+			const asked = message(
+				"agent",
+				"1. Which one?\n   - (a) First\n   - (b) Second\n2. When?",
+			);
+			expect(openCards([asked])).toHaveLength(2);
+			const answer = message(
+				"user",
+				[
+					"> **Which one?**",
+					"",
+					"- (b) Second",
+					"",
+					"> **When?**",
+					"",
+					"Tomorrow",
+				].join(ending),
+			);
+			expect(openCards([asked, answer])).toEqual([]);
+		},
+	);
+
 	it("still reads a plan numbered the old way, Q1", () => {
 		const [asked] = questions("## Blocked\n\n- [ ] Q3. Keep it? → yes\n");
 

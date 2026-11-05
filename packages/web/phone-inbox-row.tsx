@@ -7,6 +7,7 @@ import { automated, shipped } from "./conversation-rows";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
+import { backgrounded } from "./progress";
 import { useEnding } from "./queued-ending";
 import { useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
@@ -122,11 +123,7 @@ export function Row({
 						hosting={hosting}
 						subagent={subagent}
 						quiet={quiet}
-						background={
-							conversation?.background.some(
-								(each) => each.state === "running",
-							) ?? false
-						}
+						background={conversation != null && backgrounded(conversation)}
 					/>
 				</span>
 				<span className="flex items-center gap-2">

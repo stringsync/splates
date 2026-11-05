@@ -39,12 +39,15 @@ describe("fold", () => {
 		unread: false,
 		seen: 0,
 		read: null,
+		visited: null,
+		reminders: [],
 		checkpoint: null,
 		pausing: false,
 		budgetStop: null,
 		taking: "start",
 		usage: unused(),
 		background: [],
+		progress: [],
 		artifacts: [],
 	});
 	const at = (secs: number) =>

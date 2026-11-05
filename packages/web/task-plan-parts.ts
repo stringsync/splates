@@ -1,8 +1,10 @@
 import { Markdown as Parsed } from "core/md";
 
-/** A task's SPLATES.md, split into what each tab shows. */
+/** A task's SPLATES.md split into the parts the task dialog shows. */
 export interface PlanParts {
-	/** `## Goal`, as markdown; "" when it has none. */
+	/** `## Before`, as markdown; "" when it has none. */
+	before: string;
+	/** `## After`, or a legacy `## Goal`, as markdown; "" when it has none. */
 	goal: string;
 	/** `## Next`, as markdown; "" when it has none. */
 	steps: string;
@@ -23,6 +25,7 @@ export interface PlanParts {
 export function planParts(plan: string | null): PlanParts {
 	if (plan === null) {
 		return {
+			before: "",
 			goal: "",
 			steps: "",
 			verification: "",
@@ -39,6 +42,8 @@ export function planParts(plan: string | null): PlanParts {
 			.find((section) => section.heading.toLowerCase() === name)
 			?.body.trim() ?? "";
 	const known = [
+		"before",
+		"after",
 		"goal",
 		"next",
 		"notes",
@@ -62,7 +67,8 @@ export function planParts(plan: string | null): PlanParts {
 				.join("\n\n")
 		: plan.replace(/^\s*#\s[^\n]*/, "").trim();
 	return {
-		goal: named("goal"),
+		before: named("before"),
+		goal: named("after") || named("goal"),
 		steps: named("next"),
 		verification: named("verification"),
 		demo: named("demo"),

@@ -146,7 +146,7 @@ export function WaitingPanel({ todo }: { todo: TaskRecord }): JSX.Element {
 		<section
 			role="status"
 			aria-label="Queued"
-			className="flex items-center gap-3 rounded-2xl border border-foreground/10 px-4 py-3 text-sm"
+			className="mb-3 flex items-center gap-3 rounded-2xl border border-foreground/10 px-4 py-3 text-sm"
 		>
 			<HourglassIcon
 				aria-hidden

@@ -11,6 +11,7 @@ import { parseDiff } from "./diff";
 import { editorOf } from "./editors";
 import { mergeOutput } from "./merge-output";
 import { inTree } from "./open";
+import { openQuestions } from "./open-questions";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
 
@@ -34,6 +35,17 @@ export class TaskRoutes {
 		this.#conversations = conversations;
 		this.#watch = watch;
 	}
+
+	/** The question cards a task's conversation asked that nobody has answered. */
+	readonly questions = async (request: Request): Promise<Response> => {
+		const task = decodeURIComponent(
+			new URL(request.url).pathname.split("/")[3] ?? "",
+		);
+		const open = await openQuestions(this.#conversations, task);
+		return Response.json({
+			questions: open.map(({ number, text }) => ({ number, text })),
+		});
+	};
 
 	// Only a file a queued or started task holds, or one kept with a finished
 	// task's plan, so the page, and whoever a tunnel lets reach it, can read

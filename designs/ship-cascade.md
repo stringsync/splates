@@ -37,7 +37,7 @@ credentials.
   later, can publish without the person there. The 1Password MCP plays no
   part; credentials are only ever typed on npm's own pages.
 - **Agents update the dependents.** Once a package is on npm, splates adds a
-  task in each project that depends on it, into its Untriaged lane as a task
+  task in each project that depends on it, into its Backlog lane as a task
   from another project goes, and queues it as part of the cascade: move the
   pinned versions to the new ones, `bun install`, fix what breaks, land it
   through the usual merge gate. A project that depends on more than one

@@ -843,6 +843,7 @@ export async function dev(
 					"/api/rec": guarded(rec.read),
 					"/api/rec/name": guarded(rec.name),
 					"/api/rec/open": { POST: talk(guarded(rec.start)) },
+					"/api/rec/close": { POST: talk(guarded(rec.stop)) },
 					// A recording can show anything on the person's screen, so these
 					// get the same guard as the rest; changes go as far as a conversation.
 					"/api/rec/sessions": guarded(rec.list),
@@ -921,6 +922,7 @@ export async function dev(
 					"/api/open": { POST: talk(scoped((project) => project.open)) },
 					"/api/paths": scoped((project) => project.paths),
 					"/api/tasks/:task/diff": scoped((project) => project.diff),
+					"/api/tasks/:task/questions": scoped((project) => project.questions),
 					"/api/commits/:sha/diff": scoped((project) => project.commitDiff),
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
@@ -1099,6 +1101,9 @@ export async function dev(
 						GET: talk(owned((project) => project.conversationArtifact)),
 						DELETE: talk(owned((project) => project.deleteArtifactVersion)),
 					},
+					"/api/conversations/:id/progress": {
+						POST: talk(owned((project) => project.reportProgress)),
+					},
 					"/api/conversations/:id/artifacts": {
 						POST: talk(owned((project) => project.addArtifact)),
 					},
@@ -1146,6 +1151,9 @@ export async function dev(
 					},
 					"/api/conversations/:id/read": {
 						PUT: talk(owned((project) => project.markRead)),
+					},
+					"/api/conversations/:id/visit": {
+						PUT: talk(owned((project) => project.visitConversation)),
 					},
 					"/api/conversations/:id/pinned": {
 						PUT: talk(owned((project) => project.pinConversation)),

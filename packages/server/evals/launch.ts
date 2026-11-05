@@ -125,9 +125,7 @@ export class EvalLaunches
 		if (conversation !== null) {
 			const plan = await this.plan(commands, spec);
 			worstUsd = plan.usd ?? 0;
-			if (spec.auto === true) {
-				await this.checkBudget(commands, conversation, worstUsd);
-			}
+			await this.checkBudget(commands, conversation, worstUsd);
 		}
 		const known = new Set(await batchesIn(commands.results));
 		const reserved: SavedLaunch = {
@@ -379,7 +377,15 @@ export class EvalLaunches
 					matching.push(each);
 				}
 			}
-			const candidates = matching.length > 0 ? matching : made;
+			// With no exact match, a batch may still be mid-write by a concurrent run
+			// (its directory before its batch.json), so guess only when this run is alone.
+			const alone = ![...this.launches.values()].some(
+				(each) =>
+					each !== launch &&
+					each.status === "running" &&
+					each.commands.root === launch.commands.root,
+			);
+			const candidates = matching.length > 0 ? matching : alone ? made : [];
 			launch.batch = candidates.sort().at(-1) ?? null;
 			if (launch.batch !== null) {
 				await this.save(launch);
@@ -445,11 +451,6 @@ export interface EvalLaunchSpec {
 	conversation?: string | null;
 	/** Where the commands run, the conversation's task worktree; the project's root when null. */
 	cwd?: string | null;
-	/**
-	 * Set when the agent starts the run on its own, not the person's Run button:
-	 * the conversation's budget then has to fit it, or it is not started.
-	 */
-	auto?: boolean;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */

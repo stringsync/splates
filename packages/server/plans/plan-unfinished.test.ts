@@ -21,7 +21,7 @@ describe("unfinished", () => {
 		expect(left).toEqual({ questions: ["2", "3"], steps: ["wire it up"] });
 		expect(ready(left)).toBe(false);
 		expect(whatIsLeft(left)).toBe(
-			"questions 2, 3 unchecked under ## Blocked and 1 step unchecked under ## Next",
+			"questions 2, 3 unanswered in the conversation or task plan and 1 step unchecked under ## Next",
 		);
 	});
 

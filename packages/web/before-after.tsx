@@ -1,0 +1,217 @@
+import { ChevronRightIcon } from "lucide-react";
+import { type JSX, type ReactNode, useMemo, useState } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
+import {
+	ToggleGroup,
+	ToggleGroupItem,
+} from "#web/components/ui/toggle-group.tsx";
+import { cn } from "#web/lib/utils.ts";
+import { Markdown } from "./markdown";
+import { paragraphs } from "./merged-body";
+import { planParts } from "./task-plan-parts";
+
+/** A task record's Before and After, as a card or dialog leads with them. */
+export interface CardRecord {
+	before: string;
+	after: string;
+}
+
+/**
+ * What a card leads with from `plan`, a task's `SPLATES.md` or its merge
+ * record's copy of those sections; null when it holds neither section, or
+ * only the hints a fresh task starts with.
+ */
+export function cardRecord(plan: string | null | undefined): CardRecord | null {
+	const parts = planParts(plan ?? null);
+	const before = withoutHints(parts.before);
+	const after = withoutHints(parts.goal);
+	return before === "" && after === "" ? null : { before, after };
+}
+
+/**
+ * A record's opening: Before and After side by side, stacked where there is no
+ * room for two. Their headings and first pictures start level, and each
+ * column's words follow its own picture. An After with both Expected and
+ * Actual switches between them, opening on Actual.
+ */
+export function BeforeAfter({
+	record,
+	className,
+}: {
+	record: CardRecord;
+	className?: string;
+}): JSX.Element {
+	const before = useMemo(() => sideOf(record.before), [record.before]);
+	const after = useMemo(() => sideOf(record.after), [record.after]);
+	return (
+		<div className={cn("@container min-w-0 text-sm", className)}>
+			<div className="grid min-w-0 items-start gap-4 @md:grid-cols-2">
+				{record.before !== "" && <Column label="Before" side={before} />}
+				{record.after !== "" && <Column label="After" side={after} />}
+			</div>
+		</div>
+	);
+}
+
+/** The prose a card keeps below its Before and After, closed until opened. */
+export function FoldedProse({
+	children,
+}: {
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<Collapsible
+			render={<section aria-label="Details" />}
+			className="group/prose"
+		>
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
+				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/prose:rotate-90" />
+				Details
+			</CollapsibleTrigger>
+			<CollapsibleContent>{children}</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+function withoutHints(text: string): string {
+	return text.replace(/<!--[\s\S]*?-->/g, "").trim();
+}
+
+function Column({ label, side }: { label: string; side: Side }): JSX.Element {
+	const holds = (each: Variant) =>
+		side.variants[each].pictures.length + side.variants[each].words.length > 0;
+	const both = holds("expected") && holds("actual");
+	const [chosen, choose] = useState<Variant>("actual");
+	const only = holds("actual") ? "actual" : "expected";
+	const shown = both ? chosen : only;
+	const pictures = [...side.pictures, ...side.variants[shown].pictures];
+	const [line, ...rest] = [...side.words, ...side.variants[shown].words];
+	return (
+		<section
+			aria-label={label.toLowerCase()}
+			className="flex min-w-0 flex-col gap-2"
+		>
+			<h3 className="flex h-7 items-center justify-between gap-2 font-medium text-muted-foreground text-xs pointer-coarse:h-10">
+				<span>
+					{label}
+					{!both && holds(only) && (
+						<span className="font-normal"> · {NAMES[shown]}</span>
+					)}
+				</span>
+				{both && (
+					<ToggleGroup
+						aria-label="Expected or Actual"
+						variant="outline"
+						size="sm"
+						spacing={0}
+						value={[chosen]}
+						onValueChange={(value: string[]) => {
+							const next = value[0];
+							if (next === "expected" || next === "actual") {
+								choose(next);
+							}
+						}}
+					>
+						{VARIANTS.map((each) => (
+							<ToggleGroupItem
+								key={each}
+								value={each}
+								className="data-pressed:bg-foreground data-pressed:text-background data-pressed:hover:bg-foreground data-pressed:hover:text-background pointer-coarse:h-9 pointer-coarse:px-3 pointer-coarse:text-sm"
+							>
+								{NAMES[each]}
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
+				)}
+			</h3>
+			{pictures.length > 0 && (
+				<div className="min-w-0">
+					<Markdown text={pictures.join("\n\n")} />
+				</div>
+			)}
+			{line !== undefined && (
+				<div className="flex min-w-0 flex-col gap-1">
+					<Markdown
+						text={line}
+						className="[&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+					/>
+					{rest.length > 0 && <Markdown text={rest.join("\n\n")} />}
+				</div>
+			)}
+		</section>
+	);
+}
+
+const VARIANTS: readonly Variant[] = ["expected", "actual"];
+
+const NAMES: Record<Variant, string> = {
+	expected: "Expected",
+	actual: "Actual",
+};
+
+type Variant = "expected" | "actual";
+
+/** One column of a record, its pictures apart from its words. */
+export interface Side {
+	/** Pictures no label claims. */
+	pictures: string[];
+	/** What each label holds, as `*Expected*` and `*Actual*` mark it. */
+	variants: Record<Variant, { pictures: string[]; words: string[] }>;
+	/** Everything else, its one line first. */
+	words: string[];
+}
+
+/** A paragraph opening with a label, in emphasis or before a colon. */
+const LABEL =
+	/^(?:[*_]+(expected|actual|as built)[*_]*:?[*_]*|(expected|actual|as built)\s*:)\s*(.*)$/is;
+
+/**
+ * Splits a Before or After for its column: pass the section's markdown, and get
+ * back its pictures and words, with what `*Expected*` and `*Actual*` each hold.
+ */
+export function sideOf(text: string): Side {
+	// A label holds the pictures after it, and the words on its line or else
+	// the one paragraph after it. An older record's As built is its Actual.
+	const side: Side = {
+		pictures: [],
+		variants: {
+			expected: { pictures: [], words: [] },
+			actual: { pictures: [], words: [] },
+		},
+		words: [],
+	};
+	let open: Variant | null = null;
+	for (const each of paragraphs(text)) {
+		const label = LABEL.exec(each);
+		if (label !== null) {
+			const name = (label[1] ?? label[2] ?? "").toLowerCase();
+			open = name === "expected" ? "expected" : "actual";
+			const caption = (label[3] ?? "").replace(/^[\s,:;.-]+/, "");
+			if (caption !== "") {
+				side.variants[open].words.push(
+					caption.charAt(0).toUpperCase() + caption.slice(1),
+				);
+			}
+			continue;
+		}
+		const picture = each.startsWith("![");
+		if (open !== null) {
+			const held = side.variants[open];
+			if (picture) {
+				held.pictures.push(each);
+				continue;
+			}
+			if (held.pictures.length + held.words.length === 0) {
+				held.words.push(each);
+				continue;
+			}
+		}
+		open = null;
+		(picture ? side.pictures : side.words).push(each);
+	}
+	return side;
+}

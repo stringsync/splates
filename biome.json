@@ -12,7 +12,8 @@
 			"!**/catalog/*/evals",
 			"!.vet/rules/*/evals",
 			"!packages/core",
-			"!packages/@evals/evals"
+			"!packages/@evals/evals",
+			"!packages/@mono/rec"
 		]
 	},
 	"css": {

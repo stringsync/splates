@@ -40,6 +40,7 @@ export {
 	realName,
 } from "./name";
 export type { ConversationsOptions } from "./options";
+export type { ProgressUpdate } from "./progress";
 export { conversationReference } from "./reference";
 export { ConversationRoutes } from "./routes";
 export type { Said } from "./search";
@@ -66,7 +67,11 @@ export type {
 	Limit,
 	Message,
 	Part,
+	Progress,
+	ProgressState,
 	QueueSpot,
+	Reminder,
+	ReminderCard,
 	Setting,
 	Status,
 	Step,

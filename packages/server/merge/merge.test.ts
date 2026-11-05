@@ -258,6 +258,6 @@ describe.concurrent("merge", () => {
 			commit: head.trim(),
 		});
 		const read = await deps.service.finished.read(finished?.key ?? "");
-		expect(read?.plan).toContain("## Goal\n\nland alpha");
+		expect(read?.plan).toContain("## After\n\nland alpha");
 	});
 });

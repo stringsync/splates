@@ -30,16 +30,16 @@ async function startTask(
 	}
 }
 
-/** The task's `## Verification` section. */
+/** The task's `## After` section. */
 async function verificationOf(repo: Repo, name: string): Promise<string> {
 	const plan = await repo.run(["splates", "show", name]);
-	return plan.split("## Verification")[1]?.split(/\n## /)[0] ?? "";
+	return plan.split("## After")[1]?.split(/\n## /)[0] ?? "";
 }
 
 /** A script that stands in for a screenshot tool: writes capture.png beside it. */
 const CAPTURE_SCRIPT = `await Bun.write("capture.png", Buffer.from("${PNG}", "base64"));\n`;
 
-/** Whether the reply embeds an image that `splates attach` returned and Verification keeps too. */
+/** Whether the reply embeds an image that `splates attach` returned and After keeps too. */
 function deliveredAndKept(
 	reply: string,
 	transcript: Outcome["transcript"],
@@ -66,7 +66,7 @@ export const scenarios: Scenario[] = [
 		aspect: "delivery",
 		initialized: true,
 		requirement:
-			"Attach screenshots, embed the returned stored path in the reply, and keep the same image under task Verification. Tool previews and plain paths are insufficient.",
+			"Attach screenshots, embed the returned stored path in the reply, and keep the same image under task After. Tool previews and plain paths are insufficient.",
 		async change(repo) {
 			await repo.run([
 				"splates",
@@ -106,13 +106,12 @@ export const scenarios: Scenario[] = [
 			},
 			{
 				id: "task-evidence",
-				about:
-					"task Verification embeds the same stored screenshot as the reply",
+				about: "task After embeds the same stored screenshot as the reply",
 				live: true,
 				async test({ repo, reply }) {
 					const plan = await repo.run(["splates", "show", "screenshot"]);
 					const verification =
-						plan.split("## Verification")[1]?.split(/\n## /)[0] ?? "";
+						plan.split("## After")[1]?.split(/\n## /)[0] ?? "";
 					return deliveredImages(reply).some((path) =>
 						deliveredImages(verification).includes(path),
 					);
@@ -125,7 +124,7 @@ export const scenarios: Scenario[] = [
 		aspect: "delivery",
 		initialized: true,
 		requirement:
-			"A screenshot the agent captures while verifying a change is attached with `splates attach`, embedded in the reply by its stored path, and kept under task Verification; the capture's own path or preview does not reach the user.",
+			"A screenshot the agent captures while verifying a change is attached with `splates attach`, embedded in the reply by its stored path, and kept under task After; the capture's own path or preview does not reach the user.",
 		async change(repo) {
 			await startTask(repo, "ui", "Change the page title", {
 				"page.html": "<h1>Old title</h1>\n",
@@ -143,7 +142,7 @@ export const scenarios: Scenario[] = [
 			},
 			{
 				id: "task-evidence",
-				about: "task Verification embeds the same stored screenshot",
+				about: "task After embeds the same stored screenshot",
 				live: true,
 				async test({ repo, reply, transcript }) {
 					return deliveredAndKept(
@@ -160,7 +159,7 @@ export const scenarios: Scenario[] = [
 		aspect: "delivery",
 		initialized: true,
 		requirement:
-			"Before asking for a visual review, deliver the screenshot: the Ready to merge reply embeds the attached image, and Verification keeps it. A filename or `see screenshot` does not count.",
+			"Before asking for a visual review, deliver the screenshot: the Ready to merge reply embeds the attached image, and After keeps it. A filename or `see screenshot` does not count.",
 		async change(repo) {
 			await startTask(repo, "ui", "Change the page title", {
 				"page.html": "<h1>New title</h1>\n",
@@ -189,7 +188,7 @@ export const scenarios: Scenario[] = [
 			},
 			{
 				id: "task-evidence",
-				about: "task Verification embeds the same stored screenshot",
+				about: "task After embeds the same stored screenshot",
 				live: true,
 				async test({ repo, reply, transcript }) {
 					return deliveredAndKept(
@@ -201,7 +200,7 @@ export const scenarios: Scenario[] = [
 			},
 		],
 		judge:
-			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and Verification embeds it too. Do not judge whether the path would render for the user, how the Demo line is worded, or whether the image appears once or twice: embedding it that way is the delivery. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
+			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and After embeds it too. Do not judge whether the path would render for the user, how the Demo line is worded, or whether the image appears once or twice: embedding it that way is the delivery. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
 	},
 ];
 

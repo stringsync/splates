@@ -14,8 +14,8 @@ export function protectBacklog(id: number): void {
 	}
 }
 
-/** The claim a task carries in Backlog once something other than the groomer has placed it there. */
-export const PLACED = "placed";
+/** The `grooming` value older records hold for a task put in Backlog by hand: `ungroomed` reads it as never groomed. */
+export const LEGACY_PLACED = "placed";
 
 /** Whether `task` waits in Backlog for the groomer: untaken and never groomed. */
 export function ungroomed(task: {
@@ -26,6 +26,6 @@ export function ungroomed(task: {
 	return (
 		task.lane === BACKLOG_LANE &&
 		task.takenBy === null &&
-		task.grooming === undefined
+		(task.grooming === undefined || task.grooming === LEGACY_PLACED)
 	);
 }

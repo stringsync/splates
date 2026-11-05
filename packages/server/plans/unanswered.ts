@@ -2,7 +2,7 @@ import type { Message } from "../conversations";
 import { stretches } from "./asked";
 import type { Needing } from "./needs";
 import type { Question } from "./plan";
-import { answerIn, quotedIn } from "./reply";
+import { answerIn, isEmpty, quotedIn, takenOf } from "./reply";
 
 /**
  * Of `open`, a task's open questions, returns those the person has not yet
@@ -27,13 +27,82 @@ export function unanswered(open: Question[], messages: Message[]): Question[] {
 		if (before?.role === "agent") {
 			for (const card of asks(before)) {
 				const same = open.find((asked) => alike(asked, card));
-				if (same !== undefined && answerIn(text, card) !== null) {
+				if (
+					same !== undefined &&
+					(answerIn(text, card) !== null ||
+						(isProposal(before) && approved(text) && !isEmpty(takenOf(card))))
+				) {
 					done.add(same);
 				}
 			}
 		}
 	});
 	return open.filter((asked) => !done.has(asked));
+}
+
+/**
+ * The question cards a task's conversation asked that no reply has answered,
+ * which `splates merge` refuses to leave behind.
+ */
+export function openCards(messages: Message[]): Question[] {
+	let proposal: Question[] = [];
+	let cards: Question[] = [];
+	// A reply in the person's own words answers no card: the card it responds
+	// to stays open until the agent's next card replaces it, asking again
+	// whatever the reply left unsettled. `latest` is the card just before each
+	// message, and `replied` those a reply in own words has responded to.
+	let latest: Question[] = [];
+	let replied: Question[] = [];
+	for (const [at, message] of messages.entries()) {
+		if (message.role !== "agent") {
+			const before = messages[at - 1];
+			const left = unanswered(
+				cards,
+				before === undefined ? [message] : [before, message],
+			);
+			if (left.length === cards.length && inOwnWords(message)) {
+				replied.push(...latest.filter((card) => left.includes(card)));
+			}
+			cards = left;
+			latest = [];
+			continue;
+		}
+		const questions = asks(message);
+		if (isProposal(message)) {
+			cards = cards.filter((card) => !proposal.includes(card));
+			proposal = questions;
+		}
+		if (questions.length > 0) {
+			cards = cards.filter((card) => !replied.includes(card));
+			replied = [];
+		}
+		cards.push(...questions);
+		latest = questions;
+	}
+	return cards;
+}
+
+/** Whether the person said it themselves, not splates or a page's directive. */
+function inOwnWords(message: Message): boolean {
+	return message.told === undefined && !textOf(message).startsWith("[SPLATES ");
+}
+
+/** Whether a reply approves the proposal immediately before it. */
+function approved(text: string): boolean {
+	return (
+		/^\[SPLATES APPROVE\](?:\s|$)/.test(text) || /^approve[.!]?$/i.test(text)
+	);
+}
+
+/** Whether the last words contain a proposal card. */
+function isProposal(message: Message): boolean {
+	const said = message.parts.findLast(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	return (
+		said?.type === "text" &&
+		stretches(said.text).some((part) => part.type === "proposal")
+	);
 }
 
 /** The questions an agent's message asks as cards, in its last words. */
@@ -53,6 +122,7 @@ function textOf(message: Message): string {
 	return message.parts
 		.map((part) => (part.type === "text" ? part.text : ""))
 		.join("")
+		.replace(/\r\n/g, "\n")
 		.trim();
 }
 

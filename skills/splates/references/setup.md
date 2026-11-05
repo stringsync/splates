@@ -87,7 +87,7 @@ Access: that host then reaches only the tasks.
 
 Nothing caps how many agents run: merges take turns on the premerge lock,
 and agents ask before heavy work when the machine is busy. When the user asks to run more agents at once on this Mac, tell them
-so; when agents do not start at all, run `splates worker drain local --undo`; the person can also
+so; when agents do not start at all, run `splates worker drain local --undo`; the user can also
 pause or resume what splates starts on its own at the top of the page's
 Queue tab. Agents run only on this machine;
 remote workers cannot join. Check `GET /api/workers` of the `splates server`
@@ -117,7 +117,7 @@ the user to restart `splates server`.
   releases the project as `ship`, or one target a time under `ships`
   (`{ paths, ship }`), then optionally a `shipStatus` command that reads
   live versions where npm's latest is not the truth. Find the project's
-  existing release script before writing one. Only the person ships, so
+  existing release script before writing one. Only the user ships, so
   never run the ship command; a `--dry-run` rehearsal is fine.
 - **Evals** (`evals-results`, `evals-run`): `evals: { results }` shows
   results from any framework on the Evals page; adding `list` and `run`

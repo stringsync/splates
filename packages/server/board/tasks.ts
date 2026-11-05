@@ -2,7 +2,7 @@ import { relative, resolve, sep } from "node:path";
 import { type IdProvider, UuidProvider } from "core/id";
 import { Attachments } from "../artifacts";
 import { fail } from "../exit";
-import { BACKLOG_LANE, PLACED } from "./backlog";
+import { BACKLOG_LANE } from "./backlog";
 import type { BoardRecord } from "./boards";
 import { changeLane } from "./change-lane";
 import { distinct } from "./elsewhere-links";
@@ -125,7 +125,6 @@ export class Tasks {
 					{
 						...state,
 						lane: await this.laneFiles.laneId(lane, stored, [state]),
-						...(lane === BACKLOG_LANE ? { grooming: PLACED } : {}),
 					},
 					assignee,
 				),
@@ -239,10 +238,6 @@ export class Tasks {
 			const moved = {
 				...state,
 				lane: into,
-				// Placed in Backlog by hand, it needs no groomer.
-				...(into === BACKLOG_LANE && state.grooming === undefined
-					? { grooming: PLACED }
-					: {}),
 			};
 			const rest = states.filter((other) => other.id !== id);
 			let at: number;
@@ -464,7 +459,6 @@ export class Tasks {
 				lane: lanes.some((lane) => lane.id === state.lane)
 					? state.lane
 					: BACKLOG_LANE,
-				grooming: PLACED,
 				blockedBy: state.blockedBy.filter((before) =>
 					stored.some((other) => other.id === before),
 				),

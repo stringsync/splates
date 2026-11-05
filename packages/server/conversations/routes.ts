@@ -16,6 +16,7 @@ import {
 } from "../server/shared";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
+import { reminderCardOf } from "./reminder";
 import { type Said, saidIn, wordsOf } from "./search";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
 import { ConversationStream, type ConversationsHeard } from "./stream";
@@ -447,6 +448,13 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	readonly visitConversation = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { card } = await body(request);
+		await conversation.visit(reminderCardOf(card));
+		return Response.json(conversation.state);
+	};
+
 	readonly pinConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { pinned } = await body(request);
@@ -513,6 +521,41 @@ export class ConversationRoutes {
 	// of one version's bytes, which `remove` leaves kept.
 	readonly addArtifact = async (request: Request): Promise<Response> =>
 		addVersion(request, await this.conversationAt(request));
+
+	/**
+	 * The agent's own `splates progress`: a JSON body with the card's `id` and
+	 * any of `title`, `state`, `percent` and `note`. The answer is the card as
+	 * it stands, which may be published a moment later than the call.
+	 */
+	readonly reportProgress = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const given = await body(request);
+		const id = String(given.id ?? "").trim();
+		if (id === "") {
+			fail("usage", "a progress update needs the card's id");
+		}
+		const states = ["running", "done", "failed"] as const;
+		const state = states.find((each) => each === given.state);
+		if (given.state !== undefined && state === undefined) {
+			fail("usage", `'${String(given.state)}' is no progress state`);
+		}
+		const percent =
+			given.percent === undefined || given.percent === null
+				? given.percent
+				: Number(given.percent);
+		if (typeof percent === "number" && !Number.isFinite(percent)) {
+			fail("usage", `'${String(given.percent)}' is no percent`);
+		}
+		return Response.json(
+			conversation.reportProgress({
+				id,
+				state,
+				percent,
+				title: given.title === undefined ? undefined : String(given.title),
+				note: given.note === undefined ? undefined : String(given.note),
+			}),
+		);
+	};
 
 	readonly removeArtifact = async (request: Request): Promise<Response> =>
 		removeNamed(request, await this.conversationAt(request));

@@ -36,6 +36,7 @@ it("keeps the exit codes stable", () => {
 		not_granted: 28,
 		migration_failed: 30,
 		no_runner: 31,
+		checks_failed: 32,
 	});
 });
 

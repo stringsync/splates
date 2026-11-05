@@ -143,7 +143,7 @@ describe.concurrent("merge, gating and refusals", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("tests_failed", {
+		await expect(merge(deps, worktree)).toBail("checks_failed", {
 			message: ["bad-check"],
 		});
 		expect(await deps.fs.exists(join(worktree, "gate-ran"))).toBe(false);

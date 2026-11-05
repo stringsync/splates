@@ -306,7 +306,7 @@ export function newDraft(
 	return identity === null ? key : `${key}:draft=${identity}`;
 }
 
-/** The key of the todo being added at the foot of `lane`, null the untriaged one. */
+/** The key of the todo being added at the foot of `lane`, null the Backlog one. */
 export function todoDraft(project: string | null, lane: number | null): string {
 	return `todo:new:${project ?? ""}:${lane ?? "untriaged"}`;
 }

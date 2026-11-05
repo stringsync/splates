@@ -41,7 +41,7 @@ export function realName(
 /**
  * The names of the lanes a conversation opened with `[SPLATES LANE <n>]` for,
  * as an orchestrator's does, or null for any other: "Untriaged" for the
- * untriaged tasks, and a lane `lanes` lacks by its number.
+ * legacy lane marker in saved logs, and a lane `lanes` lacks by its number.
  */
 function lanesNamed(
 	conversation: ConversationState,

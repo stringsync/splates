@@ -9,38 +9,45 @@ import { taskOutcome } from "./api";
  */
 const PRELOAD_MS = 1500;
 
+type Ending = "merged" | "removed";
+
 /**
- * What the page has read of how tasks went once they merged, so a merged
- * card is laid out whole on its first paint rather than growing a footer
- * when the answer arrives. A thread reads its cards' merges before it opens.
+ * How tasks went once they merged or were removed, for the cards that tell
+ * of them. `preload` a thread's messages before it opens, then `get` each
+ * card's answer, so no card grows a footer after its first paint.
  */
 export class LandedOutcomes {
 	private readonly read = new Map<string, Landed | null>();
 	private readonly reading = new Map<string, Promise<void>>();
 
-	/** Undefined until `task` is read; null when it never merged here. */
-	get(task: string): Landed | null | undefined {
-		return this.read.get(task);
+	private static keyed(task: string, ended: Ending): string {
+		return `${ended}:${task}`;
 	}
 
-	/** Reads `task` once, whatever asks; a failed read is left to try again. */
-	load(task: string): Promise<void> {
-		const pending = this.reading.get(task);
+	/** How `task` ended as `ended`; undefined until read, null when it never did. */
+	get(task: string, ended: Ending = "merged"): Landed | null | undefined {
+		return this.read.get(LandedOutcomes.keyed(task, ended));
+	}
+
+	/** Reads how `task` ended as `ended`, once however many ask. */
+	load(task: string, ended: Ending = "merged"): Promise<void> {
+		const key = LandedOutcomes.keyed(task, ended);
+		const pending = this.reading.get(key);
 		if (pending !== undefined) {
 			return pending;
 		}
-		if (this.read.has(task)) {
+		if (this.read.has(key)) {
 			return Promise.resolve();
 		}
-		const reading = taskOutcome(task)
+		const reading = taskOutcome(task, ended)
 			.then(
 				(landed) => {
-					this.read.set(task, landed);
+					this.read.set(key, landed);
 				},
 				() => {},
 			)
-			.finally(() => this.reading.delete(task));
-		this.reading.set(task, reading);
+			.finally(() => this.reading.delete(key));
+		this.reading.set(key, reading);
 		return reading;
 	}
 
@@ -50,27 +57,37 @@ export class LandedOutcomes {
 		this.reading.clear();
 	}
 
-	/** Reads every merge `messages` report, giving up on the slow after a moment. */
+	/** Reads every merge and removal `messages` report, giving up on the slow after a moment. */
 	async preload(messages: readonly Message[]): Promise<void> {
-		const tasks = new Set<string>();
+		const tasks = new Map<string, { task: string; ended: Ending }>();
 		for (const message of messages) {
 			for (const part of message.parts) {
 				if (part.type !== "text") {
 					continue;
 				}
 				for (const stretch of stretches(part.text)) {
-					if (stretch.type === "report" && stretch.report.ending === "merged") {
-						tasks.add(stretch.report.task);
+					if (
+						stretch.type === "report" &&
+						(stretch.report.ending === "merged" ||
+							stretch.report.ending === "removed")
+					) {
+						const { task, ending } = stretch.report;
+						tasks.set(LandedOutcomes.keyed(task, ending), {
+							task,
+							ended: ending,
+						});
 					}
 				}
 			}
 		}
-		const wanted = [...tasks].filter((task) => !this.read.has(task));
+		const wanted = [...tasks.entries()]
+			.filter(([key]) => !this.read.has(key))
+			.map(([, each]) => each);
 		if (wanted.length === 0) {
 			return;
 		}
 		await Promise.race([
-			Promise.all(wanted.map((task) => this.load(task))),
+			Promise.all(wanted.map(({ task, ended }) => this.load(task, ended))),
 			new Promise<void>((resolve) => setTimeout(resolve, PRELOAD_MS)),
 		]);
 	}

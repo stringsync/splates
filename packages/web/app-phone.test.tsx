@@ -737,14 +737,14 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 2"]);
 		await act(async () => fireEvent.click(button("Next")));
 
-		// The last question sends, and opens what else to say only when asked.
+		// The last question goes on to what else to say, where Send is.
 		expect(shown()).toEqual(["question 3"]);
-		expect(within(sheet).queryByRole("button", { name: "Next" })).toBeNull();
-		expect(button("Send")).toBeTruthy();
+		expect(button("Next")).toBeTruthy();
+		expect(within(sheet).queryByRole("button", { name: "Send" })).toBeNull();
 		expect(
 			within(sheet).queryByRole("textbox", { name: "Anything else" }),
 		).toBeNull();
-		await act(async () => fireEvent.click(button(/^Anything else\?/)));
+		await act(async () => fireEvent.click(button("Next")));
 
 		// Its screen: what else to say, each question a tap back, and Send.
 		expect(within(sheet).queryByRole("list", { name: "questions" })).toBeNull();
@@ -848,12 +848,12 @@ describe("App on a phone", () => {
 			});
 			expect(document.activeElement === second).toBe(true);
 
-			// From the last question, the keyboard drops to show Send.
+			// From the last question, Enter goes on to what else to say.
 			await act(async () => fireEvent.keyDown(second, { key: "Enter" }));
 			expect(document.activeElement === second).toBe(false);
 			expect(
-				within(sheet).queryByRole("textbox", { name: "Anything else" }),
-			).toBeNull();
+				within(sheet).getByRole("textbox", { name: "Anything else" }),
+			).toBeTruthy();
 		} finally {
 			window.matchMedia = media;
 		}
@@ -991,7 +991,9 @@ describe("App on a phone", () => {
 		expect(sheet.textContent).not.toContain("of 1");
 		expect(sheet.textContent).not.toContain("answered");
 
-		expect(within(sheet).queryByRole("button", { name: "Next" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
 		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
 	});
 

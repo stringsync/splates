@@ -4,7 +4,6 @@ import { isEscalation } from "@splates/server/records/browser";
 import type { JSX } from "react";
 import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
-import { type Start, useStartCard } from "./current-task";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
 import { MergeFailedLine } from "./merge-failed-line";
@@ -319,48 +318,7 @@ function OneLine({
 	if (event.action === "merge" && event.reason !== null) {
 		return <MergeFailedLine view={view} event={event} />;
 	}
-	const start = startOf(event);
-	return start === null ? (
-		<SplatesEvent event={view} />
-	) : (
-		<StartLine start={start} view={view} />
-	);
-}
-
-/**
- * The task `event` puts this conversation on: one it claimed, or added for
- * itself. An add handed to another agent puts it on none, since that agent
- * claims it in its own conversation.
- */
-function startOf(event: Event): Start | null {
-	if (event.reason !== null) {
-		return null;
-	}
-	if (event.action === "add" && event.agent === null) {
-		return { task: event.task ?? "", goal: goalOf(event) };
-	}
-	if (event.action === "claim") {
-		return { task: event.task ?? "", goal: event.goal };
-	}
-	return null;
-}
-
-/**
- * The line of a task the conversation took up, which shows beside the
- * thread, as the task it is on, once it scrolls up out of sight.
- */
-function StartLine({
-	start,
-	view,
-}: {
-	start: Start;
-	view: SplatesEventView;
-}): JSX.Element {
-	return (
-		<div ref={useStartCard(start)}>
-			<SplatesEvent event={view} />
-		</div>
-	);
+	return <SplatesEvent event={view} />;
 }
 
 /** What done means for the task an add made: its `--goal`, else the todos it took. */

@@ -1,0 +1,16 @@
+{
+	"manifest_version": 3,
+	"name": "rec",
+	"version": "1.0.0",
+	"description": "Shows rec's control page in Chrome's side panel",
+	"permissions": ["sidePanel"],
+	"side_panel": { "default_path": "panel.html" },
+	"background": { "service_worker": "worker.js" },
+	"content_scripts": [
+		{
+			"matches": ["http://127.0.0.1/__rec/open*"],
+			"js": ["open.js"],
+			"run_at": "document_start"
+		}
+	]
+}

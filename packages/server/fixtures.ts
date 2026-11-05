@@ -109,6 +109,8 @@ export function conversation(
 		unread: false,
 		seen: 0,
 		read: null,
+		visited: null,
+		reminders: [],
 		messages: [],
 		events: [],
 		ask: null,
@@ -132,6 +134,7 @@ export function conversation(
 		lastTags: null,
 		lastCaller: null,
 		background: [],
+		progress: [],
 		artifacts: [],
 		...overrides,
 	};

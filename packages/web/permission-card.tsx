@@ -31,6 +31,7 @@ import { NavigationContext, useShownProject } from "./navigation";
 import { placeKey } from "./project-places";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
+import { SplatesEvent } from "./splates-event";
 import { stageOf } from "./todo-queue";
 
 /**
@@ -40,13 +41,17 @@ import { stageOf } from "./todo-queue";
  */
 export const PermissionUI = makeAssistantDataUI<{
 	permission: PermissionProposal;
+	superseded?: boolean;
 }>({
 	name: "permission",
-	render: ({ data }) => (
-		<InMessage>
-			<PermissionCard proposal={data.permission} />
-		</InMessage>
-	),
+	render: ({ data }) =>
+		data.superseded === true ? (
+			<SupersededQueue proposal={data.permission} />
+		) : (
+			<InMessage>
+				<PermissionCard proposal={data.permission} />
+			</InMessage>
+		),
 });
 
 export function PermissionCard({
@@ -66,6 +71,28 @@ export function PermissionCard({
 		case "grant":
 			return <GrantCard proposal={proposal} />;
 	}
+}
+
+/**
+ * A queue card for a lane that a later one for the same lane supplants,
+ * folded to an event line: what it asked, the lane as a chip.
+ */
+function SupersededQueue({
+	proposal,
+}: {
+	proposal: PermissionProposal;
+}): JSX.Element {
+	const work = new QueueWork(proposal, useContext(Board));
+	return (
+		<SplatesEvent
+			event={{
+				words: [
+					work.queued ? "Queued" : "Asked to queue",
+					{ kind: "lane", id: proposal.lane as number, name: work.name },
+				],
+			}}
+		/>
+	);
 }
 
 /** Removing a lane with its tasks, which are kept to restore. */

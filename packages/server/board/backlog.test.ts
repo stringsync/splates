@@ -24,8 +24,11 @@ describe("the permanent Backlog lane", () => {
 		expect(ungroomed(task.state)).toBe(true);
 		expect(await task.groom("groomer")).toBe(true);
 		expect(ungroomed((await deps.tasks.find(task.id)).state)).toBe(false);
-		const placed = await deps.tasks.add("placed", null, { lane: BACKLOG_LANE });
-		expect(ungroomed(placed.state)).toBe(false);
+		const named = await deps.tasks.add("named", null, { lane: BACKLOG_LANE });
+		expect(ungroomed(named.state)).toBe(true);
+		expect(
+			ungroomed({ lane: BACKLOG_LANE, takenBy: null, grooming: "placed" }),
+		).toBe(true);
 		const lane = await deps.tasks.addLane("Editor");
 		await deps.tasks.arrange(task.id, lane.id);
 		expect((await deps.tasks.find(task.id)).lane).toBe(lane.id);

@@ -1,10 +1,8 @@
 import type { EvalPlan } from "@splates/server/evals";
 export function EvalRunCue({
-	automatic,
 	open,
 	state,
 }: {
-	automatic: boolean;
 	open: boolean;
 	state: { unknown: string[]; unknownAgents: string[]; plan: EvalPlan | null };
 }) {
@@ -22,11 +20,6 @@ export function EvalRunCue({
 					: null;
 	return (
 		<>
-			{automatic && (
-				<p className="mx-4 mb-3 text-muted-foreground text-xs">
-					Started automatically under this conversation’s standing eval budget.
-				</p>
-			)}
 			{open && unavailable !== null && (
 				<p role="status" className="mx-4 mb-3 text-muted-foreground text-xs">
 					{unavailable}

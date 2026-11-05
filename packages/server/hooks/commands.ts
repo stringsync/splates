@@ -141,6 +141,6 @@ export function hookLabel(hook: Hook): string {
 		case "run":
 			return `run \`${hook.command}\``;
 		case "groom":
-			return `groom Untriaged with ${pickLabel(hook)}`;
+			return `groom ungroomed Backlog tasks with ${pickLabel(hook)}`;
 	}
 }

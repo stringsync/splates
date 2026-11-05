@@ -174,7 +174,7 @@ describe("QueueRunner", () => {
 		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
 	});
 
-	it("asks the agent to groom a task still in Untriaged before working it, and not one in a lane", async () => {
+	it("asks the agent to groom an ungroomed task in Backlog before working it, and not one in a lane", async () => {
 		await taskAdd(deps, "Raw", null);
 		await taskAdd(deps, "Groomed", null, { lane: "new" });
 		await queueAdd(deps, [1, 2]);
@@ -191,8 +191,11 @@ describe("QueueRunner", () => {
 	});
 
 	it("starts nothing while paused, saying so on each held conversation, and starts them on the sweep after a resume", async () => {
-		await taskAdd(deps, "One", null);
-		await taskAdd(deps, "Two", null, { blockedBy: [1] });
+		await taskAdd(deps, "One", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Two", null, {
+			blockedBy: [1],
+			assignee: { agent: "claude" },
+		});
 		await queueAdd(deps, [1, 2]);
 		paused = true;
 
@@ -210,7 +213,7 @@ describe("QueueRunner", () => {
 	});
 
 	it("starts nothing while the machine is overloaded, saying so, and starts on the sweep after the load falls", async () => {
-		await taskAdd(deps, "One", null);
+		await taskAdd(deps, "One", null, { assignee: { agent: "claude" } });
 		await queueAdd(deps, [1]);
 		overloaded = true;
 
@@ -443,10 +446,10 @@ describe("QueueRunner", () => {
 	});
 
 	it("drops a held conversation once its task is unqueued, taken another way, or blocked again", async () => {
-		await taskAdd(deps, "Unqueued", null);
-		await taskAdd(deps, "Taken", null);
-		await taskAdd(deps, "Blocked", null);
-		await taskAdd(deps, "Blocker", null);
+		await taskAdd(deps, "Unqueued", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Taken", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Blocked", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Blocker", null, { assignee: { agent: "claude" } });
 		await queueAdd(deps, [1, 2, 3]);
 		starting = async () => {
 			throw new Error("hook_failed");
@@ -463,6 +466,25 @@ describe("QueueRunner", () => {
 
 		expect(held.dropped).toEqual(["h1", "h2", "h3"]);
 		expect(held.held).toEqual([]);
+	});
+
+	it("holds no conversation for a task that names no agent while it waits for room, so none sits at an agent Auto pick only guessed", async () => {
+		await taskAdd(deps, "One", null);
+		await taskAdd(deps, "Two", null);
+		await queueAdd(deps, [1, 2]);
+		paused = true;
+
+		await runner.sweep();
+		await settled();
+
+		expect(held.held).toEqual([]);
+
+		paused = false;
+		await runner.sweep();
+		await settled();
+
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+		expect(held.held.map((each) => each.queued)).toEqual([1]);
 	});
 
 	it("holds another on the agent its task names once that changes", async () => {
@@ -499,7 +521,7 @@ describe("QueueRunner", () => {
 		expect(picker.told).toEqual([{ queued: 1, conversation: "h1" }]);
 	});
 
-	it("has Auto pick judge an Untriaged task that names no agent as it is added, not one in a lane", async () => {
+	it("has Auto pick judge an ungroomed Backlog task that names no agent as it is added, not one in a lane", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Named", null, {
 			assignee: { agent: "codex", model: "o3" },

@@ -48,6 +48,8 @@ export type Stretch =
 	| { type: "compaction"; compaction: Compaction }
 	/** A tool call that left a command running in the background, on a line of its own. */
 	| { type: "background"; tool: Tool }
+	/** Where a progress card the agent reported began, which the thread shows live by its id. */
+	| { type: "progress"; id: string; at: string }
 	| { type: "work"; work: Work };
 
 /** A stretch before its work is summed up: the work still its parts. */
@@ -72,6 +74,8 @@ export function stretchesOf(
 	 * carried on by an agent coming back.
 	 */
 	unended = false,
+	/** The progress cards that began in this turn. */
+	cards: readonly { id: string; at: string }[] = [],
 ): Stretch[] {
 	const parts = spoken(message);
 	// While the turn goes on, words with work after them were on the way, and
@@ -112,7 +116,22 @@ export function stretchesOf(
 	const ordered = folded(
 		placed(
 			pieces,
-			events.filter((event) => tierOf(event) === "loud"),
+			[
+				...events
+					.filter((event) => tierOf(event) === "loud")
+					.map(
+						(event): Timed => ({
+							at: event.at,
+							piece: { type: "event", event },
+						}),
+					),
+				...cards.map(
+					(card): Timed => ({
+						at: card.at,
+						piece: { type: "progress", ...card },
+					}),
+				),
+			].sort((first, second) => first.at.localeCompare(second.at)),
 			message.at,
 		),
 	);
@@ -123,7 +142,9 @@ export function stretchesOf(
 		going &&
 		tail !== undefined &&
 		!Array.isArray(tail) &&
-		(tail.type === "event" || tail.type === "background")
+		(tail.type === "event" ||
+			tail.type === "background" ||
+			tail.type === "progress")
 	) {
 		ordered.push([]);
 	}
@@ -166,7 +187,9 @@ export function stretchesOf(
 						? following.compaction.at
 						: following.type === "background"
 							? following.tool.at
-							: null;
+							: following.type === "progress"
+								? following.at
+								: null;
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
 			(part.type === "tool" || part.type === "compaction") &&
@@ -199,7 +222,9 @@ export function stretchesOf(
 										? previous.compaction.until
 										: previous.type === "background"
 											? previous.tool.until
-											: null)),
+											: previous.type === "progress"
+												? previous.at
+												: null)),
 				until:
 					index === end
 						? message.until
@@ -263,13 +288,19 @@ function joined(
 	return stretches;
 }
 
+/** A piece to place by its time. */
+interface Timed {
+	at: string;
+	piece: Piece;
+}
+
 /**
  * `pieces` with each event placed by its time: before everything when it
  * came before the turn began, the work it fell in cut around it, after the work it came at the end of, and the rest after all.
  */
 function placed(
 	pieces: Piece[],
-	events: readonly Event[],
+	events: readonly Timed[],
 	/** When the agent began its turn: what was done before it is above all it did. */
 	began: string | null,
 ): Piece[] {
@@ -281,7 +312,7 @@ function placed(
 		);
 		return left
 			.splice(0, later === -1 ? left.length : later)
-			.map((event): Piece => ({ type: "event", event }));
+			.map((each) => each.piece);
 	};
 	const out: Piece[] = began === null ? [] : due(began, true);
 	for (const piece of pieces) {
@@ -303,7 +334,7 @@ function placed(
 		});
 		out.push(piece.slice(from), ...due(endOf(piece), true));
 	}
-	return [...out, ...left.map((event): Piece => ({ type: "event", event }))];
+	return [...out, ...left.map((each) => each.piece)];
 }
 
 /** `pieces` with each wait's end folded into its beginning, so it is one line that changes. */

@@ -139,7 +139,7 @@ function held(rows: AutomationRow[]) {
 					hook: { kind: "groom", ...pick },
 					source: "builtin",
 					when: "task.created in available",
-					does: `groom Untriaged with ${pick.agent}`,
+					does: `groom ungroomed Backlog tasks with ${pick.agent}`,
 				},
 			]),
 	};

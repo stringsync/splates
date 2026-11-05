@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { details } from "./fixtures";
 import {
 	act,
 	type ConversationsView,
@@ -46,6 +47,81 @@ describe("App's review panel and demo cards", () => {
 		view.getByRole("textbox", {
 			name: "Message input",
 		});
+
+	it("leads with the live task's Before and After, its prose folded", async () => {
+		const view = await testing.openConversations([reviewing], undefined, {
+			tasks: [
+				details({
+					task: "header",
+					plan: "# header\n\n## Before\n\nIt wraps.\n\n## After\n\nIt fits.\n\nChecked at 390px.",
+				}),
+			],
+		});
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		expect(
+			within(within(panel).getByRole("region", { name: "before" })).getByText(
+				"It wraps.",
+			),
+		).toBeTruthy();
+		expect(within(panel).getByText("It fits.")).toBeTruthy();
+		expect(within(panel).queryByText("The header wraps on phones.")).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(panel).getByRole("button", { name: "Details" })),
+		);
+		expect(within(panel).getByText("The header wraps on phones.")).toBeTruthy();
+	});
+
+	it("switches After between Expected and Actual, opening on Actual, an older As built being Actual", async () => {
+		const view = await testing.openConversations([reviewing], undefined, {
+			tasks: [
+				details({
+					task: "header",
+					plan: "# header\n\n## Before\n\nIt wraps.\n\n## After\n\nIt fits.\n\n*Expected*: the sketch.\n\n*As built*: the result.",
+				}),
+			],
+		});
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const after = within(panel).getByRole("region", { name: "after" });
+		expect(within(after).getByText("The result.")).toBeTruthy();
+		expect(within(after).queryByText("The sketch.")).toBeNull();
+		expect(within(panel).queryByText(/As built/)).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(after).getByRole("button", { name: "Expected" })),
+		);
+		expect(within(after).getByText("The sketch.")).toBeTruthy();
+		expect(within(after).queryByText("The result.")).toBeNull();
+		expect(
+			within(after)
+				.getByRole("button", { name: "Expected" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+		expect(
+			within(after)
+				.getByRole("button", { name: "Actual" })
+				.getAttribute("aria-pressed"),
+		).toBe("false");
+		expect(within(after).getByText("It fits.")).toBeTruthy();
+	});
+
+	it("has no switch for an After holding only one of them", async () => {
+		const view = await testing.openConversations([reviewing], undefined, {
+			tasks: [
+				details({
+					task: "header",
+					plan: "# header\n\n## After\n\nIt fits.\n\n*Expected*: the sketch.",
+				}),
+			],
+		});
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		expect(within(panel).getByText("The sketch.")).toBeTruthy();
+		expect(within(panel).queryByRole("button", { name: "Actual" })).toBeNull();
+	});
 
 	it("shows a review apart from questions, merging from the card", async () => {
 		const view = await testing.openConversations([reviewing]);

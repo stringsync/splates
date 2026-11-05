@@ -204,7 +204,7 @@ describe.concurrent("merge, logging and checks", () => {
 		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] 1. Keep it?\n");
 
 		await expect(merge(deps, worktree)).toBail("blocked", {
-			message: "questions 1 unchecked",
+			message: "questions 1 unanswered",
 			data: { task: "alpha", blocked: ["1"], steps: [] },
 		});
 
@@ -252,6 +252,26 @@ describe.concurrent("merge, logging and checks", () => {
 			"add alpha",
 		);
 	});
+	it("refuses to land while its conversation has a question card nobody answered", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		let open = ["1"];
+		const asking = async () => open;
+
+		await expect(merge({ ...deps, asking }, worktree)).toBail("blocked", {
+			message: "questions 1 unanswered in the conversation or task plan",
+		});
+
+		open = [];
+		await merge({ ...deps, asking }, worktree);
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
+	});
+
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await Testing.open();
 

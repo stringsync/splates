@@ -8,7 +8,7 @@ import { landed } from "./landed";
 import type { Outcomes } from "./outcomes";
 
 /**
- * Queues a task, untriaged, for each of `task`'s gate runs that named failing
+ * Queues an ungroomed task in Backlog, for each of `task`'s gate runs that named failing
  * tests and each test its passing run timed as slow (see `factTasks`),
  * journaled so the conversation that merged it shows each as an "Added" line
  * the person can remove it from. One whose line is queued already is not added

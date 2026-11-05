@@ -38,7 +38,7 @@ as lost. It keeps `## 🧹 Removed` for work that really ended. The remove
 takes `--why`, what you found that stops the work, and at least one
 blocker: `--blocked-by <n>` for a task that has to merge first, or
 `--waiting-on "<what>"` for something outside splates. A call that is the
-person's to make is a numbered question in your reply, as in
+user's to make is a numbered question in your reply, as in
 [questions.md](questions.md), not a blocker. Add `--detail` to rewrite the task's detail for whoever
 takes it next, as Deferring in [queue.md](queue.md) says. The board task
 keeps all of it, one of its own made for work that took none, and the

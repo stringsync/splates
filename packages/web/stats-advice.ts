@@ -251,7 +251,7 @@ function failures(period: Tally, before: Before): Advice {
 		detail:
 			failedMerges === 0
 				? "No merge failed"
-				: `${failedBy.conflict} conflicted, ${failedBy.tests_failed} failed checks, ${failedBy.merge_failed} could not move the base`,
+				: `${failedBy.conflict} conflicted, ${failedBy.tests_failed} failed tests, ${failedBy.checks_failed} failed checks, ${failedBy.merge_failed} could not move the base`,
 		act:
 			count < ENOUGH
 				? null
@@ -259,7 +259,7 @@ function failures(period: Tally, before: Before): Advice {
 					? hot !== null
 						? `Most conflicts are in ${hot.file} (${hot.conflicts} of ${failedBy.conflict}, across ${plural(hot.tasks, "task")}): many tasks edit the same lines there, so change the file so they need not, such as a count every task rewrites.`
 						: "Most failures are conflicts: tasks overlap, so put work on the same files in one lane."
-					: reason === "tests_failed"
+					: reason === "tests_failed" || reason === "checks_failed"
 						? "Most failures are failed checks: have agents run the project's checks before they merge."
 						: "Most failures are a base that would not move: commit or clear what sits in the main tree.",
 		// With none failed there is nothing to explain, so nothing is short.

@@ -60,15 +60,16 @@ describe("add", () => {
 		expect((await deps.service.find("beta")).caller).toBeNull();
 	});
 
-	it("leaves a SPLATES.md holding only its Goal", async () => {
+	it("leaves a SPLATES.md holding Before as a hint and After as the goal", async () => {
 		await add(deps, "alpha", { goal: "Stop the retries." });
 
 		const state = (await deps.service.find("alpha")).state;
 		const plan = await deps.fs.read(join(state?.worktree ?? "", "SPLATES.md"));
-		expect(plan).toBe("# alpha\n\n## Goal\n\nStop the retries.\n");
+		expect(plan).toContain("## After\n\nStop the retries.\n");
+		expect(plan).not.toContain("## Goal");
 	});
 
-	it("puts the Goal it is given ahead of what its queued tasks seed", async () => {
+	it("puts the goal it is given ahead of what its queued tasks seed", async () => {
 		const queued = await deps.tasks.add("Retry on 413", null, {
 			text: "in upload.ts",
 		});
@@ -76,7 +77,7 @@ describe("add", () => {
 
 		const { path } = await deps.service.find("alpha");
 		expect(await deps.fs.read(join(path, "SPLATES.md"))).toContain(
-			"## Goal\n\nStop the retries.\n\nRetry on 413\n\nin upload.ts",
+			"## After\n\nStop the retries.\n\n## Details\n\nRetry on 413\n\nin upload.ts",
 		);
 	});
 

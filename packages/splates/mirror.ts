@@ -9,7 +9,19 @@ export const MIRROR = {
 	// `splates init` installs the skill from the release's tag here.
 	tag: true,
 	// The evals harness the server's and the skill's evals build on is private, so it is folded in like core.
-	source: ["core", "@evals/evals"],
+	source: ["core", "@evals/evals", "@mono/rec"],
+	// rec reads its side panel extension, skill and control page from disk, and builds the page's script itself.
+	sourceExtra: {
+		"@mono/rec": {
+			files: [
+				"extension/**",
+				"skill/**",
+				"control/index.html",
+				"control/styles.css",
+			],
+			entries: ["control/main.tsx"],
+		},
+	},
 	// vet and scry never leave mono, nor do the rules and skills for them
 	config: {
 		exclude: [

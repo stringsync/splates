@@ -29,6 +29,8 @@ export interface GateFailed {
 	/** The file holding all of it, when the gate printed to one. */
 	log?: string;
 	exitCode: number;
+	/** `checks_failed` when the checks before any test stopped it; else `tests_failed`. */
+	reason?: "tests_failed" | "checks_failed";
 	/** The failing cases of its JUnit report, for what landed since. */
 	failing: FailedTest[];
 	/** The base commit the branch sits on now, which it was tested against alone. */
@@ -90,7 +92,7 @@ export async function refuseTestsFailed(
 	// would otherwise see the runner's summary alone, and merge again just
 	// to read it, which lands the task whenever a flaky test passes.
 	fail(
-		"tests_failed",
+		failed.reason ?? "tests_failed",
 		[
 			shown(output, failed.log),
 			"",

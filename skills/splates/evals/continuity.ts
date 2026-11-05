@@ -9,7 +9,6 @@ import type { Scenario } from "./scenario";
 
 const aspect = "continuity";
 const task = "continuity";
-const question = "Which output label should follow ready?";
 
 const resumeNote =
 	" Continue that step only, then stop before verification or landing.";
@@ -28,7 +27,11 @@ export function oneSentence(reply: string): boolean {
 
 const plan = (note: string) => `# ${task}
 
-## Goal
+## Before
+
+There is no result.txt.
+
+## After
 
 Write result.txt with exactly ready followed by a newline.
 
@@ -38,8 +41,6 @@ Write result.txt with exactly ready followed by a newline.
 - [ ] Write result.txt.
 
   Paused before writing result.txt.${note}
-
-## Blocked
 `;
 
 /** The Removed report's title for `name`, or null when the reply has none. */
@@ -162,10 +163,10 @@ export const scenarios: Scenario[] = [
 		aspect,
 		initialized: true,
 		requirement:
-			"On [SPLATES CHECKPOINT], bring SPLATES.md up to date, keep each open question under Blocked, start nothing new, and reply with one line.",
+			"On [SPLATES CHECKPOINT], bring SPLATES.md up to date, keep SPLATES.md's Before, After and Next, start nothing new, and reply with one line.",
 		async change(repo) {
 			// No instruction to continue: a checkpoint stops the step as it is.
-			await seeded(repo, { extra: `\nOpen question: ${question}\n`, note: "" });
+			await seeded(repo, { note: "" });
 		},
 		message: `${CHECKPOINT}\n\nThis is a seeded stop of task ${task}, which is open. Locate its worktree with splates path ${task}; its SPLATES.md holds the saved task context. No merge is in progress.`,
 		checks: [
@@ -185,24 +186,17 @@ export const scenarios: Scenario[] = [
 				// The seed already says where it stopped, so an unchanged
 				// SPLATES.md is up to date.
 				id: "plan-kept",
-				about: "kept SPLATES.md's Next step and Blocked section",
+				about:
+					"kept SPLATES.md's Before, After and the Next step, with no Blocked section",
 				test: async ({ repo }) => {
 					const notes = await read(join(await worktree(repo), "SPLATES.md"));
 					return (
 						(notes?.includes("Write result.txt") ?? false) &&
-						(notes?.includes("## Blocked\n") ?? false)
+						(notes?.includes("## Before\n") ?? false) &&
+						(notes?.includes("## After\n") ?? false) &&
+						!(notes?.includes("## Blocked") ?? true)
 					);
 				},
-			},
-			{
-				id: "question-kept",
-				about: "kept the open question in SPLATES.md",
-				// The question may be reformatted, as a checkbox or with its code
-				// spans marked up, and still be kept.
-				test: async ({ repo }) =>
-					(await read(join(await worktree(repo), "SPLATES.md")))
-						?.replaceAll("`", "")
-						.includes(question) ?? false,
 			},
 			{
 				id: "not-landed",

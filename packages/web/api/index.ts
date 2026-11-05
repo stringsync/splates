@@ -62,6 +62,7 @@ export {
 } from "./planning";
 export { pushKey, subscribePush, unsubscribePush } from "./push";
 export {
+	closeRec,
 	deleteRecSession,
 	openRec,
 	openRecFolder,

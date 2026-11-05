@@ -66,13 +66,6 @@ see the header
 		await act(async () => fireEvent.click(item));
 	};
 
-	const showTab = async (dialog: HTMLElement, name: RegExp) => {
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("tab", { name })),
-		);
-		return within(dialog).getByRole("tabpanel");
-	};
-
 	it("opens on where a task stands and its Goal, the rest of its plan a tab away", async () => {
 		const view = await testing.openTasks({ tasks: [asking] });
 		const dialog = await openBeta(view);
@@ -82,17 +75,10 @@ see the header
 		expect(
 			within(dialog).getAllByText("How should sessions move?").length,
 		).toBeGreaterThan(0);
-		expect(
-			within(dialog)
-				.getAllByRole("tab")
-				.map((each) => each.textContent),
-		).toEqual(["Overview", "Details"]);
-		const overview = within(dialog).getByRole("tabpanel");
-		expect(overview.textContent).toContain("ship the thing");
-		expect(overview.textContent).not.toContain("see the header");
-
-		const details = await showTab(dialog, /Details/);
-		expect(within(details).getByText("Merges tried")).toBeTruthy();
+		expect(dialog.textContent).toContain("ship the thing");
+		expect(dialog.textContent).not.toContain("see the header");
+		expect(within(dialog).queryAllByRole("tab")).toEqual([]);
+		expect(within(dialog).getByText("Merges tried")).toBeTruthy();
 	});
 
 	it("says a task waits on you once its agent goes quiet with a question open", async () => {

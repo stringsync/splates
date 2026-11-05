@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check, Repo } from "@evals/evals/scenario";
-import { APPROVE, questions, stretches } from "@splates/server/plans";
+import { APPROVE, stretches } from "@splates/server/plans";
 import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
@@ -10,21 +10,23 @@ const task = "decision";
 
 const basePlan = `# decision
 
-## Goal
+## Before
+
+There is no decision record.
+
+## After
 
 Exercise one isolated decision; no external services are available.
 
 ## Next
 
 - [x] Prepare the local fixture
-
-## Blocked
 `;
 
-const question = `- [ ] 3. (small) Which local retry limit?
-  - (a) Three (chosen)
-  - (b) Five
-`;
+/** Whether SPLATES.md holds a Blocked section: a question is asked in the reply, not recorded. */
+export function hasBlocked(plan: string): boolean {
+	return /^## Blocked\b/m.test(plan);
+}
 
 const reviewPlan = basePlan.replace(
 	"## Next\n",
@@ -128,9 +130,11 @@ const uninitialized: Scenario[] = [
 			},
 			{
 				id: "no-question",
-				about: "left nothing under Blocked",
+				about: "asked no question card and wrote no Blocked section",
 				live: true,
-				test: async ({ repo }) => questions(await planOf(repo)).length === 0,
+				test: async ({ repo, reply }) =>
+					!hasBlocked(await planOf(repo)) &&
+					!stretches(reply).some((each) => each.type === "questions"),
 			},
 			notMerged,
 		],
@@ -139,7 +143,7 @@ const uninitialized: Scenario[] = [
 		id: "decisions/external-blocker",
 		aspect,
 		requirement:
-			"An outward-facing decision only the person can make is asked: a large numbered question under Blocked and in the reply, and the task stays open.",
+			"An outward-facing decision only the person can make is asked once, as a numbered question in the reply, with no Blocked section in SPLATES.md, and the task stays open.",
 		change: withTask(
 			basePlan.replace(
 				"- [x] Prepare the local fixture\n",
@@ -149,15 +153,11 @@ const uninitialized: Scenario[] = [
 		message: `${context} The only remaining step is to send a migration notice to customers. The recipient group has not been decided. Record that outward-facing decision and ask me; no sending service is available.`,
 		checks: [
 			{
-				id: "blocked-large",
-				about: "one open large question is under Blocked",
+				id: "no-blocked",
+				about:
+					"SPLATES.md has no Blocked section: the question lives in the reply",
 				live: true,
-				test: async ({ repo }) => {
-					const open = questions(await planOf(repo)).filter(
-						(each) => !each.done,
-					);
-					return open.length === 1 && open[0]?.size === "large";
-				},
+				test: async ({ repo }) => !hasBlocked(await planOf(repo)),
 			},
 			{
 				id: "asked-in-reply",
@@ -238,24 +238,30 @@ const uninitialized: Scenario[] = [
 		id: "decisions/answer",
 		aspect,
 		requirement:
-			"A reply `3. b.` answers question 3: record the reply on that question, keep its number, and check it off.",
-		change: withTask(basePlan + question),
-		message: `${context}\n\n3. b. Record my answer on question 3. There is no code change to perform: this turn only settles the recorded choice; check it off after recording it. Keep its number.`,
+			"A reply `3. b.` answers the question asked earlier in the conversation: act on that choice and write no Blocked section.",
+		change: withTask(
+			`${basePlan}\n- [ ] Write the retry limit to src/retry.ts\n`,
+		),
+		message: `${context} Earlier you asked "3. Which local retry limit?" with (a) Three and (b) Five.\n\n3. b. Write the limit to src/retry.ts as \`export const RETRY_LIMIT = <n>;\` and commit it. Do not merge.`,
 		checks: [
 			{
-				id: "answered",
-				about: "question 3 is checked off with reply b",
+				id: "acted",
+				about: "src/retry.ts sets RETRY_LIMIT to 5",
 				live: true,
 				test: async ({ repo }) => {
-					const found = questions(await planOf(repo)).filter(
-						(each) => each.number === "3",
-					);
-					return (
-						found.length === 1 &&
-						found[0]?.done === true &&
-						found[0].reply === "b"
-					);
+					const path = (await repo.run(["splates", "path", task])).trim();
+					const text = await readFile(
+						join(path, "src", "retry.ts"),
+						"utf8",
+					).catch(() => "");
+					return /RETRY_LIMIT\s*=\s*5\b/.test(text);
 				},
+			},
+			{
+				id: "no-blocked",
+				about: "SPLATES.md has no Blocked section",
+				live: true,
+				test: async ({ repo }) => !hasBlocked(await planOf(repo)),
 			},
 			notMerged,
 		],
@@ -264,24 +270,30 @@ const uninitialized: Scenario[] = [
 		id: "decisions/approval",
 		aspect,
 		requirement:
-			"An approval from a proposal card, with an answer, settles that question: record the answer and check it off.",
-		change: withTask(basePlan + question),
-		message: `${APPROVE}\n${context}\nApprove choice a on question 3. Record the answer and check it off; the approved next step is only this local decision record. Implementation is scheduled for a later turn.`,
+			"An approval from a proposal card, with an answer, settles that question: act on the answer and write no Blocked section.",
+		change: withTask(
+			`${basePlan}\n- [ ] Write the retry limit to src/retry.ts\n`,
+		),
+		message: `${APPROVE}\n${context}\nApprove choice a on question 3 (the local retry limit, a Three or b Five). Write the limit to src/retry.ts as \`export const RETRY_LIMIT = <n>;\` and commit it. Do not merge.`,
 		checks: [
 			{
-				id: "answered",
-				about: "question 3 is checked off with reply a",
+				id: "acted",
+				about: "src/retry.ts sets RETRY_LIMIT to 3",
 				live: true,
 				test: async ({ repo }) => {
-					const found = questions(await planOf(repo)).filter(
-						(each) => each.number === "3",
-					);
-					return (
-						found.length === 1 &&
-						found[0]?.done === true &&
-						found[0].reply === "a"
-					);
+					const path = (await repo.run(["splates", "path", task])).trim();
+					const text = await readFile(
+						join(path, "src", "retry.ts"),
+						"utf8",
+					).catch(() => "");
+					return /RETRY_LIMIT\s*=\s*3\b/.test(text);
 				},
+			},
+			{
+				id: "no-blocked",
+				about: "SPLATES.md has no Blocked section",
+				live: true,
+				test: async ({ repo }) => !hasBlocked(await planOf(repo)),
 			},
 			notMerged,
 		],

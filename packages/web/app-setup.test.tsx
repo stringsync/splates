@@ -98,10 +98,6 @@ describe("App's setup", () => {
 	it("returns to the index from a journey without starting work", async () => {
 		testing.setup = setupProgress();
 		const view = await openSetup(null);
-		// the index loads lazily on its first open, which a loaded gate can slow
-		await waitFor(() => view.getByRole("button", { name: "Set up Agents" }), {
-			timeout: 5000,
-		});
 		await clickShown(() => view.getByRole("button", { name: "Set up Agents" }));
 		await step(view, "Choose the agents splates starts");
 		await clickShown(() => view.getByRole("button", { name: "Setup" }));
@@ -110,7 +106,9 @@ describe("App's setup", () => {
 		);
 		await step(view, "Dictate prompts");
 		expect(testing.posts).toEqual([]);
-	});
+		// the index and each journey load lazily, which a loaded gate can slow
+		// past bun's 5s test limit, though each wait has 10s
+	}, 20_000);
 
 	it("moves on once Next finds the step done", async () => {
 		testing.setup = setupProgress();
