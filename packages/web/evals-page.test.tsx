@@ -1,7 +1,6 @@
 import { afterEach, expect, it } from "bun:test";
-import { conversation, message } from "@splates/server/fixtures";
 import { EvalsPage } from "./evals-page";
-import { act, cleanup, fireEvent, render, waitFor } from "./testing";
+import { cleanup, fireEvent, render, waitFor } from "./testing";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -9,26 +8,39 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 });
 
-it("shows conversation totals beside linked batches and still opens reports", async () => {
+it("opens on the planner, with a History row naming the runs kept", async () => {
+	serve();
+	const view = render(
+		<EvalsPage
+			open={{ batch: null, run: null, plan: null }}
+			onOpen={() => {}}
+		/>,
+	);
+	const row = view.getByRole("link", { name: /^History/ });
+	expect(row.getAttribute("href")).toBe("#evals/history");
+	await waitFor(() => expect(row.textContent).toContain("1 run · last"));
+	expect(view.queryByRole("tab")).toBeNull();
+	expect(view.queryByText(/Step 1 of 3/)).toBeNull();
+});
+
+it("lists past runs one line each at #evals/history and opens a run's report", async () => {
 	serve();
 	const opened: (string | null)[] = [];
 	const view = render(
 		<EvalsPage
-			onOpenConversation={() => {}}
-			open={{ batch: null, run: null, plan: null }}
+			open={{ batch: null, run: null, plan: null, tab: "history" }}
 			onOpen={(id) => {
 				opened.push(id);
 			}}
 		/>,
 	);
-	fireEvent.click(view.getByRole("tab", { name: "History" }));
-	fireEvent.click(
-		await waitFor(() => view.getByRole("button", { name: /Recent runs/ })),
-	);
-	const totals = view.getByText(
-		"$1.25 of $10.00 · 1,200 tokens · round 2 of 3",
-	);
-	expect(totals).toBeTruthy();
+	const run = await waitFor(() => view.getByRole("button", { name: /1 cell/ }));
+	expect(run.textContent).toContain("$0.20");
+	// Its budget and tokens are on the report, not the row.
+	expect(view.queryByText(/of \$10\.00/)).toBeNull();
+	fireEvent.click(view.getByRole("button", { name: "Failed" }));
+	expect(view.getByText("No failed runs.")).toBeTruthy();
+	fireEvent.click(view.getByRole("button", { name: "Passed" }));
 	fireEvent.click(view.getByRole("button", { name: /1 cell/ }));
 	expect(opened).toEqual(["batch"]);
 });
@@ -58,6 +70,12 @@ function serve(): void {
 				},
 			]);
 		}
+		if (url.includes("/api/evals/scenarios")) {
+			return Response.json([
+				{ id: "a/one", skill: "a", group: null, about: null },
+				{ id: "a/two", skill: "a", group: null, about: null },
+			]);
+		}
 		if (url.includes("/api/evals/agents")) {
 			return Response.json({ agents: [], problem: null, roster: [] });
 		}
@@ -65,67 +83,26 @@ function serve(): void {
 	}) as typeof fetch;
 }
 
-it("keeps every unarchived eval conversation in Active and preserves the planner across tabs", async () => {
+it("reviews the chosen scenarios from the pinned bar and goes back from it", async () => {
 	serve();
-	let changed = () => {};
-	const make = (id: string, archived = false, done = false) =>
-		conversation({
-			id,
-			archived,
-			name: id,
-			status: "running",
-			messages: [
-				message("user", "[SPLATES EVAL LOOP scenario a/one]"),
-				...(done ? [message("agent", "## ✅ Done: passed")] : []),
-			],
-		});
 	const feed = {
-		conversations: [
-			make("running"),
-			make("completed", false, true),
-			make("archived", true),
-		],
-		events: {
-			on: (_: string, callback: () => void) => {
-				changed = callback;
-				return () => {};
-			},
-		},
+		conversations: [],
+		events: { on: () => () => {} },
 	} as unknown as import("./conversation-feed").ConversationFeed;
-	const opened: string[] = [];
 	const view = render(
 		<EvalsPage
-			onOpenConversation={(id) => opened.push(id)}
 			open={{ batch: null, run: null, plan: null }}
 			onOpen={() => {}}
 			feed={feed}
 		/>,
 	);
-	fireEvent.click(view.getByRole("tab", { name: "Active (2)" }));
-	fireEvent.click(view.getByRole("button", { name: /running a\/one/ }));
-	expect(opened).toEqual(["running"]);
-	fireEvent.click(view.getByRole("button", { name: /completed a\/one/ }));
-	expect(opened).toEqual(["running", "completed"]);
-	expect(view.getByText("Completed")).toBeTruthy();
-	expect(view.queryByRole("button", { name: /archived/ })).toBeNull();
-	act(() => {
-		feed.conversations = [
-			make("running", true),
-			make("completed", false, true),
-		];
-		changed();
-	});
-	expect(view.getByRole("tab", { name: "Active (1)" })).toBeTruthy();
-	fireEvent.click(view.getByRole("tab", { name: "Plan" }));
-	await waitFor(() =>
-		expect(view.getByLabelText("Budget in dollars")).toBeTruthy(),
+	fireEvent.click(
+		await waitFor(() =>
+			view.getByRole("checkbox", { name: "Select all scenarios" }),
+		),
 	);
-	fireEvent.change(view.getByLabelText("Budget in dollars"), {
-		target: { value: "12" },
-	});
-	fireEvent.click(view.getByRole("tab", { name: "Active (1)" }));
-	fireEvent.click(view.getByRole("tab", { name: "Plan" }));
-	expect(view.getByLabelText("Budget in dollars").getAttribute("value")).toBe(
-		"12",
-	);
+	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	expect(view.getByLabelText("Budget in dollars")).toBeTruthy();
+	fireEvent.click(view.getByRole("button", { name: "Back" }));
+	expect(view.getByRole("button", { name: "Review 2 scenarios" })).toBeTruthy();
 });

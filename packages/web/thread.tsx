@@ -61,12 +61,13 @@ import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
 import { ProgressCard, ProgressCards, ProgressUI } from "./progress";
 import { useArchiveAfterPutBack, usePutBack } from "./put-back";
+import { QueueSummaryFor } from "./queue-summary-card";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
 import { Reminders, ReminderUI } from "./reminder-card";
-import { ReportUI, StartNewContext, TodoUI } from "./report-cards";
+import { ReportUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { heldAfter, queuesNow } from "./sending";
 import { QueueBanner } from "./start-queue";
@@ -213,13 +214,11 @@ function Conversation({
 	} = useQueueEdits(id, runtime, section, refused);
 	const touch = useTouch();
 	const { putBack, awaiting } = usePutBack(conversation, refused);
-	const { actions, archive, startNew } = useThreadActions(
+	const { actions, archive } = useThreadActions(
 		conversation,
 		task,
-		drafts,
 		refused,
 		onLeft,
-		onOpen,
 		putBack,
 	);
 	const [details, setDetails] = useState(false);
@@ -347,27 +346,26 @@ function Conversation({
 								<Reminders value={conversation.reminders}>
 									<AssistantRuntimeProvider runtime={runtime}>
 										<Composing.Provider value={runtime.thread.composer}>
-											<QuestionsUI />
-											<ReviewUI />
-											<ReportUI />
-											<TodoUI />
-											<PermissionUI />
-											<DemoUI />
-											<WorkUI />
-											<EventUI />
-											<StoppedUI />
-											<CompactionUI />
-											<BackgroundUI />
-											<ProgressUI />
-											<ReminderUI />
-											<RestedUI />
-											<InterruptedUI />
-											<EvalsConversation value={id}>
-												<ArchiveConversation
-													value={archivable ? fileAway : null}
-												>
-													<ArchiveOfferProvider value={offer}>
-														<StartNewContext value={startNew}>
+											<QueueSummaryFor value={conversation}>
+												<QuestionsUI />
+												<ReviewUI />
+												<ReportUI />
+												<PermissionUI />
+												<DemoUI />
+												<WorkUI />
+												<EventUI />
+												<StoppedUI />
+												<CompactionUI />
+												<BackgroundUI />
+												<ProgressUI />
+												<ReminderUI />
+												<RestedUI />
+												<InterruptedUI />
+												<EvalsConversation value={id}>
+													<ArchiveConversation
+														value={archivable ? fileAway : null}
+													>
+														<ArchiveOfferProvider value={offer}>
 															<ReplyContext value={reply}>
 																<NamedContext value={named}>
 																	<ThreadView
@@ -400,7 +398,6 @@ function Conversation({
 																		above={
 																			<>
 																				<NeedsYouBar />
-
 																				<Refusal
 																					refusal={refusal}
 																					className="px-2"
@@ -435,10 +432,10 @@ function Conversation({
 																	/>
 																</NamedContext>
 															</ReplyContext>
-														</StartNewContext>
-													</ArchiveOfferProvider>
-												</ArchiveConversation>
-											</EvalsConversation>
+														</ArchiveOfferProvider>
+													</ArchiveConversation>
+												</EvalsConversation>
+											</QueueSummaryFor>
 										</Composing.Provider>
 									</AssistantRuntimeProvider>
 								</Reminders>
@@ -476,11 +473,7 @@ function Conversation({
  */
 function ended(conversation: ConversationState): TaskReport | null {
 	const report = lastReport(conversation);
-	if (
-		report === null ||
-		report.ending === "escalated" ||
-		report.ending === "working"
-	) {
+	if (report === null || report.ending === "escalated") {
 		return null;
 	}
 	// When the agent began saying it; a log too old to say keeps the offer.

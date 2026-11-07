@@ -23,6 +23,7 @@ function drag(on: Annotation, from: Position, to: Position): void {
 describe("Annotation", () => {
 	it("draws a box with the drag, and opens its note", () => {
 		const marks = annotation();
+		marks.use("box");
 		drag(marks, at(100, 100), at(300, 200));
 		expect(marks.marks).toEqual([
 			{ kind: "box", from: at(100, 100), to: at(300, 200), note: "" },
@@ -31,9 +32,8 @@ describe("Annotation", () => {
 		expect(marks.draft).toBeNull();
 	});
 
-	it("draws an arrow with the arrow tool", () => {
+	it("draws an arrow by default", () => {
 		const marks = annotation();
-		marks.use("arrow");
 		drag(marks, at(100, 100), at(300, 200));
 		expect(marks.marks[0]?.kind).toBe("arrow");
 	});
@@ -66,6 +66,7 @@ describe("Annotation", () => {
 
 	it("picks a mark anywhere along its line", () => {
 		const marks = annotation();
+		marks.use("box");
 		drag(marks, at(100, 100), at(500, 300));
 		marks.use("arrow");
 		drag(marks, at(600, 100), at(900, 400));
@@ -77,6 +78,7 @@ describe("Annotation", () => {
 
 	it("picks a mark a little way off its line, by the slop given", () => {
 		const marks = annotation();
+		marks.use("box");
 		drag(marks, at(100, 100), at(500, 300));
 		expect(marks.markAt(at(300, 315))).toBeNull();
 		expect(marks.markAt(at(300, 315), 12)).toBe(0);
@@ -84,6 +86,7 @@ describe("Annotation", () => {
 
 	it("opens a mark's note from its line rather than drawing", () => {
 		const marks = annotation();
+		marks.use("box");
 		drag(marks, at(100, 100), at(500, 300));
 		marks.select(null);
 		marks.press(at(500, 200));
@@ -94,6 +97,7 @@ describe("Annotation", () => {
 
 	it("sits a box's number outside it, on the side with more room", () => {
 		const marks = annotation();
+		marks.use("box");
 		drag(marks, at(100, 100), at(300, 200));
 		drag(marks, at(700, 100), at(1000, 200));
 		expect(marks.anchor(0).x).toBeGreaterThan(300);

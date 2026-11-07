@@ -85,14 +85,10 @@ describe("App's reminder of a conversation's task", () => {
 		const shown = within(card);
 		expect(card.textContent).toContain("last here 2h ago");
 		expect(shown.getByText("One page.")).toBeTruthy();
-		expect(shown.getByRole("region", { name: "Before" }).textContent).toContain(
-			"Tabs split it.",
-		);
-		expect(shown.getByRole("region", { name: "After" }).textContent).toContain(
-			"Sections fold.",
-		);
+		expect(shown.queryByRole("region", { name: "before" })).toBeNull();
+		expect(shown.queryByRole("region", { name: "after" })).toBeNull();
 		expect(
 			shown.getAllByRole("button").map((each) => each.textContent),
-		).toEqual(["Open task", "Before", "After"]);
+		).toEqual(["Dismiss", "Open task"]);
 	});
 });

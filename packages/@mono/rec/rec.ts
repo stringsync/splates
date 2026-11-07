@@ -448,7 +448,7 @@ rec
 	)
 	.option("json", z.boolean().default(false), {
 		description:
-			"print JSON: { running, name?, recording?, startedAt?, mic?, laser? }",
+			"print JSON: { running, name?, recording?, startedAt?, mic?, laser?, lastOutcome? }",
 	})
 	.action(async (opts, deps) => {
 		const status = await client(deps).status();

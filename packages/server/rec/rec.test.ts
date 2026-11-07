@@ -12,6 +12,23 @@ describe("Rec", () => {
 		expect(state.sources).toEqual([]);
 	});
 
+	it.each([
+		["localhost:4269", true],
+		["127.0.0.1:4269", true],
+		["splates.example.com", false],
+	])(
+		"tells a page on %s whether it is on rec's machine: %p",
+		async (host, here) => {
+			const ps = new FakePs();
+			ps.simulate(async () => 127);
+			const response = await new Rec(ps).read(
+				new Request("http://x/api/rec", { headers: { host } }),
+			);
+
+			expect((await response.json()).here).toBe(here);
+		},
+	);
+
 	it("starts rec with the name, page, containers and files chosen", () => {
 		const ps = new FakePs();
 		new Rec(ps).open({

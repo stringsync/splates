@@ -1,7 +1,7 @@
 import type { PortLink } from "@splates/server/ports";
 import { type JSX, useEffect, useState } from "react";
 import { taskPorts } from "./api";
-import { HEADING } from "./markdown";
+import { CardSection } from "./card-section";
 
 /**
  * The ports task `task`'s processes listen on, read as the dialog opens: each
@@ -25,8 +25,7 @@ export function TaskPorts({ task }: { task: string }): JSX.Element | null {
 		return null;
 	}
 	return (
-		<section aria-label="ports" className="flex min-w-0 flex-col">
-			<h2 className={HEADING}>Ports</h2>
+		<CardSection label="ports" title="Ports">
 			<ul className="flex flex-col gap-0.5 text-xs tabular-nums">
 				{ports.map(({ port, remote, local }) => (
 					<li key={port} className="flex min-w-0 flex-wrap gap-x-2">
@@ -36,7 +35,7 @@ export function TaskPorts({ task }: { task: string }): JSX.Element | null {
 					</li>
 				))}
 			</ul>
-		</section>
+		</CardSection>
 	);
 }
 

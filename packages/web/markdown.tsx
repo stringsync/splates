@@ -59,7 +59,7 @@ export const Markdown = memo(function Markdown({
 			className={cn(
 				"min-w-0 break-words",
 				preview &&
-					"max-h-[2lh] overflow-hidden [&_*]:my-0 [&_*]:text-[length:inherit] [&_*]:normal-case [&_*]:tracking-normal [&_pre]:p-0 [&_pre]:bg-transparent",
+					"max-h-[2lh] overflow-hidden [&_*]:my-0! [&_*]:mt-0! [&_*]:mb-0! [&_*]:text-[length:inherit] [&_*]:normal-case [&_*]:tracking-normal [&_pre]:p-0 [&_pre]:bg-transparent",
 				className,
 			)}
 		>
@@ -68,13 +68,11 @@ export const Markdown = memo(function Markdown({
 	);
 });
 
-// Every level renders as the same small semibold line over a hairline: the
-// documents this renders sit inside a card or a dialog that already carries
-// the real title, so a heading here is a section marker, not a hierarchy, and
-// a run of title-sized lines would shout over the content. The tag still says
-// the level for a reader.
-export const HEADING =
-	"mt-[0.9rem] mb-[0.3rem] first:mt-0 border-b border-current/20 pb-[0.2rem] font-semibold text-[0.95rem]";
+// Every level renders as the same mixed-case semibold line, with room above
+// and no underline: the documents this renders sit inside a card or a dialog
+// that already carries the real title, so a heading here is a section marker,
+// not a hierarchy. The tag still says the level for a reader.
+export const HEADING = "mt-6 mb-2 first:mt-0 font-semibold text-[0.95rem]";
 
 const OPTIONS: MarkdownToJSX.Options = {
 	// Markup in a todo or a plan is shown as typed, never as elements.
@@ -87,8 +85,13 @@ const OPTIONS: MarkdownToJSX.Options = {
 		h4: heading("h4"),
 		h5: heading("h5"),
 		h6: heading("h6"),
-		p: { props: { className: "my-1" } },
-		ul: { props: { className: "my-1 list-disc pl-5" } },
+		p: { props: { className: "my-3 first:mt-0 last:mb-0 leading-relaxed" } },
+		ul: {
+			props: {
+				className:
+					"my-3 list-disc space-y-2 pl-5 leading-relaxed first:mt-0 last:mb-0",
+			},
+		},
 		// A checklist item gives up its bullet to the box, and fades once ticked.
 		li: {
 			props: {
@@ -96,7 +99,12 @@ const OPTIONS: MarkdownToJSX.Options = {
 					"has-[>input]:-ml-5 has-[>input]:list-none has-[>input:checked]:opacity-50",
 			},
 		},
-		ol: { props: { className: "my-1 list-decimal pl-5" } },
+		ol: {
+			props: {
+				className:
+					"my-3 list-decimal space-y-2 pl-5 leading-relaxed first:mt-0 last:mb-0",
+			},
+		},
 		blockquote: {
 			props: { className: "my-1 border-l-2 pl-3 text-muted-foreground" },
 		},

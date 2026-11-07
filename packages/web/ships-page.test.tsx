@@ -47,10 +47,16 @@ describe("ShipsPage", () => {
 				data: JSON.stringify({ cascade: stopped, ship: null }),
 			}),
 		);
+		// The plan stays open, with the ship under way pinned above it.
+		const card = await view.findByRole("link", {
+			name: "example ship stopped: open the ship",
+		});
+		expect(card.getAttribute("href")).toBe("#ships/active");
+		expect(location.hash).not.toBe("#ships/active");
+		act(() => {
+			location.hash = "#ships/active";
+		});
 		expect(await view.findByText("Wait for own live")).toBeTruthy();
-		// The plan is closed to a ship under way: #ships opens that ship.
-		expect(location.hash).toBe("#ships/active");
-		expect(view.queryByRole("button", { name: "Start" })).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: "Retry" }));
 		await waitFor(() => expect(posts).toContain("POST /api/ship/steps/retry"));
 		fireEvent.click(view.getByRole("button", { name: "Stop" }));
@@ -87,6 +93,7 @@ describe("ShipsPage", () => {
 			answered: () => undefined,
 			refused: () => undefined,
 		} as unknown as ConversationFeed;
+		location.hash = "#ships/active";
 		const view = render(<ShipsPage feed={feed} />);
 		act(() =>
 			stream?.onmessage?.({
@@ -98,6 +105,31 @@ describe("ShipsPage", () => {
 		const words = JSON.parse(bodies["/api/conversations/auto"] ?? "{}").words;
 		expect(words).toContain("Ship `example` stopped at the `live` stage");
 		expect(words).toContain("/api/ship/history/example/log");
+	});
+
+	it("opens on the plan, with a History row naming the last ship that shipped", async () => {
+		location.hash = "#ships";
+		globalThis.fetch = (async (url: string) =>
+			Response.json(
+				String(url).startsWith("/api/ship/history")
+					? [
+							{ ...summary, id: "old", status: "stopped" },
+							{
+								...summary,
+								id: "new",
+								status: "done",
+								started: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+							},
+						]
+					: answer(String(url), []),
+			)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		const row = await view.findByRole("link", { name: /^History/ });
+		expect(row.getAttribute("href")).toBe("#ships/history");
+		await waitFor(() =>
+			expect(row.textContent).toContain("Last shipped 2d ago"),
+		);
+		expect(view.queryByRole("list", { name: "Ship steps" })).toBeNull();
 	});
 
 	it("shows the ship under way at #ships/active, with a way back to the plan", async () => {
@@ -274,6 +306,13 @@ function answer(url: string, projects: unknown[]): unknown {
 	}
 	return [];
 }
+
+const summary = {
+	from: "example",
+	started: "2026-10-29T12:00:00Z",
+	ended: "2026-10-29T12:10:00Z",
+	projects: [],
+};
 
 const realFetch = globalThis.fetch;
 

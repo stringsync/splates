@@ -4,7 +4,6 @@ import { CircleCheckIcon, CircleSlashIcon, CircleXIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "./lib/utils";
-import { PlanSteps } from "./ship-plan-steps";
 import {
 	lasted,
 	type Recap,
@@ -41,7 +40,6 @@ export function ShipRecap({ cascade }: { cascade: Cascade }): JSX.Element {
 		: `Stopped after ${lasted(recap.total)}`;
 	return (
 		<section aria-label="ship recap" className="flex flex-col gap-4">
-			<PlanSteps step={3} />
 			<h2 className="flex items-center gap-2 font-medium text-lg">
 				<Icon
 					aria-hidden

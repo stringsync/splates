@@ -2,7 +2,7 @@ import { Duration } from "core/time";
 import type { ReminderCard } from "./state";
 
 /** How long the person is gone from a conversation before it reminds them what its task is for. */
-export const AWAY = Duration.mins(10);
+export const AWAY = Duration.hrs(1);
 
 // How stale the log's last visit may be, so a restart still judges `AWAY` closely.
 export const VISIT_KEPT = Duration.mins(5);

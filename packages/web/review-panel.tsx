@@ -175,7 +175,7 @@ export function ReviewPanel({
 						className="min-h-9 pointer-coarse:min-h-11"
 					/>
 					<div className="flex items-center gap-2">
-						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs in-data-sheet:hidden">
 							{!touch &&
 								(asked === "" ? (
 									<span>
@@ -194,7 +194,7 @@ export function ReviewPanel({
 							<Button
 								size="sm"
 								onClick={() => void attempt(send(MERGE), "Not sent")}
-								className="bg-success text-white hover:bg-success/90 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
+								className="bg-success text-white hover:bg-success/90 in-data-sheet:flex-1 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
 							>
 								<GitMergeIcon data-icon="inline-start" />
 								Merge
@@ -203,7 +203,7 @@ export function ReviewPanel({
 							<Button
 								size="sm"
 								onClick={() => finishThen(() => setSendTaken(true))}
-								className="pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
+								className="in-data-sheet:flex-1 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
 							>
 								<SendHorizontalIcon data-icon="inline-start" />
 								Send

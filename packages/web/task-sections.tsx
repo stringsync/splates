@@ -69,7 +69,7 @@ export function SectionTab({
 	return (
 		<TabsTrigger
 			value={value}
-			className="flex-none px-0 text-xs group-data-horizontal/tabs:after:bottom-[-1.5px]"
+			className="flex-none px-0 text-xs data-horizontal:after:bottom-[-1.5px]"
 		>
 			{children}
 		</TabsTrigger>

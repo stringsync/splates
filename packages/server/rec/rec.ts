@@ -1,5 +1,6 @@
 import type { Child, Ps } from "core/system";
 import { z } from "zod";
+import { isLocal } from "../server/http";
 import type { Handler } from "../server/shared";
 import { body } from "../server/shared";
 import type {
@@ -12,6 +13,7 @@ import type {
 	RecStatus,
 } from "./browser";
 import { REC_STORE_POLICY } from "./browser";
+import { logEntries, mergeEntries, timelineFileEntries } from "./timeline";
 
 const STATUS = z.object({
 	running: z.boolean(),
@@ -20,6 +22,12 @@ const STATUS = z.object({
 	startedAt: z.number().optional(),
 	mic: z.enum(["on", "off"]).optional(),
 	laser: z.boolean().optional(),
+	lastOutcome: z
+		.discriminatedUnion("status", [
+			z.object({ status: z.literal("saved"), name: z.string() }),
+			z.object({ status: z.literal("failed"), reason: z.string() }),
+		])
+		.optional(),
 });
 
 const SOURCES = z.object({
@@ -190,17 +198,33 @@ export class Rec {
 			timeline?: string;
 			stills: string[];
 			logs: string[];
-		} & Omit<RecSessionDetail, "momentList" | "stills" | "logs" | "video">;
+		} & Omit<
+			RecSessionDetail,
+			"momentList" | "stills" | "logs" | "video" | "entries"
+		>;
 		const base = (path: string) => path.split("/").pop() ?? path;
 		const video = await this.#video(shown.folder);
+		const timeline =
+			shown.timeline === undefined
+				? undefined
+				: await Bun.file(shown.timeline)
+						.text()
+						.catch(() => undefined);
+		const logLists = await Promise.all(
+			shown.logs.map(async (path) =>
+				logEntries(
+					base(path),
+					await Bun.file(path)
+						.text()
+						.catch(() => ""),
+					shown.startedAt,
+				),
+			),
+		);
 		return {
 			...shown,
-			timeline:
-				shown.timeline === undefined
-					? undefined
-					: await Bun.file(shown.timeline)
-							.text()
-							.catch(() => undefined),
+			timeline,
+			entries: mergeEntries(timelineFileEntries(timeline ?? ""), ...logLists),
 			stills: shown.stills.map(base),
 			logs: shown.logs.map(base),
 			video: video !== null,
@@ -364,7 +388,11 @@ export class Rec {
 		return new Response(null, { status: 204 });
 	};
 
-	readonly read: Handler = async () => Response.json(await this.state());
+	readonly read: Handler = async (request) =>
+		Response.json({
+			...(await this.state()),
+			here: isLocal(request.headers.get("host") ?? ""),
+		});
 
 	readonly name: Handler = async () => {
 		const name = await this.suggestName();

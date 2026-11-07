@@ -11,6 +11,15 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutoPickMark } from "./auto-pick-log";
 import { AutomationDraft } from "./automation-draft";
@@ -30,11 +39,9 @@ import { Refusal } from "./refusal";
 import { TopBar } from "./top-bar";
 
 /**
- * The Automations page: what runs on a task event or a schedule while
- * `splates server` runs, each with when it last ran and for what task, which
- * `opens` opens, to edit, pause or remove, and a form to add one. The person's own come first; then those the project
- * checks in, which only `splates.config.ts` changes, and those splates
- * itself sets, as the groomer, whose agent is all that changes here.
+ * The Automations page: lists what runs on a task event or a schedule, with
+ * when each last ran. Edit, pause or remove one (removing asks first), or add
+ * one with the form. Pass `opens` to open a run's task or conversation.
  */
 export function AutomationsPage({
 	opens,
@@ -242,6 +249,7 @@ function Card({
 }): JSX.Element {
 	const [editing, setEditing] = useState<AutomationDraft | null>(null);
 	const [grooming, setGrooming] = useState(false);
+	const [confirmingRemove, setConfirmingRemove] = useState(false);
 	const adding = row.id === "";
 	const pending = adding || saving;
 	const paused = row.paused === true;
@@ -331,10 +339,36 @@ function Card({
 					size="icon-sm"
 					variant="ghost"
 					aria-label="Remove"
-					onClick={() => onRemove(row)}
+					onClick={() => setConfirmingRemove(true)}
 				>
 					<XIcon />
 				</Button>
+			)}
+			{onRemove !== undefined && (
+				<Dialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
+					<DialogContent showCloseButton={false}>
+						<DialogHeader>
+							<DialogTitle>Remove this automation?</DialogTitle>
+							<DialogDescription>
+								Are you sure? It stops running and its schedule is lost.
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<DialogClose render={<Button variant="outline" />}>
+								Cancel
+							</DialogClose>
+							<Button
+								variant="destructive"
+								onClick={() => {
+									setConfirmingRemove(false);
+									onRemove(row);
+								}}
+							>
+								Remove
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			)}
 		</li>
 	);

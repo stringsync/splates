@@ -22,7 +22,6 @@ import { supersedeQueues } from "./superseded-queues";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { replyDue, stretchesOf } from "./work";
-import { workingTimes } from "./working-report-time";
 
 /** One part of a message as assistant-ui takes it. */
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
@@ -107,27 +106,24 @@ export function useThreadMessages(
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
 		const liked = supersedeQueues(
-			workingTimes(
-				said.map((message, index) =>
-					like(
-						message,
-						index,
-						conversation.id,
-						!writing || index < said.length - 1,
-						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
-						now,
-						conversation.lastTask,
-						happened[index],
-						writing &&
-							index === said.length - 1 &&
-							conversation.ask?.type === "permission"
-							? conversation.ask.at
-							: null,
-						said[index + 1]?.steered === true || index === resumed,
-						cardsIn[index],
-					),
+			said.map((message, index) =>
+				like(
+					message,
+					index,
+					conversation.id,
+					!writing || index < said.length - 1,
+					said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+					now,
+					conversation.lastTask,
+					happened[index],
+					writing &&
+						index === said.length - 1 &&
+						conversation.ask?.type === "permission"
+						? conversation.ask.at
+						: null,
+					said[index + 1]?.steered === true || index === resumed,
+					cardsIn[index],
 				),
-				said,
 			),
 		);
 		// The reply's place while the agent has yet to say anything, under the
@@ -367,7 +363,7 @@ function convert(
 	began: string | null = message.at,
 	/** The clock, as epoch ms, the latest words of a turn still going wait on. */
 	now = Number.POSITIVE_INFINITY,
-	/** The task it runs in, or last ran in, whose todos it can have added. */
+	/** The task it runs in, or last ran in. */
 	task: string | null = null,
 	/** What splates did at the agent's word in this turn, oldest first. */
 	events: readonly Event[] = [],
@@ -473,11 +469,7 @@ function convert(
 												},
 											]
 										: at === reply
-											? replied(stretch.text, !going, {
-													task,
-													began,
-													until: message.until,
-												})
+											? replied(stretch.text, !going, { task })
 											: [{ type: "text", text: stretch.text }],
 				),
 			),

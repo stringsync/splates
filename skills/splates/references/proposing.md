@@ -123,7 +123,7 @@ in and propose again.
 
 **Approve carries the pictures into the task.** On approval, before any code,
 make sure the task's `SPLATES.md` holds what was approved: `## Before` and
-`## After` with the proposal's short summary, and `## Verification` with its attached images inline
+`## After` with the proposal's short summary, and `## Verification` with its attached mock images inline
 (`![what](/abs/path.png)`, the stored paths `splates attach` printed, not the
 scratch captures), each answered call folded in. When the proposal was written
 before the task existed, `splates add` it now and write the sections then, with

@@ -21,7 +21,6 @@ describe("ShipRecap", () => {
 		const mdom = view.getByRole("region", { name: "mdom" });
 		expect(within(mdom).getAllByRole("listitem")).toHaveLength(2);
 		expect(view.getByLabelText("vexml").tagName).toBe("DETAILS");
-		expect(view.getByText("Step 3 of 3")).toBeTruthy();
 	});
 
 	it("shows a failed ship recap alongside recovery and failure details", () => {

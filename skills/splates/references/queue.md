@@ -48,10 +48,11 @@ Before, `splates attach`ed; a lo-fi mock or D2 diagram for After). Before is
 always there: for a new thing it says what exists today in its place (that
 there is nothing yet, or what the user does instead). Leave the picture out
 only for a trivial change or when you have not looked at the code yet, for the
-agent that takes it to add. After's first line
-says what changes. Put the why, the where and the files after that line, with
-`- [ ]` steps, inline code for paths and commands, and fenced blocks for
-snippets. Single quotes keep the shell off the backticks:
+agent that takes it to add. After is one short
+paragraph saying what changes, with no lists. Put the why, the where and the
+files in a `## Details` section after it, with `- [ ]` steps, inline code for
+paths and commands, and fenced blocks for snippets. Single quotes keep the
+shell off the backticks:
 
 ```sh
 splates task add "Upload retries forever on a 413" --slug upload-413 '## Before
@@ -61,6 +62,8 @@ The client retries on any 4xx in `src/upload.ts`, so a 413 loops forever.
 ## After
 
 An upload stops retrying on a 413 and tells the user the file is too big.
+
+## Details
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big'

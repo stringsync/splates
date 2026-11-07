@@ -69,7 +69,6 @@ describe("Annotate", () => {
 		const { board } = opened();
 		const tool = (name: string) => within(board).getByRole("button", { name });
 
-		fireEvent.keyDown(board, { key: "a" });
 		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("true");
 		fireEvent.keyDown(board, { key: "b" });
 

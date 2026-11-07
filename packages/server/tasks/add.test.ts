@@ -81,6 +81,18 @@ describe("add", () => {
 		);
 	});
 
+	it("keeps only the first paragraph of a queued After, moving the steps to Details", async () => {
+		const queued = await deps.tasks.add("Retry on 413", null, {
+			text: "## Before\n\nLoops.\n\n## After\n\nStops on 413.\n\n- [ ] stop retrying\n- [ ] tell the user",
+		});
+		await add(deps, "alpha", { tasks: [queued.id] });
+
+		const { path } = await deps.service.find("alpha");
+		const plan = await deps.fs.read(join(path, "SPLATES.md"));
+		expect(plan).toContain("## After\n\nStops on 413.\n\n## Details");
+		expect(plan).toContain("- [ ] stop retrying\n- [ ] tell the user");
+	});
+
 	describe("project", () => {
 		const declare = () => {
 			deps.config.projects = { core: ["core/**"], wren: ["wren/**"] };

@@ -152,7 +152,8 @@ async function compressedJson(
 	});
 }
 
-function isLocal(host: string): boolean {
+/** Whether `host`, a request's Host header, names this machine rather than a tunnel to it. */
+export function isLocal(host: string): boolean {
 	return LOCAL_HOSTS.includes(hostname(host));
 }
 

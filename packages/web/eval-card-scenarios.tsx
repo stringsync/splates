@@ -14,9 +14,11 @@ export function EvalCardScenarios({
 }) {
 	return (
 		<>
-			{scenarios.map((scenario) => (
+			{scenarios.map((scenario, index) => (
 				<Collapsible key={scenario.id}>
-					<CollapsibleTrigger className="group flex w-full flex-col gap-1 border-t py-2 text-left">
+					<CollapsibleTrigger
+						className={`group flex w-full flex-col gap-1 py-2 text-left ${index === 0 ? "" : "border-t"}`}
+					>
 						<span className="flex w-full items-center justify-between gap-2 font-mono text-xs">
 							{scenario.id}
 							<ChevronDownIcon className="size-3 shrink-0 group-aria-expanded:rotate-180" />

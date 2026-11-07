@@ -8,6 +8,18 @@ import { ShipsPage } from "./ships-page";
 import { pick } from "./testing";
 import { act, cleanup, fireEvent, render, waitFor } from "./testing-library";
 
+/** Picks `item` from the projects list's ⋯ menu. */
+async function choose(
+	view: ReturnType<typeof render>,
+	item: string,
+): Promise<void> {
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "Select projects" })),
+	);
+	const shown = await waitFor(() => view.getByRole("menuitem", { name: item }));
+	await act(async () => fireEvent.click(shown));
+}
+
 describe("Ship plan", () => {
 	beforeEach(() => {
 		globalThis.EventSource = FakeStream as unknown as typeof EventSource;
@@ -17,7 +29,7 @@ describe("Ship plan", () => {
 		globalThis.fetch = realFetch;
 		globalThis.EventSource = realEventSource;
 	});
-	it("Select all ticks every shippable project and clears them again", async () => {
+	it("the projects menu selects every shippable project and clears them again", async () => {
 		let stream: Stream | null = null;
 		globalThis.EventSource = class extends FakeStream {
 			constructor() {
@@ -39,8 +51,7 @@ describe("Ship plan", () => {
 			}),
 		);
 		await view.findByText("base");
-		const all = view.getByRole("checkbox", { name: "Select all" });
-		fireEvent.click(all);
+		await choose(view, "Select all");
 		await waitFor(() =>
 			expect(ticked(view.getByRole("checkbox", { name: "Ship base" }))).toBe(
 				true,
@@ -49,7 +60,7 @@ describe("Ship plan", () => {
 		expect(ticked(view.getByRole("checkbox", { name: "Ship consumer" }))).toBe(
 			true,
 		);
-		fireEvent.click(all);
+		await choose(view, "Clear");
 		await waitFor(() =>
 			expect(ticked(view.getByRole("checkbox", { name: "Ship base" }))).toBe(
 				false,
@@ -124,7 +135,7 @@ describe("Ship plan", () => {
 			}),
 		);
 		await view.findByText("base");
-		fireEvent.click(view.getByRole("checkbox", { name: "All changed" }));
+		await choose(view, "Select the 1 with changes");
 		await act(async () =>
 			fireEvent.click(
 				view.getByRole("combobox", { name: "base version bump" }),
@@ -254,10 +265,12 @@ describe("Ship plan", () => {
 				data: JSON.stringify({ cascade: stopped, ship: null }),
 			}),
 		);
-		expect(await view.findByText("A ship is under way.")).toBeTruthy();
+		expect(
+			await view.findByText("You can plan the next ship once this one ends."),
+		).toBeTruthy();
 		expect(
 			view
-				.getByRole("button", { name: /^Choose a project/ })
+				.getByRole("button", { name: "A ship is running" })
 				.hasAttribute("disabled"),
 		).toBe(true);
 	});

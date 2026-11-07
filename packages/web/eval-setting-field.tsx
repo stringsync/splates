@@ -6,7 +6,7 @@ export function SettingField({
 	...input
 }: { label: string } & ComponentProps<"input">): JSX.Element {
 	return (
-		<label className="flex flex-col gap-1 text-muted-foreground">
+		<label className="flex flex-col justify-between gap-1 text-muted-foreground">
 			{label}
 			<input
 				{...input}

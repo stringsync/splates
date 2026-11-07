@@ -4,10 +4,10 @@ import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
+import { CardSection } from "./card-section";
 import { StillWaiting } from "./countdown";
 import { StatusChip, spent } from "./eval-status";
 import { EvalReply } from "./evals-reply";
-import { HEADING } from "./markdown";
 
 /**
  * One run opened to see why it went as it did: what it asked, what broke if
@@ -206,9 +206,8 @@ function Part({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="flex flex-col gap-2">
-			<h3 className={HEADING}>{title}</h3>
+		<CardSection label={title} title={title}>
 			{children}
-		</div>
+		</CardSection>
 	);
 }

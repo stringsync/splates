@@ -175,12 +175,6 @@ describe("stretches", () => {
 		});
 	});
 
-	it("reads a working report, naming the task", () => {
-		expect(stretches("## ⏳ Working lanes-fix\n\nOut.")[0]).toMatchObject({
-			report: { ending: "working", task: "lanes-fix", reason: null },
-		});
-	});
-
 	it("leaves a lanes report from before lanes stopped running as words, still reading the questions after it", () => {
 		const example = [
 			"## ⏸️ Waiting lanes Stats: on stats-breakdowns-clear",
@@ -247,45 +241,6 @@ describe("stretches", () => {
 				},
 			},
 			{ type: "text", text: "That is all." },
-		]);
-	});
-
-	it("reads a proposed task anywhere in a message, up to the next heading or questions", () => {
-		const found = stretches(
-			[
-				"Next up:",
-				"",
-				"### 📝 Upload retries forever on a 413 [#12]",
-				"",
-				"The client retries every 4xx. It touches the retry loop.",
-				"",
-				"### 📝 Show the file size limit [#14]",
-				"",
-				"Says how big a file may be.",
-				"",
-				"1. Which first?",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{ type: "text", text: "Next up:" },
-			{
-				type: "todo",
-				todo: {
-					id: 12,
-					subject: "Upload retries forever on a 413",
-					body: "The client retries every 4xx. It touches the retry loop.",
-				},
-			},
-			{
-				type: "todo",
-				todo: {
-					id: 14,
-					subject: "Show the file size limit",
-					body: "Says how big a file may be.",
-				},
-			},
-			expect.objectContaining({ type: "questions" }),
 		]);
 	});
 
@@ -469,33 +424,6 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("ends a proposed task at its paragraph, leaving the message after it as text", () => {
-		const found = stretches(
-			[
-				"### 📝 Install scry from npm [#162]",
-				"",
-				"No open task relates to this lane,",
-				"and this one is at the top of the list.",
-				"",
-				"Now for your question.",
-				"",
-				"- One real miss.",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "todo",
-				todo: {
-					id: 162,
-					subject: "Install scry from npm",
-					body: "No open task relates to this lane,\nand this one is at the top of the list.",
-				},
-			},
-			{ type: "text", text: "Now for your question.\n\n- One real miss." },
-		]);
-	});
-
 	it("reads an escalation without a reason, or with its emoji's variation selector left off", () => {
 		expect(stretches("## ⚠ Escalated header")).toEqual([
 			{
@@ -564,10 +492,6 @@ describe("stretches", () => {
 					"#### It overflows today.",
 					"",
 					"- The menu runs off the edge.",
-					"",
-					"### 📝 Header overflows [#4]",
-					"",
-					"It is the same header.",
 				].join("\n"),
 			),
 		).toEqual([
@@ -577,14 +501,6 @@ describe("stretches", () => {
 				proposal: {
 					subject: "a wider header",
 					body: "Let the header wrap at 390px.\n\n#### It overflows today.\n\n- The menu runs off the edge.",
-				},
-			},
-			{
-				type: "todo",
-				todo: {
-					id: 4,
-					subject: "Header overflows",
-					body: "It is the same header.",
 				},
 			},
 		]);

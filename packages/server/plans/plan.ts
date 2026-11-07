@@ -50,7 +50,7 @@ export const STUB_STEPS = [
 ];
 
 /** The h2 sections an `SPLATES.md` may have, in the order they belong in. */
-const SECTIONS = ["Before", "After", "Details", "Next", "Blocked"];
+const SECTIONS = ["Before", "After", "Details", "Next", "Checks", "Blocked"];
 // Sections of plans written before Before and After, still read and accepted.
 const LEGACY = ["Goal", "Verification", "Demo", "Outcome", "Notes"];
 // Steps are for work of several commits: for one, After says it all.
@@ -117,7 +117,7 @@ export function sectionApart(
 }
 
 /**
- * Read a task's Before and After as markdown for its merge record.
+ * Read a task's Before, After and Checks as markdown for its merge record.
  * Accepts legacy Outcome sections; returns an empty string for no outcome.
  */
 export function outcomeOf(text: string): string {
@@ -125,7 +125,7 @@ export function outcomeOf(text: string): string {
 	if (md.has("Outcome")) {
 		return md.section("Outcome").body.trim();
 	}
-	return ["Before", "After"]
+	return ["Before", "After", "Checks"]
 		.flatMap((name) => {
 			const body = bodyOf(text, [name]);
 			return body ? [`## ${name}\n\n${body}`] : [];

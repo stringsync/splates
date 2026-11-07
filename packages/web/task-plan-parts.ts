@@ -8,6 +8,8 @@ export interface PlanParts {
 	goal: string;
 	/** `## Next`, as markdown; "" when it has none. */
 	steps: string;
+	/** `## Checks`, what was verified and what was not; "" when none. */
+	checks: string;
 	/** `## Verification`, what was checked and what it showed; "" when none. */
 	verification: string;
 	/** `## Demo`, how to set a demo up; "" when it says none. */
@@ -28,6 +30,7 @@ export function planParts(plan: string | null): PlanParts {
 			before: "",
 			goal: "",
 			steps: "",
+			checks: "",
 			verification: "",
 			demo: "",
 			outcome: "",
@@ -70,6 +73,7 @@ export function planParts(plan: string | null): PlanParts {
 		before: named("before"),
 		goal: named("after") || named("goal"),
 		steps: named("next"),
+		checks: named("checks"),
 		verification: named("verification"),
 		demo: named("demo"),
 		outcome: named("outcome"),

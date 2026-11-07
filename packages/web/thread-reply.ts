@@ -9,7 +9,6 @@ import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
 import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./message-questions";
-import type { Turn } from "./report-cards";
 
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
@@ -164,11 +163,15 @@ export function beforeList(text: string): string {
 		: lines.slice(0, start).join("\n").trimEnd();
 }
 
+/** The reply's turn: the task it ran in, null where the log cannot say. */
+export interface Turn {
+	task: string | null;
+}
+
 /**
  * The parts of the agent's reply: its questions and review as cards once it
  * has stopped writing them, and an escalation's questions and the demo they
- * ask about as one card. A run of todos is one part; `turn` says which of
- * them it added.
+ * ask about as one card.
  */
 export function replied(
 	text: string,
@@ -233,23 +236,6 @@ export function replied(
 					asking?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
-			case "todo": {
-				// A run of todos is one part, to gather those added to a lane.
-				if (before?.type === "todo") {
-					return [];
-				}
-				const run = all.slice(at);
-				const end = run.findIndex((each) => each.type !== "todo");
-				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
-					each.type === "todo" ? [each.todo] : [],
-				);
-				// Those right after a task ended are what to take up next.
-				const next =
-					before?.type === "report" &&
-					before.report.ending !== "escalated" &&
-					before.report.ending !== "working";
-				return [{ type: "data-todo", data: { todos, turn, next } }];
-			}
 			case "permission":
 				return [
 					{

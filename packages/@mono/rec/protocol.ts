@@ -64,6 +64,8 @@ export type ToControl =
 	| { type: "laser"; on: boolean }
 	/** A session was saved to this folder. */
 	| { type: "saved"; dir: string }
+	/** The session could not be saved. */
+	| { type: "save-failed"; message: string }
 	/** Something worth a look happened in the working tab: a row for the panel's list. */
 	| {
 			type: "signal";

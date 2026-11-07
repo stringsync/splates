@@ -291,10 +291,7 @@ export function QuestionCard({
 					/>
 				) : (
 					said.words !== "" && (
-						<Markdown
-							text={said.words}
-							className="text-sm [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-						/>
+						<Markdown text={said.words} className="text-sm" />
 					)
 				)}
 			</div>

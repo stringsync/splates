@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { EvalAgentsView } from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
-import { EvalAgentsEditor, type EvalAgentsStore } from "./eval-agents";
+import {
+	EvalAgentsEditor,
+	type EvalAgentsStore,
+	runAgentsOf,
+} from "./eval-agents";
 
 describe("EvalAgentsEditor", () => {
 	it("saves an added pick, showing it once the server has it", async () => {
@@ -77,3 +81,26 @@ function store(
 		},
 	};
 }
+
+describe("runAgentsOf", () => {
+	it("starts from the saved agents and edits without saving them", async () => {
+		const kept = store();
+		const saved = new EvalAgentsEditor(kept);
+		await saved.load();
+		saved.add("claude", "opus");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		kept.saved.length = 0;
+
+		const run = runAgentsOf(saved);
+		await run.load();
+		expect(run.picks).toEqual([{ agent: "claude", model: "opus" }]);
+		run.setEffort(0, "low");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(run.picks).toEqual([
+			{ agent: "claude", model: "opus", effort: "low" },
+		]);
+		expect(saved.picks).toEqual([{ agent: "claude", model: "opus" }]);
+		expect(kept.saved).toEqual([]);
+	});
+});

@@ -425,7 +425,7 @@ export function EvalsCard({
 					<Button
 						size="sm"
 						variant="outline"
-						className="gap-1.5"
+						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
 						disabled={send === null || rejecting}
 						onClick={() => turn(reject)}
 					>
@@ -440,7 +440,7 @@ export function EvalsCard({
 				{open && (
 					<Button
 						size="sm"
-						className="gap-1.5"
+						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base in-data-sheet:flex-1"
 						disabled={
 							!state.loaded ||
 							state.unknown.length > 0 ||
@@ -458,7 +458,7 @@ export function EvalsCard({
 					<Button
 						size="sm"
 						variant="outline"
-						className="gap-1.5"
+						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 						disabled={send === null || loopStopped}
 						onClick={stopLoop}
 					>
@@ -470,7 +470,7 @@ export function EvalsCard({
 					<Button
 						size="sm"
 						variant="outline"
-						className="gap-1.5"
+						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 						onClick={() => void run.stop()}
 					>
 						<SquareIcon data-icon="inline-start" />

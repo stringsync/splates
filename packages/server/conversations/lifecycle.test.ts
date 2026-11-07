@@ -266,12 +266,12 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.state.reminders).toEqual([]);
 	});
 
-	it("reminds the person back after ten minutes, keeping when they left", async () => {
+	it("reminds the person back after an hour, keeping when they left", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);
 		const since = conversation.state.visited ?? "";
 
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 
 		const at = new Date(clock.now()).toISOString();
@@ -281,9 +281,9 @@ describe("Conversation lifecycle", () => {
 	it("skips identical reminders on repeated returns, including after a restart", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		expect(conversation.state.reminders).toHaveLength(1);
 
@@ -299,7 +299,7 @@ describe("Conversation lifecycle", () => {
 		);
 		try {
 			const restored = (await reread.list())[0];
-			clock.advance(Duration.mins(10));
+			clock.advance(Duration.hrs(1));
 			await restored?.visit(CARD);
 			expect(restored?.state.reminders).toHaveLength(1);
 		} finally {
@@ -310,15 +310,15 @@ describe("Conversation lifecycle", () => {
 	it("reminds again after intervening messages or a changed line", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		clock.advance(Duration.mins(1));
 		await conversation.prompt("hello");
 		await until(conversation, "idle");
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		expect(conversation.state.reminders).toHaveLength(2);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit({ ...CARD, line: "Two pages." });
 		expect(conversation.state.reminders).toHaveLength(3);
 	});
@@ -326,14 +326,14 @@ describe("Conversation lifecycle", () => {
 	it("reminds again after a progress card appears", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		clock.advance(Duration.mins(1));
 		conversation.reportProgress({ id: "import", title: "Import", percent: 10 });
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		expect(conversation.state.reminders).toHaveLength(2);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 		expect(conversation.state.reminders).toHaveLength(2);
 	});
@@ -354,7 +354,7 @@ describe("Conversation lifecycle", () => {
 		const conversation = await started();
 		await conversation.visit(null);
 
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(null);
 
 		expect(conversation.state.reminders).toEqual([]);
@@ -363,7 +363,7 @@ describe("Conversation lifecycle", () => {
 	it("keeps the visit and each reminder across a restart", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);
-		clock.advance(Duration.mins(10));
+		clock.advance(Duration.hrs(1));
 		await conversation.visit(CARD);
 
 		const reread = await new Conversations(

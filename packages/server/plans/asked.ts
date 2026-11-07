@@ -117,7 +117,7 @@ function cut(text: string): Stretch[] {
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a
- * task ended or what it waits on, a task it proposes, a permission it asks the person
+ * task ended or what it waits on, a permission it asks the person
  * to give, or a demo for the person to try.
  */
 export type Stretch =
@@ -126,7 +126,6 @@ export type Stretch =
 	| { type: "review"; review: Review }
 	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: TaskReport }
-	| { type: "todo"; todo: TodoProposal }
 	| { type: "permission"; permission: PermissionProposal }
 	| { type: "demo"; demo: Demo };
 
@@ -159,19 +158,12 @@ export interface Proposal {
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title them. */
-export type Ending =
-	| "merged"
-	| "done"
-	| "removed"
-	| "deferred"
-	| "escalated"
-	| "working";
+export type Ending = "merged" | "done" | "removed" | "deferred" | "escalated";
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## ✅ Done:
  * <what came of it>` (work over with no task, such as an automation's run), `## 🧹 Removed
- * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`, or `## ⏳
- * Working <task>: on <agent>`.
+ * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`.
  */
 export interface TaskReport {
 	ending: Ending;
@@ -184,15 +176,6 @@ export interface TaskReport {
 	body: string;
 	/** The markdown the agent wrote for it, from its title to its end. */
 	source: string;
-}
-
-/** A queued task the skill proposes as `### 📝 <subject> [#<id>]`. */
-export interface TodoProposal {
-	id: number;
-	/** The subject as the agent wrote it, which may since have changed. */
-	subject: string;
-	/** What the task is and why it matters now, as markdown. */
-	body: string;
 }
 
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
@@ -208,9 +191,6 @@ const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const DONE = /^## ✅ Done(?::[ \t]*(.*?))?[ \t]*$/;
 const ENDED =
 	/^## (?:(🧹) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-/** A task handed to another agent, which reports back: `on <agent>` after the colon. */
-const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
  * within its body.
@@ -232,7 +212,7 @@ const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 
 /**
- * The report, proposed task or work to queue titled at `start`, which runs until
+ * The report or permission titled at `start`, which runs until
  * whatever begins next, and the line after it; null for any
  * other line.
  */
@@ -244,23 +224,11 @@ function keptAt(
 	const merged = MERGED.exec(line);
 	const done = DONE.exec(line);
 	const ended = ENDED.exec(line);
-	const workingTask = WORKING_TASK.exec(line);
-	const proposed = PROPOSAL.exec(line);
 	const asking = asksPermission(line);
-	if (
-		!asking &&
-		merged === null &&
-		done === null &&
-		ended === null &&
-		workingTask === null &&
-		proposed === null
-	) {
+	if (!asking && merged === null && done === null && ended === null) {
 		return null;
 	}
-	const end =
-		proposed !== null
-			? paragraphEnd(lines, start + 1, endAt(lines, start + 1))
-			: endAt(lines, start + 1);
+	const end = endAt(lines, start + 1);
 	const body = lines
 		.slice(start + 1, end)
 		.join("\n")
@@ -270,19 +238,6 @@ function keptAt(
 			stretch: {
 				type: "permission",
 				permission: permissionOf(line, body) as PermissionProposal,
-			},
-			end,
-		};
-	}
-	if (proposed !== null) {
-		return {
-			stretch: {
-				type: "todo",
-				todo: {
-					id: Number(proposed[2]),
-					subject: proposed[1] as string,
-					body,
-				},
 			},
 			end,
 		};
@@ -307,28 +262,19 @@ function keptAt(
 						body,
 						source,
 					}
-				: workingTask !== null
-					? {
-							ending: "working",
-							task: workingTask[1] as string,
-							base: null,
-							reason: workingTask[2] || null,
-							body,
-							source,
-						}
-					: {
-							ending:
-								ended?.[1] !== undefined
-									? "removed"
-									: ended?.[2] !== undefined
-										? "deferred"
-										: "escalated",
-							task: ended?.[3] as string,
-							base: null,
-							reason: ended?.[4] || null,
-							body,
-							source,
-						};
+				: {
+						ending:
+							ended?.[1] !== undefined
+								? "removed"
+								: ended?.[2] !== undefined
+									? "deferred"
+									: "escalated",
+						task: ended?.[3] as string,
+						base: null,
+						reason: ended?.[4] || null,
+						body,
+						source,
+					};
 	return { stretch: { type: "report", report }, end };
 }
 
@@ -399,28 +345,6 @@ function demoHere(
 /** `lines` as one text, without blank lines at either end. */
 function trimmed(lines: string[]): string {
 	return lines.join("\n").replace(/^\n+|\s+$/g, "");
-}
-
-/**
- * The line after the first paragraph from `start`, short of `end`: a
- * proposed task's body is one sentence, so what follows it is the message
- * going on.
- */
-function paragraphEnd(lines: string[], start: number, end: number): number {
-	let begun = false;
-	let fenced = false;
-	for (let i = start; i < end; i += 1) {
-		const line = lines[i] as string;
-		if (FENCE.test(line)) {
-			fenced = !fenced;
-		}
-		if (line.trim() !== "") {
-			begun = true;
-		} else if (begun && !fenced) {
-			return i;
-		}
-	}
-	return end;
 }
 
 /**

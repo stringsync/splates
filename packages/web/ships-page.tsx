@@ -1,10 +1,10 @@
+import { age } from "@splates/server/age";
 import {
 	shipFailureReference,
 	shipSlowReference,
 } from "@splates/server/plans/browser";
 import type { CascadeSummary, StageKey } from "@splates/server/ship";
 import { shipName } from "@splates/server/ship/browser";
-import { HistoryIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { ActiveShip } from "./active-ship";
 import {
@@ -16,11 +16,14 @@ import {
 } from "./api";
 import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import { HistoryRow, PLANNER_COLUMN } from "./history-row";
+import { cn } from "./lib/utils";
 import { RouteTrail } from "./route-trail";
 import { ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
 import { useAcknowledged } from "./ship-recap-seen";
 import { ProjectStages } from "./ship-run";
+import { ShipRunningCard } from "./ship-running-card";
 import { TopBar } from "./top-bar";
 import { type Live, useLiveShips } from "./use-live-ships";
 
@@ -50,12 +53,6 @@ export function ShipsPage({
 		["done", "abandoned"].includes(live.cascade.status) &&
 		live.cascade.id !== closed &&
 		live.cascade.id !== acknowledged;
-	// Planning waits while a ship is under way or its recap is unseen: the Ship tab opens that ship.
-	useEffect(() => {
-		if (viewed === null && (busy || unacknowledged)) {
-			location.replace(`#ships/${ACTIVE}`);
-		}
-	}, [viewed, busy, unacknowledged]);
 	// A ship put away has no page left: land on the planner.
 	useEffect(() => {
 		if (
@@ -83,12 +80,9 @@ export function ShipsPage({
 							items={[
 								{
 									label: "Ship",
-									onClick:
-										viewed === ACTIVE && (busy || unacknowledged)
-											? undefined
-											: () => {
-													location.hash = "ships";
-												},
+									onClick: () => {
+										location.hash = "ships";
+									},
 								},
 								{
 									label:
@@ -101,20 +95,6 @@ export function ShipsPage({
 							]}
 						/>
 					)
-				}
-				actions={
-					viewed === null
-						? [
-								{
-									label: "History",
-									text: "History",
-									icon: <HistoryIcon />,
-									run: () => {
-										location.hash = `ships/${HISTORY}`;
-									},
-								},
-							]
-						: []
 				}
 			/>
 			{viewed === ACTIVE ? (
@@ -145,24 +125,32 @@ export function ShipsPage({
 					}
 				/>
 			) : viewed === HISTORY ? (
-				<ShipHistory cascades={past} />
+				<div className={PLANNER_COLUMN}>
+					<ShipHistory cascades={past} />
+				</div>
 			) : viewed !== null ? (
 				<PastShip id={viewed} />
 			) : (
-				<ShipPlan
-					ready={live !== null && past !== null}
-					ship={new URLSearchParams(location.search).get("ship")}
-					endedAt={live?.cascade?.ended ?? null}
-					busy={busy}
-					loading={live === null}
-					onStarted={() => {
-						setPrevious(live?.cascade?.id ?? null);
-						const url = new URL(location.href);
-						url.searchParams.delete("ship");
-						history.replaceState(null, "", url);
-						location.hash = `ships/${ACTIVE}`;
-					}}
-				></ShipPlan>
+				<div className={cn(PLANNER_COLUMN, "gap-3")}>
+					{live?.cascade != null && (busy || unacknowledged) && (
+						<ShipRunningCard cascade={live.cascade} href={`#ships/${ACTIVE}`} />
+					)}
+					<HistoryRow href={`#ships/${HISTORY}`} summary={lastShipped(past)} />
+					<ShipPlan
+						ready={live !== null && past !== null}
+						ship={new URLSearchParams(location.search).get("ship")}
+						endedAt={live?.cascade?.ended ?? null}
+						busy={busy}
+						loading={live === null}
+						onStarted={() => {
+							setPrevious(live?.cascade?.id ?? null);
+							const url = new URL(location.href);
+							url.searchParams.delete("ship");
+							history.replaceState(null, "", url);
+							location.hash = `ships/${ACTIVE}`;
+						}}
+					></ShipPlan>
+				</div>
 			)}
 		</section>
 	);
@@ -222,6 +210,12 @@ async function sendSlowShipToAgent(
 		.then((answered) => feed.answered(state.id, sending, answered))
 		.catch((error: unknown) => feed.refused(state.id, sending, error));
 	return state.id;
+}
+
+/** The History row's line: when the last ship that shipped started, if any did. */
+function lastShipped(past: CascadeSummary[] | null): string | null {
+	const last = past?.find((each) => each.status === "done");
+	return last === undefined ? null : `Last shipped ${age(last.started)} ago`;
 }
 
 /** What `#ships/active` opens: the ship under way, rather than a past one. */

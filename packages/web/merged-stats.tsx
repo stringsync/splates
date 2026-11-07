@@ -42,7 +42,7 @@ export function useLanded(
 }
 
 /**
- * How a task went once it merged, as its card's footer: its time, cost,
+ * A task's stats once it merged, as its card's footer, folded to one line: its time, cost,
  * size beside its project's usual, what the
  * gate made of it, and anything that went worse than it could have. Nothing
  * while `landed` loads.
@@ -61,9 +61,38 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 	const removed = landed.outcome.ended === "removed";
 	return (
 		<CardSection
-			label="how it went"
-			title="How it went"
-			className="border-t px-4 py-3 text-xs"
+			label="stats"
+			title="Stats"
+			className="px-4 text-xs last:pb-5"
+			peek={
+				<span className="text-sm">
+					{facts.stats.map((stat, index) => (
+						<span key={stat.label}>
+							{index > 0 && <span aria-hidden> · </span>}
+							{typeof stat.value === "string" ? (
+								stat.value
+							) : (
+								<>
+									<span className="text-success">+{stat.value.added}</span>{" "}
+									<span className="text-destructive">
+										−{stat.value.removed}
+									</span>
+								</>
+							)}
+						</span>
+					))}
+					{!removed && (
+						<>
+							<span aria-hidden> · </span>
+							{facts.gate === null ? (
+								<span className="text-success">Gate passed first try</span>
+							) : (
+								<span className="text-destructive">Gate failed</span>
+							)}
+						</>
+					)}
+				</span>
+			}
 		>
 			<div className="flex flex-col gap-3">
 				<dl className="grid grid-cols-2 gap-x-4 gap-y-2 @md:grid-cols-4">

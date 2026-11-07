@@ -135,7 +135,7 @@ export function AppNav({
 			<TabsList
 				variant="line"
 				className={cn(
-					"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-(--top-bar-height) group-data-vertical/tabs:h-dvh",
+					"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-(--top-bar-height) data-vertical:h-dvh",
 					!shown && "hidden",
 				)}
 			>
@@ -153,7 +153,16 @@ export function AppNav({
 					<PagesFold sidebar={sidebar} shown={pagesShown} />
 				)}
 				{available && snapshot !== null && (
-					<div className="-mx-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-4 pb-4">
+					// Up and Down move between these rows; the tabs around them would take the keys too.
+					// biome-ignore lint/a11y/noStaticElementInteractions: only keeps keys from the tabs
+					<div
+						className="-mx-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pt-4 pb-4"
+						onKeyDown={(event) => {
+							if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+								event.stopPropagation();
+							}
+						}}
+					>
 						<NextWaiting
 							feed={talk}
 							tasks={snapshot.tasks}

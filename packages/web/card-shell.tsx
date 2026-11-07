@@ -3,7 +3,6 @@ import {
 	ChevronRightIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
-	HourglassIcon,
 	type LucideIcon,
 	PauseIcon,
 	TriangleAlertIcon,
@@ -169,7 +168,6 @@ export const ENDINGS: Record<
 		Icon: TriangleAlertIcon,
 		tone: "warning",
 	},
-	working: { title: "Working", Icon: HourglassIcon, tone: "neutral" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
@@ -293,7 +291,7 @@ export function CardBody({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-3 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5",
+				"flex flex-col gap-0 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5",
 				className,
 			)}
 		>
@@ -306,6 +304,7 @@ export function CardBody({
 					key={i}
 					label={part.title}
 					title={part.title}
+					ruled={cut.lead !== "" || i > 0}
 				>
 					{part.body !== "" && (
 						<CardMarkdown text={part.body} className="p-0 @max-md:p-0" />

@@ -90,12 +90,7 @@ describe("App's Deferred card", () => {
 			within(card)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual([
-			"Taskupload-retry",
-			"Why it stopped",
-			"Waits on",
-			"#812 Rewrite the upload client",
-		]);
+		).toEqual(["Taskupload-retry", "#812 Rewrite the upload client"]);
 	});
 
 	it("folds to a record once the conversation went on past it", async () => {

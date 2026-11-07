@@ -1,7 +1,6 @@
 import type { TaskRecord } from "@splates/server/board/browser";
 import type { ConversationState } from "@splates/server/conversations";
 import { paused } from "@splates/server/conversations/browser";
-import type { AgentPick } from "@splates/server/models";
 import { DEFER, RESUME } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
 import { Duration } from "core/time";
@@ -19,7 +18,7 @@ import {
 	UserRoundPlusIcon,
 	WalletIcon,
 } from "lucide-react";
-import { type JSX, useCallback, useContext } from "react";
+import { type JSX, useContext } from "react";
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
@@ -30,7 +29,6 @@ import type { Action } from "./actions";
 import { Board } from "./board";
 import { ReviewChanges } from "./changes";
 import { ContinueItems } from "./continue-in-project";
-import { NEW } from "./conversation-address";
 import {
 	pauseConversation,
 	promptConversation,
@@ -41,9 +39,7 @@ import { useArchive } from "./conversation-archive";
 import { lastReport } from "./conversation-names";
 import { TakingLong } from "./countdown";
 import { deferredTask } from "./deferred-body";
-import { promptFor } from "./dispatch";
 import { Dispatching } from "./dispatching";
-import { type Drafts, newDraft } from "./drafts";
 import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import { usePendingWrites } from "./pending";
@@ -63,10 +59,8 @@ import { ToggleTerminal } from "./terminal";
 export function useThreadActions(
 	conversation: ConversationState,
 	task: Details | null,
-	drafts: Drafts,
 	refused: Refuse,
 	onLeft: () => void,
-	onOpen: (id: string) => void,
 	putBack?: () => void,
 ): ThreadActions {
 	const { id, archived } = conversation;
@@ -167,30 +161,7 @@ export function useThreadActions(
 		}
 	};
 	useShortcut("shortcuts.archive", fileByKey);
-	// A new conversation draft for todo `id`, with its assigned agent/model
-	// selected, else this conversation's agent. Nothing starts until Send.
-	const startNew = useCallback(
-		(todo: number, assignee: AgentPick | null) => {
-			const assignment = { kind: "todo", id: todo } as const;
-			if (dispatching !== null) {
-				const onRoster =
-					assignee !== null &&
-					dispatching.dispatch.agents.some(
-						(each) => each.id === assignee.agent,
-					);
-				const pick = onRoster ? assignee : { agent: conversation.agent };
-				onOpen(dispatching.dispatch.start(pick.agent, assignment, pick.model));
-				return;
-			}
-			const text = promptFor(assignment);
-			const key = newDraft(new URLSearchParams(location.search).get("project"));
-			const kept = drafts.read(key);
-			drafts.write(key, kept.trim() === "" ? text : `${text}\n\n${kept}`);
-			onOpen(`${NEW}/${conversation.agent}`);
-		},
-		[dispatching, drafts, onOpen, conversation.agent],
-	);
-	return { actions, archive, startNew };
+	return { actions, archive };
 }
 
 /** What `useThreadActions` gives a thread. */
@@ -203,8 +174,6 @@ export interface ThreadActions {
 		asks: () => boolean;
 		confirm: JSX.Element;
 	};
-	/** Drafts todo `id` in a new chat, with `assignee` selected when on the roster. */
-	startNew: (id: number, assignee: AgentPick | null) => void;
 }
 
 /** How long a pause waits on the agent's checkpoint before saying so. */

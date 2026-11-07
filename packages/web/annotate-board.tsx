@@ -31,8 +31,8 @@ const SLOP = 10;
 const MARGIN = { most: 120, share: 0.12 };
 
 const TOOLS: { tool: Tool; label: string; key: string; icon: JSX.Element }[] = [
-	{ tool: "box", label: "Box", key: "b", icon: <SquareIcon /> },
 	{ tool: "arrow", label: "Arrow", key: "a", icon: <MoveUpRightIcon /> },
+	{ tool: "box", label: "Box", key: "b", icon: <SquareIcon /> },
 ];
 
 export function AnnotateBoard({

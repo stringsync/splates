@@ -101,6 +101,49 @@ export function projectsOf(rows: ScenarioRow[]): string[] {
 	);
 }
 
+/** The name of the group for scenarios whose id has no namespace. */
+export const OTHER_GROUP = "Other";
+
+/** The namespace of a scenario id, the part before the first `/`; `Other` for an id with none. */
+export function namespaceOf(id: string): string {
+	const slash = id.indexOf("/");
+	return slash > 0 ? id.slice(0, slash) : OTHER_GROUP;
+}
+
+/** The id without its namespace, such as `focused-tests` for `resources/focused-tests`. */
+export function shortNameOf(id: string): string {
+	const slash = id.indexOf("/");
+	return slash > 0 ? id.slice(slash + 1) : id;
+}
+
+/** The rows of one namespace. */
+export interface ScenarioGroup {
+	name: string;
+	rows: ScenarioRow[];
+}
+
+/** The rows split by namespace: groups A to Z with `Other` last, and each group's rows A to Z by id. */
+export function groupRows(rows: ScenarioRow[]): ScenarioGroup[] {
+	const groups = new Map<string, ScenarioRow[]>();
+	for (const row of rows) {
+		const name = namespaceOf(row.scenario.id);
+		groups.set(name, [...(groups.get(name) ?? []), row]);
+	}
+	return [...groups]
+		.map(([name, each]) => ({
+			name,
+			rows: each.sort((left, right) =>
+				left.scenario.id.localeCompare(right.scenario.id),
+			),
+		}))
+		.sort(
+			(left, right) =>
+				Number(left.name === OTHER_GROUP) -
+					Number(right.name === OTHER_GROUP) ||
+				left.name.localeCompare(right.name),
+		);
+}
+
 /** The header line, such as `17 of 31 scenarios passing`. */
 export function summaryOf(rows: ScenarioRow[]): string {
 	const passing = rows.filter((row) => row.state.state === "passing").length;

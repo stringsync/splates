@@ -1,28 +1,12 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { TaskRecord } from "@splates/server/board";
-import type { AgentPick } from "@splates/server/models";
-import type { TaskReport, TodoProposal } from "@splates/server/plans";
-import { taskNumberReference } from "@splates/server/plans/browser";
-import {
-	ArchiveIcon,
-	ArrowRightIcon,
-	CheckIcon,
-	HourglassIcon,
-	ListPlusIcon,
-	ListTodoIcon,
-	MessageSquarePlusIcon,
-	PaperclipIcon,
-	PlayIcon,
-} from "lucide-react";
-import { createContext, type JSX, useContext } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
+import type { TaskReport } from "@splates/server/plans";
+import { type JSX, useContext } from "react";
 import { CardArchive, useArchivable } from "./archive-offer";
 import { BeforeAfter, cardRecord } from "./before-after";
 import { Board } from "./board";
-import { Badge } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
+import { ChecksSection } from "./checks-section";
 import {
 	DeferredBody,
 	deferredTask,
@@ -34,45 +18,31 @@ import { evalRoundsOf } from "./eval-rounds";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
 import { MergedStats, useLanded } from "./merged-stats";
-import { Refusal, useRefusal } from "./refusal";
-import { ReportAside } from "./report-header";
-import { TaskIcon } from "./task-icon";
-import { TaskOnto } from "./task-onto";
-import type { ReportTiming } from "./working-report-time";
+import { QueueSummaryAfter } from "./queue-summary-card";
 
 /**
  * Renders a `data-report` part as a card: how a task ended, or what it waits
  * on, as the agent reported it. A Deferred card also shows where its task
  * stands now and what is left to unblock it.
  */
-export const ReportUI = makeAssistantDataUI<{
-	report: TaskReport;
-	timing?: ReportTiming;
-}>({
+export const ReportUI = makeAssistantDataUI<{ report: TaskReport }>({
 	name: "report",
 	render: ({ data }) => (
 		<InMessage>
-			<ReportCard report={data.report} timing={data.timing} />
+			<ReportCard report={data.report} />
+			<QueueSummaryAfter report={data.report} />
 		</InMessage>
 	),
 });
 
 export function ReportCard({
 	report,
-	timing,
 }: {
 	report: TaskReport;
-	timing?: ReportTiming;
 }): JSX.Element | null {
 	const { Icon, tone } = ENDINGS[report.ending];
 	const merged = report.ending === "merged";
 	const removed = report.ending === "removed";
-	// A Working card whose time has stopped, once later words replace it,
-	// says the work is past.
-	const title =
-		report.ending === "working" && timing?.until != null
-			? "Worked"
-			: ENDINGS[report.ending].title;
 	const text = reportText(report);
 	// A Done report that ends an eval loop carries its rounds table.
 	const rounds = report.ending === "done" ? evalRoundsOf(text) : null;
@@ -106,23 +76,26 @@ export function ReportCard({
 	}
 	return (
 		<div>
+			{merged && text !== "" && (
+				// A merge's own words are the agent's, so they sit above its card.
+				<Markdown
+					text={text}
+					className="mb-3 px-1 text-sm leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+				/>
+			)}
 			<CardShell
 				label={`${report.ending} ${report.task}`.trim()}
 				Icon={Icon}
-				title={title}
+				title={ENDINGS[report.ending].title}
 				tone={tone}
-				// A Done report names no task, and a merge names its own in its body.
-				task={report.task === "" || merged ? undefined : report.task}
+				// A Done report names no task; a merge names its task and base in its header.
+				task={report.task === "" ? undefined : report.task}
 				base={report.base}
 				folded={resumed}
 				aside={
 					resumed ? (
 						<span className="text-muted-foreground text-xs">Resumed</span>
-					) : (
-						<ReportAside
-							timing={report.ending === "working" ? timing : undefined}
-						/>
-					)
+					) : undefined
 				}
 			>
 				{resumed ? (
@@ -135,26 +108,18 @@ export function ReportCard({
 					) : undefined
 				) : (
 					<>
-						{merged && (
-							<TaskOnto
-								task={report.task}
-								base={report.base}
-								merged
-								className="-mb-1.5 px-4 pt-3.5 @max-md:px-3 @max-md:pt-2.5"
-							/>
-						)}
 						{!merged && rounds !== null ? (
 							<EvalDoneBody read={rounds} lead={report.reason !== null} />
 						) : merged && record !== null ? (
-							<>
-								<BeforeAfter
-									record={record}
-									className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
-								/>
-								{text !== "" && <MergedBody text={text} outcome={undefined} />}
-							</>
+							<BeforeAfter
+								record={record}
+								folds
+								className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+							>
+								<ChecksSection text={record.checks ?? ""} />
+							</BeforeAfter>
 						) : merged ? (
-							<MergedBody text={text} outcome={landed?.outcome.outcome} />
+							<MergedBody text="" outcome={landed?.outcome.outcome} />
 						) : (
 							text !== "" && (
 								<CardBody text={text} lead={report.reason !== null} />
@@ -167,287 +132,5 @@ export function ReportCard({
 				)}
 			</CardShell>
 		</div>
-	);
-}
-
-/**
- * Starts todo `id` in a new conversation, with `assignee` when given; none
- * outside a conversation.
- */
-export const StartNewContext = createContext<
-	((id: number, assignee: AgentPick | null) => void) | null
->(null);
-
-/**
- * The reply a todo is written in: the task it ran in, when the prompt it
- * answers was sent, and when it last moved; each null where the log cannot say.
- */
-export interface Turn {
-	task: string | null;
-	began: string | null;
-	until: string | null;
-}
-
-/**
- * Renders a `data-todo` part, a run of todos proposed one after another, as
- * the cards for them. Those the reply's own task added while it ran are
- * gathered by the lane they went to, Backlog for none, under a line saying
- * so, for as long as the board has them; the rest stand alone, under "Next
- * up" when `next` says the run follows a task's end.
- */
-export const TodoUI = makeAssistantDataUI<{
-	todos: TodoProposal[];
-	turn?: Turn;
-	next?: boolean;
-}>({
-	name: "todo",
-	render: ({ data }) => (
-		<InMessage>
-			<TodoRun
-				proposals={data.todos}
-				turn={data.turn ?? null}
-				next={data.next ?? false}
-			/>
-		</InMessage>
-	),
-});
-
-/** Whether `todo` came up in `turn`'s task while it ran. */
-function addedIn(todo: TaskRecord, turn: Turn | null): boolean {
-	if (
-		turn === null ||
-		turn.task === null ||
-		todo.from !== turn.task ||
-		turn.began === null ||
-		turn.until === null
-	) {
-		return false;
-	}
-	const at = Date.parse(todo.createdAt);
-	return Date.parse(turn.began) <= at && at <= Date.parse(turn.until);
-}
-
-/**
- * `proposals` in order, each next to another added to the same lane joined
- * to it: `lane` is undefined for one not added, null for one added to none.
- */
-function gathered(
-	proposals: TodoProposal[],
-	todos: TaskRecord[],
-	turn: Turn | null,
-): { lane: number | null | undefined; proposals: TodoProposal[] }[] {
-	const groups: {
-		lane: number | null | undefined;
-		proposals: TodoProposal[];
-	}[] = [];
-	for (const proposal of proposals) {
-		const live = todos.find((each) => each.id === proposal.id);
-		const lane =
-			live !== undefined && addedIn(live, turn) ? live.lane : undefined;
-		const last = groups.at(-1);
-		if (last !== undefined && lane !== undefined && last.lane === lane) {
-			last.proposals.push(proposal);
-		} else {
-			groups.push({ lane, proposals: [proposal] });
-		}
-	}
-	return groups;
-}
-
-function TodoRun({
-	proposals,
-	turn,
-	next,
-}: {
-	proposals: TodoProposal[];
-	turn: Turn | null;
-	next: boolean;
-}): JSX.Element {
-	const board = useContext(Board);
-	const groups = gathered(proposals, board.todos, turn);
-	const first = groups.find(({ lane }) => lane === undefined);
-	return (
-		<>
-			{groups.map((group) => {
-				const { lane, proposals } = group;
-				return lane === undefined ? (
-					next && group === first ? (
-						<div key={proposals[0]?.id} className="mt-6 mb-3">
-							<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
-								<ArrowRightIcon aria-hidden className="size-3.5 text-primary" />
-								<span className="font-medium text-foreground">Next up</span>
-							</p>
-							<div className="flex flex-col gap-2">
-								{proposals.map((proposal) => (
-									<TodoCard key={proposal.id} proposal={proposal} grouped />
-								))}
-							</div>
-						</div>
-					) : (
-						proposals.map((proposal) => (
-							<TodoCard key={proposal.id} proposal={proposal} />
-						))
-					)
-				) : (
-					<div key={proposals[0]?.id} className="my-3 @max-md:my-4">
-						<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
-							<ListPlusIcon aria-hidden className="size-3.5 text-primary" />
-							<span>
-								<span className="font-medium text-foreground">
-									Added {proposals.length > 1 && `${proposals.length} `}to{" "}
-									{board.lanes.find((each) => each.id === lane)?.name ??
-										"Backlog"}
-								</span>{" "}
-								by this task
-							</span>
-						</p>
-						<div
-							className={cn(
-								"flex flex-col gap-2",
-								// A rail ties two or more cards to the line; one needs none.
-								proposals.length > 1 &&
-									"ml-[11px] border-primary/30 border-l-2 pl-3",
-							)}
-						>
-							{proposals.map((proposal) => (
-								<TodoCard key={proposal.id} proposal={proposal} grouped />
-							))}
-						</div>
-					</div>
-				);
-			})}
-		</>
-	);
-}
-
-export function TodoCard({
-	proposal,
-	grouped = false,
-}: {
-	proposal: TodoProposal;
-	/** Whether it stands in a group, which spaces it. */
-	grouped?: boolean;
-}): JSX.Element {
-	const board = useContext(Board);
-	const { reply, sent } = useCardReply();
-	const reference = taskNumberReference(proposal.id);
-	const settled = sent !== null;
-	const started = sent?.includes(reference) ?? false;
-	const live = board.todos.find((each) => each.id === proposal.id) ?? null;
-	const todo = settled ? null : live;
-	const gone = !settled && board.linked && todo === null;
-	const lane =
-		todo?.lane == null
-			? null
-			: (board.lanes.find((each) => each.id === todo.lane) ?? null);
-	const send = reply?.send ?? null;
-	const { refusal, attempt } = useRefusal();
-	const startNew = useContext(StartNewContext);
-	const open = todo !== null && todo.takenBy === null;
-	return (
-		<section
-			aria-label={`task ${proposal.id}`}
-			className={cn(
-				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
-				// On a phone, as far from the words as any card.
-				!grouped && "my-3 @max-md:my-4",
-				gone && "opacity-60",
-			)}
-		>
-			{/* On a phone the words take the icon's width, so they wrap less. */}
-			<ListTodoIcon
-				aria-hidden
-				className="mt-0.5 size-4 shrink-0 text-muted-foreground @max-md:hidden"
-			/>
-			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				{live === null ? (
-					<p className="font-medium text-sm">{proposal.subject}</p>
-				) : (
-					// Opens it while it is on the list, replied to or not.
-					<button
-						type="button"
-						onClick={() => board.open(proposal.id)}
-						className="cursor-pointer self-start rounded text-left font-medium text-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						{todo?.subject ?? proposal.subject}
-					</button>
-				)}
-				{proposal.body !== "" && (
-					<Markdown
-						text={proposal.body}
-						className="text-muted-foreground text-xs leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-					/>
-				)}
-				{/* Its buttons end the line that numbers it, rather than take a
-				    row of their own. */}
-				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-					<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-						<span className="tabular-nums">#{proposal.id}</span>
-						{lane !== null && (
-							<span title="lane" className="truncate">
-								{lane.name}
-							</span>
-						)}
-						{todo !== null && todo.blockedBy.length > 0 && (
-							<Badge Icon={HourglassIcon} label="blocked">
-								blocked by {todo.blockedBy.map((id) => `#${id}`).join(", ")}
-							</Badge>
-						)}
-						{todo !== null && todo.files.length > 0 && (
-							<Badge Icon={PaperclipIcon} label="files">
-								{todo.files.length}
-							</Badge>
-						)}
-						{todo?.takenBy != null && (
-							<Badge Icon={TaskIcon} label="taken by">
-								{todo.takenBy}
-							</Badge>
-						)}
-						{gone && (
-							<span
-								title="No longer on the list: merged or removed"
-								className="flex items-center gap-1"
-							>
-								<ArchiveIcon aria-hidden className="size-3" />
-								archived
-							</span>
-						)}
-					</span>
-					{started && (
-						<span className="flex shrink-0 items-center gap-1 text-success text-xs">
-							<CheckIcon className="size-3.5" strokeWidth={3} />
-							Started
-						</span>
-					)}
-					{open && (send !== null || startNew !== null) && (
-						<span className="flex shrink-0 items-center gap-1">
-							{send !== null && (
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={() => void attempt(send(reference), "Not started")}
-									className="gap-1.5"
-								>
-									<PlayIcon data-icon="inline-start" />
-									Start
-								</Button>
-							)}
-							{startNew !== null && (
-								<Button
-									size="sm"
-									variant="outline"
-									title="Prepare a new chat with this to-do. Review before sending."
-									onClick={() => startNew(proposal.id, todo.assignee ?? null)}
-								>
-									<MessageSquarePlusIcon data-icon="inline-start" />
-									Open in new chat
-								</Button>
-							)}
-						</span>
-					)}
-				</div>
-				<Refusal refusal={refusal} />
-			</div>
-		</section>
 	);
 }

@@ -95,8 +95,8 @@ export const scenarios: Scenario[] = [
 					const after = section(notes, "After") ?? "";
 					return (
 						after.length > 0 &&
-						after.length < 400 &&
-						!/^\s*(?:[-*]|```|!\[)/m.test(after) &&
+						after.replace(/^\s*!\[.*$/gm, "").length < 400 &&
+						!/^\s*(?:[-*]|```)/m.test(after.replace(/^\s*!\[.*$/gm, "")) &&
 						/^## After[\s\S]*?^## /m.test(notes)
 					);
 				},
@@ -243,7 +243,7 @@ export const scenarios: Scenario[] = [
 		aspect,
 		initialized: true,
 		requirement:
-			"Before asking for a review, Verification keeps the approved mock labelled Expected and gains the real result labelled Actual beside it.",
+			"Before asking for a review, Verification keeps the approved mock labelled Expected and After gains the real result.",
 		async change(repo) {
 			await repo.run([
 				"splates",
@@ -278,23 +278,26 @@ const uploadId = crypto.randomUUID();
 			);
 		},
 		message:
-			"Task upload-id is built and committed; find its worktree with splates path upload-id. Its After holds the approved sketch. Prepare it for my review: move the sketch and add what was really built to Verification as the skill asks, then ask me to review. Do not merge.",
+			"Task upload-id is built and committed; find its worktree with splates path upload-id. Its After holds the approved sketch. Prepare it for my review: move the sketch to Verification labelled Expected and show what was really built under After as the skill asks, then ask me to review. Do not merge.",
 		checks: [
 			{
 				id: "expected-and-actual",
 				about:
-					"Verification labels the approved sketch Expected and adds Actual",
+					"Verification labels the approved sketch Expected and After shows the built result",
 				live: true,
 				test: async ({ repo }) => {
 					const path = (
 						await repo.run(["splates", "path", "upload-id"])
 					).trim();
-					const after = section(
-						await readFile(join(path, "SPLATES.md"), "utf8"),
-						"Verification",
-					);
+					const notes = await readFile(join(path, "SPLATES.md"), "utf8");
+					const verification = section(notes, "Verification");
+					const after = section(notes, "After");
 					return (
-						after !== null && /expected/i.test(after) && /actual/i.test(after)
+						verification !== null &&
+						/expected/i.test(verification) &&
+						after !== null &&
+						/uploadId/.test(after) &&
+						!/expected/i.test(after)
 					);
 				},
 			},

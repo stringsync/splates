@@ -419,10 +419,7 @@ export function QuestionCards({
 									aria-label="Anything else"
 									className="min-w-0 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
 								>
-									<Markdown
-										text={more}
-										className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-									/>
+									<Markdown text={more} className="min-w-0" />
 								</fieldset>
 							)}
 						</div>

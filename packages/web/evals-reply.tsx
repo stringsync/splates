@@ -23,7 +23,7 @@ export function EvalReply({ text }: { text: string }): JSX.Element {
 			{
 				id: "eval-reply",
 				role: "assistant",
-				content: replied(text, true, { task: null, began: null, until: null }),
+				content: replied(text, true, { task: null }),
 				status: { type: "complete", reason: "stop" },
 			},
 		],

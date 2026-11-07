@@ -19,7 +19,7 @@ describe("thread-reply", () => {
 	});
 
 	test("holds a card back while the agent writes", () => {
-		const turn = { task: null, began: null, until: null };
+		const turn = { task: null };
 		expect(replied("## 🔐 Permission: run command: x", false, turn)).toEqual(
 			[],
 		);

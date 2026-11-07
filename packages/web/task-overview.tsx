@@ -44,9 +44,9 @@ export function Overview({
 					(each) => !cleared(each),
 				);
 	return (
-		<div className="flex min-w-0 flex-col gap-6 text-sm">
+		<div className="flex min-w-0 flex-col text-sm">
 			{deferred !== undefined && (
-				<CardSection label="deferral" title="Deferred">
+				<CardSection label="deferral" title="Deferred" ruled={false}>
 					<p>{deferred.why}</p>
 					{open.length > 0 && (
 						<ul className="list-disc pl-5 text-muted-foreground">
@@ -89,7 +89,6 @@ export function Overview({
 									)}
 								</>
 							}
-							defaultOpen={steps.total === 0 || steps.done < steps.total}
 						>
 							<Markdown text={plan.steps} />
 						</CardSection>

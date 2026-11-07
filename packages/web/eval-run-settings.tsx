@@ -26,7 +26,7 @@ export function EvalRunSettings({
 				}
 			/>
 			<SettingField
-				label="Budget per conversation ($)"
+				label="Budget ($ per chat)"
 				aria-label="Budget in dollars"
 				min={0.01}
 				step="any"

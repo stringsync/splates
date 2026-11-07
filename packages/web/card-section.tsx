@@ -1,54 +1,81 @@
-import { ChevronRightIcon } from "lucide-react";
-import type { JSX, ReactNode } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { HEADING } from "./markdown";
 
 /**
- * One section of a card or dialog: an underlined heading with a chevron that
- * opens and closes what is under it. `label` names the region for assistive
- * tech and tests; the button is named by `title`. `aside` sits beside the
- * heading, outside the button, so using it never folds the section. Closed,
- * the heading drops its underline so a card's own dividers are not doubled.
+ * A labelled section of a card or dialog: the `title` shows as a small-caps
+ * label beside the body, or above it in a narrow card. Pass `label` to name
+ * the region, and `aside` for a control that sits next to the title. Pass
+ * `peek` to let it fold: its title then opens and closes it, and while shut
+ * the peek, one line, stands in for the body.
  */
 export function CardSection({
 	label,
 	title,
 	aside,
-	defaultOpen = true,
+	ruled = true,
+	peek,
+	open: startsOpen = false,
 	className,
 	children,
 }: {
 	label: string;
 	title: ReactNode;
 	aside?: ReactNode;
-	defaultOpen?: boolean;
+	/** Whether a hairline sits above it; false for a card's first section. */
+	ruled?: boolean;
+	/** What it shows while folded; leave it out for a section that never folds. */
+	peek?: ReactNode;
+	/** Whether a section that folds starts open. */
+	open?: boolean;
 	className?: string;
 	children: ReactNode;
 }): JSX.Element {
+	const [open, setOpen] = useState(startsOpen);
+	const folds = peek !== undefined;
+	const shut = folds && !open;
+	const toggle = () => setOpen((was) => !was);
 	return (
-		<Collapsible
-			defaultOpen={defaultOpen}
-			render={<section aria-label={label} />}
-			className={cn("group/section min-w-0", className)}
+		<section
+			aria-label={label}
+			className={cn(
+				"grid min-w-0 gap-x-6 gap-y-2 py-5 last:pb-0 @md:grid-cols-[6.5rem_1fr]",
+				ruled ? "border-t" : "pt-0",
+				className,
+			)}
 		>
 			<h2
 				className={cn(
-					HEADING,
-					"mt-0 mb-0 flex min-h-7 items-center gap-2 group-not-data-[open]/section:border-transparent pointer-coarse:min-h-10",
+					"flex flex-wrap items-center gap-2 font-semibold text-[0.7rem] text-muted-foreground uppercase leading-relaxed tracking-[0.08em] @md:flex-col @md:items-start @md:gap-1",
+					folds && open && "text-foreground",
 				)}
 			>
-				<CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-					<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-150 group-data-[open]/section:rotate-90" />
-					{title}
-				</CollapsibleTrigger>
+				{folds ? (
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={toggle}
+						className="cursor-pointer text-left uppercase tracking-[inherit] hover:text-foreground"
+					>
+						{title}
+					</button>
+				) : (
+					title
+				)}
 				{aside}
 			</h2>
-			<CollapsibleContent className="pt-2">{children}</CollapsibleContent>
-		</Collapsible>
+			{shut ? (
+				<button
+					type="button"
+					tabIndex={-1}
+					aria-hidden
+					onClick={toggle}
+					className="block min-w-0 cursor-pointer truncate text-left text-muted-foreground leading-relaxed hover:text-foreground"
+				>
+					{peek}
+				</button>
+			) : (
+				<div className="min-w-0 leading-relaxed">{children}</div>
+			)}
+		</section>
 	);
 }

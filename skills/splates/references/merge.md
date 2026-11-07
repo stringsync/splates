@@ -15,7 +15,7 @@ When what remains is several tasks, add a lane of them (see
 [queue.md](queue.md), Asking the user to queue) and end your reply with its
 queue card; merge only once the After is true or rewritten to what landed.
 
-- **Merge** work you verified yourself, its evidence under `## Verification`
+- **Merge** work you verified yourself, its result pictures under `## After` and other evidence under `## Verification`
   (see SPLATES.md in the skill). This is the default, and the usual end of a small change.
 - **Ask for a review**, with a demo (see [Demos](demos.md)), when the change is invasive
   (it reworks how something the user relies on works, or touches much of the

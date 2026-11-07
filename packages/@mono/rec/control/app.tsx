@@ -2,7 +2,9 @@ import { ReactiveExternalStore, useExternalStore } from "core/react";
 import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import {
 	AlertTriangle,
+	Check,
 	Circle,
+	Copy,
 	Highlighter,
 	Laser,
 	Mic,
@@ -14,8 +16,9 @@ import {
 	Timer,
 	type Wifi,
 	WifiOff,
+	X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { Capture, PanelState, SignalItem } from "./capture";
 import { Button } from "./components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader } from "./components/ui/empty";
@@ -43,11 +46,14 @@ export function App({ capture }: { capture: Capture }) {
 	return (
 		<TooltipProvider>
 			<div className="flex h-full flex-col">
-				<div
-					className="shrink-0 truncate border-b px-3 py-3 font-mono text-sm"
-					title={state.name}
-				>
-					{state.name ?? "Connecting…"}
+				<div className="flex shrink-0 items-center gap-1 border-b py-1.5 pr-1.5 pl-3">
+					<span
+						className="min-w-0 flex-1 truncate font-mono text-sm"
+						title={state.name}
+					>
+						{state.name ?? "Connecting…"}
+					</span>
+					{state.name ? <CopyNameButton name={state.name} /> : null}
 				</div>
 				{state.signals.length > 0 ? (
 					<ul className="flex-1 divide-y overflow-y-auto">
@@ -78,6 +84,7 @@ export function App({ capture }: { capture: Capture }) {
 						{state.status}
 					</p>
 				)}
+				<SaveResult state={state} />
 				<div className="flex items-center gap-2 border-t px-3 py-3">
 					<Clock state={state} />
 					<MicIndicator state={state} capture={capture} />
@@ -105,6 +112,81 @@ export function App({ capture }: { capture: Capture }) {
 				</div>
 			</div>
 		</TooltipProvider>
+	);
+}
+
+/** Copies the recording's name to the clipboard, showing a check for a moment. */
+function CopyNameButton({ name }: { name: string }) {
+	const [copied, setCopied] = useState(false);
+	useEffect(() => {
+		if (!copied) {
+			return;
+		}
+		const id = setTimeout(() => setCopied(false), 1500);
+		return () => clearTimeout(id);
+	}, [copied]);
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label="Copy name"
+					onClick={() => {
+						navigator.clipboard.writeText(name).then(() => setCopied(true));
+					}}
+				>
+					{copied ? <Check /> : <Copy />}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>{copied ? "Copied" : "Copy name"}</TooltipContent>
+		</Tooltip>
+	);
+}
+
+/** Where the last recording was saved, or why it was not, each with a way to copy it. */
+function SaveResult({ state }: { state: PanelState }) {
+	const [copied, setCopied] = useState(false);
+	const failed = state.saveFailed !== undefined;
+	const text = state.saveFailed ?? state.saved;
+	if (text === undefined) {
+		return null;
+	}
+	return (
+		<div className="mx-3 mb-3 rounded-md bg-secondary px-3 py-2 text-xs">
+			<div className="flex items-center gap-2">
+				{failed ? (
+					<X className="size-4 shrink-0 text-destructive" />
+				) : (
+					<Check className="size-4 shrink-0 text-success" />
+				)}
+				<span className="flex-1 font-medium">
+					{failed ? "Not saved" : "Saved"}
+				</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={() => {
+						void navigator.clipboard.writeText(text).then(() => {
+							setCopied(true);
+							timer.setTimeout(() => setCopied(false), Duration.ms(2000));
+						});
+					}}
+				>
+					<Copy />
+					{copied ? "Copied" : "Copy"}
+				</Button>
+			</div>
+			{/* A break opportunity after each slash keeps a path from splitting mid-word. */}
+			<p className="break-words font-mono text-muted-foreground">
+				{text.split(/(?<=\/)/).map((part, index) => (
+					<Fragment key={index}>
+						{index > 0 && <wbr />}
+						{part}
+					</Fragment>
+				))}
+			</p>
+		</div>
 	);
 }
 

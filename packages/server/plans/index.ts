@@ -4,7 +4,6 @@ export type {
 	Review,
 	Stretch,
 	TaskReport,
-	TodoProposal,
 } from "./asked";
 export { stretches } from "./asked";
 export { decided, keptDecisions, madeByYou } from "./decided";

@@ -68,14 +68,14 @@ export function Media({
 				{...{ [ITEM]: JSON.stringify(shown) }}
 				aria-label={`expand ${alt || "image"}`}
 				onClick={open}
-				className="my-2 block w-fit max-w-full cursor-zoom-in rounded-md"
+				className="my-2 block w-fit max-w-full cursor-zoom-in rounded-md max-md:w-full"
 			>
 				<img
 					src={url}
 					alt={alt}
 					loading="lazy"
 					onError={() => setFailed(true)}
-					className="block max-h-96 max-w-full rounded-md border"
+					className="block max-h-96 max-w-full rounded-md border max-md:h-36 max-md:w-full max-md:object-cover max-md:object-top"
 				/>
 			</button>
 			{lightbox}

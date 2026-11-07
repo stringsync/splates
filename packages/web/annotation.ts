@@ -37,7 +37,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<AnnotationEvents>();
 	readonly events = this.dispatcher.events;
 
-	tool: Tool = "box";
+	tool: Tool = "arrow";
 	/** The mark whose note is open, by index. */
 	selected: number | null = null;
 	/** The mark being dragged out, not yet among `marks`. */

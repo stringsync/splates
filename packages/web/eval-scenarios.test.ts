@@ -6,9 +6,11 @@ import type {
 import {
 	countStates,
 	filterRows,
+	groupRows,
 	passCount,
 	projectsOf,
 	rowsOf,
+	shortNameOf,
 	summaryOf,
 } from "./eval-scenarios";
 
@@ -99,3 +101,27 @@ function fixture(): {
 		],
 	};
 }
+
+test("groups by namespace A to Z with Other last, rows A to Z, and shortens names", () => {
+	const rows = rowsOf(
+		[
+			{ id: "solo", group: null, about: null },
+			{ id: "b/two", group: null, about: null },
+			{ id: "a/zed", group: null, about: null },
+			{ id: "b/one", group: null, about: null },
+		],
+		[],
+	);
+	expect(
+		groupRows(rows).map((group) => [
+			group.name,
+			group.rows.map((row) => row.scenario.id),
+		]),
+	).toEqual([
+		["a", ["a/zed"]],
+		["b", ["b/one", "b/two"]],
+		["Other", ["solo"]],
+	]);
+	expect(shortNameOf("resources/focused-tests")).toBe("focused-tests");
+	expect(shortNameOf("solo")).toBe("solo");
+});

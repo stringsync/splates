@@ -52,13 +52,14 @@ describe("App's report cards", () => {
 		const merged = await waitFor(() =>
 			within(view).getByRole("region", { name: "merged header" }),
 		);
-		// Titled Done like any finished work, with what merged where in its body.
+		// Titled Done like any finished work, with what merged where in its header.
 		expect(within(merged).getByRole("banner").textContent).toContain("Done");
-		expect(within(merged).getByRole("banner").textContent).not.toContain(
-			"header",
+		expect(within(merged).getByRole("banner").textContent).toContain(
+			"Taskheaderontomain",
 		);
-		expect(merged.textContent).toContain("MergedTaskheaderontomain");
-		expect(merged.textContent).toContain("The header wraps now.");
+		// The agent's own words sit above the card, not in it.
+		expect(merged.textContent).not.toContain("The header wraps now.");
+		expect(within(view).getByText("The header wraps now.")).not.toBeNull();
 		const removed = within(view).getByRole("region", {
 			name: "removed footer",
 		});
@@ -69,31 +70,6 @@ describe("App's report cards", () => {
 		});
 		expect(escalated.textContent).toContain("needs a call on the width");
 		expect(view.textContent).not.toContain("## ✅");
-	});
-
-	it("shows a working report as a card, offering no archive while it works", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				messages: [
-					message(
-						"agent",
-						[
-							"## ⏳ Working header: on Claude Sonnet 5.5",
-							"",
-							"Every step is planned, so a cheaper model takes it.",
-						].join("\n"),
-					),
-				],
-			}),
-		]);
-
-		const working = await waitFor(() =>
-			view.getByRole("region", { name: "working header" }),
-		);
-		expect(working.textContent).toContain("Working");
-		expect(working.textContent).toContain("on Claude Sonnet 5.5");
-		expect(working.textContent).toContain("a cheaper model takes it");
-		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
 	it("shows an old ask to hand off as a line naming the agent and model", async () => {
@@ -248,7 +224,7 @@ describe("App's report cards", () => {
 		}
 	});
 
-	it("opens a merged card with how its task went already in it, so it never grows", async () => {
+	it("opens a merged card with its stats already in it, so it never grows", async () => {
 		testing.landed.header = {
 			outcome: {
 				project: "/repo",
@@ -279,12 +255,12 @@ describe("App's report cards", () => {
 		expect(
 			within(view.getByRole("region", { name: "merged header" })).getByRole(
 				"region",
-				{ name: "how it went" },
+				{ name: "stats" },
 			),
 		).not.toBeNull();
 	});
 
-	it("shows under a merged card how its task went beside the project's usual, the gate's word and what went wrong", async () => {
+	it("shows under a merged card its stats beside the project's usual, the gate's word and what went wrong, folded to one line", async () => {
 		testing.landed.header = {
 			outcome: {
 				project: "/repo",
@@ -321,10 +297,13 @@ describe("App's report cards", () => {
 		const went = await waitFor(() =>
 			within(view.getByRole("region", { name: "merged header" })).getByRole(
 				"region",
-				{ name: "how it went" },
+				{ name: "stats" },
 			),
 		);
 		expect(went.textContent).toContain("+40 −3");
+		expect(went.textContent).toContain("Gate failed");
+		expect(within(went).queryByRole("list", { name: "gate" })).toBeNull();
+		fireEvent.click(within(went).getByRole("button", { name: "Stats" }));
 		expect(
 			within(went).getByRole("list", { name: "gate" }).textContent,
 		).toContain("Conflicted in header.ts");

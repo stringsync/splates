@@ -1,4 +1,9 @@
-import type { RecMoment, RecSessionDetail } from "@splates/server/rec/browser";
+import type {
+	RecEntryKind,
+	RecMoment,
+	RecSessionDetail,
+	RecTimelineEntry,
+} from "@splates/server/rec/browser";
 import { REC_STORE_POLICY } from "@splates/server/rec/browser";
 import {
 	CopyIcon,
@@ -68,15 +73,14 @@ export function RecSession({
 			<Skeleton className="h-40 w-full animate-pulse" />
 		);
 	}
-	const seek = (moment: RecMoment) => {
+	const seekSeconds = (seconds: number) => {
 		if (video.current !== null) {
-			video.current.currentTime = Math.max(
-				0,
-				(moment.start - session.startedAt) / 1000,
-			);
+			video.current.currentTime = Math.max(0, seconds);
 			void video.current.play().catch(() => {});
 		}
 	};
+	const seek = (moment: RecMoment) =>
+		seekSeconds((moment.start - session.startedAt) / 1000);
 	const attempt = (work: () => Promise<void>) =>
 		work().then(
 			() => setProblem(null),
@@ -161,13 +165,10 @@ export function RecSession({
 					<Moments session={session} seek={seek} />
 				</TabsContent>
 				<TabsContent value="timeline">
-					{session.timeline === undefined ? (
-						<p className="text-muted-foreground text-sm">No timeline.</p>
-					) : (
-						<pre className="overflow-auto whitespace-pre-wrap rounded-lg border bg-card p-3 text-xs">
-							{session.timeline}
-						</pre>
-					)}
+					<Timeline
+						entries={session.entries}
+						seekTo={(seconds) => seekSeconds(seconds)}
+					/>
 				</TabsContent>
 				<TabsContent value="stills">
 					{session.stills.length === 0 ? (
@@ -375,6 +376,87 @@ function Moments({
 					);
 				})}
 		</ul>
+	);
+}
+
+const KIND_ORDER: RecEntryKind[] = [
+	"said",
+	"remark",
+	"pointer",
+	"route",
+	"console",
+	"network",
+	"server",
+];
+
+/** Moments, pointers, routes and log lines in one column of video time; tap a row to seek. */
+function Timeline({
+	entries,
+	seekTo,
+}: {
+	entries: RecTimelineEntry[];
+	seekTo: (seconds: number) => void;
+}): JSX.Element {
+	const [hidden, setHidden] = useState<Set<RecEntryKind>>(new Set());
+	if (entries.length === 0) {
+		return <p className="text-muted-foreground text-sm">No timeline.</p>;
+	}
+	const kinds = KIND_ORDER.filter((kind) =>
+		entries.some((entry) => entry.kind === kind),
+	);
+	const shown = entries.filter((entry) => !hidden.has(entry.kind));
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="flex flex-wrap gap-1.5">
+				{kinds.map((kind) => (
+					<button
+						key={kind}
+						type="button"
+						aria-pressed={!hidden.has(kind)}
+						onClick={() =>
+							setHidden((before) => {
+								const next = new Set(before);
+								if (!next.delete(kind)) {
+									next.add(kind);
+								}
+								return next;
+							})
+						}
+						className="rounded-full border px-2 py-0.5 text-xs aria-pressed:bg-muted aria-pressed:font-medium"
+					>
+						{kind}
+					</button>
+				))}
+			</div>
+			<ul className="flex flex-col divide-y rounded-lg border bg-card px-3">
+				{shown.map((entry, index) => (
+					<li
+						// biome-ignore lint/suspicious/noArrayIndexKey: entries have no id and never reorder
+						key={index}
+					>
+						<button
+							type="button"
+							onClick={() => seekTo(entry.at)}
+							className={`flex w-full min-w-0 gap-2 py-2 text-left text-sm ${
+								entry.error
+									? "border-red-600 border-l-2 pl-2 text-red-600 dark:text-red-400"
+									: ""
+							} ${entry.kind === "said" || entry.kind === "remark" ? "font-medium" : ""}`}
+						>
+							<span className="w-12 shrink-0 pt-0.5 font-mono text-muted-foreground text-xs tabular-nums">
+								{clock(entry.at)}
+							</span>
+							<span className="min-w-0">
+								<span className="mr-1.5 rounded bg-muted px-1 text-[10px] text-muted-foreground uppercase">
+									{entry.kind}
+								</span>
+								<span className="break-words">{entry.text}</span>
+							</span>
+						</button>
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 }
 

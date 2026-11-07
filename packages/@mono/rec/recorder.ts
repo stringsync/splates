@@ -5,6 +5,7 @@ import type { WallClock } from "core/time";
 import type { Cdp } from "./cdp";
 import { controlRoutes } from "./control/build";
 import { ExtraLogs } from "./extra-logs";
+import { LastOutcome } from "./last-outcome";
 import { LiveSignals } from "./live-signals";
 import { BrowserLogs, CONSOLE_LOG, NETWORK_LOG } from "./logs";
 import { MIC_PAGE } from "./mic-page";
@@ -75,6 +76,7 @@ export class RecorderServer {
 	private laserOn = false;
 	private run: Run | undefined;
 	private last: SessionFolder | undefined;
+	private readonly outcome = new LastOutcome();
 	private began: (started: Extract<ToServer, { type: "started" }>) => void =
 		() => {};
 	/** Resolves once the control window's recorder has first started. */
@@ -135,6 +137,7 @@ export class RecorderServer {
 					return Response.json({
 						name: this.currentName,
 						recording: this.recordingNow,
+						...this.outcome.fields(),
 						...(run && {
 							startedAt: run.started.at,
 							mic: run.started.mic === undefined ? "off" : "on",
@@ -362,18 +365,24 @@ export class RecorderServer {
 
 	/** Saves a run once, as soon as the control window reports it stopped. */
 	private save(run: Run): Promise<Manifest> {
-		run.saved ??= (async () => {
-			const stats = await run.done;
-			if (this.run === run) {
-				this.run = undefined;
-				this.laserOn = false;
-			}
-			const manifest = await this.finalize(run, stats);
-			this.last = run.session;
-			this.say({ type: "saved", dir: run.session.dir });
-			this.onSaved(run.session.dir, manifest);
-			return manifest;
-		})();
+		run.saved ??= this.outcome.track(
+			async () => {
+				const stats = await run.done;
+				if (this.run === run) {
+					this.run = undefined;
+					this.laserOn = false;
+				}
+				const manifest = await this.finalize(run, stats).catch((why) => {
+					this.say({ type: "save-failed", message: String(why) });
+					throw why;
+				});
+				this.last = run.session;
+				this.say({ type: "saved", dir: run.session.dir });
+				this.onSaved(run.session.dir, manifest);
+				return manifest;
+			},
+			() => this.currentName,
+		);
 		return run.saved;
 	}
 
@@ -427,12 +436,7 @@ export class RecorderServer {
 				events: EVENTS_FILE,
 				moments: MOMENTS_JSONL,
 				frames: FRAMES_DIR,
-				...Object.fromEntries(
-					Object.entries(run.extra?.files ?? {}).map(([name, file]) => [
-						name,
-						file,
-					]),
-				),
+				...run.extra?.files,
 			},
 		);
 	}
@@ -473,10 +477,6 @@ export class RecorderServer {
 
 	private say(message: ToControl): void {
 		this.socket?.send(JSON.stringify(message));
-	}
-
-	private async pickDir(): Promise<string> {
-		return typeof this.dir === "string" ? this.dir : await this.dir();
 	}
 
 	private receive(message: string | Buffer): void {
@@ -522,7 +522,8 @@ export class RecorderServer {
 				this.run = fresh;
 				this.began(said);
 				fresh.writing = (async () => {
-					const dir = await this.pickDir();
+					const dir =
+						typeof this.dir === "string" ? this.dir : await this.dir();
 					fresh.session = new SessionFolder(
 						this.deps.fs,
 						dir,

@@ -1,4 +1,4 @@
-import { type JSX, useMemo, useState } from "react";
+import { type JSX, type ReactNode, useMemo, useState } from "react";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -13,6 +13,8 @@ import { planParts } from "./task-plan-parts";
 export interface CardRecord {
 	before: string;
 	after: string;
+	/** Its `## Checks`, what was verified and what was not; "" or absent when none. */
+	checks?: string;
 }
 
 /**
@@ -24,38 +26,65 @@ export function cardRecord(plan: string | null | undefined): CardRecord | null {
 	const parts = planParts(plan ?? null);
 	const before = withoutHints(parts.before);
 	const after = withoutHints(parts.goal);
-	return before === "" && after === "" ? null : { before, after };
+	const checks = withoutHints(parts.checks);
+	return before === "" && after === "" ? null : { before, after, checks };
 }
 
 /**
  * A record's opening: Before and After stacked as two sections, each under a
  * level-two heading, its words following its own picture. An After with both Expected and
- * Actual switches between them, opening on Actual.
+ * Actual switches between them, opening on Actual. Pass `folds` to let each
+ * fold to its first line; both start open. `children` follow After as
+ * sections of the same record.
  */
 export function BeforeAfter({
 	record,
+	folds = false,
 	className,
+	children,
 }: {
 	record: CardRecord;
+	folds?: boolean;
 	className?: string;
+	children?: ReactNode;
 }): JSX.Element {
 	const before = useMemo(() => sideOf(record.before), [record.before]);
 	const after = useMemo(() => sideOf(record.after), [record.after]);
 	return (
 		<div className={cn("@container min-w-0 text-sm", className)}>
-			<div className="flex min-w-0 flex-col gap-6">
-				{record.before !== "" && <Column label="Before" side={before} />}
-				{record.after !== "" && <Column label="After" side={after} />}
+			<div className="flex min-w-0 flex-col gap-0">
+				<Column label="Before" side={before} ruled={false} folds={folds} />
+				<Column label="After" side={after} ruled folds={folds} />
+				{children}
 			</div>
 		</div>
 	);
+}
+
+/** `text` as one line of plain words, its markdown marks dropped. */
+export function plainLine(text: string): string {
+	return text
+		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/[`*_]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
 }
 
 function withoutHints(text: string): string {
 	return text.replace(/<!--[\s\S]*?-->/g, "").trim();
 }
 
-function Column({ label, side }: { label: string; side: Side }): JSX.Element {
+function Column({
+	label,
+	side,
+	ruled,
+	folds,
+}: {
+	label: string;
+	side: Side;
+	ruled: boolean;
+	folds: boolean;
+}): JSX.Element {
 	const holds = (each: Variant) =>
 		side.variants[each].pictures.length + side.variants[each].words.length > 0;
 	const both = holds("expected") && holds("actual");
@@ -66,7 +95,10 @@ function Column({ label, side }: { label: string; side: Side }): JSX.Element {
 	const [line, ...rest] = [...side.words, ...side.variants[shown].words];
 	return (
 		<CardSection
+			ruled={ruled}
 			label={label.toLowerCase()}
+			peek={folds ? plainLine(line ?? "Empty") : undefined}
+			open
 			title={
 				<span>
 					{label}
@@ -104,6 +136,9 @@ function Column({ label, side }: { label: string; side: Side }): JSX.Element {
 			}
 		>
 			<div className="flex min-w-0 flex-col gap-2">
+				{pictures.length === 0 && line === undefined && (
+					<p className="m-0 text-muted-foreground italic">Empty</p>
+				)}
 				{pictures.length > 0 && (
 					<div className="min-w-0">
 						<Markdown text={pictures.join("\n\n")} />

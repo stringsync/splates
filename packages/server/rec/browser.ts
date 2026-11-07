@@ -14,6 +14,10 @@ export interface RecStatus {
 	startedAt?: number;
 	mic?: "on" | "off";
 	laser?: boolean;
+	/** How the last recording ended; absent before one has, and from an older rec. */
+	lastOutcome?:
+		| { status: "saved"; name: string }
+		| { status: "failed"; reason: string };
 }
 
 /** What the Rec page shows. */
@@ -22,6 +26,12 @@ export interface RecState {
 	available: boolean;
 	/** The machine Chrome opens on. */
 	host: string;
+	/**
+	 * Whether the page asking is open on that machine, so the Chrome rec
+	 * opens is in front of whoever pressed Rec; false through a tunnel.
+	 * `/api/rec` sets it from the request's Host.
+	 */
+	here?: boolean;
 	status: RecStatus;
 	/** Running Docker containers; log files are the person's to add. */
 	sources: RecSource[];
@@ -63,6 +73,10 @@ export interface RecSessions {
 	policy: string;
 }
 
+import type { RecTimelineEntry } from "./timeline.ts";
+
+export type { RecEntryKind, RecTimelineEntry } from "./timeline.ts";
+
 /** A moment of a session, times in wall-clock ms like the rest of rec's files. */
 export interface RecMoment {
 	rank: number;
@@ -86,6 +100,8 @@ export interface RecSessionDetail extends RecSessionSummary {
 	momentList: RecMoment[];
 	/** The timeline file's text. */
 	timeline?: string;
+	/** Moments, pointers, routes and log lines together, in video time. */
+	entries: RecTimelineEntry[];
 	/** File names, each served under the session. */
 	stills: string[];
 	logs: string[];

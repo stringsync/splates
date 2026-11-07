@@ -37,6 +37,10 @@ export interface RecStatus {
 	mic?: "on" | "off";
 	/** While recording: whether the laser trail is drawing (Option held). */
 	laser?: boolean;
+	/** How the last recording ended; absent before one has, and from an older rec. */
+	lastOutcome?:
+		| { status: "saved"; name: string }
+		| { status: "failed"; reason: string };
 }
 
 /** Whether rec is running, and if so the session's name and whether it is recording. */
@@ -56,6 +60,7 @@ async function readStatus(fs: Fs, home: string): Promise<RecStatus> {
 			startedAt?: number;
 			mic?: "on" | "off";
 			laser?: boolean;
+			lastOutcome?: RecStatus["lastOutcome"];
 		};
 		return {
 			running: true,
@@ -64,6 +69,7 @@ async function readStatus(fs: Fs, home: string): Promise<RecStatus> {
 			startedAt: body.startedAt,
 			mic: body.mic,
 			laser: body.laser,
+			lastOutcome: body.lastOutcome,
 		};
 	} catch {
 		// The file outlived a rec that crashed.

@@ -450,7 +450,7 @@ const AFTER_HINT =
  * The plan a fresh task starts with: `## Before` and `## After`, empty but for
  * a hint each, or filled from the words it was given. Words with their own
  * `## Before` and `## After` (a queued task written that way) are lifted into
- * place; of other words only the first paragraph is After, which the agent
+ * place; either way only the first paragraph is After, which the agent
  * sharpens after its first look, and the rest is `## Details`.
  * Its agent adds `## Next` when the work takes several commits.
  */
@@ -465,8 +465,11 @@ function PLAN(task: string, words: string | null): string {
 		const md = Markdown.parse(words);
 		if (md.has("Before") || md.has("After")) {
 			before = md.has("Before") ? md.section("Before").body.trim() : "";
-			after = md.has("After") ? md.section("After").body.trim() : "";
-			details = "";
+			const [line = "", ...more] = (
+				md.has("After") ? md.section("After").body.trim() : ""
+			).split(/\n\s*\n/);
+			after = line;
+			details = more.join("\n\n");
 		}
 	}
 	const plan = new MarkdownWriter()

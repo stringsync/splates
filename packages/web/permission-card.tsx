@@ -32,7 +32,7 @@ import { placeKey } from "./project-places";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
 import { SplatesEvent } from "./splates-event";
-import { stageOf } from "./todo-queue";
+import { QueueToggle, stageOf } from "./todo-queue";
 
 /**
  * Shows what an agent asks you to allow, such as queueing work, removing a
@@ -251,10 +251,13 @@ function OtherQueueCard({
  * Queuing a lane's tasks or tasks one by one of this project's, shown where
  * it lands: the queue as it stands, then the card's tasks joining it.
  */
-function OwnQueueCard({
+export function OwnQueueCard({
 	proposal,
+	perTask = false,
 }: {
 	proposal: PermissionProposal;
+	/** Gives each task its own queue button beside the card's Queue all. */
+	perTask?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -293,6 +296,7 @@ function OwnQueueCard({
 					board={board.todos}
 					whole={whole}
 					onOpen={board.open}
+					perTask={perTask}
 				/>
 			)}
 		</ActionCard>
@@ -316,11 +320,13 @@ function QueuePanel({
 	board,
 	whole,
 	onOpen,
+	perTask = false,
 }: {
 	todos: readonly TaskRecord[];
 	board: readonly TaskRecord[];
 	whole: boolean;
 	onOpen: (id: number) => void;
+	perTask?: boolean;
 }): JSX.Element {
 	return (
 		<Panel>
@@ -331,6 +337,7 @@ function QueuePanel({
 					board={board}
 					whole={whole}
 					onOpen={onOpen}
+					perTask={perTask}
 				/>
 			))}
 		</Panel>
@@ -343,11 +350,13 @@ function QueueItem({
 	board,
 	whole,
 	onOpen,
+	perTask,
 }: {
 	todo: TaskRecord;
 	board: readonly TaskRecord[];
 	whole: boolean;
 	onOpen: (id: number) => void;
+	perTask: boolean;
 }): JSX.Element {
 	const stage = stageOf(todo);
 	if (stage === "running" || stage === "queued") {
@@ -358,6 +367,7 @@ function QueueItem({
 				status={stage}
 				tone="quiet"
 				onOpen={onOpen}
+				perTask={perTask}
 			/>
 		);
 	}
@@ -384,6 +394,7 @@ function QueueItem({
 			}
 			tone="plain"
 			onOpen={onOpen}
+			perTask={perTask}
 		/>
 	);
 }
@@ -434,8 +445,10 @@ function Row({
 	status,
 	tone,
 	onOpen,
+	perTask,
 }: {
 	todo: TaskRecord;
+	perTask?: boolean;
 	Icon: LucideIcon;
 	/** Left off for a task with nothing to say. */
 	status?: string;
@@ -464,6 +477,7 @@ function Row({
 			{status !== undefined && (
 				<span className={cn("shrink-0 text-xs", toned)}>{status}</span>
 			)}
+			{perTask && <QueueToggle todo={todo} />}
 		</li>
 	);
 }

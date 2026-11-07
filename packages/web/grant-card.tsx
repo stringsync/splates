@@ -117,7 +117,11 @@ export function GrantCard({
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
 			{!granted && !denied && send !== null ? (
 				<div ref={panel} className="border-t px-4 py-4">
-					<CardSection label="Anything else section" title="Anything else?">
+					<CardSection
+						label="Anything else section"
+						title="Anything else?"
+						ruled={false}
+					>
 						<CardBox
 							aria-label="Anything else"
 							value={more}

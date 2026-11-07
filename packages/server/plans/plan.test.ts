@@ -59,7 +59,7 @@ describe("checkPlan", () => {
 	it("flags a ## Done left from before the git log kept steps done", () => {
 		const old = GOOD.replace("## Next", "## Done\n- [x] wrote it\n\n## Next");
 		expect(checkPlan(old, { task: "alpha" })).toEqual([
-			'unexpected section "## Done" (line 9): keep to Before, After, Details, Next, Blocked',
+			'unexpected section "## Done" (line 9): keep to Before, After, Details, Next, Checks, Blocked',
 		]);
 	});
 
@@ -118,6 +118,12 @@ Open the card.
 	it("keeps Before and After as the outcome of a plan without the section", () => {
 		expect(outcomeOf(GOOD)).toBe(
 			"## Before\n\nshow checks nothing about the plan.\n\n## After\n\nTeach show to check the plan.",
+		);
+	});
+
+	it("keeps Checks beside Before and After", () => {
+		expect(outcomeOf(`${GOOD}## Checks\n\n- [x] Tests pass\n`)).toBe(
+			"## Before\n\nshow checks nothing about the plan.\n\n## After\n\nTeach show to check the plan.\n\n## Checks\n\n- [x] Tests pass",
 		);
 	});
 

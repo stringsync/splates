@@ -39,6 +39,10 @@ export interface PanelState {
 	signals: SignalItem[];
 	/** A line for the person: where a session was saved, what failed, what to allow. */
 	status?: string;
+	/** The folder the last session was saved to, until the next Start. */
+	saved?: string;
+	/** Why the last session could not be saved, until the next Start. */
+	saveFailed?: string;
 }
 
 /**
@@ -131,7 +135,12 @@ export class Capture implements Eventful<{ change: PanelState }> {
 
 	/** Starts recording, from the staged panel or as soon as it opens. */
 	start(): void {
-		this.set({ phase: "starting", status: undefined });
+		this.set({
+			phase: "starting",
+			status: undefined,
+			saved: undefined,
+			saveFailed: undefined,
+		});
 		this.begin().catch((error: unknown) => {
 			this.say({ type: "failed", message: String(error) });
 			this.recorder = undefined;
@@ -201,7 +210,13 @@ export class Capture implements Eventful<{ change: PanelState }> {
 			if (message.type === "name") {
 				this.set({ name: message.name });
 			} else if (message.type === "saved") {
-				this.set({ phase: "staged", status: `Saved to ${message.dir}` });
+				this.set({ phase: "staged", status: undefined, saved: message.dir });
+			} else if (message.type === "save-failed") {
+				this.set({
+					phase: "staged",
+					status: undefined,
+					saveFailed: message.message,
+				});
 			} else if (message.type === "stop") {
 				void this.stop();
 			} else if (message.type === "laser") {

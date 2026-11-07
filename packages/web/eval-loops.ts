@@ -124,31 +124,3 @@ export function loopLabel(conversation: ConversationState | undefined): string {
 	}
 	return conversation.status === "failed" ? "Loop failed" : "Loop stopped";
 }
-
-/** All unarchived conversations started for evals or containing an eval run card. */
-export function useEvalConversations(
-	feed: ConversationFeed | null,
-): ConversationState[] {
-	const [conversations, setConversations] = useState(feed?.conversations ?? []);
-	useEffect(() => {
-		setConversations(feed?.conversations ?? []);
-		return feed?.events.on("changed", () =>
-			setConversations(feed.conversations),
-		);
-	}, [feed]);
-	return conversations.filter(
-		(conversation) =>
-			!conversation.archived &&
-			(loopTarget(conversation, true) !== null ||
-				conversation.evaluating === true ||
-				conversation.messages.some(
-					(message) =>
-						message.role === "agent" &&
-						message.parts.some(
-							(part) =>
-								part.type === "text" &&
-								/## 🔐 Permission: run evals /.test(part.text),
-						),
-				)),
-	);
-}

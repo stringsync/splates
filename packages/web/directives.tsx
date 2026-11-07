@@ -321,7 +321,6 @@ function wordsOf(
 	const [, kind, argument = ""] = CARDED.exec(directive) ?? [];
 	switch (kind !== undefined && numbered(kind, argument) ? "TODO" : kind) {
 		case undefined:
-		// The orchestrator's Working card that answers it says what came of the task.
 		case "REPORT":
 			return null;
 		case "IDLE":

@@ -107,7 +107,7 @@ export function ActionCard({
 								size="sm"
 								variant="outline"
 								onClick={archive}
-								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
+								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
 							>
 								<ArchiveIcon data-icon="inline-start" />
 								Archive

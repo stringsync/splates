@@ -18,10 +18,7 @@ export function RequestBody({
 					<Markdown text={request.purpose} inline />
 				</p>
 			)}
-			<Markdown
-				text={request.instructions}
-				className="[&_p:first-child]:mt-0"
-			/>
+			<Markdown text={request.instructions} />
 		</div>
 	);
 }

@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.5
+version: 2.0.6
 ---
 
 # Using splates
@@ -87,8 +87,8 @@ on stderr: do what stderr says.
 visible to you, not automatically to the user. Run `splates attach <file>`,
 then copy the image Markdown it prints into your reply, outside a code block.
 Use the stored path it returns, not the original capture path. In a task,
-every screenshot you attach also goes under `## Verification` in `SPLATES.md`
-as the same image, written before you reply, even when the task stays open,
+every screenshot of the result you attach also goes under `## After` in `SPLATES.md`,
+after its sentence, as the same image, written before you reply, even when the task stays open,
 the reply already shows it, or the capture falls short of the change.
 When the user asks for a review, your reply is the Ready to merge card itself, carrying the attached image: a line saying you are about to attach, review or deliver it is not the reply, so run `splates attach` and send the card in the same turn.
 A filename, plain link or “see screenshot” does not deliver an image. If
@@ -573,14 +573,22 @@ empty for a new thing.
 ## After
 
 One or two sentences summarizing what will change, updated before merging
-to summarize what happened. Put supporting details in sections after After,
-such as `## Verification` for checks and evidence or `## Details` for context.
+to summarize what happened. Under the sentence, show what was built as a demo
+would: the screenshot or recording of the result. Put supporting details in
+sections after After, such as `## Verification` for approved mocks and evidence or
+`## Details` for context.
 
 ## Next
 
 - [ ] for work of several commits: every step you can foresee,
       roughly one commit each, checked off as it lands
 - [ ] also keep a step for a checkpoint or user review when needed
+
+## Checks
+
+- [x] what you verified, one claim a line
+- [ ] what you did not verify, or left failing
+      a line under it on why, when the claim alone does not say
 ```
 
 A question is asked once, in your reply; the conversation is its record, so
@@ -597,13 +605,18 @@ before it.
 
 After's first line is the sentence shown everywhere: `splates list
 --files`, the conversation line, the card and the merge commit title. Keep
-After to one or two short sentences about the outcome. Rewrite it if the
-work pivoted; do not append implementation notes, check results, lists or
-pictures. Put those in sections after After. Keep approved mocks or diagrams
-labelled *Expected* and the shipped screenshot or redrawn diagram labelled
-*Actual* under `## Verification`, along with what you checked. Every change
-but a trivial one carries a picture there and in Before unless new. Leave
+After's words to one or two short sentences about the outcome, then the
+screenshot or recording of the result. Rewrite it if the work pivoted; do not
+append implementation notes, check results or lists. Put those in sections after
+After. Keep approved mocks or diagrams labelled *Expected* under
+`## Verification`, along with what you checked; the shipped screenshot or
+redrawn diagram is the *Actual* and goes in After. Every change but a trivial
+one carries a picture in After and in Before unless new. Leave
 file names and internals out of the summary.
+Before merging, write `## Checks`: each thing the After rests on that you
+verified as `- [x]`, and each you did not, or that still fails, as `- [ ]`,
+so a gap shows as one. The merged card shows them; leave the section out
+when there is nothing to check.
 `## Next` is optional: leave it out for a change of one commit unless a
 checkpoint or user review needs a step. Keep the rest current as you go, not
 at the end: check steps off as they land; the git log records them. Run
@@ -612,7 +625,7 @@ from git, so leave it out of commit messages.
 
 A plan from before Before and After may still have `## Goal`, `## Verification`,
 `## Outcome`: the server reads Goal as After and shows the
-others for finished tasks, but use `## Verification` for new evidence and checks; do not write Goal or Outcome in a new plan.
+others for finished tasks, but use `## Verification` for new evidence; do not write Goal or Outcome in a new plan.
 
 ## Committing
 

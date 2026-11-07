@@ -88,7 +88,18 @@ export function DeferredBody({
 		open.length > 0;
 	return (
 		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
-			<CardSection label="why it stopped" title="Why it stopped">
+			{task.takenBy === null && (
+				<p className="text-muted-foreground text-xs">
+					{queued ? "Queued" : "Back on the board"}
+					{task.blockedBy.length > 0 &&
+						` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
+				</p>
+			)}
+			<CardSection
+				label="why it stopped"
+				title="Why it stopped"
+				ruled={task.takenBy === null}
+			>
 				<p className="leading-relaxed">{deferred.why}</p>
 			</CardSection>
 			{blockers.length > 0 && (
@@ -128,13 +139,6 @@ export function DeferredBody({
 					</ol>
 				</CardSection>
 			)}
-			{task.takenBy === null && (
-				<p className="text-muted-foreground text-xs">
-					{queued ? "Queued" : "Back on the board"}
-					{task.blockedBy.length > 0 &&
-						` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
-				</p>
-			)}
 		</div>
 	);
 }
@@ -173,7 +177,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
 			{blockers.length > 0 && (
-				<CardSection label="to unblock" title="To unblock">
+				<CardSection label="to unblock" title="To unblock" ruled={false}>
 					<ol className="flex flex-col gap-2">
 						{blockers.map((blocker) => {
 							const key = `task:${blocker.id}`;

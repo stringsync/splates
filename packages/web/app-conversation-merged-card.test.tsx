@@ -42,7 +42,7 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
-	it("leads with the record's Before and After, its prose below", async () => {
+	it("leads with the record's Before and After open, the agent's words above the card", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -71,7 +71,50 @@ describe("App's merged card actions", () => {
 		expect(
 			within(card).getByText("The header stays on one line."),
 		).not.toBeNull();
-		expect(within(card).getByText("The report's words.")).not.toBeNull();
+		expect(within(card).queryByText("The report's words.")).toBeNull();
+		expect(view.getByText("The report's words.")).not.toBeNull();
+		expect(within(card).queryByRole("region", { name: "checks" })).toBeNull();
+	});
+
+	it("opens the record's Checks to each with its note, folding to their counts", async () => {
+		testing.landed.header = {
+			outcome: {
+				...header(),
+				outcome: [
+					"## Before\n\nThe header wraps.",
+					"## After\n\nThe header stays on one line.",
+					"## Checks\n\n- [x] Checked at 390px\n- [ ] Not tried in Safari\n  No Mac to hand.",
+				].join("\n\n"),
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
+			}),
+		]);
+		const checks = await waitFor(() =>
+			view.getByRole("region", { name: "checks" }),
+		);
+		expect(within(checks).getByText("No Mac to hand.")).not.toBeNull();
+
+		fireEvent.click(within(checks).getByRole("button", { name: "Checks" }));
+		expect(checks.textContent).toContain("✓ 1 passed");
+		expect(checks.textContent).toContain("! 1 not checked");
+		expect(within(checks).queryByText("No Mac to hand.")).toBeNull();
+
+		fireEvent.click(within(checks).getByRole("button", { name: "Checks" }));
+		expect(
+			within(checks).getByRole("listitem", {
+				name: "passed: Checked at 390px",
+			}),
+		).not.toBeNull();
+		expect(
+			within(checks).getByRole("listitem", {
+				name: "not checked: Not tried in Safari",
+			}),
+		).not.toBeNull();
+		expect(within(checks).getByText("No Mac to hand.")).not.toBeNull();
 	});
 
 	it("names the companions of a shared landing gate", async () => {
@@ -85,11 +128,11 @@ describe("App's merged card actions", () => {
 			}),
 		]);
 		const card = view.getByRole("region", { name: "merged header" });
-		await waitFor(() =>
-			expect(
-				within(card).getByText("Gated with sidebar, footer"),
-			).not.toBeNull(),
+		const stats = await waitFor(() =>
+			within(card).getByRole("button", { name: "Stats" }),
 		);
+		fireEvent.click(stats);
+		expect(within(card).getByText("Gated with sidebar, footer")).not.toBeNull();
 	});
 
 	it("gives a removed card its time and size, without the gate", async () => {
@@ -112,8 +155,9 @@ describe("App's merged card actions", () => {
 			}),
 		]);
 		const went = await waitFor(() =>
-			view.getByRole("region", { name: "how it went" }),
+			view.getByRole("region", { name: "stats" }),
 		);
+		fireEvent.click(within(went).getByRole("button", { name: "Stats" }));
 
 		expect(within(went).getByText("Time")).not.toBeNull();
 		expect(within(went).getByText("2 files")).not.toBeNull();
@@ -121,7 +165,7 @@ describe("App's merged card actions", () => {
 		expect(within(went).queryByText("Decisions")).toBeNull();
 	});
 
-	it("shows the outcome the plan ended on in full under the report's summary, without a demo action on the card", async () => {
+	it("shows an older outcome in full under its own Summary, the agent's words above the card, without a demo action", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -138,11 +182,13 @@ describe("App's merged card actions", () => {
 		expect(
 			within(card).getByRole("heading", { name: "Summary" }),
 		).not.toBeNull();
-		expect(within(card).getByText("Done.")).not.toBeNull();
+		expect(within(card).queryByText("Done.")).toBeNull();
+		expect(view.getByText("Done.")).not.toBeNull();
+		expect(within(card).getByText("Moved the header.")).not.toBeNull();
 		const outcome = await waitFor(() =>
 			view.getByRole("region", { name: "outcome" }),
 		);
-		expect(within(outcome).getByText("Moved the header.")).not.toBeNull();
+		expect(within(outcome).getByText("Open the page.")).not.toBeNull();
 		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
 
 		expect(within(card).queryByRole("button", { name: "Demo it" })).toBeNull();
@@ -196,10 +242,7 @@ describe("App's merged card actions", () => {
 			expect(
 				view
 					.getAllByRole("region", { name: /^merged / })
-					.map(
-						(card) =>
-							within(card).queryByRole("region", { name: "outcome" }) !== null,
-					),
+					.map((card) => card.textContent?.includes("Moved the")),
 			).toEqual([true, true]),
 		);
 		await waitFor(() =>

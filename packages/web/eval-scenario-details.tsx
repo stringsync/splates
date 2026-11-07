@@ -7,11 +7,11 @@ import { targetName, targetOf } from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { evalRun } from "./api";
+import { CardSection } from "./card-section";
 import { ReadingNow } from "./countdown";
 import { ScenarioHistory } from "./eval-scenario-history";
 import { passCount } from "./eval-scenarios";
 import { StatusChip } from "./eval-status";
-import { HEADING } from "./markdown";
 
 /**
  * Show an opened scenario's prompt, how it is judged and how its last run
@@ -155,9 +155,8 @@ function Part({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="flex min-w-0 flex-col gap-2">
-			<h3 className={HEADING}>{title}</h3>
+		<CardSection label={title} title={title}>
 			{children}
-		</div>
+		</CardSection>
 	);
 }

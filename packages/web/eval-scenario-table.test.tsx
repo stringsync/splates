@@ -13,7 +13,7 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 });
 
-it("lists scenarios worst first with what each tests, a summary and the next up", async () => {
+it("lists scenarios worst first with what each tests and a summary", async () => {
 	serve([]);
 	const view = render(
 		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
@@ -23,51 +23,49 @@ it("lists scenarios worst first with what each tests, a summary and the next up"
 	);
 	expect(view.getByText("About one")).toBeTruthy();
 	expect(view.queryByRole("columnheader", { name: /claude/ })).toBeNull();
-	await waitFor(() => expect(view.getByText("skipped merge")).toBeTruthy());
-	const rows = view.getAllByRole("row").map((row) => row.textContent ?? "");
-	expect(rows[1]).toContain("a/one");
-	expect(rows[2]).toContain("a/two");
+	expect(view.getByLabelText("Group a").textContent).toContain(
+		"0 of 2 passing",
+	);
+	const names = view
+		.getAllByRole("button", { name: /^Details of/ })
+		.map((button) => button.textContent);
+	expect(names).toEqual(["one", "two"]);
 	fireEvent.click(view.getByRole("button", { name: /Passing/ }));
 	expect(view.getByText("No scenario matches this filter.")).toBeTruthy();
 });
 
-it("reviews the selected scenarios before starting, preserves choices on Back, and opens activity", async () => {
+it("reviews the selected scenarios before starting, preserves choices on Back, and starts each", async () => {
 	const posts: string[] = [];
 	serve(posts);
-	let started = 0;
 	const view = render(
-		<EvalScenarioTable
-			agents={agents()}
-			onOpenBatch={() => {}}
-			feed={feed}
-			onStarted={() => {
-				started += 1;
-			}}
-		/>,
+		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
 	);
 	fireEvent.click(
 		await waitFor(() =>
 			view.getByRole("checkbox", { name: "Select all scenarios" }),
 		),
 	);
+	expect(view.queryByLabelText("Budget in dollars")).toBeNull();
+	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
 	fireEvent.change(view.getByLabelText("Budget in dollars"), {
 		target: { value: "7" },
 	});
 	fireEvent.change(view.getByLabelText("Run repetitions"), {
 		target: { value: "2" },
 	});
-	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
 	expect(view.getByText(/Total authorized eval budget/).textContent).toContain(
 		"14.00",
 	);
 	expect(posts).toEqual([]);
 	fireEvent.click(view.getByRole("button", { name: "Back" }));
+	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
 	expect(view.getByLabelText("Budget in dollars").getAttribute("value")).toBe(
 		"7",
 	);
-	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
 	fireEvent.click(view.getByRole("button", { name: "Accept and start evals" }));
-	await waitFor(() => expect(started).toBe(1));
+	await waitFor(() =>
+		expect(posts.filter((post) => post.includes('"words"'))).toHaveLength(2),
+	);
 	const plans = posts
 		.filter((post) => post.includes('"words"'))
 		.map((post) => JSON.parse(post).words);
@@ -299,7 +297,9 @@ it("tracks a loop becoming idle and then archived through feed updates", async (
 		live.conversations = [{ ...conversation, archived: true }];
 		changed();
 	});
-	expect(view.getByRole("button", { name: "Run a/two" })).toBeTruthy();
+	expect(
+		view.queryByRole("button", { name: "Open loop for a/two" }),
+	).toBeNull();
 });
 
 it("ignores finished loops and directives quoted in later messages", () => {
@@ -325,4 +325,17 @@ it("ignores finished loops and directives quoted in later messages", () => {
 			],
 		} as ConversationState),
 	).toBeNull();
+});
+
+it("folds a namespace card away and picks all of it with its checkbox", async () => {
+	serve([]);
+	const view = render(
+		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+	);
+	fireEvent.click(await waitFor(() => view.getByLabelText("Fold a")));
+	expect(view.queryByLabelText("Details of a/one")).toBeNull();
+	fireEvent.click(view.getByLabelText("Fold a"));
+	expect(view.getByLabelText("Details of a/one")).toBeTruthy();
+	fireEvent.click(view.getByLabelText("Select group a"));
+	expect(view.getByRole("button", { name: "Review 2 scenarios" })).toBeTruthy();
 });

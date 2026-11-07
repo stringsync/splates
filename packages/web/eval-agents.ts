@@ -166,6 +166,29 @@ export class EvalAgentsEditor implements Eventful<EvalAgentsEvents>, PickList {
 	}
 }
 
+/**
+ * A copy of `saved` for one run to edit: it starts from the saved agents and
+ * keeps its edits in memory, so the saved list is never written.
+ */
+export function runAgentsOf(saved: EvalAgentsEditor): EvalAgentsEditor {
+	let view: EvalAgentsView = {
+		agents: [...saved.picks],
+		problem: null,
+		roster: [...saved.agents],
+	};
+	const run = new EvalAgentsEditor({
+		read: async () => view,
+		save: async (agents) => {
+			view = { ...view, agents };
+			return view;
+		},
+	});
+	run.picks = view.agents;
+	run.agents = view.roster;
+	run.loaded = true;
+	return run;
+}
+
 /** The eval agents over `splates server`'s routes. */
 const HTTP_AGENTS: EvalAgentsStore = {
 	read: evalAgents,

@@ -20,8 +20,8 @@ import { Textarea } from "#web/components/ui/textarea.tsx";
 import { shipGraph } from "./api";
 import { startShip } from "./api/ship";
 import { cn } from "./lib/utils";
+import { ProjectsHeader } from "./ship-plan-header";
 import { PlanLoading } from "./ship-plan-loading";
-import { PlanSteps } from "./ship-plan-steps";
 import { ShipPreview } from "./ship-preview";
 import { releaseOrder, shippable, staleOf, treeOrder } from "./ship-tree";
 
@@ -195,251 +195,237 @@ function Plan({
 	};
 	return (
 		<section aria-label="ship plan" className="flex flex-col gap-3">
-			<PlanSteps step={reviewing ? 2 : 1} />
 			{!reviewing && (
 				<>
-					{behind > 0 && (
-						<p className="text-muted-foreground text-xs">
-							{behind} behind a pin
+					{busy && (
+						<p role="status" className="text-muted-foreground text-xs">
+							You can plan the next ship once this one ends.
 						</p>
 					)}
-
-					<div className="-mb-2 flex items-center justify-end gap-4 px-3 text-muted-foreground text-xs">
-						<span className="flex items-center gap-2">
-							All changed
-							<Checkbox
-								aria-label="All changed"
-								checked={changed.length > 0 && unshipped.length === 0}
-								disabled={pending || changed.length === 0}
-								onCheckedChange={(on) => {
-									setRoots(
-										on
-											? [...new Set([...roots, ...changed])]
-											: roots.filter((each) => !changed.includes(each)),
-									);
-									setExcluded(
-										on
-											? excluded.filter((each) => !changed.includes(each))
-											: [...new Set([...excluded, ...changed])],
-									);
-								}}
-							/>
-						</span>
-						<span className="flex items-center gap-2">
-							Select all
-							<span className="flex w-9 justify-center">
-								<Checkbox
-									aria-label="Select all"
-									checked={allShip}
-									disabled={pending || selectable.length === 0}
-									onCheckedChange={setAll}
-								/>
-							</span>
-						</span>
-					</div>
-					<ol
-						aria-label="Ship graph"
-						className="flex flex-col overflow-hidden rounded-lg border bg-card"
+					<div
+						aria-disabled={busy || undefined}
+						className={cn(
+							"flex flex-col",
+							busy && "pointer-events-none opacity-45",
+						)}
 					>
-						{treeOrder(projects).map(({ project: each, depth }) => {
-							const stale = staleOf(each, graph);
-							const shipping = ships.has(each.slug);
-							const commits = each.changes?.commits ?? 0;
-							const value = choice(each.slug);
-							const idle =
-								commits === 0 &&
-								each.changes?.commits !== null &&
-								stale.length === 0 &&
-								!shipping;
-							const adopts = shipping;
-							return (
-								<li
-									key={each.slug}
-									aria-label={each.slug}
-									className={cn(
-										"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
-										idle && "py-2 opacity-50",
-										shipping && "bg-primary/5",
-									)}
-									style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
-								>
-									{depth > 0 && (
-										<span
-											aria-hidden
-											className="absolute top-0 h-[1.65rem] w-3 rounded-bl-md border-b-2 border-l-2 border-primary/30"
-											style={{ left: `${0.75 + (depth - 1) * 1.5 + 0.4}rem` }}
-										/>
-									)}
-									<div className="flex items-center gap-3">
-										<div className="flex min-w-0 flex-1 flex-col gap-1">
-											<span className="flex items-baseline gap-2">
-												<span className="font-medium text-sm">{each.slug}</span>
-												{each.version !== null && (
-													<span className="text-muted-foreground text-xs tabular-nums">
-														{each.version}
-													</span>
-												)}
-												{each.deploy === true && (
-													<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs">
-														deploy
-													</span>
-												)}
-												{shipping && !roots.includes(each.slug) && (
-													<span className="rounded-full bg-success/15 px-2 text-success text-xs">
-														added automatically
-													</span>
-												)}
-											</span>
-											<span className="flex flex-col text-xs">
-												{each.changes?.commits === null && (
-													<span
-														className="text-muted-foreground"
-														title={each.changes.error ?? undefined}
-													>
-														Release status unknown
-													</span>
-												)}
-												{commits > 0 && (
-													<span
-														className="text-warning"
-														title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
-													>
-														{commits} {commits === 1 ? "commit" : "commits"}{" "}
-														since {each.changes?.tag}
-													</span>
-												)}
-												{idle && each.changes?.commits === 0 && (
-													<span className="text-muted-foreground">
-														Up to date
-													</span>
-												)}
-												{stale.map((pin) => (
-													<span
-														key={pin.name}
-														className="text-muted-foreground"
-													>
-														{pin.name} {pin.from} → {pin.to}
-													</span>
-												))}
-											</span>
-										</div>
-										<div className="flex shrink-0 gap-4">
-											<span className="flex w-9 justify-center">
-												{shippable(each) ? (
-													<Checkbox
-														aria-label={`Ship ${each.slug}`}
-														checked={shipping}
-														disabled={pending}
-														onCheckedChange={(on) => setShip(each.slug, on)}
-													/>
-												) : (
-													!each.private && (
-														<span className="text-muted-foreground text-xs">
-															no ship
-														</span>
-													)
-												)}
-											</span>
-										</div>
-									</div>
-									{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
-									<div className={cn("text-sm", shippable(each) && "min-h-14")}>
-										{!shipping && shippable(each) && (
-											<p className="text-muted-foreground text-xs">
-												Tick to include in this ship.
-											</p>
+						<ProjectsHeader
+							changed={changed.length}
+							behind={behind}
+							disabled={busy || pending || selectable.length === 0}
+							canPickChanged={changed.length > 0 && unshipped.length > 0}
+							allPicked={allShip}
+							nonePicked={ships.size === 0}
+							pickChanged={() => {
+								setRoots([...new Set([...roots, ...changed])]);
+								setExcluded(excluded.filter((each) => !changed.includes(each)));
+							}}
+							pickAll={() => setAll(true)}
+							clear={() => setAll(false)}
+						/>
+						<ol
+							aria-label="Ship graph"
+							className="flex flex-col overflow-hidden rounded-b-lg border bg-card"
+						>
+							{treeOrder(projects).map(({ project: each, depth }) => {
+								const stale = staleOf(each, graph);
+								const shipping = ships.has(each.slug);
+								const commits = each.changes?.commits ?? 0;
+								const value = choice(each.slug);
+								const idle =
+									commits === 0 &&
+									each.changes?.commits !== null &&
+									stale.length === 0 &&
+									!shipping;
+								const adopts = shipping;
+								return (
+									<li
+										key={each.slug}
+										aria-label={each.slug}
+										className={cn(
+											"relative flex flex-col gap-2 border-b py-3 pr-3 last:border-b-0",
+											idle && "py-2 opacity-50",
+											shipping && "bg-primary/5",
 										)}
-										{shipping && (
-											<div className="flex flex-col gap-2">
-												<div className="flex flex-wrap items-center gap-4">
-													<span className="flex items-center gap-2">
-														<span className="text-muted-foreground">
-															Release as
-														</span>
-														<Select
-															items={BUMPS.map((bump) => ({
-																value: bump,
-																label: bump,
-															}))}
-															value={value.bump}
-															disabled={pending}
-															onValueChange={(bump) =>
-																bump !== null &&
-																change(each.slug, { bump: bump as ShipBump })
-															}
-														>
-															<SelectTrigger
-																aria-label={`${each.slug} version bump`}
-															>
-																<SelectValue />
-															</SelectTrigger>
-															<SelectContent>
-																{BUMPS.map((bump) => (
-																	<SelectItem key={bump} value={bump}>
-																		{bump}
-																	</SelectItem>
-																))}
-															</SelectContent>
-														</Select>
+										style={{ paddingLeft: `${0.75 + depth * 1.5}rem` }}
+									>
+										{depth > 0 && (
+											<span
+												aria-hidden
+												className="absolute top-0 h-[1.65rem] w-3 rounded-bl-md border-b-2 border-l-2 border-primary/30"
+												style={{ left: `${0.75 + (depth - 1) * 1.5 + 0.4}rem` }}
+											/>
+										)}
+										<div className="flex items-center gap-3">
+											<div className="flex min-w-0 flex-1 flex-col gap-1">
+												<span className="flex items-baseline gap-2">
+													<span className="font-medium text-sm">
+														{each.slug}
 													</span>
-													{adopts && (
+													{each.version !== null && (
+														<span className="text-muted-foreground text-xs tabular-nums">
+															{each.version}
+														</span>
+													)}
+													{each.deploy === true && (
+														<span className="rounded-full bg-muted px-2 text-muted-foreground text-xs">
+															deploy
+														</span>
+													)}
+													{shipping && !roots.includes(each.slug) && (
+														<span className="rounded-full bg-success/15 px-2 text-success text-xs">
+															added automatically
+														</span>
+													)}
+												</span>
+												<span className="flex flex-col text-xs">
+													{each.changes?.commits === null && (
+														<span
+															className="text-muted-foreground"
+															title={each.changes.error ?? undefined}
+														>
+															Release status unknown
+														</span>
+													)}
+													{commits > 0 && (
+														<span
+															className="text-warning"
+															title={`Since ${each.changes?.tag} on ${each.changes?.branch}`}
+														>
+															{commits} {commits === 1 ? "commit" : "commits"}{" "}
+															since {each.changes?.tag}
+														</span>
+													)}
+													{idle && each.changes?.commits === 0 && (
+														<span className="text-muted-foreground">
+															Up to date
+														</span>
+													)}
+													{stale.map((pin) => (
+														<span
+															key={pin.name}
+															className="text-muted-foreground"
+														>
+															{pin.name} {pin.from} → {pin.to}
+														</span>
+													))}
+												</span>
+											</div>
+											<div className="flex shrink-0 gap-4">
+												<span className="flex w-9 justify-center">
+													{shippable(each) ? (
+														<Checkbox
+															aria-label={`Ship ${each.slug}`}
+															checked={shipping}
+															disabled={pending}
+															onCheckedChange={(on) => setShip(each.slug, on)}
+														/>
+													) : (
+														!each.private && (
+															<span className="text-muted-foreground text-xs">
+																no ship
+															</span>
+														)
+													)}
+												</span>
+											</div>
+										</div>
+										{/* The room is kept while unchecked, so ticking a box never moves the rows below it. */}
+										<div
+											className={cn("text-sm", shippable(each) && "min-h-14")}
+										>
+											{!shipping && shippable(each) && (
+												<p className="text-muted-foreground text-xs">
+													Tick to include in this ship.
+												</p>
+											)}
+											{shipping && (
+												<div className="flex flex-col gap-2">
+													<div className="flex flex-wrap items-center gap-4">
 														<span className="flex items-center gap-2">
-															<Switch
-																size="sm"
-																aria-label={`Agent task for ${each.slug}`}
-																checked={value.adopt === "agent"}
+															<span className="text-muted-foreground">
+																Release as
+															</span>
+															<Select
+																items={BUMPS.map((bump) => ({
+																	value: bump,
+																	label: bump,
+																}))}
+																value={value.bump}
 																disabled={pending}
-																onCheckedChange={(on) =>
+																onValueChange={(bump) =>
+																	bump !== null &&
+																	change(each.slug, { bump: bump as ShipBump })
+																}
+															>
+																<SelectTrigger
+																	aria-label={`${each.slug} version bump`}
+																>
+																	<SelectValue />
+																</SelectTrigger>
+																<SelectContent>
+																	{BUMPS.map((bump) => (
+																		<SelectItem key={bump} value={bump}>
+																			{bump}
+																		</SelectItem>
+																	))}
+																</SelectContent>
+															</Select>
+														</span>
+														{adopts && (
+															<span className="flex items-center gap-2">
+																<Switch
+																	size="sm"
+																	aria-label={`Agent task for ${each.slug}`}
+																	checked={value.adopt === "agent"}
+																	disabled={pending}
+																	onCheckedChange={(on) =>
+																		change(each.slug, {
+																			adopt: on ? "agent" : "mechanical",
+																		})
+																	}
+																/>
+																<span>Agent task</span>
+															</span>
+														)}
+													</div>
+													<p className="text-muted-foreground text-xs">
+														{BUMP_HINTS[value.bump]}
+													</p>
+													{adopts && value.adopt === "agent" && (
+														<>
+															<p className="text-muted-foreground text-xs">
+																An agent moves the pins and fixes what breaks.
+																When its task merges, that tells splates it is
+																OK to ship, and splates then publishes.
+															</p>
+															<Textarea
+																aria-label={`Instructions for ${each.slug}`}
+																placeholder="Instructions for the agent"
+																disabled={pending}
+																value={value.instructions}
+																onChange={(event) =>
 																	change(each.slug, {
-																		adopt: on ? "agent" : "mechanical",
+																		instructions: event.target.value,
 																	})
 																}
 															/>
-															<span>Agent task</span>
-														</span>
+														</>
 													)}
 												</div>
-												<p className="text-muted-foreground text-xs">
-													{BUMP_HINTS[value.bump]}
-												</p>
-												{adopts && value.adopt === "agent" && (
-													<>
-														<p className="text-muted-foreground text-xs">
-															An agent moves the pins and fixes what breaks.
-															When its task merges, that tells splates it is OK
-															to ship, and splates then publishes.
-														</p>
-														<Textarea
-															aria-label={`Instructions for ${each.slug}`}
-															placeholder="Instructions for the agent"
-															disabled={pending}
-															value={value.instructions}
-															onChange={(event) =>
-																change(each.slug, {
-																	instructions: event.target.value,
-																})
-															}
-														/>
-													</>
-												)}
-											</div>
-										)}
-									</div>
-								</li>
-							);
-						})}
-					</ol>
+											)}
+										</div>
+									</li>
+								);
+							})}
+						</ol>
+					</div>
 				</>
 			)}
 			<div className="sticky bottom-0 -mx-1 flex flex-col gap-2 bg-background/90 px-1 py-3 backdrop-blur">
 				{error !== null && (
 					<p role="alert" className="text-destructive text-xs">
 						{error}
-					</p>
-				)}
-				{busy && (
-					<p role="status" className="text-muted-foreground text-xs">
-						A ship is under way.
 					</p>
 				)}
 				{reviewing && ordered.length > 0 && (
@@ -451,7 +437,7 @@ function Plan({
 						adoptOf={(slug) => choice(slug).adopt}
 					/>
 				)}
-				{!reviewing && ordered.length === 0 && (
+				{!reviewing && !busy && ordered.length === 0 && (
 					<p className="text-muted-foreground text-xs">Nothing chosen</p>
 				)}
 				{reviewing ? (
@@ -498,9 +484,11 @@ function Plan({
 						disabled={busy || ordered.length === 0}
 						onClick={() => setReviewing(true)}
 					>
-						{ordered.length > 0
-							? `Review ${ordered.length} ${ordered.length === 1 ? "project" : "projects"}`
-							: "Choose a project to ship"}
+						{busy
+							? "A ship is running"
+							: ordered.length > 0
+								? `Review ${ordered.length} ${ordered.length === 1 ? "project" : "projects"}`
+								: "Choose a project to ship"}
 					</Button>
 				)}
 			</div>

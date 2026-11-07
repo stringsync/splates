@@ -106,7 +106,7 @@ function DemoSteps({ demo }: { demo: Demo }): JSX.Element {
 								{step.expect !== "" && (
 									<Markdown
 										text={step.expect}
-										className="text-muted-foreground text-xs leading-relaxed [&_img]:mt-1.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+										className="text-muted-foreground text-xs leading-relaxed [&_img]:mt-1.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border"
 									/>
 								)}
 							</div>

@@ -1,12 +1,10 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { Reminder } from "@splates/server/conversations";
 import { BellIcon } from "lucide-react";
-import { createContext, type JSX, useContext } from "react";
+import { createContext, type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Board } from "./board";
-import { CardSection } from "./card-section";
 import { CardShell } from "./card-shell";
-import { Markdown } from "./markdown";
 import { ago } from "./plan-limits";
 import { reminderId } from "./reminder-of";
 
@@ -19,14 +17,18 @@ export const ReminderUI = makeAssistantDataUI<{ id: string }>({
 	render: ({ data }) => <ReminderLine id={data.id} />,
 });
 
-/** What the conversation's task is for: its one line, Before and After, and the way to the rest. */
+/** What the conversation's task is for: its one line and the way to the rest. */
 export function ReminderCard({
 	reminder,
 }: {
 	reminder: Reminder;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { task, line, before, after, since, at } = reminder;
+	const [dismissed, setDismissed] = useState(false);
+	const { task, line, since, at } = reminder;
+	if (dismissed) {
+		return <></>;
+	}
 	return (
 		<CardShell
 			label={`reminder of ${task}`}
@@ -34,24 +36,23 @@ export function ReminderCard({
 			title={`Reminder · last here ${ago(Date.parse(since), Date.parse(at))}`}
 			ringed={false}
 			aside={
-				<Button
-					size="sm"
-					variant="outline"
-					disabled={!board.linked}
-					onClick={() => board.openTask(task)}
-				>
-					Open task
-				</Button>
+				<span className="flex items-center gap-2">
+					<Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
+						Dismiss
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!board.linked}
+						onClick={() => board.openTask(task)}
+					>
+						Open task
+					</Button>
+				</span>
 			}
 		>
 			<div className="flex flex-col gap-3 px-3 py-3 text-sm">
 				<p className="break-words font-medium">{line}</p>
-				{(before !== "" || after !== "") && (
-					<div className="grid min-w-0 gap-4 @md:grid-cols-2">
-						{before !== "" && <Side name="Before" text={before} />}
-						{after !== "" && <Side name="After" text={after} />}
-					</div>
-				)}
 			</div>
 		</CardShell>
 	);
@@ -65,16 +66,4 @@ function ReminderLine({ id }: { id: string }): JSX.Element | null {
 		return null;
 	}
 	return <ReminderCard reminder={reminder} />;
-}
-
-function Side({ name, text }: { name: string; text: string }): JSX.Element {
-	return (
-		<CardSection label={name} title={name}>
-			<Markdown
-				text={text}
-				unlinked
-				className="scroll-fade-y max-h-40 overflow-hidden leading-relaxed [--scroll-fade-b-size:3rem] [--scroll-fade-t-size:0px] [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-			/>
-		</CardSection>
-	);
 }
