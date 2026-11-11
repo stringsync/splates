@@ -1,5 +1,13 @@
 import { dirname, join } from "node:path";
 
+/** Throws unless rec's package in this checkout has everything it needs. */
+export async function mirrorTest(dir: string = recDir()): Promise<void> {
+	const problems = await recProblems(dir);
+	if (problems.length > 0) {
+		throw new Error(`rec is incomplete in ${dir}:\n${problems.join("\n")}`);
+	}
+}
+
 /**
  * The files rec reads from disk, relative to its package: the ones
  * `sourceExtra` in `mirror.ts` lists, which tracing rec's imports cannot find.
@@ -69,12 +77,4 @@ export async function recProblems(dir: string): Promise<string[]> {
 		}
 	}
 	return problems;
-}
-
-/** Throws unless rec's package in this checkout has everything it needs. */
-export async function mirrorTest(dir: string = recDir()): Promise<void> {
-	const problems = await recProblems(dir);
-	if (problems.length > 0) {
-		throw new Error(`rec is incomplete in ${dir}:\n${problems.join("\n")}`);
-	}
 }

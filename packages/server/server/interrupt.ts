@@ -26,7 +26,7 @@ export class ServerInterrupt {
 			void this.force();
 			return;
 		}
-		this.opts.log?.info(
+		this.opts.log.info(
 			"Stopping splates server. Press Ctrl+C again to force quit.",
 		);
 		this.deadline = this.opts.timer.setTimeout(
@@ -51,7 +51,7 @@ export class ServerInterrupt {
 			return;
 		}
 		this.forcing = true;
-		this.opts.log?.info("Forcing splates server to stop.");
+		this.opts.log.info("Forcing splates server to stop.");
 		try {
 			// Include the build and worker, and their children, without touching
 			// another server running beside this one.
@@ -63,7 +63,7 @@ export class ServerInterrupt {
 				await this.gone(under);
 			}
 		} catch (error) {
-			this.opts.log?.error(`Could not stop every child: ${String(error)}`);
+			this.opts.log.error(`Could not stop every child: ${String(error)}`);
 		} finally {
 			this.forced.abort();
 			this.ps.exit(130);
@@ -80,7 +80,7 @@ export class ServerInterrupt {
 				this.opts.timer.setTimeout(resolve, Duration.ms(20));
 			});
 		}
-		this.opts.log?.error(
+		this.opts.log.error(
 			`Children still alive after a forced stop: ${pids.filter((pid) => this.ps.alive(pid)).join(" ")}`,
 		);
 	}
@@ -88,5 +88,5 @@ export class ServerInterrupt {
 
 interface ServerInterruptOptions {
 	timer: Timer;
-	log: Logger | null;
+	log: Logger;
 }

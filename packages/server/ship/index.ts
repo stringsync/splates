@@ -45,10 +45,11 @@ export type {
 } from "./release-steps";
 export { ShipRoutes } from "./routes";
 export type { Ship, ShippingOptions, ShipStatus, ShipWait } from "./run";
-export { ShipLock, Shipping, shipRecord } from "./run";
+export { Shipping, shipRecord } from "./run";
 export type { ShipSelection } from "./selection";
 export { SHIP_SELECTION } from "./selection";
 export { unserved } from "./served";
+export { ShipLock } from "./ship-lock";
 export type {
 	Stage,
 	StageCheck,

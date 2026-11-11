@@ -62,7 +62,13 @@ const ANSWER_WAIT = Duration.secs(60);
 const DEATH_WAIT = Duration.secs(1);
 
 /** The options of a permission the agent asks, as the state keeps them. */
-type Options = Extract<Asked, { type: "permission" }>["options"];
+type Offered = Extract<Asked, { type: "permission" }>["options"];
+
+/** What `attach` is asked for. */
+interface AttachOptions {
+	/** The last log id the worker holds, when this takes a conversation back. */
+	base?: number;
+}
 
 /**
  * A conversation's side of ACP: the agent's process and the connection to
@@ -279,18 +285,12 @@ export class AgentConnection {
 			this.following = null;
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
-			// Offered only to an agent that takes them over HTTP, which they are.
-			const offering = this.deps.servers;
-			const mcpServers =
-				initialized.agentCapabilities?.mcpCapabilities?.http === true
-					? ((await offering?.servers()) ?? [])
-					: [];
 			if (this.session === null) {
 				const session = await this.answered(
 					"session/new",
 					connection.newSession({
 						cwd,
-						mcpServers,
+						mcpServers: [],
 						_meta: SESSION_META,
 					}),
 				);
@@ -311,7 +311,7 @@ export class AgentConnection {
 				const session = await connection.loadSession({
 					sessionId: this.session,
 					cwd,
-					mcpServers,
+					mcpServers: [],
 					_meta: SESSION_META,
 				});
 				this.loading = false;
@@ -324,7 +324,7 @@ export class AgentConnection {
 					connection.resumeSession({
 						sessionId: this.session,
 						cwd,
-						mcpServers,
+						mcpServers: [],
 						_meta: SESSION_META,
 					}),
 				);
@@ -432,7 +432,8 @@ export class AgentConnection {
 			// The connection closes as the process dies, ahead of its exit, so
 			// its stderr, which says why, is waited for.
 			await host.close(
-				(await this.diedSaying(process)) ?? requestError(error, agent.id),
+				(process === null ? null : await this.diedSaying(process)) ??
+					requestError(error, agent.id),
 			);
 		}
 	}
@@ -481,7 +482,7 @@ export class AgentConnection {
 			const { rpc, ask } = live.ask;
 			this.settle = (answer) => {
 				if (ask.type === "permission") {
-					this.decided(ask.id, ask.options, answer, ask.at);
+					this.decided(ask.id, answer, ask.at, ask.options);
 				}
 				void stream.respond(rpc, { result: answered(ask, answer) });
 			};
@@ -513,7 +514,7 @@ export class AgentConnection {
 	private attach(
 		agent: Agent,
 		process: AgentProcess,
-		opts: { base?: number },
+		opts: AttachOptions,
 	): acp.ClientSideConnection {
 		const { host } = this;
 		this.listening?.dispose();
@@ -606,12 +607,7 @@ export class AgentConnection {
 	}
 
 	/** What `process` said on stderr if it exits within `DEATH_WAIT`, else null. */
-	private async diedSaying(
-		process: AgentProcess | null,
-	): Promise<string | null> {
-		if (process === null) {
-			return null;
-		}
+	private async diedSaying(process: AgentProcess): Promise<string | null> {
 		const { timer } = this.deps;
 		let giveUp: { dispose(): void } | undefined;
 		const gone = await Promise.race([
@@ -979,7 +975,7 @@ export class AgentConnection {
 					})),
 				};
 				const answer = await this.ask(asked, askedAt);
-				this.decided(toolCall.toolCallId, asked.options, answer, askedAt);
+				this.decided(toolCall.toolCallId, answer, askedAt, asked.options);
 				return permitted(answer);
 			},
 			createElicitation: async (params) => {
@@ -1074,9 +1070,9 @@ export class AgentConnection {
 	/** Keeps how the person answered the permission asked for tool call `id`. */
 	private decided(
 		id: string,
-		options: Options,
 		answer: Answer,
 		askedAt: string,
+		offered: Offered,
 	): void {
 		const { host } = this;
 		const tool = toolIn(host.state, id);
@@ -1085,7 +1081,7 @@ export class AgentConnection {
 		}
 		const picked =
 			answer.type === "permission"
-				? options.find((option) => option.id === answer.option)
+				? offered.find((option) => option.id === answer.option)
 				: undefined;
 		const decision: Decision = {
 			askedAt,

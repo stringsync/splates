@@ -19,7 +19,7 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
-import { shipActivity } from "./ship-activity";
+import { hasActiveShip, shipActivity } from "./ship-activity";
 import { useAcknowledged } from "./ship-recap-seen";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
@@ -88,7 +88,9 @@ export function AppNav({
 		available && snapshot !== null
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
-	const shipping = shipActivity(useMachine()?.ship, useAcknowledged());
+	const reading = useMachine()?.ship;
+	const acknowledged = useAcknowledged();
+	const shipping = shipActivity(reading, acknowledged);
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
@@ -98,6 +100,10 @@ export function AppNav({
 				// History and sessions sit under it, goes back to its start here.
 				if (value === "boards" || (value === "rec" && page === "rec")) {
 					onPage(value);
+				}
+				// With a ship under way, the Ship tab opens it rather than the planner.
+				if (value === "ships" && hasActiveShip(reading, acknowledged)) {
+					location.hash = "ships/active";
 				}
 			}}
 			aria-current={value === navPage(page) ? "page" : undefined}

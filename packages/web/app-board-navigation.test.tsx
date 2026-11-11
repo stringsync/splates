@@ -114,26 +114,26 @@ it("adds a lane to the board being viewed", async () => {
 
 it("returns to Rec's start from its history when the Rec tab is clicked", async () => {
 	const fetched = globalThis.fetch;
+	const rec = {
+		available: false,
+		here: true,
+		host: "here",
+		status: { running: false },
+		sources: [],
+	};
+	const stubs: Record<string, unknown> = {
+		"/api/rec/sessions": { sessions: [], totalSize: 0 },
+		"/api/rec": rec,
+	};
 	globalThis.fetch = ((
 		input: Parameters<typeof fetch>[0],
 		init?: RequestInit,
 	) => {
-		const url = String(input);
-		if (url.startsWith("/api/rec/sessions")) {
-			return Promise.resolve(Response.json({ sessions: [], totalSize: 0 }));
-		}
-		if (url === "/api/rec") {
-			return Promise.resolve(
-				Response.json({
-					available: false,
-					here: true,
-					host: "here",
-					status: { running: false },
-					sources: [],
-				}),
-			);
-		}
-		return fetched(input, init);
+		const path = String(input).split("?")[0] ?? "";
+		const stub = stubs[path];
+		return stub === undefined
+			? fetched(input, init)
+			: Promise.resolve(Response.json(stub));
 	}) as typeof fetch;
 	onTestFinished(() => {
 		globalThis.fetch = fetched;

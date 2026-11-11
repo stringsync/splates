@@ -151,7 +151,7 @@ describe("Feed's expect", () => {
 
 		rename.refuse("no such todo");
 
-		await expect(shown).rejects.toThrow("no such todo");
+		expect(shown).rejects.toThrow("no such todo");
 		expect(subject()).toBe("Old");
 	});
 
@@ -166,7 +166,7 @@ describe("Feed's expect", () => {
 		expect(feed.pending("todo:2")).toBe(true);
 
 		second.refuse("no");
-		await expect(refused).rejects.toThrow("no");
+		expect(refused).rejects.toThrow("no");
 		expect(subject()).toBe("Old");
 		expect(feed.pending("todo:1")).toBe(true);
 		expect(feed.pending("todo:2")).toBe(false);
@@ -180,7 +180,7 @@ describe("Feed's expect", () => {
 		expect(feed.pending("todo:2")).toBe(false);
 
 		rename.refuse("busy");
-		await expect(shown).rejects.toThrow("busy");
+		expect(shown).rejects.toThrow("busy");
 		expect(feed.pending()).toBe(false);
 	});
 });

@@ -38,7 +38,7 @@ describe("App's work row", () => {
 			(row) => (row.querySelector("summary") ?? row).textContent,
 		);
 
-	it("folds intermediate words and calls into one closed row, leaving the final reply in the thread", async () => {
+	it("ends a row of work at each thing the agent says, each message in the thread under the calls that led to it", async () => {
 		const thread = await opened(
 			turn([
 				{ type: "thought", text: "Which tests?", at: second(1) },
@@ -69,20 +69,17 @@ describe("App's work row", () => {
 			]),
 		);
 
+		// Thoughts never show, so the row of them before the first words goes.
 		await waitFor(() =>
-			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1),
+			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(2),
 		);
-		expect(thread.textContent).not.toContain("Let me run them.");
-		expect(thread.textContent).not.toContain("One fails: fixing it.");
-		const timeline = workTimeline(thread);
-		expect(lines(timeline)).toEqual([
-			"Let me run them.",
-			"Reada.ts",
-			"Failed to runbun test28s",
-			"One fails: fixing it.",
-			"Editeda.ts",
-			"Ranbun test29s",
+		expect(workTimelines(thread).map(lines)).toEqual([
+			["Reada.ts", "Failed to runbun test28s"],
+			["Editeda.ts", "Ranbun test29s"],
 		]);
+		expect(thread.textContent).toMatch(
+			/Let me run them\..*Worked.*One fails: fixing it\..*Worked.*All tests pass\./,
+		);
 		expect(thread.textContent?.match(/All tests pass\./g)).toHaveLength(1);
 		expect(thread.textContent).toContain("All tests pass.");
 		expect(thread.textContent).not.toContain("Which tests?");
@@ -309,11 +306,11 @@ describe("App's work row", () => {
 		);
 		const all = workTimelines(thread);
 		expect(all.map((each) => each.textContent)).toEqual([
-			expect.stringContaining("Let me look."),
+			expect.stringContaining("a.ts"),
 			expect.stringContaining("bun test"),
 		]);
 		expect(thread.textContent).toMatch(
-			/Worked.*Let me look\..*No, I'm not waiting on you\..*Worked/,
+			/Let me look\..*Worked.*No, I'm not waiting on you\..*Worked/,
 		);
 	});
 

@@ -26,9 +26,9 @@ describe("PersonalWords", () => {
 
 	it("refuses a file without a list of strings", async () => {
 		await fs.write(PATH, `{"words": [1]}`);
-		await expect(store.words()).rejects.toThrow("no `words` list");
+		expect(store.words()).rejects.toThrow("no `words` list");
 		await fs.write(PATH, "not json");
-		await expect(store.words()).rejects.toThrow("is not JSON");
+		expect(store.words()).rejects.toThrow("is not JSON");
 	});
 
 	it("forgets them on remove", async () => {

@@ -107,6 +107,6 @@ describe("a batch in the public format", () => {
 	});
 
 	it("knows no run for a cell yet to finish", async () => {
-		await expect(store.run("nightly#c3")).rejects.toThrow("no eval run");
+		expect(store.run("nightly#c3")).rejects.toThrow("no eval run");
 	});
 });

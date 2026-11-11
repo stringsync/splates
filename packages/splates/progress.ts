@@ -36,39 +36,14 @@ export async function runProgress(
 			...(opts.title === "" ? {} : { title: opts.title }),
 			...(state === undefined ? {} : { state }),
 		};
-		let last: Record<string, unknown> = { ...base, percent: opts.percent };
-		const send = async (update: Record<string, unknown>): Promise<void> => {
-			last = update;
-			if (server === null) {
-				return;
-			}
-			const response = await server
-				.send(`${server.url}/api/conversations/${id}/progress`, {
-					method: "POST",
-					headers: { origin: server.url, "content-type": "application/json" },
-					body: JSON.stringify(update),
-					signal: AbortSignal.timeout(SERVER_WAIT_MS),
-				})
-				.catch(() => null);
-			if (response !== null && !response.ok) {
-				const refused = (await response.json().catch(() => ({}))) as {
-					reason?: string;
-					message?: string;
-				};
-				const reason = refused.reason as Reason;
-				fail(
-					reason in EXIT ? reason : "usage",
-					refused.message ?? `splates server refused it: ${response.status}`,
-				);
-			}
-		};
+		const sink = new ServerSink(server, id, { ...base, percent: opts.percent });
 		if (opts.text === "-") {
-			await stream(base, opts.percent, send);
+			await stream(base, opts.percent, sink);
 		} else {
-			await send({ ...base, percent: opts.percent, note: opts.text });
+			await sink.send({ ...base, percent: opts.percent, note: opts.text });
 		}
 		ctx.log.info(
-			`${server === null ? "(no splates server: not shown) " : ""}${describe(last)}`,
+			`${server === null ? "(no splates server: not shown) " : ""}${describe(sink.last)}`,
 		);
 	}
 }
@@ -81,7 +56,7 @@ export async function runProgress(
 async function stream(
 	base: Record<string, unknown>,
 	percent: number | undefined,
-	send: (update: Record<string, unknown>) => Promise<void>,
+	sink: Sink,
 ): Promise<void> {
 	let newest: Record<string, unknown> | null = null;
 	let sending: Promise<void> = Promise.resolve();
@@ -89,7 +64,7 @@ async function stream(
 		if (newest !== null) {
 			const update = newest;
 			newest = null;
-			sending = sending.then(() => send(update));
+			sending = sending.then(() => sink.send(update));
 		}
 	};
 	const every = setInterval(flush, SEND_EVERY_MS);
@@ -123,6 +98,54 @@ async function stream(
 	}
 	flush();
 	await sending;
+}
+
+/** Where an update goes. */
+interface Sink {
+	send(update: Record<string, unknown>): Promise<void>;
+}
+
+/** Posts updates to the splates server, or only remembers them when there is none. */
+class ServerSink implements Sink {
+	/** The newest update sent. */
+	last: Record<string, unknown>;
+
+	constructor(
+		private readonly server: Awaited<ReturnType<typeof serverOf>>,
+		private readonly id: string,
+		first: Record<string, unknown>,
+	) {
+		this.last = first;
+	}
+
+	async send(update: Record<string, unknown>): Promise<void> {
+		this.last = update;
+		if (this.server === null) {
+			return;
+		}
+		const response = await this.server
+			.send(`${this.server.url}/api/conversations/${this.id}/progress`, {
+				method: "POST",
+				headers: {
+					origin: this.server.url,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(update),
+				signal: AbortSignal.timeout(SERVER_WAIT_MS),
+			})
+			.catch(() => null);
+		if (response !== null && !response.ok) {
+			const refused = (await response.json().catch(() => ({}))) as {
+				reason?: string;
+				message?: string;
+			};
+			const reason = refused.reason as Reason;
+			fail(
+				reason in EXIT ? reason : "usage",
+				refused.message ?? `splates server refused it: ${response.status}`,
+			);
+		}
+	}
 }
 
 /** The card as one plain line, which is all a terminal with no page shows. */

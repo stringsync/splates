@@ -25,13 +25,13 @@ export class Chrome implements Resource {
 		readonly cdp: CdpSocket,
 	) {}
 
-	static async launch(ps: Ps, fs: Fs, options: ChromeOptions): Promise<Chrome> {
-		const signal = options.signal ?? new AbortController().signal;
-		await fs.mkdir(options.profile, { recursive: true });
-		const portFile = `${options.profile}/DevToolsActivePort`;
+	static async launch(ps: Ps, fs: Fs, opts: ChromeOptions): Promise<Chrome> {
+		const signal = opts.signal ?? new AbortController().signal;
+		await fs.mkdir(opts.profile, { recursive: true });
+		const portFile = `${opts.profile}/DevToolsActivePort`;
 		// A file left by the last run would point at a port nobody listens on.
 		await fs.rm(portFile, { force: true });
-		const child = ps.start([chromeBinary(ps), ...chromeArgs(options)]);
+		const child = ps.start([chromeBinary(ps), ...chromeArgs(opts)]);
 		// Unread output can fill the pipes and block Chrome, even during launch.
 		for (const stream of [child.stdout, child.stderr]) {
 			void stream.pipeTo(new WritableStream()).catch(() => {});
@@ -117,9 +117,9 @@ export function chromeBinary(ps: Ps): string {
 	return ps.platform === "darwin" ? MAC_CHROME : "google-chrome";
 }
 
-export function chromeArgs(options: ChromeOptions): string[] {
+export function chromeArgs(opts: ChromeOptions): string[] {
 	return [
-		`--user-data-dir=${options.profile}`,
+		`--user-data-dir=${opts.profile}`,
 		// Port 0 lets Chrome pick one, which it writes to DevToolsActivePort.
 		"--remote-debugging-port=0",
 		"--no-first-run",
@@ -129,11 +129,11 @@ export function chromeArgs(options: ChromeOptions): string[] {
 		"--disable-backgrounding-occluded-windows",
 		// Lets `Extensions.loadUnpacked` load rec's side panel extension.
 		"--enable-unsafe-extension-debugging",
-		...(options.fakeMedia
+		...(opts.fakeMedia
 			? ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]
 			: []),
 		"--new-window",
-		options.url,
+		opts.url,
 	];
 }
 

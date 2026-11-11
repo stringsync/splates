@@ -50,7 +50,7 @@ describe("conversation render subscriptions", () => {
 		);
 		feed.available = true;
 		feed.put(one);
-		drafts = new Drafts(localStorage, null);
+		drafts = new Drafts(localStorage);
 		terminals = new Terminals(localStorage, () => false, {
 			timer: testing.timer,
 		});

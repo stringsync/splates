@@ -76,7 +76,7 @@ export async function merge(
 		config: Config;
 		log: Logger;
 		tasks: Tasks;
-		journal?: Journal;
+		journal: Journal;
 		fs: Fs;
 		slots: Slots;
 		/** The machine's premerge lock, so one gate runs at a time. */
@@ -223,7 +223,7 @@ export async function merge(
 		const onQueued = async (place: number) => {
 			if (!queuedBefore) {
 				queuedBefore = true;
-				facts.began = (await journal?.begin("merge queued", task, {})) ?? null;
+				facts.began = await journal.begin("merge queued", task, {});
 			}
 			lastPlace = place;
 			if (stacked) {
@@ -249,7 +249,7 @@ export async function merge(
 			}
 			started = true;
 			const queued = facts.began ?? null;
-			const begun = await journal?.begin("merge start", task, {
+			const begun = await journal.begin("merge start", task, {
 				began: queued,
 			});
 			facts.began = queued ?? begun ?? null;

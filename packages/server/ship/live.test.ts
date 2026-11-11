@@ -80,7 +80,7 @@ describe("ShipLive", () => {
 		const ps = new FakePs();
 		ps.setCaptureOutput(output, "");
 		const live = new ShipLive(ps, { configs: new LiveConfig("status") });
-		await expect(live.read(project)).rejects.toThrow("invalid shipStatus JSON");
+		expect(live.read(project)).rejects.toThrow("invalid shipStatus JSON");
 	});
 
 	it("surfaces command failure and reads again on retry", async () => {
@@ -88,7 +88,7 @@ describe("ShipLive", () => {
 		ps.simulate(async () => 1);
 		ps.setCaptureOutput("", "provider unavailable");
 		const live = new ShipLive(ps, { configs: new LiveConfig("status") });
-		await expect(live.check(project, "1.2.3")).rejects.toThrow(
+		expect(live.check(project, "1.2.3")).rejects.toThrow(
 			"shipStatus exited 1: provider unavailable",
 		);
 		ps.simulate(async () => 0);
@@ -129,9 +129,9 @@ describe("ShipLive", () => {
 		const live = new ShipLive(new FakePs(), {
 			configs: new LiveConfig(undefined),
 		});
-		await expect(
-			live.check({ ...project, packages: [] }, "1.2.3"),
-		).rejects.toThrow("no public packages");
+		expect(live.check({ ...project, packages: [] }, "1.2.3")).rejects.toThrow(
+			"no public packages",
+		);
 	});
 });
 

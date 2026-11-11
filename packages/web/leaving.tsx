@@ -12,6 +12,7 @@ import { TakingLong } from "./countdown";
 export function Leaving({
 	name,
 	onStay,
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: {
 	name: string;
 	/** Uncovers this page again, as when the other never opens. */

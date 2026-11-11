@@ -1,5 +1,7 @@
 import { age } from "@splates/server/age";
 import type { EvalBatch } from "@splates/server/evals/browser";
+import { Dispatcher, type Eventful } from "core/events";
+import { useReactive } from "core/react";
 import { CheckIcon, ChevronRightIcon, MinusIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { cn } from "./lib/utils";
@@ -32,16 +34,9 @@ export function EvalHistory({
 	batches: EvalBatch[];
 	onOpen: (batch: string) => void;
 }): JSX.Element {
-	const [filter, setFilter] = useState<Filter>("All");
-	const kept = batches.filter(
-		(each) =>
-			filter === "All" ||
-			outcomeOf(each) === (filter === "Passed" ? "passed" : "failed"),
-	);
-	const recent = kept.filter(
-		(each) => Date.now() - Date.parse(each.startedAt) < WEEK,
-	);
-	const earlier = kept.filter((each) => !recent.includes(each));
+	const [history] = useState(() => new HistoryFilter());
+	const filter = useReactive(history, (each) => each.filter, ["changed"]);
+	const { kept, recent, earlier } = history.split(batches);
 	return (
 		<section aria-label="history" className="flex flex-col gap-4">
 			<div className="flex gap-2">
@@ -50,7 +45,7 @@ export function EvalHistory({
 						key={each}
 						type="button"
 						aria-pressed={filter === each}
-						onClick={() => setFilter(each)}
+						onClick={() => history.pick(each)}
 						className={cn(
 							"rounded-full border px-3 py-1 text-sm",
 							filter === each
@@ -159,4 +154,41 @@ function Past({
 			</button>
 		</li>
 	);
+}
+
+type HistoryFilterEvents = { changed: undefined };
+
+/** Which outcomes the history shows, and how it splits the batches that match. */
+class HistoryFilter implements Eventful<HistoryFilterEvents> {
+	private readonly dispatcher = new Dispatcher<HistoryFilterEvents>();
+	readonly events = this.dispatcher.events;
+
+	filter: Filter = "All";
+
+	/** Shows the batches with outcome `filter`. */
+	pick(filter: Filter): void {
+		this.filter = filter;
+		this.dispatcher.dispatch("changed");
+	}
+
+	/** The batches that match, and of those the ones from this week and the older. */
+	split(batches: EvalBatch[]): {
+		kept: EvalBatch[];
+		recent: EvalBatch[];
+		earlier: EvalBatch[];
+	} {
+		const kept = batches.filter(
+			(each) =>
+				this.filter === "All" ||
+				outcomeOf(each) === (this.filter === "Passed" ? "passed" : "failed"),
+		);
+		const recent = kept.filter(
+			(each) => Date.now() - Date.parse(each.startedAt) < WEEK,
+		);
+		return {
+			kept,
+			recent,
+			earlier: kept.filter((each) => !recent.includes(each)),
+		};
+	}
 }

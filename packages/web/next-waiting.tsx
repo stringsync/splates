@@ -42,6 +42,7 @@ export function NextWaiting({
 	onOpen,
 	todos,
 	...given
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: Waiting & {
 	/** The board's tasks, to tell which lane each agent at work is on. */
 	todos: TaskRecord[];

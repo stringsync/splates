@@ -35,7 +35,7 @@ describe("AutoPickStore", () => {
 	});
 
 	it("refuses to save rules that do not end on * *, leaving the file alone", async () => {
-		await expect(
+		expect(
 			store.save({ ...MINE, rules: MINE.rules.slice(0, 1) }),
 		).rejects.toThrow("the last rule must be kind * and depth *");
 		expect(await fs.exists(PATH)).toBe(false);
@@ -44,7 +44,7 @@ describe("AutoPickStore", () => {
 	it("names the file when it is not JSON", async () => {
 		await fs.mkdir("/home/.splates", { recursive: true });
 		await fs.write(PATH, "{");
-		await expect(store.rules()).rejects.toThrow(`${PATH} is not JSON`);
+		expect(store.rules()).rejects.toThrow(`${PATH} is not JSON`);
 	});
 
 	it("names the file and the problem when it holds no rules", async () => {
@@ -53,7 +53,7 @@ describe("AutoPickStore", () => {
 			PATH,
 			JSON.stringify({ format: 2, threshold: 0.5, rules: [] }),
 		);
-		await expect(store.rules()).rejects.toThrow(
+		expect(store.rules()).rejects.toThrow(
 			`${PATH} is not Auto pick rules: rules: the rules list at least one rule`,
 		);
 	});

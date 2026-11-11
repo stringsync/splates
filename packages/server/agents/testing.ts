@@ -1,8 +1,8 @@
 import * as acp from "@agentclientprotocol/sdk";
-import type { FakeChild, FakePs } from "core/system/testing";
 import { type AgentProcess, framed } from "./process";
 
 /** What the agent does with each prompt, given the connection back to splates. */
+// vet-ignore objects-over-callbacks: a test fake's script for one prompt, set by the test that plays the agent
 export type Turn = (
 	client: acp.AgentSideConnection,
 	session: string,
@@ -392,17 +392,6 @@ export async function printed(
 		text += decoder.decode(frame.bytes, { stream: true });
 	}
 	return text + decoder.decode();
-}
-
-/** Lets a `SharedBrowser`'s awaits run until it has started its `count`th MCP. */
-export async function served(
-	ps: FakePs,
-	count = 1,
-): Promise<FakeChild | undefined> {
-	while (ps.getChildren().length < count) {
-		await Bun.sleep(1);
-	}
-	return ps.getChildren()[count - 1];
 }
 
 export { FakeAgentPs } from "./fake-agent-ps";

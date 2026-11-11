@@ -49,6 +49,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private readonly timer: Timer;
 
 	/** Its shells leave to the page each key `toggles` says shows or hides one. */
+	// vet-ignore objects-over-callbacks: a test of one key, handed to each shell
 	constructor(
 		private readonly storage: Storage,
 		// vet-ignore objects-over-callbacks: a test of one key, handed to each shell

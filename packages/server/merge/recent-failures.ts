@@ -12,10 +12,10 @@ const SCAN = 500;
  * fix lands, so the next gate runs these before the rest of the suite.
  */
 export async function recentFailedFiles(
-	journal: Journal | undefined,
+	journal: Journal,
 	now: number = Date.now(),
 ): Promise<string[]> {
-	const entries = (await journal?.tail(SCAN).catch(() => [])) ?? [];
+	const entries = await journal.tail(SCAN).catch(() => []);
 	return recentFailedFilesOf(entries, now);
 }
 

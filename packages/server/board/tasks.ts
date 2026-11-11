@@ -6,8 +6,9 @@ import { BACKLOG_LANE } from "./backlog";
 import type { BoardRecord } from "./boards";
 import { changeLane } from "./change-lane";
 import { distinct } from "./elsewhere-links";
-import type { LaneUpdateOptions } from "./lane";
+import type { DropLaneOptions, LaneUpdateOptions } from "./lane";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
+import { slot } from "./slot";
 import { startedOf, type TaskStore } from "./store";
 import {
 	assigned,
@@ -309,8 +310,8 @@ export class Tasks {
 	}
 
 	/** Makes each change asked of lane `id`, as `changeLane` says. */
-	changeLane(id: number, change: LaneUpdateOptions) {
-		return changeLane(this, id, change);
+	changeLane(id: number, opts: LaneUpdateOptions) {
+		return changeLane(this, id, opts);
 	}
 
 	/** Queues every task waiting in lane `id` once, or takes its queued ones out. */
@@ -322,7 +323,7 @@ export class Tasks {
 	}
 
 	/** Removes lane `id`, putting its tasks back in Backlog. */
-	dropLane(id: number, opts: { emptyOnly?: boolean } = {}): Promise<void> {
+	dropLane(id: number, opts: DropLaneOptions = {}): Promise<void> {
 		return this.laneFiles.dropLane(id, opts);
 	}
 
@@ -642,17 +643,6 @@ interface RemovedTask {
 export interface TasksOptions {
 	/** What names stored files apart; random ids by default. */
 	ids?: IdProvider;
-}
-
-/** `states` with `state` taken out and put back at `position`, 1 at the top. */
-function slot(
-	states: TaskRecord[],
-	state: TaskRecord,
-	position: number | undefined,
-): TaskRecord[] {
-	const rest = states.filter((other) => other.id !== state.id);
-	const at = Math.min((position ?? Infinity) - 1, rest.length);
-	return [...rest.slice(0, at), state, ...rest.slice(at)];
 }
 
 function missing(id: number): never {

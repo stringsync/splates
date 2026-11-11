@@ -56,11 +56,6 @@ const OPEN = z.object({
 const RECORDING_COMMAND =
 	/(^|[ /])rec(\/packages\/rec\/index\.ts)?( record)?( --.*)?$/;
 
-/** The name Compose gives a project that lives in `cwd`. */
-function composeProject(cwd: string): string {
-	return (cwd.split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
-}
-
 export class Rec {
 	readonly #ps: Ps;
 	/** The rec this server started, while it runs. */
@@ -438,4 +433,9 @@ export class Rec {
 					{ reason: "no_rec", message: "no running rec was found to close" },
 					{ status: 409 },
 				);
+}
+
+/** The name Compose gives a project that lives in `cwd`. */
+function composeProject(cwd: string): string {
+	return (cwd.split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }

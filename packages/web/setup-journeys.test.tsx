@@ -9,7 +9,8 @@ import {
 import { FakeSecretStore } from "core/creds/testing";
 import { FakeFs } from "core/system/testing";
 import { AppSetupPage } from "./app-setup-page";
-import { SetupIndex, StepField, StepForm } from "./setup-form";
+import { StepField, StepForm } from "./setup-form";
+import { SetupIndex } from "./setup-index";
 import { act, cleanup, fireEvent, render, Testing, waitFor } from "./testing";
 
 describe("Setup journeys", () => {

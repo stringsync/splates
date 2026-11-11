@@ -177,7 +177,7 @@ describe("Pushes", () => {
 	});
 
 	it("refuses a body that is not a subscription", async () => {
-		await expect(
+		expect(
 			pushes.subscribe(subscribing({ subscription: { endpoint: "nope" } })),
 		).rejects.toThrow("not a push subscription");
 	});

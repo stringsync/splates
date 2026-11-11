@@ -19,6 +19,7 @@ import type { Manifest } from "./session";
 import { SessionNames, sessionName, suggestName } from "./session-name";
 import { SESSION_STORE_POLICY, SessionStore } from "./session-store";
 import { SessionLibrary } from "./sessions";
+import type { SessionDirs } from "./sinks";
 import { BUNDLED_SKILL, installSkill } from "./skills";
 import { parseVideoTime, sliceSession } from "./slice";
 import { KEY_NAME, recCredentials, requireKey, transcribe } from "./transcribe";
@@ -73,62 +74,60 @@ interface Session {
 	server: RecorderServer;
 }
 
+interface OpenSessionOptions {
+	fakeMedia: boolean;
+	routes?: Routes;
+	docker?: string;
+	tails?: string[];
+	staged?: boolean;
+	noMic?: boolean;
+	liveKey?: string;
+	fps?: number;
+	noScreencast?: boolean;
+	name?: string;
+	usedNames?: ReadonlySet<string>;
+	/** Gives up opening, closing the Chrome it started, and rejects. */
+	signal?: AbortSignal;
+}
+
 async function openSession(
 	deps: RecDeps,
-	dir: string | (() => Promise<string>),
+	dir: string | SessionDirs,
 	url: (server: RecorderServer) => string,
-	options: {
-		fakeMedia: boolean;
-		routes?: Routes;
-		docker?: string;
-		tails?: string[];
-		staged?: boolean;
-		noMic?: boolean;
-		liveKey?: string;
-		fps?: number;
-		noScreencast?: boolean;
-		name?: string;
-		usedNames?: ReadonlySet<string>;
-		onSaved?: (dir: string) => void;
-		/** Gives up opening, closing the Chrome it started, and rejects. */
-		signal?: AbortSignal;
-	},
+	opts: OpenSessionOptions,
 ): Promise<Session> {
-	const signal = options.signal ?? new AbortController().signal;
-	const server = new RecorderServer(
-		deps,
-		dir,
-		options.routes,
-		options.onSaved,
-		options.name,
-		options.usedNames,
-		`${home(deps)}/mic.json`,
-	);
+	const signal = opts.signal ?? new AbortController().signal;
+	const server = new RecorderServer(deps, dir, {
+		routes: opts.routes,
+		baseName: opts.name,
+		usedNames: opts.usedNames,
+		micFile: `${home(deps)}/mic.json`,
+	});
 	const file = serverFile(home(deps));
 	await deps.fs.mkdir(home(deps), { recursive: true });
 	await deps.fs.write(
 		file,
-		JSON.stringify({ origin: server.origin, name: options.name }),
+		JSON.stringify({ origin: server.origin, name: opts.name }),
 	);
 	try {
 		const chrome = await Chrome.launch(deps.ps, deps.fs, {
 			profile: `${home(deps)}/chrome`,
 			url: server.openUrl,
-			fakeMedia: options.fakeMedia,
+			fakeMedia: opts.fakeMedia,
 			signal,
 		});
 		try {
 			const opened = server.open(chrome.cdp, {
-				grantMic: !options.fakeMedia,
+				grantMic: !opts.fakeMedia,
 				workingUrl: url(server),
 				scrubber: await envScrubber(deps),
-				docker: options.docker,
-				tails: options.tails,
-				staged: options.staged,
-				noMic: options.noMic,
-				liveKey: options.liveKey,
-				fps: options.fps,
-				noScreencast: options.noScreencast,
+				docker: opts.docker,
+				tails: opts.tails,
+				staged: opts.staged,
+				noMic: opts.noMic,
+				liveKey: opts.liveKey,
+				fps: opts.fps,
+				noScreencast: opts.noScreencast,
 			});
 			// A Chrome that stops answering would hold `open` up for good.
 			await aborts.race(signal, opened);
@@ -217,7 +216,7 @@ rec
 		});
 		const session = await openSession(
 			deps,
-			() => freshDir(deps, opts.out),
+			{ next: () => freshDir(deps, opts.out) },
 			() => opts.url,
 			{
 				signal: interrupted.signal,
@@ -230,20 +229,6 @@ rec
 				noMic: opts["no-mic"],
 				liveKey: key === "" ? undefined : key,
 				fps: opts.fps,
-				onSaved: (dir) => {
-					pending.add(dir);
-					const job = finishing
-						.then(() => finish(dir))
-						.catch((error: unknown) => {
-							deps.log.error(`could not finish session ${dir}: ${error}`);
-						})
-						.finally(() => {
-							jobs.delete(job);
-							pending.delete(dir);
-						});
-					finishing = job;
-					jobs.add(job);
-				},
 			},
 		).catch((error: unknown) => {
 			signal.dispose();
@@ -257,6 +242,20 @@ rec
 			return;
 		}
 		const { chrome, server } = session;
+		server.events.on("saved", ({ dir }) => {
+			pending.add(dir);
+			const job = finishing
+				.then(() => finish(dir))
+				.catch((error: unknown) => {
+					deps.log.error(`could not finish session ${dir}: ${error}`);
+				})
+				.finally(() => {
+					jobs.delete(job);
+					pending.delete(dir);
+				});
+			finishing = job;
+			jobs.add(job);
+		});
 		try {
 			deps.log.info(
 				"staged: press Start in the control window to record, as many times as you like; press Ctrl-C to finish; closing the panel ends rec",
@@ -271,9 +270,10 @@ rec
 			]);
 			signal.dispose();
 			if (ended !== "interrupted" && server.recordingNow) {
-				throw new Error(
-					`${ended === "quit" ? "Chrome quit" : "The control panel closed"} before the recording stopped; ${server.session.dir} holds what arrived`,
+				deps.log.info(
+					`${ended === "quit" ? "Chrome quit" : "The control panel closed"} while recording; saving the session`,
 				);
+				await server.salvage();
 			}
 			await Promise.all(jobs);
 		} finally {

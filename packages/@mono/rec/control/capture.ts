@@ -211,7 +211,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		}
 	}
 
-	/** Turns the mic off by choice, or back on; only before Start, as a running recorder cannot change its tracks. */
+	/** Mutes the mic or turns it back on. Call it before Start; it does nothing once recording. */
 	setMicEnabled(enabled: boolean): void {
 		if (this.recorder || this.state.mic === "none") {
 			return;

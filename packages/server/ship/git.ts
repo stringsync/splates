@@ -137,9 +137,12 @@ export class ReleaseGit {
 				`origin/${branch} does not match the commit being shipped`,
 			);
 		}
+		// Trunk moves while a release runs, as other tasks land on it. The remote
+		// was verified at `head`, so a HEAD that has only grown past it is fine;
+		// only one that no longer holds the shipped commit is a changed tree.
 		if (
-			(await this.out("rev-parse", "HEAD")) !== head ||
-			(await this.out("status", "--porcelain")) !== ""
+			(await this.run("merge-base", "--is-ancestor", head, "HEAD")).exitCode !==
+			0
 		) {
 			throw new Error(
 				"The release tree changed while verifying its push; retry shipping",

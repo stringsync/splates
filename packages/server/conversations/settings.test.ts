@@ -95,10 +95,10 @@ describe("Conversation settings", () => {
 		expect(
 			conversation.state.settings.find((each) => each.id === "model")?.current,
 		).toBe("small");
-		await expect(conversation.choose("model", "huge")).rejects.toThrow(
+		expect(conversation.choose("model", "huge")).rejects.toThrow(
 			"'huge' is not a model this agent offers",
 		);
-		await expect(conversation.choose("size", "huge")).rejects.toThrow(
+		expect(conversation.choose("size", "huge")).rejects.toThrow(
 			"has no setting 'size'",
 		);
 	});

@@ -72,6 +72,7 @@ export interface SystemStoresOptions {
 class LazySecretStore implements SecretStore {
 	private store?: Promise<SecretStore>;
 
+	// vet-ignore objects-over-callbacks: a lazy pick of the store, run once on first use to compute it
 	constructor(private readonly pick: () => Promise<SecretStore>) {}
 
 	get label(): string {

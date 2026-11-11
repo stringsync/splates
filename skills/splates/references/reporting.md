@@ -96,6 +96,11 @@ D2 diagram of it (see [proposing.md](proposing.md), Showing the change) under
 the colon line, attached and named as `![flow](/abs/path.png)`, as a before and
 after when it changed anything.
 
+A Done report carries no demo (a screenshot or recording of a result, a
+server to try). To mention one, send it as its own card in a separate reply
+before the Done report, as [demos.md](demos.md) says, and keep Done to the
+answer.
+
 A merge report names any artifact the task made as `Artifact: <name>`
 rather than inlining it.
 

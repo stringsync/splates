@@ -6,6 +6,7 @@ import { z } from "zod";
 import { scratchLaunch } from "../agents";
 import { SERVING } from "../server/shared";
 import type { WorkerChannel } from "./channel";
+import { NoopTimer } from "./noop-timer";
 import type { WorkerSession } from "./session";
 
 /** What a server opens a `process` channel with. */
@@ -47,7 +48,7 @@ export class WorkerProcessHost implements Resource {
 		private readonly ps: Ps,
 		opts: WorkerProcessHostOptions = {},
 	) {
-		const { timer = null } = opts;
+		const { timer = new NoopTimer() } = opts;
 		const { argv, cwd, env } = ProcessParams.parse(channel.params);
 		try {
 			this.child = ps.start(
@@ -71,8 +72,7 @@ export class WorkerProcessHost implements Resource {
 		});
 		channel.events.on("message", ({ body }) => this.told(body));
 		channel.events.on("close", () => this.dispose());
-		this.watch =
-			timer?.setInterval(() => void this.note(), WATCH_EVERY) ?? null;
+		this.watch = timer.setInterval(() => void this.note(), WATCH_EVERY);
 		void this.run(argv, cwd);
 	}
 
@@ -209,7 +209,7 @@ export class WorkerProcessHost implements Resource {
 /** What a {@link WorkerProcessHost} is set up with, beyond its channel. */
 export interface WorkerProcessHostOptions {
 	/** What notes the child's descendants while it runs; absent to note none. */
-	timer?: Timer | null;
+	timer?: Timer;
 	/** Where it runs its process, kept from its siblings; absent to run it as this worker's user alone. */
 }
 

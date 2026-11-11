@@ -14,6 +14,7 @@ import {
 } from "./elsewhere";
 import { laneQueue, laneRemove, laneUpdated, recordLaneRemove } from "./lane";
 import type { LaneRecord } from "./lanes";
+import { NoopElsewhereBoards } from "./noop-elsewhere-boards";
 import { tasksNamed } from "./task";
 import { addedFacts } from "./task-edit";
 import { recordUpdate } from "./task-journal";
@@ -29,7 +30,7 @@ export class BoardRoutes {
 	readonly #project: Project;
 	readonly #conversations: ConversationRoutes;
 	readonly #watch: ProjectWatch;
-	readonly #boards: ElsewhereBoards | undefined;
+	readonly #boards: ElsewhereBoards;
 	readonly #root: string;
 
 	constructor(
@@ -38,7 +39,7 @@ export class BoardRoutes {
 		watch: ProjectWatch,
 		elsewhere: { boards?: ElsewhereBoards; root: string },
 	) {
-		this.#boards = elsewhere.boards;
+		this.#boards = elsewhere.boards ?? new NoopElsewhereBoards();
 		this.#root = elsewhere.root;
 		this.#project = project;
 		this.#conversations = conversations;
@@ -143,9 +144,7 @@ export class BoardRoutes {
 
 	// The open tasks of the other projects, to pick a blocker from.
 	readonly elsewhereTasks = async (): Promise<Response> =>
-		Response.json(
-			(await this.#boards?.openTasks(this.#root).catch(() => [])) ?? [],
-		);
+		Response.json(await this.#boards.openTasks(this.#root).catch(() => []));
 
 	/** `named` as its project's board holds it, or refuses one that is gone. */
 	private async openElsewhere(named: {
@@ -155,7 +154,7 @@ export class BoardRoutes {
 		const project = String(named.project ?? "");
 		const id = Number(named.id);
 		const found =
-			this.#boards === undefined || project === this.#root
+			project === this.#root
 				? null
 				: await this.#boards.find(project, id).catch(() => null);
 		if (found === null || found.status === "merged") {

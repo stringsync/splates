@@ -48,9 +48,9 @@ describe("ConversationProgress", () => {
 	});
 
 	it("shows a burst of a thousand lines as its first and its last", () => {
-		for (let line = 0; line < 1000; line++) {
-			progress.report({ id: "build", note: `line ${line}` });
-		}
+		Array.from({ length: 1000 }, (_, line) =>
+			progress.report({ id: "build", note: `line ${line}` }),
+		);
 		expect(written).toHaveLength(1);
 		expect(changes).toBe(1);
 
@@ -119,10 +119,10 @@ describe("ConversationProgress", () => {
 	});
 
 	it("keeps the last twenty notes", () => {
-		for (let step = 0; step < 40; step++) {
+		Array.from({ length: 40 }, (_, step) => {
 			progress.report({ id: "build", note: `step ${step}` });
-			timer.fireTimeouts();
-		}
+			return timer.fireTimeouts();
+		});
 
 		expect(state.progress[0]?.history).toHaveLength(20);
 		expect(state.progress[0]?.history.at(-1)?.note).toBe("step 38");
@@ -158,9 +158,9 @@ describe("ConversationProgress", () => {
 		});
 		applyProgress(list, card("old", false));
 		applyProgress(list, card("finished", true));
-		for (let each = 0; each < 9; each++) {
-			applyProgress(list, card(`more-${each}`, false));
-		}
+		Array.from({ length: 9 }, (_, each) =>
+			applyProgress(list, card(`more-${each}`, false)),
+		);
 
 		expect(list).toHaveLength(10);
 		expect(list.map((each) => each.id)).not.toContain("finished");

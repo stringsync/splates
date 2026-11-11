@@ -238,19 +238,23 @@ describe("App's conversation settings", () => {
 			expect(settings.textContent).toContain("Big");
 			await act(async () => fireEvent.click(settings));
 			const dialog = await waitFor(() => view.getByRole("dialog"));
+			// Fast mode sits a tap deeper than the models.
+			await act(async () =>
+				fireEvent.click(
+					within(dialog).getByRole("button", { name: /Fast mode/ }),
+				),
+			);
 			await act(async () =>
 				fireEvent.click(
 					within(dialog).getByRole("switch", { name: "Fast mode" }),
 				),
 			);
 			await act(async () =>
-				fireEvent.click(
-					within(dialog).getByRole("combobox", { name: "model" }),
-				),
+				fireEvent.click(within(dialog).getByRole("button", { name: "Back" })),
 			);
-			await pick(
-				await waitFor(() =>
-					view.getByRole("option", {
+			await act(async () =>
+				fireEvent.click(
+					within(dialog).getByRole("button", {
 						name: "OpenCode Go · Small (opencode-go/small)",
 					}),
 				),

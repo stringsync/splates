@@ -14,7 +14,7 @@ export function protectBacklog(id: number): void {
 	}
 }
 
-/** The `grooming` value older records hold for a task put in Backlog by hand: `ungroomed` reads it as never groomed. */
+/** The `grooming` value of a task put in Backlog by hand; `ungroomed` treats it as never groomed. */
 export const LEGACY_PLACED = "placed";
 
 /** Whether `task` waits in Backlog for the groomer: untaken and never groomed. */

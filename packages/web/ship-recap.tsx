@@ -3,6 +3,7 @@ import { shipName } from "@splates/server/ship/browser";
 import { CircleCheckIcon, CircleSlashIcon, CircleXIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { markShipSeen } from "./api/ship";
 import { cn } from "./lib/utils";
 import {
 	lasted,
@@ -67,6 +68,7 @@ export function ShipRecap({ cascade }: { cascade: Cascade }): JSX.Element {
 					className="min-h-11 w-full"
 					onClick={() => {
 						acknowledge(cascade.id);
+						markShipSeen(cascade.id).catch(() => {});
 						location.hash = "ships";
 					}}
 				>

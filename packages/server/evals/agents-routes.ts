@@ -14,11 +14,19 @@ export interface EvalAgentsView {
 	roster: AutoPickAgent[];
 }
 
+/** What `EvalAgentsRoutes` reads and writes its agents with. */
+export interface EvalAgentsRoutesOptions {
+	/** The filesystem the agents file is on. */
+	fs: Fs;
+	/** The folder holding `eval-agents.json`. */
+	home: string;
+}
+
 /** How the Evals page reads and writes this machine's eval agents. */
 export class EvalAgentsRoutes {
 	private readonly store: EvalAgentsStore;
 
-	constructor(private readonly opts: { fs: Fs; home: string }) {
+	constructor(private readonly opts: EvalAgentsRoutesOptions) {
 		this.store = new EvalAgentsStore(`${opts.home}/eval-agents.json`, opts.fs);
 	}
 

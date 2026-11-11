@@ -94,6 +94,7 @@ export const Thread: FC<ThreadProps> = ({
 		</ThreadComponentsContext.Provider>
 	);
 };
+// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 const ThreadRoot: FC<{
 	historyFailure?: ReactNode;
 	isEmpty: boolean;
@@ -127,7 +128,7 @@ const ThreadRoot: FC<{
 		if (element === null) {
 			return;
 		}
-		element.scrollTo = (options?: ScrollToOptions | number, y?: number) =>
+		element.scrollTo = (target?: ScrollToOptions | number, y?: number) =>
 			(
 				HTMLElement.prototype.scrollTo as (
 					this: HTMLElement,
@@ -135,9 +136,9 @@ const ThreadRoot: FC<{
 				) => void
 			).call(
 				element,
-				typeof options === "number"
-					? { left: options, top: y ?? 0, behavior: "instant" }
-					: { ...options, behavior: "instant" },
+				typeof target === "number"
+					? { left: target, top: y ?? 0, behavior: "instant" }
+					: { ...target, behavior: "instant" },
 			);
 		return () => {
 			delete (element as Partial<HTMLDivElement>).scrollTo;

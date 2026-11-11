@@ -46,7 +46,7 @@ describe("GitHubApp", () => {
 	});
 
 	it("asks with its JWT, and says what GitHub said when it refuses", async () => {
-		await expect(app.token({ owner: "o", name: "r" })).rejects.toThrow(
+		expect(app.token({ owner: "o", name: "r" })).rejects.toThrow(
 			"GitHub GET /repos/o/r/installation: 404 Not Found",
 		);
 		expect(

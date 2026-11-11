@@ -406,23 +406,37 @@ function useVisit(
 function useRead(conversation: ConversationState | null): void {
 	const inFront = useInFront();
 	const expect = useExpect();
-	// The one whose marking was refused, which shows it unread again: that is
-	// no new turn to mark read, and marking it again would go round for good.
-	const refused = useRef<string | null>(null);
+	const [marker] = useState(() => new ReadMarker());
 	const id = conversation?.id ?? null;
 	const unread = conversation?.unread ?? false;
 	useEffect(() => {
-		if (refused.current === id) {
-			refused.current = null;
+		marker.mark(id, unread, inFront, expect);
+	}, [marker, id, unread, inFront, expect]);
+}
+
+/** Marks a conversation read, and remembers the one the server refused. */
+class ReadMarker {
+	// The one whose marking was refused, which shows it unread again: that is
+	// no new turn to mark read, and marking it again would go round for good.
+	private refused: string | null = null;
+
+	mark(
+		id: string | null,
+		unread: boolean,
+		inFront: boolean,
+		expect: ReturnType<typeof useExpect>,
+	): void {
+		if (this.refused === id) {
+			this.refused = null;
 			return;
 		}
 		if (id !== null && unread && inFront) {
 			// Nothing to tell anyone: the dot stays until the next try.
 			expect(id, { unread: false }, markUnread(id, false)).catch(() => {
-				refused.current = id;
+				this.refused = id;
 			});
 		}
-	}, [id, unread, inFront, expect]);
+	}
 }
 
 /** In place of a conversation the address names and the page has none of. */

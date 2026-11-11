@@ -39,6 +39,16 @@ export interface RecorderStats {
 	bytes: number;
 }
 
+/** Stats to save a recording with when its control window closed before it could count. */
+export const UNKNOWN_STATS: RecorderStats = {
+	arrived: 0,
+	painted: 0,
+	superseded: 0,
+	repeats: 0,
+	latency: { p50: 0, p95: 0, max: 0 },
+	bytes: 0,
+};
+
 export type ToServer =
 	| {
 			type: "started";

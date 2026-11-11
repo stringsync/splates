@@ -1,6 +1,7 @@
 import type { TaskRecord } from "@splates/server/board";
 import type { Snapshot } from "@splates/server/tasks";
 import { Dispatcher, type Eventful } from "core/events";
+import { NoopStorage } from "./noop-storage";
 import { TaskFilter } from "./task-filter";
 
 export type TodoViewEvents = { changed: undefined };
@@ -38,7 +39,7 @@ export class TodoView implements Eventful<TodoViewEvents> {
 	readonly taskFilter: TaskFilter;
 
 	/** `storage` keeps the hidden lanes and the filter for the next visit, when given. */
-	constructor(private readonly storage?: Storage) {
+	constructor(private readonly storage: Storage = new NoopStorage()) {
 		this.taskFilter = new TaskFilter(storage);
 		this.hidden = hiddenIn(storage);
 	}
@@ -86,7 +87,7 @@ export class TodoView implements Eventful<TodoViewEvents> {
 
 	/** Hides `lanes` and shows every other. */
 	hide(lanes: number[]): void {
-		this.storage?.setItem(HIDDEN, JSON.stringify(lanes));
+		this.storage.setItem(HIDDEN, JSON.stringify(lanes));
 		this.set({ hidden: lanes });
 	}
 
@@ -99,9 +100,9 @@ export class TodoView implements Eventful<TodoViewEvents> {
 }
 
 /** The lanes hidden on the last visit; none when what was kept will not read. */
-function hiddenIn(storage?: Storage): number[] {
+function hiddenIn(storage: Storage): number[] {
 	try {
-		const kept: unknown = JSON.parse(storage?.getItem(HIDDEN) ?? "[]");
+		const kept: unknown = JSON.parse(storage.getItem(HIDDEN) ?? "[]");
 		return Array.isArray(kept)
 			? kept.filter((lane) => typeof lane === "number")
 			: [];

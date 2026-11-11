@@ -67,6 +67,18 @@ export async function shipStageLog(
 	return response.ok ? await response.text() : null;
 }
 
+/** Records on the server that the person has seen ship `id`'s result. */
+export async function markShipSeen(id: string): Promise<void> {
+	const response = await answered("/api/ship/steps/seen", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ id }),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", await response.text());
+	}
+}
+
 /** Retry the failed stage or end the ship, retaining everything already published. */
 export async function actOnShip(
 	action: "retry" | "abandon" | "agent",

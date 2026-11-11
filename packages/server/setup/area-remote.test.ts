@@ -119,7 +119,7 @@ describe("the access setup step", () => {
 			});
 		const setup = new Setup(machine, [REMOTE_ACCESS_AREA]);
 
-		await expect(setup.submit("ports-host", { base: "nope" })).rejects.toThrow(
+		expect(setup.submit("ports-host", { base: "nope" })).rejects.toThrow(
 			"invalid ports host",
 		);
 		const progress = await setup.submit("ports-host", {

@@ -143,7 +143,7 @@ describe("Conversation move", () => {
 		await conversation.stop();
 		await fs.rm("/repo-splates/login", { recursive: true });
 
-		await expect(conversation.prompt("go on")).rejects.toThrow(
+		expect(conversation.prompt("go on")).rejects.toThrow(
 			"/repo-splates/login is gone",
 		);
 		expect(agent.launched).toHaveLength(1);

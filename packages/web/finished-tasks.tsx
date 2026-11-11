@@ -119,7 +119,7 @@ export function FinishedTasks({ moved }: { moved: string }): JSX.Element {
 				{opened !== null && (
 					<FinishedDialog
 						opened={opened}
-						listed={listed?.find((each) => each.key === opened) ?? null}
+						row={listed?.find((each) => each.key === opened) ?? null}
 					/>
 				)}
 			</Dialog>
@@ -157,7 +157,7 @@ export function FinishedByName({ name }: { name: string }): JSX.Element {
 		};
 	}, [name, attempt]);
 	if (typeof key === "string") {
-		return <FinishedDialog opened={key} listed={null} />;
+		return <FinishedDialog opened={key} row={null} />;
 	}
 	return (
 		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
@@ -236,11 +236,11 @@ function FinishedRow({
  */
 function FinishedDialog({
 	opened,
-	listed,
+	row,
 }: {
 	opened: string;
 	/** What the list already holds of it, shown while its plan loads. */
-	listed: FinishedTask | null;
+	row: FinishedTask | null;
 }): JSX.Element {
 	const [read, setRead] = useState<FinishedPlan | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -255,7 +255,7 @@ function FinishedDialog({
 			current = false;
 		};
 	}, [opened]);
-	const task = read ?? listed;
+	const task = read ?? row;
 	const plan = useMemo(
 		() => (read === null || read.plan === "" ? null : planParts(read.plan)),
 		[read],
@@ -272,7 +272,9 @@ function FinishedDialog({
 			<DialogHeader className="gap-1.5">
 				<DialogTitle className="flex items-center gap-2 pr-8">
 					<TaskIcon aria-hidden className="size-4 shrink-0" />
-					<span className="min-w-0 break-words">{task?.task ?? opened}</span>
+					<span className="min-w-0 break-words">
+						{task === null ? opened : task.task}
+					</span>
 				</DialogTitle>
 				<DialogDescription className="flex min-w-0 items-baseline gap-2 text-foreground">
 					{task !== null && (

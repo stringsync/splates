@@ -583,6 +583,35 @@ describe("App on a phone", () => {
 		expect(view.queryByText("Archived Fix login")).toBeNull();
 	});
 
+	it("archives from the right edge when the browser cancels a pull that was already far enough, and not a short one", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login", status: "stopped" })],
+			"c1",
+			{ tasks: [] },
+		);
+		const edge = await view.findByTestId("edge-swipe");
+		const cancelled = async (by: number) => {
+			await act(async () => {
+				fireEvent.pointerDown(edge, { clientX: 380, clientY: 300 });
+				fireEvent.pointerMove(edge, { clientX: 380 - by, clientY: 304 });
+				fireEvent.pointerCancel(edge);
+			});
+		};
+
+		await cancelled(SWIPE_PX - 20);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+
+		await cancelled(SWIPE_PX + 20);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+		await waitFor(() =>
+			expect(view.getByRole("region", { name: "inbox" })).toBeTruthy(),
+		);
+	});
+
 	it("has no composer along the inbox's bottom, the pen starting a conversation", async () => {
 		const view = await testing.openConversations([], null);
 

@@ -20,6 +20,7 @@ import {
 	readReleaseSteps,
 	releaseFailure,
 } from "./release-steps";
+import type { ShipLock } from "./ship-lock";
 import {
 	begun,
 	ended,
@@ -64,11 +65,6 @@ export interface ShippingOptions {
 	clock?: WallClock;
 	/** Release-branch checks; the project at root by default. */
 	git?: Pick<ReleaseGit, "sync">;
-}
-
-/** Held by the one ship running in a repository, since each commits to its trunk. */
-export class ShipLock {
-	holder: object | null = null;
 }
 
 /** The error of a ship the person stopped. */

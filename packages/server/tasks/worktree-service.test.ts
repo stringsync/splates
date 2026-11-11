@@ -91,7 +91,7 @@ describe("WorktreeService", () => {
 		});
 
 		fs.crash = true;
-		await expect(saved.save({ mergeAttempts: 2 })).rejects.toThrow("boom");
+		expect(saved.save({ mergeAttempts: 2 })).rejects.toThrow("boom");
 
 		// The truncated bytes went to the temp path; the record itself never moved.
 		expect((await worktrees.find("alpha")).state).toMatchObject({

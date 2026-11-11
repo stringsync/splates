@@ -329,7 +329,7 @@ export class MergeGate {
 		await this.fs.rm(phases, { force: true });
 		const command =
 			files === undefined
-				? this.command
+				? this.config.preMerge
 				: [
 						"bun test --timeout 30000 --reporter=junit",
 						`--reporter-outfile=${quoted(report)}`,
@@ -351,29 +351,53 @@ export class MergeGate {
 			phases,
 		);
 		await using printed = this.printed(output);
-		const run = await this.shell.run(command, cwd, {
+		const env = {
+			SPLATES_TASK: task,
+			SPLATES_WORKTREE: cwd,
+			SPLATES_TEST_REPORT: report,
+			[PREMERGE_HELD]: "1",
+			...(files === undefined && this.checked !== undefined
+				? { [CHECKED_COMMIT]: this.checked }
+				: {}),
+			SPLATES_CORES: String(workers),
+			...(files === undefined
+				? {
+						[GATE_PHASES]: phases,
+						[GATE_DEADLINE]: String(timeoutMs),
+						...(recent.length
+							? { [RECENT_FAILED_FILES]: recent.join("\n") }
+							: {}),
+					}
+				: {}),
+		};
+		const shellOptions = (ms: number) => ({
 			...(printed === null ? {} : { watcher: printed.watcher }),
-			env: {
-				SPLATES_TASK: task,
-				SPLATES_WORKTREE: cwd,
-				SPLATES_TEST_REPORT: report,
-				[PREMERGE_HELD]: "1",
-				...(files === undefined && this.checked !== undefined
-					? { [CHECKED_COMMIT]: this.checked }
-					: {}),
-				SPLATES_CORES: String(workers),
-				...(files === undefined
-					? {
-							[GATE_PHASES]: phases,
-							[GATE_DEADLINE]: String(timeoutMs),
-							...(recent.length
-								? { [RECENT_FAILED_FILES]: recent.join("\n") }
-								: {}),
-						}
-					: {}),
-			},
-			timeoutMs,
+			env,
+			timeoutMs: ms,
 		});
+		// postRewrite is its own step, so the deadline's SIGTERM reaches the
+		// preMerge command itself, not a shell waiting on it.
+		const installed =
+			files === undefined && this.config.postRewrite
+				? await this.shell.run(
+						this.config.postRewrite,
+						cwd,
+						shellOptions(timeoutMs),
+					)
+				: null;
+		const run =
+			installed !== null && installed.exitCode !== 0
+				? installed
+				: await this.shell.run(
+						command ?? "",
+						cwd,
+						shellOptions(
+							Math.max(
+								1,
+								Math.floor(timeoutMs - (performance.now() - started)),
+							),
+						),
+					);
 		const ranMs = performance.now() - started;
 		// A record lost only sizes the next gate by the whole load, as before.
 		await this.trail.ran(workers, Duration.ms(ranMs)).catch(() => {});

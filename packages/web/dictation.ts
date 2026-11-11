@@ -70,6 +70,7 @@ export class Dictation
 	 */
 	private by = COMPOSER;
 
+	// vet-ignore objects-over-callbacks: a link opener the page supplies, run per take to compute its result
 	constructor(
 		private readonly microphone: Microphone,
 		/** Opens a link to the project a slug names, the page's for null. */

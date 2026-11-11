@@ -28,7 +28,7 @@ describe("legacy ship history", () => {
 				)
 			).json(),
 		).toEqual({ cascade: legacy, ship: null });
-		await expect(
+		expect(
 			routes.historyEntry(
 				new Request("http://localhost/api/ship/history/missing"),
 			),

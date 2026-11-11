@@ -8,6 +8,7 @@ import { decode, encode, inRange, rangeParams } from "./sqlite-keys";
  * `list` to name what is in it, logs included, and `read` a log as its lines.
  */
 export class SqliteCollection implements Collection {
+	// vet-ignore objects-over-callbacks: the constructor's hook that drops an agent's copy; the one owner passes it in
 	constructor(
 		readonly key: string,
 		/** The collection's key in the whole database. */

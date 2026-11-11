@@ -122,6 +122,7 @@ export function useWhereAction({
 	trunk,
 	onTake,
 	onDetails,
+	// vet-ignore objects-over-callbacks: a hook's arguments that wire the header's actions to the page
 }: {
 	conversation: ConversationState;
 	task: Details | null;

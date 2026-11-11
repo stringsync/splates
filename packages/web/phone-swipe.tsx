@@ -49,8 +49,7 @@ export function Swipeable({
 	held = false,
 	children,
 }: {
-	/** Null when the row cannot be archived, so it does not slide. */
-	archive: Archive | null;
+	archive: Archive;
 	/**
 	 * Whether a write to the row is pending, so no swipe starts; one already
 	 * let go stays off and closed up until the server files the row, or slides
@@ -79,9 +78,6 @@ export function Swipeable({
 	useEffect(() => () => clearTimeout(timer.current), []);
 	// Not once it has left: the archive landing must not bring the closed-up
 	// row back for a moment before the list drops it.
-	if (archive === null && !leaving) {
-		return <>{children}</>;
-	}
 	// Puts the row at `to`, following the finger at once or easing there.
 	const slide = (to: string, ease: "none" | "ease-out" | "ease-in", dx = 0) => {
 		if (row.current !== null) {
@@ -120,10 +116,10 @@ export function Swipeable({
 			setHeight(0);
 			timer.current = setTimeout(() => {
 				// Something it would lose may have started meanwhile.
-				if (archive?.asks()) {
+				if (archive.asks()) {
 					back();
 				}
-				archive?.file(undefined, back);
+				archive.file(undefined, back);
 			}, ms);
 		}, ms);
 	};
@@ -184,9 +180,9 @@ export function Swipeable({
 					end();
 					if (!far) {
 						settle();
-					} else if (archive?.asks()) {
+					} else if (archive.asks()) {
 						settle();
-						archive?.file();
+						archive.file();
 					} else {
 						leave();
 					}
@@ -235,6 +231,8 @@ export function EdgeSwipe({
 	const began = useRef(0);
 	const start = useRef<{ x: number; y: number } | null>(null);
 	const swiping = useRef(false);
+	// Where the finger last was, for a pull the browser cancels midway.
+	const last = useRef(0);
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	useEffect(() => () => clearTimeout(timer.current), []);
 	// Puts the screen `dx` pixels left (0 or less), fading the backing in with
@@ -266,6 +264,32 @@ export function EdgeSwipe({
 		start.current = null;
 		swiping.current = false;
 	};
+	// Lets go of the pull at `left`, as a finger lifting does.
+	const release = (left: number, at: number) => {
+		const pulled = start.current === null ? 0 : start.current.x - left;
+		const far = swiping.current && pullArchives(pulled, at - began.current);
+		end();
+		if (!far || archive.asks()) {
+			settle();
+			if (far) {
+				archive.file();
+			}
+			return;
+		}
+		const ms = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+			? 0
+			: LEAVE_MS;
+		slide(-window.innerWidth, "ease-in");
+		timer.current = setTimeout(() => {
+			// The screen is off, so the backing is hidden before the page moves
+			// on: the snapshot the browser keeps of it for a swipe back would
+			// otherwise show a bare Archive screen.
+			if (backing.current !== null) {
+				backing.current.style.opacity = "0";
+			}
+			archive.file(undefined, settle);
+		}, ms);
+	};
 	return (
 		<>
 			<ArchiveBacking
@@ -279,6 +303,7 @@ export function EdgeSwipe({
 				style={{ width: EDGE_PX }}
 				onPointerDown={(event: PointerEvent) => {
 					start.current = { x: event.clientX, y: event.clientY };
+					last.current = event.clientX;
 					began.current = event.timeStamp;
 					// Taken at once, so the browser cannot claim the touch for its own
 					// and cancel the pull, which snapped the screen back.
@@ -288,6 +313,7 @@ export function EdgeSwipe({
 					if (start.current === null) {
 						return;
 					}
+					last.current = event.clientX;
 					const dx = event.clientX - start.current.x;
 					const dy = event.clientY - start.current.y;
 					if (!swiping.current) {
@@ -311,39 +337,15 @@ export function EdgeSwipe({
 					}
 					slide(Math.min(0, dx), "none");
 				}}
-				onPointerUp={(event: PointerEvent) => {
-					const pulled =
-						start.current === null ? 0 : start.current.x - event.clientX;
-					const far =
-						swiping.current &&
-						pullArchives(pulled, event.timeStamp - began.current);
-					end();
-					if (!far || archive?.asks()) {
-						settle();
-						if (far) {
-							archive?.file();
-						}
-						return;
-					}
-					const ms = window.matchMedia?.("(prefers-reduced-motion: reduce)")
-						.matches
-						? 0
-						: LEAVE_MS;
-					slide(-window.innerWidth, "ease-in");
-					timer.current = setTimeout(() => {
-						// The screen is off, so the backing is hidden before the page moves
-						// on: the snapshot the browser keeps of it for a swipe back would
-						// otherwise show a bare Archive screen.
-						if (backing.current !== null) {
-							backing.current.style.opacity = "0";
-						}
-						archive?.file(undefined, settle);
-					}, ms);
-				}}
-				onPointerCancel={() => {
-					end();
-					settle();
-				}}
+				onPointerUp={(event: PointerEvent) =>
+					release(event.clientX, event.timeStamp)
+				}
+				// The browser can take the touch near the edge mid-pull, as its own
+				// back and forward swipes do: a pull already far enough lands as if
+				// the finger had lifted where it last was.
+				onPointerCancel={(event: PointerEvent) =>
+					release(last.current, event.timeStamp)
+				}
 			/>
 		</>
 	);

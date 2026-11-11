@@ -207,9 +207,7 @@ describe("Setup", () => {
 				["up", "waiting"],
 			],
 		);
-		await expect(setup.submit("up", {})).rejects.toThrow(
-			'Do "Set up tokens" first.',
-		);
+		expect(setup.submit("up", {})).rejects.toThrow('Do "Set up tokens" first.');
 		done.add("token-two");
 		expect(
 			(await setup.submit("token-two", {})).areas[0]?.steps.at(-1)?.status,
@@ -219,7 +217,7 @@ describe("Setup", () => {
 	it("refuses a step not on the roster", async () => {
 		const setup = new Setup(machine, roster());
 
-		await expect(setup.skip("nope")).rejects.toThrow("no setup step 'nope'");
+		expect(setup.skip("nope")).rejects.toThrow("no setup step 'nope'");
 	});
 
 	it("refuses a roster whose step waits on one not before it", () => {
@@ -322,17 +320,17 @@ describe("Setup", () => {
 			{ id: "remote", title: "Remote", purpose: "", steps: [asking()] },
 		]);
 
-		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+		expect(setup.submit("tunnel", answers)).rejects.toThrow(
 			"Paste the API token first.",
 		);
 		await machine.device.set("TOKEN", "token");
-		await expect(
-			setup.submit("tunnel", { ...answers, host: " " }),
-		).rejects.toThrow('Fill in "Host" first.');
-		await expect(
+		expect(setup.submit("tunnel", { ...answers, host: " " })).rejects.toThrow(
+			'Fill in "Host" first.',
+		);
+		expect(
 			setup.submit("tunnel", { ...answers, zone: "other.com" }),
 		).rejects.toThrow('Pick one of the choices for "Zone".');
-		await expect(
+		expect(
 			setup.submit("tunnel", { host: "h", zone: "example.com" }),
 		).rejects.toThrow('Say yes or no to "Sure".');
 		expect(done.has("tunnel")).toBe(false);
@@ -351,7 +349,7 @@ describe("Setup", () => {
 		expect((failed as Error).message).toBe(
 			"bad.example.com is not in your zone",
 		);
-		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+		expect(setup.submit("tunnel", answers)).rejects.toThrow(
 			"Make the tunnel first.",
 		);
 	});
@@ -367,7 +365,7 @@ describe("Setup", () => {
 			},
 		]);
 
-		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+		expect(setup.submit("tunnel", answers)).rejects.toThrow(
 			'Do "Set up token" first.',
 		);
 	});

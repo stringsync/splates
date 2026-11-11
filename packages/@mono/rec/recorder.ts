@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import { Dispatcher, type Events } from "core/events";
 import type { Cdp } from "./cdp";
 import { controlRoutes } from "./control/build";
 import { ExtraLogs } from "./extra-logs";
@@ -16,13 +17,17 @@ import {
 	type RecorderStats,
 	type ToControl,
 	type ToServer,
+	UNKNOWN_STATS,
 } from "./protocol";
+import type { OpenOptions, RecorderServerOptions } from "./recorder-options";
 import type { RecorderDeps, Routes, Run } from "./run";
 import { Screencast } from "./screencast";
 import { Scrubber } from "./scrub";
 import { type Manifest, SessionFolder } from "./session";
 import { manifestSources } from "./session-sources";
-import { detectSignals, MOMENTS_JSONL, renderSignals } from "./signals";
+import { MOMENTS_JSONL } from "./signals";
+import { OtherPages, type RecorderEvents, type SessionDirs } from "./sinks";
+import { writeSignals } from "./write-signals";
 
 /** Past this many bytes waiting to reach the control window, a frame is dropped rather than queued. */
 const BACKLOG = 8 * 1024 * 1024;
@@ -38,6 +43,11 @@ export const PANEL_RECONNECT_GRACE_MS = 3000;
  * per Start. Each Stop saves its session and leaves the window staged.
  */
 export class RecorderServer {
+	private readonly dispatcher = new Dispatcher<RecorderEvents>();
+	/** Raised with each session's folder once it is saved. */
+	readonly events: Events<RecorderEvents> = this.dispatcher.events;
+	private readonly baseName: string | undefined;
+	private readonly usedNames: ReadonlySet<string>;
 	private readonly server: ReturnType<typeof Bun.serve>;
 	private socket: ServerWebSocket<unknown> | undefined;
 	private screencast: Screencast | undefined;
@@ -67,33 +77,24 @@ export class RecorderServer {
 	);
 	private closedWindow: () => void = () => {};
 	private closeTimer: ReturnType<typeof setTimeout> | undefined;
-	/**
-	 * Resolves when the control panel has been closed for the reconnect grace
-	 * (a reload or Chrome re-creating the panel reconnects within it). Mid
-	 * recording, what arrived is all there will be.
-	 */
+	/** Resolves once the control panel has stayed closed past the reconnect grace, so rec can end. */
 	readonly closed = new Promise<void>((resolve) => {
 		this.closedWindow = resolve;
 	});
 
 	/**
-	 * @param dir the first session's folder, or a function that picks each
+	 * @param dir the first session's folder, or the dirs that pick each
 	 * session's folder as its Start arrives
-	 * @param onSaved called with each session's folder once it is saved
+	 * @param opts what the server is configured with, last
 	 */
 	constructor(
 		private readonly deps: RecorderDeps,
-		private readonly dir: string | (() => Promise<string>),
-		routes: Routes = {},
-		private readonly onSaved: (
-			dir: string,
-			manifest: Manifest,
-		) => void = () => {},
-		private readonly baseName?: string,
-		private readonly usedNames: ReadonlySet<string> = new Set(),
-		/** The file holding the mic the person chose; without it the choice is not remembered. */
-		micFile?: string,
+		private readonly dir: string | SessionDirs,
+		opts: RecorderServerOptions = {},
 	) {
+		const { routes = {}, micFile } = opts;
+		this.baseName = opts.baseName;
+		this.usedNames = opts.usedNames ?? new Set();
 		this.micChoice = micFile ? new MicChoice(deps.fs, micFile) : undefined;
 		this.server = Bun.serve({
 			port: 0,
@@ -111,7 +112,7 @@ export class RecorderServer {
 					new URL(request.url).pathname === "/__rec/mark" &&
 					request.method === "POST"
 				) {
-					return await markResponse(request, (text) => this.mark(text));
+					return await markResponse(request, this);
 				}
 				if (
 					new URL(request.url).pathname === "/__rec/status" &&
@@ -216,38 +217,17 @@ export class RecorderServer {
 	}
 
 	/** Opens the control window and starts passing it frames from every other page. */
-	async open(
-		cdp: Cdp,
-		options: {
-			grantMic: boolean;
-			/** Where the working tab goes once the side panel is open. */
-			workingUrl: string;
-			scrubber?: Scrubber;
-			docker?: string;
-			tails?: string[];
-			/** Open the control window idle: nothing is captured or written until its Start button is pressed. */
-			staged?: boolean;
-			/** The session is narrated by remarks, not a mic: the control window opens none. */
-			noMic?: boolean;
-			/** OpenAI key for the live transcript shown while recording; without it nothing is shown live. */
-			liveKey?: string;
-			/** The most frames per second the screencast sends; the default is `DEFAULT_MAX_FPS`. */
-			fps?: number;
-			/** Send no frames at all, so the window browses with nothing recording it: the bench's baseline. */
-			noScreencast?: boolean;
-		},
-	): Promise<void> {
+	async open(cdp: Cdp, opts: OpenOptions): Promise<void> {
 		const origin = this.controlUrl.slice(0, -1);
-		const skip = (url: string) =>
-			url.startsWith(origin) || url.startsWith("chrome-extension://");
+		const skip = new OtherPages(origin);
 		this.cdp = cdp;
-		this.capture = options;
-		this.staged = options.staged ?? false;
-		this.noMic = options.noMic ?? false;
+		this.capture = opts;
+		this.staged = opts.staged ?? false;
+		this.noMic = opts.noMic ?? false;
 		const { id } = await cdp.send<{ id: string }>("Extensions.loadUnpacked", {
 			path: `${import.meta.dir}/extension`,
 		});
-		if (options.grantMic && !options.noMic) {
+		if (opts.grantMic && !opts.noMic) {
 			for (const grantee of [origin, `chrome-extension://${id}`]) {
 				await cdp.send("Browser.grantPermissions", {
 					origin: grantee,
@@ -255,23 +235,23 @@ export class RecorderServer {
 				});
 			}
 		}
-		if (!options.noScreencast) {
-			this.screencast = await Screencast.start(
-				cdp,
-				this.deps.wall,
+		if (!opts.noScreencast) {
+			this.screencast = await Screencast.start(cdp, this.deps.wall, {
 				skip,
-				(frame) => {
-					this.run?.pointer?.frame(frame);
-					this.forward(this.deps.wall.now(), frame.jpeg);
+				frames: {
+					frame: (frame) => {
+						this.run?.pointer?.frame(frame);
+						this.forward(this.deps.wall.now(), frame.jpeg);
+					},
 				},
-				options.fps,
-			);
+				maxFps: opts.fps,
+			});
 		}
 		await openSidePanel(cdp, {
 			extensionId: id,
 			origin: this.origin,
 			openUrl: this.openUrl,
-			workingUrl: options.workingUrl,
+			workingUrl: opts.workingUrl,
 		});
 	}
 
@@ -286,28 +266,33 @@ export class RecorderServer {
 		const scrubber = options.scrubber ?? new Scrubber();
 		const dir = run.session.dir;
 		const say = (message: ToControl) => this.say(message);
-		const live = new LiveRun(run, say, this.deps, options.liveKey);
+		const live = new LiveRun({
+			run,
+			say,
+			deps: this.deps,
+			liveKey: options.liveKey,
+		});
 		run.pointer = await PointerEvents.start({
 			cdp,
 			fs: this.deps.fs,
 			dir,
 			scrubber,
-			skip: (url) =>
-				url.startsWith(origin) || url.startsWith("chrome-extension://"),
-			onLaser: (on) => {
-				this.laserOn = on;
-				this.say({ type: "laser", on });
+			skip: new OtherPages(origin),
+			observer: {
+				laser: (on) => {
+					this.laserOn = on;
+					this.say({ type: "laser", on });
+				},
+				event: (event) => live.event(event),
 			},
-			onEvent: (event) => live.event(event),
 		});
 		run.logs = await BrowserLogs.start({
 			cdp,
 			fs: this.deps.fs,
 			dir,
 			scrubber,
-			skip: (url) =>
-				url.startsWith(origin) || url.startsWith("chrome-extension://"),
-			onEntry: (file, line) => live.log(file, line),
+			skip: new OtherPages(origin),
+			entries: live,
 		});
 		run.sources = { docker: options.docker, tails: options.tails ?? [] };
 		run.extra = await ExtraLogs.start({
@@ -318,8 +303,8 @@ export class RecorderServer {
 			now: () => this.deps.wall.now(),
 			docker: options.docker,
 			tails: run.sources.tails,
-			onNote: (text) => process.stderr.write(`rec: ${text}\n`),
-			onEntry: (file, line) => live.log(file, line),
+			notes: { note: (text) => process.stderr.write(`rec: ${text}\n`) },
+			entries: live,
 		});
 	}
 
@@ -331,6 +316,15 @@ export class RecorderServer {
 		}
 		this.say({ type: "stop" });
 		return this.save(run);
+	}
+
+	/** Saves the recording in progress when Chrome closed before it could stop; what arrived is kept. */
+	async salvage(): Promise<void> {
+		const run = this.run;
+		if (run) {
+			run.finished({ ...UNKNOWN_STATS, at: this.deps.wall.now() });
+			await this.save(run);
+		}
 	}
 
 	/** Stops the recording in progress, if any; resolves once it is saved. */
@@ -355,7 +349,7 @@ export class RecorderServer {
 				});
 				this.last = run.session;
 				this.say({ type: "saved", dir: run.session.dir });
-				this.onSaved(run.session.dir, manifest);
+				this.dispatcher.dispatch("saved", { dir: run.session.dir, manifest });
 				return manifest;
 			},
 			() => this.currentName,
@@ -374,21 +368,7 @@ export class RecorderServer {
 		await run.extra?.flush();
 		const { session, started } = run;
 		const dir = session.dir;
-		const names = (await this.deps.fs.readdir(`${dir}/logs`).catch(() => []))
-			.filter((name) => name.endsWith(".log"))
-			.sort();
-		const logs = await Promise.all(
-			names.map(async (name) => ({
-				source: `logs/${name}`,
-				text: await this.deps.fs.read(`${dir}/logs/${name}`),
-			})),
-		);
-		const signals = detectSignals(
-			await this.deps.fs.read(`${dir}/${EVENTS_FILE}`).catch(() => ""),
-			logs,
-			started.at,
-		);
-		await this.deps.fs.write(`${dir}/${MOMENTS_JSONL}`, renderSignals(signals));
+		await writeSignals(this.deps.fs, dir, started.at);
 		return await session.finish(
 			{
 				startedAt: started.at,
@@ -502,7 +482,7 @@ export class RecorderServer {
 				this.began(said);
 				fresh.writing = (async () => {
 					const dir =
-						typeof this.dir === "string" ? this.dir : await this.dir();
+						typeof this.dir === "string" ? this.dir : await this.dir.next();
 					fresh.session = new SessionFolder(
 						this.deps.fs,
 						dir,

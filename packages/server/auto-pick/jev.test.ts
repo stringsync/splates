@@ -103,7 +103,7 @@ describe("Jev", () => {
 
 	it("says what went wrong without the URL", async () => {
 		const server = serve({ error: "no" }, 401);
-		await expect(
+		expect(
 			new Jev("key", { fetch: server.fetch }).judge(JUDGMENT),
 		).rejects.toThrow("Jev answered 401");
 	});

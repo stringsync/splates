@@ -75,9 +75,9 @@ describe("Conversation progress", () => {
 		let heard = 0;
 		conversation.events.on("changed", () => heard++);
 
-		for (let step = 0; step < 500; step++) {
-			conversation.reportProgress({ id: "import", note: `step ${step}` });
-		}
+		Array.from({ length: 500 }, (_, step) =>
+			conversation.reportProgress({ id: "import", note: `step ${step}` }),
+		);
 		timer.fireTimeouts();
 
 		expect(heard).toBeLessThanOrEqual(3);

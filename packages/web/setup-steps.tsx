@@ -8,6 +8,7 @@ import { NATIVE_STEPS } from "./setup-native-steps";
 import { OPENCODE_STEPS, OpenCodeEnd } from "./setup-opencode-steps";
 
 /** What a step's own page body is handed. */
+// vet-ignore objects-over-callbacks: props handed to a React component, which are how React passes events
 export interface StepBodyProps {
 	step: StepProgress;
 	/** Where a conversation starts, or null while `splates server` holds none. */
@@ -39,6 +40,7 @@ export const STEP_BODIES: StepBodies = {
  */
 export const STEP_STOPS: ReadonlySet<string> = new Set(AUTO_PICK_STOPS);
 
+// vet-ignore objects-over-callbacks: props handed to a React component, which are how React passes events
 /** What a journey's done page is handed. */
 export interface JourneyEndProps {
 	/** Where a conversation starts, or null while `splates server` holds none. */

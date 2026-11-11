@@ -42,6 +42,7 @@ export function QueueEmpty({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /** A button on a row: what it says and does. */
+// vet-ignore objects-over-callbacks: a button's label and click, as a component's prop item
 export interface RowAction {
 	label: string;
 	onClick: () => void;

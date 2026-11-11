@@ -69,21 +69,16 @@ describe("the welcome page", () => {
 
 	it("always suggests the ships and evals journeys while they are left", async () => {
 		const progress = setupProgress();
-		const [agents, dictation] = progress.areas;
-		if (agents === undefined || dictation === undefined) {
-			throw new Error("expected two areas");
-		}
-		const more = ["a", "b", "c"].map((id) => ({ ...dictation, id, title: id }));
-		testing.setup = {
-			...progress,
-			areas: [
-				agents,
-				dictation,
-				...more,
-				{ ...dictation, id: "ships", title: "Ships" },
-				{ ...dictation, id: "evals", title: "Evals" },
-			],
-		};
+		const extra = progress.areas.slice(1).flatMap((dictation) =>
+			[
+				{ id: "a", title: "a" },
+				{ id: "b", title: "b" },
+				{ id: "c", title: "c" },
+				{ id: "ships", title: "Ships" },
+				{ id: "evals", title: "Evals" },
+			].map((area) => ({ ...dictation, ...area })),
+		);
+		testing.setup = { ...progress, areas: [...progress.areas, ...extra] };
 		const view = testing.render();
 		await waitFor(() => view.getByRole("button", { name: "Set up Ships" }));
 		view.getByRole("button", { name: "Set up Evals" });

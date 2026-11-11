@@ -2,7 +2,7 @@ import type { Events } from "core/events";
 import type { IdProvider } from "core/id";
 import type { Fs, Lock } from "core/system";
 import type { Timer, WallClock } from "core/time";
-import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
+import type { Agent, Launch, Launcher, Watch } from "../agents";
 import type { ArtifactLimits, ArtifactRoom } from "../artifacts";
 import type { Reach } from "../projects";
 import type { Storage } from "../storage";
@@ -110,10 +110,8 @@ export interface ConversationDeps {
 	watch: Watch | null;
 	/** The main tree, where a conversation carries on once its worktree is gone. */
 	root: string | null;
-	/** The splates projects on this machine, for `#slug`; null for none. */
-	projects: ProjectRoster | null;
-	/** The MCP servers each session is offered, beyond the agent's own; null for none. */
-	servers: SessionServers | null;
+	/** The splates projects on this machine, for `#slug`. */
+	projects: ProjectRoster;
 	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
 	lift?: Lift | null;
 }

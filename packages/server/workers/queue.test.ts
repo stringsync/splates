@@ -97,7 +97,7 @@ describe("splates worker queue", () => {
 	});
 
 	it("refuses to move what does not wait", async () => {
-		await expect(
+		expect(
 			moveQueued({
 				which: "login",
 				position: 1,

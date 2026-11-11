@@ -57,7 +57,7 @@ export class LandedOutcomes {
 		this.reading.clear();
 	}
 
-	/** Reads every merge and removal `messages` report, giving up on the slow after a moment. */
+	/** Reads the outcome of every merge and removal `messages` report, skipping any that are slow to load. */
 	async preload(messages: readonly Message[]): Promise<void> {
 		const tasks = new Map<string, { task: string; ended: Ending }>();
 		for (const message of messages) {

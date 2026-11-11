@@ -26,6 +26,12 @@ describe("ship activity and line", () => {
 		expect(shipActivity({ cascade: done, ship: null }, done.id)).toBeNull();
 	});
 
+	it("is not done once the server says the result was seen", () => {
+		expect(
+			shipActivity({ cascade: { ...done, seen: true }, ship: null }),
+		).toBeNull();
+	});
+
 	it("says nothing before the cascade speaks", () => {
 		expect(shipLine(null)).toBeNull();
 	});

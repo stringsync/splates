@@ -28,7 +28,7 @@ export {
 	loadConfig,
 } from "./load";
 export type { PathScope, ShipSettings } from "./scopes";
-export { Scopes, shipSettings } from "./scopes";
+export { pickScope, Scopes, shipSettings } from "./scopes";
 export type { ShipTarget } from "./ships";
 export { shipTargets } from "./ships";
 export { typedConfig } from "./source";

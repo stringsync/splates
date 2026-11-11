@@ -1,5 +1,6 @@
 import { Git, type GitFiles } from "../git";
 import type { Author } from "../git-identity";
+import { NoopAuthor } from "../noop-author";
 import type { WorkerMachine } from "./machine";
 
 /**
@@ -12,12 +13,12 @@ import type { WorkerMachine } from "./machine";
 export function workerGit(
 	root: string,
 	machine: WorkerMachine,
-	identity: Author | null = null,
+	identity: Author = new NoopAuthor(),
 ): Git {
 	return new Git(root, {
 		run: machine,
 		fs: workerFiles(machine),
-		...(identity === null ? {} : { identity }),
+		identity,
 	});
 }
 

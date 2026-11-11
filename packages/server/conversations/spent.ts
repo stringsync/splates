@@ -23,7 +23,7 @@ export async function spent(
 		/** How many turns OpenCode had said it ran before it. */
 		turnsBefore: number;
 		root: string | null;
-		projects: ProjectRoster | null;
+		projects: ProjectRoster;
 	},
 ): Promise<void> {
 	const { state } = conversation;
@@ -56,7 +56,7 @@ export async function spent(
 	}
 	const tree = root ?? conversation.cwd;
 	const project =
-		(await projects?.list())?.find((each) => each.root === tree)?.slug ?? null;
+		(await projects.list()).find((each) => each.root === tree)?.slug ?? null;
 	await spend.ledger.record({
 		at: conversation.now(),
 		provider: state.agent,

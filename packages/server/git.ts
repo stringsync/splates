@@ -7,6 +7,7 @@ import {
 	type GitIdentity,
 } from "./git-identity";
 import { processGit } from "./git-process";
+import { NoopAuthor } from "./noop-author";
 
 export interface GitResult {
 	code: number;
@@ -40,7 +41,7 @@ export interface GitOptions {
 export class Git {
 	private readonly fs: GitFiles;
 	private readonly runner: GitRunner;
-	private readonly identity: Author | undefined;
+	private readonly identity: Author;
 
 	constructor(
 		/** The main worktree, where trunk lives. */
@@ -49,7 +50,7 @@ export class Git {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.runner = opts.run ?? processGit(opts.ps ?? new NodePs());
-		this.identity = opts.identity;
+		this.identity = opts.identity ?? new NoopAuthor();
 	}
 
 	/** Who this machine's git commits as, from its config; null unless both name and email are set. */
@@ -65,7 +66,7 @@ export class Git {
 		return new Git(root, {
 			fs: this.fs,
 			run: this.runner,
-			...(this.identity === undefined ? {} : { identity: this.identity }),
+			identity: this.identity,
 		});
 	}
 

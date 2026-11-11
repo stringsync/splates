@@ -51,9 +51,12 @@ export function ShipPlan({
 	loading,
 	ready = true,
 	onStarted,
+	lead,
 	children,
 }: {
 	children?: ReactNode;
+	/** Shown above the plan, and only once the plan has loaded. */
+	lead?: ReactNode;
 	/** Everything the page reads besides the projects has arrived. */
 	ready?: boolean;
 	ship: string | null;
@@ -89,6 +92,7 @@ export function ShipPlan({
 	if (listed.length === 0) {
 		return (
 			<>
+				{lead}
 				<p className="text-muted-foreground text-sm">
 					No project ships yet. One does once its splates.config.ts names a{" "}
 					<code>ship</code> command.
@@ -99,6 +103,7 @@ export function ShipPlan({
 	}
 	return (
 		<>
+			{lead}
 			<Plan
 				// Read again once a ship has ended, so the choices follow the new versions.
 				key={endedAt ?? ""}

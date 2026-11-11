@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 export function RouteTrail({
 	items,
 }: {
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 	items: { label: string; onClick?: () => void }[];
 }): ReactNode {
 	return (

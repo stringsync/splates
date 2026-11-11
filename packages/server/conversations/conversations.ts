@@ -8,7 +8,7 @@ import {
 	type Timer,
 	type WallClock,
 } from "core/time";
-import type { SessionServers, Watch } from "../agents";
+import type { Watch } from "../agents";
 import {
 	type Agent,
 	type Launcher,
@@ -34,6 +34,7 @@ import type {
 	Lift,
 	ProjectRoster,
 } from "./host";
+import { NoopProjectRoster } from "./noop-project-roster";
 import type { ConversationsOptions } from "./options";
 import { outside } from "./outside";
 import { usedOf } from "./spent";
@@ -78,8 +79,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
-	private readonly projects: ProjectRoster | null;
-	private readonly servers: SessionServers | null;
+	private readonly projects: ProjectRoster;
 	private readonly artifacts: ArtifactLimits;
 	/** What every conversation's artifacts make room through, across the project. */
 	private readonly room: ArtifactRoom;
@@ -123,8 +123,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.spend = opts.spend ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
-		this.projects = opts.projects ?? null;
-		this.servers = opts.servers ?? null;
+		this.projects = opts.projects ?? new NoopProjectRoster();
 		this.artifacts = opts.artifacts ?? ARTIFACT_LIMITS;
 		this.room = new ArtifactRoom({
 			storage: this.storage,
@@ -165,7 +164,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			watch: this.watch,
 			root: this.root,
 			projects: this.projects,
-			servers: this.servers,
 		};
 	}
 

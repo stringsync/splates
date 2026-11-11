@@ -1,3 +1,4 @@
+import type { Resource } from "core/disposable";
 import { OpenAiSockets } from "./openai-sockets";
 
 /** One stretch of speech as OpenAI's realtime transcription hears it. */
@@ -12,9 +13,8 @@ export interface SpeechUpdate {
 }
 
 /** The slice of `WebSocket` that `LiveSpeech` uses, so a test can stand in for OpenAI. */
-export interface SpeechSocket {
+export interface SpeechSocket extends Resource {
 	send(data: string): void;
-	close(): void;
 	onopen: (() => void) | null;
 	onmessage: ((event: { data: unknown }) => void) | null;
 	onclose: (() => void) | null;
@@ -48,7 +48,7 @@ const URL = "wss://api.openai.com/v1/realtime?intent=transcription";
  * recording and the transcript made after Stop are unaffected, and nothing
  * more is shown live.
  */
-export class LiveSpeech {
+export class LiveSpeech implements Resource {
 	private readonly socket: SpeechSocket;
 	private ready = false;
 	private dead = false;
@@ -60,11 +60,19 @@ export class LiveSpeech {
 		this.socket.onopen = () => {
 			this.socket.send(
 				JSON.stringify({
-					type: "transcription_session.update",
+					type: "session.update",
 					session: {
-						input_audio_format: "pcm16",
-						input_audio_transcription: { model: "gpt-4o-transcribe" },
-						turn_detection: { type: "server_vad", silence_duration_ms: 600 },
+						type: "transcription",
+						audio: {
+							input: {
+								format: { type: "audio/pcm", rate: 24000 },
+								transcription: { model: "gpt-4o-transcribe" },
+								turn_detection: {
+									type: "server_vad",
+									silence_duration_ms: 600,
+								},
+							},
+						},
 					},
 				}),
 			);
@@ -94,7 +102,7 @@ export class LiveSpeech {
 
 	dispose(): void {
 		this.dead = true;
-		this.socket.close();
+		this.socket.dispose();
 	}
 
 	private append(base64: string): void {

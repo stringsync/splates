@@ -126,7 +126,7 @@ describe("TodoBoard", () => {
 	it("puts the order back when the server refuses, and throws the refusal", async () => {
 		refuse = new Error("todo 5 comes after todo 4");
 
-		await expect(
+		expect(
 			board.drop(todos, 5, { card: 4 }) ?? Promise.resolve(),
 		).rejects.toThrow("todo 5 comes after todo 4");
 		expect(shown().map(([id]) => id)).toEqual([1, 2, 3, 4, 5]);
@@ -175,9 +175,7 @@ describe("TodoBoard", () => {
 
 	it("puts the lanes back when the server refuses, and gives way to new ones", async () => {
 		refuse = new Error("no");
-		await expect(board.moveLane(lanes, 1, 3) ?? undefined).rejects.toThrow(
-			"no",
-		);
+		expect(board.moveLane(lanes, 1, 3) ?? undefined).rejects.toThrow("no");
 		expect(order()).toEqual([1, 2, 3]);
 
 		refuse = null;

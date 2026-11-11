@@ -83,7 +83,7 @@ describe("Slots", () => {
 		await fs.rm("/trees/one", { recursive: true });
 
 		expect((await slots.claim("/trees/two")).word).toBe("bee");
-		await expect(slots.claim("/trees/three")).rejects.toThrow(
+		expect(slots.claim("/trees/three")).rejects.toThrow(
 			"every dev slot is held:\n  cat: pid 777, run from /trees/one\n  bee: /trees/two",
 		);
 	});
@@ -173,7 +173,7 @@ describe("Slots", () => {
 		await slots.claim("/trees/one");
 		await slots.claim("/trees/two");
 
-		await expect(slots.claim("/trees/three")).rejects.toThrow(
+		expect(slots.claim("/trees/three")).rejects.toThrow(
 			"every dev slot is held:\n  cat: /trees/one\n  bee: /trees/two",
 		);
 	});

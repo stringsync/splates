@@ -142,6 +142,12 @@ function laneJson(found: LaneState) {
 	};
 }
 
+/** What `dropLane` is asked for. */
+export interface DropLaneOptions {
+	/** Removes the lane only when no task is in it. */
+	emptyOnly?: boolean;
+}
+
 /** Starts an empty lane called `name`, after the others. */
 export async function laneAdd(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
@@ -279,7 +285,7 @@ export async function recordLaneRemove(
 export async function laneRemove(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
 	id: number,
-	opts: { emptyOnly?: boolean } = {},
+	opts: DropLaneOptions = {},
 ): Promise<void> {
 	if (opts.emptyOnly) {
 		await tasks.dropLane(id, opts);

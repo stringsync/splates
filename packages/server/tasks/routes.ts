@@ -2,7 +2,7 @@
 
 import { SystemTimer } from "core/time";
 import { movedPath } from "../config";
-import type { Conversations } from "../conversations";
+import type { ConversationList } from "../conversations";
 import { fail } from "../exit";
 import { mergeEstimates, quarantinedTests, TaskBranches } from "../merge";
 import type { Project, ProjectWatch } from "../server/shared";
@@ -22,13 +22,13 @@ import { grantRetry } from "./retry";
  */
 export class TaskRoutes {
 	readonly #project: Project;
-	readonly #conversations: Conversations | null;
+	readonly #conversations: ConversationList;
 	readonly #watch: ProjectWatch;
 	readonly #timer = new SystemTimer();
 
 	constructor(
 		project: Project,
-		conversations: Conversations | null,
+		conversations: ConversationList,
 		watch: ProjectWatch,
 	) {
 		this.#project = project;
@@ -245,7 +245,7 @@ export class TaskRoutes {
 	/** Removes `task` as the page's remove does, stopping each conversation in it. */
 	readonly removeNamed = async (task: string): Promise<void> => {
 		const { journal, service, log, tasks: queue, slots, creds } = this.#project;
-		const on = (await (this.#conversations?.list() ?? [])).filter(
+		const on = (await this.#conversations.list()).filter(
 			(each) => each.state.task === task,
 		);
 		for (const conversation of on) {

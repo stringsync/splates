@@ -66,12 +66,12 @@ export function quarantinedOf(
 		.sort((later, earlier) => earlier.last.localeCompare(later.last));
 }
 
-/** `quarantinedOf` the journal's recent entries; none without a journal. */
+/** `quarantinedOf` the journal's recent entries. */
 export async function quarantinedTests(
-	journal: Journal | undefined,
+	journal: Journal,
 	now: number = Date.now(),
 ): Promise<QuarantinedTest[]> {
-	const entries = (await journal?.tail(SCAN).catch(() => [])) ?? [];
+	const entries = await journal.tail(SCAN).catch(() => []);
 	return quarantinedOf(entries, now);
 }
 

@@ -39,6 +39,8 @@ export {
 	openingOf,
 	realName,
 } from "./name";
+export type { ConversationList } from "./noop-conversations";
+export { NoopConversations } from "./noop-conversations";
 export type { ConversationsOptions } from "./options";
 export type { ProgressUpdate } from "./progress";
 export { conversationReference } from "./reference";

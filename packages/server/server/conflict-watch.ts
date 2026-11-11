@@ -1,6 +1,6 @@
 import { type AsyncResource, Disposer } from "core/disposable";
 import { Debouncer, Duration, SystemTimer } from "core/time";
-import { type Conversations, SERVER_TOLD } from "../conversations";
+import { type ConversationList, SERVER_TOLD } from "../conversations";
 import {
 	ConflictChecks,
 	landingNotice,
@@ -24,7 +24,7 @@ export class ConflictWatch implements AsyncResource {
 
 	constructor(
 		private readonly project: Project,
-		private readonly conversations: Conversations | null,
+		private readonly conversations: ConversationList,
 	) {
 		this.checks = new ConflictChecks(project.storage);
 	}
@@ -125,7 +125,7 @@ export class ConflictWatch implements AsyncResource {
 		kind: "conflict" | "overlap" | `landed:${string}`,
 		words: string,
 	): Promise<void> {
-		for (const conversation of (await this.conversations?.list()) ?? []) {
+		for (const conversation of await this.conversations.list()) {
 			const key = `${task}:${kind}:${conversation.state.id}`;
 			if (
 				conversation.state.task !== task ||

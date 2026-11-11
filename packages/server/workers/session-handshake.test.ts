@@ -154,7 +154,7 @@ describe("WorkerSession handshake", () => {
 	it("rejects a first frame that is not a hello", async () => {
 		pair.worker.send(WorkerProtocol.encode({ type: "ping", n: 0 }));
 
-		await expect(WorkerSession.hello(pair.coordinator)).rejects.toThrow(
+		expect(WorkerSession.hello(pair.coordinator)).rejects.toThrow(
 			"a worker opens with hello, not ping",
 		);
 	});

@@ -10,7 +10,7 @@ import {
 	taskUpdate,
 } from "@splates/server/board";
 import { commaList } from "@splates/server/comma-list";
-import { Scopes, Tags } from "@splates/server/config";
+import { pickScope, Tags } from "@splates/server/config";
 import { refuseGroomer } from "@splates/server/conversations";
 import { fail } from "@splates/server/exit";
 import { OpenBoards, repository } from "@splates/server/records";
@@ -136,10 +136,12 @@ function adding(name: string, description: string, groomed: boolean) {
 			const project = await projectFrom(ctx);
 			// Run with `--project`, the folder is in the other repository, so
 			// only the flag places the task.
-			const scope = new Scopes(ctx.config, basename(ctx.git.root)).pick(
-				opts.project || undefined,
-				ctx.elsewhere === null ? await folderOf(ctx) : "",
-			);
+			const scope = pickScope({
+				config: ctx.config,
+				repoName: basename(ctx.git.root),
+				named: opts.project || undefined,
+				folder: ctx.elsewhere === null ? await folderOf(ctx) : "",
+			});
 			if (scope === null && groomed) {
 				fail(
 					"usage",

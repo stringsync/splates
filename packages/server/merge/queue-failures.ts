@@ -19,7 +19,7 @@ export async function queueFailedTests(
 	}: {
 		tasks: Tasks;
 		log: Logger;
-		journal?: Journal;
+		journal: Journal;
 		wall?: WallClock;
 	},
 	task: string,
@@ -32,7 +32,7 @@ export async function queueFailedTests(
 	}
 	try {
 		const now = wall.now();
-		const history = (await journal?.all()) ?? [];
+		const history = await journal.all();
 		const known = failureHistory(history, now);
 		const listed = await tasks.all();
 		const eligible = failed.filter(
@@ -83,29 +83,27 @@ export async function queueFailedTests(
 			const failureKeys = [
 				...new Set([...(known.keys.get(id) ?? []), ...tests.map(testKey)]),
 			];
-			const update = () => existing.update({ text });
-			if (journal) {
-				await journal.record("task update", task, update, {
+			await journal.record(
+				"task update",
+				task,
+				() => existing.update({ text }),
+				{
 					number: id,
 					subject: existing.subject,
 					changed: { text: true },
 					failureKeys,
-				});
-			} else {
-				await update();
-			}
+				},
+			);
 		}
 		if (!pending.length) {
 			return;
 		}
 		const { subject, text, slug } = wanted(task, pending, kind);
 		const add = () => tasks.add(subject, task, { text, slug });
-		const added = journal
-			? await journal.record("task add", task, add, (item) => ({
-					...addedFacts(item),
-					failureKeys: pending.map(testKey),
-				}))
-			: await add();
+		const added = await journal.record("task add", task, add, (item) => ({
+			...addedFacts(item),
+			failureKeys: pending.map(testKey),
+		}));
 		log.info(`  ${color.green("found")} task ${added.id}: ${subject}`);
 	} catch (error) {
 		log.error(`Could not queue failing-test tasks: ${String(error)}`);

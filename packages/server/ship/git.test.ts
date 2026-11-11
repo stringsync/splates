@@ -18,6 +18,25 @@ describe("ReleaseGit", () => {
 	});
 	afterEach(() => env.disposeAsync());
 
+	/** A process runner where another commit lands on trunk as `git ls-remote` ends. */
+	function landingDuringLsRemote(): Testing["ps"] {
+		const ps = Object.create(env.ps);
+		ps.spawnCapture = async (cmd: string[], opts: unknown) => {
+			const result = await env.ps.spawnCapture(cmd, opts as never);
+			if (cmd[1] === "ls-remote") {
+				await commitEmpty("landed");
+			}
+			return result;
+		};
+		return ps;
+	}
+
+	/** Commits an empty change on trunk and returns the new HEAD. */
+	async function commitEmpty(message: string): Promise<string> {
+		await env.gitCli(env.root, "commit", "--allow-empty", "-m", message);
+		return env.gitCli(env.root, "rev-parse", "HEAD");
+	}
+
 	it("counts commits after the release tag on trunk, ignoring a checked out task", async () => {
 		expect(await git.changes("1.0.0")).toMatchObject({
 			commits: 0,
@@ -86,10 +105,17 @@ describe("ReleaseGit", () => {
 	});
 
 	it("pushes unpushed commits and verifies the remote ref", async () => {
-		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "unpushed");
-		const head = await env.gitCli(env.root, "rev-parse", "HEAD");
+		const head = await commitEmpty("unpushed");
 		expect(await git.sync()).toBe(`origin/main verified at ${head}`);
 		expect(await env.gitCli(remote, "rev-parse", "refs/heads/main")).toBe(head);
+	});
+
+	it("accepts trunk gaining commits while the push is verified", async () => {
+		const head = await commitEmpty("release");
+		const ps = landingDuringLsRemote();
+		expect(await new ReleaseGit(ps, env.root).sync()).toBe(
+			`origin/main verified at ${head}`,
+		);
 	});
 
 	it("supports master as the remote default branch", async () => {
@@ -110,10 +136,10 @@ describe("ReleaseGit", () => {
 
 	it("refuses a dirty tree and a task branch before pushing", async () => {
 		await env.fs.write(`${env.root}/untracked`, "work");
-		await expect(git.sync()).rejects.toThrow("clean tree");
+		expect(git.sync()).rejects.toThrow("clean tree");
 		await env.fs.rm(`${env.root}/untracked`);
 		await env.gitCli(env.root, "checkout", "-b", "task/demo");
-		await expect(git.sync()).rejects.toThrow("Shipping requires main");
+		expect(git.sync()).rejects.toThrow("Shipping requires main");
 	});
 
 	it("refuses when remote is ahead or diverged, leaving it untouched", async () => {
@@ -122,9 +148,9 @@ describe("ReleaseGit", () => {
 		await env.gitCli(env.root, "push", "origin", "main");
 		const ahead = await env.gitCli(env.root, "rev-parse", "HEAD");
 		await env.gitCli(env.root, "reset", "--hard", before);
-		await expect(git.sync()).rejects.toThrow("merge-base");
+		expect(git.sync()).rejects.toThrow("merge-base");
 		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "local work");
-		await expect(git.sync()).rejects.toThrow("merge-base");
+		expect(git.sync()).rejects.toThrow("merge-base");
 		expect(await env.gitCli(remote, "rev-parse", "refs/heads/main")).toBe(
 			ahead,
 		);
@@ -138,6 +164,6 @@ describe("ReleaseGit", () => {
 			"origin",
 			`${env.root}/missing.git`,
 		);
-		await expect(git.sync()).rejects.toThrow("git fetch");
+		expect(git.sync()).rejects.toThrow("git fetch");
 	});
 });

@@ -6,7 +6,7 @@ import { scoped } from "./api";
 import { EARLY_READS } from "./early-reads";
 import type { SnapshotExpecter } from "./expecting";
 import { LiveStream } from "./live-stream";
-import type { PageCopy } from "./page-copy";
+import { type KeptCopy, NoopPageCopy } from "./noop-page-copy";
 
 export type FeedEvents = { changed: undefined };
 
@@ -75,18 +75,18 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	readonly offlineAfter: Duration;
 	private readonly timer: Timer;
 	private readonly project: string | null;
-	private readonly copy: PageCopy<Snapshot> | null;
+	private readonly copy: KeptCopy<Snapshot>;
 
 	constructor({
 		offlineAfter = OFFLINE_AFTER,
 		timer = new SystemTimer(),
-		copy = null,
+		copy = new NoopPageCopy<Snapshot>(),
 		project = null,
 	}: {
 		offlineAfter?: Duration;
 		timer?: Timer;
 		/** The last snapshot kept, which the page draws from until the server answers. */
-		copy?: PageCopy<Snapshot> | null;
+		copy?: KeptCopy<Snapshot>;
 		/**
 		 * The project it reads, a slug or "" for the focused one, whatever the
 		 * address goes on to name; the address's own by default.
@@ -150,7 +150,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		this.unreachable = null;
 		this.expected = [];
 		this.fresh = false;
-		this.copy?.dispose();
+		this.copy.dispose();
 	}
 
 	/**
@@ -159,7 +159,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 	 * tasks, which are newer.
 	 */
 	private async paint(): Promise<void> {
-		const kept = this.copy === null ? null : await this.copy.load();
+		const kept = await this.copy.load();
 		if (
 			kept === null ||
 			(this.recorded !== null && !this.seeded) ||
@@ -316,7 +316,7 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 			);
 			this.seeded = false;
 			this.reached({ snapshot, outdated: null, missing: null, failed: null });
-			this.copy?.keep(() => snapshot);
+			this.copy.keep(() => snapshot);
 		} catch (error) {
 			// The last good snapshot stays, for the page to say it is stale.
 			this.set({

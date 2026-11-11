@@ -28,7 +28,7 @@ export async function authorOf(
 export async function fallbackIdentity(
 	runner: GitRunner,
 	cwd: string,
-	given: Author | undefined,
+	given: Author,
 ): Promise<string[]> {
 	const set = async (key: string) =>
 		(await runner.git(cwd, ["config", key])).stdout.trim() !== "";
@@ -36,7 +36,7 @@ export async function fallbackIdentity(
 		set("user.name"),
 		set("user.email"),
 	]);
-	const author = name && email ? null : await given?.author();
+	const author = name && email ? null : await given.author();
 	return [
 		...(name ? [] : ["-c", `user.name=${author?.name ?? "splates"}`]),
 		...(email

@@ -38,7 +38,8 @@ import {
 	RulesEditorContext,
 } from "./setup-auto-pick-steps";
 import { type ConfigChanges, ConfigChangesContext } from "./setup-config-field";
-import { JourneyDone, SetupIndex, StepField, StepForm } from "./setup-form";
+import { JourneyDone, StepField, StepForm } from "./setup-form";
+import { SetupIndex } from "./setup-index";
 import { numbered, StepInstructions } from "./setup-instructions";
 import { DONE, SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";

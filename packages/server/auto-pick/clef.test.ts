@@ -21,7 +21,7 @@ describe("Clef", () => {
 
 	it("refuses a reply with no answers", async () => {
 		const server = serve({ result: {} });
-		await expect(
+		expect(
 			new Clef("acct", "tok", { fetch: server.fetch }).judge(JUDGMENT),
 		).rejects.toThrow("Clef answered with no answers in it");
 	});

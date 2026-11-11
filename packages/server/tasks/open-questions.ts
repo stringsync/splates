@@ -1,15 +1,15 @@
-import type { Conversations } from "../conversations";
+import type { ConversationList } from "../conversations";
 import { openCards, type Question } from "../plans";
 
 /**
  * The question cards a task's conversations asked that no reply has
- * answered, read from their messages; none when conversations are off.
+ * answered, read from their messages; a `NoopConversations` when they are off.
  */
 export async function openQuestions(
-	conversations: Conversations | null,
+	conversations: ConversationList,
 	task: string,
 ): Promise<Question[]> {
-	const on = (await (conversations?.list() ?? [])).filter(
+	const on = (await conversations.list()).filter(
 		(each) => each.state.task === task && !each.state.archived,
 	);
 	return on.flatMap((each) => {

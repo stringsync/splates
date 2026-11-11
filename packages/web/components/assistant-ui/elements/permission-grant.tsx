@@ -25,6 +25,7 @@ export function PermissionGrant({
 	| "reach"
 	| "scope"
 	| "onGrant"
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 > & {
 	capability: string;
 	/** The command it would run, set as code in place of `capability`. */

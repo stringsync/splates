@@ -191,6 +191,30 @@ describe("ShipsPage", () => {
 		expect(view.queryByText("Loading")).toBeNull();
 	});
 
+	it("shows no History row while the projects are still loading", async () => {
+		location.hash = "#ships";
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
+		globalThis.fetch = ((url: string) =>
+			String(url).startsWith("/api/ship/history")
+				? Promise.resolve(Response.json([]))
+				: new Promise(() => undefined)) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
+		await new Promise((done) => setTimeout(done, 50));
+		expect(view.getByText("Loading")).toBeTruthy();
+		expect(view.queryByRole("link", { name: /^History/ })).toBeNull();
+	});
+
 	it("lists the projects in release order, a Ship checkbox on each that names a ship command", async () => {
 		const graph = [
 			project({ slug: "wren", packages: ["wren"] }),

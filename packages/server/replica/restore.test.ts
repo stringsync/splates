@@ -39,7 +39,7 @@ describe("restoreFromReplica", () => {
 	afterEach(() => env.disposeAsync());
 
 	it("refuses records already there", async () => {
-		await expect(restore(false)).rejects.toThrow("--force");
+		expect(restore(false)).rejects.toThrow("--force");
 	});
 
 	it("brings the records back over the old ones, left aside, and adopts the origin", async () => {
@@ -72,6 +72,6 @@ describe("restoreFromReplica", () => {
 
 	it("says there is nothing to restore from an empty replica", async () => {
 		replica.objects.clear();
-		await expect(restore(true)).rejects.toThrow("holds no records yet");
+		expect(restore(true)).rejects.toThrow("holds no records yet");
 	});
 });

@@ -14,7 +14,7 @@ describe("dev's task ports", () => {
 	afterEach(() => deps.disposeAsync());
 
 	it("refuses a ports host without Access in front", async () => {
-		await expect(
+		expect(
 			dev(deps, { ports: OpenPortProvider.any(), portsHost: "ports.test" }),
 		).rejects.toThrow(Exit);
 	});

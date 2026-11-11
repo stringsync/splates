@@ -75,7 +75,7 @@ interface WorkerScope {
 		type: "activate" | "notificationclick",
 		listener: (event: {
 			waitUntil(done: Promise<unknown>): void;
-			notification?: Notification;
+			notification: Notification;
 		}) => void,
 	): void;
 }
@@ -99,8 +99,8 @@ scope.addEventListener("fetch", (event) => {
 
 scope.addEventListener("notificationclick", (event) => {
 	const notification = event.notification;
-	notification?.close();
-	const opening = notification?.data as Opening | undefined;
+	notification.close();
+	const opening = notification.data as Opening | undefined;
 	if (opening === undefined) {
 		return;
 	}

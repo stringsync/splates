@@ -1,5 +1,6 @@
 import { Dispatcher, type Eventful } from "core/events";
 import type { JSX, KeyboardEvent, PointerEvent } from "react";
+import { NoopStorage } from "./noop-storage";
 
 export type SidebarEvents = { changed: undefined };
 
@@ -32,20 +33,20 @@ export class Sidebar implements Eventful<SidebarEvents> {
 	shown: boolean;
 	pagesShown: boolean;
 
-	constructor(private readonly storage?: Storage) {
-		const kept = Number(storage?.getItem(WIDTH) ?? Number.NaN);
+	constructor(private readonly storage: Storage = new NoopStorage()) {
+		const kept = Number(storage.getItem(WIDTH) ?? Number.NaN);
 		this.width = Number.isFinite(kept) ? clamp(kept) : DEFAULT_WIDTH;
-		this.shown = (storage?.getItem(HIDDEN) ?? null) === null;
-		this.pagesShown = (storage?.getItem(PAGES_FOLDED) ?? null) === null;
+		this.shown = (storage.getItem(HIDDEN) ?? null) === null;
+		this.pagesShown = (storage.getItem(PAGES_FOLDED) ?? null) === null;
 	}
 
 	/** Hides it when shown and shows it when hidden, as its shortcut does. */
 	toggle(): void {
 		this.shown = !this.shown;
 		if (this.shown) {
-			this.storage?.removeItem(HIDDEN);
+			this.storage.removeItem(HIDDEN);
 		} else {
-			this.storage?.setItem(HIDDEN, "1");
+			this.storage.setItem(HIDDEN, "1");
 		}
 		this.dispatcher.dispatch("changed");
 	}
@@ -54,9 +55,9 @@ export class Sidebar implements Eventful<SidebarEvents> {
 	togglePages(): void {
 		this.pagesShown = !this.pagesShown;
 		if (this.pagesShown) {
-			this.storage?.removeItem(PAGES_FOLDED);
+			this.storage.removeItem(PAGES_FOLDED);
 		} else {
-			this.storage?.setItem(PAGES_FOLDED, "1");
+			this.storage.setItem(PAGES_FOLDED, "1");
 		}
 		this.dispatcher.dispatch("changed");
 	}
@@ -74,9 +75,9 @@ export class Sidebar implements Eventful<SidebarEvents> {
 	/** Keeps the width for the next visit. Call it when a drag ends. */
 	keep(): void {
 		if (this.width === DEFAULT_WIDTH) {
-			this.storage?.removeItem(WIDTH);
+			this.storage.removeItem(WIDTH);
 		} else {
-			this.storage?.setItem(WIDTH, String(this.width));
+			this.storage.setItem(WIDTH, String(this.width));
 		}
 	}
 

@@ -48,7 +48,7 @@ describe("OpenCode model setup", () => {
 		await save();
 		const recipe = (await models.recipes.stored()) as OpenCodeRecipe;
 		opencode.catalog = `${selected.auxiliary}\n`;
-		await expect(
+		expect(
 			models.verifyStored(recipe, "/project", signal.signal),
 		).rejects.toThrow("no longer listed");
 		opencode.catalog = `${selected.model}\n${selected.auxiliary}\n`;
@@ -56,7 +56,7 @@ describe("OpenCode model setup", () => {
 			"/splates/agents.json",
 			JSON.stringify({ ...JSON.parse(recipe.raw), extra: "changed" }),
 		);
-		await expect(
+		expect(
 			models.verifyStored(recipe, "/project", signal.signal),
 		).rejects.toThrow("roster changed");
 	});
@@ -67,7 +67,7 @@ describe("OpenCode model setup", () => {
 		fs.rename = async () => {
 			throw new Error("disk full");
 		};
-		await expect(models.recipes.disable(signal.signal)).rejects.toThrow();
+		expect(models.recipes.disable(signal.signal)).rejects.toThrow();
 		expect(await fs.read("/splates/agents.json")).toBe(before);
 		fs.rename = rename;
 		await models.recipes.disable(signal.signal);
@@ -116,7 +116,7 @@ describe("OpenCode model setup", () => {
 			],
 		});
 		await fs.write("/splates/agents.json", original);
-		await expect(models.recipes.disable(signal.signal)).rejects.toThrow(
+		expect(models.recipes.disable(signal.signal)).rejects.toThrow(
 			"custom commands",
 		);
 		expect(await fs.read("/splates/agents.json")).toBe(original);
@@ -133,13 +133,13 @@ describe("OpenCode model setup", () => {
 	});
 	it("lists again after a failed listing", async () => {
 		opencode.fail = true;
-		await expect(models.catalog()).rejects.toThrow();
+		expect(models.catalog()).rejects.toThrow();
 		opencode.fail = false;
 		expect(await models.catalog()).toHaveLength(2);
 	});
 	it("refuses a malformed catalog", async () => {
 		opencode.catalog = "unexpected diagnostic";
-		await expect(models.catalog()).rejects.toThrow("unknown catalog");
+		expect(models.catalog()).rejects.toThrow("unknown catalog");
 	});
 	it("adds an entry to the default roster, the main model building and the auxiliary titling", async () => {
 		await save();
@@ -209,15 +209,15 @@ describe("OpenCode model setup", () => {
 	});
 	it("refuses a model no longer listed", async () => {
 		opencode.catalog = `${selected.auxiliary}\n`;
-		await expect(save()).rejects.toThrow("no longer listed");
+		expect(save()).rejects.toThrow("no longer listed");
 		expect(await fs.exists("/splates/agents.json")).toBe(false);
 	});
 	it("refuses model overrides and custom Go provider configuration", async () => {
 		opencode.conflict = true;
-		await expect(save()).rejects.toThrow("override this setup");
+		expect(save()).rejects.toThrow("override this setup");
 		opencode.conflict = false;
 		opencode.providerConflict = true;
-		await expect(save()).rejects.toThrow("override this setup");
+		expect(save()).rejects.toThrow("override this setup");
 		expect(await fs.exists("/splates/agents.json")).toBe(false);
 	});
 	it("leaves custom commands untouched", async () => {
@@ -232,11 +232,11 @@ describe("OpenCode model setup", () => {
 			],
 		});
 		await fs.write("/splates/agents.json", original);
-		await expect(save()).rejects.toThrow("launch command");
+		expect(save()).rejects.toThrow("launch command");
 		expect(await fs.read("/splates/agents.json")).toBe(original);
 	});
 	it("requires exact case", async () => {
-		await expect(
+		expect(
 			models.save(
 				{ ...selected, model: selected.model.toLowerCase() },
 				signal.signal,
@@ -245,13 +245,13 @@ describe("OpenCode model setup", () => {
 	});
 	it("cancels before commit and leaves the roster intact after write failure", async () => {
 		signal.abort();
-		await expect(save()).rejects.toThrow();
+		expect(save()).rejects.toThrow();
 		expect(await fs.exists("/splates/agents.json")).toBe(false);
 		signal = new AbortController();
 		fs.rename = async () => {
 			throw new Error("disk full");
 		};
-		await expect(save()).rejects.toThrow("disk full");
+		expect(save()).rejects.toThrow("disk full");
 		expect(await fs.exists("/splates/agents.json")).toBe(false);
 		expect(await fs.readdir("/splates")).toEqual([]);
 	});

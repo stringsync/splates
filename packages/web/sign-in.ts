@@ -9,6 +9,7 @@ const RELOADED = "splates.signInReload";
  * that is up. This finds that out and reloads the page to sign in again.
  */
 export class SignIn {
+	// vet-ignore objects-over-callbacks: each is a test seam for the browser's own reload, clock and fetch, run per call
 	constructor(
 		private readonly store: Pick<Storage, "getItem" | "setItem"> = {
 			// Looked up when used, as the page's tests load this without one.

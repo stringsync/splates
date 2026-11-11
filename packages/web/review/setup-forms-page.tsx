@@ -13,9 +13,9 @@ import {
 	CredField,
 	JourneyDone,
 	type NextState,
-	SetupIndex,
 	StepForm,
 } from "../setup-form";
+import { SetupIndex } from "../setup-index";
 import { UndoDialog } from "../setup-undo";
 
 /** An area with `done` of `steps` steps done, for the index. */

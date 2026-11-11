@@ -24,7 +24,7 @@ describe("ShipRegistry", () => {
 		const registry = new ShipRegistry(
 			new RegistryResponse(new Response("", { status: 503 })),
 		);
-		await expect(registry.deployed("example")).rejects.toThrow("HTTP 503");
+		expect(registry.deployed("example")).rejects.toThrow("HTTP 503");
 	});
 
 	it.each([
@@ -36,18 +36,16 @@ describe("ShipRegistry", () => {
 		const registry = new ShipRegistry(
 			new RegistryResponse(Response.json(value)),
 		);
-		await expect(registry.deployed("example")).rejects.toThrow(
-			"unexpected evidence",
-		);
+		expect(registry.deployed("example")).rejects.toThrow("unexpected evidence");
 	});
 
 	it("propagates network and JSON failures", async () => {
 		const registry = new ShipRegistry(new UnreachableRegistry());
-		await expect(registry.deployed("example")).rejects.toThrow("offline");
+		expect(registry.deployed("example")).rejects.toThrow("offline");
 		const malformed = new ShipRegistry(
 			new RegistryResponse(new Response("not JSON")),
 		);
-		await expect(malformed.deployed("example")).rejects.toThrow();
+		expect(malformed.deployed("example")).rejects.toThrow();
 	});
 
 	it("asks for the exact scoped package version rather than latest", async () => {
@@ -69,15 +67,13 @@ describe("ShipRegistry", () => {
 		const offline = new ShipRegistry(
 			new RegistryResponse(new Response("offline", { status: 503 })),
 		);
-		await expect(offline.published("example", "1.2.3")).rejects.toThrow(
-			"HTTP 503",
-		);
+		expect(offline.published("example", "1.2.3")).rejects.toThrow("HTTP 503");
 		const mismatch = new ShipRegistry(
 			new RegistryResponse(
 				Response.json({ name: "example", version: "2.0.0" }),
 			),
 		);
-		await expect(mismatch.published("example", "1.2.3")).rejects.toThrow(
+		expect(mismatch.published("example", "1.2.3")).rejects.toThrow(
 			"unexpected evidence",
 		);
 	});

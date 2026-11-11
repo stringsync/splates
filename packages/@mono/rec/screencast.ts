@@ -1,6 +1,7 @@
 import { Disposer, type Resource } from "core/disposable";
 import { Duration, sleep, type WallClock } from "core/time";
 import type { Cdp, CdpEvent } from "./cdp";
+import type { PageFilter } from "./sinks";
 
 /** One painted frame of a tab, as Chrome's screencast sends it. */
 export interface Frame {
@@ -20,8 +21,21 @@ interface TargetInfo {
 /** Frames per second the screencast sends at most; a high-refresh display paints far more than a recording needs. */
 export const DEFAULT_MAX_FPS = 30;
 
+/** Gets each frame the screencast sends. */
+export interface FrameSink {
+	frame(frame: Frame): void;
+}
+
+export interface ScreencastOptions {
+	/** Pages whose frames are not sent, by url. */
+	skip: PageFilter;
+	frames: FrameSink;
+	/** The most frames a second; defaults to `DEFAULT_MAX_FPS`. */
+	maxFps?: number;
+}
+
 /**
- * Streams frames of every page that is not the control window to `onFrame`,
+ * Streams frames of every page that is not the control window to `frames`,
  * at most `maxFps` a second. Only the active tab paints, so only its frames arrive.
  */
 export class Screencast implements Resource {
@@ -36,8 +50,8 @@ export class Screencast implements Resource {
 	private constructor(
 		private readonly cdp: Cdp,
 		private readonly wall: WallClock,
-		private readonly skip: (url: string) => boolean,
-		private readonly onFrame: (frame: Frame) => void,
+		private readonly skip: PageFilter,
+		private readonly frames: FrameSink,
 		private readonly maxFps: number,
 	) {
 		this.disposer.use(cdp.on(this.receive));
@@ -46,11 +60,10 @@ export class Screencast implements Resource {
 	static async start(
 		cdp: Cdp,
 		wall: WallClock,
-		skip: (url: string) => boolean,
-		onFrame: (frame: Frame) => void,
-		maxFps = DEFAULT_MAX_FPS,
+		opts: ScreencastOptions,
 	): Promise<Screencast> {
-		const cast = new Screencast(cdp, wall, skip, onFrame, maxFps);
+		const { skip, frames, maxFps = DEFAULT_MAX_FPS } = opts;
+		const cast = new Screencast(cdp, wall, skip, frames, maxFps);
 		await cdp.send("Target.setDiscoverTargets", { discover: true });
 		const { targetInfos } = await cdp.send<{ targetInfos: TargetInfo[] }>(
 			"Target.getTargets",
@@ -73,7 +86,7 @@ export class Screencast implements Resource {
 		if (
 			info.type !== "page" ||
 			this.sessions.has(info.targetId) ||
-			this.skip(info.url)
+			this.skip.skips(info.url)
 		) {
 			return;
 		}
@@ -126,7 +139,7 @@ export class Screencast implements Resource {
 		void this.acknowledge(params.sessionId, event.sessionId);
 		this.received++;
 		const seconds = params.metadata.timestamp;
-		this.onFrame({
+		this.frames.frame({
 			jpeg: Uint8Array.fromBase64(params.data),
 			at: seconds === undefined ? this.wall.now() : seconds * 1000,
 			targetId: this.targets.get(event.sessionId ?? "") ?? "",

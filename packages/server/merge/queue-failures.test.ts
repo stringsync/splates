@@ -3,6 +3,7 @@ import { ensure } from "core/assert";
 import { Duration, SystemWallClock } from "core/time";
 import { FakeWallClock } from "core/time/testing";
 import { addedFacts } from "../board";
+import { NoopJournal } from "../records";
 import type { FailedTest } from "../tasks";
 import { Testing } from "../testing";
 import { queueFailedTests } from "./queue-failures";
@@ -154,7 +155,7 @@ describe("queueFailedTests", () => {
 
 	it("does not guess flake recurrence without a journal", async () => {
 		await queueFailedTests(
-			{ tasks: deps.tasks, log: deps.log },
+			{ tasks: deps.tasks, log: deps.log, journal: new NoopJournal() },
 			"alpha",
 			[one],
 			"flake",

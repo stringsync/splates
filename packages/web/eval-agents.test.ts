@@ -54,35 +54,7 @@ describe("EvalAgentsEditor", () => {
 		expect(editor.picks).toEqual([]);
 		expect(editor.problem).toBe("refused");
 	});
-});
 
-const ROSTER: EvalAgentsView["roster"] = [
-	{
-		id: "claude",
-		name: "Claude",
-		models: [{ id: "opus", name: "Opus" }],
-		efforts: ["low", "high"],
-	},
-];
-
-function store(
-	opts: { fail?: boolean } = {},
-): EvalAgentsStore & { saved: AgentPick[][] } {
-	const saved: AgentPick[][] = [];
-	return {
-		saved,
-		read: async () => ({ agents: [], problem: null, roster: ROSTER }),
-		save: async (agents) => {
-			if (opts.fail) {
-				throw new Error("refused");
-			}
-			saved.push(agents);
-			return { agents, problem: null, roster: ROSTER };
-		},
-	};
-}
-
-describe("runAgentsOf", () => {
 	it("starts from the saved agents and edits without saving them", async () => {
 		const kept = store();
 		const saved = new EvalAgentsEditor(kept);
@@ -104,3 +76,34 @@ describe("runAgentsOf", () => {
 		expect(kept.saved).toEqual([]);
 	});
 });
+
+const ROSTER: EvalAgentsView["roster"] = [
+	{
+		id: "claude",
+		name: "Claude",
+		models: [{ id: "opus", name: "Opus" }],
+		efforts: ["low", "high"],
+	},
+];
+
+interface StoreOptions {
+	/** Makes saving throw. */
+	fail?: boolean;
+}
+
+function store(
+	opts: StoreOptions = {},
+): EvalAgentsStore & { saved: AgentPick[][] } {
+	const saved: AgentPick[][] = [];
+	return {
+		saved,
+		read: async () => ({ agents: [], problem: null, roster: ROSTER }),
+		save: async (agents) => {
+			if (opts.fail) {
+				throw new Error("refused");
+			}
+			saved.push(agents);
+			return { agents, problem: null, roster: ROSTER };
+		},
+	};
+}

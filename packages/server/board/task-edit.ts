@@ -12,6 +12,7 @@ import {
 	elsewhereName,
 	sameBlocker,
 } from "./elsewhere";
+import { NoopElsewhereBoards } from "./noop-elsewhere-boards";
 import { similarTasks, similarWarning } from "./similar-warning";
 import type { Task, TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
@@ -63,7 +64,7 @@ export async function taskAdd(
 		assignee,
 		origin,
 		project,
-		boards,
+		boards = new NoopElsewhereBoards(),
 		scope,
 		tags,
 	}: TaskAddOptions = {},
@@ -159,7 +160,7 @@ export async function taskUpdate(
 		removeElsewhere = [],
 		lane,
 		assignee,
-		boards,
+		boards = new NoopElsewhereBoards(),
 		tags = [],
 		removeTags = [],
 	}: TaskUpdateOptions = {},
@@ -260,7 +261,7 @@ export async function taskUpdate(
 /** What blocks `task` and has yet to merge, here or in another project. */
 async function blockersSaid(
 	task: Task,
-	boards: Pick<ElsewhereBoards, "slug"> | undefined,
+	boards: Pick<ElsewhereBoards, "slug">,
 ): Promise<string> {
 	const elsewhere = await Promise.all(
 		task.blockedElsewhere
@@ -268,7 +269,7 @@ async function blockersSaid(
 			.map(async (blocker) =>
 				elsewhereName({
 					...blocker,
-					slug: await boards?.slug(blocker.project),
+					slug: await boards.slug(blocker.project),
 				}),
 			),
 	);

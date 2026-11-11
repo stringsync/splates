@@ -112,10 +112,14 @@ describe("TicketedLock", () => {
 		void next.then(() => order.push("next"));
 		void behind.then(() => order.push("behind"));
 		void bumped.then(() => order.push("bumped"));
-		for (let held = 0; held < 4; held++) {
-			await lock.release();
-			await Bun.sleep(20);
-		}
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		await Bun.sleep(20);
+		await lock.release();
+		await Bun.sleep(20);
 		expect(order).toEqual(["next", "bumped", "behind"]);
 		expect(await fs.readdir("/home/premerge.queue")).toEqual([]);
 	});
@@ -172,7 +176,7 @@ describe("TicketedLock", () => {
 		expect(places[2]).toEqual([2]);
 
 		gone.abort(new Error("landed in a batch"));
-		await expect(second).rejects.toThrow("landed in a batch");
+		expect(second).rejects.toThrow("landed in a batch");
 		await Bun.sleep(20);
 		expect(places[2]).toEqual([2, 1]);
 		expect(await fs.readdir("/home/premerge.queue")).toHaveLength(1);

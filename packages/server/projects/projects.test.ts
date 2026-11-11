@@ -177,7 +177,7 @@ describe("Projects", () => {
 
 		const slug = deps.root.split("/").at(-1) ?? "";
 		expect((await deps.projects.named(slug)).root).toBe(deps.root);
-		await expect(deps.projects.named("nowhere")).rejects.toMatchObject({
+		expect(deps.projects.named("nowhere")).rejects.toMatchObject({
 			reason: "not_found",
 		});
 	});

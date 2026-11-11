@@ -4,7 +4,7 @@ import { cn } from "#web/lib/utils.ts";
 import { openFile } from "./api";
 import { MATERIAL_ICONS, type MaterialIcon } from "./material-icons";
 import { OpenerContext } from "./openers";
-import { split } from "./work";
+import { split } from "./work-paths";
 
 /** The icon of the language `path` is written in, as Material Icon Theme draws it. */
 export function FileIcon({

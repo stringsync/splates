@@ -26,7 +26,6 @@ import {
 	MoreHorizontalIcon,
 	PencilIcon,
 	PlusIcon,
-	RotateCcwIcon,
 	Trash2Icon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
@@ -59,6 +58,7 @@ import {
 	moveLaneToBoard,
 	renameBoard,
 } from "./api";
+import { ArchivedBoards } from "./board-archived";
 import { DeleteBoard } from "./board-delete-dialog";
 import { saveBoard } from "./board-places";
 import { NameField, needsLook, SortableRow } from "./board-row";
@@ -350,34 +350,14 @@ export function BoardSwitcher({
 	const archived = boards
 		.filter((each) => each.archived)
 		.filter((each) => each.name.toLowerCase().includes(filter.toLowerCase()));
-	const archivedSection =
-		archived.length > 0 ? (
-			<section aria-label="Archived boards" className="flex flex-col">
-				<h3 className="pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Archived
-				</h3>
-				<ul className="flex flex-col">
-					{archived.map((board) => (
-						<li key={board.id} className="flex items-center gap-1">
-							<span className="min-w-0 flex-1 truncate px-2 text-muted-foreground">
-								{board.name}
-							</span>
-							<Button
-								size="sm"
-								variant="ghost"
-								aria-label={`Restore ${board.name}`}
-								onClick={() =>
-									void attempt(() => actions.archiveBoard(board.id, false))
-								}
-							>
-								<RotateCcwIcon />
-								Restore
-							</Button>
-						</li>
-					))}
-				</ul>
-			</section>
-		) : null;
+	const archivedSection = (
+		<ArchivedBoards
+			boards={archived}
+			onRestore={(board) =>
+				void attempt(() => actions.archiveBoard(board.id, false))
+			}
+		/>
+	);
 	const content = (
 		<>
 			{builtInSection}

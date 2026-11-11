@@ -16,14 +16,14 @@ describe("the ship preflight", () => {
 
 	it("stops without a terminal when gh is not logged in", async () => {
 		ps.simulate(async () => 1);
-		await expect(preflight(ps)).rejects.toThrow("gh auth login");
+		expect(preflight(ps)).rejects.toThrow("gh auth login");
 		expect(ps.getCalls()).toEqual(["gh auth status"]);
 	});
 
 	it("offers gh's login on a terminal, and stops when it leaves gh logged out", async () => {
 		ps.setColumns(80);
 		ps.simulate(async () => 1);
-		await expect(preflight(ps)).rejects.toThrow("did not log in");
+		expect(preflight(ps)).rejects.toThrow("did not log in");
 		expect(ps.getCalls()).toEqual(["gh auth status", "gh auth login"]);
 	});
 });

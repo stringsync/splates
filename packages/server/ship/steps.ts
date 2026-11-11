@@ -169,6 +169,22 @@ export class ShipSteps extends Cascades implements AsyncResource {
 		return saved.cascade;
 	}
 
+	/** Records that the person has seen cascade `id`'s result; a no-op once it is not the current one. */
+	async see(id: string): Promise<Cascade | null> {
+		if ((await this.current())?.id !== id) {
+			return null;
+		}
+		const saved = await this.record.update((record) => {
+			if (record === null) {
+				fail("not_found", "no ship to mark seen", { id });
+			}
+			record.cascade.seen = true;
+			return record;
+		});
+		await this.history.file(saved.cascade);
+		return saved.cascade;
+	}
+
 	/** Ends the plan, retaining every completed publication. No later stage may start. */
 	async abandon(): Promise<Cascade> {
 		const lock = this.storage.lock("ship-start.lock");

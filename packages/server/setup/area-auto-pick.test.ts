@@ -33,7 +33,7 @@ describe("AUTO_PICK_AREA", () => {
 	});
 
 	it("takes Next on the judge without a key pasted, but is done only once a judge's creds are kept", async () => {
-		await expect(setup.submit("auto-pick-judge", {})).rejects.toThrow(
+		expect(setup.submit("auto-pick-judge", {})).rejects.toThrow(
 			"Paste a TypeSafe API key, or keep CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN for this device, then press Next.",
 		);
 		await machine.device.set("TYPESAFE_API_KEY", "key");

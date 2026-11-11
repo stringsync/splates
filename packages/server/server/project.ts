@@ -4,10 +4,11 @@ import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks } from "../board";
 import { shipSettings, shipTargets } from "../config";
-import type { ConversationState } from "../conversations";
 import {
 	ConversationRoutes,
+	type ConversationState,
 	JournalEvents,
+	NoopConversations,
 	SERVER_TOLD,
 } from "../conversations";
 import { CredRoutes } from "../creds";
@@ -52,8 +53,9 @@ export async function serveProject(
 		.catch((error: unknown) => log.error(String(error)));
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
+	const listed = conversations ?? new NoopConversations();
 	const slug = () => context.everywhere.slug(project.service.git.root);
-	const conflicts = new ConflictWatch(project, conversations);
+	const conflicts = new ConflictWatch(project, listed);
 	await conflicts.start();
 	const shippingOptions = {
 		storage,
@@ -204,7 +206,7 @@ export async function serveProject(
 		conversations,
 		context.everywhere,
 	);
-	const taskRoutes = new TaskRoutes(project, conversations, watch);
+	const taskRoutes = new TaskRoutes(project, listed, watch);
 	return {
 		...taskRoutes,
 		...new MergeRoutes(project, undefined, conversations),

@@ -269,7 +269,7 @@ describe("WorkerSession resumed by a coordinator started again", () => {
 		await Bun.sleep(0);
 
 		expect(settled).toBe(true);
-		await expect(coordinator.acked()).resolves.toBeUndefined();
+		expect(coordinator.acked()).resolves.toBeUndefined();
 	});
 
 	it("takes no channel back from a session of another protocol major", async () => {

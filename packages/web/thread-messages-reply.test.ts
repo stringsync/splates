@@ -44,13 +44,19 @@ describe("like's reply", () => {
 		expect(reply(like(turn(), 1, "c1"))).toEqual(["Checking the tests."]);
 	});
 
-	it("keeps a stopped turn's words with work after them in its row", () => {
+	/** The kinds of what it shows, in order. */
+	const kinds = (message: ReturnType<typeof like>) =>
+		typeof message.content === "string"
+			? ["text"]
+			: message.content.map((part) => part.type);
+
+	it("shows a stopped turn's words with work after them above that work", () => {
 		expect(
-			reply(like(turn({ stopped: "2026-10-19T00:00:00.000Z" }), 1, "c1")),
-		).toEqual([]);
+			kinds(like(turn({ stopped: "2026-10-19T00:00:00.000Z" }), 1, "c1")),
+		).toEqual(["text", "data-work", "data-stopped"]);
 	});
 
-	it("keeps the words of a turn that went on past it in its row", () => {
+	it("shows the words of a turn that went on past them above the work after them", () => {
 		const message = like(
 			turn(),
 			1,
@@ -63,7 +69,7 @@ describe("like's reply", () => {
 			null,
 			true,
 		);
-		expect(reply(message)).toEqual([]);
+		expect(kinds(message)).toEqual(["text", "data-work"]);
 	});
 
 	it("still replies with a cut turn's words nothing came after", () => {

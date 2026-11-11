@@ -81,13 +81,13 @@ describe("EvalLaunchRoutes", () => {
 	it("refuses a run for a project that names no run command", async () => {
 		commands = { ...COMMANDS, run: null };
 
-		await expect(routes.start(launch(ask))).rejects.toThrow("evals.run");
+		expect(routes.start(launch(ask))).rejects.toThrow("evals.run");
 		expect(started).toEqual([]);
 	});
 
 	it("refuses a run for a project that names no evals", async () => {
 		commands = null;
 
-		await expect(routes.start(launch(ask))).rejects.toThrow("names no evals");
+		expect(routes.start(launch(ask))).rejects.toThrow("names no evals");
 	});
 });

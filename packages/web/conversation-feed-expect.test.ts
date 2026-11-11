@@ -137,7 +137,7 @@ describe("ConversationFeed's expect", () => {
 		expect(feed.pending("c1")).toBe(true);
 		archive.refuse("busy");
 
-		await expect(shown).rejects.toThrow("busy");
+		expect(shown).rejects.toThrow("busy");
 		expect(feed.pending("c1")).toBe(false);
 		expect(feed.conversations[0]?.archived).toBe(false);
 	});

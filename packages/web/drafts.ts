@@ -1,5 +1,7 @@
 import { Dispatcher, type Eventful } from "core/events";
 import type { DraftFiles } from "./draft-files";
+import { NoopDraftFiles } from "./noop-draft-files";
+import { NoopStorage } from "./noop-storage";
 
 /** Says which draft was written, or thrown away, by its key. */
 export type DraftsEvents = { written: string; discarded: string };
@@ -42,18 +44,16 @@ export class Drafts implements Eventful<DraftsEvents> {
 	 * `fileStore`, every draft's files do.
 	 */
 	constructor(
-		private readonly storage: Storage | null = null,
-		private readonly fileStore: DraftFiles | null = null,
+		private readonly storage: Storage = new NoopStorage(),
+		private readonly fileStore: DraftFiles = new NoopDraftFiles(),
 	) {
-		this.loaded =
-			fileStore?.load().then((loaded) => this.restore(loaded)) ??
-			Promise.resolve();
+		this.loaded = fileStore.load().then((loaded) => this.restore(loaded));
 	}
 
 	/** The draft under `key`, or empty when there is none. */
 	read(key: string): string {
 		try {
-			return this.storage?.getItem(PREFIX + key) ?? this.kept.get(key) ?? "";
+			return this.storage.getItem(PREFIX + key) ?? this.kept.get(key) ?? "";
 		} catch {
 			return this.kept.get(key) ?? "";
 		}
@@ -65,9 +65,9 @@ export class Drafts implements Eventful<DraftsEvents> {
 			return true;
 		}
 		try {
-			for (let i = 0; i < (this.storage?.length ?? 0); i++) {
-				const key = this.storage?.key(i) ?? "";
-				if (key.startsWith(PREFIX) && this.storage?.getItem(key)) {
+			for (let i = 0; i < this.storage.length; i++) {
+				const key = this.storage.key(i) ?? "";
+				if (key.startsWith(PREFIX) && this.storage.getItem(key)) {
 					return true;
 				}
 			}
@@ -138,7 +138,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 		}
 		this.opened.add(key);
 		try {
-			this.storage?.setItem(OPENED + key, "1");
+			this.storage.setItem(OPENED + key, "1");
 		} catch {
 			// Storage full or refused: the mark lives as long as the page does.
 		}
@@ -156,7 +156,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 	isOpen(key: string): boolean {
 		try {
 			return (
-				(this.storage?.getItem(OPENED + key) ?? null) !== null ||
+				(this.storage.getItem(OPENED + key) ?? null) !== null ||
 				this.opened.has(key)
 			);
 		} catch {
@@ -182,8 +182,8 @@ export class Drafts implements Eventful<DraftsEvents> {
 			...(opened ? this.opened : []),
 		]);
 		try {
-			for (let i = 0; i < (this.storage?.length ?? 0); i++) {
-				const key = this.storage?.key(i) ?? "";
+			for (let i = 0; i < this.storage.length; i++) {
+				const key = this.storage.key(i) ?? "";
 				if (key.startsWith(PREFIX)) {
 					keys.add(key.slice(PREFIX.length));
 				} else if (opened && key.startsWith(OPENED)) {
@@ -211,7 +211,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 	place(key: string, open: string): void {
 		this.places.set(key, open);
 		try {
-			this.storage?.setItem(PLACED + key, open);
+			this.storage.setItem(PLACED + key, open);
 		} catch {
 			// Storage full or refused: the place lives as long as the page does.
 		}
@@ -220,9 +220,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 	/** Where the draft under `key` was written, or null when it was not kept. */
 	placeOf(key: string): string | null {
 		try {
-			return (
-				this.storage?.getItem(PLACED + key) ?? this.places.get(key) ?? null
-			);
+			return this.storage.getItem(PLACED + key) ?? this.places.get(key) ?? null;
 		} catch {
 			return this.places.get(key) ?? null;
 		}
@@ -233,7 +231,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 		const had = this.isOpen(key);
 		this.opened.delete(key);
 		try {
-			this.storage?.removeItem(OPENED + key);
+			this.storage.removeItem(OPENED + key);
 		} catch {
 			// Storage refused: the mark in memory was all there was.
 		}
@@ -247,7 +245,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 		} else {
 			this.attached.set(key, files);
 		}
-		this.fileStore?.save(key, files);
+		this.fileStore.save(key, files);
 	}
 
 	/**
@@ -260,7 +258,7 @@ export class Drafts implements Eventful<DraftsEvents> {
 				continue;
 			}
 			if (this.read(key) === "") {
-				this.fileStore?.save(key, []);
+				this.fileStore.save(key, []);
 				continue;
 			}
 			this.attached.set(key, files);
@@ -279,9 +277,9 @@ export class Drafts implements Eventful<DraftsEvents> {
 		}
 		try {
 			if (text === "") {
-				this.storage?.removeItem(PREFIX + key);
+				this.storage.removeItem(PREFIX + key);
 			} else {
-				this.storage?.setItem(PREFIX + key, text);
+				this.storage.setItem(PREFIX + key, text);
 			}
 		} catch {
 			// Storage full or refused, as in a private window: the draft lives

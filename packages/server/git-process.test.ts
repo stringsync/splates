@@ -61,7 +61,7 @@ describe("processGit", () => {
 		const git = new Git("/repo", {
 			run: { git: async () => ({ code: 0, stdout: " \n", stderr: "" }) },
 		});
-		await expect(git.commonDir()).rejects.toThrow("empty path");
+		expect(git.commonDir()).rejects.toThrow("empty path");
 	});
 
 	// vet-ignore simple-test-setup: Only this regression uses workers and their synchronization; there is no shared setup to move.

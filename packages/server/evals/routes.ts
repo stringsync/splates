@@ -6,7 +6,8 @@ import { fail } from "../exit";
 import type { Handler } from "../server/shared";
 import type { EvalBudgetStatus } from "./budget";
 import { evalsDonePrompt } from "./done";
-import type { EvalCommands, EvalLaunches } from "./launch";
+import type { EvalCommands } from "./launch";
+import { type EvalBatchOwners, NoopEvalLaunches } from "./noop-eval-launches";
 import { EvalStore } from "./store";
 
 /**
@@ -18,7 +19,11 @@ import { EvalStore } from "./store";
 export class EvalRoutes {
 	private readonly stores = new Map<string, EvalStore>();
 
-	constructor(private readonly opts: EvalOptions) {}
+	private readonly launches: EvalBatchOwners;
+
+	constructor(private readonly opts: EvalOptions) {
+		this.launches = opts.launches ?? new NoopEvalLaunches();
+	}
 
 	/** The batches, or null when the project names no results. */
 	readonly list: Handler = async (request) => {
@@ -28,16 +33,16 @@ export class EvalRoutes {
 		}
 		const store = this.storeOf(directory);
 		const batches = await store.batches();
-		const owners = await this.opts.launches?.batchConversations(directory);
+		const owners = await this.launches.batchConversations(directory);
 		const budgets = new Map<string, EvalBudgetStatus>();
 		for (const batch of batches) {
-			const conversation = owners?.get(batch.id);
-			if (conversation === undefined || this.opts.launches === undefined) {
+			const conversation = owners.get(batch.id);
+			if (conversation === undefined) {
 				continue;
 			}
 			let budget = budgets.get(conversation);
 			if (budget === undefined) {
-				budget = await this.opts.launches.budgets.statusOf(conversation, store);
+				budget = await this.launches.budgets.statusOf(conversation, store);
 				budgets.set(conversation, budget);
 			}
 			batch.conversation = conversation;
@@ -148,7 +153,7 @@ export function projectEvalCommands(
 
 interface EvalOptions {
 	/** Saved launches linking batches to their conversation budgets. */
-	launches?: EvalLaunches;
+	launches?: EvalBatchOwners;
 	/** The directory the project `request` names reads its batches from, or null for none. */
 	directory: (request: Request) => Promise<string | null>;
 }

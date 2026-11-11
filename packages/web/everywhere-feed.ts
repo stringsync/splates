@@ -14,7 +14,7 @@ import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { answered } from "./api";
 import { LiveStream } from "./live-stream";
-import type { PageCopy } from "./page-copy";
+import { type KeptCopy, NoopPageCopy } from "./noop-page-copy";
 
 export type EverywhereFeedEvents = { changed: undefined };
 
@@ -68,11 +68,11 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 	private readonly tagged = new WeakMap<object, object>();
 	/** Whether a listing has come from the server, which the kept one gives way to. */
 	private heard = false;
-	private readonly copy: PageCopy<EverywhereListing> | null;
+	private readonly copy: KeptCopy<EverywhereListing>;
 
 	constructor({
-		copy = null,
-	}: { copy?: PageCopy<EverywhereListing> | null } = {}) {
+		copy = new NoopPageCopy<EverywhereListing>(),
+	}: { copy?: KeptCopy<EverywhereListing> } = {}) {
 		this.copy = copy;
 	}
 
@@ -119,7 +119,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 
 	/** Shows the listing last kept, unless one has come from the server since. */
 	private async paint(): Promise<void> {
-		const kept = this.copy === null ? null : await this.copy.load();
+		const kept = await this.copy.load();
 		if (kept === null || this.heard) {
 			return;
 		}
@@ -131,7 +131,7 @@ export class EverywhereFeed implements Eventful<EverywhereFeedEvents> {
 
 	/** Keeps what the server last said, for the next page. */
 	private kept(): void {
-		this.copy?.keep(() => ({ projects: [...this.held.values()] }));
+		this.copy.keep(() => ({ projects: [...this.held.values()] }));
 	}
 
 	private start(): void {

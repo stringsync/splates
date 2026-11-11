@@ -1,4 +1,4 @@
-/** The page rec's window shows for a moment while the side panel opens: dark and quiet, so the handoff does not flash. */
+/** The dark splash page shown in rec's window while the side panel opens. */
 export const OPEN_PAGE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="color-scheme" content="dark">

@@ -10,13 +10,19 @@ import { Duration, sleep } from "core/time";
 /** How long CPU is measured over, as a share since the reading before. */
 const SAMPLE = Duration.secs(1);
 
+/** What `printMachine` is asked for. */
+export interface MachineOptions {
+	/** Prints the reading as JSON rather than a line. */
+	json: boolean;
+}
+
 /**
  * `splates machine`: this machine's reading, taken here so it needs no server,
  * and whether it is busy.
  */
 export async function printMachine(
-	opts: { json: boolean },
 	ctx: SplatesDeps,
+	opts: MachineOptions,
 ): Promise<void> {
 	const machine = new Machine(new OsSensors(ctx.fs));
 	await sleep(SAMPLE);

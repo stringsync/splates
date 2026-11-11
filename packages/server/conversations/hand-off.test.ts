@@ -92,7 +92,7 @@ describe("Restarting a conversation's agent, or handing its task off", () => {
 		});
 		await until(conversation, "idle");
 
-		await expect(conversation.restart()).rejects.toThrow(/in no task/);
-		await expect(conversation.handOff()).rejects.toThrow(/in no task/);
+		expect(conversation.restart()).rejects.toThrow(/in no task/);
+		expect(conversation.handOff()).rejects.toThrow(/in no task/);
 	});
 });

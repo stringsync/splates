@@ -568,7 +568,7 @@ splates
 		"say how hard this machine is working and whether it is busy, as the page's Busy says: CPU or memory at 90% or the hottest sensor at 95°C. Needs no server. Read it before a command you expect to be heavy: run the command when the machine is not busy, and ask with a run-command card when it is",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action(printMachine);
+	.action((opts, ctx) => printMachine(ctx, opts));
 
 splates
 	.command("ports")

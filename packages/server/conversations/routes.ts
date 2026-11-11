@@ -16,6 +16,7 @@ import {
 } from "../server/shared";
 import type { Conversations } from "./conversations";
 import { listing } from "./listing";
+import { NoopConversations } from "./noop-conversations";
 import { reminderCardOf } from "./reminder";
 import { type Said, saidIn, wordsOf } from "./search";
 import { type Answer, DEVICES, FROM_HEADER, type Upload } from "./state";
@@ -30,6 +31,8 @@ import { type Tree, treeOf } from "./tree";
 export class ConversationRoutes {
 	readonly #project: Project | null;
 	readonly #conversations: Conversations | null;
+	/** What the conversations list and dispose with, nothing while they are off. */
+	readonly #listing: Pick<Conversations, "list" | "disposeAsync">;
 	/** Every project's conversations, where a caller of one here may be. */
 	readonly #everywhere: Everywhere | null;
 	/** Each change to them, to pages and other listeners; null while they are off. */
@@ -45,6 +48,7 @@ export class ConversationRoutes {
 	) {
 		this.#project = project;
 		this.#conversations = conversations;
+		this.#listing = conversations ?? new NoopConversations();
 		this.#scratchRoot = scratchRoot;
 		this.#everywhere =
 			everywhere ??
@@ -95,7 +99,7 @@ export class ConversationRoutes {
 	): Promise<Promise<void>[]> => {
 		// A pause is the person's, and a budget stop the budget's: each goes
 		// on beside a restart's, and neither is the other's to dismiss.
-		const all = ((await this.#conversations?.list()) ?? []).filter(
+		const all = (await this.#listing.list()).filter(
 			(each) =>
 				!each.state.pausing &&
 				(budget === null ? each.state.budgetStop === null : true),
@@ -572,7 +576,7 @@ export class ConversationRoutes {
 
 	async disposeAsync(): Promise<void> {
 		this.#stream?.dispose();
-		await this.#conversations?.disposeAsync();
+		await this.#listing.disposeAsync();
 	}
 
 	/** Where a conversation for `task` runs, as `treeOf` says. */

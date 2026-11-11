@@ -35,6 +35,7 @@ export type ToolGroupRootProps = Omit<
 	React.ComponentProps<typeof Collapsible>,
 	"open" | "onOpenChange"
 > &
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 	VariantProps<typeof toolGroupVariants> & {
 		open?: boolean;
 		onOpenChange?: (open: boolean) => void;

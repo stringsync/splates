@@ -72,7 +72,7 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 						words: [],
 						utterances: [],
 					}
-				: await hear(opts, fetcher, work);
+				: await hear(fetcher, work, opts);
 		const pointers: Pointer[] = [];
 		const logs = (await fs.readdir(`${dir}/logs`).catch(() => [] as string[]))
 			.filter((name) => name.endsWith(".log"))
@@ -91,7 +91,11 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 		);
 		await fs.write(
 			`${dir}/timeline.md`,
-			renderTimeline(transcript, pointers, opts.micOff, opts.noMic, !opts.key),
+			renderTimeline(transcript, pointers, {
+				micOff: opts.micOff,
+				noMic: opts.noMic,
+				noKey: !opts.key,
+			}),
 		);
 		return transcript;
 	} finally {
@@ -101,9 +105,9 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 
 /** Extracts the recording's audio and runs it through whisper, writing `transcript.json`. */
 async function hear(
-	opts: TranscribeOptions,
 	fetcher: Fetch,
 	work: string,
+	opts: TranscribeOptions,
 ): Promise<Transcript> {
 	const { ps, fs, dir } = opts;
 	const full = `${work}/audio.mp3`;

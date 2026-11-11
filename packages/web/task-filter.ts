@@ -1,4 +1,5 @@
 import { Dispatcher, type Eventful } from "core/events";
+import { NoopStorage } from "./noop-storage";
 
 export type TaskFilterEvents = { changed: undefined };
 
@@ -25,7 +26,7 @@ export class TaskFilter implements Eventful<TaskFilterEvents> {
 	tags: string[];
 
 	/** `storage` keeps the choice for the next visit, when given. */
-	constructor(private readonly storage?: Storage) {
+	constructor(private readonly storage: Storage = new NoopStorage()) {
 		const kept = keptIn(storage);
 		this.projects = kept.projects;
 		this.tags = kept.tags;
@@ -64,7 +65,7 @@ export class TaskFilter implements Eventful<TaskFilterEvents> {
 
 	private set(next: Partial<Pick<TaskFilter, "projects" | "tags">>): void {
 		Object.assign(this, next);
-		this.storage?.setItem(
+		this.storage.setItem(
 			KEPT,
 			JSON.stringify({ projects: this.projects, tags: this.tags }),
 		);
@@ -79,9 +80,9 @@ function toggled(list: string[], one: string): string[] {
 }
 
 /** The choice kept on the last visit; none when what was kept will not read. */
-function keptIn(storage?: Storage): { projects: string[]; tags: string[] } {
+function keptIn(storage: Storage): { projects: string[]; tags: string[] } {
 	try {
-		const kept: unknown = JSON.parse(storage?.getItem(KEPT) ?? "{}");
+		const kept: unknown = JSON.parse(storage.getItem(KEPT) ?? "{}");
 		const strings = (value: unknown): string[] =>
 			Array.isArray(value)
 				? value.filter((each): each is string => typeof each === "string")

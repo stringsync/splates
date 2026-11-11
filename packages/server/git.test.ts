@@ -88,7 +88,7 @@ describe("Git", () => {
 	});
 
 	it("throws when git fails for another reason, rather than naming no branch", async () => {
-		await expect(env.git.currentBranch(join(env.root, "gone"))).rejects.toThrow(
+		expect(env.git.currentBranch(join(env.root, "gone"))).rejects.toThrow(
 			"git symbolic-ref HEAD",
 		);
 	});

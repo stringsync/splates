@@ -1,12 +1,9 @@
 import { useAuiState } from "@assistant-ui/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { loopLimits } from "./eval-loops";
 import type { EvalRun } from "./eval-run";
 
-/**
- * Prefills the limits from the opening eval directive once the card is ready.
- * A budget limits spending; each round still waits for the person to press Run.
- */
+/** Prefills the run's budget and round limits from the opening eval directive once `ready`. Each round still waits for Run. */
 export function useLoopLimits(
 	run: EvalRun,
 	{ ready }: { ready: boolean },
@@ -18,12 +15,23 @@ export function useLoopLimits(
 			.join("\n"),
 	);
 	const limits = opening === undefined ? null : loopLimits(opening);
-	const started = useRef(false);
+	const [prefill] = useState(() => new LimitsPrefill());
 	useEffect(() => {
-		if (limits === null || started.current || !ready) {
+		prefill.apply(run, limits, ready);
+	}, [prefill, limits, ready, run]);
+}
+
+type Limits = ReturnType<typeof loopLimits>;
+
+/** Sets a run's limits once, the first time they are known and the run is ready. */
+class LimitsPrefill {
+	private started = false;
+
+	apply(run: EvalRun, limits: Limits, ready: boolean): void {
+		if (limits === null || this.started || !ready) {
 			return;
 		}
-		started.current = true;
+		this.started = true;
 		run.setLimits(limits);
-	}, [limits, ready, run]);
+	}
 }

@@ -32,7 +32,7 @@ describe("Server diagnostic logs", () => {
 			const log = new MemoryLogger();
 			await fs.mkdir("/state");
 
-			await expect(serveDev({ fs, ps, log, assets }, flags)).rejects.toThrow(
+			expect(serveDev({ fs, ps, log, assets }, flags)).rejects.toThrow(
 				"Cloudflare Access needs both --access-team and --access-aud",
 			);
 

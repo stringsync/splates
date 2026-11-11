@@ -63,6 +63,7 @@ export class Shell implements AsyncResource {
 	private grace: Resource | null = null;
 	private ended = false;
 
+	// vet-ignore objects-over-callbacks: the one owner of a shell hears it go, to drop it from its table
 	constructor(
 		readonly key: string | null,
 		readonly pty: TerminalShell,

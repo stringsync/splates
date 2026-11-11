@@ -39,11 +39,11 @@ describe("PageCache", () => {
 			);
 			const path = `${url.pathname}${url.search}`;
 			asked.push(path);
-			const answer = served.get(path);
-			if (answer === "down") {
+			const found = served.get(path);
+			if (found === "down") {
 				throw new TypeError("no server");
 			}
-			return answer?.clone() ?? new Response(null, { status: 404 });
+			return found?.clone() ?? new Response(null, { status: 404 });
 		});
 	});
 
@@ -53,9 +53,12 @@ describe("PageCache", () => {
 		);
 
 	async function text(answer: Answer | null): Promise<string> {
-		const response = await answer?.response;
-		await answer?.after;
-		return (await response?.text()) ?? "";
+		if (answer === null) {
+			return "";
+		}
+		const response = await answer.response;
+		await answer.after;
+		return response === undefined ? "" : await response.text();
 	}
 
 	it("serves the shell from the network the first time, keeping it for the next", async () => {

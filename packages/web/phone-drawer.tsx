@@ -5,12 +5,15 @@ import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
+import { useMachine } from "./machine";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
 import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
+import { hasActiveShip } from "./ship-activity";
+import { useAcknowledged } from "./ship-recap-seen";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -53,6 +56,8 @@ export function Drawer({
 
 	const home = (page: Page, conversation: string | null) =>
 		page === "conversations" && conversation === null;
+	const ship = useMachine()?.ship;
+	const acknowledged = useAcknowledged();
 	const go = (to: Page, open: string | null = null) => {
 		// Home is pushed, so the move back to it goes back instead.
 		onGo(
@@ -60,6 +65,10 @@ export function Drawer({
 			open,
 			home(page, conversation) || home(to, open) ? "push" : "replace",
 		);
+		// With a ship under way, Ship opens it rather than the planner.
+		if (to === "ships" && hasActiveShip(ship, acknowledged)) {
+			location.hash = "ships/active";
+		}
 		onOpenChange(false);
 	};
 	const requested =

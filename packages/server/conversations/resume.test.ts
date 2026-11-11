@@ -65,7 +65,7 @@ describe("Messages to a stopped conversation", () => {
 	it("takes the message back when the resume is refused", async () => {
 		(conversation as unknown as { dir: string | null }).dir = null;
 
-		await expect(conversation.prompt("carry on")).rejects.toThrow();
+		expect(conversation.prompt("carry on")).rejects.toThrow();
 
 		expect(conversation.state.messages.some((each) => each.queued)).toBe(false);
 	});

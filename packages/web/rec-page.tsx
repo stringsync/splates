@@ -157,6 +157,7 @@ function RecStart(): JSX.Element {
 
 	useEffect(() => {
 		let live = true;
+		let was: string | null = null;
 		const read = () =>
 			recState().then(
 				(next) => {
@@ -167,6 +168,28 @@ function RecStart(): JSX.Element {
 					// Rec forgets its outcome when it exits, so keep the last one seen.
 					if (next.status.lastOutcome !== undefined) {
 						setOutcome(next.status.lastOutcome);
+					}
+					const ranAs = was;
+					was = next.status.running ? (next.status.name ?? null) : null;
+					// Rec can exit between two polls, taking its outcome with it: when a run
+					// vanished unreported, its saved session in History tells how it ended.
+					if (ranAs !== null && was === null) {
+						void recSessions().then(
+							(store) => {
+								if (
+									live &&
+									store.sessions.some((each) => each.name === ranAs)
+								) {
+									setOutcome((current) =>
+										current?.status === "saved" && current.name === ranAs
+											? current
+											: { status: "saved", name: ranAs },
+									);
+									setSummary(sessionsSummary(store));
+								}
+							},
+							() => {},
+						);
 					}
 				},
 				() => {},

@@ -19,6 +19,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
 import { RouteTrail } from "./route-trail";
+import { seenBy } from "./ship-activity";
 import { ShipHistory } from "./ship-history";
 import { ShipPlan } from "./ship-plan";
 import { useAcknowledged } from "./ship-recap-seen";
@@ -43,6 +44,13 @@ export function ShipsPage({
 	// The cascade on show when Start was pressed: the stream still holds it
 	// until the new ship's first message, so it must not be shown as the new one.
 	const [previous, setPrevious] = useState<string | null>(null);
+	// Set from accepting the plan until the new ship's first message arrives.
+	const [starting, setStarting] = useState(false);
+	useEffect(() => {
+		if (starting && live?.cascade != null && live.cascade.id !== previous) {
+			setStarting(false);
+		}
+	}, [starting, live, previous]);
 	const busy =
 		(live?.cascade?.status === "running" ||
 			live?.cascade?.status === "stopped") &&
@@ -52,19 +60,20 @@ export function ShipsPage({
 		live?.cascade != null &&
 		["done", "abandoned"].includes(live.cascade.status) &&
 		live.cascade.id !== closed &&
-		live.cascade.id !== acknowledged;
+		!seenBy(live.cascade, acknowledged);
 	// A ship put away has no page left: land on the planner.
 	useEffect(() => {
 		if (
 			viewed === ACTIVE &&
+			!starting &&
 			live !== null &&
 			(live.cascade == null ||
 				live.cascade.id === closed ||
-				live.cascade.id === acknowledged)
+				seenBy(live.cascade, acknowledged))
 		) {
 			location.replace("#ships");
 		}
-	}, [viewed, live, closed, acknowledged]);
+	}, [viewed, live, closed, acknowledged, starting]);
 	const [past, setPast] = useState<CascadeSummary[] | null>(null);
 	useEffect(() => {
 		shipHistory().then(setPast, () => setPast([]));
@@ -98,7 +107,7 @@ export function ShipsPage({
 				}
 			/>
 			{viewed === ACTIVE ? (
-				<div className={PLANNER_COLUMN}>
+				<div className={cn(PLANNER_COLUMN, "max-w-6xl")}>
 					<ActiveShip
 						live={live}
 						closed={closed}
@@ -139,13 +148,13 @@ export function ShipsPage({
 					{live?.cascade != null && (busy || unacknowledged) && (
 						<ShipRunningCard cascade={live.cascade} href={`#ships/${ACTIVE}`} />
 					)}
-					{live !== null && past !== null && (
-						<HistoryRow
-							href={`#ships/${HISTORY}`}
-							summary={lastShipped(past)}
-						/>
-					)}
 					<ShipPlan
+						lead={
+							<HistoryRow
+								href={`#ships/${HISTORY}`}
+								summary={lastShipped(past)}
+							/>
+						}
 						ready={live !== null && past !== null}
 						ship={new URLSearchParams(location.search).get("ship")}
 						endedAt={live?.cascade?.ended ?? null}
@@ -153,6 +162,7 @@ export function ShipsPage({
 						loading={live === null}
 						onStarted={() => {
 							setPrevious(live?.cascade?.id ?? null);
+							setStarting(true);
 							const url = new URL(location.href);
 							url.searchParams.delete("ship");
 							history.replaceState(null, "", url);

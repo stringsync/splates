@@ -6,6 +6,7 @@ import { projectLine } from "../projects";
 import type { Collection, Storage } from "../storage";
 import type { ProjectRoster } from "./host";
 import { textOf } from "./messages";
+import { NoopProjectRoster } from "./noop-project-roster";
 import { conversationReference } from "./reference";
 import type { Message, Sent, Upload } from "./state";
 import { transcriptOf } from "./transcript";
@@ -16,7 +17,7 @@ import { transcriptOf } from "./transcript";
  */
 export class ConversationFiles {
 	private readonly files: Collection;
-	private readonly projects: ProjectRoster | null;
+	private readonly projects: ProjectRoster;
 	private readonly home: string | null;
 
 	constructor(
@@ -27,11 +28,11 @@ export class ConversationFiles {
 		private readonly storage: Storage,
 		private readonly id: string,
 		{
-			projects = null,
+			projects = new NoopProjectRoster(),
 			home = null,
 		}: {
-			/** The splates projects on this machine, for `#slug`; null for none. */
-			projects?: ProjectRoster | null;
+			/** The splates projects on this machine, for `#slug`. */
+			projects?: ProjectRoster;
 			/** The main tree of the project the conversation is in; null for none. */
 			home?: string | null;
 		} = {},
@@ -173,7 +174,7 @@ export class ConversationFiles {
 		if (!text.includes("#")) {
 			return "";
 		}
-		const listed = (await this.projects?.list().catch(() => null)) ?? [];
+		const listed = await this.projects.list().catch(() => []);
 		const projects = listed.filter((each) => !each.gone);
 		const conversations = hashed(text).filter(conversationReference);
 		const found = hashed(text).flatMap((called) => {
@@ -194,8 +195,7 @@ export class ConversationFiles {
 						reach:
 							this.home === null || project.root === this.home
 								? null
-								: ((await this.projects?.reach(this.home, project.root)) ??
-									null),
+								: await this.projects.reach(this.home, project.root),
 					}),
 				),
 			)),

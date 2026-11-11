@@ -1,7 +1,7 @@
 import type { IdProvider } from "core/id";
 import type { Fs, Lock } from "core/system";
 import type { Timer, WallClock } from "core/time";
-import type { Agent, Launch, Launcher, SessionServers, Watch } from "../agents";
+import type { Agent, Launch, Launcher, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
 import type { Limits, Offered } from "../models";
 import type { Prices } from "../prices";
@@ -76,9 +76,4 @@ export interface ConversationsOptions {
 	 * by; none by default.
 	 */
 	projects?: ProjectRoster | null;
-	/**
-	 * The MCP servers each session is offered, beyond the agent's own, shared
-	 * across projects like the browser they serve; none by default.
-	 */
-	servers?: SessionServers | null;
 }

@@ -110,13 +110,17 @@ export function parseMomentsFile(text: string): {
 	return { signals, moments };
 }
 
-/** Reads a session folder, judges and ranks its moments, and writes `moments.md` and `moments.jsonl`. */
-export async function writeMoments(opts: {
+export interface WriteMomentsOptions {
 	fs: Fs;
 	dir: string;
 	jev?: Jev;
 	about?: string;
-}): Promise<MomentsResult> {
+}
+
+/** Reads a session folder, judges and ranks its moments, and writes `moments.md` and `moments.jsonl`. */
+export async function writeMoments(
+	opts: WriteMomentsOptions,
+): Promise<MomentsResult> {
 	const { fs, dir } = opts;
 	// A session with no mic has no transcript: its remarks stand in for speech.
 	const transcript = await fs.read(`${dir}/transcript.json`).then(

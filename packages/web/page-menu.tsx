@@ -31,6 +31,7 @@ export function usePageMenu({
 	outdated,
 	offline,
 	onSettings,
+	// vet-ignore objects-over-callbacks: a hook's argument that wires the menu's settings item to the page
 }: {
 	snapshot: Snapshot | null;
 	/** Why a newer splates has the server refusing, or null. */
@@ -75,6 +76,7 @@ function PageMenuItems({
 	release,
 	behind,
 	onSettings,
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: Update & {
 	/** Who Cloudflare Access signed in, from `useSignedIn`. */
 	email: string | null;

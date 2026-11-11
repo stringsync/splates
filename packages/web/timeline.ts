@@ -11,9 +11,7 @@ export type Item =
 	| { type: "tool"; tool: Tool }
 	| { type: "event"; event: Event; also: Event[] }
 	/** How the person answered the agent asking permission for the call `label`. */
-	| { type: "decision"; label: string; decision: Decision }
-	/** Words the agent said between its calls, on the way to its reply. */
-	| { type: "said"; text: string; at: string | null };
+	| { type: "decision"; label: string; decision: Decision };
 
 /** The turn as rows, a subagent's calls under it rather than among them. */
 export function timeline(work: Work): Item[] {
@@ -58,12 +56,8 @@ export function timeline(work: Work): Item[] {
 		if (part.type === "image" || part.type === "file") {
 			return;
 		}
+		// Each of the agent's words is a message of its own, past the row.
 		if (part.type === "text") {
-			items.push({
-				type: "said",
-				text: part.text.trim(),
-				at: part.at ?? null,
-			});
 			return;
 		}
 		// Shown as a line of its own, between the work before and after.

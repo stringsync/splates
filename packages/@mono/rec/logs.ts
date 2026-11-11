@@ -11,6 +11,7 @@ import {
 } from "./log-lines";
 import { NetworkSummary, redactUrl } from "./network";
 import type { Scrubber } from "./scrub";
+import { type LogEntries, NO_ENTRIES, type PageFilter } from "./sinks";
 
 /** The two files a session's browser logs go to, under `logs/`. */
 export const CONSOLE_LOG = "logs/console.log";
@@ -30,9 +31,9 @@ export interface LogsOptions {
 	dir: string;
 	scrubber: Scrubber;
 	/** Pages whose URL it matches are not logged, such as the control window. */
-	skip: (url: string) => boolean;
-	/** Called with each scrubbed line and the file it goes to. */
-	onEntry?: (file: string, line: string) => void;
+	skip: PageFilter;
+	/** Hears each scrubbed line and the file it goes to. */
+	entries?: LogEntries;
 }
 
 /**
@@ -51,8 +52,8 @@ export class BrowserLogs implements Resource {
 		private readonly fs: Fs,
 		private readonly dir: string,
 		private readonly scrubber: Scrubber,
-		private readonly skip: (url: string) => boolean,
-		private readonly onEntry: (file: string, line: string) => void = () => {},
+		private readonly skip: PageFilter,
+		private readonly entries: LogEntries = NO_ENTRIES,
 	) {
 		this.disposer.use(cdp.on(this.receive));
 	}
@@ -65,7 +66,7 @@ export class BrowserLogs implements Resource {
 			opts.dir,
 			opts.scrubber,
 			opts.skip,
-			opts.onEntry,
+			opts.entries,
 		);
 		await opts.cdp.send("Target.setDiscoverTargets", { discover: true });
 		const { targetInfos } = await opts.cdp.send<{ targetInfos: TargetInfo[] }>(
@@ -88,7 +89,7 @@ export class BrowserLogs implements Resource {
 		if (
 			info.type !== "page" ||
 			this.attached.has(info.targetId) ||
-			this.skip(info.url)
+			this.skip.skips(info.url)
 		) {
 			return;
 		}
@@ -167,7 +168,7 @@ export class BrowserLogs implements Resource {
 	private write(file: string, kind: "console" | "network", line: string): void {
 		this.counts[kind]++;
 		const clean = this.scrubber.scrub(line);
-		this.onEntry(file, clean);
+		this.entries.entry(file, clean);
 		this.writing = this.writing
 			.then(() => this.fs.append(`${this.dir}/${file}`, `${clean}\n`))
 			.catch(() => undefined);

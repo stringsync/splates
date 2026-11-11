@@ -34,6 +34,7 @@ export type ThreadComponents = {
 		| undefined;
 	TaskGroup?: ComponentType<{ group: ThreadGroupPart }> | undefined;
 };
+// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 export type ThreadProps = {
 	/** A failed history read, with its retry control, without replacing the composer. */
 	historyFailure?: ReactNode;

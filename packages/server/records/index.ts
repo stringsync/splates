@@ -23,6 +23,7 @@ export {
 	MIGRATION_LIMIT,
 	Migration,
 } from "./migration";
+export { NoopJournal } from "./noop-journal";
 export type { Repository } from "./repository";
 export {
 	migrateRecords,

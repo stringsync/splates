@@ -21,6 +21,7 @@ export function shownLanes({
 	hidden,
 	onToggle,
 	onHide,
+	// vet-ignore objects-over-callbacks: a hook's arguments that wire the toolbar's controls to the page
 }: {
 	lanes: LaneState[];
 	/** The lanes left out. */

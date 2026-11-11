@@ -29,6 +29,7 @@ const SHELL = "/";
  * and its remaining work to `waitUntil`. API requests are left to the network.
  */
 export class PageCache {
+	// vet-ignore objects-over-callbacks: the browser's fetch, wrapped; a function is the cleanest stand-in for tests
 	constructor(
 		private readonly caches: PageCaches,
 		// Wrapped: a browser refuses its `fetch` called as another object's method.

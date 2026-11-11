@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Scopes, shipSettings } from "./scopes";
 
-describe("Scopes", () => {
+describe("Scopes and shipSettings", () => {
 	const scopes = new Scopes(
 		{
 			projects: { core: ["core/**"], wren: ["wren/**", "wren.md"] },
@@ -47,9 +47,7 @@ describe("Scopes", () => {
 		expect(make({ a: [] })).toThrow("owns no paths");
 		expect(make({ "": ["a/**"] })).toThrow("empty");
 	});
-});
 
-describe("shipSettings", () => {
 	const base = { ship: "repo ship", shipStatus: null, afterBump: "repo bump" };
 
 	it("falls back to the repository's settings", () => {

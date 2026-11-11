@@ -82,6 +82,7 @@ export function SendingLine({ since }: { since: number | null }): JSX.Element {
 }
 
 /** What the row's buttons do with the messages the server holds for the agent. */
+// vet-ignore objects-over-callbacks: the row's props, which are how React passes events
 export interface HeldEdits {
 	conversation: string;
 	onEdit: (index: number, message: Message) => void;

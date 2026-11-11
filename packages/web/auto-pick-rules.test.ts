@@ -64,7 +64,7 @@ describe("RulesEditor", () => {
 		expect(editor.problem).toBe(
 			"rules.0.picks: a rule picks at least one agent",
 		);
-		await expect(editor.save()).rejects.toThrow(
+		expect(editor.save()).rejects.toThrow(
 			"rules.0.picks: a rule picks at least one agent",
 		);
 		expect(store.saved).toEqual([]);
@@ -90,7 +90,7 @@ describe("RulesEditor", () => {
 		expect(editor.saving).toBe(true);
 		expect(editor.draft.threshold).toBe(0.8);
 
-		await expect(resetting).rejects.toThrow("the disk is full");
+		expect(resetting).rejects.toThrow("the disk is full");
 		expect(editor.saving).toBe(false);
 		expect(editor.draft.threshold).toBe(0.8);
 		expect(editor.saved).toEqual(VIEW.rules);

@@ -7,13 +7,22 @@ export const SESSION_STORE_POLICY =
 	"Sessions are saved in ~/.rec/sessions. After each save, rec deletes the oldest sessions first, whatever their name, until the store fits within 5 GB. The session just saved is never deleted, even if it alone exceeds the limit. --out folders are outside this store and its limit. Existing ~/Desktop/rec folders are left alone.";
 
 /** Keep completed sessions within a byte limit by calling prune after each save. */
+export interface SessionStoreOptions {
+	/** The most bytes the store keeps. */
+	limit?: number;
+}
+
 export class SessionStore {
+	private readonly limit: number;
+
 	constructor(
 		private readonly fs: Fs,
 		private readonly log: Logger,
 		readonly root: string,
-		private readonly limit = SESSION_STORE_LIMIT,
-	) {}
+		opts: SessionStoreOptions = {},
+	) {
+		this.limit = opts.limit ?? SESSION_STORE_LIMIT;
+	}
 
 	private async bytes(path: string): Promise<number> {
 		if (await this.fs.isSymlink(path)) {

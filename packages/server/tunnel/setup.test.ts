@@ -94,7 +94,7 @@ describe("tunnelSetup", () => {
 			content: "192.0.2.1",
 			proxied: true,
 		});
-		await expect(setup("me@example.com", "www.example.com")).rejects.toThrow(
+		expect(setup("me@example.com", "www.example.com")).rejects.toThrow(
 			"www.example.com already has a A record pointing at 192.0.2.1",
 		);
 	});
@@ -103,7 +103,7 @@ describe("tunnelSetup", () => {
 		const { cloudflare, store, creds, setup } = machine();
 		store.values.delete(API_TOKEN);
 
-		await expect(setup()).rejects.toThrow("splates creds wait");
+		expect(setup()).rejects.toThrow("splates creds wait");
 
 		const [request] = await creds.requests();
 		expect(request).toMatchObject({
@@ -121,7 +121,7 @@ describe("tunnelSetup", () => {
 		const { cloudflare, saved, setup } = machine();
 		cloudflare.team = null;
 
-		await expect(setup()).rejects.toThrow("--team <name>");
+		expect(setup()).rejects.toThrow("--team <name>");
 		await setup("me@example.com", "splates.example.com", "my-team");
 
 		expect(cloudflare.changes[0]).toBe(
@@ -133,10 +133,10 @@ describe("tunnelSetup", () => {
 	it("says what is missing in the account, changing nothing", async () => {
 		const { cloudflare, setup } = machine();
 
-		await expect(setup("me@example.com", "splates.other.com")).rejects.toThrow(
+		expect(setup("me@example.com", "splates.other.com")).rejects.toThrow(
 			"no zone the token can read serves splates.other.com",
 		);
-		await expect(setup("")).rejects.toThrow(Exit);
+		expect(setup("")).rejects.toThrow(Exit);
 		expect(cloudflare.changes).toEqual([]);
 	});
 });

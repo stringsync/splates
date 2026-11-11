@@ -34,6 +34,11 @@ describe("App's work row while working", () => {
 	// What the work row's line says.
 	const line = (thread: HTMLElement) =>
 		thread.querySelector('[data-slot="work"] summary')?.textContent;
+	// Each row's own line, not the calls' summaries inside it once opened.
+	const lines = (thread: HTMLElement) =>
+		[...thread.querySelectorAll('[data-slot="work"]')].map(
+			(each) => each.querySelector("summary")?.textContent,
+		);
 	// The work row's foldable timeline, the first when there are more.
 	const details = (thread: HTMLElement) =>
 		workTimelines(thread)[0]?.closest("details") as HTMLDetailsElement;
@@ -133,7 +138,7 @@ describe("App's work row while working", () => {
 		expect(details(thread).open).toBe(false);
 	});
 
-	it("keeps the agent's latest words in the row while it works, until a moment passes with nothing after them", async () => {
+	it("shows the agent's latest words at once, a Working row under them until a moment passes with nothing after them", async () => {
 		const thread = await opened(
 			turn(
 				[
@@ -148,14 +153,20 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		await waitFor(() => expect(line(thread)).toMatch(/^Working/));
-		expect(thread.textContent).not.toContain("Now the fix.");
+		await waitFor(() =>
+			expect(lines(thread)).toEqual([
+				expect.stringMatching(/^Worked/),
+				"Working",
+			]),
+		);
+		expect(thread.textContent).toMatch(/Worked.*Now the fix\..*Working/);
 		expect(thread.querySelector('[data-slot="work"] .shimmer')).not.toBeNull();
 		act(() => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeouts();
 		});
-		await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
+		// Now the reply, it ends the turn's rows.
+		await waitFor(() => expect(lines(thread)).toHaveLength(1));
 		expect(thread.textContent).toContain("Now the fix.");
 	});
 
@@ -187,7 +198,7 @@ describe("App's work row while working", () => {
 		);
 	});
 
-	it("folds what the agent said before its latest call into the working row", async () => {
+	it("shows what the agent said before its latest call above the working row", async () => {
 		const thread = await opened(
 			turn(
 				[
@@ -200,27 +211,21 @@ describe("App's work row while working", () => {
 		);
 
 		await waitFor(() => expect(line(thread)).toMatch(/^Working/));
-		expect(thread.textContent).not.toContain("Let me look.");
-		const timeline = workTimelines(thread)[0];
-		expect(timeline?.textContent).toContain("Let me look.");
+		expect(thread.textContent).toMatch(/Let me look\..*Working/);
+		expect(workTimelines(thread)[0]?.textContent).not.toContain("Let me look.");
 		expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
 		expect(thread.textContent).not.toContain("Which tests?");
 	});
 
-	it("folds a provisional reply back into the open row when another call follows", async () => {
+	it("keeps a provisional reply in the thread, between its row and a new one, when another call follows", async () => {
 		const thread = await opened(
 			turn([tool({ id: "x1", command: "bun test" }), "Checking."], {
 				status: "running",
 			}),
 		);
-		const timelines = () => workTimelines(thread);
 		await waitFor(() => expect(thread.textContent).toContain("Checking."));
 		expect(details(thread).open).toBe(false);
-		expect(timelines()[0]?.textContent).not.toContain("Checking.");
-		await act(async () => {
-			details(thread).open = true;
-			details(thread).dispatchEvent(new Event("toggle"));
-		});
+		expect(workTimelines(thread)[0]?.textContent).not.toContain("Checking.");
 
 		await testing.say(
 			turn(
@@ -233,14 +238,16 @@ describe("App's work row while working", () => {
 			),
 		);
 		await waitFor(() =>
-			expect(timelines()[0]?.textContent).toContain("Checking."),
+			expect(lines(thread)).toEqual([
+				expect.stringMatching(/^Worked/),
+				expect.stringMatching(/^Working/),
+			]),
 		);
-		expect(timelines()[0]?.textContent).toContain("bun run demo");
-		expect(timelines()).toHaveLength(1);
-		expect(timelines()[0]?.textContent).toContain("bun test");
-		expect(line(thread)).toMatch(/^Working/);
-		expect(thread.querySelector('[data-slot="work"] .shimmer')).not.toBeNull();
-		expect(details(thread).open).toBe(true);
+		expect(within(thread).getAllByText("Checking.")).toHaveLength(1);
+		const [ran, demo] = workTimelines(thread);
+		expect(ran?.textContent).toContain("bun test");
+		expect(demo?.textContent).toContain("bun run demo");
+		expect(thread.textContent).toMatch(/Worked.*Checking\..*Working/);
 	});
 	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {
 		const words = "The tests ran, and two of them failed on the parser.";

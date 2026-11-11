@@ -3,7 +3,7 @@ import { FakePs } from "core/system/testing";
 import { platformLabel } from "./list";
 import { cwdPids, hostOf } from "./machine";
 
-describe("the machine a worker runs on", () => {
+describe("machine", () => {
 	it("shows a worker under WSL as linux (wsl2)", () => {
 		const ps = new FakePs();
 		ps.setEnv({ WSL_DISTRO_NAME: "splates" });
@@ -18,9 +18,7 @@ describe("the machine a worker runs on", () => {
 
 		expect(platformLabel({ platform: "linux", host })).toBe("linux");
 	});
-});
 
-describe("cwdPids", () => {
 	it("picks the processes working in a folder or under it, not a sibling sharing its prefix", () => {
 		const output = [
 			"p10",

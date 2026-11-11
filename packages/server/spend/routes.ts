@@ -46,6 +46,7 @@ export class BillingRoutes {
 	private readonly fetcher: typeof fetch;
 	private readonly plans: () => Promise<Plan[]>;
 
+	// vet-ignore objects-over-callbacks: a lookup of one credential by name, run per pull to compute its result
 	constructor(
 		storage: Storage,
 		private readonly ledger: Spend,

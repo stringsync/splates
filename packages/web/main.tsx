@@ -9,6 +9,7 @@ import { DictationContext } from "./dictation-context";
 import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
+import { NoopPageCopy } from "./noop-page-copy";
 import type { Stale } from "./page-cache";
 import { IndexedPageCopies } from "./page-copies";
 import { PageCopy } from "./page-copy";
@@ -91,7 +92,7 @@ const dictation =
 const everywhere = new EverywhereFeed({
 	copy:
 		typeof indexedDB === "undefined"
-			? null
+			? new NoopPageCopy()
 			: new PageCopy(
 					new IndexedPageCopies(indexedDB),
 					"everywhere",

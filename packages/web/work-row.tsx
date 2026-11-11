@@ -22,21 +22,14 @@ import { QuietCounts } from "./quiet-events";
 import { ThreadAction } from "./thread-action";
 import { timeline } from "./timeline";
 import { tokens } from "./usage";
-import {
-	flagged,
-	label,
-	relative,
-	type Trees,
-	type Work,
-	warning,
-	worked,
-} from "./work";
+import { flagged, label, type Work, warning, worked } from "./work";
+import { relative, type Trees } from "./work-paths";
 import { workingSpan } from "./work-time";
 import { Going, TimelineItem } from "./work-timeline";
 
 /**
- * Renders a `data-work` part: what an agent did before its reply, the words
- * it said along the way included, as one line that says how long it took and, once done, what it added up
+ * Renders a `data-work` part: what an agent did before the words it led to,
+ * as one line that says how long it took and, once done, what it added up
  * to, with its timeline a click away.
  */
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
@@ -148,13 +141,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									</li>
 								)}
 								{steps.map((item, index) => (
-									<li
-										// The timeline only grows at its end, so an index is stable.
-										// biome-ignore lint/suspicious/noArrayIndexKey: as above
-										key={index}
-										// The agent's words stand apart from the calls around them.
-										className={cn(item.type === "said" && "py-2")}
-									>
+									// The timeline only grows at its end, so an index is stable.
+									// biome-ignore lint/suspicious/noArrayIndexKey: as above
+									<li key={index}>
 										<TimelineItem item={item} short={short} />
 									</li>
 								))}

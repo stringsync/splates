@@ -128,7 +128,7 @@ describe("Conversations.prune", () => {
 		expect(ids).toHaveLength(ARCHIVED_KEPT);
 		expect(ids).toContain(conversation.id);
 		expect(await fs.exists(`${dir}/kept0.jsonl`)).toBe(false);
-		await expect(conversations.find("kept0")).rejects.toThrow(
+		expect(conversations.find("kept0")).rejects.toThrow(
 			"no conversation kept0",
 		);
 	});

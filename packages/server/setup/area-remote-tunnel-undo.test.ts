@@ -80,7 +80,7 @@ describe("the tunnel setup step's undo", () => {
 		};
 		const setup = new Setup(machine, [REMOTE_ACCESS_AREA]);
 
-		await expect(setup.undo("remote-access", null)).rejects.toThrow(
+		expect(setup.undo("remote-access", null)).rejects.toThrow(
 			"Type splates.example.com to undo Remote access.",
 		);
 		const progress = await setup.undo("remote-access", "splates.example.com");

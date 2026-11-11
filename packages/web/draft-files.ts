@@ -1,3 +1,5 @@
+import { NoopDraftFiles } from "./noop-draft-files";
+
 /** Where the files attached to drafts are kept, since `localStorage` holds only text. */
 export interface DraftFiles {
 	/** Every draft's files as last saved, by the draft's key. */
@@ -18,12 +20,15 @@ export class IndexedDraftFiles implements DraftFiles {
 	private readonly database: Promise<IDBDatabase | null>;
 
 	/** `given`, or, when none is, IndexedDB's where there is one. */
-	static unlessGiven(given: DraftFiles | null | undefined): DraftFiles | null {
+	static unlessGiven(given: DraftFiles | null | undefined): DraftFiles {
+		if (given === null) {
+			return new NoopDraftFiles();
+		}
 		if (given !== undefined) {
 			return given;
 		}
 		return typeof indexedDB === "undefined"
-			? null
+			? new NoopDraftFiles()
 			: new IndexedDraftFiles(indexedDB);
 	}
 

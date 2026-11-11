@@ -16,6 +16,7 @@ import { TaskOverlaps } from "./overlaps";
 import type { Dispatched, Worktree } from "./worktree";
 import { taskOf, type WorktreeService } from "./worktree-service";
 
+// vet-ignore objects-over-callbacks: run once inside the add, before the task goes live, so it is part of the call and not a later notification
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;

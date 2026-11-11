@@ -1,60 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Live } from "./rec-live";
 import { RecPage } from "./rec-page";
 import { cleanup, fireEvent, render, waitFor, within } from "./testing-library";
 
 const realFetch = globalThis.fetch;
-const STATUS = { running: true, name: "brave-copper-otter" };
-
-describe("Live", () => {
-	afterEach(() => {
-		cleanup();
-		globalThis.fetch = realFetch;
-	});
-
-	test("Stop asks the server to close, then says it closed", async () => {
-		const posted: string[] = [];
-		globalThis.fetch = (async (url: string) => {
-			posted.push(String(url));
-			return new Response(null, { status: 204 });
-		}) as unknown as typeof fetch;
-		let closed = 0;
-		const view = render(
-			<Live status={STATUS} host="here" onClosed={() => closed++} />,
-		);
-
-		fireEvent.click(
-			within(view.container).getByRole("button", { name: "Stop" }),
-		);
-
-		await waitFor(() => expect(closed).toBe(1));
-		expect(posted).toEqual(["/api/rec/close"]);
-	});
-
-	test("a failed close shows why and leaves the button to try again", async () => {
-		globalThis.fetch = (async () =>
-			Response.json(
-				{ reason: "no_rec", message: "no running rec was found to close" },
-				{ status: 409 },
-			)) as unknown as typeof fetch;
-		let closed = 0;
-		const view = render(
-			<Live status={STATUS} host="here" onClosed={() => closed++} />,
-		);
-
-		fireEvent.click(
-			within(view.container).getByRole("button", { name: "Stop" }),
-		);
-
-		await waitFor(() =>
-			expect(within(view.container).getByText(/no running rec/)),
-		);
-		expect(closed).toBe(0);
-		expect(
-			within(view.container).getByRole("button", { name: "Stop" }),
-		).toBeTruthy();
-	});
-});
 
 describe("RecPage", () => {
 	afterEach(() => {
@@ -197,4 +145,48 @@ describe("RecPage", () => {
 		await within(view.container).findByText("Not saved");
 		expect(within(view.container).getByText("disk full")).toBeTruthy();
 	});
+	test("once rec exits unreported, drops the recording and links its saved session", async () => {
+		let polls = 0;
+		globalThis.fetch = (async (url: string) =>
+			String(url).includes("creds")
+				? Response.json({ kept: [] })
+				: String(url).includes("rec/name")
+					? Response.json({ name: "next-name" })
+					: String(url).includes("rec/sessions")
+						? Response.json({
+								sessions: [
+									{
+										name: "brave-otter",
+										startedAt: Date.now(),
+										length: 30,
+										size: 2_000_000,
+										moments: 2,
+									},
+								],
+								totalSize: 2_000_000,
+								limit: 5_000_000_000,
+								policy: "",
+							})
+						: Response.json({
+								available: true,
+								host: "studio",
+								here: true,
+								status:
+									polls++ === 0
+										? { running: true, name: "brave-otter", recording: true }
+										: { running: false },
+								sources: [],
+							})) as unknown as typeof fetch;
+		const view = render(<RecPage />);
+		const page = within(view.container);
+
+		await page.findByText(/Recording in Chrome/);
+		const link = await page.findByRole(
+			"link",
+			{ name: "brave-otter" },
+			{ timeout: 5000 },
+		);
+		expect(link.getAttribute("href")).toBe("#rec/brave-otter");
+		expect(page.queryByText(/Recording in Chrome/)).toBeNull();
+	}, 10_000);
 });

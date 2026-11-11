@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import { CompositeLogger } from "core/log";
 import { SystemTimer } from "core/time";
-import { SharedBrowser, StartLock, Watch } from "../agents";
+import { StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
 import {
 	type Config,
@@ -274,16 +274,6 @@ async function start(
 				home.dispose();
 			}
 		});
-	// One for every project, so every agent on the machine shares one browser.
-	const browser = new SharedBrowser(
-		{
-			ps: ctx.ps,
-			fs: ctx.fs,
-			timer: new SystemTimer(),
-			log: ctx.log,
-		},
-		splatesHome(ctx.ps),
-	);
 	// Agents run on this machine's worker, which the supervisor starts beside
 	// this server; what they are sent waits for it to join. The worker knows
 	// this server by a session that outlives its restarts, so it keeps them
@@ -368,7 +358,6 @@ async function start(
 							baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
 						})
 					: [],
-		servers: browser,
 	});
 	const server = await dev(
 		{ ...ctx, projects },
@@ -425,7 +414,6 @@ async function start(
 					watch: new Watch(workerGit(git.root, worker)),
 					root: git.root,
 					projects,
-					servers: browser,
 				});
 			},
 			// A login shell, as a terminal window opens, so the person's PATH
@@ -449,7 +437,6 @@ async function start(
 		disposeAsync: async () => {
 			loop.dispose();
 			await server.disposeAsync();
-			await browser.disposeAsync();
 		},
 	};
 }

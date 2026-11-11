@@ -133,7 +133,7 @@ describe("Setup's undo", () => {
 		expect((await setup.undoPlan("remote")).refused).toBe(
 			'Undo Workers first: its "Set up workers" needs "Set up tunnel".',
 		);
-		await expect(setup.undo("remote", null)).rejects.toThrow(StepProblem);
+		expect(setup.undo("remote", null)).rejects.toThrow(StepProblem);
 		expect(ran).toEqual([]);
 	});
 
@@ -219,7 +219,7 @@ describe("Setup's undo", () => {
 		]);
 
 		expect((await setup.undoPlan("cloud")).confirm).toBe("splates-box");
-		await expect(setup.undo("cloud", "splates")).rejects.toThrow(
+		expect(setup.undo("cloud", "splates")).rejects.toThrow(
 			"Type splates-box to undo Cloud server.",
 		);
 		await setup.undo("cloud", " splates-box ");
@@ -232,7 +232,7 @@ describe("Setup's undo", () => {
 		});
 		done.add("box");
 
-		await expect(
+		expect(
 			new Setup(machine, [
 				{ id: "cloud", title: "Cloud", purpose: "", steps: [box] },
 			]).undo("cloud", null),
@@ -253,7 +253,7 @@ describe("Setup's undo", () => {
 			},
 		});
 
-		await expect(
+		expect(
 			new Setup(machine, [
 				{ id: "remote", title: "Remote", purpose: "", steps: [token, tunnel] },
 			]).undo("remote", null),
@@ -325,7 +325,7 @@ describe("Setup's undo", () => {
 	});
 
 	it("refuses an area not on the roster", async () => {
-		await expect(new Setup(machine, roster()).undoPlan("nope")).rejects.toThrow(
+		expect(new Setup(machine, roster()).undoPlan("nope")).rejects.toThrow(
 			"no setup area 'nope'",
 		);
 	});

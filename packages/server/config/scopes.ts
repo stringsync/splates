@@ -107,6 +107,20 @@ export class Scopes {
 	}
 }
 
+/**
+ * The project a task added from `folder` changes, as `Scopes.pick` says, for
+ * a caller that needs nothing else of the config's projects. `repoName` names
+ * the one project of a config with no `projects`.
+ */
+export function pickScope(opts: {
+	config: Pick<Config, "projects" | "shared">;
+	repoName: string;
+	named: string | undefined;
+	folder: string;
+}): string | null {
+	return new Scopes(opts.config, opts.repoName).pick(opts.named, opts.folder);
+}
+
 /** The paths a `projects` entry owns, whether it is a list or a `ProjectConfig`. */
 function pathsOf(project: string[] | ProjectConfig): string[] {
 	return Array.isArray(project) ? project : project.paths;

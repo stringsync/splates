@@ -24,6 +24,7 @@ import type {
 } from "./host";
 import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
+import { NoopHold } from "./noop-hold";
 import { ConversationProgress, type ProgressUpdate } from "./progress";
 import { AWAY, VISIT_KEPT } from "./reminder";
 import {
@@ -184,8 +185,7 @@ export class Conversation
 		}
 		const { state, session, cwd, picks, model, sessionCwd } = replayed;
 		const agent = agents.find((each) => each.id === state.agent) ?? null;
-		let taken: { process: AgentProcess; live: Live; hold: Hold | null } | null =
-			null;
+		let taken: { process: AgentProcess; live: Live; hold: Hold } | null = null;
 		if (replayed.live !== null) {
 			const { live } = replayed;
 			if (agent !== null) {
@@ -223,8 +223,8 @@ export class Conversation
 		state: ConversationState,
 		live: Live,
 		deps: ConversationDeps,
-	): { process: AgentProcess; live: Live; hold: Hold | null } | null {
-		let hold: Hold | null = null;
+	): { process: AgentProcess; live: Live; hold: Hold } | null {
+		let hold: Hold = new NoopHold(deps.launcher);
 		try {
 			hold =
 				deps.placer?.hold(
@@ -235,11 +235,11 @@ export class Conversation
 						automatic: spawned(state),
 					},
 					live.handle.worker,
-				) ?? null;
-			const process = (hold ?? deps.launcher).resume(live.handle, live.held);
+				) ?? hold;
+			const process = hold.resume(live.handle, live.held);
 			return { process, live, hold };
 		} catch {
-			hold?.dispose();
+			hold.dispose();
 			return null;
 		}
 	}

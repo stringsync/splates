@@ -188,7 +188,7 @@ describe("Scheduler", () => {
 		const abort = new AbortController();
 		const waiting = scheduler.take(request("b"), abort.signal);
 		abort.abort(new Error("stopped"));
-		await expect(waiting).rejects.toThrow("stopped");
+		expect(waiting).rejects.toThrow("stopped");
 		expect(scheduler.queue()).toEqual([]);
 	});
 

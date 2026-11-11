@@ -212,6 +212,18 @@ export class WorktreeService {
 		);
 	}
 
+	/**
+	 * Whether `path` is a file a queued task holds, one level inside its
+	 * numbered folder. A started task's plan keeps the ones it shows, since the
+	 * queued task goes once this one ends.
+	 */
+	private queued(path: string): boolean {
+		const parts = relative(this.storage.locate("tasks"), resolve(path)).split(
+			sep,
+		);
+		return parts.length === 2 && /^\d+$/.test(parts[0] ?? "");
+	}
+
 	/** Always answers; the returned worktree's status says what was found. */
 	async find(task: string): Promise<Worktree> {
 		return this.found(task, await this.readRecord(task));
@@ -312,7 +324,7 @@ export class WorktreeService {
 					plan,
 				},
 				// Copied before the task's own folder goes with its record.
-				(path) => this.owns(path),
+				(path) => this.owns(path) || this.queued(path),
 			);
 		}
 		await this.records.end(worktree.task, { unqueue: opts.unqueue });

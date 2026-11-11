@@ -134,7 +134,7 @@ describe("add", () => {
 				scope: "wren",
 			});
 
-			await expect(
+			expect(
 				add(deps, "alpha", { tasks: [queued.id], project: "core" }),
 			).rejects.toThrow("is for project 'wren'");
 			expect((await deps.service.find("alpha")).gone).toBe(true);
@@ -144,10 +144,10 @@ describe("add", () => {
 		it("is refused when the config lacks it or nothing says", async () => {
 			declare();
 
-			await expect(add(deps, "alpha", { project: "nope" })).rejects.toThrow(
+			expect(add(deps, "alpha", { project: "nope" })).rejects.toThrow(
 				"no project 'nope'",
 			);
-			await expect(add(deps, "beta")).rejects.toThrow("say which project");
+			expect(add(deps, "beta")).rejects.toThrow("say which project");
 			expect((await deps.service.find("beta")).gone).toBe(true);
 		});
 	});
@@ -161,7 +161,7 @@ describe("add", () => {
 		});
 
 		it("are refused when not lowercase with dashes", async () => {
-			await expect(add(deps, "alpha", { tag: ["Web App"] })).rejects.toThrow(
+			expect(add(deps, "alpha", { tag: ["Web App"] })).rejects.toThrow(
 				"lowercase",
 			);
 		});
@@ -169,7 +169,7 @@ describe("add", () => {
 		it("are refused when the config allows others, naming the allowed", async () => {
 			deps.config.tags = { allowed: ["web", "infra"] };
 
-			await expect(add(deps, "alpha", { tag: ["db"] })).rejects.toThrow(
+			expect(add(deps, "alpha", { tag: ["db"] })).rejects.toThrow(
 				"no tag 'db' in splates.config.ts: web, infra",
 			);
 			expect((await deps.service.find("alpha")).gone).toBe(true);
@@ -188,7 +188,7 @@ describe("add", () => {
 			deps.config.tags = { required: true };
 			const queued = await deps.tasks.add("Old", null);
 
-			await expect(add(deps, "alpha")).rejects.toThrow("say which tag");
+			expect(add(deps, "alpha")).rejects.toThrow("say which tag");
 			await add(deps, "beta", { tasks: [queued.id] });
 			await add(deps, "gamma", { tag: ["x"] });
 
@@ -278,7 +278,7 @@ describe("add", () => {
 	it("puts its queued tasks back when the worktree cannot be made", async () => {
 		const queued = await deps.tasks.add("Retry on 413", null);
 
-		await expect(
+		expect(
 			add(deps, "alpha", { tasks: [queued.id], base: "no-such-branch" }),
 		).rejects.toThrow();
 

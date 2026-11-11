@@ -256,14 +256,19 @@ export function eventPointers(text: string, startedAt: number): Pointer[] {
 	return out;
 }
 
+export interface TimelineOptions {
+	micOff?: boolean;
+	noMic?: boolean;
+	noKey?: boolean;
+}
+
 /** Renders `timeline.md`: the narration and pointers to the logs, merged in video time. */
 export function renderTimeline(
 	transcript: Transcript,
 	pointers: Pointer[] = [],
-	micOff = false,
-	noMic = false,
-	noKey = false,
+	opts: TimelineOptions = {},
 ): string {
+	const { micOff = false, noMic = false, noKey = false } = opts;
 	const lines = [
 		"# Timeline",
 		"",

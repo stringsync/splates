@@ -28,11 +28,7 @@ export interface RecState {
 	available: boolean;
 	/** The machine Chrome opens on. */
 	host: string;
-	/**
-	 * Whether the page asking is open on that machine, so the Chrome rec
-	 * opens is in front of whoever pressed Rec; false through a tunnel.
-	 * `/api/rec` sets it from the request's Host.
-	 */
+	/** Whether the page asking is open on that machine, so the Chrome rec opens is in front of the user; false through a tunnel. */
 	here?: boolean;
 	status: RecStatus;
 	/** The Compose project of the folder this server runs in: its group is listed first. */

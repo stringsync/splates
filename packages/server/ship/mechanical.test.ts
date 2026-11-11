@@ -115,7 +115,7 @@ describe("mechanical ship adoption", () => {
 				},
 			},
 		);
-		await expect(run).rejects.toThrow("removed without merging");
+		expect(run).rejects.toThrow("removed without merging");
 		expect(ps.getCalls()).toEqual(["sh -c bun install", "sh -c refresh"]);
 	});
 	it("installs and refreshes in a worktree, gates through merge, and skips matching base pins", async () => {
@@ -202,7 +202,7 @@ describe("mechanical ship adoption", () => {
 			ps: new FakePs(),
 			dispose: () => {},
 		});
-		await expect(
+		expect(
 			adoption.run(
 				ship,
 				step,
@@ -226,7 +226,7 @@ describe("mechanical ship adoption", () => {
 		const ps = new FakePs();
 		ps.simulate(async () => 1);
 		const adoption = new MechanicalAdoption({ ...repo, ps, dispose: () => {} });
-		await expect(
+		expect(
 			adoption.run(
 				ship,
 				step,

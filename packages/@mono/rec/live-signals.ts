@@ -5,6 +5,7 @@ import {
 	SignalDetector,
 	type SignalInput,
 } from "./signals";
+import type { FrameSource, SignalRows } from "./sinks";
 
 /** What the control panel shows for one signal. */
 export interface SignalRow {
@@ -19,8 +20,8 @@ export interface SignalRow {
 
 /**
  * Turns events and log lines into rows for the panel's list as they arrive.
- * Give it each event and log line; it calls `emit` with a row, a thumbnail of
- * the page from `frameAt` included, for every signal found. A dead click
+ * Give it each event and log line; it gives `rows` a row with a thumbnail of
+ * the page from `frames` included, for every signal found. A dead click
  * shows up a few seconds after the click.
  */
 export class LiveSignals {
@@ -28,8 +29,8 @@ export class LiveSignals {
 	private readonly detector = new SignalDetector();
 
 	constructor(
-		private readonly frameAt: (at: number) => Frame | undefined,
-		private readonly emit: (row: SignalRow) => void,
+		private readonly frames: FrameSource,
+		private readonly rows: SignalRows,
 	) {}
 
 	event(event: EventInput): void {
@@ -42,7 +43,7 @@ export class LiveSignals {
 
 	private push(input: SignalInput): void {
 		for (const signal of this.detector.push(input)) {
-			this.emit(signalRow(signal, this.frameAt(signal.at)));
+			this.rows.row(signalRow(signal, this.frames.frameAt(signal.at)));
 		}
 	}
 }

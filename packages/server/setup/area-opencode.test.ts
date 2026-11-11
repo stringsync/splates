@@ -53,7 +53,7 @@ describe("OPENCODE_AREA", () => {
 	it("installs OpenCode with npm on Next, and says so when npm fails", async () => {
 		ps.installed = false;
 		ps.installs = false;
-		await expect(setup.submit("opencode-install", {})).rejects.toThrow(
+		expect(setup.submit("opencode-install", {})).rejects.toThrow(
 			"npm could not install OpenCode",
 		);
 
@@ -84,7 +84,7 @@ describe("OPENCODE_AREA", () => {
 	});
 
 	it("asks for the key until it is kept", async () => {
-		await expect(setup.submit("opencode-connect", {})).rejects.toThrow(
+		expect(setup.submit("opencode-connect", {})).rejects.toThrow(
 			"Paste the OpenCode Go API key first.",
 		);
 		expect((await statuses())["opencode-connect"]).toBe("ready");
@@ -105,7 +105,7 @@ describe("OPENCODE_AREA", () => {
 
 	it("refuses to save models the user has not picked", async () => {
 		await device.set(OPENCODE_GO_KEY, "go-secret");
-		await expect(
+		expect(
 			setup.submit("opencode-models", { ...MODELS, model: "" }),
 		).rejects.toThrow("Fill in");
 		expect(await fs.exists(`${HOME}/agents.json`)).toBe(false);
@@ -113,7 +113,7 @@ describe("OPENCODE_AREA", () => {
 
 	it("saves the models only once Use balance is said to be off", async () => {
 		await device.set(OPENCODE_GO_KEY, "go-secret");
-		await expect(
+		expect(
 			setup.submit("opencode-models", { ...MODELS, balanceOff: false }),
 		).rejects.toThrow("Turn Use balance off");
 		expect(await fs.exists(`${HOME}/agents.json`)).toBe(false);
@@ -128,7 +128,7 @@ describe("OPENCODE_AREA", () => {
 		await device.set(OPENCODE_GO_KEY, "go-secret");
 		ps.conflict = true;
 
-		await expect(setup.submit("opencode-models", MODELS)).rejects.toThrow(
+		expect(setup.submit("opencode-models", MODELS)).rejects.toThrow(
 			"override this setup",
 		);
 	});
@@ -224,7 +224,7 @@ describe("OPENCODE_AREA", () => {
 		await setup.submit("opencode-models", MODELS);
 		ps.unavailable = true;
 
-		await expect(setup.submit("opencode-ready", {})).rejects.toThrow(
+		expect(setup.submit("opencode-ready", {})).rejects.toThrow(
 			"no longer listed",
 		);
 	});

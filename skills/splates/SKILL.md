@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.7
+version: 2.0.8
 ---
 
 # Using splates
@@ -180,7 +180,8 @@ proceed, as a numbered question, with no Done title. An eval loop whose
 scenario already passes ends on Done with its pass rates, though its task is
 removed (see [evals.md](references/evals.md), Stopping). Never end on Done
 when the user asked for a change and none was made, or when the next move is
-theirs to approve. A reply in a talk that carries on is no Done report:
+theirs to approve. A Done report holds no demo: a demo you want to mention is
+its own card, sent before it. A reply in a talk that carries on is no Done report:
 
 ```markdown
 ## ✅ Done: two merged tasks reviewed, nothing to fix

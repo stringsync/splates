@@ -23,6 +23,8 @@ export interface Cascade {
 	ended: string | null;
 	/** In dependency order, as the plan the person approved had them. */
 	steps: CascadeStep[];
+	/** Whether the person has seen its finished result; kept here so every browser agrees. */
+	seen?: boolean;
 }
 
 /**

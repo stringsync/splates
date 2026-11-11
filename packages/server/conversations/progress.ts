@@ -21,16 +21,6 @@ export interface ProgressUpdate {
 	note?: string;
 }
 
-/** One line, whitespace folded, cut at `length`. */
-function tidy(text: string, length: number): string {
-	const line = text.replace(/\s+/g, " ").trim();
-	return line.length <= length ? line : `${line.slice(0, length - 1)}…`;
-}
-
-function clamp(percent: number): number {
-	return Math.min(100, Math.max(0, Math.round(percent)));
-}
-
 /**
  * Puts `progress` in `list` in place of the card of its id, or last. Past
  * `CARDS`, the oldest finished card goes, else the oldest.
@@ -62,11 +52,9 @@ export function endProgress(list: Progress[], at: string | null): void {
 }
 
 /**
- * What the agent's updates become: the card as they leave it, never more
- * often than `PUBLISH_GAP` per card. An update inside the gap replaces the
- * one waiting, so a burst of a thousand lines publishes its first and its
- * last, and the page, the log and the conversation's listeners hear of each
- * card a few times a minute at most. A card finishing publishes at once.
+ * Publishes a conversation's progress cards, at most once per `PUBLISH_GAP`
+ * per card, so a burst of updates reaches the page and listeners as its first
+ * and last. A card finishing publishes at once.
  */
 export class ConversationProgress {
 	/** The newest card per id, published or waiting its turn. */
@@ -143,7 +131,7 @@ export class ConversationProgress {
 		endProgress(this.host.state.progress, this.host.now());
 	}
 
-	/** Archived: every card goes, so nothing of it spins or comes back. */
+	/** Drops every card, for an archived conversation. */
 	clear(): void {
 		this.forget();
 		this.host.state.progress.length = 0;
@@ -201,4 +189,14 @@ function same(before: Progress, after: Progress): boolean {
 		before.percent === after.percent &&
 		before.note === after.note
 	);
+}
+
+/** One line, whitespace folded, cut at `length`. */
+function tidy(text: string, length: number): string {
+	const line = text.replace(/\s+/g, " ").trim();
+	return line.length <= length ? line : `${line.slice(0, length - 1)}…`;
+}
+
+function clamp(percent: number): number {
+	return Math.min(100, Math.max(0, Math.round(percent)));
 }

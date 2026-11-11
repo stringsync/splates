@@ -50,7 +50,7 @@ export async function openMicInput(
 	};
 }
 
-/** The mics Chrome lists, as [label, id]; Chrome gives labels only once the mic is allowed. */
+/** Lists the available microphones as [label, id] pairs. Call it after the mic is allowed, or the list is empty. */
 export async function listMics(): Promise<Array<[string, string]>> {
 	const all = await navigator.mediaDevices.enumerateDevices();
 	return all

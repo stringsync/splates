@@ -1,6 +1,7 @@
 import { open, stat } from "node:fs/promises";
 import type { Resource } from "core/disposable";
 import { Duration, sleep } from "core/time";
+import type { LineSink } from "./sinks";
 import { parseStamp } from "./sources";
 
 export interface TailSpec {
@@ -31,7 +32,7 @@ export interface TailOptions extends TailSpec {
 	/** Arrival time for a line without a time of its own. */
 	now: () => number;
 	/** Gets each line with its time, the line's own when it opens with one. */
-	onLine: (at: number, text: string) => void;
+	sink: LineSink;
 	poll?: Duration;
 }
 
@@ -46,10 +47,10 @@ export class Tail implements Resource {
 	private inode: number | undefined;
 	private pending = "";
 
-	private constructor(private readonly options: TailOptions) {}
+	private constructor(private readonly opts: TailOptions) {}
 
-	static async start(options: TailOptions): Promise<Tail> {
-		const tail = new Tail(options);
+	static async start(opts: TailOptions): Promise<Tail> {
+		const tail = new Tail(opts);
 		await tail.begin();
 		void tail.follow();
 		return tail;
@@ -60,7 +61,7 @@ export class Tail implements Resource {
 	}
 
 	private async begin(): Promise<void> {
-		const { path, backfillMs, now } = this.options;
+		const { path, backfillMs, now } = this.opts;
 		const info = await stat(path).catch(() => undefined);
 		if (!info) {
 			return;
@@ -82,14 +83,14 @@ export class Tail implements Resource {
 			const stamp = parseStamp(line);
 			at = stamp?.at ?? at;
 			if (line && at >= since) {
-				this.options.onLine(at, stamp?.rest ?? line);
+				this.opts.sink.line(at, stamp?.rest ?? line);
 			}
 		}
 	}
 
 	private async follow(): Promise<void> {
 		while (!this.stopped) {
-			await sleep(this.options.poll ?? Duration.ms(300));
+			await sleep(this.opts.poll ?? Duration.ms(300));
 			try {
 				await this.read();
 			} catch {
@@ -99,7 +100,7 @@ export class Tail implements Resource {
 	}
 
 	private async read(): Promise<void> {
-		const info = await stat(this.options.path).catch(() => undefined);
+		const info = await stat(this.opts.path).catch(() => undefined);
 		if (!info) {
 			this.offset = 0;
 			this.inode = undefined;
@@ -117,7 +118,7 @@ export class Tail implements Resource {
 		if (info.size === this.offset) {
 			return;
 		}
-		const handle = await open(this.options.path, "r");
+		const handle = await open(this.opts.path, "r");
 		try {
 			const size = info.size - this.offset;
 			const buffer = Buffer.alloc(size);
@@ -130,8 +131,8 @@ export class Tail implements Resource {
 			for (const line of lines) {
 				if (line) {
 					const stamp = parseStamp(line);
-					this.options.onLine(
-						stamp?.at ?? this.options.now(),
+					this.opts.sink.line(
+						stamp?.at ?? this.opts.now(),
 						stamp?.rest ?? line,
 					);
 				}

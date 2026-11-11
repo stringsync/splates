@@ -206,7 +206,7 @@ describe("Notifier", () => {
 		focused = false;
 		notifier.show([notice], (each) => opened.push(each));
 		const [shown] = FakeNotification.shown;
-		expect([shown?.title, shown?.options]).toEqual([
+		expect([shown?.title, shown?.opts]).toEqual([
 			"Fix finished",
 			{ body: "Done", tag: "conversation c1" },
 		]);
@@ -235,7 +235,7 @@ class FakeNotification {
 	closed = false;
 	constructor(
 		readonly title: string,
-		readonly options: NotificationOptions,
+		readonly opts: NotificationOptions,
 	) {
 		FakeNotification.shown.push(this);
 	}

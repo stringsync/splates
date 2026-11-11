@@ -290,7 +290,7 @@ describe("Conversation background", () => {
 	it("refuses to stop one it does not have", async () => {
 		const conversation = await started();
 
-		await expect(conversation.stopBackground("b9")).rejects.toThrow(
+		expect(conversation.stopBackground("b9")).rejects.toThrow(
 			"has no background command b9",
 		);
 		expect(agent.stoppedBackground).toEqual([]);

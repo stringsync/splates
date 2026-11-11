@@ -90,7 +90,7 @@ describe("classify", () => {
 	it("rejects with the caller's reason when the caller aborts", async () => {
 		const controller = new AbortController();
 		controller.abort(new Error("gone"));
-		await expect(
+		expect(
 			classify({
 				subject: "s",
 				detail: "d",

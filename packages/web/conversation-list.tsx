@@ -372,6 +372,7 @@ const ListItem = memo(function ListItem({
 	need,
 	onOpen,
 	...props
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: Omit<Parameters<typeof Item>[0], "need" | "onOpen"> & {
 	need: string;
 	onOpen: (id: string) => void;

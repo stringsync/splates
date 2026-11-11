@@ -74,7 +74,7 @@ describe("Format", () => {
 		const ran: string[] = [];
 		const steps = [step("splits lanes", ran), step("renames tasks", ran, true)];
 
-		await expect(format(deps, steps).migrate()).rejects.toThrow(
+		expect(format(deps, steps).migrate()).rejects.toThrow(
 			"renames tasks cut short",
 		);
 		expect(await deps.fs.read(`${deps.splatesDir}/format`)).toBe("2\n");

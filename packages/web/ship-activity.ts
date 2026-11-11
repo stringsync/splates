@@ -19,6 +19,14 @@ export function needsYou(cascade: Cascade): boolean {
 	);
 }
 
+/**
+ * Whether the person has seen `cascade`'s result: the server says so for every
+ * browser, and `acknowledged` covers this one until the server's word arrives.
+ */
+export function seenBy(cascade: Cascade, acknowledged: string | null): boolean {
+	return cascade.seen === true || cascade.id === acknowledged;
+}
+
 /** What the ship in `reading` asks of the page; `acknowledged` is the last ship whose recap the person saw. */
 export function shipActivity(
 	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
@@ -28,7 +36,7 @@ export function shipActivity(
 	if (cascade?.status === "stopped") {
 		return "error";
 	}
-	if (cascade?.status === "done" && cascade.id !== acknowledged) {
+	if (cascade?.status === "done" && !seenBy(cascade, acknowledged)) {
 		return "done";
 	}
 	if (cascade === null || cascade.status !== "running") {
@@ -81,4 +89,21 @@ export function shipLine(
 	return going === undefined
 		? "starting"
 		: `${going.slug} ${going.status === "shipping" ? "publishing" : "taking its bump"}`;
+}
+
+/**
+ * Whether the ship has an active page to open: a cascade that is running,
+ * stopped, or done with its recap not yet acknowledged.
+ */
+export function hasActiveShip(
+	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
+	acknowledged: string | null = null,
+): boolean {
+	const cascade = reading?.cascade ?? null;
+	return (
+		cascade !== null &&
+		shipActivity(reading, acknowledged) !== null &&
+		(cascade.status !== "done" || !seenBy(cascade, acknowledged)) &&
+		cascade.status !== "abandoned"
+	);
 }

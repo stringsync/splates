@@ -40,7 +40,7 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 		const programs = { "": 0 };
 		const setup = new Setup(machine(programs), [CODEX_AREA]);
 
-		await expect(setup.submit("codex-install", {})).rejects.toThrow(
+		expect(setup.submit("codex-install", {})).rejects.toThrow(
 			"Codex installed, but splates cannot find it on its PATH.",
 		);
 		await new Setup(machine({ ...programs, "codex --version": 0 }), [
@@ -54,10 +54,10 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			CODEX_AREA,
 		]);
 
-		await expect(missing.submit("codex-install", {})).rejects.toThrow(
+		expect(missing.submit("codex-install", {})).rejects.toThrow(
 			"Could not install Codex from here. Run `npm install --global @openai/codex` in a terminal to see why, then press Next.",
 		);
-		await expect(signedOut.submit("codex-signin", {})).rejects.toThrow(
+		expect(signedOut.submit("codex-signin", {})).rejects.toThrow(
 			"Codex is installed but not signed in: run codex once to sign in.",
 		);
 	});
@@ -84,12 +84,12 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 				},
 			}),
 		).toBe("done");
-		await expect(
+		expect(
 			new Setup(machine(signedOut), [KIMI_AREA]).submit("kimi-signin", {}),
 		).rejects.toThrow(
 			"Kimi is installed but not signed in: run kimi login once to sign in.",
 		);
-		await expect(
+		expect(
 			new Setup(machine({}), [KIMI_AREA]).submit("kimi-install", {}),
 		).rejects.toThrow("Could not install Kimi from here.");
 	});
@@ -100,7 +100,7 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 			[CODEX_AREA],
 		);
 
-		await expect(
+		expect(
 			setup.submit("codex-models", {
 				"codex-model-gpt-6-astra": false,
 				"codex-model-gpt-6.1-sol": false,

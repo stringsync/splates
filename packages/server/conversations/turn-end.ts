@@ -13,7 +13,7 @@ export interface LookingBack {
 	spend: NonNullable<ConversationsOptions["spend"]> | null;
 	storage: Storage;
 	root: string | null;
-	projects: ProjectRoster | null;
+	projects: ProjectRoster;
 }
 
 /** A turn as it began, as far as this server saw it begin. */

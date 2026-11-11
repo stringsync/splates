@@ -166,7 +166,7 @@ describe("Conversation sessions", () => {
 		});
 		await until(conversation, "idle");
 
-		await expect(
+		expect(
 			conversations.bring("fake", "cli-1", {
 				task: "login",
 				cwd: "/repo-splates/login",
@@ -180,7 +180,7 @@ describe("Conversation sessions", () => {
 		expect(agent.stderr()).toContain(
 			"cannot start /nonexistent/splates-opencode-fixture",
 		);
-		await expect(printed(agent)).rejects.toThrow();
+		expect(printed(agent)).rejects.toThrow();
 	});
 
 	it("ends an agent that cannot start as one that exited saying why", async () => {

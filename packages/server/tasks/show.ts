@@ -56,7 +56,7 @@ export interface Details {
 	project: string | null;
 	/** The tags grouping it. */
 	tags: string[];
-	/** The areas its changed paths touch, most first, for chips beside its tags; absent from older servers. */
+	/** The areas its changed paths touch, most first, for chips beside its tags. Absent from older servers. */
 	areas?: string[];
 	/** Files predicted to conflict at the last checked committed tips. */
 	comingConflict?: string[];

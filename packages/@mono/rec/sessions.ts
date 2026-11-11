@@ -3,7 +3,7 @@ import type { Moment } from "./moment-types";
 import { parseMomentsFile } from "./moments-files";
 import type { Manifest } from "./session";
 import { SessionNames, sessionName } from "./session-name";
-import { SESSION_STORE_LIMIT } from "./session-store";
+import { SESSION_STORE_LIMIT, type SessionStoreOptions } from "./session-store";
 import { MOMENTS_JSONL } from "./signals";
 import type { Transcript } from "./timeline";
 
@@ -44,12 +44,16 @@ interface Entry {
 
 /** Reads and manages the sessions in rec's store; nothing here touches a recording in progress. */
 export class SessionLibrary {
+	private readonly limit: number;
+
 	constructor(
 		private readonly fs: Fs,
 		readonly root: string,
 		private readonly home: string,
-		private readonly limit = SESSION_STORE_LIMIT,
-	) {}
+		opts: SessionStoreOptions = {},
+	) {
+		this.limit = opts.limit ?? SESSION_STORE_LIMIT;
+	}
 
 	private async entries(): Promise<Entry[]> {
 		const out: Entry[] = [];

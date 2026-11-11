@@ -279,4 +279,22 @@ describe.concurrent("merge, gating and refusals", () => {
 		expect(await deps.fs.exists(join(deps.root, "alpha.txt"))).toBe(false);
 		expect(await deps.fs.exists(deps.premerge.path)).toBe(false);
 	});
+
+	it("delivers the deadline's SIGTERM to the preMerge command itself when postRewrite is set", async () => {
+		await using deps = await Testing.open();
+		deps.config.postRewrite = "true";
+		deps.config.preMerge =
+			"trap 'touch \"$SPLATES_WORKTREE/termed.txt\"; exit 1' TERM; while :; do sleep 0.1; done";
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+
+		await expect(merge({ ...deps, gateTimeoutMs: 500 }, worktree)).toBail(
+			"timeout",
+			expect.anything(),
+		);
+		expect(await deps.fs.exists(join(worktree, "termed.txt"))).toBe(true);
+	});
 });

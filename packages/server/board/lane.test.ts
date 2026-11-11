@@ -196,9 +196,12 @@ describe.concurrent("task links and lanes", () => {
 			}),
 		).toBail("usage");
 
-		for (const id of [209, 207, 211, 201, 206, 198]) {
-			await taskUpdate(deps, id, { lane: 2 });
-		}
+		await taskUpdate(deps, 209, { lane: 2 });
+		await taskUpdate(deps, 207, { lane: 2 });
+		await taskUpdate(deps, 211, { lane: 2 });
+		await taskUpdate(deps, 201, { lane: 2 });
+		await taskUpdate(deps, 206, { lane: 2 });
+		await taskUpdate(deps, 198, { lane: 2 });
 		await deps.tasks.dropLane(3);
 		expect(await shape(deps)).toEqual([
 			[187, 191, 177, 196, 197, 184],

@@ -5,6 +5,7 @@ import { redactUrl } from "./network";
 import { POINTER_BINDING, pointerSource } from "./pointer-script";
 import type { Frame } from "./screencast";
 import type { Scrubber } from "./scrub";
+import type { PageFilter } from "./sinks";
 
 /** The events file and the folder of stills, in the session folder. */
 export const EVENTS_FILE = "events.jsonl";
@@ -180,11 +181,17 @@ export interface PointerOptions {
 	dir: string;
 	scrubber: Scrubber;
 	/** Pages whose URL it matches get no script, such as the control window. */
-	skip: (url: string) => boolean;
-	/** Told when Option goes down or up in a page, as its laser trail starts or ends. */
-	onLaser?: (on: boolean) => void;
-	/** Told of each event once it is written. */
-	onEvent?: (event: PointerEvent) => void;
+	skip: PageFilter;
+	/** Hears the laser and each event once it is written. */
+	observer: PointerObserver;
+}
+
+/** What the pointer script reports, as it happens. */
+export interface PointerObserver {
+	/** Option went down or up in a page, as its laser trail starts or ends. */
+	laser(on: boolean): void;
+	/** An event was written. */
+	event(event: PointerEvent): void;
 }
 
 interface TargetInfo {
@@ -254,7 +261,7 @@ export class PointerEvents implements Resource {
 		if (
 			info.type !== "page" ||
 			this.attached.has(info.targetId) ||
-			this.opts.skip(info.url)
+			this.opts.skip.skips(info.url)
 		) {
 			return;
 		}
@@ -300,7 +307,7 @@ export class PointerEvents implements Resource {
 		const payload = String(params.payload);
 		const laser = parseLaser(payload);
 		if (laser !== undefined) {
-			this.opts.onLaser?.(laser);
+			this.opts.observer.laser(laser);
 			return;
 		}
 		const parsed = parseEvent(payload, this.opts.scrubber);
@@ -340,7 +347,7 @@ export class PointerEvents implements Resource {
 
 	private write(event: PointerEvent): void {
 		this.counts.events++;
-		this.opts.onEvent?.(event);
+		this.opts.observer.event(event);
 		const line = `${JSON.stringify(event)}\n`;
 		this.writing = this.writing
 			.then(() => this.opts.fs.append(`${this.opts.dir}/${EVENTS_FILE}`, line))

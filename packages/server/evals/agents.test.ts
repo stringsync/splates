@@ -36,14 +36,14 @@ describe("EvalAgentsStore", () => {
 	it("refuses an agent the runner cannot start natively, leaving the file", async () => {
 		await store.save([{ agent: "codex" }]);
 
-		await expect(store.save([{ agent: "gemini" }])).rejects.toThrow(
+		expect(store.save([{ agent: "gemini" }])).rejects.toThrow(
 			"not eval agents",
 		);
 		expect(await store.agents()).toEqual([{ agent: "codex" }]);
 	});
 
 	it("refuses the same pick twice", async () => {
-		await expect(
+		expect(
 			store.save([
 				{ agent: "claude", model: "opus" },
 				{ agent: "claude", model: "opus" },

@@ -194,6 +194,7 @@ export function PageShortcuts({
 	onForward,
 	onSettings,
 	onTerminal,
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: {
 	onPage: (page: Page) => void;
 	onBack: (() => void) | null;

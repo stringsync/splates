@@ -33,8 +33,6 @@ export type Answer =
 			probabilities: Record<string, number>;
 	  };
 
-type Fetch = (url: string, init: RequestInit) => Promise<Response>;
-
 /** The device's, project's or environment's TypeSafe key, or nothing when there is none. */
 export async function optionalJevKey(): Promise<string | undefined> {
 	const credentials = new Credentials([
@@ -53,7 +51,7 @@ export async function optionalJevKey(): Promise<string | undefined> {
 export class Jev {
 	constructor(
 		private readonly key: string,
-		private readonly fetcher: Fetch = (url, init) => fetch(url, init),
+		private readonly transport: Transport = NETWORK,
 	) {}
 
 	async ask(
@@ -62,7 +60,7 @@ export class Jev {
 	): Promise<Record<string, Answer>> {
 		const body = JSON.stringify({ model: MODEL, state, questions });
 		for (let attempt = 0; ; attempt++) {
-			const response = await this.fetcher(ENDPOINT, {
+			const response = await this.transport.fetch(ENDPOINT, {
 				method: "POST",
 				headers: {
 					authorization: `Bearer ${this.key}`,
@@ -89,3 +87,10 @@ export class Jev {
 		}
 	}
 }
+
+/** Sends the API's requests. */
+export interface Transport {
+	fetch(url: string, init: RequestInit): Promise<Response>;
+}
+
+const NETWORK: Transport = { fetch: (url, init) => fetch(url, init) };

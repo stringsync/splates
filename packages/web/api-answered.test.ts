@@ -19,9 +19,7 @@ describe("answered", () => {
 
 		const read = answered("/api/stats", { within: Duration.ms(80) });
 
-		await expect(read).rejects.toEqual(
-			new ApiError("timeout", "no answer in 80ms"),
-		);
+		expect(read).rejects.toEqual(new ApiError("timeout", "no answer in 80ms"));
 	});
 
 	it("gives up on an action as a refusal, by the page's wait unless given", async () => {
@@ -29,7 +27,7 @@ describe("answered", () => {
 
 		const action = send("/api/todos", { body: "{}" });
 
-		await expect(action).rejects.toHaveProperty("reason", "timeout");
+		expect(action).rejects.toHaveProperty("reason", "timeout");
 	});
 
 	it("answers as fetch does when the server answers in time", async () => {
@@ -57,11 +55,11 @@ describe("answered", () => {
 			splatesEarly: new Map([["/api/snapshot", new Promise(() => {})]]),
 		});
 
-		await expect(early.fetch("/api/snapshot")).rejects.toHaveProperty(
+		expect(early.fetch("/api/snapshot")).rejects.toHaveProperty(
 			"reason",
 			"timeout",
 		);
-		await expect(
+		expect(
 			answeredFrom(Promise.resolve(new Response("ok"))),
 		).resolves.toBeInstanceOf(Response);
 	});

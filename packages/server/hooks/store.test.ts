@@ -126,10 +126,10 @@ describe("HookStore", () => {
 		expect(await hooks.request("groomer")).toMatchObject({
 			requestedAt: expect.any(String),
 		});
-		await expect(hooks.request("2")).rejects.toThrow(
+		expect(hooks.request("2")).rejects.toThrow(
 			"runs on task.done, for that event's tasks",
 		);
-		await expect(hooks.request("7")).rejects.toThrow("no automation 7");
+		expect(hooks.request("7")).rejects.toThrow("no automation 7");
 	});
 
 	it("pauses one and lets it run again", async () => {
@@ -174,13 +174,13 @@ describe("HookStore", () => {
 		await hooks.groomer({ agent: "claude" });
 		const run = { kind: "run", command: "x" } as const;
 
-		await expect(hooks.edit("groomer", { every: "1h" }, run)).rejects.toThrow(
+		expect(hooks.edit("groomer", { every: "1h" }, run)).rejects.toThrow(
 			"no automation groomer",
 		);
-		await expect(hooks.edit("7", { every: "1h" }, run)).rejects.toThrow(
+		expect(hooks.edit("7", { every: "1h" }, run)).rejects.toThrow(
 			"no automation 7",
 		);
-		await expect(hooks.edit("1", { every: "soon" }, run)).rejects.toThrow(
+		expect(hooks.edit("1", { every: "soon" }, run)).rejects.toThrow(
 			"no interval",
 		);
 	});
@@ -205,21 +205,19 @@ describe("HookStore", () => {
 		const hooks = new HookStore(new MemoryStorage());
 		const run = { kind: "run", command: "x" } as const;
 
-		await expect(
+		expect(
 			hooks.add({ event: "task.made" as "task.created" }, run),
 		).rejects.toThrow("no task event");
-		await expect(
+		expect(
 			hooks.add(
 				{ event: "task.created", filter: { stages: ["done" as "queued"] } },
 				run,
 			),
 		).rejects.toThrow("no stage");
-		await expect(hooks.add({ every: "soon" }, run)).rejects.toThrow(
-			"no interval",
-		);
-		await expect(hooks.add({ cron: "0 25 * * *" }, run)).rejects.toThrow(
+		expect(hooks.add({ every: "soon" }, run)).rejects.toThrow("no interval");
+		expect(hooks.add({ cron: "0 25 * * *" }, run)).rejects.toThrow(
 			"no cron line",
 		);
-		await expect(hooks.remove("7")).rejects.toThrow("no automation 7");
+		expect(hooks.remove("7")).rejects.toThrow("no automation 7");
 	});
 });

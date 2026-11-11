@@ -1,6 +1,7 @@
 import type { Logger } from "core/log";
 import type { Lock, Ps } from "core/system";
 import { Duration, sleep } from "core/time";
+import { NoopLogger } from "../noop-logger";
 import type { SqliteDb } from "./sqlite-db";
 
 /** Who holds a lock, as its row records. */
@@ -27,7 +28,7 @@ export class SqliteLock implements Lock {
 	) {}
 
 	async acquire(): Promise<void> {
-		const { db, ps, log, pollMs = 100 } = this.deps;
+		const { db, ps, log = new NoopLogger(), pollMs = 100 } = this.deps;
 		let sleepMs = 5;
 		for (let waited = false; ; waited = true) {
 			const { changes } = db.db
@@ -37,13 +38,13 @@ export class SqliteLock implements Lock {
 				.run(this.key, ps.pid, ps.hostname, Date.now());
 			if (changes > 0) {
 				if (waited) {
-					log?.error(`acquired ${this.key} after waiting`);
+					log.error(`acquired ${this.key} after waiting`);
 				}
 				return;
 			}
 			const holder = this.holder();
 			if (holder !== null && this.isStale(holder)) {
-				log?.error(`stealing stale lock ${this.key}`);
+				log.error(`stealing stale lock ${this.key}`);
 				this.drop(holder);
 				continue;
 			}

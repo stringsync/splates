@@ -9,10 +9,11 @@ import type {
 import type { Event } from "@splates/server/records";
 import { Duration } from "core/time";
 import { tierOf } from "./event-tier";
+import { split } from "./work-paths";
 import { workingSpan } from "./work-time";
 
 /**
- * A run of what an agent did between the words it says: its tool calls, intermediate words, and
+ * A run of what an agent did between the words it says: its tool calls and
  * its thoughts, which the page never shows, folded into one row.
  */
 export interface Work {
@@ -56,8 +57,8 @@ export type Stretch =
 type Piece = Part[] | Exclude<Stretch, { type: "work" }>;
 
 /**
- * The agent's turn as rows of work, each folded, with intermediate words folded inside them, then the last thing it said, and, once the
- * turn is over, a row for any work after that.
+ * The agent's turn as rows of work, each folded and each closed by the words
+ * it led to, then, once the turn is over, a row for any work after its last.
  */
 export function stretchesOf(
 	message: Message,
@@ -135,8 +136,8 @@ export function stretchesOf(
 			message.at,
 		),
 	);
-	// Keep live work below an event, or a command left in the background,
-	// even before the agent sends another part.
+	// Keep live work below an event, a command left in the background, or
+	// words still on the way, even before the agent sends another part.
 	const tail = ordered.at(-1);
 	if (
 		going &&
@@ -144,7 +145,8 @@ export function stretchesOf(
 		!Array.isArray(tail) &&
 		(tail.type === "event" ||
 			tail.type === "background" ||
-			tail.type === "progress")
+			tail.type === "progress" ||
+			(tail.type === "said" && last === -1))
 	) {
 		ordered.push([]);
 	}
@@ -389,14 +391,16 @@ function endOf(parts: Part[]): string | null {
 }
 
 /**
- * Cut out compaction markers; intermediate prose stays inside the work
- * timeline.
+ * Cut out the agent's words, compaction markers and commands left in the
+ * background, each a stretch of its own, so every message ends the row of
+ * work that led to it.
  */
 function cut(run: Part[]): Piece[] {
 	const pieces: Piece[] = [];
 	let from = 0;
 	run.forEach((part, at) => {
 		if (
+			part.type === "text" ||
 			part.type === "compaction" ||
 			(part.type === "tool" && part.background !== undefined)
 		) {
@@ -404,9 +408,11 @@ function cut(run: Part[]): Piece[] {
 				pieces.push(run.slice(from, at));
 			}
 			pieces.push(
-				part.type === "compaction"
-					? { type: "compaction", compaction: part }
-					: { type: "background", tool: part },
+				part.type === "text"
+					? { type: "said", text: part.text }
+					: part.type === "compaction"
+						? { type: "compaction", compaction: part }
+						: { type: "background", tool: part },
 			);
 			from = at + 1;
 		}
@@ -618,37 +624,4 @@ export function span(from: string, to: string | number): string {
 
 function count(many: number, noun: string): string {
 	return `${many} ${noun}${many === 1 ? "" : "s"}`;
-}
-
-/** Where a project's files sit: its main tree and its tasks' worktrees. */
-export interface Trees {
-	root: string;
-	worktreeRoot: string;
-}
-
-/**
- * `path` from the top of the tree it is in, the main tree or a task's
- * worktree, even one removed since; a path in neither stays whole.
- */
-export function relative(path: string, trees: Trees | null): string {
-	if (trees === null) {
-		return path;
-	}
-	const worktrees = `${trees.worktreeRoot}/`;
-	if (path.startsWith(worktrees)) {
-		const rest = path.slice(worktrees.length);
-		const slash = rest.indexOf("/");
-		return slash === -1 ? path : rest.slice(slash + 1);
-	}
-	const root = `${trees.root}/`;
-	return path.startsWith(root) ? path.slice(root.length) : path;
-}
-
-/** A path as its file's name and the directory it is in, "" for none. */
-export function split(path: string): { name: string; dir: string } {
-	const slash = path.lastIndexOf("/");
-	return {
-		name: path.slice(slash + 1),
-		dir: path.slice(0, Math.max(slash, 0)),
-	};
 }

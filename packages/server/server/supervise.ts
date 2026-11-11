@@ -9,6 +9,7 @@ import {
 	type Timer,
 } from "core/time";
 import { EXIT } from "../exit";
+import { NoopLogger } from "../noop-logger";
 import { SUPERVISOR } from "../workers";
 import { ServerInterrupt } from "./interrupt";
 
@@ -66,7 +67,7 @@ export async function supervise(
 		worker = null,
 		checkout = null,
 		awake = false,
-		log = null,
+		log = new NoopLogger(),
 		timer = new SystemTimer(),
 		clock = new SystemClock(),
 	}: SuperviseOptions = {},
@@ -153,7 +154,7 @@ export async function supervise(
 				}
 				throw error;
 			}
-			log?.info(
+			log.info(
 				`splates server exited (${exitCode}) after ${clock.now().subtract(began).human()}`,
 			);
 			if (interrupting.signal.aborted) {
@@ -168,7 +169,7 @@ export async function supervise(
 					return exitCode;
 				}
 				if (FATAL.includes(exitCode)) {
-					log?.error(
+					log.error(
 						`splates server exited (${exitCode}) with a refusal no start can change: not starting it again`,
 					);
 					return exitCode;
@@ -177,13 +178,13 @@ export async function supervise(
 				const served = clock.now().subtract(began);
 				quick = served.isLessThan(SERVED) ? quick + 1 : 1;
 				if (quick >= CRASHES) {
-					log?.error(
+					log.error(
 						`splates server exited (${exitCode}) ${quick} times in a row before serving ${SERVED.human()}: giving up`,
 					);
 					return exitCode;
 				}
 				const pause = FIRST_PAUSE.multiply(2 ** (quick - 1));
-				log?.error(
+				log.error(
 					`splates server exited (${exitCode}), starting it again in ${pause.human()}`,
 				);
 				await sleep(
@@ -238,8 +239,8 @@ export interface SuperviseOptions {
 	checkout?: { path: string; fs: Pick<Fs, "exists"> } | null;
 	/** Whether to keep the machine awake while this runs, as `awakeCommand` does. */
 	awake?: boolean;
-	/** Where a crashed server is told of; null to tell no one. */
-	log?: Logger | null;
+	/** Where a crashed server is told of. */
+	log?: Logger;
 	timer?: Timer;
 	clock?: Clock;
 }
@@ -339,10 +340,10 @@ export function awakeCommand(
  * Runs `awakeCommand` until disposed. One that cannot run, as without
  * systemd or where it refuses the lock, is told of and the server serves on.
  */
-function keepAwake(ps: Ps, log: Logger | null): Resource {
+function keepAwake(ps: Ps, log: Logger): Resource {
 	const argv = awakeCommand(ps.platform, ps.pid);
 	if (argv === null) {
-		log?.error(`nothing keeps ${ps.platform} awake: serving without it`);
+		log.error(`nothing keeps ${ps.platform} awake: serving without it`);
 		return { dispose() {} };
 	}
 	const [name] = argv;
@@ -350,13 +351,13 @@ function keepAwake(ps: Ps, log: Logger | null): Resource {
 	try {
 		child = ps.start(argv);
 	} catch (error) {
-		log?.error(`${name} could not start, so the machine may sleep: ${error}`);
+		log.error(`${name} could not start, so the machine may sleep: ${error}`);
 		return { dispose() {} };
 	}
 	let disposed = false;
 	void child.exited.then((code) => {
 		if (!disposed) {
-			log?.error(`${name} exited (${code}), so the machine may sleep`);
+			log.error(`${name} exited (${code}), so the machine may sleep`);
 		}
 	});
 	return {

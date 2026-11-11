@@ -61,9 +61,9 @@ describe("deferral", () => {
 		expect((await deps.tasks.find(deferred.id)).text).toContain(
 			"Yes, one release.",
 		);
-		await expect(
-			(await deps.tasks.find(deferred.id)).outsideDone(1),
-		).rejects.toThrow("no deferred outside blocker 2");
+		expect((await deps.tasks.find(deferred.id)).outsideDone(1)).rejects.toThrow(
+			"no deferred outside blocker 2",
+		);
 	});
 
 	it("names nothing for a task never deferred", async () => {

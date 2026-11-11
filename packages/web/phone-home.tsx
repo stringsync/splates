@@ -40,6 +40,7 @@ export function PhoneHome({
 	terminals,
 	onBack,
 	...starting
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: Starting & {
 	terminals: Terminals;
 	/** Back to the inbox. */

@@ -27,10 +27,15 @@ async function postMark(fs: Fs, home: string, text: string): Promise<void> {
 	}
 }
 
-/** Answers the CLI's `/__rec/mark` post by handing its text to `mark`. */
+/** Who takes an agent's remark; it throws when it cannot. */
+export interface MarkSink {
+	mark(text: string): void;
+}
+
+/** Answers the CLI's `/__rec/mark` post by handing its text to `sink`. */
 export async function markResponse(
 	request: Request,
-	mark: (text: string) => void,
+	sink: MarkSink,
 ): Promise<Response> {
 	// A page in the working window could post here; only a request with no
 	// Origin (the CLI's) is an agent.
@@ -39,7 +44,7 @@ export async function markResponse(
 	}
 	try {
 		const body = (await request.json()) as { text?: unknown };
-		mark(typeof body.text === "string" ? body.text : "");
+		sink.mark(typeof body.text === "string" ? body.text : "");
 		return new Response("ok");
 	} catch (error) {
 		return new Response((error as Error).message, { status: 409 });

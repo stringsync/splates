@@ -25,7 +25,7 @@ describe("DICTATION_AREA", () => {
 
 	it("asks for the OpenAI key, and is done once the device keeps it", async () => {
 		const setup = new Setup(machine, [DICTATION_AREA]);
-		await expect(setup.submit("dictation", {})).rejects.toThrow(
+		expect(setup.submit("dictation", {})).rejects.toThrow(
 			"Paste the OpenAI API key first.",
 		);
 		await machine.device.set(OPENAI_KEY, "key");

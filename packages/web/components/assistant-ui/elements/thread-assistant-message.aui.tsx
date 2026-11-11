@@ -26,6 +26,7 @@ import {
 	ToolGroupRoot,
 	ToolGroupTrigger,
 } from "#web/components/assistant-ui/elements/tool-group.aui.tsx";
+import { Quotable } from "#web/quote-selection.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SAID, type Work } from "#web/work.ts";
 
@@ -141,7 +142,11 @@ export const AssistantMessage: FC = () => {
 								);
 							}
 							case "text":
-								return <MarkdownText />;
+								return (
+									<Quotable>
+										<MarkdownText />
+									</Quotable>
+								);
 							case "reasoning":
 								return <Reasoning {...part} />;
 							case "tool-call":
@@ -182,12 +187,8 @@ function useStreaming(tail: string | null): boolean {
 }
 
 /**
- * The shimmering Working label under a busy reply, hidden while its text
- * streams and back once it pauses. Also hidden under streaming reasoning, in
- * a turn whose row of what the agent is doing still says Working above the
- * reply: the turn itself says it works. Also hidden under a message still
- * being sent, which has no turn of its own yet. Never after the
- * line saying the person stopped the turn, even before the status catches up.
+ * The shimmering Working label under a reply while the agent's turn goes on:
+ * render it for a message's `indicator` part.
  */
 export const WorkingIndicator: FC = () => {
 	// The text at the end of the reply, which moving means it is streaming.
@@ -213,6 +214,9 @@ export const WorkingIndicator: FC = () => {
 			)
 		);
 	});
+	// Something else already says the turn works (the streaming reply or
+	// reasoning, a work row saying Working), it has no turn yet, or the user
+	// stopped it.
 	if (labelled || streaming || sending) {
 		return null;
 	}

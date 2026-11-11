@@ -359,7 +359,7 @@ describe("OpenCode ACP fixtures (not a recorded executable handshake)", () => {
 		const conversation = await start();
 		await until(conversation, "idle");
 		agent.ignoreChoices = true;
-		await expect(conversation.choose("model", OTHER)).rejects.toThrow(
+		expect(conversation.choose("model", OTHER)).rejects.toThrow(
 			"did not confirm",
 		);
 		expect(conversation.state.status).toBe("failed");

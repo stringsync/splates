@@ -941,6 +941,7 @@ export async function dev(
 						POST: guarded(cascadeRoutes.recordAgent),
 					},
 					"/api/ship/steps/retry": { POST: guarded(cascadeRoutes.retry) },
+					"/api/ship/steps/seen": { POST: guarded(cascadeRoutes.see) },
 					"/api/ship/steps/abandon": { POST: guarded(cascadeRoutes.abandon) },
 					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
 					"/api/ship/history": guarded(cascadeRoutes.history),

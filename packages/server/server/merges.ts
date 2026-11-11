@@ -1,6 +1,7 @@
 // vet-ignore-file doc-comments-address-users: its doc comments predate the rule
 
 import type { Conversations } from "../conversations";
+import { NoopConversations } from "../conversations";
 import { fail } from "../exit";
 import {
 	MergeAsk,
@@ -112,9 +113,12 @@ function servedMerge(
 					premerge: project.premerge,
 					log,
 					asking: async (task) =>
-						(await openQuestions(conversations, task)).map(
-							(asked) => asked.number,
-						),
+						(
+							await openQuestions(
+								conversations ?? new NoopConversations(),
+								task,
+							)
+						).map((asked) => asked.number),
 				},
 				ask.cwd,
 				facts,

@@ -116,7 +116,7 @@ function Box({
 	return (
 		<div
 			ref={shell}
-			data-dictation-owner={taking ? box?.by : undefined}
+			data-dictation-owner={taking && box !== null ? box.by : undefined}
 			className={cn(
 				"group/box relative flex flex-col border border-border/70 bg-muted/30 transition-[background-color,border-color,box-shadow] duration-150 hover:border-border focus-within:border-ring focus-within:bg-background focus-within:ring-3 focus-within:ring-ring/20",
 				roomy ? "rounded-xl" : "rounded-lg",
@@ -137,7 +137,9 @@ function Box({
 						files={files}
 						onValue={(text) => {
 							onValue(text);
-							box?.typed(text);
+							if (box !== null) {
+								box.typed(text);
+							}
 						}}
 						inset={roomy ? "px-4" : "px-3"}
 						className={cn(

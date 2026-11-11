@@ -1,6 +1,7 @@
 import type { Resource } from "core/disposable";
 import type { Child, Ps } from "core/system";
 import { Duration, sleep } from "core/time";
+import type { LineSink } from "./sinks";
 import { parseStamp } from "./sources";
 
 export interface Container {
@@ -70,14 +71,18 @@ export function selectContainers(
 
 export type FollowState = "following" | "stopped" | "unavailable";
 
+/** Gets each line a container logs, and optionally whether it is being followed. */
+export interface FollowObserver extends LineSink {
+	/** Called whenever the container starts being followed, dies, or docker cannot be asked. */
+	state?(state: FollowState): void;
+}
+
 export interface FollowOptions {
 	ps: Ps;
 	container: Container;
 	/** Arrival time for a line docker gave no time to. */
 	now: () => number;
-	onLine: (at: number, text: string) => void;
-	/** Called whenever the container starts being followed, dies, or docker cannot be asked. */
-	onState?: (state: FollowState) => void;
+	observer: FollowObserver;
 	/** How long to wait before looking at a gone container again. */
 	retry?: Duration;
 }
@@ -106,14 +111,14 @@ async function containerState(
 }
 
 /**
- * Follows one container with `docker logs -f --timestamps`, stdout and stderr
- * both. It never throws and never ends on its own: when the container dies, or
- * docker stops answering, it writes a marker line, waits, and picks up from the
- * last line seen once the container runs again.
+ * Streams a container's logs (stdout and stderr) to `observer` until the returned
+ * resource is disposed. It never throws: if the container stops or docker stops
+ * answering, it emits a marker line and resumes where it left off once the
+ * container runs again.
  */
-export function followContainer(options: FollowOptions): Resource {
-	const { ps, container, now, onLine, onState } = options;
-	const retry = options.retry ?? Duration.ms(2000);
+export function followContainer(opts: FollowOptions): Resource {
+	const { ps, container, now, observer } = opts;
+	const retry = opts.retry ?? Duration.ms(2000);
 	let disposed = false;
 	let child: Child | undefined;
 	let since = now();
@@ -131,7 +136,7 @@ export function followContainer(options: FollowOptions): Resource {
 						const stamp = parseStamp(line);
 						const at = stamp?.at ?? now();
 						since = Math.max(since, at + 1);
-						onLine(at, stamp?.rest ?? line);
+						observer.line(at, stamp?.rest ?? line);
 					}
 				}
 			}
@@ -140,7 +145,7 @@ export function followContainer(options: FollowOptions): Resource {
 		}
 	};
 	const note = (text: string) =>
-		onLine(now(), `[rec] ${container.name} ${text}`);
+		observer.line(now(), `[rec] ${container.name} ${text}`);
 	void (async () => {
 		while (!disposed) {
 			try {
@@ -153,7 +158,7 @@ export function followContainer(options: FollowOptions): Resource {
 					new Date(since).toISOString(),
 					container.name,
 				]);
-				onState?.("following");
+				observer.state?.("following");
 				await Promise.all([
 					pump(child.stdout),
 					pump(child.stderr),
@@ -175,14 +180,14 @@ export function followContainer(options: FollowOptions): Resource {
 					? "stopped"
 					: "is unavailable: docker did not answer",
 			);
-			onState?.(state);
+			observer.state?.(state);
 			let reported = state;
 			while (!disposed && state !== "running") {
 				await sleep(retry);
 				state = await containerState(ps, container.name);
 				if (state !== "running" && state !== reported) {
 					reported = state;
-					onState?.(state);
+					observer.state?.(state);
 				}
 			}
 			if (!disposed) {

@@ -127,16 +127,41 @@ describe("composer setting controls", () => {
 		await act(async () => fireEvent.click(trigger));
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("combobox", { name: "model" })),
-		);
-		await pick(
-			await waitFor(() =>
-				view.getByRole("option", {
+			fireEvent.click(
+				within(dialog).getByRole("button", {
 					name: "Claude Sonnet with a very long model name (openrouter/shared)",
 				}),
 			),
 		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		expect(changes).toEqual(["openrouter/shared", "openrouter/shared"]);
+	});
+	it("lists the newest model of each class in the sheet, the rest behind Show all models", async () => {
+		layout.content = 1200;
+		view.rerender(
+			<SettingControls
+				{...props}
+				settings={[model("opus 5.5", ["Opus 4.1", "Opus 5.5", "Sonnet 5.5"])]}
+				current={() => "opus 5.5"}
+			/>,
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "settings" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog).queryByRole("button", { name: "Opus 4.1" }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", {
+					name: /Show all models \(1 more\)/,
+				}),
+			),
+		);
+		expect(
+			within(dialog).getByRole("button", { name: "Opus 4.1" }),
+		).toBeTruthy();
 	});
 	it("leads the inline model picker with the agent's mark in its maker's colors", () => {
 		view.rerender(<SettingControls {...props} agent="claude" />);

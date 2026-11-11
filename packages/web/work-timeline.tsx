@@ -12,7 +12,6 @@ import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
 import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
-import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import { Action, NamedChip, type SplatesEventView } from "./splates-event";
 import { decided, type Item } from "./timeline";
@@ -160,16 +159,6 @@ export function TimelineItem({
 				<EventLine view={view} />
 			);
 		}
-		case "said":
-			return (
-				<Markdown
-					text={item.text}
-					// Set in behind a rule, apart from the calls; its paragraphs and
-					// lists, under the div Markdown renders them in, half a line
-					// apart in place of their own margins.
-					className="border-foreground/20 border-l-2 pl-3 text-foreground text-sm [&>*>*]:my-0! [&>*>*:not(:first-child)]:mt-[0.5lh]!"
-				/>
-			);
 		case "decision":
 			return (
 				<div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-sm">

@@ -29,7 +29,7 @@ describe("the tunnel setup step", () => {
 		const setup = new Setup(machine, [REMOTE_ACCESS_AREA]);
 		const answers = { host: "splates.example.com", email: "me@example.com" };
 
-		await expect(setup.submit("tunnel", answers)).rejects.toThrow(
+		expect(setup.submit("tunnel", answers)).rejects.toThrow(
 			"give a team name below",
 		);
 		await setup.submit("tunnel", { ...answers, team: "crew" });
