@@ -109,6 +109,13 @@ describe("ShipsPage", () => {
 
 	it("opens on the plan, with a History row naming the last ship that shipped", async () => {
 		location.hash = "#ships";
+		let stream: Stream | null = null;
+		globalThis.EventSource = class extends FakeStream {
+			constructor() {
+				super();
+				stream = this;
+			}
+		} as unknown as typeof EventSource;
 		globalThis.fetch = (async (url: string) =>
 			Response.json(
 				String(url).startsWith("/api/ship/history")
@@ -124,6 +131,12 @@ describe("ShipsPage", () => {
 					: answer(String(url), []),
 			)) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
+		expect(view.queryByRole("link", { name: /^History/ })).toBeNull();
+		act(() =>
+			stream?.onmessage?.({
+				data: JSON.stringify({ cascade: null, ship: null }),
+			}),
+		);
 		const row = await view.findByRole("link", { name: /^History/ });
 		expect(row.getAttribute("href")).toBe("#ships/history");
 		await waitFor(() =>

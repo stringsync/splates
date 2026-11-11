@@ -39,7 +39,7 @@ import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
 import { questionOutcome } from "./question-outcome";
-import { Refusal, useRefusal } from "./refusal";
+import { Refusal, refusalOf } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /** What a phone's Send says when nothing was written. */
@@ -163,7 +163,8 @@ export function QuestionCards({
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
-	const saidOf = () => questions.map((asked) => said(asked, writtenFor(asked)));
+	const changed = () =>
+		questions.map((asked) => said(asked, writtenFor(asked)));
 	// Every one answered, and nothing the agent chose changed,
 	// sending approves the proposal; anything changed is a reply to it.
 	const approving =
@@ -175,9 +176,30 @@ export function QuestionCards({
 		) &&
 		written.more.trim() === "" &&
 		!attached;
+	// Approving takes what the agent chose as it stands, so it says only the
+	// rest; any other reply to a proposal also carries the answers the agent
+	// chose, so they are not lost beside what was changed or added.
+	const saidOf = () =>
+		!approving &&
+		proposal !== null &&
+		(changed().some((answer) => answer !== null) || written.more.trim() !== "")
+			? questions.map((asked) => writtenFor(asked))
+			: changed();
 	const out = replyOf(questions, saidOf(), written.more);
 	const empty = !approving && out === "" && !attached;
-	const { refusal, attempt } = useRefusal();
+	// A failed send says so until the next try, rather than for a moment: the
+	// person may have looked away, and the card is back to unanswered.
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const attempt = (write: Promise<void>, failed: string) => {
+		setRefusal(null);
+		return write.then(
+			() => true,
+			(error: unknown) => {
+				setRefusal(refusalOf(failed, error));
+				return false;
+			},
+		);
+	};
 	const submit = () => {
 		// The phone's Send is always on, so an empty reply says so.
 		if (!live || (empty && !paging)) {

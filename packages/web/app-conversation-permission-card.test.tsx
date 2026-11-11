@@ -147,6 +147,12 @@ describe("App's permission card", () => {
 			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
 		);
 		// Held until the server lists the lane's tasks queued.
+		// The write has landed but the board has not shown it: busy, not idle.
+		expect(
+			within(card)
+				.getByRole("button", { name: /Working/ })
+				.getAttribute("aria-busy"),
+		).toBe("true");
 		expect(within(card).queryByRole("button", { name: "Archive" })).toBeNull();
 		testing.served = snapshot(queuedLane);
 		await act(async () => testing.stream?.onmessage?.());

@@ -1,5 +1,7 @@
 import type { RecState } from "@splates/server/rec/browser";
-import type { JSX } from "react";
+import { Check, Copy } from "lucide-react";
+import { type JSX, useState } from "react";
+import { Button } from "./components/ui/button";
 
 export type LastOutcome = NonNullable<RecState["status"]["lastOutcome"]>;
 
@@ -15,6 +17,7 @@ export function SavedRow({ outcome }: { outcome: LastOutcome }): JSX.Element {
 				>
 					{outcome.name}
 				</a>
+				<CopyReference name={outcome.name} />
 			</div>
 		);
 	}
@@ -26,5 +29,27 @@ export function SavedRow({ outcome }: { outcome: LastOutcome }): JSX.Element {
 			<span className="font-medium">Not saved</span>
 			<span className="text-destructive text-xs">{outcome.reason}</span>
 		</div>
+	);
+}
+
+/** Copies the `#rec:<name>` reference that points an agent at the saved session. */
+function CopyReference({ name }: { name: string }): JSX.Element {
+	const [copied, setCopied] = useState(false);
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			className="ml-auto"
+			onClick={() => {
+				void navigator.clipboard.writeText(`#rec:${name}`).then(() => {
+					setCopied(true);
+					setTimeout(() => setCopied(false), 2000);
+				});
+			}}
+		>
+			{copied ? <Check /> : <Copy />}
+			{copied ? "Copied" : "Copy reference"}
+		</Button>
 	);
 }

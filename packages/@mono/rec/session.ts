@@ -1,6 +1,7 @@
 import type { Resource } from "core/disposable";
 import type { Fs } from "core/system";
 import type { RecorderStats } from "./protocol";
+import { withWebmDuration } from "./webm-duration";
 
 /** What made the session, so a reader knows what the folder holds and where it came from. */
 export interface Source {
@@ -78,6 +79,16 @@ export class SessionFolder implements Resource {
 		files: Record<string, string> = {},
 	): Promise<Manifest> {
 		this.active = false;
+		if (this.name.endsWith(".webm")) {
+			const bytes = await this.fs.readBytes(this.recording);
+			const patched = withWebmDuration(
+				bytes,
+				manifest.stoppedAt - manifest.startedAt,
+			);
+			if (patched !== bytes) {
+				await this.fs.writeBytes(this.recording, patched);
+			}
+		}
 		const written: Manifest = {
 			version: 1,
 			...manifest,

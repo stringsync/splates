@@ -1,7 +1,6 @@
 import { useDisposerEffect, useReactive } from "core/react";
 import {
 	ChartColumnIcon,
-	CircleDotIcon,
 	FlaskConicalIcon,
 	GaugeIcon,
 	KanbanIcon,
@@ -9,6 +8,7 @@ import {
 	ListChecksIcon,
 	type LucideIcon,
 	ShipIcon,
+	VideoIcon,
 	ZapIcon,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useState } from "react";
@@ -138,7 +138,7 @@ export const PAGES: {
 		scope: "everywhere",
 	},
 	{ value: "ships", label: "Ship", Icon: ShipIcon, scope: "everywhere" },
-	{ value: "rec", label: "Rec", Icon: CircleDotIcon, scope: "everywhere" },
+	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{
 		value: "evals",
 		label: "Evals",

@@ -89,7 +89,9 @@ export function EvalsPage({
 			)}
 			{listing && !history && (
 				<div className={cn(PLANNER_COLUMN, "gap-4")}>
-					<HistoryRow href="#evals/history" summary={runsSummary(batches)} />
+					{ready && (
+						<HistoryRow href="#evals/history" summary={runsSummary(batches)} />
+					)}
 					{!ready && error === null && (
 						<section
 							aria-label="evals loading"

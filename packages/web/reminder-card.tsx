@@ -22,12 +22,12 @@ export function ReminderCard({
 	reminder,
 }: {
 	reminder: Reminder;
-}): JSX.Element {
+}): JSX.Element | null {
 	const board = useContext(Board);
 	const [dismissed, setDismissed] = useState(false);
 	const { task, line, since, at } = reminder;
 	if (dismissed) {
-		return <></>;
+		return null;
 	}
 	return (
 		<CardShell

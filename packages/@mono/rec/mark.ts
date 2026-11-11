@@ -27,6 +27,25 @@ async function postMark(fs: Fs, home: string, text: string): Promise<void> {
 	}
 }
 
+/** Answers the CLI's `/__rec/mark` post by handing its text to `mark`. */
+export async function markResponse(
+	request: Request,
+	mark: (text: string) => void,
+): Promise<Response> {
+	// A page in the working window could post here; only a request with no
+	// Origin (the CLI's) is an agent.
+	if (request.headers.has("origin")) {
+		return new Response("forbidden", { status: 403 });
+	}
+	try {
+		const body = (await request.json()) as { text?: unknown };
+		mark(typeof body.text === "string" ? body.text : "");
+		return new Response("ok");
+	} catch (error) {
+		return new Response((error as Error).message, { status: 409 });
+	}
+}
+
 export interface RecStatus {
 	running: boolean;
 	name?: string;

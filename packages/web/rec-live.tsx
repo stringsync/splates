@@ -4,7 +4,7 @@ import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { closeRec } from "./api";
 
-/** Shows the running rec, and ends it with Close rec. */
+/** Shows the running rec, and ends it with Stop. */
 export function Live({
 	status,
 	host,
@@ -89,8 +89,7 @@ export function Live({
 						session, then transcribes and ranks it.
 					</span>
 					<span>
-						Close rec saves anything recording, closes rec's Chrome and ends
-						rec.
+						Stop saves anything recording, closes rec's Chrome and ends rec.
 					</span>
 					{problem !== null && (
 						<span className="text-destructive">{problem}</span>
@@ -104,7 +103,7 @@ export function Live({
 					onClick={close}
 				>
 					<SquareIcon className="size-3 fill-current" />
-					{closing ? "Closing…" : "Close rec"}
+					{closing ? "Closing…" : "Stop"}
 				</Button>
 			</div>
 		</div>

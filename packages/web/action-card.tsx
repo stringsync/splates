@@ -47,6 +47,7 @@ export function ActionCard({
 	action,
 	done,
 	gone,
+	settling = false,
 	note,
 	tone = "info",
 	children,
@@ -60,6 +61,8 @@ export function ActionCard({
 	done: boolean;
 	/** Why there is nothing left to do, such as the work no longer on the board. */
 	gone: string | null;
+	/** Whether its write has landed but the board does not show it yet, so the button stays busy rather than flashing idle. */
+	settling?: boolean;
 	/** What the foot says on its left while it is still to do. */
 	note?: string;
 	/** Its header's tint while still to do, `destructive` for what it takes away. */
@@ -69,16 +72,17 @@ export function ActionCard({
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
 	const archive = useContext(ArchiveConversation);
-	const [pending, setPending] = useState(false);
+	const [running, setRunning] = useState(false);
+	const pending = running || settling;
 	const run = async (): Promise<void> => {
 		if (pending) {
 			return;
 		}
-		setPending(true);
+		setRunning(true);
 		try {
 			await attempt(action.run(), action.failed);
 		} finally {
-			setPending(false);
+			setRunning(false);
 		}
 	};
 	return (

@@ -1,6 +1,13 @@
 import type { RecSessions, RecState } from "@splates/server/rec/browser";
 import { Circle, DicesIcon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useId, useState } from "react";
+import {
+	Fragment,
+	type JSX,
+	useCallback,
+	useEffect,
+	useId,
+	useState,
+} from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -16,6 +23,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
 import { bytesText } from "./rec-format";
+import { groupSources } from "./rec-groups";
 import { RecHistory } from "./rec-history";
 import { RecKeys } from "./rec-keys";
 import { Live } from "./rec-live";
@@ -104,7 +112,7 @@ async function sendSessionToAgent(
 	feed: ConversationFeed,
 	name: string,
 ): Promise<void> {
-	const text = `Look into the rec session #rec:${name} with the rec skill and say what went wrong.`;
+	const text = `Look into the rec session #rec:${name} with the rec skill and tell me what you see. Don't act on it yet: no tasks, lanes or code changes until I answer. Suggest what to do next, and ask how to move forward as numbered splates questions with your pick marked.`;
 	const state = await startAutoPick({ words: text, task: null });
 	feed.put(state);
 	const sending = feed.send(state.id, text);
@@ -180,6 +188,13 @@ function RecStart(): JSX.Element {
 			suggest();
 		}
 	}, [available, name, suggest]);
+	// A finished recording used its name, so the next one starts on a fresh suggestion.
+	const savedName = outcome?.status === "saved" ? outcome.name : null;
+	useEffect(() => {
+		if (savedName !== null) {
+			suggest();
+		}
+	}, [savedName, suggest]);
 
 	const followed: Followed[] = [
 		...(state?.sources ?? []).map((each) => ({
@@ -192,6 +207,7 @@ function RecStart(): JSX.Element {
 			on: chosen[`file:${path}`] ?? true,
 		})),
 	];
+	const groups = groupSources(state?.sources ?? [], state?.project);
 	const running = state?.status.running === true;
 
 	const reset = async () => {
@@ -227,21 +243,6 @@ function RecStart(): JSX.Element {
 		}
 	};
 
-	if (state?.here === false) {
-		return (
-			<section aria-label="rec" className="flex min-w-0 flex-col gap-6">
-				<TopBar title="Rec" />
-				<div className={cn(PLANNER_COLUMN, "gap-4")}>
-					<p className="text-muted-foreground text-sm">
-						Rec records on {state.host}, the machine running this server: open
-						this page there to start one. Its saved sessions are here.
-					</p>
-					<RecHistory />
-				</div>
-			</section>
-		);
-	}
-
 	return (
 		<section aria-label="rec" className="flex min-w-0 flex-col gap-6">
 			<TopBar title="Rec" />
@@ -267,6 +268,12 @@ function RecStart(): JSX.Element {
 						<code>TYPESAFE_API_KEY</code> ranks the moments better. Run{" "}
 						<code>rec skills add</code> in a project to teach its agent to read
 						sessions.
+					</p>
+				)}
+				{state?.here === false && (
+					<p className="text-muted-foreground text-sm">
+						Rec records on {state.host}, the machine running this server: Chrome
+						opens there, so Rec only works in front of it.
 					</p>
 				)}
 				{outcome !== null && <SavedRow outcome={outcome} />}
@@ -319,29 +326,89 @@ function RecStart(): JSX.Element {
 							<span className="font-medium">Also follow</span>
 							{followed.length > 0 && (
 								<ul className="flex flex-col divide-y rounded-md border px-3">
-									{followed.map((each) => (
-										<li
-											key={`${each.kind}:${each.name}`}
-											className="flex items-center gap-3 py-2"
-										>
-											<Badge variant="secondary">
-												{each.kind === "docker" ? "Docker" : "File"}
-											</Badge>
-											<span className="flex-1 truncate font-mono text-xs">
-												{each.name}
-											</span>
-											<Switch
-												aria-label={`Follow ${each.name}`}
-												checked={each.on}
-												onCheckedChange={(on) =>
-													setChosen({
-														...chosen,
-														[`${each.kind}:${each.name}`]: on,
-													})
-												}
-											/>
-										</li>
-									))}
+									{groups.map((group) => {
+										const on = group.sources.filter(
+											(each) => chosen[`docker:${each.name}`] ?? false,
+										).length;
+										const all = on === group.sources.length;
+										return (
+											<Fragment key={`group:${group.project}`}>
+												<li className="-mx-3 flex items-center gap-3 bg-muted/40 px-3 py-2">
+													<Badge variant="secondary">
+														{group.project === "" ? "Docker" : "Compose"}
+													</Badge>
+													<span className="flex-1 truncate font-medium text-xs">
+														{group.project === "" ? "Other" : group.project}
+														<span className="ml-2 font-normal text-muted-foreground">
+															{on} of {group.sources.length} on
+														</span>
+													</span>
+													<Switch
+														aria-label={`Follow every container in ${group.project === "" ? "Other" : group.project}`}
+														checked={on > 0}
+														className={
+															on > 0 && !all ? "opacity-60" : undefined
+														}
+														onCheckedChange={() =>
+															setChosen({
+																...chosen,
+																...Object.fromEntries(
+																	group.sources.map((each) => [
+																		`docker:${each.name}`,
+																		!all,
+																	]),
+																),
+															})
+														}
+													/>
+												</li>
+												{group.sources.map((each) => (
+													<li
+														key={`docker:${each.name}`}
+														className="flex items-center gap-3 py-2 pl-3"
+													>
+														<Badge variant="secondary">Docker</Badge>
+														<span className="flex-1 truncate font-mono text-xs">
+															{each.name}
+														</span>
+														<Switch
+															aria-label={`Follow ${each.name}`}
+															checked={chosen[`docker:${each.name}`] ?? false}
+															onCheckedChange={(next) =>
+																setChosen({
+																	...chosen,
+																	[`docker:${each.name}`]: next,
+																})
+															}
+														/>
+													</li>
+												))}
+											</Fragment>
+										);
+									})}
+									{followed
+										.filter((each) => each.kind === "file")
+										.map((each) => (
+											<li
+												key={`file:${each.name}`}
+												className="flex items-center gap-3 py-2"
+											>
+												<Badge variant="secondary">File</Badge>
+												<span className="flex-1 truncate font-mono text-xs">
+													{each.name}
+												</span>
+												<Switch
+													aria-label={`Follow ${each.name}`}
+													checked={each.on}
+													onCheckedChange={(next) =>
+														setChosen({
+															...chosen,
+															[`file:${each.name}`]: next,
+														})
+													}
+												/>
+											</li>
+										))}
 								</ul>
 							)}
 							{state?.sourcesError !== undefined && (

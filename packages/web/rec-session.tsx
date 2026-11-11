@@ -148,6 +148,9 @@ export function RecSession({
 						className="max-h-[60vh] w-full rounded-lg border bg-black"
 					/>
 					<Ticks session={session} seek={seek} />
+					<p className="text-muted-foreground text-xs">
+						Length {clock(session.length)}
+					</p>
 				</div>
 			) : (
 				<p className="text-muted-foreground text-sm">
@@ -347,7 +350,7 @@ function Moments({
 								className="flex w-full min-w-0 flex-col gap-0.5 text-left text-sm"
 							>
 								<span className="flex items-center gap-2">
-									<span className="font-mono tabular-nums">
+									<span className="shrink-0 font-mono tabular-nums">
 										{clock((moment.start - session.startedAt) / 1000)}
 									</span>
 									<span className="truncate">

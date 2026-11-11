@@ -1,14 +1,14 @@
 import type { ServerWebSocket } from "bun";
-import type { Logger } from "core/log";
-import type { Fs, Ps } from "core/system";
-import type { WallClock } from "core/time";
 import type { Cdp } from "./cdp";
 import { controlRoutes } from "./control/build";
 import { ExtraLogs } from "./extra-logs";
 import { LastOutcome } from "./last-outcome";
-import { LiveSignals } from "./live-signals";
+import { LiveRun } from "./live-run";
 import { BrowserLogs, CONSOLE_LOG, NETWORK_LOG } from "./logs";
+import { markResponse } from "./mark";
+import { MicChoice } from "./mic-choice";
 import { MIC_PAGE } from "./mic-page";
+import { OPEN_PAGE } from "./open-page";
 import { openSidePanel } from "./open-panel";
 import { EVENTS_FILE, FRAMES_DIR, PointerEvents } from "./pointer";
 import {
@@ -17,6 +17,7 @@ import {
 	type ToControl,
 	type ToServer,
 } from "./protocol";
+import type { RecorderDeps, Routes, Run } from "./run";
 import { Screencast } from "./screencast";
 import { Scrubber } from "./scrub";
 import { type Manifest, SessionFolder } from "./session";
@@ -26,37 +27,10 @@ import { detectSignals, MOMENTS_JSONL, renderSignals } from "./signals";
 /** Past this many bytes waiting to reach the control window, a frame is dropped rather than queued. */
 const BACKLOG = 8 * 1024 * 1024;
 
-export interface RecorderDeps {
-	fs: Fs;
-	ps: Ps;
-	log: Logger;
-	wall: WallClock;
-}
+export type { RecorderDeps, Routes };
 
-/** Extra pages the server hands out, such as the bench's working page. */
-export type Routes = Record<
-	string,
-	Response | ((request: Request) => Response | Promise<Response>)
->;
-
-/** One recording: everything that belongs to a single Start, so the next Start shares nothing with it. */
-interface Run {
-	started: Extract<ToServer, { type: "started" }>;
-	/** Resolves with the session folder once its first write is done; chunks and capture queue behind it. */
-	writing: Promise<void>;
-	session: SessionFolder;
-	logs?: BrowserLogs;
-	extra?: ExtraLogs;
-	pointer?: PointerEvents;
-	live?: LiveSignals;
-	sources: { docker?: string; tails: string[] };
-	dropped: number;
-	receivedBefore: number;
-	finished: (stats: RecorderStats & { at: number }) => void;
-	failed: (error: Error) => void;
-	done: Promise<RecorderStats & { at: number }>;
-	saved?: Promise<Manifest>;
-}
+/** How long a closed control panel may take to come back before rec ends. */
+export const PANEL_RECONNECT_GRACE_MS = 3000;
 
 /**
  * The server behind the control window: it serves the window, passes it the
@@ -69,8 +43,14 @@ export class RecorderServer {
 	private screencast: Screencast | undefined;
 	private cdp: Cdp | undefined;
 	private capture:
-		| { scrubber?: Scrubber; docker?: string; tails?: string[] }
+		| {
+				scrubber?: Scrubber;
+				docker?: string;
+				tails?: string[];
+				liveKey?: string;
+		  }
 		| undefined;
+	private readonly micChoice: MicChoice | undefined;
 	private staged = false;
 	private noMic = false;
 	private laserOn = false;
@@ -86,9 +66,11 @@ export class RecorderServer {
 		},
 	);
 	private closedWindow: () => void = () => {};
+	private closeTimer: ReturnType<typeof setTimeout> | undefined;
 	/**
-	 * Resolves when the control panel closes in the middle of a recording, so
-	 * what arrived is all there will be. Closing while staged resolves nothing.
+	 * Resolves when the control panel has been closed for the reconnect grace
+	 * (a reload or Chrome re-creating the panel reconnects within it). Mid
+	 * recording, what arrived is all there will be.
 	 */
 	readonly closed = new Promise<void>((resolve) => {
 		this.closedWindow = resolve;
@@ -109,17 +91,19 @@ export class RecorderServer {
 		) => void = () => {},
 		private readonly baseName?: string,
 		private readonly usedNames: ReadonlySet<string> = new Set(),
+		/** The file holding the mic the person chose; without it the choice is not remembered. */
+		micFile?: string,
 	) {
+		this.micChoice = micFile ? new MicChoice(deps.fs, micFile) : undefined;
 		this.server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
 			development: false,
 			routes: {
 				...controlRoutes(),
-				"/__rec/open": new Response(
-					"<!doctype html><title>rec</title><p>Opening rec's side panel…",
-					{ headers: { "content-type": "text/html" } },
-				),
+				"/__rec/open": new Response(OPEN_PAGE, {
+					headers: { "content-type": "text/html; charset=utf-8" },
+				}),
 				...routes,
 			},
 			fetch: async (request, server) => {
@@ -127,7 +111,7 @@ export class RecorderServer {
 					new URL(request.url).pathname === "/__rec/mark" &&
 					request.method === "POST"
 				) {
-					return await this.markRequest(request);
+					return await markResponse(request, (text) => this.mark(text));
 				}
 				if (
 					new URL(request.url).pathname === "/__rec/status" &&
@@ -156,15 +140,23 @@ export class RecorderServer {
 			websocket: {
 				open: (socket) => {
 					this.socket = socket;
+					clearTimeout(this.closeTimer);
 					this.say({ type: "name", name: this.currentName });
+					void this.micChoice?.read().then((label) => {
+						if (label !== undefined) {
+							this.say({ type: "mic-choice", label });
+						}
+					});
 				},
 				message: (_socket, message) => this.receive(message),
 				close: (socket) => {
 					if (this.socket === socket) {
 						this.socket = undefined;
-						if (this.run) {
-							this.closedWindow();
-						}
+						clearTimeout(this.closeTimer);
+						this.closeTimer = setTimeout(
+							() => this.closedWindow(),
+							PANEL_RECONNECT_GRACE_MS,
+						);
 					}
 				},
 			},
@@ -188,7 +180,7 @@ export class RecorderServer {
 	}
 
 	/** Adds an agent's remark to the recording in progress, stamped now and scrubbed. */
-	mark(text: string): void {
+	mark(text: string, by: "agent" | "person" = "agent"): void {
 		const run = this.run;
 		if (!run?.pointer) {
 			throw new Error("no recording is in progress");
@@ -197,22 +189,7 @@ export class RecorderServer {
 		if (label === "") {
 			throw new Error("the remark is empty");
 		}
-		run.pointer.mark(this.deps.wall.now(), label);
-	}
-
-	private async markRequest(request: Request): Promise<Response> {
-		// A page in the working window could post here; only a request with no
-		// Origin (the CLI's) is an agent.
-		if (request.headers.has("origin")) {
-			return new Response("forbidden", { status: 403 });
-		}
-		try {
-			const body = (await request.json()) as { text?: unknown };
-			this.mark(typeof body.text === "string" ? body.text : "");
-			return new Response("ok");
-		} catch (error) {
-			return new Response((error as Error).message, { status: 409 });
-		}
+		run.pointer.mark(this.deps.wall.now(), label, by);
 	}
 
 	/** Whether a recording is in progress. */
@@ -252,6 +229,8 @@ export class RecorderServer {
 			staged?: boolean;
 			/** The session is narrated by remarks, not a mic: the control window opens none. */
 			noMic?: boolean;
+			/** OpenAI key for the live transcript shown while recording; without it nothing is shown live. */
+			liveKey?: string;
 			/** The most frames per second the screencast sends; the default is `DEFAULT_MAX_FPS`. */
 			fps?: number;
 			/** Send no frames at all, so the window browses with nothing recording it: the bench's baseline. */
@@ -306,11 +285,8 @@ export class RecorderServer {
 		const origin = this.controlUrl.slice(0, -1);
 		const scrubber = options.scrubber ?? new Scrubber();
 		const dir = run.session.dir;
-		const live = new LiveSignals(
-			(at) => run.pointer?.frameAt(at),
-			(row) => this.say({ type: "signal", ...row }),
-		);
-		run.live = live;
+		const say = (message: ToControl) => this.say(message);
+		const live = new LiveRun(run, say, this.deps, options.liveKey);
 		run.pointer = await PointerEvents.start({
 			cdp,
 			fs: this.deps.fs,
@@ -342,6 +318,7 @@ export class RecorderServer {
 			now: () => this.deps.wall.now(),
 			docker: options.docker,
 			tails: run.sources.tails,
+			onNote: (text) => process.stderr.write(`rec: ${text}\n`),
 			onEntry: (file, line) => live.log(file, line),
 		});
 	}
@@ -442,12 +419,14 @@ export class RecorderServer {
 	}
 
 	private release(run: Run): void {
+		run.speech?.dispose();
 		run.logs?.dispose();
 		run.extra?.dispose();
 		run.pointer?.dispose();
 	}
 
 	dispose(): void {
+		clearTimeout(this.closeTimer);
 		this.screencast?.dispose();
 		if (this.run) {
 			this.release(this.run);
@@ -547,6 +526,25 @@ export class RecorderServer {
 			}
 			case "stopped":
 				run?.finished({ ...said.stats, at: said.at });
+				return;
+			case "remark":
+				try {
+					this.mark(said.text, "person");
+				} catch {
+					// Nothing is recording, or the text was empty: there is nothing to keep.
+				}
+				return;
+			case "audio":
+				run?.speech?.audio(said.pcm);
+				return;
+			case "mic-choice":
+				void this.micChoice
+					?.write(said.label)
+					.catch((error: unknown) =>
+						this.deps.log.error(
+							`could not remember the mic: ${(error as Error).message}`,
+						),
+					);
 				return;
 			case "open-mic-settings":
 				void this.openMicSettings();

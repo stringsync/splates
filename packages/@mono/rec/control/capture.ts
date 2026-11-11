@@ -1,4 +1,3 @@
-import { BrowserMicrophone } from "core/dictate/browser";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import {
@@ -7,12 +6,15 @@ import {
 	type ToServer,
 	unpackFrame,
 } from "../protocol";
+import { listMics, openMicInput } from "./mic-input";
 
 /** How long the tab may paint nothing before the last frame is drawn again, so the video keeps time. */
 const REPEAT = Duration.ms(500);
 /** How long to wait for the tab's first frame, which sets the video's size. */
 const FIRST_FRAME = Duration.secs(3);
 const FALLBACK = { width: 1280, height: 720 };
+/** How long to wait for the server to name the mic chosen last time. */
+const CHOICE_WAIT = Duration.secs(1);
 
 /** Where the panel is in a session's life. */
 export type Phase = "staged" | "starting" | "recording" | "saving";
@@ -30,13 +32,19 @@ export interface PanelState {
 	/** When the recorder started, in wall-clock ms; 0 before it has. */
 	startedAt: number;
 	/** Whether the mic is open: `unknown` until the first try settles. */
-	mic: "unknown" | "on" | "off" | "none";
+	mic: "unknown" | "on" | "off" | "none" | "muted";
 	/** The mic's level, 0 to 1. */
 	level: number;
+	/** The microphones Chrome lists, by label; empty until the mic has been allowed. */
+	devices: string[];
+	/** The label of the mic in use, when it is open. */
+	device?: string;
 	/** Whether Option is held in the working tab, drawing the laser trail. */
 	laser: boolean;
 	/** What rec noticed while recording, newest first. */
 	signals: SignalItem[];
+	/** The words being said right now, so far; empty when nobody is speaking. */
+	speaking: string;
 	/** A line for the person: where a session was saved, what failed, what to allow. */
 	status?: string;
 	/** The folder the last session was saved to, until the next Start. */
@@ -60,8 +68,10 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		startedAt: 0,
 		mic: location.hash.includes("nomic") ? "none" : "unknown",
 		level: 0,
+		devices: [],
 		laser: false,
 		signals: [],
+		speaking: "",
 	};
 	private signalIds = 0;
 
@@ -92,7 +102,16 @@ export class Capture implements Eventful<{ change: PanelState }> {
 
 	/** The mic's stream, or undefined when it could not be opened and the recording goes without audio. */
 	private audio: MediaStream | undefined;
+	private microphone: { dispose(): void } | undefined;
 	private micTried: Promise<void>;
+	/** The label of the mic the person chose, remembered by the server across launches. */
+	private chosen: string | undefined;
+	/** Settles once the server has said which mic was chosen last time, or after a short wait. */
+	private readonly choiceKnown = new Promise<void>((resolve) => {
+		this.choiceHeard = resolve;
+		this.timer.setTimeout(resolve, CHOICE_WAIT);
+	});
+	private choiceHeard: () => void = () => {};
 	private retrying = false;
 	/** Whether the person clicked the mic-off indicator, so a focus is them returning from Settings. */
 	private asked = false;
@@ -113,12 +132,21 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		// Tries the mic when the panel opens, so a denial shows before Start.
 		this.micTried = location.hash.includes("nomic")
 			? Promise.resolve()
-			: this.openMic();
+			: this.choiceKnown.then(() => this.openMic());
+		navigator.mediaDevices.addEventListener("devicechange", () => {
+			void this.listDevices();
+		});
 		// Retries a denied mic when the panel regains focus, after the person
 		// allowed it in Chrome's settings. Only before Start: a recorder's stream
 		// cannot take a track once it is running.
 		window.addEventListener("focus", () => {
-			if (this.audio || this.recorder || this.retrying || !this.asked) {
+			if (
+				this.audio ||
+				this.recorder ||
+				this.retrying ||
+				!this.asked ||
+				this.state.mic === "muted"
+			) {
 				return;
 			}
 			this.retrying = true;
@@ -176,6 +204,40 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		return this.stopping;
 	}
 
+	/** Sends a remark the person typed; it lands in the session as typed, not spoken. */
+	remark(text: string): void {
+		if (text.trim() !== "") {
+			this.say({ type: "remark", text });
+		}
+	}
+
+	/** Turns the mic off by choice, or back on; only before Start, as a running recorder cannot change its tracks. */
+	setMicEnabled(enabled: boolean): void {
+		if (this.recorder || this.state.mic === "none") {
+			return;
+		}
+		if (!enabled) {
+			this.closeMic();
+			this.micTried = Promise.resolve();
+			this.set({ mic: "muted", level: 0, device: undefined });
+			return;
+		}
+		this.set({ mic: "unknown" });
+		this.micTried = this.micTried.then(() => this.openMic());
+	}
+
+	/** Switches to the mic with this label (or unmutes it), remembering the choice; only before Start. */
+	chooseMic(label: string): void {
+		if (this.recorder || this.state.mic === "none") {
+			return;
+		}
+		this.chosen = label;
+		this.say({ type: "mic-choice", label });
+		this.closeMic();
+		this.set({ mic: "unknown", level: 0 });
+		this.micTried = this.micTried.then(() => this.openMic());
+	}
+
 	/** Asks the server to open a tab that prompts for the mic. */
 	openMicSettings(): void {
 		this.asked = true;
@@ -209,6 +271,9 @@ export class Capture implements Eventful<{ change: PanelState }> {
 			const message = JSON.parse(data) as ToControl;
 			if (message.type === "name") {
 				this.set({ name: message.name });
+			} else if (message.type === "mic-choice") {
+				this.chosen = message.label;
+				this.choiceHeard();
 			} else if (message.type === "saved") {
 				this.set({ phase: "staged", status: undefined, saved: message.dir });
 			} else if (message.type === "save-failed") {
@@ -221,6 +286,8 @@ export class Capture implements Eventful<{ change: PanelState }> {
 				void this.stop();
 			} else if (message.type === "laser") {
 				this.set({ laser: message.on });
+			} else if (message.type === "speech-live") {
+				this.set({ speaking: message.text });
 			} else if (message.type === "signal") {
 				void this.addSignal(message);
 			} else if (message.type === "mic-settings") {
@@ -294,28 +361,44 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		this.lastDrawn = performance.now();
 	}
 
-	/** Opens the mic and follows its level, or marks it off when it cannot be opened. */
+	/** Closes the open mic, if any. */
+	private closeMic(): void {
+		this.microphone?.dispose();
+		this.microphone = undefined;
+		this.audio = undefined;
+	}
+
+	/** Lists the mics by label. */
+	private async listDevices(): Promise<void> {
+		const labels = (await listMics()).map(([label]) => label);
+		this.set({ devices: [...new Set(labels)] });
+	}
+
+	/** Opens the chosen mic, else Chrome's default, and follows its level; marks it off when it cannot be opened. */
 	private async openMic(): Promise<void> {
 		if (this.state.mic === "none") {
 			return;
 		}
 		try {
-			// The mic's level comes from core's BrowserMicrophone; its samples are
-			// not wanted.
-			const microphone = await new BrowserMicrophone().start({
-				send: () => {},
-			});
-			this.audio = microphone.stream;
-			microphone.events.on("tick", (heard) => {
-				this.set({ level: heard ?? 0 });
-			});
-			this.set({ mic: "on" });
+			const id = (await listMics()).find(
+				([label]) => label === this.chosen,
+			)?.[1];
+			const input = await openMicInput(
+				id,
+				(level) => this.set({ level }),
+				(pcm) => {
+					if (this.state.phase === "recording") {
+						this.say({ type: "audio", pcm });
+					}
+				},
+			);
+			this.microphone = input;
+			this.audio = input.stream;
+			this.set({ mic: "on", device: input.stream.getAudioTracks()[0]?.label });
+			await this.listDevices();
 		} catch {
-			for (const track of this.audio?.getTracks() ?? []) {
-				track.stop();
-			}
-			this.audio = undefined;
-			this.set({ mic: "off", level: 0 });
+			this.closeMic();
+			this.set({ mic: "off", level: 0, device: undefined });
 		}
 	}
 
@@ -373,6 +456,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 				startedAt,
 				status: undefined,
 				signals: [],
+				speaking: "",
 			});
 		});
 		recorder.start(1000);

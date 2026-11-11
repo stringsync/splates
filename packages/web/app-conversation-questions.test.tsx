@@ -272,4 +272,28 @@ describe("App's question cards", () => {
 			},
 		]);
 	});
+
+	it("keeps the answers and says so until the next try when the server refuses their send", async () => {
+		const view = await testing.openConversations([asking()]);
+		await waitFor(() => card(view, "2"));
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "1")).getByRole("button", { name: /Tasks/ }),
+			),
+		);
+		const draft = "splates.draft.c1:questions:1:Which pages need it?";
+		expect(localStorage.getItem(draft)).toContain("Tasks");
+		testing.refuseWrites = { reason: "usage", message: "cannot resume" };
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		const alert = await waitFor(() => view.getByRole("alert"));
+		expect(alert.textContent).toContain("cannot resume");
+		expect(localStorage.getItem(draft)).toContain("Tasks");
+		// Said past the moment a refusal used to last.
+		await new Promise((done) => setTimeout(done, 4500));
+		expect(view.getByRole("alert")).toBeTruthy();
+	}, 10000);
 });

@@ -98,44 +98,53 @@ export function ShipsPage({
 				}
 			/>
 			{viewed === ACTIVE ? (
-				<ActiveShip
-					live={live}
-					closed={closed}
-					previous={previous}
-					onClose={(id) => {
-						setClosed(id);
-						location.hash = "ships";
-					}}
-					act={actOnShip}
-					sendSlowToAgent={
-						feed === null
-							? undefined
-							: async (slow) => {
-									const opened = await sendSlowShipToAgent(feed, slow);
-									location.hash = `conversations/${opened}`;
-								}
-					}
-					sendToAgent={
-						feed === null
-							? undefined
-							: async (failure) => {
-									const opened = await sendShipToAgent(feed, failure);
-									location.hash = `conversations/${opened}`;
-								}
-					}
-				/>
+				<div className={PLANNER_COLUMN}>
+					<ActiveShip
+						live={live}
+						closed={closed}
+						previous={previous}
+						onClose={(id) => {
+							setClosed(id);
+							location.hash = "ships";
+						}}
+						act={actOnShip}
+						sendSlowToAgent={
+							feed === null
+								? undefined
+								: async (slow) => {
+										const opened = await sendSlowShipToAgent(feed, slow);
+										location.hash = `conversations/${opened}`;
+									}
+						}
+						sendToAgent={
+							feed === null
+								? undefined
+								: async (failure) => {
+										const opened = await sendShipToAgent(feed, failure);
+										location.hash = `conversations/${opened}`;
+									}
+						}
+					/>
+				</div>
 			) : viewed === HISTORY ? (
 				<div className={PLANNER_COLUMN}>
 					<ShipHistory cascades={past} />
 				</div>
 			) : viewed !== null ? (
-				<PastShip id={viewed} />
+				<div className={PLANNER_COLUMN}>
+					<PastShip id={viewed} />
+				</div>
 			) : (
 				<div className={cn(PLANNER_COLUMN, "gap-3")}>
 					{live?.cascade != null && (busy || unacknowledged) && (
 						<ShipRunningCard cascade={live.cascade} href={`#ships/${ACTIVE}`} />
 					)}
-					<HistoryRow href={`#ships/${HISTORY}`} summary={lastShipped(past)} />
+					{live !== null && past !== null && (
+						<HistoryRow
+							href={`#ships/${HISTORY}`}
+							summary={lastShipped(past)}
+						/>
+					)}
 					<ShipPlan
 						ready={live !== null && past !== null}
 						ship={new URLSearchParams(location.search).get("ship")}

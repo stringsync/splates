@@ -20,6 +20,7 @@ import { SessionNames, sessionName, suggestName } from "./session-name";
 import { SESSION_STORE_POLICY, SessionStore } from "./session-store";
 import { SessionLibrary } from "./sessions";
 import { BUNDLED_SKILL, installSkill } from "./skills";
+import { parseVideoTime, sliceSession } from "./slice";
 import { KEY_NAME, recCredentials, requireKey, transcribe } from "./transcribe";
 
 export interface RecDeps extends Deps {
@@ -83,6 +84,7 @@ async function openSession(
 		tails?: string[];
 		staged?: boolean;
 		noMic?: boolean;
+		liveKey?: string;
 		fps?: number;
 		noScreencast?: boolean;
 		name?: string;
@@ -100,6 +102,7 @@ async function openSession(
 		options.onSaved,
 		options.name,
 		options.usedNames,
+		`${home(deps)}/mic.json`,
 	);
 	const file = serverFile(home(deps));
 	await deps.fs.mkdir(home(deps), { recursive: true });
@@ -123,6 +126,7 @@ async function openSession(
 				tails: options.tails,
 				staged: options.staged,
 				noMic: options.noMic,
+				liveKey: options.liveKey,
 				fps: options.fps,
 				noScreencast: options.noScreencast,
 			});
@@ -224,6 +228,7 @@ rec
 				tails: opts.tail,
 				staged: true,
 				noMic: opts["no-mic"],
+				liveKey: key === "" ? undefined : key,
 				fps: opts.fps,
 				onSaved: (dir) => {
 					pending.add(dir);
@@ -254,7 +259,7 @@ rec
 		const { chrome, server } = session;
 		try {
 			deps.log.info(
-				"staged: press Start in the control window to record, as many times as you like; press Ctrl-C to finish; closing the panel while staged leaves rec running",
+				"staged: press Start in the control window to record, as many times as you like; press Ctrl-C to finish; closing the panel ends rec",
 			);
 			const interrupt = sigint.promise
 				.then(() => server.interrupt())
@@ -378,6 +383,54 @@ rec
 	})
 	.action(async (opts, deps) => {
 		await rankSession(deps, opts.dir, opts.about);
+	});
+
+rec
+	.command("slice")
+	.description(
+		"cut screenshots and a silent clip around a moment of a session, with padding, into its slices/ folder",
+	)
+	.arg("name", z.string())
+	.option("at", z.string().optional(), {
+		description: "the moment, in video time: seconds or m:ss",
+	})
+	.option("moment", z.coerce.number().int().optional(), {
+		description: "a ranked moment from moments.md, instead of --at",
+	})
+	.option("before", z.coerce.number().default(5), {
+		description: "seconds of padding before",
+	})
+	.option("after", z.coerce.number().default(5), {
+		description: "seconds of padding after",
+	})
+	.option("json", z.boolean().default(false), {
+		description: "print JSON: { folder, from, to, at, clip, shots }",
+	})
+	.action(async (opts, deps) => {
+		const dir = await library(deps)
+			.path(opts.name)
+			.catch(async (cause) => {
+				if (await deps.fs.exists(`${opts.name}/manifest.json`)) {
+					return opts.name;
+				}
+				throw cause;
+			});
+		const result = await sliceSession({
+			fs: deps.fs,
+			ps: deps.ps,
+			dir,
+			at: opts.at === undefined ? undefined : parseVideoTime(opts.at),
+			moment: opts.moment,
+			before: opts.before,
+			after: opts.after,
+		});
+		if (opts.json) {
+			deps.log.info(JSON.stringify(result));
+			return;
+		}
+		deps.log.info(
+			`${result.from.toFixed(1)}s-${result.to.toFixed(1)}s (moment at ${result.at.toFixed(1)}s)\nclip: ${result.clip}\n${result.shots.map((shot) => `shot: ${shot}`).join("\n")}`,
+		);
 	});
 
 rec

@@ -1,6 +1,6 @@
 import type { ProjectRef } from "@splates/server/conversations";
 import { conversationReference } from "@splates/server/conversations/browser";
-import { MessageCircleIcon } from "lucide-react";
+import { MessageCircleIcon, VideoIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -29,6 +29,11 @@ export const NamedContext = createContext<Named>({
 
 /** A `#` or `@` at the start or after a space, and what follows it. */
 export const NAMING = /(^|\s)([#@])([^\s#@]+)/g;
+
+const REC_PREFIX = "rec:";
+
+/** A `#rec:<name>` reference to a recorded session, named by its slug. */
+const RECORDED = /^rec:[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 
 /** What a sentence may put after a mention, which is not part of it. */
 const TRAILING = /[.,;:!?)\]'"]+$/;
@@ -59,7 +64,9 @@ export function linkNamed(
 				sign === "#"
 					? found.kind === "conversation"
 						? `#conversations/${encode(found.target)}`
-						: `#${found.kind}=${encode(found.target)}`
+						: found.kind === "rec"
+							? `#rec/${encode(found.target.slice(REC_PREFIX.length))}`
+							: `#${found.kind}=${encode(found.target)}`
 					: `#file=${encode(found.target)}&name=${encode(names.get(found.target) ?? "")}`;
 			return `${before}[${label}](${href})${called.slice(found.as.length)}`;
 		}),
@@ -94,7 +101,7 @@ export function reading(
 	| {
 			as: string;
 			target: string;
-			kind: "project" | "file" | "conversation";
+			kind: "project" | "file" | "conversation" | "rec";
 	  }
 	| undefined {
 	for (const as of new Set([called, untrailed(called)])) {
@@ -104,6 +111,9 @@ export function reading(
 				return { as, target: path, kind: "file" };
 			}
 			continue;
+		}
+		if (RECORDED.test(as)) {
+			return { as, target: as, kind: "rec" };
 		}
 		if (
 			conversationReference(as) ||
@@ -126,6 +136,7 @@ export function untrailed(called: string): string {
 /** What a link written by `linkNamed` names, or null for another. */
 export type NamedTarget =
 	| { conversation: string }
+	| { rec: string }
 	| { project: string }
 	| { file: string; name?: string | undefined };
 
@@ -134,6 +145,10 @@ export function namedIn(href: string | undefined): NamedTarget | null {
 	const conversation = href?.match(/^#conversations\/([^/]+)$/)?.[1];
 	if (conversation !== undefined && conversationReference(conversation)) {
 		return { conversation: decodeURIComponent(conversation) };
+	}
+	const rec = href?.match(/^#rec\/([^/]+)$/)?.[1];
+	if (rec !== undefined) {
+		return { rec: decodeURIComponent(rec) };
 	}
 	const link = NAMED_LINK.exec(href ?? "");
 	if (link === null) {
@@ -151,6 +166,9 @@ export function namedIn(href: string | undefined): NamedTarget | null {
 /** A mention `linkNamed` linked, as its chip. */
 export function NamedChip({ named }: { named: NamedTarget }): JSX.Element {
 	const { projects, tree, conversations } = use(NamedContext);
+	if ("rec" in named) {
+		return <RecChip name={named.rec} />;
+	}
 	if ("conversation" in named) {
 		const name =
 			conversations?.find((each) => each.id === named.conversation)?.name ??
@@ -200,5 +218,23 @@ function encode(path: string): string {
 	return encodeURIComponent(path).replace(
 		/[()]/g,
 		(paren) => `%${paren.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
+}
+
+/** A recorded session a `#rec:<name>` reference names, linking to it. */
+export function RecChip({ name }: { name: string }): JSX.Element {
+	return (
+		<a
+			href={`#rec/${encodeURIComponent(name)}`}
+			title={`rec session ${name}`}
+			onClick={(event) => event.stopPropagation()}
+			className={cn(
+				buttonVariants({ variant: "outline", size: "xs" }),
+				"max-w-80 align-middle font-mono",
+			)}
+		>
+			<VideoIcon aria-hidden data-icon="inline-start" />
+			<span className="truncate">{name}</span>
+		</a>
 	);
 }

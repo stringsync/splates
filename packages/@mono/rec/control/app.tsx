@@ -3,6 +3,7 @@ import { Duration, SystemTimer, SystemWallClock } from "core/time";
 import {
 	AlertTriangle,
 	Check,
+	ChevronUp,
 	Circle,
 	Copy,
 	Highlighter,
@@ -21,6 +22,14 @@ import {
 import { Fragment, useEffect, useMemo, useState } from "react";
 import type { Capture, PanelState, SignalItem } from "./capture";
 import { Button } from "./components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "./components/ui/dropdown-menu";
 import { Empty, EmptyDescription, EmptyHeader } from "./components/ui/empty";
 import { Kbd } from "./components/ui/kbd";
 import {
@@ -55,8 +64,9 @@ export function App({ capture }: { capture: Capture }) {
 					</span>
 					{state.name ? <CopyNameButton name={state.name} /> : null}
 				</div>
-				{state.signals.length > 0 ? (
+				{state.signals.length > 0 || state.speaking !== "" ? (
 					<ul className="flex-1 divide-y overflow-y-auto">
+						{state.speaking !== "" && <SpeakingRow text={state.speaking} />}
 						{state.signals.map((item) => (
 							<SignalRow
 								key={item.id}
@@ -85,6 +95,7 @@ export function App({ capture }: { capture: Capture }) {
 					</p>
 				)}
 				<SaveResult state={state} />
+				{recording && <RemarkInput capture={capture} />}
 				<div className="flex items-center gap-2 border-t px-3 py-3">
 					<Clock state={state} />
 					<MicIndicator state={state} capture={capture} />
@@ -112,6 +123,28 @@ export function App({ capture }: { capture: Capture }) {
 				</div>
 			</div>
 		</TooltipProvider>
+	);
+}
+
+/** A line to type a remark into while recording; Enter sends it, marked as typed. */
+function RemarkInput({ capture }: { capture: Capture }) {
+	const [text, setText] = useState("");
+	return (
+		<form
+			className="shrink-0 border-t px-3 py-2"
+			onSubmit={(event) => {
+				event.preventDefault();
+				capture.remark(text);
+				setText("");
+			}}
+		>
+			<input
+				className="w-full rounded-md border bg-transparent px-2 py-1 text-sm outline-none focus:ring-1"
+				placeholder="Type a remark, press Enter"
+				value={text}
+				onChange={(event) => setText(event.target.value)}
+			/>
+		</form>
 	);
 }
 
@@ -173,7 +206,7 @@ function SaveResult({ state }: { state: PanelState }) {
 						});
 					}}
 				>
-					<Copy />
+					{copied ? <Check /> : <Copy />}
 					{copied ? "Copied" : "Copy"}
 				</Button>
 			</div>
@@ -261,29 +294,72 @@ function MicIndicator({
 			</Tooltip>
 		);
 	}
+	const muted = state.mic === "muted";
+	const locked = state.phase === "recording";
 	const bars = [0.6, 1, 0.75];
 	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<div className="flex h-8 items-center gap-1.5 rounded-md bg-secondary px-2.5 text-foreground">
-					<Mic className="size-4" />
-					<span className="flex h-3 items-end gap-0.5" aria-hidden>
-						{bars.map((share, index) => (
-							<span
-								key={index}
-								className="w-0.5 rounded-full bg-success transition-[height] duration-75"
-								style={{
-									height: `${Math.max(2, Math.round(Math.min(1, state.level * 2.5 * share) * 12))}px`,
-								}}
-							/>
-						))}
-					</span>
-				</div>
-			</TooltipTrigger>
-			<TooltipContent>
-				{state.mic === "on" ? "Mic on" : "Opening the mic…"}
-			</TooltipContent>
-		</Tooltip>
+		<DropdownMenu>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							disabled={locked}
+							className={cn(
+								"flex h-8 items-center gap-1.5 rounded-md bg-secondary px-2.5 disabled:cursor-default",
+								muted ? "text-muted-foreground" : "text-foreground",
+							)}
+						>
+							{muted ? (
+								<MicOff className="size-4" />
+							) : (
+								<Mic className="size-4" />
+							)}
+							{muted ? (
+								<span className="text-xs">Muted</span>
+							) : (
+								<span className="flex h-3 items-end gap-0.5" aria-hidden>
+									{bars.map((share, index) => (
+										<span
+											key={index}
+											className="w-0.5 rounded-full bg-success transition-[height] duration-75"
+											style={{
+												height: `${Math.max(2, Math.round(Math.min(1, state.level * 2.5 * share) * 12))}px`,
+											}}
+										/>
+									))}
+								</span>
+							)}
+							<ChevronUp className="size-3 opacity-60" />
+						</button>
+					</DropdownMenuTrigger>
+				</TooltipTrigger>
+				<TooltipContent>
+					{muted
+						? "Recording without audio: choose a microphone"
+						: (state.device ?? "Opening the mic…")}
+				</TooltipContent>
+			</Tooltip>
+			<DropdownMenuContent side="top" align="start">
+				<DropdownMenuLabel>Microphone</DropdownMenuLabel>
+				{state.devices.map((label) => (
+					<DropdownMenuItem
+						key={label}
+						onSelect={() => capture.chooseMic(label)}
+					>
+						<Check
+							className={cn(label !== state.device || muted ? "invisible" : "")}
+						/>
+						<span className="truncate">{label}</span>
+					</DropdownMenuItem>
+				))}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={() => capture.setMicEnabled(muted)}>
+					{muted ? <Mic /> : <MicOff />}
+					{muted ? "Unmute" : "Mute (record without audio)"}
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
@@ -321,6 +397,7 @@ const KINDS: Record<
 	SignalItem["kind"],
 	{ tone: keyof typeof TONES; icon: typeof Wifi }
 > = {
+	speech: { tone: "info", icon: Mic },
 	mark: { tone: "info", icon: StickyNote },
 	highlight: { tone: "info", icon: Highlighter },
 	"console-error": { tone: "error", icon: AlertTriangle },
@@ -334,7 +411,7 @@ const KINDS: Record<
 	"page-error": { tone: "error", icon: AlertTriangle },
 };
 
-/** One event: its thumbnail, a dot and title, one detail line and the time into the recording. */
+/** One event: its thumbnail, or its icon, with the time over a corner, then a dot and title and the detail. */
 function SignalRow({
 	item,
 	startedAt,
@@ -342,34 +419,95 @@ function SignalRow({
 	item: SignalItem;
 	startedAt: number;
 }) {
-	const { tone, icon: Icon } = KINDS[item.kind];
+	const { tone, icon } = KINDS[item.kind];
 	const secs = Math.max(0, Math.floor((item.at - startedAt) / 1000));
 	return (
-		<li className="flex h-16 items-center gap-3 px-3">
-			<div className="flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
-				{item.thumbnail ? (
-					<img src={item.thumbnail} alt="" className="size-full object-cover" />
+		<EventRow
+			icon={icon}
+			tone={tone}
+			title={item.title}
+			detail={item.detail}
+			thumbnail={item.thumbnail}
+			badge={`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`}
+			wrap={item.kind === "speech"}
+		/>
+	);
+}
+
+/** The words being said now, pinned above the events and shaped like one of them. */
+function SpeakingRow({ text }: { text: string }) {
+	return (
+		<EventRow
+			icon={Mic}
+			tone="error"
+			title="Listening"
+			detail={text}
+			badge="live"
+			wrap
+			live
+		/>
+	);
+}
+
+/** The one shape every row has: a box the size of a screenshot, with a badge in its corner. */
+function EventRow({
+	icon: Icon,
+	tone,
+	title,
+	detail,
+	thumbnail,
+	badge,
+	wrap,
+	live,
+}: {
+	icon: typeof Wifi;
+	tone: keyof typeof TONES;
+	title: string;
+	detail: string;
+	thumbnail?: string;
+	badge: string;
+	/** Let the detail run to three lines, for what was said. */
+	wrap?: boolean;
+	live?: boolean;
+}) {
+	return (
+		<li className="flex min-h-16 items-center gap-3 px-3 py-1.5">
+			<div className="relative flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
+				{thumbnail ? (
+					<img src={thumbnail} alt="" className="size-full object-cover" />
 				) : (
-					<Icon className="size-4 text-muted-foreground" />
+					<Icon
+						className={cn(
+							"size-4 text-muted-foreground",
+							live && "animate-pulse text-destructive",
+						)}
+					/>
 				)}
+				<span className="absolute right-0.5 bottom-0.5 rounded-sm bg-black/70 px-1 font-mono text-[10px] leading-4 tabular-nums text-foreground">
+					{badge}
+				</span>
 			</div>
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-1.5">
 					<span
-						className={cn("size-2 shrink-0 rounded-full", TONES[tone].dot)}
+						className={cn(
+							"size-2 shrink-0 rounded-full",
+							TONES[tone].dot,
+							live && "animate-pulse",
+						)}
 					/>
-					<span className="truncate text-sm font-medium">{item.title}</span>
+					<span className="truncate text-sm font-medium">{title}</span>
 				</div>
 				<p
-					className="truncate text-xs text-muted-foreground"
-					title={item.detail}
+					className={cn(
+						"text-xs text-muted-foreground",
+						wrap ? "line-clamp-3" : "truncate",
+					)}
+					title={detail}
 				>
-					{item.detail}
+					{detail}
 				</p>
 			</div>
-			<span className="font-mono text-xs tabular-nums text-muted-foreground">
-				{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}
-			</span>
 		</li>
 	);
 }

@@ -23,7 +23,7 @@ Read in this order, stopping when you know enough:
    with the top ones. With no `TYPESAFE_API_KEY` it ranks by code signals only
    and says so.
 2. `timeline.md`: the whole session in video time: narration (spoken lines,
-   or `remark:` for agent marks), clicks, route changes, alerts, and pointers
+   `remark:` for agent marks, `typed remark:` for what the person typed instead of saying), clicks, route changes, alerts, and pointers
    to `frames/` stills and `logs/*.log` by 10-second window (line numbers and
    error counts, not copies).
 3. `frames/`: stills cut at each click, highlight and mark. Open the ones a
@@ -36,6 +36,22 @@ Deeper only if needed: `moments.jsonl` (raw signals and answers),
 `noMic: true` means no transcript is expected), `recording.webm` (do not
 watch it). Logs are scrubbed, so a `[REDACTED:<NAME>]` is not a bug.
 `bin/rec moments <dir> --about "<text>"` re-ranks against a question.
+
+## Seeing a moment
+
+When you reference, or act on, a moment of a session (one from `moments.md`,
+a timeline line, or a time the person gave), look at it before you decide
+anything: do not guess from text alone. Cut the slice:
+
+    bin/rec slice <name> --moment <n>      # a ranked moment, whole span
+    bin/rec slice <name> --at 1:23         # video time: seconds or m:ss
+
+Both pad 5 s before and after (`--before`, `--after`), and print the paths
+(`--json` for a program): `slices/<time>/clip.mp4` (silent) and up to a dozen
+`shot-*.jpg` stills, one second apart, the one at the exact moment ending
+`-at.jpg`. Open the `-at` still first, then the neighbours to see what
+changed. Do not read `recording.webm` itself. When you hand a moment to
+another agent or the person, give the slice paths with it.
 
 ## Starting a recording
 

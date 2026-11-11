@@ -18,6 +18,7 @@ import {
 	type Named,
 	NamedChip,
 	NamedContext,
+	RecChip,
 	reading,
 	untrailed,
 } from "./mentioned";
@@ -65,6 +66,9 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 		const conversation = reading(named, sign, called);
 		if (conversation?.kind === "conversation") {
 			return { as: conversation.as, type: "conversation" };
+		}
+		if (conversation?.kind === "rec") {
+			return { as: conversation.as, type: "rec" };
 		}
 		const resolving =
 			sign === "@" ? named.resolving.paths : named.resolving.projects;
@@ -154,7 +158,7 @@ function Chip({
 		return <span className={CHIP}>/{label}</span>;
 	}
 	if (directiveType === "rec") {
-		return <span className={CHIP}>#{directiveId}</span>;
+		return <RecChip name={directiveId.replace(/^rec:/, "")} />;
 	}
 	if (directiveType === "attachment") {
 		return <AttachedChip name={directiveId} />;
@@ -188,7 +192,9 @@ function Chip({
 					? { file: target, name: names.get(target) }
 					: kind === "project"
 						? { project: target }
-						: { conversation: target }
+						: kind === "rec"
+							? { rec: target.replace(/^rec:/, "") }
+							: { conversation: target }
 			}
 		/>
 	);

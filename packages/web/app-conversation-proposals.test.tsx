@@ -184,7 +184,7 @@ describe("App's questions card under a proposal", () => {
 		]);
 	});
 
-	it("replies, approving nothing, once anything else is written", async () => {
+	it("replies, approving nothing, once anything else is written, with the agent's choices kept", async () => {
 		const { card } = await opened(proposing([]));
 
 		await typeIn(
@@ -196,7 +196,20 @@ describe("App's questions card under a proposal", () => {
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "Hold off on the menu" } },
+			{
+				method: "POST",
+				body: {
+					text: [
+						"> **Where should the header wrap?**",
+						"",
+						"- (a) Below 400px",
+						"",
+						"> **Anything else?**",
+						"",
+						"Hold off on the menu",
+					].join("\n"),
+				},
+			},
 		]);
 	});
 });

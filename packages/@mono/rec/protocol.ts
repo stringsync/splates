@@ -53,10 +53,18 @@ export type ToServer =
 	| { type: "stopped"; at: number; stats: RecorderStats }
 	| { type: "failed"; message: string }
 	/** The mic-off icon was clicked: open a tab that prompts for the mic. */
-	| { type: "open-mic-settings" };
+	| { type: "open-mic-settings" }
+	/** The person chose this mic (by label) in the panel; rec remembers it for the next launch. */
+	| { type: "mic-choice"; label: string }
+	/** The person typed a remark in the panel instead of saying it. */
+	| { type: "remark"; text: string }
+	/** A slice of the mic's audio while recording: 24 kHz mono 16-bit PCM, base64, for the live transcript. */
+	| { type: "audio"; pcm: string };
 
 export type ToControl =
 	| { type: "name"; name: string }
+	/** The mic chosen last time, by label, sent when the panel connects. */
+	| { type: "mic-choice"; label: string }
 	| { type: "stop" }
 	/** How many frames the server dropped because the window fell behind. */
 	| { type: "status"; dropped: number }
@@ -71,11 +79,13 @@ export type ToControl =
 			type: "signal";
 			/** Wall-clock ms. */
 			at: number;
-			kind: SignalKind;
+			kind: SignalKind | "speech";
 			title: string;
 			detail: string;
 			/** A JPEG of the page then, base64. */
 			thumbnail?: string;
 	  }
+	/** The words being said right now, so far; empty text clears the line. */
+	| { type: "speech-live"; text: string }
 	/** The mic prompt tab was opened. */
 	| { type: "mic-settings" };

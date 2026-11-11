@@ -186,6 +186,7 @@ interface TimelineEvent extends EventTarget {
 	area?: number[];
 	elements?: EventTarget[];
 	label?: string;
+	by?: "agent" | "person";
 }
 
 /** Pointers for the clicks, typing, routes, highlights and pauses in the text of an `events.jsonl`. */
@@ -218,7 +219,7 @@ export function eventPointers(text: string, startedAt: number): Pointer[] {
 			case "mark":
 				out.push({
 					at,
-					label: "remark:",
+					label: event.by === "person" ? "typed remark:" : "remark:",
 					text: `${event.label ?? ""}${still}`,
 				});
 				break;

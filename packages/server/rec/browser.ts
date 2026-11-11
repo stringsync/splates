@@ -3,6 +3,8 @@ export interface RecSource {
 	kind: "docker" | "file";
 	/** A container's name, or a file's path. */
 	name: string;
+	/** A container's Compose project, when it has one. */
+	project?: string;
 }
 
 /** What rec says about itself while it runs; the fields past `recording` come with newer rec. */
@@ -33,6 +35,8 @@ export interface RecState {
 	 */
 	here?: boolean;
 	status: RecStatus;
+	/** The Compose project of the folder this server runs in: its group is listed first. */
+	project?: string;
 	/** Running Docker containers; log files are the person's to add. */
 	sources: RecSource[];
 	/** Why Docker's containers could not be listed. */

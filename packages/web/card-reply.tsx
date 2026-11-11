@@ -53,6 +53,12 @@ const SentContext = createContext<string | null>(null);
 const AskedAgainContext = createContext(false);
 
 /**
+ * Whether the reply `SentContext` holds is still on its way, shown ahead of
+ * the server's word, which may yet refuse it.
+ */
+const UnconfirmedContext = createContext(false);
+
+/**
  * What a card answers through while the person has yet to reply to its
  * message, and once they have, the reply they sent. Neither outside a
  * conversation, nor once the agent asked again in a later message, which
@@ -97,11 +103,15 @@ export function InMessage({ children }: { children: ReactNode }): JSX.Element {
 			: state.thread.messages[state.message.index + 1 + after],
 	);
 	const sent = next?.role === "user" ? textOf(next) : null;
+	const unconfirmed =
+		next?.role === "user" && next.metadata.custom.sending != null;
 	return (
 		<SentContext value={sent}>
-			<AskedAgainContext value={next?.role === "assistant"}>
-				{children}
-			</AskedAgainContext>
+			<UnconfirmedContext value={unconfirmed}>
+				<AskedAgainContext value={next?.role === "assistant"}>
+					{children}
+				</AskedAgainContext>
+			</UnconfirmedContext>
 		</SentContext>
 	);
 }
@@ -206,12 +216,14 @@ export function useKept(
 	before: string[] = [],
 ): { read(): string; write(text: string): void } {
 	const drafts = useContext(ReplyContext)?.drafts ?? null;
-	// Sent, from the card or the composer: nothing is left to keep.
+	const unconfirmed = useContext(UnconfirmedContext);
+	// Sent, from the card or the composer, and the server has it: nothing is
+	// left to keep. Until then a refusal still needs the answers.
 	useEffect(() => {
-		if (sent !== null && name !== null) {
+		if (sent !== null && !unconfirmed && name !== null) {
 			drafts?.write(name, "");
 		}
-	}, [sent, name, drafts]);
+	}, [sent, unconfirmed, name, drafts]);
 	return {
 		read: () => {
 			if (name === null || drafts === null) {

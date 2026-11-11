@@ -31,7 +31,9 @@ const STATUS = z.object({
 });
 
 const SOURCES = z.object({
-	containers: z.array(z.object({ name: z.string() })),
+	containers: z.array(
+		z.object({ name: z.string(), project: z.string().optional() }),
+	),
 	error: z.string().optional(),
 });
 
@@ -53,6 +55,11 @@ const OPEN = z.object({
  */
 const RECORDING_COMMAND =
 	/(^|[ /])rec(\/packages\/rec\/index\.ts)?( record)?( --.*)?$/;
+
+/** The name Compose gives a project that lives in `cwd`. */
+function composeProject(cwd: string): string {
+	return (cwd.split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
 
 export class Rec {
 	readonly #ps: Ps;
@@ -101,12 +108,17 @@ export class Rec {
 		return {
 			available: true,
 			host,
+			project: composeProject(this.#ps.cwd()),
 			status: parsed.success
 				? (parsed.data satisfies RecStatus)
 				: { running: false },
 			sources: listed?.success
 				? listed.data.containers.map(
-						(box): RecSource => ({ kind: "docker", name: box.name }),
+						(box): RecSource => ({
+							kind: "docker",
+							name: box.name,
+							...(box.project ? { project: box.project } : {}),
+						}),
 					)
 				: [],
 			...(listed?.success && listed.data.error

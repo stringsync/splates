@@ -16,7 +16,8 @@ it("opens on the planner, with a History row naming the runs kept", async () => 
 			onOpen={() => {}}
 		/>,
 	);
-	const row = view.getByRole("link", { name: /^History/ });
+	expect(view.queryByRole("link", { name: /^History/ })).toBeNull();
+	const row = await view.findByRole("link", { name: /^History/ });
 	expect(row.getAttribute("href")).toBe("#evals/history");
 	await waitFor(() => expect(row.textContent).toContain("1 run · last"));
 	expect(view.queryByRole("tab")).toBeNull();

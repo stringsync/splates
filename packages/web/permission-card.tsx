@@ -25,7 +25,11 @@ import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
 import { EvalsCard } from "./evals-card";
-import { type SnapshotExpecter, useExpectSnapshot } from "./expecting";
+import {
+	type SnapshotExpecter,
+	useExpectSnapshot,
+	usePendingSnapshot,
+} from "./expecting";
 import { GrantCard } from "./grant-card";
 import { NavigationContext, useShownProject } from "./navigation";
 import { placeKey } from "./project-places";
@@ -261,6 +265,7 @@ export function OwnQueueCard({
 }): JSX.Element {
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
+	const settling = usePendingSnapshot();
 	const work = new QueueWork(proposal, board);
 	const { name, todos } = work;
 	const whole = proposal.lane !== null;
@@ -284,6 +289,7 @@ export function OwnQueueCard({
 				failed: "Not queued",
 			}}
 			done={work.queued}
+			settling={settling}
 			gone={work.gone ? "No longer on the board" : null}
 			note={
 				whole ? "Each task starts once what it is blocked by lands." : undefined

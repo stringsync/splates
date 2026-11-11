@@ -11,6 +11,19 @@ const named = {
 };
 
 describe("linkNamed", () => {
+	it("links a #rec: reference, before a comma too, and reads it back", () => {
+		const linked = linkNamed(
+			"Take a look at #rec:happy-amber-otter, ok",
+			named,
+		);
+		expect(linked).toBe(
+			"Take a look at [#rec:happy-amber-otter](#rec/happy-amber-otter), ok",
+		);
+		expect(namedIn("#rec/happy-amber-otter")).toEqual({
+			rec: "happy-amber-otter",
+		});
+	});
+
 	it("leaves unknown names as text and links a file in the tree", () => {
 		expect(linkNamed("fix #player in @src/a.ts", named)).toBe(
 			"fix #player in [@src/a.ts](#file=src%2Fa.ts&name=a.ts)",

@@ -26,6 +26,12 @@ const LISTENING = /Listening on (http:\/\/\S+)/;
 /** How much of the MCP's output is kept to explain how it died. */
 const OUTPUT_CHARS = 2_000;
 
+/** How long the remembered proxy port is retried when taken, such as by a splates still shutting down. */
+const PORT_WAIT = Duration.secs(10);
+
+/** How often the remembered proxy port is retried. */
+const PORT_RETRY = Duration.ms(500);
+
 /**
  * The MCP servers each agent session is offered, beyond its own.
  */
@@ -165,7 +171,18 @@ export class SharedBrowser implements SessionServers, AsyncResource {
 				return null;
 			}
 		};
-		const server = (remembered === null ? null : bind(remembered)) ?? bind(0);
+		let server = remembered === null ? null : bind(remembered);
+		for (
+			let waited = 0;
+			server === null && remembered !== null && waited < PORT_WAIT.ms;
+			waited += PORT_RETRY.ms
+		) {
+			await new Promise<void>((resolve) => {
+				this.deps.timer.setTimeout(resolve, PORT_RETRY);
+			});
+			server = bind(remembered);
+		}
+		server ??= bind(0);
 		if (server === null) {
 			log.error(
 				"the shared browser proxy could not listen, so sessions keep the browser's own URL, which dies with it",

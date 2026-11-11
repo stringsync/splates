@@ -94,8 +94,10 @@ export function AppNav({
 			key={value}
 			value={value === navPage(page) ? page : value}
 			onClick={() => {
-				if (value === "boards") {
-					onPage("boards");
+				// A tab for the page already open fires no change, so Rec, whose
+				// History and sessions sit under it, goes back to its start here.
+				if (value === "boards" || (value === "rec" && page === "rec")) {
+					onPage(value);
 				}
 			}}
 			aria-current={value === navPage(page) ? "page" : undefined}

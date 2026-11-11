@@ -38,7 +38,7 @@ export function BlockedPanel({
 		<section
 			role="alert"
 			aria-label="Blocked"
-			className="flex flex-col gap-3 rounded-2xl border border-warning/50 bg-warning/10 p-4"
+			className="mb-3 flex flex-col gap-3 rounded-2xl border border-warning/50 bg-warning/10 p-4"
 		>
 			<div className="flex items-start gap-3">
 				<TriangleAlertIcon
@@ -54,7 +54,7 @@ export function BlockedPanel({
 				<ul className="flex flex-col gap-1.5 rounded-lg bg-background/60 p-2">
 					{waits.map((wait) => (
 						<li key={wait.id} className="flex items-center gap-2 px-1 text-sm">
-							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+							<span className="min-w-0 truncate text-muted-foreground text-xs tabular-nums">
 								{wait.label}
 							</span>
 							<span className="min-w-0 flex-1 truncate">{wait.subject}</span>

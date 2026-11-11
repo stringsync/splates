@@ -1,6 +1,11 @@
 import { Disposer, type Resource } from "core/disposable";
 import type { Fs, Ps } from "core/system";
-import { followContainer, listContainers, selectContainers } from "./docker";
+import {
+	type Container,
+	followContainer,
+	listContainers,
+	selectContainers,
+} from "./docker";
 import { LogWriter } from "./log-writer";
 import type { Scrubber } from "./scrub";
 import { fileSafe, sourceLine } from "./sources";
@@ -15,6 +20,8 @@ export interface ExtraLogsOptions {
 	now: () => number;
 	/** `--docker`'s value: "true" for a bare flag, else ids or names. */
 	docker?: string;
+	/** Called with a problem that does not stop the recording. */
+	onNote?: (text: string) => void;
 	/** Each `--tail` value. */
 	tails: string[];
 	/** Called with each scrubbed line and the file it goes to. */
@@ -64,13 +71,16 @@ export class ExtraLogs implements Resource {
 
 	private async open(options: ExtraLogsOptions): Promise<void> {
 		if (options.docker !== undefined) {
-			const containers = selectContainers(
-				await listContainers(options.ps),
-				options.docker,
-				options.ps.cwd(),
-			);
-			if (containers.length === 0) {
-				throw new Error("--docker: no containers are running");
+			// Docker being down, or a named container not running, must not stop the recording.
+			let containers: Container[] = [];
+			try {
+				containers = selectContainers(
+					await listContainers(options.ps),
+					options.docker,
+					options.ps.cwd(),
+				);
+			} catch (error) {
+				options.onNote?.(`docker logs: ${(error as Error).message}`);
 			}
 			for (const container of containers) {
 				const name = `docker:${container.name}`;

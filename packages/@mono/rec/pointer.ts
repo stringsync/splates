@@ -236,8 +236,8 @@ export class PointerEvents implements Resource {
 	}
 
 	/** Writes an agent's remark as a `mark` event at `at`, with a still of the screen then. */
-	mark(at: number, label: string): void {
-		this.record({ at, type: "mark", label, by: "agent" });
+	mark(at: number, label: string, by: "agent" | "person" = "agent"): void {
+		this.record({ at, type: "mark", label, by });
 	}
 
 	/** Resolves once every event seen so far, and its still, is on disk. */

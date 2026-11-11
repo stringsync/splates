@@ -70,7 +70,16 @@ export function Overview({
 				<p className="text-muted-foreground">Its SPLATES.md has no Goal yet.</p>
 			) : (
 				<>
-					{record !== null && <BeforeAfter record={record} />}
+					{record !== null && (
+						<BeforeAfter
+							record={record}
+							className={
+								plan.verification !== "" || plan.steps !== ""
+									? "pb-5"
+									: undefined
+							}
+						/>
+					)}
 					{plan.verification !== "" && (
 						<CardSection label="verification" title="Verification">
 							<Markdown text={plan.verification} />

@@ -69,4 +69,37 @@ describe("SharedBrowser", () => {
 
 		expect(ps.getChildren()[0]?.signals).toEqual(["SIGTERM"]);
 	});
+	it("waits for the remembered proxy port to free up instead of moving to another", async () => {
+		await browser.disposeAsync();
+		const held = Bun.listen({
+			hostname: "127.0.0.1",
+			port: 0,
+			socket: { data() {} },
+		});
+		const port = held.port;
+		await fs.write("/home/.splates/playwright-proxy.port", String(port));
+		const timer = new FakeTimer();
+		const ps2 = new FakePs();
+		browser = new SharedBrowser(
+			{ ps: ps2, fs, timer, log: new MemoryLogger() },
+			"/home/.splates",
+		);
+
+		const asked = browser.servers();
+		(await served(ps2))?.print(
+			`Listening on http://localhost:${backend.port}\nPut this in your client config:\n`,
+		);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		held.stop(true);
+		timer.fireTimeouts();
+
+		expect(await asked).toEqual([
+			{
+				type: "http",
+				name: "playwright",
+				url: `http://127.0.0.1:${port}/mcp`,
+				headers: [],
+			},
+		]);
+	});
 });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, onTestFinished } from "bun:test";
 import {
 	act,
 	cleanup,
@@ -110,4 +110,42 @@ it("adds a lane to the board being viewed", async () => {
 		method: "POST",
 		body: JSON.stringify({ name: "Ops", board: 2 }),
 	});
+});
+
+it("returns to Rec's start from its history when the Rec tab is clicked", async () => {
+	const fetched = globalThis.fetch;
+	globalThis.fetch = ((
+		input: Parameters<typeof fetch>[0],
+		init?: RequestInit,
+	) => {
+		const url = String(input);
+		if (url.startsWith("/api/rec/sessions")) {
+			return Promise.resolve(Response.json({ sessions: [], totalSize: 0 }));
+		}
+		if (url === "/api/rec") {
+			return Promise.resolve(
+				Response.json({
+					available: false,
+					here: true,
+					host: "here",
+					status: { running: false },
+					sources: [],
+				}),
+			);
+		}
+		return fetched(input, init);
+	}) as typeof fetch;
+	onTestFinished(() => {
+		globalThis.fetch = fetched;
+	});
+	const view = testing.render({});
+	const tab = await waitFor(() => view.getByRole("tab", { name: /^Rec/ }));
+	await act(async () => fireEvent.click(tab));
+	await waitFor(() => expect(location.hash).toBe("#rec"));
+	await act(async () => {
+		location.hash = "rec/history";
+	});
+	await waitFor(() => expect(location.hash).toBe("#rec/history"));
+	await act(async () => fireEvent.click(tab));
+	await waitFor(() => expect(location.hash).toBe("#rec"));
 });
