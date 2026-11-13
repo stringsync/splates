@@ -103,7 +103,10 @@ export function AppNav({
 				}
 				// With a ship under way, the Ship tab opens it rather than the planner.
 				if (value === "ships" && hasActiveShip(reading, acknowledged)) {
-					location.hash = "ships/active";
+					// After the tab's own move to the planner, which would otherwise win.
+					queueMicrotask(() => {
+						location.hash = "ships/active";
+					});
 				}
 			}}
 			aria-current={value === navPage(page) ? "page" : undefined}

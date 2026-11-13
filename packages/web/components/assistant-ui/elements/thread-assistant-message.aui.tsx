@@ -26,7 +26,6 @@ import {
 	ToolGroupRoot,
 	ToolGroupTrigger,
 } from "#web/components/assistant-ui/elements/tool-group.aui.tsx";
-import { Quotable } from "#web/quote-selection.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SAID, type Work } from "#web/work.ts";
 
@@ -142,11 +141,7 @@ export const AssistantMessage: FC = () => {
 								);
 							}
 							case "text":
-								return (
-									<Quotable>
-										<MarkdownText />
-									</Quotable>
-								);
+								return <MarkdownText />;
 							case "reasoning":
 								return <Reasoning {...part} />;
 							case "tool-call":

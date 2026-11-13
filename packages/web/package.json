@@ -1,6 +1,6 @@
 {
 	"name": "@splates/web",
-	"version": "2.0.8",
+	"version": "2.0.9",
 	"private": true,
 	"type": "module",
 	"imports": {
@@ -39,6 +39,7 @@
 		"lexical": "^0.52.0",
 		"lucide-react": "^1.49.0",
 		"markdown-to-jsx": "^9.10.3",
+		"photoswipe": "^5.4.4",
 		"radix-ui": "^1.7.0",
 		"react": "catalog:",
 		"react-dom": "catalog:",

@@ -12,11 +12,11 @@
     },
     "packages/@evals/evals": {
       "name": "@evals/evals",
-      "version": "2.0.8",
+      "version": "2.0.9",
     },
     "packages/@mono/rec": {
       "name": "@mono/rec",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@tailwindcss/oxide": "^4.3.3",
         "class-variance-authority": "^0.7.1",
@@ -38,7 +38,7 @@
     },
     "packages/core": {
       "name": "core",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },
@@ -54,7 +54,7 @@
     },
     "packages/evals": {
       "name": "@splates/evals",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@splates/server": "workspace:*",
@@ -66,7 +66,7 @@
     },
     "packages/server": {
       "name": "@splates/server",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
         "@evals/evals": "workspace:*",
@@ -79,7 +79,7 @@
     },
     "packages/splates": {
       "name": "@stringsync/splates",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "bin": {
         "splates": "./index.ts",
         "arbor": "./index.ts",
@@ -98,7 +98,7 @@
     },
     "packages/tooling": {
       "name": "@splates/tooling",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@splates/server": "workspace:*",
       },
@@ -108,7 +108,7 @@
     },
     "packages/web": {
       "name": "@splates/web",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@splates/server": "workspace:*",
         "core": "workspace:*",
@@ -142,6 +142,7 @@
         "lexical": "^0.52.0",
         "lucide-react": "^1.49.0",
         "markdown-to-jsx": "^9.10.3",
+        "photoswipe": "^5.4.4",
         "radix-ui": "^1.7.0",
         "react": "catalog:",
         "react-dom": "catalog:",
@@ -155,7 +156,7 @@
     },
     "skills/splates/evals": {
       "name": "@splates/skill-evals",
-      "version": "2.0.8",
+      "version": "2.0.9",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@splates/server": "workspace:*",
@@ -729,6 +730,8 @@
     "nanoid": ["nanoid@6.0.2", "", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-hIvVOb9Qr1p/9CNNLOe0OlWvgx/ziTsVwKN/GDSsuArN2K0wDiafP3s0SWmsm7o2BdnyS8Z9Z64NFBUbn6ziBg=="],
 
     "parse-entities": ["parse-entities@4.0.2", "", { "dependencies": { "@types/unist": "^2.0.0", "character-entities-legacy": "^3.0.0", "character-reference-invalid": "^2.0.0", "decode-named-character-reference": "^1.0.0", "is-alphanumerical": "^2.0.0", "is-decimal": "^2.0.0", "is-hexadecimal": "^2.0.0" } }, "sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw=="],
+
+    "photoswipe": ["photoswipe@5.4.4", "", {}, "sha512-WNFHoKrkZNnvFFhbHL93WDkW3ifwVOXSW3w1UuZZelSmgXpIGiZSNlZJq37rR8YejqME2rHs9EhH9ZvlvFH2NA=="],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 

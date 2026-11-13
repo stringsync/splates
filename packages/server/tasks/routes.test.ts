@@ -139,6 +139,38 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("serves an original queued image URL after its task ends", async () => {
+		const queued = await deps.tasks.add("look", null, {
+			files: [{ name: "before.jpg", bytes: new Uint8Array([7, 8]) }],
+		});
+		const [shot = ""] = queued.files;
+		await add(deps, "alpha", { tasks: [queued.id] });
+		await deps.fs.write(
+			`${(await deps.service.find("alpha")).path}/SPLATES.md`,
+			`## Before\n\n![before](${shot})`,
+		);
+		await remove(deps, "alpha");
+		expect(await deps.fs.exists(shot)).toBe(false);
+
+		await serving(deps, async (_snapshot, port) => {
+			const file = (path: string) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
+				);
+			const response = await file(shot);
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toBe("image/jpeg");
+			expect(new Uint8Array(await response.arrayBuffer())).toEqual(
+				new Uint8Array([7, 8]),
+			);
+			expect(
+				(await file(shot.replace(`/${queued.id}/`, `/${queued.id + 1}/`)))
+					.status,
+			).toBe(404);
+			expect((await file(shot.replace(".jpg", ".missing"))).status).toBe(404);
+		});
+	});
+
 	it("serves a file a task holds in parts, but never its record", async () => {
 		await add(deps, "alpha");
 		const [clip = ""] =

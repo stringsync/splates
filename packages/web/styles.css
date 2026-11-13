@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "./shadcn.css";
 @import "tw-shimmer";
+@import "photoswipe/dist/photoswipe.css";
 @import "@xterm/xterm/css/xterm.css";
 
 /* Tailwind only emits the utilities it can actually see, and its automatic
@@ -296,4 +297,14 @@
 }
 ::view-transition-new(root) {
 	animation: none;
+}
+
+/* PhotoSwipe supplies gestures inside Base UI's full-screen dialog. */
+.splates-image-viewer .pswp {
+	position: absolute;
+	z-index: 0;
+}
+
+.splates-image-viewer .pswp:not(.pswp--zoomed-in) .pswp__img {
+	cursor: default;
 }

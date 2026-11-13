@@ -210,10 +210,20 @@ rec
 		};
 		const interrupted = new AbortController();
 		const sigint = Promise.withResolvers<void>();
-		const signal = deps.ps.on("SIGINT", () => {
-			interrupted.abort();
-			sigint.resolve();
-		});
+		// A killed or hung-up rec must close its Chrome too, or the orphan holds the profile and the next start finds no DevTools port.
+		const handlers = ["SIGINT", "SIGTERM", "SIGHUP"].map((name) =>
+			deps.ps.on(name, () => {
+				interrupted.abort();
+				sigint.resolve();
+			}),
+		);
+		const signal = {
+			dispose: () => {
+				for (const handler of handlers) {
+					handler.dispose();
+				}
+			},
+		};
 		const session = await openSession(
 			deps,
 			{ next: () => freshDir(deps, opts.out) },

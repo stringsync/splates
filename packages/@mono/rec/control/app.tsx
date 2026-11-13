@@ -38,6 +38,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "./components/ui/tooltip";
+import { LevelMeter } from "./level-meter";
 import { cn } from "./lib/utils";
 
 const wall = new SystemWallClock();
@@ -96,30 +97,35 @@ export function App({ capture }: { capture: Capture }) {
 				)}
 				<SaveResult state={state} />
 				{recording && <RemarkInput capture={capture} />}
-				<div className="flex items-center gap-2 border-t px-3 py-3">
-					<Clock state={state} />
-					<MicIndicator state={state} capture={capture} />
-					<LaserIndicator state={state} />
-					{recording || state.phase === "starting" ? (
-						<Button
-							className="ml-auto rounded-full"
-							variant="secondary"
-							disabled={!recording}
-							onClick={() => void capture.stop()}
-						>
-							<Square className="size-3 fill-destructive text-destructive" />
-							Stop
-						</Button>
-					) : (
-						<Button
-							className="ml-auto rounded-full"
-							variant="destructive"
-							onClick={() => capture.start()}
-						>
-							<Circle className="size-3 fill-current" />
-							Start
-						</Button>
+				<div className="border-t">
+					{state.mic !== "none" && state.mic !== "off" && (
+						<LevelMeter level={state.level} className="mx-3 mt-3" />
 					)}
+					<div className="flex items-center gap-2 px-3 py-3">
+						<Clock state={state} />
+						<MicIndicator state={state} capture={capture} />
+						<LaserIndicator state={state} />
+						{recording || state.phase === "starting" ? (
+							<Button
+								className="ml-auto rounded-full"
+								variant="secondary"
+								disabled={!recording}
+								onClick={() => void capture.stop()}
+							>
+								<Square className="size-3 fill-destructive text-destructive" />
+								Stop
+							</Button>
+						) : (
+							<Button
+								className="ml-auto rounded-full"
+								variant="destructive"
+								onClick={() => capture.start()}
+							>
+								<Circle className="size-3 fill-current" />
+								Start
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
 		</TooltipProvider>
@@ -258,7 +264,7 @@ function Clock({ state }: { state: PanelState }) {
 	);
 }
 
-/** The mic: its level while it is open; red and a way to Settings when it is not. */
+/** The mic button and its menu, whose level meter shows the chosen mic; red and a way to Settings when it is not. */
 function MicIndicator({
 	state,
 	capture,
@@ -296,7 +302,6 @@ function MicIndicator({
 	}
 	const muted = state.mic === "muted";
 	const locked = state.phase === "recording";
-	const bars = [0.6, 1, 0.75];
 	return (
 		<DropdownMenu>
 			<Tooltip>
@@ -315,21 +320,7 @@ function MicIndicator({
 							) : (
 								<Mic className="size-4" />
 							)}
-							{muted ? (
-								<span className="text-xs">Muted</span>
-							) : (
-								<span className="flex h-3 items-end gap-0.5" aria-hidden>
-									{bars.map((share, index) => (
-										<span
-											key={index}
-											className="w-0.5 rounded-full bg-success transition-[height] duration-75"
-											style={{
-												height: `${Math.max(2, Math.round(Math.min(1, state.level * 2.5 * share) * 12))}px`,
-											}}
-										/>
-									))}
-								</span>
-							)}
+							{muted && <span className="text-xs">Muted</span>}
 							<ChevronUp className="size-3 opacity-60" />
 						</button>
 					</DropdownMenuTrigger>
@@ -342,6 +333,7 @@ function MicIndicator({
 			</Tooltip>
 			<DropdownMenuContent side="top" align="start">
 				<DropdownMenuLabel>Microphone</DropdownMenuLabel>
+				<LevelMeter level={muted ? 0 : state.level} className="mx-2 mb-2" />
 				{state.devices.map((label) => (
 					<DropdownMenuItem
 						key={label}

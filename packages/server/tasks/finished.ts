@@ -36,12 +36,11 @@ export interface FinishedPlan extends FinishedTask {
 }
 
 /**
- * Every task that has finished in a repo, newest kept, in
- * `.git/splates/finished/<key>.md`: its facts as front matter and the
- * `SPLATES.md` it ended on as the body, so the page can show what it did
- * once its tree and record are gone. The attached files that plan shows are
- * copied into `.git/splates/finished/<key>/` and the plan pointed at them,
- * so its screenshots outlive the conversation or task that held them.
+ * Keeps what a finished task did so the page can still show it: the
+ * `SPLATES.md` it ended on, and every screenshot or recording it attached,
+ * whether or not that plan shows it. Record a task with `record`; read it
+ * back with `list` and `read`, and find a vanished attached file's copy with
+ * `copyOf`. Only the newest tasks up to the capacity are kept.
  */
 export class Finished {
 	private readonly records: Collection;
@@ -67,10 +66,12 @@ export class Finished {
 	async record(
 		finished: Omit<FinishedPlan, "key" | "hasDemo">,
 		attached: (path: string) => boolean = () => false,
+		/** Attached files the task held, kept whether or not the plan names them. */
+		held: string[] = [],
 	): Promise<void> {
 		const key = `${finished.id}-${Date.parse(finished.endedAt) || 0}`;
 		const { plan: ended, ...facts } = finished;
-		const plan = await this.keep(key, ended, attached);
+		const plan = await this.keep(key, ended, attached, held);
 		await this.records.write(
 			recordName(key),
 			encodeTask({ ...facts, key, text: plan }),
@@ -105,9 +106,28 @@ export class Finished {
 		key: string,
 		plan: string,
 		attached: (path: string) => boolean,
+		held: string[] = [],
 	): Promise<string> {
 		const kept = new Map<string, string>();
 		const taken = new Set<string>();
+		const named = new Set(plan.match(PATH) ?? []);
+		// Files a reply showed but the plan does not name keep by name, so
+		// `copyOf` can find them once the old path is gone.
+		for (const path of held) {
+			if (named.has(path)) {
+				continue;
+			}
+			const bytes = await this.fs.readBytes(path).catch(() => null);
+			if (bytes === null) {
+				continue;
+			}
+			let name = basename(path);
+			for (let copies = 2; taken.has(name); copies++) {
+				name = `${copies}-${basename(path)}`;
+			}
+			taken.add(name);
+			await this.storage.collection(this.filesKey(key)).writeBytes(name, bytes);
+		}
 		for (const named of new Set(plan.match(PATH) ?? [])) {
 			const path = movedPath(named);
 			if (!attached(path)) {
@@ -132,6 +152,27 @@ export class Finished {
 		return kept.size === 0
 			? plan
 			: plan.replace(PATH, (named) => kept.get(named) ?? named);
+	}
+
+	/**
+	 * Where the copy of a file `task` held now is, by started task name or
+	 * numbered board task, so a reply naming its old path still shows it.
+	 */
+	async copyOf(task: string | number, name: string): Promise<string | null> {
+		const entries = (await this.list())
+			.filter((each) =>
+				typeof task === "string"
+					? each.task === task
+					: each.took.some((taken) => taken.id === task),
+			)
+			.sort((later, earlier) => earlier.endedAt.localeCompare(later.endedAt));
+		for (const { key } of entries) {
+			const copy = `${this.dir}/${key}/${name}`;
+			if (await this.fs.exists(copy)) {
+				return copy;
+			}
+		}
+		return null;
 	}
 
 	private filesKey(key: string): string {

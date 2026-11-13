@@ -140,7 +140,7 @@ export async function attach(
 				? []
 				: [
 						"",
-						`Paste the image Markdown below into your reply (outside a code block) and into SPLATES.md under ## After. A tool preview or plain path is not visible to the user. ${conversation === undefined ? "They go when the task merges or is removed, but a copy of each its SPLATES.md shows stays with its finished record." : "They stay with the conversation."}`,
+						`Paste the image Markdown below into your reply (outside a code block) and into SPLATES.md under ## After. A tool preview or plain path is not visible to the user. ${conversation === undefined ? "They go when the task merges or is removed, but a copy of each stays with its finished record." : "They stay with the conversation."}`,
 						...stored.map(
 							(path) => `![${basename(path).replace(/[[\]]/g, "")}](<${path}>)`,
 						),

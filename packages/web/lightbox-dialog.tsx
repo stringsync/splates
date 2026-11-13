@@ -19,10 +19,9 @@ const LIGHT = "text-white hover:bg-white/15 hover:text-white";
 const SVG = /\.svg$/i;
 
 /**
- * A screenshot or recording at the size of the window over a dimmed page,
- * with its caption, and arrows to the others of its document. An image zooms
- * in with a pinch, a double tap or ctrl and the wheel, and pans natively. Escape, the close button, or a
- * click off the media closes it.
+ * Full-screen screenshots and recordings with captions, gallery navigation and
+ * markup. On phones, images open enlarged and can be panned or pinched;
+ * Fit image shows the overview. Escape or the close button returns to the page.
  */
 export function Lightbox({
 	items,
@@ -96,7 +95,10 @@ export function Lightbox({
 								onClose();
 							}
 						}}
-						className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-hidden p-14 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+						className={cn(
+							"fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+							shown?.video ? "gap-3 p-14" : "p-0",
+						)}
 					>
 						{shown && (
 							<>
@@ -121,7 +123,13 @@ export function Lightbox({
 										className="min-h-0 flex-1"
 									/>
 								)}
-								<div className="flex max-w-full items-center gap-3 text-sm text-white/80">
+								<div
+									className={cn(
+										"flex max-w-full items-center gap-3 text-sm text-white/80",
+										!shown.video &&
+											"pointer-events-none absolute inset-x-0 bottom-0 z-10 justify-center bg-black/60 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+									)}
+								>
 									{shown.alt && <span className="truncate">{shown.alt}</span>}
 									{many && (
 										<span className="shrink-0 tabular-nums text-white/60">
@@ -129,7 +137,7 @@ export function Lightbox({
 										</span>
 									)}
 								</div>
-								<div className="absolute top-3 right-3 flex gap-1">
+								<div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] z-10 flex gap-1 rounded-md bg-black/60">
 									{markable && (
 										<Button
 											variant="ghost"
@@ -174,7 +182,7 @@ export function Lightbox({
 											aria-label="previous"
 											onClick={() => step(-1)}
 											className={cn(
-												"absolute top-1/2 left-2 -translate-y-1/2",
+												"absolute z-10 size-11 bg-black/60 top-1/2 left-2 -translate-y-1/2",
 												LIGHT,
 											)}
 										>
@@ -186,7 +194,7 @@ export function Lightbox({
 											aria-label="next"
 											onClick={() => step(1)}
 											className={cn(
-												"absolute top-1/2 right-2 -translate-y-1/2",
+												"absolute z-10 size-11 bg-black/60 top-1/2 right-2 -translate-y-1/2",
 												LIGHT,
 											)}
 										>

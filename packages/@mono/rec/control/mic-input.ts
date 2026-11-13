@@ -8,7 +8,7 @@ export interface MicInput {
 
 const timer = new SystemTimer();
 
-/** Opens the mic with this id (else Chrome's default), calling `onLevel` with its loudness, 0 to 1, as it comes. */
+/** Opens the mic with this id (else Chrome's default), calling `onLevel` with its peak loudness over the last 50 ms, 0 to 1, as it comes. */
 export async function openMicInput(
 	deviceId: string | undefined,
 	onLevel: (level: number) => void,
@@ -30,11 +30,11 @@ export async function openMicInput(
 	const samples = new Float32Array(analyser.fftSize);
 	const ticking = timer.setInterval(() => {
 		analyser.getFloatTimeDomainData(samples);
-		let sum = 0;
+		let peak = 0;
 		for (const sample of samples) {
-			sum += sample * sample;
+			peak = Math.max(peak, Math.abs(sample));
 		}
-		onLevel(Math.sqrt(sum / samples.length));
+		onLevel(peak);
 	}, Duration.ms(50));
 	const pcm = onPcm ? await tapPcm(stream, onPcm) : undefined;
 	return {

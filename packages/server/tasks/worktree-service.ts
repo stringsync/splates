@@ -302,6 +302,13 @@ export class WorktreeService {
 		const ending = await this.ending(worktree, opts);
 		const plan = await this.finalPlan(worktree);
 		const record = await this.records.ending(worktree.task);
+		const held = (
+			await Promise.all(
+				(await this.filesOf(worktree.task)).map((each) => each.held()),
+			)
+		)
+			.flat()
+			.map((file) => file.path);
 		const removed = await this.worktrees.remove(worktree.path, worktree.branch);
 		if (removed.code !== 0) {
 			return removed;
@@ -325,6 +332,7 @@ export class WorktreeService {
 				},
 				// Copied before the task's own folder goes with its record.
 				(path) => this.owns(path) || this.queued(path),
+				held,
 			);
 		}
 		await this.records.end(worktree.task, { unqueue: opts.unqueue });

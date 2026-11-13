@@ -392,10 +392,7 @@ export class MergeGate {
 						command ?? "",
 						cwd,
 						shellOptions(
-							Math.max(
-								1,
-								Math.floor(timeoutMs - (performance.now() - started)),
-							),
+							Math.max(1, Math.ceil(timeoutMs - (performance.now() - started))),
 						),
 					);
 		const ranMs = performance.now() - started;

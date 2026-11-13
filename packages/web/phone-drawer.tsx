@@ -67,7 +67,10 @@ export function Drawer({
 		);
 		// With a ship under way, Ship opens it rather than the planner.
 		if (to === "ships" && hasActiveShip(ship, acknowledged)) {
-			location.hash = "ships/active";
+			// After the move to the planner above, which would otherwise win.
+			queueMicrotask(() => {
+				location.hash = "ships/active";
+			});
 		}
 		onOpenChange(false);
 	};

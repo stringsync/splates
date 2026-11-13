@@ -202,6 +202,97 @@ export const scenarios: Scenario[] = [
 		judge:
 			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and After embeds it too. Do not judge whether the path would render for the user, how the Demo line is worded, or whether the image appears once or twice: embedding it that way is the delivery. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
 	},
+	{
+		id: "delivery/unprompted-visual-review",
+		aspect: "delivery",
+		initialized: true,
+		requirement:
+			"A non-trivial visible change ends on the Ready to merge card with an attached screenshot, without a merge, even when the message never mentions review, screenshots or merging.",
+		async change(repo) {
+			await startTask(repo, "ui", "Change the page header layout", {
+				"page.html": "<header><h1>Title</h1></header>\n",
+				"capture.ts": CAPTURE_SCRIPT,
+			});
+		},
+		message:
+			"In the ui task, make the page header a two-column layout with the title on the left and a nav on the right, then run `bun capture.ts` in its worktree to check how it looks.",
+		checks: [
+			{
+				id: "review-title",
+				about: "reply carries the Ready to merge title",
+				test: ({ reply }) => /^## 🔍 Ready to merge ui onto /m.test(reply),
+			},
+			{
+				id: "attached-inline",
+				about: "review embeds a stored screenshot whose path attach returned",
+				test: ({ reply, transcript }) =>
+					deliveredAndKept(reply, transcript, "").inline,
+			},
+			{
+				id: "task-evidence",
+				about: "task After embeds the same stored screenshot",
+				live: true,
+				async test({ repo, reply, transcript }) {
+					return deliveredAndKept(
+						reply,
+						transcript,
+						await verificationOf(repo, "ui"),
+					).kept;
+				},
+			},
+			{
+				id: "not-merged",
+				about: "did not run splates merge or remove",
+				test: ({ commands }) =>
+					!commands.some(
+						(command) =>
+							command.includes("splates merge") ||
+							command.includes("splates remove"),
+					),
+			},
+		],
+		judge:
+			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and After embeds it too. Do not judge how the Demo line is worded or whether the image appears once or twice. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
+	},
+	{
+		id: "delivery/unprompted-trivial-merges",
+		aspect: "delivery",
+		initialized: true,
+		requirement:
+			"A trivial change (a typo or a label) may merge without asking for review, even though the message does not mention merging.",
+		async change(repo) {
+			await startTask(repo, "ui", "Fix a typo in the heading", {
+				"page.html": "<h1>Welcom</h1>\n",
+			});
+		},
+		message: "In the ui task, fix the typo 'Welcom' to 'Welcome' in page.html.",
+		checks: [
+			{
+				id: "typo-fixed",
+				about: "the task's page.html says Welcome",
+				live: true,
+				async test({ repo }) {
+					const tree = (
+						await repo.run(["splates", "path", "ui"]).catch(() => "")
+					).trim();
+					const file = tree
+						? join(tree, "page.html")
+						: join(repo.dir, "page.html");
+					return (await Bun.file(file).text()).includes("Welcome");
+				},
+			},
+			{
+				id: "merged-or-ready",
+				about: "ran splates merge with --message, or asked for review",
+				test: ({ commands, reply }) =>
+					commands.some(
+						(command) =>
+							command.includes("splates merge") &&
+							command.includes("--message"),
+					) || /^## 🔍 Ready to merge ui onto /m.test(reply),
+			},
+		],
+	},
 ];
 
 export const sandbox = splatesSandbox(scenarios);

@@ -97,6 +97,18 @@ describe("Finished", () => {
 		expect(finished.owns(copy)).toBe(true);
 	});
 
+	it("keeps a held file the plan never names, found by its task and name", async () => {
+		await finished.record(
+			ended(8, "2026-10-01T08:00:00.000Z", { plan: "no images" }),
+			() => true,
+			["/held/a.png"],
+		);
+
+		const copy = await finished.copyOf("task-8", "a.png");
+		expect(await fs.readBytes(copy ?? "")).toEqual(new Uint8Array([1]));
+		expect(await finished.copyOf("task-8", "other.png")).toBeNull();
+	});
+
 	it("names a copy apart when two files share a name", async () => {
 		await finished.record(
 			ended(6, "2026-10-01T06:00:00.000Z", {

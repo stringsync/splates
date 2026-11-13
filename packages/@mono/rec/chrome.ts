@@ -28,6 +28,7 @@ export class Chrome implements Resource {
 	static async launch(ps: Ps, fs: Fs, opts: ChromeOptions): Promise<Chrome> {
 		const signal = opts.signal ?? new AbortController().signal;
 		await fs.mkdir(opts.profile, { recursive: true });
+		await Chrome.endStale(ps, opts.profile);
 		const portFile = `${opts.profile}/DevToolsActivePort`;
 		// A file left by the last run would point at a port nobody listens on.
 		await fs.rm(portFile, { force: true });
@@ -42,6 +43,39 @@ export class Chrome implements Resource {
 		} catch (error) {
 			child.kill();
 			throw error;
+		}
+	}
+
+	/**
+	 * Ends a Chrome still running on rec's profile, such as one a rec that died
+	 * left behind: call it before launching, since that Chrome would take the
+	 * new window and exit, leaving no DevTools port.
+	 */
+	static async endStale(ps: Ps, profile: string): Promise<void> {
+		const stale = (await ps.processes()).filter(
+			(entry) =>
+				entry.command.includes(`--user-data-dir=${profile}`) &&
+				!entry.command.includes("--type="),
+		);
+		for (const [signal, wait] of [
+			["TERM", Duration.secs(5)],
+			["KILL", Duration.secs(2)],
+		] as const) {
+			const running = stale.filter((entry) => ps.alive(entry.pid));
+			if (running.length === 0) {
+				return;
+			}
+			await ps.spawn([
+				"kill",
+				`-${signal}`,
+				...running.map((entry) => `${entry.pid}`),
+			]);
+			for (let waited = 0; waited < wait.ms; waited += 100) {
+				if (!running.some((entry) => ps.alive(entry.pid))) {
+					break;
+				}
+				await sleep(Duration.ms(100));
+			}
 		}
 	}
 

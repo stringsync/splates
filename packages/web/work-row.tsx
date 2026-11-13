@@ -89,7 +89,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const [opened, setOpened] = useState(false);
 	return (
 		<Going value={work.going}>
-			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
+			<div data-slot="work" className="mt-1 mb-5 flex flex-col gap-1.5 text-xs">
 				<details
 					open={open}
 					// The thread follows it as it grows while it is open.
@@ -108,7 +108,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
 					)}
 				>
-					<summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-1.5 text-muted-foreground hover:text-foreground md:flex-nowrap [&::-webkit-details-marker]:hidden">
+					<summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-1.5 text-muted-foreground/70 tabular-nums hover:text-foreground md:flex-nowrap [&::-webkit-details-marker]:hidden">
 						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
 						<span
 							className={cn(

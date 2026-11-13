@@ -1,5 +1,6 @@
 // vet-ignore-file doc-comments-address-users: its imports moved to server/; it predates the rule
 
+import { basename, dirname } from "node:path";
 import { SystemTimer } from "core/time";
 import { movedPath } from "../config";
 import type { ConversationList } from "../conversations";
@@ -55,10 +56,20 @@ export class TaskRoutes {
 		const params = new URL(request.url).searchParams;
 		const path = movedPath(params.get("path") ?? "");
 		const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-		const bytes =
+		let bytes =
 			queue.owns(path) || service.owns(path) || service.finished.owns(path)
 				? await fs.readBytes(path).catch(() => null)
 				: null;
+		const task = service.owns(path)
+			? heldBy(path)
+			: queue.owns(path)
+				? Number(basename(dirname(path)))
+				: null;
+		if (bytes === null && task !== null) {
+			// A task's own file went when it ended; its finished record kept a copy.
+			const copy = await service.finished.copyOf(task, basename(path));
+			bytes = copy === null ? null : await fs.readBytes(copy).catch(() => null);
+		}
 		if (bytes === null) {
 			return refuse(404, "not_found", `nothing here shows ${path}`);
 		}
@@ -278,4 +289,15 @@ export class TaskRoutes {
 		}
 		this.#watch.tick();
 	};
+}
+
+/** The task whose attached file `path` is: `<task>/started/<file>` or `attached/<task>/<file>`. */
+function heldBy(path: string): string | null {
+	const parts = path.split("/");
+	const attached = parts.lastIndexOf("attached");
+	if (attached !== -1) {
+		return parts[attached + 1] ?? null;
+	}
+	const started = parts.lastIndexOf("started");
+	return started > 0 ? (parts[started - 1] ?? null) : null;
 }

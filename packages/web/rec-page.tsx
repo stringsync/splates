@@ -134,13 +134,11 @@ interface Followed {
 	on: boolean;
 }
 
-/** What `#rec` shows: a name, a page, what else to follow. */
+/** What `#rec` shows: a name and what else to follow. */
 function RecStart(): JSX.Element {
 	const nameId = useId();
-	const urlId = useId();
 	const [state, setState] = useState<RecState | null>(null);
 	const [name, setName] = useState("");
-	const [url, setUrl] = useState("");
 	const [chosen, setChosen] = useState<Record<string, boolean>>({});
 	const [files, setFiles] = useState<string[]>([]);
 	const [adding, setAdding] = useState<string | null>(null);
@@ -254,7 +252,7 @@ function RecStart(): JSX.Element {
 					.map((each) => each.name);
 			await openRec({
 				name,
-				url: url.trim() === "" ? "about:blank" : url.trim(),
+				url: "about:blank",
 				docker: on("docker"),
 				tails: on("file"),
 			});
@@ -308,7 +306,7 @@ function RecStart(): JSX.Element {
 					/>
 				) : (
 					<div className="flex flex-col gap-4 rounded-lg border bg-card p-4">
-						<div className="grid gap-4 sm:grid-cols-2">
+						<div className="grid gap-4">
 							<div className="flex flex-col gap-1.5 text-sm">
 								<label htmlFor={nameId} className="font-medium">
 									Session name
@@ -331,18 +329,6 @@ function RecStart(): JSX.Element {
 										<DicesIcon />
 									</Button>
 								</span>
-							</div>
-							<div className="flex flex-col gap-1.5 text-sm">
-								<label htmlFor={urlId} className="font-medium">
-									Open on
-								</label>
-								<Input
-									id={urlId}
-									value={url}
-									placeholder="http://localhost:3000"
-									onChange={(event) => setUrl(event.target.value)}
-									className="font-mono"
-								/>
 							</div>
 						</div>
 						<div className="flex flex-col gap-2 text-sm">
