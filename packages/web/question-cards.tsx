@@ -40,6 +40,7 @@ import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
 import { questionOutcome } from "./question-outcome";
 import { Refusal, refusalOf } from "./refusal";
+import { label } from "./shortcuts";
 import { SplatesEvent } from "./splates-event";
 
 /** What a phone's Send says when nothing was written. */
@@ -514,7 +515,7 @@ export function QuestionCards({
 											<Kbd>↵</Kbd> next
 										</span>
 										<span>
-											<Kbd>⌘↵</Kbd>{" "}
+											<Kbd>{label("Mod+Enter")}</Kbd>{" "}
 											{answer !== null
 												? "answers"
 												: approving

@@ -1,14 +1,13 @@
-import type { EvalBudget } from "@splates/server/evals/browser";
 import type { JSX } from "react";
+import { byNamespace } from "./eval-improve";
 
 /** Repetitions a run card starts with, as the loop's first round does. */
 export const DEFAULT_REPS = 3;
 
-/** The plan to accept: the agents left on, the repetitions and the loop's limits. */
+/** The plan to accept: the agents left on, and the repetitions. */
 export type RunChoice = {
 	agents: string[];
 	reps: number;
-	limits: EvalBudget;
 };
 
 /** Review each conversation and its authorization before starting any agent. */
@@ -21,14 +20,19 @@ export function EvalPlanPreview({
 	existing: ReadonlySet<string>;
 	choice: RunChoice;
 }): JSX.Element {
-	const starting = ids.filter((id) => !existing.has(id)).length;
+	const starting = byNamespace(ids.filter((id) => !existing.has(id))).length;
 	return (
 		<section aria-label="What Start will do" className="flex flex-col gap-3">
 			<div>
 				<h2 className="font-medium text-lg">Review these evals</h2>
 				<p className="text-muted-foreground text-xs">
-					{starting} new {starting === 1 ? "conversation" : "conversations"}.
-					Nothing starts until you accept.
+					Accepting creates {starting}{" "}
+					{starting === 1 ? "conversation" : "conversations"}, one per namespace
+					of new scenarios
+					{existing.size > 0 && ids.some((id) => existing.has(id))
+						? "; scenarios that already have a conversation open it instead"
+						: ""}
+					. Nothing starts until you accept.
 				</p>
 			</div>
 			<ol className="flex flex-col rounded-lg border bg-card px-4">
@@ -44,35 +48,26 @@ export function EvalPlanPreview({
 							<b className="break-words">{id}</b>
 							<span className="text-muted-foreground text-xs">
 								{existing.has(id)
-									? "Continue the existing conversation with its current limits"
-									: `Start a conversation · ${choice.reps} repetitions per agent · up to $${choice.limits.usd.toFixed(2)} across ${choice.limits.rounds} rounds`}
+									? "Already has a conversation: continues there, with its current settings"
+									: "New conversation for this scenario"}
 							</span>
 						</div>
 					</li>
 				))}
 			</ol>
 			<p className="text-muted-foreground text-xs">
-				Run on: {choice.agents.join(", ")}. Each new conversation prepares its
-				scenario and works its improvement loop. Each eval round waits for you
-				to press Run in its conversation.
-			</p>
-			<p className="font-medium text-sm">
-				Total authorized eval budget: $
-				{(starting * choice.limits.usd).toFixed(2)}
+				Each new conversation prepares its scenario on{" "}
+				{choice.agents.join(", ")} and works its improvement loop. Repetitions
+				start at their default ({choice.reps}) and are changed in each
+				conversation. Every eval round waits for you to press Run there.
 			</p>
 		</section>
 	);
 }
 
-/** Whether the chosen limits and repetitions can authorize a run. */
+/** Whether the chosen agents and repetitions can authorize a run. */
 export function validRunChoice(choice: RunChoice): boolean {
 	return (
-		choice.agents.length > 0 &&
-		Number.isInteger(choice.reps) &&
-		choice.reps > 0 &&
-		Number.isFinite(choice.limits.usd) &&
-		choice.limits.usd > 0 &&
-		Number.isInteger(choice.limits.rounds) &&
-		choice.limits.rounds > 0
+		choice.agents.length > 0 && Number.isInteger(choice.reps) && choice.reps > 0
 	);
 }

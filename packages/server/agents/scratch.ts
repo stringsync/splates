@@ -62,9 +62,7 @@ function writable(agent: string, cwd: string, home: string): string[] {
 				? [".codex"]
 				: agent === "kimi"
 					? [".kimi-code"]
-					: agent === "opencode"
-						? [".config/opencode", ".local/share/opencode", ".cache/opencode"]
-						: [];
+					: [];
 	return [
 		cwd,
 		...new Set(

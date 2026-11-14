@@ -12,14 +12,13 @@ import {
 	fieldsOf,
 	type StepField,
 } from "./fields";
-import type { OpenCodeSetup } from "./opencode";
+import { forgetProbes } from "./probes";
 import { StepProblem } from "./step-problem";
 import { SetupUndo, type StepUndo, type UndoPlan } from "./undo";
 
 /**
- * Setting splates up on this machine: the roster's steps, which the user has
- * skipped, kept in `~/.splates/setup.json` so a skipped step stops asking, and
- * where each stands.
+ * Set splates up on this machine: `read` says where each roster step stands,
+ * and `skip` stops a step asking, which `~/.splates/setup.json` remembers.
  */
 export class Setup {
 	readonly #areas: readonly SetupArea[];
@@ -110,6 +109,7 @@ export class Setup {
 				error instanceof Error ? error.message : String(error),
 			);
 		}
+		forgetProbes(this.#machine);
 		const { done, problem } = await checked(step, this.#machine);
 		if (!done) {
 			throw new StepProblem(problem ?? step.notDone ?? NOT_DONE);
@@ -119,6 +119,7 @@ export class Setup {
 
 	/** Every step checked, by area, and the one to do next. */
 	async read(): Promise<SetupProgress> {
+		forgetProbes(this.#machine);
 		const skipped = new Set(await this.#skipped());
 		const statuses = new Map<SetupStep, StepStatus>();
 		const areas: AreaProgress[] = [];
@@ -322,8 +323,6 @@ export class Setup {
 
 /** What a step's check reads: this machine's splates home and its device store. */
 export interface SetupMachine {
-	/** Runs OpenCode's checks for the optional native setup panel, only when it asks. */
-	opencode?: OpenCodeSetup;
 	fs: Fs;
 	/** How a step runs a program, as `claude --version`; none runs nothing. */
 	ps?: Ps;
@@ -435,7 +434,7 @@ export interface SetupStep {
 	 * checks.
 	 */
 	submit?(machine: SetupMachine, answers: StepAnswers): Promise<void>;
-	/** A line on what `submit` runs, as "Installing OpenCode with npm…". */
+	/** A line on what `submit` runs, as "Installing Codex…". */
 	readonly doing?: string;
 	/**
 	 * How to take the step back out, run when its area is undone; without

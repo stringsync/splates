@@ -18,11 +18,11 @@ export class SpeechPanel implements SpeechListener {
 		if (!update.final) {
 			const text = (this.heard.get(update.id) ?? "") + update.text;
 			this.heard.set(update.id, text);
-			this.panel.say({ type: "speech-live", text });
+			this.showing();
 			return;
 		}
 		this.heard.delete(update.id);
-		this.panel.say({ type: "speech-live", text: "" });
+		this.showing();
 		if (update.text === "") {
 			return;
 		}
@@ -37,13 +37,24 @@ export class SpeechPanel implements SpeechListener {
 
 	failed(message: string): void {
 		this.log.error(`live transcript stopped: ${message}`);
-		this.panel.say({ type: "speech-live", text: "" });
+		this.heard.clear();
+		this.showing();
 		this.panel.say({
 			type: "signal",
 			at: this.clock.now(),
 			kind: "speech",
 			title: "Live transcript stopped",
 			detail: `${message.slice(0, 250)}. The transcript is still made after Stop.`,
+		});
+	}
+
+	/** Shows the newest sentence still pending, or nothing once none is. */
+	private showing(): void {
+		const pending = [...this.heard.values()];
+		this.panel.say({
+			type: "speech-live",
+			text:
+				pending.length === 0 ? null : (pending[pending.length - 1] as string),
 		});
 	}
 }

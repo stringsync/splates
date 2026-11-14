@@ -48,6 +48,7 @@ import {
 	linkDirectives,
 	soleDirective,
 	unshown,
+	withoutLoopParameters,
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -61,7 +62,7 @@ import {
 import { handOffLines, serverToldLines } from "#web/server-messages.ts";
 import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
-import { SendingLine } from "#web/unsent.tsx";
+import { SendingLine, UnsentLine } from "#web/unsent.tsx";
 
 /**
  * What the person typed, as markdown with each line break kept, each todo it
@@ -69,8 +70,10 @@ import { SendingLine } from "#web/unsent.tsx";
  * attachments after those `Leading` shows as chips where they stand.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
-	const { rest } = leadingDirectives(text);
-	return rest === "" ? null : <MarkdownText typed={afterDirectives} />;
+	const { directives, rest } = leadingDirectives(text);
+	return withoutLoopParameters(directives, rest) === "" ? null : (
+		<MarkdownText typed={afterDirectives} />
+	);
 };
 /**
  * The chips a message starts with, in a row above its words as the composer
@@ -81,7 +84,8 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
 	text,
 	sent,
 }) => {
-	const { directives, rest } = leadingDirectives(text);
+	const { directives, rest: all } = leadingDirectives(text);
+	const rest = withoutLoopParameters(directives, all);
 	const loose = unnamed(sent, text);
 	if (directives.length + loose.length === 0) {
 		return null;
@@ -110,8 +114,12 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
  * A message's text past the directives `UserText` shows in a row, each
  * directive after them a link the markdown draws as its chip.
  */
-const afterDirectives = (text: string) =>
-	linkAttachments(linkDirectives(leadingDirectives(text).rest));
+const afterDirectives = (text: string) => {
+	const { directives, rest } = leadingDirectives(text);
+	return linkAttachments(
+		linkDirectives(withoutLoopParameters(directives, rest)),
+	);
+};
 export const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
 	const attachments = useAuiState((s) => s.message.attachments);
@@ -138,6 +146,13 @@ export const UserMessage: FC = () => {
 	const pending = useAuiState(
 		(s) => s.message.metadata.custom.pending === true,
 	);
+	// Refused by the server: its id and why, to say under the bubble.
+	const unsent = useAuiState((s) => {
+		const from = s.message.metadata.custom.unsent as
+			| { id: string; why: string }
+			| undefined;
+		return from ?? null;
+	});
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -275,6 +290,7 @@ export const UserMessage: FC = () => {
 			{pending && (
 				<SendingLine since={typeof sending === "number" ? sending : null} />
 			)}
+			{unsent !== null && <UnsentLine id={unsent.id} why={unsent.why} />}
 		</>
 	);
 	if (sent.length === 0 && isSoleCommand(text)) {

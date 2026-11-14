@@ -57,7 +57,7 @@ const savedAgents = [
 	{ agent: "claude", model: "sonnet" },
 	{ agent: "claude", model: "haiku", effort: "high" },
 	{ agent: "codex", model: "gpt-6-astra" },
-	{ agent: "opencode" },
+	{ agent: "kimi", model: "kimi-code/k3.1-pro" },
 ];
 const savedTargets = savedAgents.map(
 	(pick) =>

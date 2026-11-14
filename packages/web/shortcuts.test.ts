@@ -85,6 +85,8 @@ describe("shortcuts", () => {
 
 	it("reads as a Mac prints it, and shows its key alone only for ⌥⌘", () => {
 		expect(label("Alt+Mod+KeyC")).toBe("⌥⌘C");
+		expect(label("Alt+Mod+KeyC", false)).toBe("Ctrl+Alt+C");
+		expect(label("Mod+Enter", false)).toBe("Ctrl+↵");
 		expect(label("Ctrl+Mod+KeyP")).toBe("⌃⌘P");
 		expect(label("Alt+Mod+Backspace")).toBe("⌥⌘⌫");
 		expect(label("Mod+Comma")).toBe("⌘,");

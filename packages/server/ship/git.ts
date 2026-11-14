@@ -5,7 +5,7 @@ export type ReleaseChanges =
 	| { commits: number; branch: string; tag: string; error: null }
 	| { commits: null; branch: string | null; tag: string | null; error: string };
 
-/** Git checks specific to shipping, using the same origin and version tags as wren. */
+/** Reads a project's release history and pushes its release commits to origin. */
 export class ReleaseGit {
 	constructor(
 		private readonly ps: Ps,
@@ -13,16 +13,17 @@ export class ReleaseGit {
 	) {}
 
 	/**
-	 * Count unshipped commits since `version`, or explain why its release history is unknown.
-	 * A project that owns `paths` of a shared repository is tagged in its own
-	 * mirror, not here, so its release is the commit that stamped `version`
-	 * under them, and only commits under them count.
+	 * Count the commits not yet released since `version`, or explain why that is
+	 * unknown. Pass `paths` for a project that shares the repository, and only
+	 * commits under them count.
 	 */
 	async changes(
 		version: string | null,
 		paths?: string[],
 	): Promise<ReleaseChanges> {
 		// The Ship page reads local history without changing the repository or contacting origin.
+		// A project with `paths` is tagged in its own mirror, not here, so its
+		// release is the commit that stamped `version` under them.
 		let branch: string | null = null;
 		const tag = version === null ? null : `v${version}`;
 		try {
@@ -109,8 +110,12 @@ export class ReleaseGit {
 		);
 	}
 
-	/** Pushes only a clean, fast-forward release branch and checks the remote's actual ref. */
-	async sync(): Promise<string> {
+	/**
+	 * Pushes a clean release branch to origin and checks the remote's actual
+	 * ref, refusing when the remote is ahead. Pass `rebase` after a release
+	 * commit, so commits that landed on origin meanwhile do not stop it.
+	 */
+	async sync(opts: SyncOptions = {}): Promise<string> {
 		const branch = await this.branch();
 		const current = await this.out("symbolic-ref", "--short", "HEAD");
 		if (current !== branch) {
@@ -121,9 +126,22 @@ export class ReleaseGit {
 				"Shipping requires a clean tree; commit or discard changes first",
 			);
 		}
-		const head = await this.out("rev-parse", "HEAD");
+		let head = await this.out("rev-parse", "HEAD");
 		await this.out("fetch", "origin", `refs/heads/${branch}`);
 		const remote = await this.out("rev-parse", "FETCH_HEAD");
+		const behind =
+			(await this.run("merge-base", "--is-ancestor", remote, head)).exitCode !==
+			0;
+		if (behind && opts.rebase === true) {
+			const rebased = await this.run("rebase", remote);
+			if (rebased.exitCode !== 0) {
+				await this.run("rebase", "--abort");
+				throw new Error(
+					`origin/${branch} gained commits that conflict with the release commit: ${rebased.stderr.trim() || rebased.stdout.trim()}`,
+				);
+			}
+			head = await this.out("rev-parse", "HEAD");
+		}
 		await this.out("merge-base", "--is-ancestor", remote, head);
 		await this.out("push", "origin", `${head}:refs/heads/${branch}`);
 		const found = await this.out(
@@ -208,4 +226,10 @@ export class ReleaseGit {
 		}
 		return result.stdout.trim();
 	}
+}
+
+/** What {@link ReleaseGit.sync} may do when the remote has moved on. */
+interface SyncOptions {
+	/** Replay local commits onto the remote, aborting on a conflict. */
+	rebase?: boolean;
 }

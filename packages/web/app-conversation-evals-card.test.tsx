@@ -29,10 +29,7 @@ describe("App's run evals card", () => {
 			conversation({
 				title: "Evals",
 				messages: [
-					message(
-						"user",
-						"[SPLATES EVAL LOOP scenario decisions/ask-first]\nBudget: $7\nRounds: 4",
-					),
+					message("user", "[SPLATES EVAL LOOP scenario decisions/ask-first]"),
 					...ongoing().messages,
 				],
 			}),
@@ -49,7 +46,7 @@ describe("App's run evals card", () => {
 		await waitFor(() => expect(starts).toHaveLength(1));
 		expect(starts[0]).toMatchObject({
 			agents: [{ agent: "claude" }],
-			budget: { usd: 7, rounds: 4 },
+			budget: { usd: 7 },
 		});
 	});
 
@@ -125,29 +122,24 @@ describe("App's run evals card", () => {
 
 		await act(async () => arrive());
 		await waitFor(() =>
-			expect(view.getByText("2 of 4 cells landed · 2 pass")).toBeTruthy(),
+			expect(view.getByTestId("record-cost").textContent).toContain(
+				"Landed2 of 4",
+			),
 		);
 		expect(view.getByText("Running evals")).toBeTruthy();
 		expect(view.queryByText("Run splates evals")).toBeNull();
 	});
 
-	it("shows spent of budget and the round count on a run's card", async () => {
+	it("shows spent of budget on a started run's card", async () => {
 		serveOngoingEval(Promise.resolve());
 		const view = await testing.openConversations([ongoing()]);
 		await waitFor(() =>
-			expect(view.getByTestId("budget").textContent).toBe(
-				"$3.50 of $10.00 · 1,200 tokens · round 1 of 3",
+			expect(view.getByTestId("record-cost").textContent).toContain(
+				"of $10.00 budget",
 			),
 		);
+		expect(view.queryByLabelText("Max rounds")).toBeNull();
 		expect(view.queryByText(/^Stopped:/)).toBeNull();
-	});
-
-	it("says which limit stopped the loop", async () => {
-		serveOngoingEval(Promise.resolve(), "rounds");
-		const view = await testing.openConversations([ongoing()]);
-		await waitFor(() =>
-			expect(view.getByText("Stopped: the round cap is reached.")).toBeTruthy(),
-		);
 	});
 });
 
@@ -163,10 +155,7 @@ function ongoing() {
 	});
 }
 
-function serveOngoingEval(
-	reading: Promise<void>,
-	stoppedBy: "usd" | "rounds" | null = null,
-): void {
+function serveOngoingEval(reading: Promise<void>): void {
 	const pageFetch = globalThis.fetch;
 	const answer = async (body: unknown) => {
 		await reading;
@@ -177,11 +166,9 @@ function serveOngoingEval(
 			"/api/evals/budget",
 			() =>
 				answer({
-					budget: { usd: 10, rounds: 3 },
+					budget: { usd: 10 },
 					spentUsd: 3.5,
 					tokens: 1200,
-					roundsUsed: stoppedBy === "rounds" ? 3 : 1,
-					stoppedBy,
 				}),
 		],
 		[
@@ -254,11 +241,9 @@ function serveUnstartedEval(starts: unknown[]): void {
 		}
 		if (route === "/api/evals/budget") {
 			return Response.json({
-				budget: { usd: 7, rounds: 4 },
+				budget: { usd: 7 },
 				spentUsd: 0,
 				tokens: 0,
-				roundsUsed: 0,
-				stoppedBy: null,
 			});
 		}
 		if (route === "/api/evals/launch") {

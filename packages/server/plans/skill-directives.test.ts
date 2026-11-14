@@ -3,7 +3,6 @@ import { join } from "node:path";
 import {
 	APPROVE,
 	CHECKPOINT,
-	EVALS_BUDGET_USED_UP,
 	GRANT_DENIED,
 	GRANTED,
 	groomReference,
@@ -38,7 +37,6 @@ describe("the splates skill's Directives table", () => {
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
 				"[SPLATES EVAL LOOP <run>]",
-				EVALS_BUDGET_USED_UP,
 			].toSorted(),
 		);
 	});

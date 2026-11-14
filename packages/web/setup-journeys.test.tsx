@@ -66,7 +66,6 @@ describe("Setup journeys", () => {
 
 	it("asks one page at a time, Next doing the step, until the journey is set up", async () => {
 		const view = open();
-		expect(view.getByRole("button", { name: "Set up OpenCode" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "Set up Dictation" })).toBeTruthy();
 		await click(view, "Set up Claude");
 
@@ -105,7 +104,6 @@ describe("Setup journeys", () => {
 		expect(
 			await view.findByRole("button", { name: "Set up Claude" }),
 		).toBeTruthy();
-		expect(testing.asked).not.toContain("/api/setup/opencode");
 	});
 
 	it("makes Replica and Evals config changes an agent makes, not edits by hand", () => {
@@ -206,38 +204,6 @@ describe("Setup journeys", () => {
 		});
 	});
 
-	it("asks OpenCode's models on one page, and ends offering to turn it off", async () => {
-		progress = with_({
-			"opencode-install": "done",
-			"opencode-connect": "done",
-		});
-		const view = open();
-		await click(view, "Set up OpenCode");
-		expect(view.getByRole("form", { name: "Choose your models" }));
-		expect(view.getByLabelText("Main model")).toBeTruthy();
-		expect(view.getByLabelText("Auxiliary model, for titles")).toBeTruthy();
-		fireEvent.click(
-			view.getByRole("switch", {
-				name: "Use balance is off in my OpenCode Console",
-			}),
-		);
-		testing.reply = with_({
-			"opencode-install": "done",
-			"opencode-connect": "done",
-			"opencode-models": "done",
-			"opencode-ready": "done",
-		});
-
-		await click(view, "Next");
-
-		await waitFor(() => view.getByText("OpenCode is set up"));
-		expect(
-			testing.posted("/api/setup/opencode-models/next")[0]?.body,
-		).toMatchObject({ answers: { balanceOff: true } });
-		await click(view, "Turn OpenCode off");
-		expect(testing.posted("/api/setup/opencode/disable")).toHaveLength(1);
-	});
-
 	it("lists areas as rows, marking those with every step done, and offers Undo on those with any done or started", () => {
 		const undone: string[] = [];
 		const view = render(
@@ -255,8 +221,7 @@ describe("Setup journeys", () => {
 		const rows = view
 			.getAllByRole("button", { name: /^Set up/ })
 			.map((row) => row.textContent);
-		expect(rows.slice(0, 3)).toEqual([
-			"Set up OpenCodeOptionalRun agents on OpenCode, the cheapest way to start.4 steps",
+		expect(rows.slice(0, 2)).toEqual([
 			"Set up ClaudeOptionalRun agents on Claude, signed in on this machine.All steps done",
 			"Set up CodexOptionalRun agents on Codex, signed in on this machine.0 of 3 steps done",
 		]);
@@ -274,7 +239,7 @@ describe("Setup journeys", () => {
 		const view = render(
 			<StepForm
 				undo={null}
-				title="Install OpenCode"
+				title="Install Claude"
 				at={2}
 				of={4}
 				next={{ kind: "failed", problem: "npm is not on your PATH." }}

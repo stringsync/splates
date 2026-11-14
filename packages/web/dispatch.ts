@@ -13,7 +13,13 @@ import {
 	taskReference,
 } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
-import { agentFor, NEW, newAddress, settingsFor } from "./conversation-address";
+import {
+	agentFor,
+	autoAddress,
+	NEW,
+	newAddress,
+	settingsFor,
+} from "./conversation-address";
 import {
 	promptConversation,
 	startAutoPick,
@@ -128,6 +134,12 @@ export class Dispatch {
 	/** What an agent's name is, from its id. */
 	agentName(agent: string): string {
 		return this.agents.find((each) => each.id === agent)?.name ?? agent;
+	}
+
+	/** Opens a new draft so the person can choose its model and settings before sending. */
+	prepare(text: string): string {
+		this.compose(newDraft(this.project, null), text);
+		return autoAddress(null);
 	}
 
 	/**

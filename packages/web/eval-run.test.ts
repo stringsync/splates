@@ -7,7 +7,7 @@ import type {
 import type { AgentPick } from "@splates/server/models";
 import { FakeTimer } from "core/time/testing";
 import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
-import { budgetText, roundsText, stoppedText } from "./eval-status";
+import { budgetText } from "./eval-status";
 
 describe("EvalRun", () => {
 	const proposal = () => ({
@@ -51,41 +51,36 @@ describe("EvalRun", () => {
 		expect(resent.key).not.toBe(first.key);
 	});
 
-	it("sets the default budget on a conversation's first run, with edits", async () => {
+	it("starts each run with its own budget: $10 at first, then the last run's", async () => {
 		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
 		await run.load();
-		expect(run.limits).toEqual({ usd: 10, rounds: 3 });
-		run.setLimits({ usd: 4 });
+		expect(run.usd).toBe(10);
+		run.setBudget(4);
 		await run.run();
 		expect(server.started[0]).toMatchObject({
 			conversation: "c-1",
-			budget: { usd: 4, rounds: 3 },
+			budget: { usd: 4 },
 		});
 		run.dispose();
+		server.status = { budget: { usd: 4 }, spentUsd: 0, tokens: 0 };
+		const next = EvalRun.of(proposal(), {
+			server,
+			timer,
+			conversation: "c-1",
+			message: "m-2",
+		});
+		await next.load();
+		expect(next.usd).toBe(4);
+		next.dispose();
 	});
 
-	it("reads the spend and the round count, and the limit that stopped it", async () => {
-		server.status = {
-			budget: { usd: 10, rounds: 3 },
-			spentUsd: 3.5,
-			tokens: 1200,
-			roundsUsed: 1,
-			stoppedBy: null,
-		};
+	it("reads the latest run's spend against its budget", async () => {
+		server.status = { budget: { usd: 10 }, spentUsd: 3.5, tokens: 1200 };
 		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
 		await run.load();
-		expect(run.budget).toMatchObject({ spentUsd: 3.5, roundsUsed: 1 });
 		expect(budgetText(run.budget as EvalBudgetStatus)).toBe(
 			"$3.50 of $10.00 · 1,200 tokens",
 		);
-		expect(roundsText(run.budget as EvalBudgetStatus)).toBe("round 1 of 3");
-		expect(stoppedText(run.budget as EvalBudgetStatus)).toBeNull();
-		expect(
-			stoppedText({ ...(run.budget as EvalBudgetStatus), stoppedBy: "usd" }),
-		).toBe("Stopped: the dollar budget is used up.");
-		expect(
-			stoppedText({ ...(run.budget as EvalBudgetStatus), stoppedBy: "rounds" }),
-		).toBe("Stopped: the round cap is reached.");
 		run.dispose();
 	});
 
@@ -181,7 +176,7 @@ describe("EvalRun", () => {
 				...ASK,
 				agents: [{ agent: "claude", model: "opus" }],
 				conversation: "c-1",
-				budget: { usd: 10, rounds: 3 },
+				budget: { usd: 10 },
 			},
 		]);
 		expect(run.grid?.tally.pending).toBe(2);

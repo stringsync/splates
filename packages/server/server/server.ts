@@ -16,20 +16,13 @@ import {
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
-import { Roster, splatesHome } from "../models";
+import { splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
 import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
-import {
-	OpenCodeSetup,
-	OpenCodeSetupRoutes,
-	SETUP_AREAS,
-	Setup,
-	SetupRoutes,
-	setupProjectAt,
-} from "../setup";
+import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
 import {
 	CascadeRoutes,
 	MechanicalAdoption,
@@ -495,26 +488,45 @@ export async function dev(
 		"finished",
 		({ launch, results, conversation }) => {
 			void (async () => {
-				const text = await evals.donePrompt(results, launch.batch ?? "");
-				let owner = await holding(conversation);
-				if (owner === null) {
-					await everywhere.openAll();
-					owner = await holding(conversation);
-				}
-				if (owner?.conversations == null) {
-					return;
-				}
-				const told = await owner.conversations.find(conversation);
-				if (text === null) {
+				// However the report goes, the run is over: the row stops saying it runs.
+				let ended = false;
+				const end = async () => {
+					if (ended) {
+						return;
+					}
+					ended = true;
+					const owner = await holding(conversation);
+					const found = await owner?.conversations
+						?.find(conversation)
+						.catch(() => null);
+					found?.evaluate(false);
+				};
+				try {
+					const text = await evals.donePrompt(results, launch.batch ?? "");
+					let owner = await holding(conversation);
+					if (owner === null) {
+						await everywhere.openAll();
+						owner = await holding(conversation);
+					}
+					if (owner?.conversations == null) {
+						return;
+					}
+					const told = await owner.conversations.find(conversation);
+					if (text === null) {
+						told.evaluate(false);
+						ended = true;
+						return;
+					}
+					// Its turn on the report takes over from the run, with no wait between.
+					const prompting = told.prompt(text, [], undefined, {
+						told: SERVER_TOLD,
+					});
 					told.evaluate(false);
-					return;
+					ended = true;
+					await prompting;
+				} finally {
+					await end();
 				}
-				// Its turn on the report takes over from the run, with no wait between.
-				const prompting = told.prompt(text, [], undefined, {
-					told: SERVER_TOLD,
-				});
-				told.evaluate(false);
-				await prompting;
 			})().catch((error: unknown) => log.error(String(error)));
 		},
 	);
@@ -671,22 +683,6 @@ export async function dev(
 		sensors ??
 			new OsSensors(fs, { ps, supervised: ps.env(SERVING) !== undefined }),
 	);
-	const opencode = new OpenCodeSetupRoutes(
-		new OpenCodeSetup({
-			fs,
-			ps,
-			home: splatesHome(ps),
-			roster: async () => {
-				const agents = await Roster.in(
-					new FsStorage(splatesHome(ps), fs),
-				).agents();
-				for (const opened of served.values()) {
-					const project = await opened.catch(() => null);
-					project?.conversations?.refreshRoster(agents);
-				}
-			},
-		}),
-	);
 	// Setup is the machine's, but for the steps that read the repository of
 	// the project the page is on.
 	const setup = new SetupRoutes(async (request) => {
@@ -701,7 +697,6 @@ export async function dev(
 				ps,
 				home: splatesHome(ps),
 				device: (deps.secrets ?? SYSTEM_STORES).device,
-				opencode: opencode.setup,
 				fetch: deps.fetch,
 				removeTunnel:
 					project == null
@@ -809,7 +804,9 @@ export async function dev(
 					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
 					"/api/evals/states": guarded(evalLaunchRoutes.states),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
-					"/api/evals/budget": guarded(evalLaunchRoutes.budget),
+					"/api/evals/budget": {
+						GET: guarded(evalLaunchRoutes.budget),
+					},
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),
 						POST: guarded(evalLaunchRoutes.start),
@@ -864,30 +861,6 @@ export async function dev(
 					"/api/push/subscription": {
 						PUT: talk(guarded(pushes.subscribe)),
 						DELETE: talk(guarded(pushes.unsubscribe)),
-					},
-					"/api/setup/opencode/disable": {
-						POST: local(guarded(opencode.disable)),
-					},
-					"/api/setup/opencode/conversation": {
-						POST: local(
-							scoped(
-								(project) => async (request) =>
-									opencode.conversation(project.root, (selection) =>
-										project.startConversation(
-											new Request(request.url, {
-												method: "POST",
-												headers: { "content-type": "application/json" },
-												body: JSON.stringify({
-													agent: "opencode",
-													model: selection.model,
-													task: null,
-													assigned: true,
-												}),
-											}),
-										),
-									),
-							),
-						),
 					},
 					"/api/setup": guarded(setup.read),
 					"/api/setup/seen": { PUT: guarded(setup.see) },

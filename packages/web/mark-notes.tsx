@@ -52,7 +52,16 @@ export function Note({
 				value={note}
 				onChange={(event) => annotation.write(at, event.target.value)}
 				onKeyDown={(event) => {
-					if (event.key === "Enter") {
+					if (
+						(event.metaKey || event.ctrlKey) &&
+						event.key === "z" &&
+						note === ""
+					) {
+						// Nothing written yet, so the field has no text to undo: the
+						// shortcut takes back the mark itself.
+						event.preventDefault();
+						annotation.undo();
+					} else if (event.key === "Enter") {
 						event.preventDefault();
 						// Back to the board, where Undo and Delete work again.
 						event.currentTarget

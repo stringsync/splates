@@ -1,0 +1,25 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-13T15:42:50.921Z",
+	"title": "splates (regraded) (regraded)",
+	"producer": "splates",
+	"revision": {
+		"commit": "ad805fca9503c7699e9a9a7c25dc890210c51da4",
+		"skillHash": "3f7fd38bc52ddb62eb6fdcaec11b1755dd3cb9657237272d93b7ff792c2c9bfe",
+		"scenarioHash": "4f64f5ab15108b1fdceb5800a96198a8feb58f7e05fb2014adba906723e92b9c"
+	},
+	"cells": [
+		{
+			"id": "run-004",
+			"case": "rec/send-to-agent-proposes-work",
+			"group": "rec",
+			"about": "Review the full session's evidence with targeted visuals, propose concrete tasks and lanes, and ask before creating work.",
+			"target": {
+				"agent": "claude",
+				"model": "sonnet"
+			},
+			"repetition": 0,
+			"fingerprint": "116f1bf358344091cb0d0a8e7ad760562e7acd85e429215312c2042d4ce780d1"
+		}
+	]
+}

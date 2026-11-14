@@ -96,6 +96,6 @@ export type ToControl =
 			thumbnail?: string;
 	  }
 	/** The words being said right now, so far; empty text clears the line. */
-	| { type: "speech-live"; text: string }
+	| { type: "speech-live"; text: string | null }
 	/** The mic prompt tab was opened. */
 	| { type: "mic-settings" };

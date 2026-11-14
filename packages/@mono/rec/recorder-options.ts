@@ -27,4 +27,6 @@ export interface RecorderServerOptions {
 	usedNames?: ReadonlySet<string>;
 	/** The file holding the mic the person chose; without it the choice is not remembered. */
 	micFile?: string;
+	/** The names of saved sessions whose transcript and moments are still being written, for `rec status`. */
+	processing?: () => string[];
 }

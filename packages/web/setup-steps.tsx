@@ -5,7 +5,6 @@ import type { ConversationFeed } from "./conversation-feed";
 import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
-import { OPENCODE_STEPS, OpenCodeEnd } from "./setup-opencode-steps";
 
 /** What a step's own page body is handed. */
 // vet-ignore objects-over-callbacks: props handed to a React component, which are how React passes events
@@ -29,7 +28,6 @@ export type StepBodies = Record<string, (props: StepBodyProps) => JSX.Element>;
  * `fields` alone, or its `user` line when it has none.
  */
 export const STEP_BODIES: StepBodies = {
-	...OPENCODE_STEPS,
 	...NATIVE_STEPS,
 	...AUTO_PICK_STEPS,
 };
@@ -57,7 +55,7 @@ export type JourneyEnds = Record<
 >;
 
 /**
- * The journeys whose done page offers what to do next, as "Start an
- * OpenCode conversation", each journey's from a file of its own.
+ * The journeys whose done page offers what to do next, as "Start a
+ * conversation", each journey's from a file of its own.
  */
-export const JOURNEY_ENDS: JourneyEnds = { opencode: OpenCodeEnd };
+export const JOURNEY_ENDS: JourneyEnds = {};

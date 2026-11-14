@@ -326,7 +326,7 @@ export class Shipping implements Resource {
 		}));
 		try {
 			const git = this.opts.git ?? new ReleaseGit(this.opts.ps, this.opts.root);
-			const result = await git.sync();
+			const result = await git.sync({ rebase: key === "remote" });
 			if (this.stopped || this.disposed) {
 				throw new Error(STOPPED);
 			}

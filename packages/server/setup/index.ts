@@ -1,8 +1,5 @@
-export { OPENCODE_NEEDS_SERVER } from "./area-opencode";
 export { SETUP_AREAS } from "./areas";
 export type { FieldProgress } from "./fields";
-export { OpenCodeSetup } from "./opencode";
-export { OpenCodeSetupRoutes } from "./opencode-routes";
 export { setupProjectAt } from "./project";
 export { SetupRoutes } from "./routes";
 export {

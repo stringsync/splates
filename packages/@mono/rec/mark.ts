@@ -65,6 +65,8 @@ export interface RecStatus {
 	lastOutcome?:
 		| { status: "saved"; name: string }
 		| { status: "failed"; reason: string };
+	/** Saved sessions whose transcript and moments are still being written; rec exits only once they are. */
+	processing?: string[];
 }
 
 /** Whether rec is running, and if so the session's name and whether it is recording. */
@@ -85,6 +87,7 @@ async function readStatus(fs: Fs, home: string): Promise<RecStatus> {
 			mic?: "on" | "off";
 			laser?: boolean;
 			lastOutcome?: RecStatus["lastOutcome"];
+			processing?: string[];
 		};
 		return {
 			running: true,
@@ -94,6 +97,7 @@ async function readStatus(fs: Fs, home: string): Promise<RecStatus> {
 			mic: body.mic,
 			laser: body.laser,
 			lastOutcome: body.lastOutcome,
+			processing: body.processing,
 		};
 	} catch {
 		// The file outlived a rec that crashed.

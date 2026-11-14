@@ -18,16 +18,14 @@ it("links saved and earlier batches to conversation totals, leaving imports alon
 				id: "first",
 				conversation: "loop",
 				budget: expect.objectContaining({
-					budget: { usd: 7, rounds: 4 },
-					roundsUsed: 2,
+					budget: { usd: 7 },
 				}),
 			}),
 			expect.objectContaining({
 				id: "second",
 				conversation: "loop",
 				budget: expect.objectContaining({
-					budget: { usd: 7, rounds: 4 },
-					roundsUsed: 2,
+					budget: { usd: 7 },
 				}),
 			}),
 			expect.not.objectContaining({
@@ -87,7 +85,7 @@ beforeEach(async () => {
 			},
 		});
 	launches = new EvalLaunches(deps.ps, deps.machine);
-	await launches.budgets.set("loop", { usd: 7, rounds: 4 });
+	await launches.budgets.set("loop", { usd: 7 });
 	for (const [launch, batch] of [
 		["launch1", "first"],
 		["launch2", "second"],

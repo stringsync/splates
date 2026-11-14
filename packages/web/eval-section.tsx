@@ -3,14 +3,14 @@ import { type JSX, type ReactNode, useState } from "react";
 
 /**
  * One titled section of the Evals page, with a count pill. Click its header
- * to collapse or expand it; pass `defaultOpen={false}` to start it collapsed.
+ * to collapse or expand it; it starts collapsed unless `defaultOpen` is set.
  */
 export function EvalSection({
 	label,
 	title,
 	count,
 	about,
-	defaultOpen = true,
+	defaultOpen = false,
 	children,
 }: {
 	label: string;

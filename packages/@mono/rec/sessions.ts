@@ -1,7 +1,7 @@
 import type { Fs } from "core/system";
 import type { Moment } from "./moment-types";
 import { parseMomentsFile } from "./moments-files";
-import type { Manifest } from "./session";
+import type { Manifest, Processing } from "./session";
 import { SessionNames, sessionName } from "./session-name";
 import { SESSION_STORE_LIMIT, type SessionStoreOptions } from "./session-store";
 import { MOMENTS_JSONL } from "./signals";
@@ -19,6 +19,8 @@ export interface SessionSummary {
 	moments: number;
 	/** What was said at the top-ranked moment, else the first thing said. */
 	topSaid?: string;
+	/** Present while the transcript and moments are still to come, or failed. */
+	processing?: Processing;
 }
 
 /** `rec sessions show`: the summary with what an agent reads. */
@@ -133,6 +135,9 @@ export class SessionLibrary {
 			size: await this.bytes(dir),
 			moments: moments.length,
 			...(topSaid ? { topSaid } : {}),
+			...(entry.manifest.processing
+				? { processing: entry.manifest.processing }
+				: {}),
 		};
 	}
 
@@ -183,6 +188,23 @@ export class SessionLibrary {
 		};
 	}
 
+	/** The sessions a new `rec record` should finish: saved, but with no transcript and moments yet. Oldest first. */
+	async unprocessed(): Promise<{ dir: string; name: string }[]> {
+		const out: { dir: string; name: string }[] = [];
+		for (const entry of (await this.entries()).reverse()) {
+			const dir = `${this.root}/${entry.folder}`;
+			const { processing, files } = entry.manifest;
+			const cutOff =
+				processing === undefined &&
+				files.timeline === undefined &&
+				(await this.fs.exists(`${dir}/.audio`)); // cut off by a rec from before the pending mark
+			if (processing?.status === "pending" || cutOff) {
+				out.push({ dir, name: entry.manifest.name ?? entry.folder });
+			}
+		}
+		return out;
+	}
+
 	/** The session's folder, for an agent to read. */
 	async path(name: string): Promise<string> {
 		return `${this.root}/${(await this.find(name)).folder}`;
@@ -206,7 +228,7 @@ export class SessionLibrary {
 		);
 	}
 
-	/** Deletes a saved session; the one being recorded has no manifest and is not found. */
+	/** Deletes a saved session and its folder; a recording still in progress cannot be deleted. */
 	async delete(name: string): Promise<void> {
 		const entry = await this.find(name);
 		await this.fs.rm(`${this.root}/${entry.folder}`, { recursive: true });

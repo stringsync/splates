@@ -7,8 +7,7 @@ and `packages/web/setup-*.tsx` for the copy. No product code changed.
 
 Limits of the walk: no real Cloudflare, GitHub, DigitalOcean or OpenAI
 account was used, so no step that needs one was completed; each step's
-form, copy and error path were read instead. `claude`, `codex`, `kimi` and
-OpenCode were already on this machine, so some steps showed done that a
+form, copy and error path were read instead. `claude`, `codex` and `kimi` were already on this machine, so some steps showed done that a
 clean machine would not (itself a finding, see 9). Findings are ranked by how
 much they block a first-time user.
 
@@ -59,18 +58,13 @@ much they block a first-time user.
    than a done message with what it found. Opening an area jumps to its first
    not-done step, so the done ones cannot be reviewed without clicking the
    left rail.
-7. **The OpenCode models step defaults silently.** Main and auxiliary model
-   are preselected to `beam-free`, and the switch "Use balance is off in my
-   OpenCode Console" is a promise the page cannot check, off by default, with
-   Next enabled. The install step names an npm package, `@opencode/cli`, that
-   should be verified against OpenCode's published package.
 8. **Server on a Droplet has one step and no context.** It asks for
    Spaces keys, but does not say that the user must already have made a
    Droplet, a Space and a bucket, nor how. It is the same two creds as the
    Replica area's keys step, listed again under a different area with no
    cross-link, and it has no Undo while its sibling areas do.
 9. **Checks answer from the machine, not the project.** With an empty
-   `SPLATES_HOME`, OpenCode shows 2 of 4 steps done and Claude, Codex and Kimi
+   `SPLATES_HOME`, Claude, Codex and Kimi
    all done, because the tools and creds are found on the real machine. That
    is right for the machine but the index gives no sign of what a step found
    ("signed in as ...", "claude 2.1.0"), so a user cannot tell a real done
@@ -118,4 +112,3 @@ Each is one task in lane 102. See `splates list` for the current state.
 - GitHub pushing through the App manifest flow (4)
 - Replica and Droplet keys: one place, cross-linked (5, 8)
 - copy pass: jargon, plurals, validation, one-step areas (10, 11, 12, 13, 14)
-- OpenCode install name and models defaults (7)

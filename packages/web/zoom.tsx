@@ -60,10 +60,28 @@ export function ZoomableImage({
 			imageClickAction: "zoom",
 			doubleTapAction: "zoom",
 		});
-		// PhotoSwipe checks wheelToZoom after this event. Treat Command like
-		// its built-in Control modifier, without turning ordinary pan into zoom.
-		pswp.on("wheel", ({ originalEvent }) => {
-			pswp.options.wheelToZoom = originalEvent.metaKey;
+		pswp.on("wheel", (event) => {
+			const wheel = event.originalEvent;
+			if (!wheel.metaKey || wheel.ctrlKey) {
+				return;
+			}
+			event.preventDefault();
+			const slide = pswp.currSlide;
+			if (!slide?.isZoomable()) {
+				return;
+			}
+			// Command-scroll follows the opposite direction to PhotoSwipe's
+			// Control-scroll/pinch, with the same sensitivity for each wheel unit.
+			let delta = wheel.deltaY * 0.002;
+			if (wheel.deltaMode === 1) {
+				delta = wheel.deltaY * 0.05;
+			} else if (wheel.deltaMode === 2) {
+				delta = wheel.deltaY;
+			}
+			slide.zoomTo(slide.currZoomLevel * 2 ** delta, {
+				x: wheel.clientX,
+				y: wheel.clientY,
+			});
 		});
 		pswp.init();
 		// Avoid a nested dialog: Base UI supplies the accessible name and focus trap.
@@ -104,7 +122,7 @@ export function ZoomableImage({
 				<Button
 					variant="secondary"
 					size="sm"
-					className="absolute bottom-[max(3rem,env(safe-area-inset-bottom))] left-3 z-10"
+					className="absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+3rem)] left-3 z-10"
 					onClick={() => {
 						const slide = viewer.current?.currSlide;
 						if (slide) {

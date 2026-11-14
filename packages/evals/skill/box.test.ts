@@ -51,7 +51,6 @@ describe("splatesSandbox", () => {
 
 // These are the aspect modules bin/evals discovers independently.
 it.each([
-	"budget",
 	"continuity",
 	"decisions",
 	"delivery",

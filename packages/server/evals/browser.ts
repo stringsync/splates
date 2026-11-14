@@ -1,6 +1,6 @@
 export type { EvalAgents } from "./agents";
 export type { EvalAgentsView } from "./agents-routes";
-export type { EvalBudget, EvalBudgetStatus, EvalLimit } from "./budget";
+export type { EvalBudget, EvalBudgetStatus } from "./budget";
 export { DEFAULT_EVAL_BUDGET } from "./budget";
 export type {
 	EvalLaunch,

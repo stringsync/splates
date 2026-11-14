@@ -22,6 +22,7 @@ import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
 import { handOffOf } from "./server-messages";
 import { SplatesEvent, type Words } from "./splates-event";
+import { TaskIcon } from "./task-icon";
 
 /** The hash format for opening a directive's details. */
 const DIRECTIVE_LINK = /^#directive=(.+)$/;
@@ -87,6 +88,19 @@ function about(
 		return { kind: bare.label, name: "" };
 	}
 	switch (numbered(kind, argument) ? "TODO" : kind) {
+		// An eval loop names its scenario, or the run it improves.
+		case "EVAL": {
+			const many = /^LOOP scenarios (.+)$/.exec(argument);
+			if (many !== null) {
+				const count = (many[1] ?? "").trim().split(/\s+/).length;
+				return { kind: "Eval loop", name: `${count} scenarios` };
+			}
+			const loop = /^LOOP (?:scenario )?(\S+)$/.exec(argument);
+			if (loop !== null) {
+				return { kind: "Eval loop", name: loop[1] ?? "" };
+			}
+			return { kind: "Eval", name: argument };
+		}
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
@@ -159,7 +173,11 @@ export function DirectiveChip({
 	);
 	return (
 		<ReferenceChip
-			Icon={UtensilsIcon}
+			Icon={
+				ABOUT_TASK.test(directive) || IN_TASK.test(directive)
+					? TaskIcon
+					: UtensilsIcon
+			}
 			kind={kind}
 			name={name}
 			title={directive}
@@ -169,6 +187,13 @@ export function DirectiveChip({
 		/>
 	);
 }
+
+/** A directive about a task, whose chip wears the task clipboard. */
+const ABOUT_TASK = /^\[(?:SPLATES|ARBOR) (?:TASK|TODO|HANDOFF|REPORT|IDLE) /;
+
+/** A directive that steers a task's own conversation, so it wears the clipboard too. */
+const IN_TASK =
+	/^\[(?:SPLATES|ARBOR) (?:MERGE|APPROVE|CHECKPOINT|RESUME|RECONNECT|DEFER|RETRIED)\]$/;
 
 /**
  * Whether a directive of `kind` names a task by its number, as
@@ -343,4 +368,21 @@ function wordsOf(
 			return ["Lane", { kind: "lane", id, name: lane?.name ?? argument }];
 		}
 	}
+}
+
+/** The parameter lines of an eval loop directive, which its chip's title carries. */
+const LOOP_PARAMETERS = /^(?:Budget|Rounds|Agents|Repetitions):.*(?:\n|$)/gm;
+
+/**
+ * `rest`, the words after a message's leading `directives`, without the
+ * parameter lines of an eval loop directive among them: the agent reads
+ * them in the message, the person sees the chip.
+ */
+export function withoutLoopParameters(
+	directives: readonly string[],
+	rest: string,
+): string {
+	return directives.some((each) => each.startsWith("[SPLATES EVAL LOOP "))
+		? rest.replace(LOOP_PARAMETERS, "").trim()
+		: rest;
 }

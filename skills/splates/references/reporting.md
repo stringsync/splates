@@ -122,8 +122,8 @@ The board can now mark a stale task, once you pick how.
      ![stale badge](/abs/path/badge.png)
 ```
 
-A review asks no numbered question. After what changed comes the demo of
-what to check, then a `Checks:` line naming each check you ran that passed,
+A review asks no numbered question. After what changed come the screenshots
+that show it, and a demo of what to check only when the user asked for one, then a `Checks:` line naming each check you ran that passed,
 in backticks, and a `Failed:` line for any that failed for a reason outside
 the task, then this last line exactly, which the page needs to show its
 Merge button:
@@ -133,12 +133,7 @@ Merge button:
 
 Old upload links now redirect to the new storage, after a migration that moves every stored file.
 
-### 🎬 Demo: an old upload link
-
-Open http://localhost:4310 (a copy of staging's uploads, nothing of yours).
-
-1. Open `/u/old-link`.
-   The file downloads from the new storage.
+![an old upload link downloading](/abs/path/old-link.png)
 
 Checks: `bun run typecheck`, `bun test`
 

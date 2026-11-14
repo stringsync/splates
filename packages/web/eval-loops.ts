@@ -1,5 +1,4 @@
 import type { ConversationState } from "@splates/server/conversations";
-import type { EvalBudget } from "@splates/server/evals/browser";
 import { useEffect, useState } from "react";
 import { evalRun } from "./api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -9,7 +8,7 @@ import { reportedAs } from "./conversation-names";
 export function loopTarget(
 	conversation: ConversationState,
 	includeFinished = false,
-): { scenario: string } | { run: string } | null {
+): { scenarios: string[] } | { run: string } | null {
 	if (
 		conversation.archived ||
 		(!includeFinished &&
@@ -26,31 +25,16 @@ export function loopTarget(
 		first?.parts
 			.flatMap((part) => (part.type === "text" ? [part.text] : []))
 			.join("\n") ?? "";
-	const match = text.match(/\[SPLATES EVAL LOOP (scenario )?([^\]\s]+)\]/);
-	return match?.[2] === undefined
-		? null
-		: match[1]
-			? { scenario: match[2] }
-			: { run: match[2] };
-}
-
-/**
- * The dollars and rounds the person chose for a loop, read from the directive
- * that opened its conversation; null when the text is no loop directive or
- * names no limits. Each round requires the person’s approval.
- */
-export function loopLimits(text: string): EvalBudget | null {
-	if (!/\[SPLATES EVAL LOOP /.test(text)) {
+	const match = text.match(
+		/\[SPLATES EVAL LOOP (?:(scenarios?) ([^\]]+)|([^\]\s]+))\]/,
+	);
+	if (match === null) {
 		return null;
 	}
-	const usd = Number(text.match(/^Budget: \$(\S+)/m)?.[1]);
-	const rounds = Number(text.match(/^Rounds: (\d+)/m)?.[1]);
-	return Number.isFinite(usd) &&
-		usd > 0 &&
-		Number.isInteger(rounds) &&
-		rounds > 0
-		? { usd, rounds }
-		: null;
+	if (match[1] !== undefined && match[2] !== undefined) {
+		return { scenarios: match[2].trim().split(/\s+/) };
+	}
+	return match[3] === undefined ? null : { run: match[3] };
 }
 
 /** Open eval loops by scenario, with their current conversation status. */
@@ -98,14 +82,16 @@ export function useEvalLoops(
 	const loops = new Map<string, ConversationState>();
 	for (const conversation of conversations) {
 		const target = loopTarget(conversation);
-		const scenario =
+		const covered =
 			target === null
-				? undefined
-				: "scenario" in target
-					? target.scenario
-					: runs[target.run];
-		if (scenario !== undefined && !loops.has(scenario)) {
-			loops.set(scenario, conversation);
+				? []
+				: "scenarios" in target
+					? target.scenarios
+					: [runs[target.run]];
+		for (const scenario of covered) {
+			if (scenario !== undefined && !loops.has(scenario)) {
+				loops.set(scenario, conversation);
+			}
 		}
 	}
 	return loops;

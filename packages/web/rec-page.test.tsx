@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { ConversationFeed } from "./conversation-feed";
+import { Dispatch } from "./dispatch";
+import { Dispatching } from "./dispatching";
+import { Drafts, newDraft } from "./drafts";
 import { RecPage } from "./rec-page";
 import { cleanup, fireEvent, render, waitFor, within } from "./testing-library";
 
@@ -44,6 +48,44 @@ describe("RecPage", () => {
 								sources,
 							})) as unknown as typeof fetch;
 	};
+
+	test("reviews the recording prompt and model settings before sending", async () => {
+		location.hash = "rec/brave-otter";
+		const requests: string[] = [];
+		globalThis.fetch = (async (url: string) => {
+			requests.push(String(url));
+			return Response.json({
+				name: "brave-otter",
+				startedAt: 0,
+				length: 30,
+				size: 0,
+				video: false,
+				momentList: [],
+				entries: [],
+				stills: [],
+				logs: [],
+			});
+		}) as typeof fetch;
+		const feed = new ConversationFeed();
+		const drafts = new Drafts();
+		drafts.write(newDraft("shop"), "Keep my notes");
+		const dispatch = new Dispatch(drafts, feed, "shop", [], [], []);
+		const opened: string[] = [];
+		const view = render(
+			<Dispatching.Provider
+				value={{ dispatch, open: (address) => opened.push(address) }}
+			>
+				<RecPage feed={feed} />
+			</Dispatching.Provider>,
+		);
+		fireEvent.click(
+			await view.findByRole("button", { name: "Send to an agent" }),
+		);
+		expect(opened).toEqual(["new/auto"]);
+		expect(drafts.read(newDraft("shop"))).toContain("#rec:brave-otter");
+		expect(drafts.read(newDraft("shop"))).toEndWith("Keep my notes");
+		expect(requests.every((url) => !url.includes("conversations"))).toBe(true);
+	});
 
 	test("opens on the planner, with a History row and the Rec button", async () => {
 		serve(undefined);

@@ -79,7 +79,7 @@ import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
-import { PendingRow } from "./unsent";
+import { PendingRow, UnsentActionsContext } from "./unsent";
 import {
 	CompactionUI,
 	InterruptedUI,
@@ -188,6 +188,23 @@ function Conversation({
 		sending ?? [],
 		(each) => each.at,
 		heldAfter(queuesNow(conversation)),
+	);
+	const unsentActions = useMemo(
+		() => ({
+			retry: (message: string) => {
+				const found = unsent?.find((each) => each.message.id === message);
+				if (found !== undefined) {
+					retry(found.message);
+				}
+			},
+			edit: (message: string) => {
+				const found = unsent?.find((each) => each.message.id === message);
+				if (found !== undefined) {
+					editUnsent(found.message);
+				}
+			},
+		}),
+		[unsent, retry, editUnsent],
 	);
 	const superseded = useMemo(
 		() => supersededMerges(conversation.events),
@@ -366,72 +383,70 @@ function Conversation({
 														value={archivable ? fileAway : null}
 													>
 														<ArchiveOfferProvider value={offer}>
-															<ReplyContext value={reply}>
-																<NamedContext value={named}>
-																	<ThreadView
-																		docked
-																		occupied={
-																			(sending?.length ?? 0) > 0 ||
-																			(unsent?.length ?? 0) > 0 ||
-																			queued.length > 0
-																		}
-																		historyFailure={historyFailure}
-																		onRead={onRead}
-																		autoFocus={
-																			summary !== true && (!asking || typed)
-																		}
-																		stopping={stopping}
-																		mentions={mentions ?? undefined}
-																		references={references}
-																		commands={commands ?? undefined}
-																		placeholder={
-																			archived
-																				? "Send a message to unarchive and continue"
-																				: undefined
-																		}
-																		controls={
-																			<ThreadControls
-																				conversation={conversation}
-																				refused={refused}
-																			/>
-																		}
-																		above={
-																			<>
-																				<NeedsYouBar />
-																				<Refusal
-																					refusal={refusal}
-																					className="px-2"
+															<UnsentActionsContext value={unsentActions}>
+																<ReplyContext value={reply}>
+																	<NamedContext value={named}>
+																		<ThreadView
+																			docked
+																			occupied={
+																				(sending?.length ?? 0) > 0 ||
+																				queued.length > 0
+																			}
+																			historyFailure={historyFailure}
+																			onRead={onRead}
+																			autoFocus={
+																				summary !== true && (!asking || typed)
+																			}
+																			stopping={stopping}
+																			mentions={mentions ?? undefined}
+																			references={references}
+																			commands={commands ?? undefined}
+																			placeholder={
+																				archived
+																					? "Send a message to unarchive and continue"
+																					: undefined
+																			}
+																			controls={
+																				<ThreadControls
+																					conversation={conversation}
+																					refused={refused}
 																				/>
-																				{offer !== null && barred && (
-																					<ArchiveBar offer={offer} />
-																				)}
-																				<PendingRow
-																					messages={agedSending}
-																					unsent={unsent ?? []}
-																					held={queued}
-																					edits={heldEdits(conversation, {
-																						sendNow,
-																						edit,
-																						discard,
-																						busy: queueBusy,
-																					})}
-																					retry={retry}
-																					edit={editUnsent}
-																				/>
-																				{conversation.ask !== null && (
-																					<AskPanel
-																						key={conversation.ask.id}
-																						drafts={drafts}
-																						conversation={conversation}
-																						agent={agent}
-																						ask={conversation.ask}
+																			}
+																			above={
+																				<>
+																					<NeedsYouBar />
+																					<Refusal
+																						refusal={refusal}
+																						className="px-2"
 																					/>
-																				)}
-																			</>
-																		}
-																	/>
-																</NamedContext>
-															</ReplyContext>
+																					{offer !== null && barred && (
+																						<ArchiveBar offer={offer} />
+																					)}
+																					<PendingRow
+																						messages={agedSending}
+																						held={queued}
+																						edits={heldEdits(conversation, {
+																							sendNow,
+																							edit,
+																							discard,
+																							busy: queueBusy,
+																						})}
+																					/>
+																					{conversation.ask !== null && (
+																						<AskPanel
+																							key={conversation.ask.id}
+																							drafts={drafts}
+																							conversation={conversation}
+																							agent={agent}
+																							ask={conversation.ask}
+																						/>
+																					)}
+																				</>
+																			}
+																		/>
+																	</NamedContext>
+																</ReplyContext>
+															</UnsentActionsContext>
 														</ArchiveOfferProvider>
 													</ArchiveConversation>
 												</EvalsConversation>

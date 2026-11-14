@@ -5,7 +5,6 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
-	EVALS_BUDGET_USED_UP,
 	GRANT_DENIED,
 	GRANTED,
 	MERGE,
@@ -331,14 +330,6 @@ export const BARE_DIRECTIVES = [
 			"carry on without the command the last run-command card asked to run",
 		icon: BanIcon,
 		tone: "neutral",
-	},
-	{
-		directive: EVALS_BUDGET_USED_UP,
-		label: "Evals budget used up",
-		about:
-			"stop and report: the run evals card was refused because the budget is used up, and only the user tops it up",
-		icon: BanIcon,
-		tone: "warning",
 	},
 ] as const satisfies {
 	directive: string;

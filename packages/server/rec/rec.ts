@@ -22,6 +22,7 @@ const STATUS = z.object({
 	startedAt: z.number().optional(),
 	mic: z.enum(["on", "off"]).optional(),
 	laser: z.boolean().optional(),
+	processing: z.array(z.string()).optional(),
 	lastOutcome: z
 		.discriminatedUnion("status", [
 			z.object({ status: z.literal("saved"), name: z.string() }),
@@ -61,8 +62,13 @@ export class Rec {
 	/** The rec this server started, while it runs. */
 	#child: Child | null = null;
 
-	constructor(ps: Ps) {
+	readonly #pollMs: number;
+	readonly #graceMs: number;
+
+	constructor(ps: Ps, opts: RecOptions = {}) {
 		this.#ps = ps;
+		this.#pollMs = opts.pollMs ?? 3000;
+		this.#graceMs = opts.graceMs ?? 5000;
 	}
 
 	/** Runs `rec <args>`, and what it printed; null when it is missing or fails. */
@@ -148,8 +154,8 @@ export class Rec {
 	}
 
 	/**
-	 * Ends the running rec, the way out when Chrome never shows or answers.
-	 * False when no rec runs.
+	 * Ends the running rec, the way out when Chrome never shows or answers, and
+	 * waits for it to finish pending sessions. False when no rec runs.
 	 */
 	async interrupt(): Promise<boolean> {
 		const child = this.#child;
@@ -158,17 +164,52 @@ export class Rec {
 			return this.#interruptStranger();
 		}
 		child.kill("SIGINT");
-		const gone = await Promise.race([
-			child.exited.then(
-				() => true,
-				() => true,
-			),
-			new Promise<boolean>((resolve) => setTimeout(resolve, 5000, false)),
-		]);
-		if (!gone) {
+		let exited = false;
+		void child.exited.then(
+			() => {
+				exited = true;
+			},
+			() => {
+				exited = true;
+			},
+		);
+		let idleSince = Date.now();
+		while (!exited) {
+			await Promise.race([
+				child.exited.catch(() => {}),
+				new Promise((resolve) => setTimeout(resolve, this.#pollMs)),
+			]);
+			if (exited) {
+				break;
+			}
+			const status = await this.#status();
+			if (status === null) {
+				break;
+			}
+			if ((status.processing ?? []).length > 0) {
+				idleSince = Date.now();
+			} else if (Date.now() - idleSince >= this.#graceMs) {
+				break;
+			}
+		}
+		if (!exited) {
 			child.kill("SIGKILL");
 		}
 		return true;
+	}
+
+	/** What `rec status --json` says; null when rec does not answer. */
+	async #status(): Promise<RecStatus | null> {
+		const out = await this.#run(["status", "--json"]);
+		if (out === null) {
+			return null;
+		}
+		try {
+			const parsed = STATUS.safeParse(JSON.parse(out));
+			return parsed.success ? parsed.data : null;
+		} catch {
+			return null;
+		}
 	}
 
 	/** Interrupts `rec record` processes this server has no handle on. */
@@ -438,4 +479,12 @@ export class Rec {
 /** The name Compose gives a project that lives in `cwd`. */
 function composeProject(cwd: string): string {
 	return (cwd.split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+
+/** What tunes how Stop waits for rec. */
+export interface RecOptions {
+	/** How often Stop asks rec what it still processes. */
+	pollMs?: number;
+	/** How long rec may process nothing after Stop before it is killed as stuck. */
+	graceMs?: number;
 }

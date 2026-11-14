@@ -52,6 +52,8 @@ export interface TranscribeOptions {
 	micOff?: boolean;
 	/** The session ran with --no-mic: remarks narrate it, so the missing speech is no failure. */
 	noMic?: boolean;
+	/** Use the `transcript.json` already in the folder, so finishing a session again never pays for whisper twice. */
+	reuse?: boolean;
 }
 
 /** Transcribes the recording's audio, writing `transcript.json` and `timeline.md` next to it. */
@@ -72,7 +74,8 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 						words: [],
 						utterances: [],
 					}
-				: await hear(fetcher, work, opts);
+				: (opts.reuse && (await existing(fs, dir))) ||
+					(await hear(fetcher, work, opts));
 		const pointers: Pointer[] = [];
 		const logs = (await fs.readdir(`${dir}/logs`).catch(() => [] as string[]))
 			.filter((name) => name.endsWith(".log"))
@@ -101,6 +104,14 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 	} finally {
 		await fs.rm(work, { recursive: true, force: true });
 	}
+}
+
+/** The folder's `transcript.json`, when one was written before. */
+async function existing(fs: Fs, dir: string): Promise<Transcript | undefined> {
+	if (!(await fs.exists(`${dir}/transcript.json`))) {
+		return undefined;
+	}
+	return JSON.parse(await fs.read(`${dir}/transcript.json`)) as Transcript;
 }
 
 /** Extracts the recording's audio and runs it through whisper, writing `transcript.json`. */

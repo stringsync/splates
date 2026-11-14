@@ -1,0 +1,25 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-13T15:42:50.921Z",
+	"title": "splates (regraded)",
+	"producer": "splates",
+	"revision": {
+		"commit": "1cacf7fec10c6c961d349ab3633cc36c04efbc39",
+		"skillHash": "3f7fd38bc52ddb62eb6fdcaec11b1755dd3cb9657237272d93b7ff792c2c9bfe",
+		"scenarioHash": "d1087587924408e138bb56962fa4c07a7ac65bc91439c5b9b61abd7290f5ee4c"
+	},
+	"cells": [
+		{
+			"id": "run-008",
+			"case": "rec/creates-approved-recording-work",
+			"group": "rec",
+			"about": "After approval, create only the selected recording work in suitable lanes, preserving evidence and dependencies without executing it.",
+			"target": {
+				"agent": "claude",
+				"model": "sonnet"
+			},
+			"repetition": 0,
+			"fingerprint": "2d2790ebe2860853dbf7f972c57813f05d74dc6b0a6f53055f08979a4d617122"
+		}
+	]
+}

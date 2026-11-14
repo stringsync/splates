@@ -1,31 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { Position } from "core/geometry";
 import { Annotate } from "./annotate-dialog";
 import { Annotation } from "./annotation";
+import { Note } from "./mark-notes";
 import { fireEvent, render, within } from "./testing-library";
-
-/** An annotation of a 1100 by 550 image. */
-function annotation(): Annotation {
-	const image = { width: 1100, height: 550, close() {} };
-	return new Annotation(
-		new File([], "shot.png", { type: "image/png" }),
-		image as unknown as ImageBitmap,
-	);
-}
-
-/** Opens the annotator on a fresh image, counting each time it is done. */
-function opened(): { done: () => number; board: HTMLElement } {
-	let done = 0;
-	const page = render(
-		<Annotate annotation={annotation()} onDone={() => done++} />,
-	);
-	const board = page.baseElement.querySelector<HTMLElement>(
-		'[data-slot="annotate"]',
-	);
-	if (!board) {
-		throw new Error("the annotator did not open");
-	}
-	return { done: () => done, board };
-}
 
 describe("Annotate", () => {
 	it("is done on a click on the dimmed space around the image", () => {
@@ -75,4 +53,52 @@ describe("Annotate", () => {
 		expect(tool("Box").getAttribute("aria-pressed")).toBe("true");
 		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("false");
 	});
+
+	it("undoes a mark just drawn on Ctrl+Z from its empty note", () => {
+		const marks = annotation();
+		marks.press(new Position(100, 100));
+		marks.move(new Position(300, 200));
+		marks.release();
+		expect(marks.marks).toHaveLength(1);
+		const page = render(
+			<Note
+				annotation={marks}
+				at={0}
+				grip={{}}
+				bounds={{ current: document.body }}
+			/>,
+		);
+
+		fireEvent.keyDown(page.getByLabelText("note on mark 1"), {
+			key: "z",
+			ctrlKey: true,
+		});
+
+		expect(marks.marks).toHaveLength(0);
+	});
 });
+
+/** An annotation of a 1100 by 550 image. */
+function annotation(): Annotation {
+	const image = { width: 1100, height: 550, close() {} };
+	return new Annotation(
+		new File([], "shot.png", { type: "image/png" }),
+		image as unknown as ImageBitmap,
+	);
+}
+
+/** Opens the annotator on a fresh image, counting each time it is done. */
+function opened(marks = annotation()): {
+	done: () => number;
+	board: HTMLElement;
+} {
+	let done = 0;
+	const page = render(<Annotate annotation={marks} onDone={() => done++} />);
+	const board = page.baseElement.querySelector<HTMLElement>(
+		'[data-slot="annotate"]',
+	);
+	if (!board) {
+		throw new Error("the annotator did not open");
+	}
+	return { done: () => done, board };
+}

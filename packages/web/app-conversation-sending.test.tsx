@@ -371,7 +371,7 @@ describe("App's sending messages", () => {
 		);
 	});
 
-	it("keeps a message the server refuses in the pending row, saying it was not sent, to send again", async () => {
+	it("keeps a message the server refuses in the thread, saying under it why it was not sent, to send again", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Login", status: "stopped" }),
 		]);
@@ -387,17 +387,19 @@ describe("App's sending messages", () => {
 		const unsent = await waitFor(() =>
 			within(thread).getByText("Couldn't send"),
 		);
-		// Why, on hover, rather than a banner over the composer.
+		// Why, in words under its bubble, and as sent on hover.
 		expect(unsent.title).toBe("cannot resume");
+		expect(
+			within(thread).getByText(": the server refused it: cannot resume."),
+		).toBeTruthy();
 		expect(within(thread).queryByRole("alert")).toBeNull();
 		expect(textIn(box)).toBe("");
-		// In place in the pending row, never at the thread's foot.
-		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
-		expect(
-			within(view.getByRole("list", { name: "messages sending" })).getByText(
-				"and the logout",
-			),
-		).toBeTruthy();
+		// Directly under its bubble in the thread, not in the row above the composer.
+		const bubbles = thread.querySelectorAll('[data-role="user"]');
+		expect(bubbles).toHaveLength(1);
+		expect(bubbles[0]?.textContent).toContain("and the logout");
+		expect(bubbles[0]?.textContent).toContain("Couldn't send");
+		expect(view.queryByRole("list", { name: "messages sending" })).toBeNull();
 
 		testing.refuseWrites = null;
 		await act(async () =>

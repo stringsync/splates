@@ -7,6 +7,7 @@ import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { ChoiceBody, HowToPick, WhyLine, WhySwitch } from "./choice-body";
 import { Markdown } from "./markdown";
+import { label } from "./shortcuts";
 
 /**
  * A question whose choices are put in order: each moves up or down by its
@@ -155,7 +156,8 @@ export function Ranking({
 					<p className="flex-1 text-muted-foreground text-xs">
 						{!touch && (
 							<>
-								<Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> moves
+								<Kbd>{label("Alt+ArrowUp")}</Kbd>{" "}
+								<Kbd>{label("Alt+ArrowDown")}</Kbd> moves
 							</>
 						)}
 					</p>

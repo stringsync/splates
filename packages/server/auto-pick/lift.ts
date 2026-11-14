@@ -164,7 +164,13 @@ async function rejudging(
 		return;
 	}
 	const { decision } = judged;
-	const settings = settingsFor(state.settings, decision.pick);
+	const settings = settingsFor(
+		state.settings,
+		// A model the person chose when starting stands: only the effort moves.
+		conversation.state.autoPick?.keepModel
+			? { ...decision.pick, model: undefined }
+			: decision.pick,
+	);
 	const undo = Object.fromEntries(
 		Object.keys(settings).flatMap((id) => {
 			const current = state.settings.find((each) => each.id === id)?.current;

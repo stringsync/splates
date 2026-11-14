@@ -7,7 +7,6 @@ import { openRepository, type Repository } from "@splates/server/records";
 import { Replicator } from "@splates/server/replica";
 import type { SplatesDeps } from "@splates/server/server";
 import {
-	OPENCODE_NEEDS_SERVER,
 	SETUP_AREAS,
 	Setup,
 	type SetupProgress,
@@ -167,16 +166,6 @@ const MARKS: Record<StepStatus, string> = {
 
 function printProgress(log: Logger, progress: SetupProgress): void {
 	for (const area of progress.areas) {
-		// Unchecked, not undone: counting its steps would read 0/4.
-		if (
-			area.steps.length > 0 &&
-			area.steps.every((step) => step.problem === OPENCODE_NEEDS_SERVER)
-		) {
-			log.info(
-				`${color.bold(area.title)}  ${color.dim("needs `splates server` to check")}`,
-			);
-			continue;
-		}
 		const counts = [
 			`${area.done}/${area.steps.length} done`,
 			area.skipped > 0 ? `${area.skipped} skipped` : "",

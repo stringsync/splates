@@ -174,28 +174,7 @@ export function RecSession({
 					/>
 				</TabsContent>
 				<TabsContent value="stills">
-					{session.stills.length === 0 ? (
-						<p className="text-muted-foreground text-sm">No stills.</p>
-					) : (
-						<ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-							{session.stills.map((file) => (
-								<li key={file}>
-									<a
-										href={recFileUrl(session.name, "still", file)}
-										target="_blank"
-										rel="noreferrer"
-									>
-										<img
-											alt={file}
-											loading="lazy"
-											src={recFileUrl(session.name, "still", file)}
-											className="rounded border"
-										/>
-									</a>
-								</li>
-							))}
-						</ul>
-					)}
+					<Stills name={session.name} files={session.stills} />
 				</TabsContent>
 				<TabsContent value="logs">
 					<Logs name={session.name} files={session.logs} />
@@ -323,6 +302,52 @@ function Ticks({
 				/>
 			))}
 		</fieldset>
+	);
+}
+
+const STILLS_PAGE_SIZE = 24;
+
+function Stills({
+	name,
+	files,
+}: {
+	name: string;
+	files: readonly string[];
+}): JSX.Element {
+	const [shown, setShown] = useState(STILLS_PAGE_SIZE);
+	if (files.length === 0) {
+		return <p className="text-muted-foreground text-sm">No stills.</p>;
+	}
+	return (
+		<div className="flex flex-col gap-3">
+			<ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+				{files.slice(0, shown).map((file) => (
+					<li key={file}>
+						<a
+							href={recFileUrl(name, "still", file)}
+							target="_blank"
+							rel="noreferrer"
+						>
+							<img
+								alt={file}
+								loading="lazy"
+								src={recFileUrl(name, "still", file)}
+								className="rounded border"
+							/>
+						</a>
+					</li>
+				))}
+			</ul>
+			{shown < files.length && (
+				<Button
+					variant="outline"
+					className="self-center"
+					onClick={() => setShown((count) => count + STILLS_PAGE_SIZE)}
+				>
+					Show more ({files.length - shown} left)
+				</Button>
+			)}
+		</div>
 	);
 }
 

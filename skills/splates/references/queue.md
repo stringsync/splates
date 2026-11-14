@@ -183,7 +183,11 @@ Under its title, give the command that queues it, on a line of its own in
 backticks, so a user reading in a terminal can run it themselves.
 The `splates server` page lists the work on the card as the board has it,
 with that command to copy, and Queue now for the user to press; the choice is theirs and
-reaches only the board, never you. Ask for one queue card a reply, at its
+reaches only the board, never you. Work you added for several lanes or tasks (an approved proposal that
+created two lanes, say) still ends with exactly one queue card, naming every
+task you added with `splates queue add <ids>`, never one card per lane, and
+never a reply that stops at a Done report or a plain summary: the card, as
+the last thing in the reply, is how the user queues what you added. Ask for one queue card a reply, at its
 end, and leave it at that: whatever the user picks, carry on with any work
 under way, and do none of the work on the card in this conversation unless
 they ask you to.

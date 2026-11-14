@@ -32,7 +32,6 @@ describe("SETUP_AREAS", () => {
 			"claude",
 			"codex",
 			"kimi",
-			"opencode",
 			"remote-access",
 			"replica",
 			"dictation",

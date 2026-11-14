@@ -16,6 +16,8 @@ export interface RecStatus {
 	startedAt?: number;
 	mic?: "on" | "off";
 	laser?: boolean;
+	/** Sessions rec is still transcribing or ranking; absent from an older rec. */
+	processing?: string[];
 	/** How the last recording ended; absent before one has, and from an older rec. */
 	lastOutcome?:
 		| { status: "saved"; name: string }

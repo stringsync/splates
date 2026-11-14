@@ -34,7 +34,7 @@ type Waiting = {
 /**
  * A line atop the sidebar's agents saying how many wait on you, counting
  * only agents the sidebar lists, here or in another project. Click it, or
- * press ⌥⌘M (Ctrl+Alt+M off a Mac), to open the next one waiting, then the
+ * press ⌥⌘M (Ctrl+Shift+M off a Mac), to open the next one waiting, then the
  * next merged, then unread; it lights when there is none.
  */
 export function NextWaiting({

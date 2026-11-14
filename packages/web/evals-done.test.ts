@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { evalsDonePrompt } from "@splates/server/evals";
 import type { EvalGrid } from "@splates/server/evals/browser";
-import { evalsDoneLine, evalsDoneOf } from "./evals-done";
+import { evalsDoneOf } from "./evals-done";
 
 const grid: EvalGrid = {
 	id: "batch-abc",
@@ -21,9 +21,6 @@ test("reads the batch and its tally back from what the server tells the agent", 
 	const done = evalsDoneOf(text);
 
 	expect(done).toEqual({ batch: "batch-abc", summary: "2 cells · 2 pass" });
-	expect(
-		evalsDoneLine(done ?? { batch: "", summary: "" }, null, text).words,
-	).toEqual(["Evals done:", "2 cells · 2 pass"]);
 });
 
 test("reads nothing from another message", () => {

@@ -1,6 +1,6 @@
 import { Dispatcher, type Eventful } from "core/events";
 import { OPENERS, ZED } from "./openers";
-import { NONE, type Shortcut, valid } from "./shortcuts";
+import { NONE, onMac, type Shortcut, valid } from "./shortcuts";
 
 export type SettingsEvents = { changed: undefined };
 
@@ -190,6 +190,8 @@ export const SETTINGS = {
 		"Next waiting on you",
 		"Open the next conversation waiting on you, or else the next merged, then unread, one.",
 		"Alt+Mod+KeyM",
+		// Windows' Ctrl+Alt+M never reaches the page.
+		"Ctrl+Shift+KeyM",
 	),
 	"shortcuts.next": shortcut(
 		"Next conversation",
@@ -288,13 +290,22 @@ export interface Definition {
 	browser?: Allowance;
 }
 
-/** A setting for a shortcut, which the dialog records by pressing it. */
-function shortcut(title: string, description: string, fallback: Shortcut) {
+/** A setting for a shortcut, which the dialog records by pressing it. `offMac`
+ * is its default off a Mac, when `fallback` does not work there. */
+function shortcut(
+	title: string,
+	description: string,
+	fallback: Shortcut,
+	offMac: Shortcut = fallback,
+) {
 	return {
 		category: "Shortcuts",
 		title,
 		description,
-		default: fallback,
+		// Read when asked, so a page and its tests see the platform they run on.
+		get default(): Shortcut {
+			return onMac() ? fallback : offMac;
+		},
 		shortcut: true,
 	} as const satisfies Definition;
 }

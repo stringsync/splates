@@ -1,8 +1,4 @@
 import type { EvalDetail } from "@splates/server/evals/browser";
-import {
-	DEFAULT_EVAL_BUDGET,
-	type EvalBudget,
-} from "@splates/server/evals/browser";
 import { ChevronDownIcon, WrenchIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -32,35 +28,30 @@ export function improvable(status: string): boolean {
 
 /**
  * What asks an agent to work the eval loop on `run`'s scenario: a splates
- * directive naming the run, then the loop's dollar budget and round cap as
- * plain text lines. The skill's SKILL.md maps it to its `references/evals.md`,
- * which says how to read the run and the limits and work the loop. It is text
- * only, so any harness can follow it without the splates page.
+ * directive naming the run. It is text only, so any harness can follow it
+ * without the splates page.
  */
-export function improvePrompt(
-	run: Pick<EvalDetail, "id">,
-	limits: EvalBudget = DEFAULT_EVAL_BUDGET,
-): string {
-	return `[SPLATES EVAL LOOP ${run.id}]\nBudget: $${limits.usd}\nRounds: ${limits.rounds}`;
+export function improvePrompt(run: Pick<EvalDetail, "id">): string {
+	return `[SPLATES EVAL LOOP ${run.id}]`;
 }
 
 /**
  * What asks an agent to work the eval loop from a scenario, which may have no
- * run yet: the directive names the scenario, then the budget and rounds, then
+ * run yet: the directive names the scenario, then
  * optionally an `Agents:` line of the saved agents to run it on and a
  * `Repetitions:` line for how many times to run each. The agent
  * runs the scenario first, then carries on as from a failed run.
  */
 export function scenarioPrompt(
-	scenario: string,
-	limits: EvalBudget = DEFAULT_EVAL_BUDGET,
+	scenario: string | readonly string[],
 	agents: readonly string[] = [],
 	reps: number | null = null,
 ): string {
+	const ids = typeof scenario === "string" ? [scenario] : scenario;
 	const lines = [
-		`[SPLATES EVAL LOOP scenario ${scenario}]`,
-		`Budget: $${limits.usd}`,
-		`Rounds: ${limits.rounds}`,
+		ids.length === 1
+			? `[SPLATES EVAL LOOP scenario ${ids[0]}]`
+			: `[SPLATES EVAL LOOP scenarios ${ids.join(" ")}]`,
 	];
 	if (agents.length > 0) {
 		lines.push(`Agents: ${agents.map((agent) => `\`${agent}\``).join(", ")}`);
@@ -69,6 +60,16 @@ export function scenarioPrompt(
 		lines.push(`Repetitions: ${reps}`);
 	}
 	return lines.join("\n");
+}
+
+/** Scenario ids grouped by namespace (the path before the last `/`), in order. */
+export function byNamespace(ids: readonly string[]): string[][] {
+	const groups = new Map<string, string[]>();
+	for (const id of ids) {
+		const namespace = id.slice(0, Math.max(id.lastIndexOf("/"), 0));
+		groups.set(namespace, [...(groups.get(namespace) ?? []), id]);
+	}
+	return [...groups.values()];
 }
 
 /**
@@ -86,7 +87,6 @@ export function ImproveMenu({
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const [error, setError] = useState<string | null>(null);
-	const [limits, setLimits] = useState<EvalBudget>({ ...DEFAULT_EVAL_BUDGET });
 	if (context === null) {
 		return null;
 	}
@@ -95,7 +95,7 @@ export function ImproveMenu({
 		setError(null);
 		(typeof run === "string" ? evalRun(run) : Promise.resolve(run))
 			.then((detail) =>
-				dispatch.beginWith({ agent }, null, improvePrompt(detail, limits)),
+				dispatch.beginWith({ agent }, null, improvePrompt(detail)),
 			)
 			.then(open)
 			.catch((failed: unknown) =>
@@ -104,34 +104,6 @@ export function ImproveMenu({
 	};
 	return (
 		<span className="flex items-center gap-2">
-			<label className="flex items-center gap-1 text-xs">
-				Budget ($)
-				<input
-					aria-label="Budget in dollars"
-					className="w-16 rounded border p-1"
-					type="number"
-					min={0.01}
-					step="any"
-					value={limits.usd}
-					onChange={(event) =>
-						setLimits({ ...limits, usd: Number(event.target.value) })
-					}
-				/>
-			</label>
-			<label className="flex items-center gap-1 text-xs">
-				Rounds
-				<input
-					aria-label="Max rounds"
-					className="w-14 rounded border p-1"
-					type="number"
-					min={1}
-					step={1}
-					value={limits.rounds}
-					onChange={(event) =>
-						setLimits({ ...limits, rounds: Number(event.target.value) })
-					}
-				/>
-			</label>
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					render={

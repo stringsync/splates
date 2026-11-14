@@ -1,29 +1,37 @@
 import { fail } from "../exit";
 import { body, refuse } from "../server/shared";
+import { KeptReads } from "./kept-reads";
 import type { Setup, StepAnswers } from "./setup";
 import { StepProblem } from "./step-problem";
 
 /**
- * How the page reads this machine's setup and does its steps. The machine's,
- * shared by every page on the server, but for the steps that set up the
- * repository of the project a request names. Each handler is a property, so
- * `dev` hands them straight to its routes.
+ * Read this machine's setup and do its steps from the page. Give each handler
+ * to `dev`'s routes; the project a request names picks the repository steps.
  */
 export class SetupRoutes {
 	readonly #setupFor: (request: Request) => Promise<Setup>;
+
+	readonly #reads = new KeptReads<unknown>(READ_KEPT_MS);
 
 	constructor(setupFor: (request: Request) => Promise<Setup>) {
 		this.#setupFor = setupFor;
 	}
 
 	/** Every step checked, by area, and the one to do next. */
-	readonly read = async (request: Request): Promise<Response> =>
-		Response.json(await (await this.#setupFor(request)).read());
+	readonly read = async (request: Request): Promise<Response> => {
+		const key = new URL(request.url).searchParams.get("project") ?? "";
+		return Response.json(
+			await this.#reads.get(key, async () =>
+				(await this.#setupFor(request)).read(),
+			),
+		);
+	};
 
 	/** Marks setup seen, so the page stops nudging towards it. */
 	readonly see = async (request: Request): Promise<Response> => {
 		const setup = await this.#setupFor(request);
 		await setup.see();
+		this.#reads.clear();
 		return Response.json(await setup.read());
 	};
 
@@ -44,6 +52,7 @@ export class SetupRoutes {
 				},
 			);
 		}
+		this.#reads.clear();
 		try {
 			return Response.json(
 				await (await this.#setupFor(request)).submit(step, answers),
@@ -75,6 +84,7 @@ export class SetupRoutes {
 		if (confirm !== null && typeof confirm !== "string") {
 			fail("usage", "send { confirm: string } or nothing", { area });
 		}
+		this.#reads.clear();
 		try {
 			return Response.json(
 				await (await this.#setupFor(request)).undo(area, confirm),
@@ -87,6 +97,9 @@ export class SetupRoutes {
 		}
 	};
 }
+
+/** How long a read of the setup progress answers the next ones. */
+const READ_KEPT_MS = 10_000;
 
 /** The area or step `/api/setup/:id/...` names, by its id. */
 function idOf(request: Request): string {

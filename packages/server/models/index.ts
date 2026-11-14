@@ -36,6 +36,7 @@ export {
 	modelsOf,
 	pickAgent,
 	pickLabel,
+	RETIRED_AGENTS,
 	Roster,
 	splatesHome,
 	traitsOf,

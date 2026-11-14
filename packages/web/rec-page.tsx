@@ -4,6 +4,7 @@ import {
 	Fragment,
 	type JSX,
 	useCallback,
+	useContext,
 	useEffect,
 	useId,
 	useState,
@@ -18,8 +19,8 @@ import {
 import { Input } from "#web/components/ui/input.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { closeRec, openRec, recName, recSessions, recState } from "./api";
-import { promptConversation, startAutoPick } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import { Dispatching } from "./dispatching";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
 import { bytesText } from "./rec-format";
@@ -42,6 +43,7 @@ export function RecPage({
 	feed?: ConversationFeed | null;
 }): JSX.Element {
 	const route = useRoute();
+	const dispatching = useContext(Dispatching);
 	if (route === null) {
 		return <RecStart />;
 	}
@@ -80,7 +82,13 @@ export function RecPage({
 				<RecSession
 					name={route}
 					sendToAgent={
-						feed === null ? undefined : (name) => sendSessionToAgent(feed, name)
+						feed === null || dispatching === null
+							? undefined
+							: async (name) => {
+									dispatching.open(
+										dispatching.dispatch.prepare(recPrompt(name)),
+									);
+								}
 					}
 					gone={(renamedTo) => {
 						location.hash =
@@ -107,19 +115,9 @@ function useRoute(): string | null {
 	return route === null ? null : decodeURIComponent(route);
 }
 
-/** Opens a conversation, on Auto pick, told to look into a session. */
-async function sendSessionToAgent(
-	feed: ConversationFeed,
-	name: string,
-): Promise<void> {
-	const text = `Look into the rec session #rec:${name} with the rec skill and tell me what you see. Don't act on it yet: no tasks, lanes or code changes until I answer. Suggest what to do next, and ask how to move forward as numbered splates questions with your pick marked.`;
-	const state = await startAutoPick({ words: text, task: null });
-	feed.put(state);
-	const sending = feed.send(state.id, text);
-	void promptConversation(state.id, text, [], false, sending.id)
-		.then((answered) => feed.answered(state.id, sending, answered))
-		.catch((error: unknown) => feed.refused(state.id, sending, error));
-	location.hash = `conversations/${state.id}`;
+/** The recording handoff, reviewed in the composer before sending. */
+function recPrompt(name: string): string {
+	return `Look into the rec session #rec:${name} with the rec skill and tell me what you see. Don't act on it yet: no tasks, lanes or code changes until I answer. Suggest what to do next, and ask how to move forward as numbered splates questions with your pick marked.`;
 }
 
 /** What `#rec/history` opens: every saved session. */

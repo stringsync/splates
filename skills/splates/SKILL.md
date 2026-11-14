@@ -1,7 +1,7 @@
 ---
 name: splates
-description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.9
+description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive or a `#rec:<name>` reference to a recorded session. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
+version: 2.0.10
 ---
 
 # Using splates
@@ -12,6 +12,11 @@ trunk without pull requests. Run it with `bunx @stringsync/splates <command>` (o
 only what the CLI cannot tell you. A bare `splates` prints help; start the
 server with `splates server`. `splates dev` is only for developing the splates
 repository itself (its eval and ship commands).
+
+**A `#rec:<name>` in a message** names a recorded session. Before anything else
+(before searching the repository for it), run `rec sessions path <name>`, which
+prints the session's folder, then read the files in that folder, and quote what
+its moments say (error text included) when you answer. Never open rec.
 
 ## Principles
 
@@ -77,6 +82,12 @@ the rest:
 8. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
    report asks nothing and offers nothing.
+9. **Work you added to the board ends its reply with the queue card**, in any
+   conversation, task or not: once, last, naming every task you added
+   (`splates queue add <ids>`), after any report and never in place of one's
+   absence. A reply that created tasks or lanes and ends without it is
+   unfinished, whatever its title (see
+   [queue.md](references/queue.md), Asking the user to queue).
 
 Every landing goes through `splates merge`: use git only to commit and to
 finish a rebase left in progress (`git add`, `git rebase --continue`), then
@@ -123,6 +134,11 @@ order, your pick first by default:
    - (a) Keep it for one release, logging each call (chosen)
    - (b) Remove it now
 ```
+
+When more than one choice can apply (which of several items to do, fix or
+queue), write the choices as `- [a]` lines, each you would tick marked
+`(chosen)`; `- (a)` lines are for alternatives that exclude each other, and a
+pick-one card for non-exclusive items leaves the user unable to answer.
 
 A plain yes or no is asked the same way, as `- (a) Yes` and `- (b) No` choices; the user can always add words to the answer.
 
@@ -189,9 +205,10 @@ its own card, sent before it. A reply in a talk that carries on is no Done repor
 Both kept their tests; the notes needed no change.
 ```
 
-Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with a
-demo, a `Checks:` line and the last line `Reply "merge", or say what to
-change.`: copy its whole shape from
+Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with what
+changed, any screenshots, a `Checks:` line and the last line `Reply "merge",
+or say what to change.`. It holds no demo unless the user asked for one: a demo
+starts servers and costs CPU and memory. Copy its whole shape from
 [references/reporting.md](references/reporting.md) before sending one.
 
 Work you add for the user to queue ends your reply with its queue card,
@@ -227,12 +244,9 @@ Run `splates evals agents` first: it prints the saved eval agents, and an
 saved, leave the line out).
 
 Evals cost the user tokens, so only they start them, approving every round.
-An eval conversation carries a dollar budget and a round cap; every run card
-waits for the user to review its agents and press Run. The budget limits
-spending, never authorizes a start. Outside the limits a run is refused with
-`budget_exhausted`, naming the limit; then stop and report (see
-[evals.md](references/evals.md), Stopping). You never edit the limits: the
-user tops them up. To ask for a run (in
+Every run card waits for the user to review its agents, set its dollar budget
+and press Run; each card is one round with its own budget. You never set the
+budget. To ask for a run (in
 a project whose `splates.config.ts` names `evals.list` and `evals.run`, as
 splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
@@ -380,8 +394,7 @@ the file when one arrives.
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN ELSEWHERE]`           | The user is not at the machine that can run the `rec` command your run-command card asked to run | Do not run it, and do not offer rec again in this conversation: carry on without it |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
-| `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes, within the `Budget: $<usd>` and `Rounds: <n>` lines that may follow | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
-| `[SPLATES EVALS BUDGET USED UP]` | The conversation's eval dollar budget or round cap is used up, so your run evals card was refused | Do not ask for another run or run the eval command yourself: stop and report which limit it was, and that the user can top it up ([evals.md](references/evals.md), Stopping) |
+| `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
 | `[SPLATES RETRIED]`                 | The user granted your task another round of merge attempts, which the page has run `splates retry` for | Merge again, as [merge.md](references/merge.md) says under When a merge fails |
 | `[SPLATES GRANTED]`                 | The user gave the reach your grant card asked for, which the page has granted | Carry on with the work in the other project it was for, as [projects.md](references/projects.md) says |
 | `[SPLATES GRANT DENIED]`            | The user turned down the reach your grant card asked for | Nothing was granted: carry on without that reach, or ask what to do instead |
@@ -415,8 +428,9 @@ which remembers none of it. These come up in most tasks:
 show` says is `groomed: no`, and as the project's groomer:
   [references/groom.md](references/groom.md), everything grooming checks
   and who does it when.
-- Before making a demo, starting a server for the user to try, attaching
-  screenshots or recordings, or creating or managing an artifact:
+- Before attaching screenshots or recordings, or creating or managing an
+  artifact, and when the user asks for a demo or a server to try (never
+  unasked):
   [references/demos.md](references/demos.md), demos, hosting and artifacts.
 - After your first look at any task, when the user asks what you think, and
   when they approve a proposal:
@@ -574,8 +588,8 @@ empty for a new thing.
 ## After
 
 One or two sentences summarizing what will change, updated before merging
-to summarize what happened. Under the sentence, show what was built as a demo
-would: the screenshot or recording of the result. Put supporting details in
+to summarize what happened. Under the sentence, show what was built:
+the screenshot or recording of the result. Put supporting details in
 sections after After, such as `## Verification` for approved mocks and evidence or
 `## Details` for context.
 

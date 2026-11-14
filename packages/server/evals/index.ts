@@ -2,13 +2,8 @@ export type { EvalAgents } from "./agents";
 export { EvalAgentsStore } from "./agents";
 export type { EvalAgentsView } from "./agents-routes";
 export { EvalAgentsRoutes } from "./agents-routes";
-export type {
-	EvalBudget,
-	EvalBudgetStatus,
-	EvalGateVerdict,
-	EvalLimit,
-} from "./budget";
-export { DEFAULT_EVAL_BUDGET, EvalBudgets, gate } from "./budget";
+export type { EvalBudget, EvalBudgetStatus } from "./budget";
+export { DEFAULT_EVAL_BUDGET, EvalBudgets } from "./budget";
 export type {
 	ContractBatch,
 	ContractCell,

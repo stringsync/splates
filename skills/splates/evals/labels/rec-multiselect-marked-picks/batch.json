@@ -1,0 +1,25 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-14T03:56:36.234Z",
+	"title": "splates",
+	"producer": "splates",
+	"revision": {
+		"commit": "98b1e34f812e1d18b87dedddc94d4ccd1a19ff31",
+		"skillHash": "92ea20b37f41da6b696a01c5715f8aa5fa179d026a5c393e1bf83543aa269af2",
+		"scenarioHash": "be8b84243d461852eee68bfadad88771147c263d7af3f9ff9ddc3635a9223c48"
+	},
+	"cells": [
+		{
+			"id": "run-008",
+			"case": "rec/send-to-agent-proposes-work",
+			"group": "rec",
+			"about": "From the rec page's Send to an agent, review the session through its moments and slices, never the whole recording, list the tasks it suggests, and ask which to keep before making any work.",
+			"target": {
+				"agent": "codex",
+				"model": "gpt-6.1-sol"
+			},
+			"repetition": 2,
+			"fingerprint": "9e17c358b2d7036ae8f113261a1b9fff9e5c8a2aef7f7925304ef501f70007bb"
+		}
+	]
+}

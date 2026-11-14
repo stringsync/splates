@@ -211,6 +211,9 @@ export function useNewConversation({
 						// Asked for by a todo's agent, so no pick of the person's.
 						assigned: model !== null,
 						autoPick: autoPick.on,
+						modelChosen:
+							modelSetting !== undefined &&
+							picks[modelSetting.id] !== undefined,
 						id,
 					})
 			)

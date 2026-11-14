@@ -65,7 +65,7 @@ export const ORDER: EvalStatus[] = [
 ];
 
 /** What the plan says of the run: its ceiling, its refusal, or that the project prints none. */
-export function planText(plan: EvalPlan): string {
+export function planText(plan: EvalPlan, budget?: number): string {
 	if (plan.refused) {
 		return plan.output;
 	}
@@ -78,7 +78,16 @@ export function planText(plan: EvalPlan): string {
 		plan.cells === null
 			? ""
 			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
-	return `At most $${plan.usd.toFixed(2)}${runs}.`;
+	const within =
+		budget === undefined || budget < ceilCents(plan.usd)
+			? ""
+			: " · within budget";
+	return `At most $${ceilCents(plan.usd).toFixed(2)}${runs}${within}.`;
+}
+
+/** A dollar amount rounded up to whole cents, so a ceiling and the budget that covers it read the same. */
+export function ceilCents(usd: number): number {
+	return Math.ceil(usd * 100 - 1e-9) / 100;
 }
 
 /** `$spent of $budget` with the tokens beside it, as a budget line reads. */
@@ -86,18 +95,4 @@ export function budgetText(status: EvalBudgetStatus): string {
 	const tokens =
 		status.tokens > 0 ? ` · ${status.tokens.toLocaleString()} tokens` : "";
 	return `$${status.spentUsd.toFixed(2)} of $${status.budget.usd.toFixed(2)}${tokens}`;
-}
-
-/** `round n of max`, n being the rounds started. */
-export function roundsText(status: EvalBudgetStatus): string {
-	return `round ${status.roundsUsed} of ${status.budget.rounds}`;
-}
-
-/** Which limit stopped the loop, or null while there is room. */
-export function stoppedText(status: EvalBudgetStatus): string | null {
-	return status.stoppedBy === "rounds"
-		? "Stopped: the round cap is reached."
-		: status.stoppedBy === "usd"
-			? "Stopped: the dollar budget is used up."
-			: null;
 }

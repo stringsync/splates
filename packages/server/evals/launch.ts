@@ -6,7 +6,8 @@ import type { Child, Ps } from "core/system";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";
-import { type EvalBudgetStatus, EvalBudgets, gate } from "./budget";
+import { type EvalBudgetStatus, EvalBudgets } from "./budget";
+import { ScenarioCache } from "./scenario-cache";
 import { parsed, parseScenarioList } from "./scenario-list";
 import { EvalStore } from "./store";
 import { targetOf } from "./target";
@@ -28,15 +29,17 @@ export class EvalLaunches
 	private readonly launches = new Map<string, Launched>();
 	private readonly watching = new Set<Promise<void>>();
 	private readonly record: Document<Record<string, SavedLaunch>>;
-	/** The dollar budget and round cap of each conversation, and the rounds it started. */
+	/** The dollar budget of each conversation's latest run, and the rounds it started. */
 	readonly budgets: EvalBudgets;
 	private writing: Promise<void> = Promise.resolve();
 	private disposing = false;
+	private readonly listed: ScenarioCache;
 
 	constructor(
 		private readonly ps: Ps,
 		private readonly storage: Storage,
 	) {
+		this.listed = new ScenarioCache(ps);
 		this.record = storage.document("eval-launches.json");
 		this.budgets = new EvalBudgets(storage.document("eval-budgets.json"));
 	}
@@ -49,18 +52,18 @@ export class EvalLaunches
 		if (commands.list === null) {
 			return [];
 		}
-		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
-			["sh", "-c", commands.list],
-			{ cwd: cwd ?? commands.root },
-		);
-		if (exitCode !== 0) {
-			fail(
-				"hook_failed",
-				tailOf(`${stdout}${stderr}`) || `evals.list exited ${exitCode}`,
-				{},
+		const [list, dir] = [commands.list, cwd ?? commands.root];
+		return this.listed.of(dir, list, async () => {
+			const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+				["sh", "-c", list],
+				{ cwd: dir },
 			);
-		}
-		return parseScenarioList(stdout);
+			if (exitCode !== 0) {
+				const said = tailOf(`${stdout}${stderr}`);
+				fail("hook_failed", said || `evals.list exited ${exitCode}`, {});
+			}
+			return parseScenarioList(stdout);
+		});
 	}
 
 	/** Runs the project's free `plan` for `spec`; without one, nothing is refused and no ceiling shown. */
@@ -125,7 +128,6 @@ export class EvalLaunches
 		if (conversation !== null) {
 			const plan = await this.plan(commands, spec);
 			worstUsd = plan.usd ?? 0;
-			await this.checkBudget(commands, conversation, worstUsd);
 		}
 		const known = new Set(await batchesIn(commands.results));
 		const reserved: SavedLaunch = {
@@ -179,33 +181,12 @@ export class EvalLaunches
 		return this.read(launch);
 	}
 
-	/** Where the conversation's budget stands: spend, rounds used and any limit reached. */
+	/** Where the conversation's latest run stands: its budget and what it has cost. */
 	budgetStatus(
 		commands: EvalCommands,
 		conversation: string,
 	): Promise<EvalBudgetStatus> {
 		return this.budgets.statusOf(conversation, new EvalStore(commands.results));
-	}
-
-	/**
-	 * Refuses with `budget_exhausted`, naming the limit, when a run of at most
-	 * `worstUsd` does not fit what the conversation has left. A round whose batch
-	 * has no cost yet counts as spending nothing.
-	 */
-	private async checkBudget(
-		commands: EvalCommands,
-		conversation: string,
-		worstUsd: number,
-	): Promise<void> {
-		const {
-			budget,
-			spentUsd: spent,
-			roundsUsed,
-		} = await this.budgetStatus(commands, conversation);
-		const verdict = gate(budget, spent, roundsUsed, worstUsd);
-		if (!verdict.ok) {
-			fail("budget_exhausted", verdict.reason, { limit: verdict.limit });
-		}
 	}
 
 	/** Recover saved launches after a server restart without rerunning paid commands. */

@@ -62,6 +62,15 @@ export function Lightbox({
 			step(-1);
 		} else if (event.key === "ArrowRight") {
 			step(1);
+		} else if (
+			event.code === "KeyB" &&
+			event.metaKey &&
+			markable &&
+			shown !== undefined
+		) {
+			// ⌘B marks up, as in the composer.
+			event.preventDefault();
+			void markUp(shown).catch(() => {});
 		}
 	};
 	return (

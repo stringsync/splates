@@ -1,8 +1,4 @@
-import type {
-	EvalCell,
-	EvalGrid,
-	EvalStatus,
-} from "@splates/server/evals/browser";
+import type { EvalCell, EvalGrid } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
 import { type JSX, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -195,75 +191,6 @@ export function EvalReport({
 				)}
 			</div>
 		</section>
-	);
-}
-
-/** Segment colors by outcome, matching the chips. */
-const SEGMENTS: Record<EvalStatus, string> = {
-	pass: "bg-emerald-500",
-	fail: "bg-destructive",
-	error: "bg-amber-500",
-	unreadable: "bg-destructive",
-	pending: "bg-muted-foreground/40",
-};
-
-/**
- * A batch condensed for the card that started it: one row per agent, a
- * segment per run (each opening its run on the Evals page) and the counts.
- * The full grid is on the report.
- */
-export function EvalSummary({ grid }: { grid: EvalGrid }): JSX.Element {
-	const open = (run: string): void => {
-		location.hash = `#evals/${encodeURIComponent(grid.id)}/${encodeURIComponent(run)}`;
-	};
-	return (
-		<>
-			<ul aria-label="eval summary" className="flex flex-col gap-1 text-xs">
-				{grid.targets.map((target) => {
-					const cells = grid.grid.filter((cell) => cell.target === target.key);
-					const counts = ORDER.filter((status) =>
-						cells.some((cell) => (cell.run?.status ?? "pending") === status),
-					)
-						.reverse()
-						.map(
-							(status) =>
-								`${cells.filter((cell) => (cell.run?.status ?? "pending") === status).length} ${status}`,
-						)
-						.join(" · ");
-					return (
-						<li
-							key={target.key}
-							className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-						>
-							<span className="min-w-0 flex-1 break-words text-muted-foreground">
-								{targetName(target)}
-							</span>
-							<span className="flex gap-0.5">
-								{cells.map((cell) => {
-									const status = cell.run?.status ?? "pending";
-									return (
-										<button
-											key={`${cell.scenario}:${cell.repetition}`}
-											type="button"
-											disabled={cell.run === null}
-											title={`${cell.scenario}: ${status}`}
-											aria-label={`${cell.scenario} on ${cell.target}, repetition ${cell.repetition + 1}: ${status}`}
-											onClick={() => open(cell.run?.id ?? "")}
-											className={cn(
-												"h-2 w-4 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-												SEGMENTS[status],
-											)}
-										/>
-									);
-								})}
-							</span>
-							<span className="w-36 text-right tabular-nums">{counts}</span>
-						</li>
-					);
-				})}
-			</ul>
-			{grid.remarks !== undefined && <Remarks text={grid.remarks} plain />}
-		</>
 	);
 }
 

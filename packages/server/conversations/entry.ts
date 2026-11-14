@@ -77,7 +77,12 @@ type Said =
 	 */
 	| { kind: "auto-pick"; pick: AutoPickSet; lifted?: true; at: string }
 	/** The person switched Auto pick on or off for the conversation. */
-	| { kind: "auto-pick-switch"; on: boolean; at: string }
+	| {
+			kind: "auto-pick-switch";
+			on: boolean;
+			keepModel?: true;
+			at: string;
+	  }
 	/** Whether note pointers are held back from it, chosen as its first message was routed. */
 	| {
 			kind: "notes-holdout";

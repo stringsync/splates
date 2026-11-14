@@ -603,12 +603,17 @@ export class Conversation
 	 * Switches Auto pick `on` for its model and effort, to judge what the
 	 * person says next, or off, leaving them as they are.
 	 */
-	switchAutoPick(on: boolean): void {
-		const autoPick = switched(this.state, on);
+	switchAutoPick(on: boolean, keepModel = false): void {
+		const autoPick = switched(this.state, on, keepModel);
 		if (autoPick === this.state.autoPick) {
 			return;
 		}
-		this.log.write({ kind: "auto-pick-switch", on, at: this.now() });
+		this.log.write({
+			kind: "auto-pick-switch",
+			on,
+			...(on && keepModel ? { keepModel: true as const } : {}),
+			at: this.now(),
+		});
 		this.set({ autoPick });
 	}
 
@@ -642,7 +647,7 @@ export class Conversation
 		}
 		// Its task landed or went without the agent's `splates` reaching this
 		// server to move it, so it carries on in the main tree.
-		if (this.agent.id !== "opencode" && !(await this.there(this.dir))) {
+		if (!(await this.there(this.dir))) {
 			if (this.deps.root === null) {
 				fail(
 					"not_found",
@@ -673,10 +678,7 @@ export class Conversation
 		// deletes under it. At the turn's end it stops, so the next prompt
 		// resumes in the new one.
 		this.leftWorktree =
-			task === null &&
-			this.dir !== cwd &&
-			this.state.status === "running" &&
-			this.agent?.id !== "opencode";
+			task === null && this.dir !== cwd && this.state.status === "running";
 		this.dir = cwd;
 		this.log.write({
 			kind: "task",
@@ -771,10 +773,8 @@ export class Conversation
 	}
 
 	/**
-	 * Stops it as the server goes down. One still starting, as while it
-	 * waits for a place, keeps that unsaid, with whatever was said to it yet
-	 * to reach its agent, so the next run starts it again and says it, as
-	 * though the server had stayed up.
+	 * Stops it as the server goes down; call it once per conversation. What
+	 * was said to a still-starting one is kept for the next run to say.
 	 */
 	async shutDown(): Promise<void> {
 		await this.halt(this.state.status === "starting" && this.latch === null);
@@ -1230,11 +1230,7 @@ export class Conversation
 			running !== (this.state.status === "running")
 		) {
 			const at = this.now();
-			this.log.write({
-				kind: "turn",
-				running,
-				...(this.state.agent === "opencode" ? { at } : {}),
-			});
+			this.log.write({ kind: "turn", running });
 			if (!running) {
 				finishObservation(this.state, at);
 			}
@@ -1474,7 +1470,7 @@ export interface Picked<A = Agent> {
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */
 interface From {
-	/** Original cwd required by OpenCode recovery. */
+	/** The directory the agent's session opened in. */
 	sessionCwd?: string | null;
 	/** The agent's session, for one read back or brought in. */
 	session?: string | null;

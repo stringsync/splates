@@ -8,7 +8,6 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "../components/ui/native-select";
-import { Switch } from "../components/ui/switch";
 import {
 	CredField,
 	JourneyDone,
@@ -31,7 +30,6 @@ function area(id: string, title: string, done: number, steps: number) {
 	} as unknown as AreaProgress;
 }
 const AREAS = [
-	area("opencode", "OpenCode", 4, 4),
 	area("claude", "Claude", 2, 2),
 	area("codex", "Codex", 0, 2),
 	area("remote-access", "Remote access", 1, 3),
@@ -45,18 +43,18 @@ const SCREENS: Record<string, () => JSX.Element> = {
 	index: () => <SetupIndex areas={AREAS} onSelect={leave} onUndo={leave} />,
 	cred: () => (
 		<Form
-			title="Paste your OpenCode Go API key"
-			why="splates keeps it, and hands OpenCode its own copy."
+			title="Paste your Kimi API key"
+			why="splates keeps it, and hands Kimi its own copy."
 			at={2}
 			of={4}
 		>
 			<CredField
-				name="OPENCODE_GO_API_KEY"
+				name="KIMI_API_KEY"
 				label="API key"
 				help={
 					<>
 						Make one under API keys in the{" "}
-						<a href="https://opencode.ai/auth">OpenCode Console</a>.
+						<a href="https://platform.kimi.ai">Kimi Console</a>.
 					</>
 				}
 			/>
@@ -82,12 +80,6 @@ const SCREENS: Record<string, () => JSX.Element> = {
 					<NativeSelectOption value="minimax">MiniMax M2.7</NativeSelectOption>
 				</NativeSelect>
 			</Field>
-			<Field orientation="horizontal">
-				<Switch id="balance" />
-				<FieldLabel htmlFor="balance">
-					"Use balance" is off in my OpenCode Console
-				</FieldLabel>
-			</Field>
 		</Form>
 	),
 	text: () => (
@@ -109,11 +101,11 @@ const SCREENS: Record<string, () => JSX.Element> = {
 	),
 	working: () => (
 		<Form
-			title="Install OpenCode"
-			why="splates runs OpenCode from your PATH."
+			title="Install Codex"
+			why="splates runs Codex from your PATH."
 			at={1}
 			of={4}
-			next={{ kind: "working", doing: "Installing OpenCode with npm…" }}
+			next={{ kind: "working", doing: "Installing Codex with npm…" }}
 		/>
 	),
 	failed: () => (
@@ -134,8 +126,8 @@ const SCREENS: Record<string, () => JSX.Element> = {
 		/>
 	),
 	done: () => (
-		<JourneyDone title="OpenCode" onLeave={leave} onUndo={leave}>
-			<Button>Start an OpenCode conversation</Button>
+		<JourneyDone title="Codex" onLeave={leave} onUndo={leave}>
+			<Button>Start a Codex conversation</Button>
 		</JourneyDone>
 	),
 	// The dev server answers each area's plan from its fixtures.
@@ -176,7 +168,7 @@ function Form({
 				setTimeout(() => setNext({ kind: "ready" }), 1000);
 			}}
 			onAgent={agent}
-			undo="OpenCode"
+			undo="Codex"
 			onUndo={leave}
 		/>
 	);

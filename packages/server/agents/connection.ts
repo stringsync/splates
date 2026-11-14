@@ -19,7 +19,6 @@ import {
 	kimiUsageIn,
 	modelOption,
 	renamedModelOption,
-	safeOpenCodeUpdate,
 } from "../models";
 import {
 	ASYNC_TASK_STOP,
@@ -44,7 +43,6 @@ import {
 	result,
 	settingsIn,
 	starts,
-	tally,
 } from "./fold";
 import type { Agent, AgentProcess, Launch, ProcessHandle } from "./process";
 import { SCRATCH } from "./scratch";
@@ -211,15 +209,6 @@ export class AgentConnection {
 		const started = await this.startAlone();
 		let process: AgentProcess | null = null;
 		try {
-			if (agent.id === "opencode" && this.session !== null) {
-				const original = this.sessionCwd;
-				if (original === null || !(await this.deps.fs.exists(original))) {
-					throw new Error(
-						`OpenCode cannot recover this session: original directory ${original ?? "unknown"} is unavailable. Restore it or explicitly start a new conversation.`,
-					);
-				}
-				cwd = original;
-			}
 			// The agent's `splates` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
 			// started by a lane's orchestrator finds it as the one that started
@@ -348,11 +337,8 @@ export class AgentConnection {
 			const asked =
 				this.model === null
 					? null
-					: (modelOption(
-							host.state.settings,
-							this.model,
-							agent.id === "opencode",
-						) ?? renamedModelOption(previous, host.state.settings, this.model));
+					: (modelOption(host.state.settings, this.model) ??
+						renamedModelOption(previous, host.state.settings, this.model));
 			if (this.model !== null && asked === null) {
 				throw new Error(
 					`Requested model '${this.model}' is not offered by ${agent.name}; no prompt was sent.`,
@@ -470,9 +456,6 @@ export class AgentConnection {
 					const { usage } = response.result as acp.PromptResponse;
 					if (usage != null) {
 						host.log.write({ kind: "usage", usage });
-						if (host.state.agent === "opencode") {
-							tally(host.state, usage);
-						}
 					}
 					host.ended(null);
 				}),
@@ -652,22 +635,6 @@ export class AgentConnection {
 		const fresh = this.kimiNewSession;
 		this.kimiNewSession = false;
 		const before = await this.kimiTotal();
-		const report = this.host.state.usage.opencode;
-		if (report !== undefined && this.connection !== null) {
-			const turn = {
-				at: this.host.now(),
-				until: null,
-				firstText: null,
-				requested: this.model,
-				confirmed:
-					this.host.state.settings.find((each) => each.category === "model")
-						?.current ?? null,
-				cwd: this.sessionCwd,
-				tokens: null,
-			};
-			this.host.log.write({ kind: "observed-turn", turn });
-			report.turns.push(turn);
-		}
 		const response = await this.connection?.prompt({
 			sessionId: this.session ?? "",
 			prompt,
@@ -881,7 +848,7 @@ export class AgentConnection {
 	}
 
 	// vet-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
-	/** Stops the agent, dismissing any question it was asking the person. */
+	// Stops the agent, dismissing any question it was asking.
 	close(): void {
 		this.settled({ type: "dismiss" });
 		this.listening?.dispose();
@@ -897,9 +864,6 @@ export class AgentConnection {
 		const { host } = this;
 		return {
 			sessionUpdate: async ({ update }) => {
-				if (host.state.agent === "opencode") {
-					update = safeOpenCodeUpdate(update);
-				}
 				if (this.suppressReplay) {
 					return;
 				}

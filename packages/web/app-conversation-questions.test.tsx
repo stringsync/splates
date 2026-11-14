@@ -273,7 +273,7 @@ describe("App's question cards", () => {
 		]);
 	});
 
-	it("keeps the answers and says so until the next try when the server refuses their send", async () => {
+	it("keeps the answers as a message saying why it was not sent, until sent again, when the server refuses their send", async () => {
 		const view = await testing.openConversations([asking()]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
@@ -289,11 +289,16 @@ describe("App's question cards", () => {
 			fireEvent.click(view.getByRole("button", { name: "Send" })),
 		);
 
-		const alert = await waitFor(() => view.getByRole("alert"));
-		expect(alert.textContent).toContain("cannot resume");
-		expect(localStorage.getItem(draft)).toContain("Tasks");
+		// Said under the answers' own bubble in the thread, with a way to send again.
+		const unsent = await waitFor(() => view.getByText("Couldn't send"));
+		expect(unsent.title).toBe("cannot resume");
 		// Said past the moment a refusal used to last.
 		await new Promise((done) => setTimeout(done, 4500));
-		expect(view.getByRole("alert")).toBeTruthy();
+		expect(view.getByText("Couldn't send")).toBeTruthy();
+		testing.refuseWrites = null;
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Retry" })),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(2);
 	}, 10000);
 });

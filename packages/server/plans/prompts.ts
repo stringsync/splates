@@ -8,10 +8,7 @@ export function laneReference(id: number): string {
 	return `[SPLATES LANE ${id}]`;
 }
 
-/**
- * The old lane marker retained for reading `[SPLATES LANE untriaged]`
- * in saved conversation logs.
- */
+/** The lane name that old `[SPLATES LANE untriaged]` lines in saved conversation logs carry. */
 export const UNTRIAGED = "untriaged";
 
 /**
@@ -241,13 +238,6 @@ export const RUN_DENIED = "[SPLATES RUN DENIED]";
  * device sends: the splates skill says what it means.
  */
 export const RUN_ELSEWHERE = "[SPLATES RUN ELSEWHERE]";
-
-/**
- * What tells an agent the conversation's eval budget (dollars or rounds) is
- * used up, so the run evals card it asked for was refused and will not start:
- * the splates skill says what it means.
- */
-export const EVALS_BUDGET_USED_UP = "[SPLATES EVALS BUDGET USED UP]";
 
 /**
  * What tells an agent the person granted its task another round of merge

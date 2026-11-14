@@ -1,6 +1,5 @@
 import {
 	DEFAULT_EVAL_BUDGET,
-	type EvalBudget,
 	type EvalBudgetStatus,
 	type EvalGrid,
 	type EvalLaunch,
@@ -69,12 +68,6 @@ export type EvalRunEvents = { changed: undefined };
 /** How often a run in flight is read again. */
 const FOLLOW = Duration.secs(2);
 
-/** The card's cases under a heading, by what each checks; either may be empty. */
-export interface ScenarioGroup {
-	group: string;
-	abouts: { about: string; scenarios: string[] }[];
-}
-
 /**
  * The run an agent's `run evals` card asks for, for the person to start: the
  * cases it picked grouped as the project's `evals.list` heads them, the
@@ -98,10 +91,11 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	plan: EvalPlan | null = null;
 	launch: EvalLaunch | null = null;
 	grid: EvalGrid | null = null;
-	/** The conversation's spend against its limits; null outside a conversation or before it is read. */
+	/** The conversation's latest run and what it has spent; null outside a conversation or before it is read. */
 	budget: EvalBudgetStatus | null = null;
-	/** The limits a first run sets, prefilled with the defaults and editable until it starts. */
-	limits: EvalBudget = { ...DEFAULT_EVAL_BUDGET };
+	/** This run's own dollar budget: the latest run's in the conversation, else the default, editable until it starts. */
+	usd: number = DEFAULT_EVAL_BUDGET.usd;
+	private usdEdited = false;
 	/** Why the last read or write refused, in the server's words. */
 	refusal: string | null = null;
 	loaded = false;
@@ -109,6 +103,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	private repetitions: number | undefined;
 	private following: Resource | null = null;
 	private planning = 0;
+	private loading: Promise<void> | null = null;
 
 	private readonly server: EvalRunServer;
 	private readonly timer: Timer;
@@ -162,14 +157,24 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		return this.launch?.status === "running";
 	}
 
-	async load(): Promise<void> {
+	/** Reads the card's server state; a call while one is going shares it. */
+	load(): Promise<void> {
+		this.loading ??= this.fetch().finally(() => {
+			this.loading = null;
+		});
+		return this.loading;
+	}
+
+	private async fetch(): Promise<void> {
+		let launch: EvalLaunch | null = null;
 		try {
-			const [saved, scenarios, launch] = await Promise.all([
+			const [saved, scenarios, found] = await Promise.all([
 				this.server.savedAgents(),
 				this.server.scenarios(this.conversation),
 				this.server.launch(this.key),
+				this.readBudget(),
 			]);
-			await this.readBudget();
+			launch = found;
 			const named = this.ask.agents;
 			this.agents = saved.map((pick) => ({
 				pick,
@@ -187,16 +192,18 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			this.unknown = this.ask.scenarios.filter((each) => !known.has(each));
 			this.launch = launch;
 			this.refusal = null;
-			if (this.launch !== null) {
-				await this.follow();
-			} else {
-				await this.replan();
-			}
 		} catch (error) {
 			this.refusal = refusalOf("Could not read the evals", error);
 		}
+		if (this.refusal === null && launch !== null) {
+			await this.follow();
+		}
+		// The card shows its scenarios and agents now; the plan fills in behind.
 		this.loaded = true;
 		this.changed();
+		if (this.refusal === null && launch === null) {
+			await this.replan();
+		}
 	}
 
 	/** Leaves a saved agent in or out of this run, and asks the plan again. */
@@ -219,12 +226,13 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		await this.replan();
 	}
 
-	/** Sets the dollars and rounds a first run starts the conversation with. */
-	setLimits(limits: Partial<EvalBudget>): void {
+	/** Sets the dollars this run may spend. */
+	setBudget(usd: number): void {
 		if (this.started) {
 			return;
 		}
-		this.limits = { ...this.limits, ...limits };
+		this.usd = usd;
+		this.usdEdited = true;
 		this.changed();
 	}
 
@@ -293,9 +301,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			baseline: this.ask.baseline,
 			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
 			conversation: this.conversation,
-			...(this.conversation === null || this.budget?.roundsUsed
-				? {}
-				: { budget: this.limits }),
+			...(this.conversation === null ? {} : { budget: { usd: this.usd } }),
 		};
 	}
 
@@ -323,9 +329,13 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		await this.read();
 		if (this.running && this.following === null) {
 			this.following = this.timer.setInterval(() => {
-				void this.read().then(() => {
+				// The budget moves with the batch's cost, so it is read again
+				// once the run stops, not on every tick.
+				void this.read(false).then(async () => {
 					if (!this.running) {
 						this.dispose();
+						await this.readBudget();
+						this.changed();
 					}
 				});
 			}, FOLLOW);
@@ -335,17 +345,22 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	private async readBudget(): Promise<void> {
 		if (this.conversation !== null) {
 			this.budget = await this.server.budget(this.conversation);
+			if (!this.started && !this.usdEdited && this.budget !== null) {
+				this.usd = this.budget.budget.usd;
+			}
 		}
 	}
 
-	private async read(): Promise<void> {
+	private async read(withBudget = true): Promise<void> {
 		try {
 			this.launch = (await this.server.launch(this.key)) ?? this.launch;
 			const batch = this.launch?.batch ?? null;
 			if (batch !== null) {
 				this.grid = await this.server.batch(batch);
 			}
-			await this.readBudget();
+			if (withBudget) {
+				await this.readBudget();
+			}
 			this.refusal = null;
 		} catch (error) {
 			this.refusal = refusalOf("Could not follow the run", error);
@@ -407,4 +422,10 @@ function groupsOf(scenarios: EvalScenario[]): ScenarioGroup[] {
 		each.scenarios.push(scenario.id);
 	}
 	return groups;
+}
+
+/** The card's cases under a heading, by what each checks; either may be empty. */
+export interface ScenarioGroup {
+	group: string;
+	abouts: { about: string; scenarios: string[] }[];
 }

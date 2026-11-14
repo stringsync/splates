@@ -1,0 +1,16 @@
+diff --git a/proposal.md b/proposal.md
+new file mode 100644
+index 0000000..5d24e14
+--- /dev/null
++++ b/proposal.md
+@@ -0,0 +1,10 @@
++# Previous conversation
++
++Recording #rec:settings-bug: Save at 00:12 is disabled for an invalid email. At 05:05 the chosen Dark theme reverts to Light after reload. At 09:30 export returns 500.
++
++Proposed work:
++1. Settings reliability lane: persist the selected theme.
++2. Export reliability lane: fix the export endpoint's 500; then add a UI retry using the fixed endpoint's error contract (depends on the endpoint task).
++3. Improve the disabled Save explanation.
++
++Should I create these tasks and lanes, leaving the queue untouched?

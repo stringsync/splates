@@ -31,11 +31,21 @@ export interface Manifest {
 	noMic?: boolean;
 	/** Why transcription was deferred and how to retry with a key. */
 	transcription?: { status: "skipped"; reason: string; retry: string };
+	/**
+	 * The transcript and ranking still to come after Stop: `pending` until they
+	 * are written, `failed` with why. Absent once they are done.
+	 */
+	processing?: Processing;
 	/** Each file the session wrote, by what it is. */
 	files: Record<string, string>;
 	video: { mimeType: string; width: number; height: number };
 	stats: RecorderStats & { received: number; dropped: number };
 }
+
+/** Where a saved session's transcript and ranking stand, while they are not done. */
+export type Processing =
+	| { status: "pending" }
+	| { status: "failed"; reason: string; retry: string };
 
 /** The extension a recording's MIME type is written with. */
 export function recordingName(mimeType: string): string {

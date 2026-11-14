@@ -88,6 +88,8 @@ interface OpenSessionOptions {
 	usedNames?: ReadonlySet<string>;
 	/** Gives up opening, closing the Chrome it started, and rejects. */
 	signal?: AbortSignal;
+	/** The names of saved sessions still being processed, for `rec status`. */
+	processing?: () => string[];
 }
 
 async function openSession(
@@ -102,6 +104,7 @@ async function openSession(
 		baseName: opts.name,
 		usedNames: opts.usedNames,
 		micFile: `${home(deps)}/mic.json`,
+		processing: opts.processing,
 	});
 	const file = serverFile(home(deps));
 	await deps.fs.mkdir(home(deps), { recursive: true });
@@ -193,26 +196,63 @@ rec
 		const jobs = new Set<Promise<void>>();
 		const store = new SessionStore(deps.fs, deps.log, `${home(deps)}/sessions`);
 		let finishing = Promise.resolve();
-		const pending = new Set<string>();
+		/** Folders still to transcribe and rank, by session name. */
+		const pending = new Map<string, string>();
 		const finish = async (dir: string) => {
 			await names.remember(home(deps), dir);
 			deps.log.info(`saved ${dir}; processing`);
 			try {
-				await transcribeSession(deps, dir, key, opts.names);
+				await transcribeSession(deps, dir, {
+					key,
+					names: opts.names,
+					reuse: true,
+				});
 				deps.log.info(`wrote ${dir}/timeline.md`);
 				await rankSession(deps, dir);
+				await markProcessed(deps, dir);
 			} catch (error) {
 				deps.log.error(`${dir} was saved but not processed: ${error}`);
+				await markProcessed(deps, dir, error);
 			}
 			if (!opts.out) {
-				await store.prune(dir, pending);
+				await store.prune(dir, new Set(pending.keys()));
 			}
 		};
+		const enqueue = (dir: string, sessionName: string) => {
+			pending.set(dir, sessionName);
+			const job = finishing
+				.then(() => finish(dir))
+				.catch((error: unknown) => {
+					deps.log.error(`could not finish session ${dir}: ${error}`);
+				})
+				.finally(() => {
+					jobs.delete(job);
+					pending.delete(dir);
+				});
+			finishing = job;
+			jobs.add(job);
+		};
+		// An earlier rec that was killed before it finished leaves its sessions for this one; one still running finishes its own.
+		const earlier = (await client(deps).status()).running
+			? []
+			: await library(deps).unprocessed();
+		for (const left of earlier) {
+			deps.log.info(
+				`finishing ${left.name}, which an earlier rec saved but did not process`,
+			);
+			enqueue(left.dir, left.name);
+		}
 		const interrupted = new AbortController();
 		const sigint = Promise.withResolvers<void>();
+		const forced = Promise.withResolvers<"forced">();
 		// A killed or hung-up rec must close its Chrome too, or the orphan holds the profile and the next start finds no DevTools port.
+		// The first signal stops and finishes what is pending; a second quits at once, leaving it for the next start.
 		const handlers = ["SIGINT", "SIGTERM", "SIGHUP"].map((name) =>
 			deps.ps.on(name, () => {
+				if (interrupted.signal.aborted) {
+					forced.resolve("forced");
+					return;
+				}
 				interrupted.abort();
 				sigint.resolve();
 			}),
@@ -239,6 +279,7 @@ rec
 				noMic: opts["no-mic"],
 				liveKey: key === "" ? undefined : key,
 				fps: opts.fps,
+				processing: () => [...pending.values()],
 			},
 		).catch((error: unknown) => {
 			signal.dispose();
@@ -252,44 +293,58 @@ rec
 			return;
 		}
 		const { chrome, server } = session;
-		server.events.on("saved", ({ dir }) => {
-			pending.add(dir);
-			const job = finishing
-				.then(() => finish(dir))
-				.catch((error: unknown) => {
-					deps.log.error(`could not finish session ${dir}: ${error}`);
-				})
-				.finally(() => {
-					jobs.delete(job);
-					pending.delete(dir);
-				});
-			finishing = job;
-			jobs.add(job);
+		server.events.on("saved", ({ dir, manifest }) => {
+			enqueue(dir, manifest.name ?? dir.split("/").pop() ?? dir);
 		});
 		try {
 			deps.log.info(
-				"staged: press Start in the control window to record, as many times as you like; press Ctrl-C to finish; closing the panel ends rec",
+				"staged: press Start in the control window to record, as many times as you like; press Ctrl-C, or Stop on the splates rec page, to finish",
 			);
-			const interrupt = sigint.promise
-				.then(() => server.interrupt())
-				.then(() => "interrupted" as const);
 			const ended = await Promise.race([
-				interrupt,
+				sigint.promise.then(() => "interrupted" as const),
 				server.closed.then(() => "closed" as const),
 				chrome.exited.then(() => "quit" as const),
 			]);
-			signal.dispose();
-			if (ended !== "interrupted" && server.recordingNow) {
+			if (ended !== "interrupted") {
+				if (server.recordingNow) {
+					deps.log.info(
+						`${ended === "quit" ? "Chrome quit" : "The control panel closed"} while recording; saving the session`,
+					);
+					await server.salvage();
+				}
+				// rec stays up so its sessions finish; whoever started it ends it.
 				deps.log.info(
-					`${ended === "quit" ? "Chrome quit" : "The control panel closed"} while recording; saving the session`,
+					`${ended === "quit" ? "Chrome quit" : "The control panel closed"}; rec keeps running until Ctrl-C, or Stop on the splates rec page`,
 				);
-				await server.salvage();
+				await sigint.promise;
 			}
-			await Promise.all(jobs);
+			const how = await Promise.race([
+				server
+					.interrupt()
+					.then(() => {
+						if (pending.size > 0) {
+							deps.log.info(
+								`finishing ${[...pending.values()].join(", ")} before rec ends; press Ctrl-C again to quit now and finish them on the next start`,
+							);
+						}
+						return Promise.all(jobs);
+					})
+					.then(() => "done" as const),
+				forced.promise,
+			]);
+			if (how === "forced") {
+				deps.log.info(
+					`quit before finishing ${[...pending.values()].join(", ") || "the recording"}; the next rec start finishes what was saved`,
+				);
+			}
 		} finally {
+			signal.dispose();
 			await chrome.close();
 			server.dispose();
 			await deps.fs.rm(serverFile(home(deps)), { force: true });
+		}
+		if (pending.size > 0) {
+			deps.ps.exit(130);
 		}
 	});
 
@@ -317,13 +372,22 @@ rec
 		deps.log.info("marked");
 	});
 
+interface TranscribeSessionOptions {
+	/** The OpenAI key; empty skips whisper and says how to retry. */
+	key: string;
+	/** Comma-separated project names for the transcript's prompt. */
+	names: string;
+	/** Keep a `transcript.json` already written instead of paying for whisper again. */
+	reuse?: boolean;
+}
+
 /** Transcribes a session folder's recording and records the files in its manifest. */
 async function transcribeSession(
 	deps: RecDeps,
 	dir: string,
-	key: string,
-	names: string,
+	opts: TranscribeSessionOptions,
 ): Promise<void> {
+	const { key, names, reuse = false } = opts;
 	const manifestPath = `${dir}/manifest.json`;
 	const manifest = JSON.parse(await deps.fs.read(manifestPath)) as Manifest;
 	await transcribe({
@@ -335,6 +399,7 @@ async function transcribeSession(
 		micOff: manifest.micOff,
 		noMic: manifest.noMic,
 		key,
+		reuse,
 		names: [
 			deps.ps.cwd().split("/").pop() ?? "",
 			...names
@@ -360,6 +425,26 @@ async function transcribeSession(
 	}
 	manifest.files.timeline = "timeline.md";
 	manifest.files.momentsReport = "moments.md";
+	await deps.fs.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+/** Records in the manifest that the session's transcript and moments are done, or why they failed. */
+async function markProcessed(
+	deps: RecDeps,
+	dir: string,
+	error?: unknown,
+): Promise<void> {
+	const manifestPath = `${dir}/manifest.json`;
+	const manifest = JSON.parse(await deps.fs.read(manifestPath)) as Manifest;
+	if (error === undefined) {
+		delete manifest.processing;
+	} else {
+		manifest.processing = {
+			status: "failed",
+			reason: error instanceof Error ? error.message : String(error),
+			retry: `rec transcribe ${JSON.stringify(dir)}`,
+		};
+	}
 	await deps.fs.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
@@ -511,7 +596,7 @@ rec
 	)
 	.option("json", z.boolean().default(false), {
 		description:
-			"print JSON: { running, name?, recording?, startedAt?, mic?, laser?, lastOutcome? }",
+			"print JSON: { running, name?, recording?, startedAt?, mic?, laser?, lastOutcome?, processing? }",
 	})
 	.action(async (opts, deps) => {
 		const status = await client(deps).status();
@@ -652,11 +737,20 @@ rec
 	.option("names", z.string().default(""), {
 		description: "comma-separated project names for the transcript's prompt",
 	})
+	.option("reuse", z.boolean().default(false), {
+		description:
+			"keep the folder's transcript.json instead of paying for whisper again",
+	})
 	.action(async (opts, deps) => {
 		const key = await requireKey(await recCredentials());
-		await transcribeSession(deps, opts.dir, key, opts.names);
+		await transcribeSession(deps, opts.dir, {
+			key,
+			names: opts.names,
+			reuse: opts.reuse,
+		});
 		deps.log.info(`transcribed ${opts.dir}/timeline.md`);
 		await rankSession(deps, opts.dir);
+		await markProcessed(deps, opts.dir);
 	});
 
 rec

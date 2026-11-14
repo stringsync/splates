@@ -11,10 +11,10 @@ import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 
 /** The ids of the agents' areas, which the setup index lists first. */
-export const AGENT_JOURNEYS = ["opencode", "claude", "codex", "kimi"];
+export const AGENT_JOURNEYS = ["claude", "codex", "kimi"];
 
 /**
- * The setup index: a plain row per area, "Set up OpenCode" and the like,
+ * The setup index: a plain row per area, "Set up Claude" and the like,
  * the agents first, and a green check on each one whose steps are all done,
  * or a warning while one has something to put right. A done row still
  * opens, to review or redo it.

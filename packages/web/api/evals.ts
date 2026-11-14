@@ -120,7 +120,7 @@ export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 	return (await response.json()) as EvalLaunch | null;
 }
 
-/** Where `conversation`'s budget stands: what it has spent, the rounds used and any limit reached. */
+/** Where `conversation`'s budget stands: its latest run's budget and what that run has spent. */
 export async function evalBudget(
 	conversation: string,
 ): Promise<EvalBudgetStatus> {

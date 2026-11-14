@@ -65,9 +65,9 @@ export function App({ capture }: { capture: Capture }) {
 					</span>
 					{state.name ? <CopyNameButton name={state.name} /> : null}
 				</div>
-				{state.signals.length > 0 || state.speaking !== "" ? (
+				{state.signals.length > 0 || state.speaking !== null ? (
 					<ul className="flex-1 divide-y overflow-y-auto">
-						{state.speaking !== "" && <SpeakingRow text={state.speaking} />}
+						{state.speaking !== null && <SpeakingRow text={state.speaking} />}
 						{state.signals.map((item) => (
 							<SignalRow
 								key={item.id}
@@ -154,6 +154,26 @@ function RemarkInput({ capture }: { capture: Capture }) {
 	);
 }
 
+/** Copies text, falling back to a selected textarea when the clipboard API refuses (as in a frame without permission). */
+async function copyText(text: string): Promise<void> {
+	try {
+		await navigator.clipboard.writeText(text);
+		return;
+	} catch {
+		const area = document.createElement("textarea");
+		area.value = text;
+		area.style.position = "fixed";
+		area.style.opacity = "0";
+		document.body.appendChild(area);
+		area.select();
+		const ok = document.execCommand("copy");
+		area.remove();
+		if (!ok) {
+			throw new Error("copy failed");
+		}
+	}
+}
+
 /** Copies the recording's name to the clipboard, showing a check for a moment. */
 function CopyNameButton({ name }: { name: string }) {
 	const [copied, setCopied] = useState(false);
@@ -172,7 +192,7 @@ function CopyNameButton({ name }: { name: string }) {
 					variant="ghost"
 					aria-label="Copy name"
 					onClick={() => {
-						navigator.clipboard.writeText(name).then(() => setCopied(true));
+						void copyText(name).then(() => setCopied(true));
 					}}
 				>
 					{copied ? <Check /> : <Copy />}
@@ -206,7 +226,7 @@ function SaveResult({ state }: { state: PanelState }) {
 					size="sm"
 					variant="ghost"
 					onClick={() => {
-						void navigator.clipboard.writeText(text).then(() => {
+						void copyText(text).then(() => {
 							setCopied(true);
 							timer.setTimeout(() => setCopied(false), Duration.ms(2000));
 						});
@@ -433,7 +453,7 @@ function SpeakingRow({ text }: { text: string }) {
 			icon={Mic}
 			tone="error"
 			title="Listening"
-			detail={text}
+			detail={text === "" ? "…" : text}
 			badge="live"
 			wrap
 			live

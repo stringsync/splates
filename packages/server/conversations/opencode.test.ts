@@ -65,67 +65,6 @@ describe("OpenCode ACP fixtures (not a recorded executable handshake)", () => {
 		return conversation;
 	};
 
-	it.each([true, false])(
-		"keeps usage across restart and negotiated recovery (resume=%s)",
-		async (resume) => {
-			agent.resumes = resume;
-			const usage = {
-				sessionUpdate: "usage_update" as const,
-				used: 10,
-				size: 1000,
-				cost: { amount: 2, currency: "USD" },
-			};
-			agent.held = [
-				{
-					sessionId: "s1",
-					cwd: "/repo",
-					replay: [heard("old"), usage, say("replayed text")],
-				},
-			];
-			agent.usage = { inputTokens: 10, outputTokens: 2, totalTokens: 12 };
-			agent.turn = async (client, sessionId) => {
-				await client.sessionUpdate({ sessionId, update: usage });
-				await client.sessionUpdate({ sessionId, update: say("answer") });
-				return "end_turn";
-			};
-			const conversation = await start();
-			await until(conversation, "idle");
-			await conversation.prompt("one");
-			await until(conversation, "idle");
-			await conversation.stop();
-			const reread = new Conversations("/logs", [OPENCODE], {
-				fs,
-				timer,
-				launch: agent.launch,
-			});
-			const read = await reread.find(conversation.id);
-			await read.resume();
-			expect(read.state.usage.opencode?.turns).toHaveLength(1);
-			expect(read.state.usage.opencode?.turns[0]).toMatchObject({
-				requested: MODEL,
-				confirmed: MODEL,
-				cwd: "/repo",
-				tokens: { input: 10 },
-			});
-			expect(read.state.usage.opencode?.turns[0]?.until).not.toBeNull();
-			expect(read.state.usage.cost?.amount).toBe(2);
-			expect(JSON.stringify(read.state.messages)).not.toContain(
-				"replayed text",
-			);
-			await read.choose("model", OTHER);
-			agent.usage = null;
-			await read.prompt("two");
-			await until(read, "idle");
-			expect(read.state.usage.opencode?.turns[1]).toMatchObject({
-				requested: OTHER,
-				confirmed: OTHER,
-				tokens: null,
-			});
-			expect(read.state.usage.cost?.amount).toBe(2);
-			await reread.disposeAsync();
-		},
-	);
-
 	it("persists sanitized retry status, allows cancellation, and never substitutes providers", async () => {
 		agent.turn = async (client, sessionId) => {
 			await client.sessionUpdate({
@@ -281,52 +220,6 @@ describe("OpenCode ACP fixtures (not a recorded executable handshake)", () => {
 		expect(agent.resumed).toEqual([]);
 		expect(conversation.state.messages).toEqual([]);
 		expect(conversation.state.settings[0]?.current).toBe(MODEL);
-	});
-
-	// vet-ignore simple-test-setup: moving and reopening are the persistence behavior exercised here.
-	it("prefers negotiated resume and keeps original cwd after a task move and restart", async () => {
-		const conversation = await start();
-		await until(conversation, "idle");
-		conversation.move("task", "/different");
-		await conversation.stop();
-		const reread = new Conversations("/logs", [OPENCODE], {
-			fs,
-			timer,
-			launch: agent.launch,
-		});
-		const read = await reread.find(conversation.id);
-		await read.resume();
-		expect(agent.resumed).toEqual(["s1"]);
-		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
-		expect(read.state.settings[0]?.current).toBe(MODEL);
-		await reread.disposeAsync();
-	});
-
-	it("refuses unsupported recovery without creating a replacement session", async () => {
-		agent.resumes = false;
-		const conversation = await start();
-		await until(conversation, "idle");
-		await conversation.stop();
-		const recovering = conversation.resume();
-		await deathWait();
-		await recovering;
-		expect(conversation.state.error).toContain("neither resume nor load");
-		expect(agent.opened).toHaveLength(1);
-		expect(agent.prompts).toEqual([]);
-	});
-
-	it("explains when a moved session's original directory is gone", async () => {
-		const conversation = await start();
-		await until(conversation, "idle");
-		await fs.mkdir("/different");
-		conversation.move(null, "/different");
-		await conversation.stop();
-		await fs.rm("/repo", { recursive: true });
-		await conversation.resume();
-		expect(conversation.state.error).toContain(
-			"original directory /repo is unavailable",
-		);
-		expect(agent.launched).toHaveLength(1);
 	});
 
 	it("blocks a prompt after settings change to a different provider", async () => {

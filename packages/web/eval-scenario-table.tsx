@@ -1,5 +1,4 @@
 import {
-	DEFAULT_EVAL_BUDGET,
 	type EvalScenario,
 	type EvalScenarioState,
 	targetOf,
@@ -17,7 +16,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
 import { type EvalAgentsEditor, runAgentsOf } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
-import { scenarioPrompt } from "./eval-improve";
+import { byNamespace, scenarioPrompt } from "./eval-improve";
 import { useEvalLoops } from "./eval-loops";
 import {
 	DEFAULT_REPS,
@@ -25,7 +24,6 @@ import {
 	type RunChoice,
 	validRunChoice,
 } from "./eval-plan-preview";
-import { EvalRunSettings } from "./eval-run-settings";
 import { EvalGroupCard } from "./eval-scenario-group-card";
 import { EvalScenarioRow } from "./eval-scenario-row";
 import {
@@ -71,23 +69,23 @@ export function EvalScenarioTable({
 	});
 	const [picked, setPicked] = useState<string[]>([]);
 	const [open, setOpen] = useState<string | null>(null);
-	const [collapsed, setCollapsed] = useState<string[]>([]);
+	// Groups start folded; this lists the ones the user opened.
+	const [expanded, setExpanded] = useState<string[]>([]);
 	const [running, setRunning] = useState<string[] | null>(null);
 	const [pending, setPending] = useState(false);
 	// This run's own agents, copied from the saved ones when the review opens.
 	const [runAgents, setRunAgents] = useState<EvalAgentsEditor | null>(null);
-	const [choice, setChoice] = useState<RunChoice>({
-		agents: [],
-		reps: DEFAULT_REPS,
-		limits: { ...DEFAULT_EVAL_BUDGET },
-	});
 	const now = useNow(true, Duration.mins(1));
 	const saved = useReactive(agents, (each) => each.picks, ["changed"]);
 	const runPicks = useReactive(runAgents ?? agents, (each) => each.picks, [
 		"changed",
 	]);
 	const targets = (runAgents === null ? saved : runPicks).map(targetOf);
-	const currentChoice = { ...choice, agents: targets };
+	// Repetitions start at their defaults; each conversation changes its own.
+	const currentChoice: RunChoice = {
+		agents: targets,
+		reps: DEFAULT_REPS,
+	};
 	const loops = useEvalLoops(feed);
 	const runOrOpen = (ids: string[]): void => {
 		const loop = ids.length === 1 ? loops.get(ids[0] ?? "") : undefined;
@@ -126,11 +124,11 @@ export function EvalScenarioTable({
 		setPicked((now) =>
 			now.includes(id) ? now.filter((each) => each !== id) : [...now, id],
 		);
-	// Each scenario is its own conversation, told the directive to work its loop.
+	// Each namespace's scenarios share one conversation, told the directive to work its loop.
 	const start = async (
 		ids: string[],
 		chosen: string[],
-		{ reps, limits }: Pick<RunChoice, "reps" | "limits">,
+		{ reps }: Pick<RunChoice, "reps">,
 	): Promise<void> => {
 		if (feed === null || ids.length === 0) {
 			return;
@@ -140,15 +138,14 @@ export function EvalScenarioTable({
 
 		let count = 0;
 		try {
-			for (const id of ids) {
-				const existing = loops.get(id);
-				if (existing !== undefined) {
-					count += 1;
+			for (const group of byNamespace(ids)) {
+				const fresh = group.filter((id) => !loops.has(id));
+				count += group.length - fresh.length;
+				if (fresh.length === 0) {
 					continue;
 				}
 				const text = scenarioPrompt(
-					id,
-					limits,
+					fresh,
 					chosen,
 					reps === DEFAULT_REPS ? null : reps,
 				);
@@ -159,7 +156,7 @@ export function EvalScenarioTable({
 					.then((reply) => feed.answered(state.id, sending, reply))
 					.catch((failed: unknown) => feed.refused(state.id, sending, failed));
 
-				count += 1;
+				count += fresh.length;
 			}
 		} catch (failed) {
 			setError(failed instanceof Error ? failed.message : String(failed));
@@ -290,10 +287,10 @@ export function EvalScenarioTable({
 								<EvalGroupCard
 									key={group.name}
 									group={group}
-									collapsed={collapsed.includes(group.name)}
+									collapsed={!expanded.includes(group.name)}
 									picked={picked}
 									onToggle={() =>
-										setCollapsed((now) =>
+										setExpanded((now) =>
 											now.includes(group.name)
 												? now.filter((each) => each !== group.name)
 												: [...now, group.name],
@@ -353,32 +350,29 @@ export function EvalScenarioTable({
 							: "Choose scenarios to run"}
 					</Button>
 				) : (
-					<>
-						<EvalRunSettings choice={currentChoice} onChange={setChoice} />
-						<div className="flex gap-2">
-							<Button
-								variant="outline"
-								className="min-h-11"
-								disabled={pending}
-								onClick={() => {
-									setRunning(null);
-								}}
-							>
-								<ArrowLeftIcon />
-								Back
-							</Button>
-							<Button
-								className="min-h-11 flex-1"
-								disabled={pending || !validRunChoice(currentChoice)}
-								onClick={() =>
-									void start(running, currentChoice.agents, currentChoice)
-								}
-							>
-								<PlayIcon />
-								{pending ? "Starting…" : "Accept and start evals"}
-							</Button>
-						</div>
-					</>
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							className="min-h-11"
+							disabled={pending}
+							onClick={() => {
+								setRunning(null);
+							}}
+						>
+							<ArrowLeftIcon />
+							Back
+						</Button>
+						<Button
+							className="min-h-11 flex-1"
+							disabled={pending || !validRunChoice(currentChoice)}
+							onClick={() =>
+								void start(running, currentChoice.agents, currentChoice)
+							}
+						>
+							<PlayIcon />
+							{pending ? "Starting…" : "Accept and start evals"}
+						</Button>
+					</div>
 				)}
 			</div>
 		</section>

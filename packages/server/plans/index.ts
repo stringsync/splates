@@ -49,7 +49,6 @@ export {
 	DICTATED,
 	DIRECTIVES,
 	directive,
-	EVALS_BUDGET_USED_UP,
 	evalsDoneReference,
 	eventReference,
 	GRANT_DENIED,

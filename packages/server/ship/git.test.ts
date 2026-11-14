@@ -156,6 +156,20 @@ describe("ReleaseGit", () => {
 		);
 	});
 
+	it("replays a release commit onto a remote that gained commits, when asked", async () => {
+		const before = await env.gitCli(env.root, "rev-parse", "HEAD");
+		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "landed");
+		await env.gitCli(env.root, "push", "origin", "main");
+		const landed = await env.gitCli(env.root, "rev-parse", "HEAD");
+		await env.gitCli(env.root, "reset", "--hard", before);
+		await env.gitCli(env.root, "commit", "--allow-empty", "-m", "release");
+		const result = await git.sync({ rebase: true });
+		const head = await env.gitCli(env.root, "rev-parse", "HEAD");
+		expect(result).toBe(`origin/main verified at ${head}`);
+		expect(await env.gitCli(env.root, "rev-parse", "HEAD~1")).toBe(landed);
+		expect(await env.gitCli(remote, "rev-parse", "refs/heads/main")).toBe(head);
+	});
+
 	it("fails on an unreachable remote", async () => {
 		await env.gitCli(
 			env.root,

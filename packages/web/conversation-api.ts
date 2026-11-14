@@ -29,6 +29,7 @@ export async function startConversation(
 		model,
 		assigned = false,
 		autoPick = false,
+		modelChosen = false,
 		id,
 		project,
 	}: {
@@ -42,6 +43,8 @@ export async function startConversation(
 		assigned?: boolean;
 		/** Whether Auto pick chooses its model and effort from the first message. */
 		autoPick?: boolean;
+		/** Whether the person picked the model in the composer, which Auto pick then keeps. */
+		modelChosen?: boolean;
 		/** The id it starts on, picked by the page to open it at once; the server's otherwise. */
 		id?: string;
 		/** The project it starts in, else the one this page shows. */
@@ -56,6 +59,7 @@ export async function startConversation(
 		...(model === undefined ? {} : { model }),
 		...(assigned ? { assigned } : {}),
 		...(autoPick ? { autoPick } : {}),
+		...(autoPick && modelChosen ? { chosen: true } : {}),
 	})) as ConversationState;
 }
 

@@ -1,0 +1,25 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-13T15:42:50.921Z",
+	"title": "splates (regraded) (regraded) (regraded)",
+	"producer": "splates",
+	"revision": {
+		"commit": "86b2d0247d8be25d65f00ebbec6b603d65c4f0d1",
+		"skillHash": "3f7fd38bc52ddb62eb6fdcaec11b1755dd3cb9657237272d93b7ff792c2c9bfe",
+		"scenarioHash": "e3ebc2a89ef618714733d28b147685f033254febf2fcfa341f9682ab0ebb9a59"
+	},
+	"cells": [
+		{
+			"id": "run-007",
+			"case": "rec/send-to-agent-proposes-work",
+			"group": "rec",
+			"about": "Review the full session's evidence with targeted visuals, propose concrete tasks and lanes, and ask before creating work.",
+			"target": {
+				"agent": "codex",
+				"model": "gpt-6.1-sol"
+			},
+			"repetition": 0,
+			"fingerprint": "116f1bf358344091cb0d0a8e7ad760562e7acd85e429215312c2042d4ce780d1"
+		}
+	]
+}

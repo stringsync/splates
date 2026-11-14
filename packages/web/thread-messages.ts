@@ -21,6 +21,7 @@ import { heldAfter, messageOf, queuesNow } from "./sending";
 import { supersedeQueues } from "./superseded-queues";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
+import { unsentLikes } from "./unsent-likes";
 import { replyDue, stretchesOf } from "./work";
 
 /** One part of a message as assistant-ui takes it. */
@@ -51,6 +52,9 @@ export function useThreadMessages(
 		heldAfter(queuesNow(conversation)),
 	);
 	const sendingNow = useReactive(feed, (feed) => feed.sending.get(id), [
+		"changed",
+	]);
+	const unsentNow = useReactive(feed, (feed) => feed.unsent.get(id), [
 		"changed",
 	]);
 	const { young: youngSending } = useAged(
@@ -185,6 +189,12 @@ export function useThreadMessages(
 			...youngSending.map((each, at) =>
 				like(messageOf(each), lined.length + at, conversation.id),
 			),
+			// What the server refused stays under its bubble, saying why.
+			...unsentLikes(
+				unsentNow ?? [],
+				lined.length + youngSending.length,
+				conversation.id,
+			),
 		];
 		const lingering = conversation.messages.some(
 			(each) => each.queued && !youngQueued.includes(each),
@@ -210,6 +220,7 @@ export function useThreadMessages(
 		status,
 		youngQueued,
 		youngSending,
+		unsentNow,
 	]);
 	const { all: messages, last } = built;
 	// Its last word asks questions, escalates, or asks for a review, or it

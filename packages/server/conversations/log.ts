@@ -225,7 +225,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "auto-pick") {
 				state.autoPick = { ...entry.pick, overridden: false };
 			} else if (entry.kind === "auto-pick-switch") {
-				state.autoPick = switched(state, entry.on);
+				state.autoPick = switched(state, entry.on, entry.keepModel === true);
 			} else if (entry.kind === "override") {
 				// Recorded for the stats; Auto pick stays as it was.
 			} else if (entry.kind === "picks-request") {

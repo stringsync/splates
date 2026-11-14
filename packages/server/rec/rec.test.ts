@@ -88,4 +88,46 @@ describe("Rec", () => {
 		expect(await rec.interrupt()).toBe(true);
 		expect(ps.getChildren()[0]?.signals).toEqual(["SIGINT"]);
 	});
+
+	it("waits while rec still processes sessions, then kills it only when it goes quiet", async () => {
+		const ps = new FakePs();
+		ps.setCaptureOutput(
+			JSON.stringify({ running: true, processing: ["a"] }),
+			"",
+		);
+		const rec = new Rec(ps, { pollMs: 5, graceMs: 40 });
+		rec.open({ name: "a", url: "about:blank", docker: [], tails: [] });
+		const child = ps.getChildren()[0] as ReturnType<FakePs["start"]>;
+		const signals: string[] = [];
+		const die = child.kill.bind(child);
+		// rec ignores SIGINT while it finishes; only SIGKILL ends it.
+		child.kill = (signal) => {
+			signals.push(signal ?? "SIGTERM");
+			const ends = { SIGKILL: die } as Record<string, typeof die>;
+			ends[signal ?? "SIGTERM"]?.("SIGKILL");
+		};
+		const stopping = rec.interrupt();
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(signals).toEqual(["SIGINT"]);
+
+		ps.setCaptureOutput(JSON.stringify({ running: true }), "");
+		await stopping;
+		expect(signals).toEqual(["SIGINT", "SIGKILL"]);
+	});
+
+	it("returns without killing when rec exits by itself", async () => {
+		const ps = new FakePs();
+		ps.setCaptureOutput(
+			JSON.stringify({ running: true, processing: ["a"] }),
+			"",
+		);
+		const rec = new Rec(ps, { pollMs: 5, graceMs: 40 });
+		rec.open({ name: "a", url: "about:blank", docker: [], tails: [] });
+		const child = ps.getChildren()[0];
+		const stopping = rec.interrupt();
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		child?.exit(0);
+		await stopping;
+		expect(child?.signals).toEqual(["SIGINT"]);
+	});
 });

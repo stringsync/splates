@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 
-/** The agents an eval runs on, as the file keeps them. */
+/** The agents saved to run evals on, in the file `eval-agents.json`. */
 export interface EvalAgents {
 	/** The file's own format. */
 	format: 1;
@@ -12,7 +12,7 @@ export interface EvalAgents {
 }
 
 /** The agents the eval runner starts natively, by roster id. */
-export const NATIVE_AGENTS = ["claude", "codex", "opencode", "kimi"];
+export const NATIVE_AGENTS = ["claude", "codex", "kimi"];
 
 const FORMAT = 1;
 
@@ -48,6 +48,13 @@ export class EvalAgentsStore {
 			fail("usage", `${this.path} is not JSON: fix or delete it`, {
 				path: this.path,
 			});
+		}
+		// A pick of an agent that no longer runs (OpenCode) is dropped.
+		const agents = (json as { agents?: unknown } | null)?.agents;
+		if (Array.isArray(agents)) {
+			(json as { agents: unknown[] }).agents = agents.filter(
+				(pick) => (pick as { agent?: unknown })?.agent !== "opencode",
+			);
 		}
 		return this.checked(json, `${this.path} is not eval agents`).agents;
 	}

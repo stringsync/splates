@@ -14,7 +14,7 @@ import {
 	heldTask,
 } from "./deferred-body";
 import { EvalDoneBody } from "./eval-done-card";
-import { evalRoundsOf } from "./eval-rounds";
+import { evalDoneOf } from "./eval-done-report";
 import { Markdown } from "./markdown";
 import { MergedBody } from "./merged-body";
 import { MergedStats, useLanded } from "./merged-stats";
@@ -44,8 +44,8 @@ export function ReportCard({
 	const merged = report.ending === "merged";
 	const removed = report.ending === "removed";
 	const text = reportText(report);
-	// A Done report that ends an eval loop carries its rounds table.
-	const rounds = report.ending === "done" ? evalRoundsOf(text) : null;
+	// A Done report that ends an eval loop names the batch of its last run.
+	const done = report.ending === "done" ? evalDoneOf(text) : null;
 	const archivable = useArchivable(report);
 	const landed = useLanded(
 		merged || removed ? report.task : null,
@@ -108,8 +108,8 @@ export function ReportCard({
 					) : undefined
 				) : (
 					<>
-						{!merged && rounds !== null ? (
-							<EvalDoneBody read={rounds} lead={report.reason !== null} />
+						{!merged && done !== null ? (
+							<EvalDoneBody read={done} lead={report.reason !== null} />
 						) : merged && record !== null ? (
 							<BeforeAfter
 								record={record}

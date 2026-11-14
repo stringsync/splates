@@ -55,21 +55,10 @@ describe("stretches", () => {
 					base: "<base>",
 					summary:
 						"Old upload links now redirect to the new storage, after a migration that moves every stored file.",
-					demo: {
-						title: "an old upload link",
-						intro:
-							"Open http://localhost:4310 (a copy of staging's uploads, nothing of yours).",
-						steps: [
-							{
-								number: "1",
-								action: "Open `/u/old-link`.",
-								expect: "The file downloads from the new storage.",
-							},
-						],
-					},
+					demo: null,
 					checks: ["bun run typecheck", "bun test"],
 					failed: [],
-					details: "",
+					details: "![an old upload link downloading](/abs/path/old-link.png)",
 				},
 			},
 		]);

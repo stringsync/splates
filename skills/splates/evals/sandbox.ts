@@ -76,9 +76,23 @@ async function prepare(
 			delete box.env[key];
 		}
 	}
+	// A login shell (codex runs `zsh -lc`) rebuilds PATH from the person's
+	// profile and would find their real `splates` and `rec` ahead of the
+	// fixtures, so a private ZDOTDIR sources their startup files and then puts
+	// the sandbox's bin back in front.
+	const zdot = join(root, "zdotdir");
+	await mkdir(zdot, { recursive: true });
+	for (const file of [".zshenv", ".zprofile", ".zshrc"]) {
+		await writeFile(
+			join(zdot, file),
+			`[ -r "$HOME/${file}" ] && . "$HOME/${file}"\n`,
+		);
+	}
+	await writeFile(join(zdot, ".zlogin"), `export PATH=${quote(bin)}:"$PATH"\n`);
 	Object.assign(box.env, {
 		PATH: `${bin}:${process.env.PATH ?? ""}`,
 		SPLATES_HOME: home,
+		ZDOTDIR: zdot,
 	});
 	const { repo } = box;
 	if (initialized) {

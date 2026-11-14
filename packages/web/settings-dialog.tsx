@@ -23,7 +23,14 @@ import {
 	type ShortcutKey,
 	search,
 } from "./settings";
-import { label, NONE, recorded, type Shortcut, valid } from "./shortcuts";
+import {
+	label,
+	modifierNames,
+	NONE,
+	recorded,
+	type Shortcut,
+	valid,
+} from "./shortcuts";
 
 /**
  * The page's settings, the way an IDE lays out its options: categories down
@@ -450,7 +457,7 @@ function ShortcutField({
 							return;
 						}
 						if (!valid(pressed)) {
-							refuse("Not set", "hold ⌘, ⌃ or ⌥ with a key");
+							refuse("Not set", `hold ${modifierNames()} with a key`);
 						} else if (/^Alt\+Mod\+Digit\d$/.test(pressed)) {
 							refuse("Not set", `${label(pressed)} opens a conversation`);
 						} else {

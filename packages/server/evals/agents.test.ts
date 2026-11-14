@@ -33,6 +33,18 @@ describe("EvalAgentsStore", () => {
 		expect(await store.agents()).toEqual(agents);
 	});
 
+	it("drops a saved OpenCode pick", async () => {
+		await deps.fs.write(
+			`${deps.splatesHome}/eval-agents.json`,
+			JSON.stringify({
+				format: 1,
+				agents: [{ agent: "opencode" }, { agent: "codex" }],
+			}),
+		);
+
+		expect(await store.agents()).toEqual([{ agent: "codex" }]);
+	});
+
 	it("refuses an agent the runner cannot start natively, leaving the file", async () => {
 		await store.save([{ agent: "codex" }]);
 

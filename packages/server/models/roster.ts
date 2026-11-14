@@ -328,6 +328,9 @@ const schema = z.object({
 	),
 });
 
+/** Agents splates no longer offers: an old roster may still list them, so they stay readable but are not picked. */
+export const RETIRED_AGENTS = ["opencode"];
+
 /**
  * The agents a machine's roster starts with, and what it lists while there is
  * no `agents.json`: each with the models it offers, by the ids its Model

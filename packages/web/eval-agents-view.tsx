@@ -32,7 +32,7 @@ export function EvalAgentsView({
 	useEffect(() => void editor.load(), [editor]);
 	return (
 		<div {...pendingRow(saving, shown, "flex flex-col")}>
-			<EvalSection label="eval agents" title="Agents" about={ABOUT}>
+			<EvalSection label="eval agents" title="Agents" about={ABOUT} defaultOpen>
 				{problem !== null && (
 					<p role="alert" className="text-destructive text-sm">
 						{problem}

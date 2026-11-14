@@ -278,6 +278,16 @@ describe("lifting", () => {
 		});
 	});
 
+	it("switched on over a model the person chose when starting, never moves the model", async () => {
+		const conversation = await own();
+		conversation.switchAutoPick(true, true);
+		expect(conversation.state.autoPick?.keepModel).toBe(true);
+
+		await say(conversation, "go");
+
+		expect(on).toEqual(["big", "big"]);
+	});
+
 	it("switched on, stays on a pick the rules agree with, saying so without an Undo", async () => {
 		judge = new FakeJudge(WIDE);
 		const conversation = await own();

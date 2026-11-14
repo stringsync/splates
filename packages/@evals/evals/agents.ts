@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { codexEvidence } from "./codex-evidence";
 import type { Limits, Step } from "./scenario";
 
 /** `kimi` as found on the PATH, then `KIMI_PATH`, then the installer's home, ahead of the arguments to run it with. */
@@ -84,6 +86,14 @@ export function commandFor(
 				"--json",
 				"--dangerously-bypass-approvals-and-sandbox",
 				"--skip-git-repo-check",
+				// Its shell tool drops all but core variables by default, which
+				// would hide the sandbox's PATH and ZDOTDIR from `zsh -lc`.
+				"-c",
+				"shell_environment_policy.inherit=all",
+				// Its snapshot of the person's login shell would restore their PATH
+				// over the sandbox's on every command.
+				"-c",
+				"features.shell_snapshot=false",
 				...(pick.model === undefined ? [] : ["--model", pick.model]),
 				...(pick.effort === undefined
 					? []
@@ -210,6 +220,28 @@ async function runTurn(
 				: format === "kimi"
 					? readKimi(lines)
 					: readOpenCode(lines);
+	if (format === "codex" && code === 0) {
+		const thread = lines.find(
+			(line) => line.type === "thread.started",
+		)?.thread_id;
+		const home =
+			opts.env.CODEX_HOME ??
+			(opts.env.HOME ? join(opts.env.HOME, ".codex") : undefined);
+		if (typeof thread === "string" && home !== undefined) {
+			try {
+				const evidence = await codexEvidence(thread, opts.cwd, home);
+				run.transcript.push(
+					{
+						kind: "text",
+						text: "HARNESS: Supplemental native tool calls from this exact Codex session follow in their original order. These supplement the summarized event stream above; they are not additional actions after the reply.",
+					},
+					...evidence,
+				);
+			} catch (error) {
+				run.error ??= error instanceof Error ? error.message : String(error);
+			}
+		}
+	}
 	if (child.signalCode !== null) {
 		return {
 			...run,
@@ -262,7 +294,7 @@ export function continueCommand(
 	return { argv: [...argv.slice(0, -1), "--continue", message], format };
 }
 
-/** Claude's `stream-json`: assistant text and tool calls, tool results, then one result. */
+/** Read a Claude stream-json run as the reply, tool evidence and usage to grade. */
 export function readClaude(lines: Record<string, unknown>[]): AgentRun {
 	const transcript: Step[] = [];
 	const calls = new Map<string, Extract<Step, { kind: "tool" }>>();

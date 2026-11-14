@@ -12,9 +12,13 @@ attachment fails, report the failure rather than claiming the user can see it.
 
 ## Demos
 
-Demos belong in the conversation, not in `SPLATES.md`. The user can ask an
-agent to demo any task, open or finished. Offer one when mockups, screenshots
-or D2 diagrams alone do not convey the change well enough. Read the task's
+Make a demo only when the user asks for one, in words or with
+`[SPLATES DEMO <task> <point>]`. Never make one on your own: it starts servers
+and costs CPU and memory. Screenshots, recordings and D2 diagrams convey a
+change without that; a Ready to merge or Merged report holds none. Do not
+offer one either; the task's page has a Demo button for the user. Demos belong
+in the conversation, not in `SPLATES.md`. The user can ask an
+agent to demo any task, open or finished. Read the task's
 Before and After and inspect its code to work out what to show.
 
 A demo is a `### 🎬 Demo: <what it shows>` heading, a line on where to open
@@ -42,7 +46,7 @@ where they would read as questions.
 
 ## Hosting a demo
 
-When the user has to try a change before it lands, make that cheap: run it
+When the user asked to try a change, make that cheap: run it
 for them where they can open it (a dev server on throwaway data that shows
 each case, never their own), and give them a demo (see [Demos](demos.md)). Run splates in a
 throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it

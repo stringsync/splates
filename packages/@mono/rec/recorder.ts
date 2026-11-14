@@ -92,7 +92,7 @@ export class RecorderServer {
 		private readonly dir: string | SessionDirs,
 		opts: RecorderServerOptions = {},
 	) {
-		const { routes = {}, micFile } = opts;
+		const { routes = {}, micFile, processing = () => [] } = opts;
 		this.baseName = opts.baseName;
 		this.usedNames = opts.usedNames ?? new Set();
 		this.micChoice = micFile ? new MicChoice(deps.fs, micFile) : undefined;
@@ -119,10 +119,12 @@ export class RecorderServer {
 					!request.headers.has("origin")
 				) {
 					const run = this.run;
+					const finishing = processing();
 					return Response.json({
 						name: this.currentName,
 						recording: this.recordingNow,
 						...this.outcome.fields(),
+						...(finishing.length > 0 && { processing: finishing }),
 						...(run && {
 							startedAt: run.started.at,
 							mic: run.started.mic === undefined ? "off" : "on",
@@ -373,6 +375,7 @@ export class RecorderServer {
 			{
 				startedAt: started.at,
 				stoppedAt: stats.at,
+				processing: { status: "pending" },
 				micOff: started.mic === undefined ? true : undefined,
 				noMic: this.noMic ? true : undefined,
 				sources: manifestSources(started.mic, run.sources),

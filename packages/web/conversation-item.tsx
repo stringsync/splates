@@ -233,8 +233,17 @@ export function Item({
 						aria-label="Pinned"
 						// Gone while its buttons show, Unpin among them.
 						className={cn(
-							"size-3 shrink-0 text-muted-foreground group-focus-within/item:hidden group-hover/item:hidden pointer-coarse:hidden",
+							"size-3.5 shrink-0 text-muted-foreground group-focus-within/item:hidden group-hover/item:hidden pointer-coarse:hidden",
 							menu && "hidden",
+							// Clear of the mark that sits over the row's right padding, or, with
+							// no mark, centred where one would be (its size, 8px from the edge).
+							need.kind === "idle" &&
+								!hosting &&
+								reported === null &&
+								!conversation.unread &&
+								hint === null
+								? "-mr-1"
+								: "mr-2",
 						)}
 					/>
 				)}

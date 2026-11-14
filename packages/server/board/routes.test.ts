@@ -196,6 +196,9 @@ describe("dev tasks", () => {
 			expect(
 				(await send("POST", "/api/boards", { name: "Product" })).status,
 			).toBe(200);
+			const renamed = await send("PUT", "/api/boards/2", { name: "Roadmap" });
+			expect(renamed.status).toBe(200);
+			expect(await renamed.json()).toMatchObject({ id: 2, name: "Roadmap" });
 			const onTwo = await send("POST", "/api/lanes", { name: "Ops", board: 2 });
 			expect(await onTwo.json()).toMatchObject({ name: "Ops", board: 2 });
 			expect(

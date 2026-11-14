@@ -7,7 +7,7 @@ export interface SpeechUpdate {
 	id: string;
 	/** Wall-clock ms of the utterance's first words. */
 	at: number;
-	/** The next words heard, or all of the utterance once `final`. */
+	/** The next words heard (empty when speech has only just begun), or all of the utterance once `final`. */
 	text: string;
 	final: boolean;
 }
@@ -127,6 +127,19 @@ export class LiveSpeech implements Resource {
 		}
 		const id = String(event.item_id ?? "");
 		switch (event.type) {
+			case "input_audio_buffer.speech_started": {
+				// Words are on their way: tell the listener now, before the first delta.
+				if (!this.starts.has(id)) {
+					this.starts.set(id, this.deps.clock.now());
+				}
+				this.deps.listener.update({
+					id,
+					at: this.starts.get(id) as number,
+					text: "",
+					final: false,
+				});
+				return;
+			}
 			case "conversation.item.input_audio_transcription.delta": {
 				if (!this.starts.has(id)) {
 					this.starts.set(id, this.deps.clock.now());

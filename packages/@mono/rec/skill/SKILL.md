@@ -16,6 +16,18 @@ A `#rec:<name>` reference in a message names a session: run
 session is not on this device, say so, carry on without it, and do not offer
 rec again in that conversation.
 
+If the session's `manifest.json` has `processing`, its transcript and moments
+are not written yet:
+
+- `"pending"`: rec is still writing them, or has not yet. Check
+  `bin/rec status --json`. When it lists the session under `processing`, wait a
+  minute and read again. When it does not and the folder has a
+  `transcript.json`, run `bin/rec transcribe <dir> --reuse` yourself: it keeps
+  that transcript and pays nothing. When it does not and there is no
+  `transcript.json`, ask the user to approve `bin/rec transcribe <dir>` with a
+  run-command card, since it pays for whisper; never run it unasked.
+- `"failed"`: tell the user its `reason` and the `retry` command it gives.
+
 Read in this order, stopping when you know enough:
 
 1. `moments.md`: the ranked moments where the app was probably not working,
@@ -53,6 +65,24 @@ Both pad 5 s before and after (`--before`, `--after`), and print the paths
 changed. Do not read `recording.webm` itself. When you hand a moment to
 another agent or the person, give the slice paths with it.
 
+## Turning a session into work
+
+A session read for its findings (a "Send to an agent" hand-off, or a request to
+act on a recording) ends in a list of tasks to choose from, not in an
+investigation and not in started work. Do not offer to "investigate X first":
+see each moment (above), then:
+
+1. List one candidate task per distinct finding, each with a name and what done
+   means. A behaviour that is working as designed (a validation the person
+   missed) is a clarity task, or nothing.
+2. Ask which to keep as one numbered question with `- (a)`, `- (b)` choices
+   (all that apply), the ones you recommend marked `(chosen)`, and say the kept
+   ones become one lane. End your turn.
+3. After the answer, run `splates lane add` and put only the kept tasks in it.
+   Each task's Before cites the video time and the slice paths of its moment;
+   order dependencies inside the lane. Start none of them.
+4. End the reply with that lane's one queue card (`splates lane queue <n>`).
+
 ## Starting a recording
 
 Only a person can start a recording: `bin/rec` opens Chrome *staged*, and
@@ -86,10 +116,12 @@ a lock: nothing stops an agent running the command itself, so keep to it.
    Stop saves a session folder. `bin/rec mark` works only between Start and
    Stop.
 4. Stop in the panel saves the folder and then transcribes and ranks it, so
-   `moments.md` and `timeline.md` appear a little later. Ctrl-C on rec ends the
-   whole run after any pending processing. Read the folder only once
-   `manifest.json` lists `timeline` and `momentsReport` under `files`. The
-   folder path is in rec's output (`saved <dir>`).
+   `moments.md` and `timeline.md` appear a little later. Closing Chrome does
+   not end rec; Ctrl-C (or Stop on the splates rec page) ends it once pending
+   processing is done, and a second Ctrl-C quits at once, leaving it for the
+   next start. Read the folder only once `manifest.json` lists `timeline` and
+   `momentsReport` under `files`. The folder path is in rec's output
+   (`saved <dir>`).
 
 ## Asking a person to reproduce something
 

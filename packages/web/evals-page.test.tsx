@@ -62,11 +62,9 @@ function serve(): void {
 					costUsd: 0.2,
 					conversation: "loop",
 					budget: {
-						budget: { usd: 10, rounds: 3 },
+						budget: { usd: 10 },
 						spentUsd: 1.25,
 						tokens: 1200,
-						roundsUsed: 2,
-						stoppedBy: null,
 					},
 				},
 			]);
@@ -103,7 +101,7 @@ it("reviews the chosen scenarios from the pinned bar and goes back from it", asy
 		),
 	);
 	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
-	expect(view.getByLabelText("Budget in dollars")).toBeTruthy();
+	expect(view.getByText(/Accepting creates 1 conversation,/)).toBeTruthy();
 	fireEvent.click(view.getByRole("button", { name: "Back" }));
 	expect(view.getByRole("button", { name: "Review 2 scenarios" })).toBeTruthy();
 });

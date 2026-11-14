@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { definitionOf, type Key, SETTINGS, Settings, search } from "./settings";
+import { setMacForTests } from "./shortcuts";
 import "./testing";
 
 /** A browser that answers a request to notify with `answer`. */
@@ -118,5 +119,16 @@ describe("Settings", () => {
 		});
 		expect(unrelated).toEqual([]);
 		expect(search("nothing like it")).toEqual([]);
+	});
+
+	it("opens the next waiting conversation on Ctrl+Shift+M off a Mac, where Ctrl+Alt+M never reaches the page", () => {
+		try {
+			setMacForTests(true);
+			expect(definitionOf("shortcuts.waiting").default).toBe("Alt+Mod+KeyM");
+			setMacForTests(false);
+			expect(definitionOf("shortcuts.waiting").default).toBe("Ctrl+Shift+KeyM");
+		} finally {
+			setMacForTests(true);
+		}
 	});
 });

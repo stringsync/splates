@@ -366,11 +366,13 @@ export class BoardRoutes {
 	};
 
 	// Puts a board away or brings it back with `archived`, true or false, or
-	// reorders it with `position`.
+	// renames it with `name`, or reorders it with `position`.
 	readonly updateBoard = async (request: Request): Promise<Response> => {
-		const { archived } = await body(request.clone());
+		const { archived, name } = await body(request.clone());
 		if (archived === undefined) {
-			return this.moveBoard(request);
+			return name === undefined
+				? this.moveBoard(request)
+				: this.renameBoard(request);
 		}
 		if (typeof archived !== "boolean") {
 			fail("usage", "say `archived`, true or false");

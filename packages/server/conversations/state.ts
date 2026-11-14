@@ -259,6 +259,8 @@ export interface AutoPickMark extends AutoPickSet {
 	 * for it, down as well as up, on the agent it runs.
 	 */
 	rejudge?: true;
+	/** The person chose the model when starting: Auto pick moves its effort, never the model. */
+	keepModel?: true;
 }
 
 /**
@@ -270,6 +272,7 @@ export interface AutoPickMark extends AutoPickSet {
 export function switched(
 	state: Pick<ConversationState, "autoPick" | "agent">,
 	on: boolean,
+	keepModel = false,
 ): AutoPickMark | null {
 	const { autoPick } = state;
 	if (!on) {
@@ -289,6 +292,7 @@ export function switched(
 		agent: state.agent,
 		overridden: false,
 		rejudge: true,
+		...(keepModel ? { keepModel: true as const } : {}),
 	};
 }
 

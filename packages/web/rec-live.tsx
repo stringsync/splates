@@ -91,6 +91,11 @@ export function Live({
 					<span>
 						Stop saves anything recording, closes rec's Chrome and ends rec.
 					</span>
+					{closing && (status.processing?.length ?? 0) > 0 && (
+						<span>
+							Finishing {status.processing?.join(", ")} before rec exits.
+						</span>
+					)}
 					{problem !== null && (
 						<span className="text-destructive">{problem}</span>
 					)}
@@ -103,7 +108,7 @@ export function Live({
 					onClick={close}
 				>
 					<SquareIcon className="size-3 fill-current" />
-					{closing ? "Closing…" : "Stop"}
+					{closing ? "Finishing…" : "Stop"}
 				</Button>
 			</div>
 		</div>

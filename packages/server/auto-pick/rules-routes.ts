@@ -1,6 +1,6 @@
 import type { Fs } from "core/system";
 import { Exit } from "../exit";
-import { effortsOf, Offered, Roster } from "../models";
+import { effortsOf, Offered, RETIRED_AGENTS, Roster } from "../models";
 import { body } from "../server/shared";
 import { FsStorage } from "../storage";
 import { DEFAULT_RULES } from "./defaults";
@@ -31,9 +31,8 @@ export interface AutoPickAgent {
 }
 
 /**
- * How Setup reads and writes this machine's Auto pick rules, the one
- * mapping every project shares. Each handler is a property, so `dev` hands
- * them straight to its routes, as it does `SetupRoutes`'.
+ * Lets Setup read and write this machine's Auto pick rules, the one mapping
+ * every project shares.
  */
 export class AutoPickRulesRoutes {
 	readonly #fs: Fs;
@@ -95,13 +94,15 @@ export async function pickableAgents(
 	const machine = new FsStorage(home, fs);
 	const offered = await new Offered(machine.document("offered.json")).all();
 	const roster = await Roster.in(machine).agents();
-	return roster.map((agent) => ({
-		id: agent.id,
-		name: agent.name,
-		models: agent.models.map(({ id, name }) => ({ id, name })),
-		efforts:
-			offered[agent.id] === undefined
-				? null
-				: effortsOf(offered[agent.id] ?? []),
-	}));
+	return roster
+		.filter((agent) => !RETIRED_AGENTS.includes(agent.id))
+		.map((agent) => ({
+			id: agent.id,
+			name: agent.name,
+			models: agent.models.map(({ id, name }) => ({ id, name })),
+			efforts:
+				offered[agent.id] === undefined
+					? null
+					: effortsOf(offered[agent.id] ?? []),
+		}));
 }

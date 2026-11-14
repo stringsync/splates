@@ -43,8 +43,8 @@ export interface PanelState {
 	laser: boolean;
 	/** What rec noticed while recording, newest first. */
 	signals: SignalItem[];
-	/** The words being said right now, so far; empty when nobody is speaking. */
-	speaking: string;
+	/** The words being said right now, so far (empty until the first arrive); null when nobody is speaking. */
+	speaking: string | null;
 	/** A line for the person: where a session was saved, what failed, what to allow. */
 	status?: string;
 	/** The folder the last session was saved to, until the next Start. */
@@ -71,7 +71,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		devices: [],
 		laser: false,
 		signals: [],
-		speaking: "",
+		speaking: null,
 	};
 	private signalIds = 0;
 
@@ -456,7 +456,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 				startedAt,
 				status: undefined,
 				signals: [],
-				speaking: "",
+				speaking: null,
 			});
 		});
 		recorder.start(1000);

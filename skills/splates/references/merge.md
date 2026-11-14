@@ -17,7 +17,7 @@ queue card; merge only once the After is true or rewritten to what landed.
 
 - **Merge** work you verified yourself, its result pictures under `## After` and other evidence under `## Verification`
   (see SPLATES.md in the skill). This is the default, and the usual end of a small change.
-- **Ask for a review**, with a demo (see [Demos](demos.md)), when the change is invasive
+- **Ask for a review**, with screenshots of the result and no demo, when the change is invasive
   (it reworks how something the user relies on works, or touches much of the
   project) and above all when it is hard or impossible to reverse (a
   migration, data written, anything sent outside the repo), or when
@@ -29,8 +29,9 @@ queue card; merge only once the After is true or rewritten to what landed.
 For any review, keep an unchecked `- [ ] Show the user before merging`
 step under `## Next` until the user approves it.
 
-For a demo the user can open, read [demos.md](demos.md),
-Hosting a demo, before starting its server.
+Make a demo only when the user asks for one (the `[SPLATES DEMO ...]` directive or
+their words): it starts servers and costs CPU and memory. Then read
+[demos.md](demos.md), Hosting a demo, before starting its server.
 
 When the user approves a review, by replying "merge" or with
 `[SPLATES MERGE]`, `splates claim <task>`, check off the review step under

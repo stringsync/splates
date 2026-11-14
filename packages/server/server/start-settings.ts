@@ -2,6 +2,7 @@ import { SYSTEM_STORES } from "../creds";
 import {
 	kimiInstalled,
 	type Offered,
+	RETIRED_AGENTS,
 	Roster,
 	type RosterAgent,
 	splatesHome,
@@ -51,5 +52,7 @@ export async function seeded(
 	if (offered !== undefined) {
 		await roster.adopt(await offered.all());
 	}
-	return roster.agents();
+	return (await roster.agents()).filter(
+		(each) => !RETIRED_AGENTS.includes(each.id),
+	);
 }

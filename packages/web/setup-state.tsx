@@ -44,12 +44,15 @@ export const SetupContext = createContext<SetupState>({
 	held: new HeldJourneys(),
 });
 
+/** How long the first read of setup yields to the page's other opening requests. */
+const FIRST_READ_DELAY_MS = 1500;
+
 /**
  * This machine's setup, read on load, again whenever `changed` does, and
  * again back in front, since a step may have been done in a terminal
  * meanwhile.
  */
-export function useSetupState(changed: unknown): SetupState {
+export function useSetupState(_changed: unknown): SetupState {
 	const [progress, setProgress] = useState<SetupProgress | null>(null);
 	const [cached] = useState(readCache);
 	const [reading, setReading] = useState(true);
@@ -77,8 +80,19 @@ export function useSetupState(changed: unknown): SetupState {
 			},
 		);
 	}, []);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: read again whenever `changed` moves
-	useEffect(refresh, [refresh, changed]);
+	// The first read waits a moment when a kept one is on show, so the open
+	// conversation's requests go out before this slow one.
+	const first = useRef(true);
+	useEffect(() => {
+		const hold = first.current && cached !== null;
+		first.current = false;
+		if (!hold) {
+			refresh();
+			return;
+		}
+		const timer = setTimeout(refresh, FIRST_READ_DELAY_MS);
+		return () => clearTimeout(timer);
+	}, [refresh, cached]);
 	useEffect(() => {
 		const observer = new WindowBackgroundObserver();
 		observer.events.on("change", () => {
@@ -120,9 +134,8 @@ function writeCache(progress: SetupProgress): void {
 }
 
 /**
- * Gives `children` this machine's setup, read again as `creds` move, as when
- * one a step needs is saved, rather than on every snapshot, since each read
- * checks the device's store.
+ * Give `children` this machine's setup. It is read again when `creds` move,
+ * as when a step's secret is saved.
  */
 export function SetupProvider({
 	creds,

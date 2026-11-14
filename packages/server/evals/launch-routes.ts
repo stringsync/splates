@@ -79,12 +79,12 @@ export class EvalLaunchRoutes {
 		}
 		const conversation = this.conversation(sent);
 		if (conversation !== null && sent.budget != null) {
-			// Set once, when the eval starts: a later ask changes nothing.
-			const { usd, rounds } = sent.budget as Partial<EvalBudget>;
-			if (typeof usd !== "number" || typeof rounds !== "number") {
-				fail("usage", "a budget names its `usd` and `rounds`", {});
+			// Each run has its own budget: pressing Run sets it.
+			const { usd } = sent.budget as Partial<EvalBudget>;
+			if (typeof usd !== "number") {
+				fail("usage", "a budget names its `usd`", {});
 			}
-			await this.launches.budgets.set(conversation, { usd, rounds });
+			await this.launches.budgets.set(conversation, { usd });
 		}
 		return Response.json(
 			await this.launches.start(commands, {
@@ -97,7 +97,7 @@ export class EvalLaunchRoutes {
 		);
 	};
 
-	/** `?conversation=` names the conversation; its budget, what it has spent and the rounds used. */
+	/** `?conversation=` names the conversation; the budget of its latest run and what that run has spent. */
 	readonly budget: Handler = async (request) => {
 		const commands = await this.commands(request);
 		const conversation = new URL(request.url).searchParams.get("conversation");

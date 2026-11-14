@@ -8,7 +8,13 @@ import {
 	SendHorizontalIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { type JSX, useContext, useEffect, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
@@ -16,12 +22,8 @@ import { conversationAttachment } from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
 import { HeldFeed } from "./handed-out";
 import { useShowPending } from "./pending";
-import {
-	SEND_TIMEOUT,
-	type Sending,
-	STILL_SENDING,
-	type Unsent,
-} from "./sending";
+import { SEND_TIMEOUT, type Sending, STILL_SENDING } from "./sending";
+import { plainWhy } from "./unsent-why";
 
 /**
  * Under a message the server has yet to answer, sent at `since` (epoch ms):
@@ -102,23 +104,17 @@ export interface HeldEdits {
  */
 export function PendingRow({
 	messages,
-	unsent,
 	held = [],
 	edits = null,
-	retry,
-	edit,
 }: {
 	messages: readonly Sending[];
-	unsent: readonly Unsent[];
 	held?: readonly Message[];
 	edits?: HeldEdits | null;
-	retry: (message: Sending) => void;
-	edit: (message: Sending) => void;
 }): JSX.Element | null {
 	// Enter sends what is held only with nothing typed.
 	const empty = useAuiState((state) => state.composer.isEmpty);
 	const touch = useTouch();
-	if (messages.length === 0 && unsent.length === 0 && held.length === 0) {
+	if (messages.length === 0 && held.length === 0) {
 		return null;
 	}
 	return (
@@ -126,10 +122,7 @@ export function PendingRow({
 			aria-label="messages sending"
 			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2 opacity-70"
 		>
-			{[
-				...unsent.map((each) => ({ message: each.message, why: each.why })),
-				...messages.map((message) => ({ message, why: null })),
-			].map(({ message, why }) => (
+			{messages.map((message) => (
 				<li key={message.id} className="flex flex-col gap-0.5 pr-1 pl-2">
 					<div className="flex items-start gap-2">
 						{message.images.map((image) => (
@@ -150,15 +143,7 @@ export function PendingRow({
 									.join(", ")}
 						</span>
 					</div>
-					{why === null ? (
-						<SendingLine since={message.at} />
-					) : (
-						<RefusedLine
-							why={why}
-							onRetry={() => retry(message)}
-							onEdit={() => edit(message)}
-						/>
-					)}
+					<SendingLine since={message.at} />
 				</li>
 			))}
 			{held.map((message, index) => (
@@ -271,35 +256,57 @@ function HeldItem({
 	);
 }
 
-/** Beside a refused message: that it was not sent, why on hover, and a way to send it again or back to the composer. */
-function RefusedLine({
+/** What the line under a refused message does, by the message's id. */
+// vet-ignore objects-over-callbacks: the thread's props, which are how React passes events
+export interface UnsentActions {
+	retry: (id: string) => void;
+	edit: (id: string) => void;
+}
+
+/** Provided by the thread, for the lines under its refused messages. */
+export const UnsentActionsContext = createContext<UnsentActions | null>(null);
+
+/** Directly under a refused message's bubble: that it was not sent and why, with a way to send it again or back to the composer. */
+export function UnsentLine({
+	id,
 	why,
-	onRetry,
-	onEdit,
 }: {
+	id: string;
 	why: string;
-	onRetry: () => void;
-	onEdit: () => void;
 }): JSX.Element {
+	const actions = useContext(UnsentActionsContext);
 	const link =
 		"text-foreground font-medium underline-offset-2 hover:underline focus-visible:underline";
 	return (
 		<div
 			data-slot="aui_user-message-unsent"
-			className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs"
+			className="text-muted-foreground flex flex-wrap items-center justify-end gap-1 px-2 text-end text-xs"
 		>
 			<span className="text-destructive flex items-center gap-1" title={why}>
 				<CircleAlertIcon className="size-3" aria-hidden />
 				Couldn't send
 			</span>
-			<span aria-hidden>·</span>
-			<button type="button" className={link} onClick={onRetry}>
-				Retry
-			</button>
-			<span aria-hidden>·</span>
-			<button type="button" className={link} onClick={onEdit}>
-				Edit
-			</button>
+			<span className="text-destructive">: {plainWhy(why)}</span>
+			{actions !== null && (
+				<>
+					<span aria-hidden>·</span>
+					<button
+						type="button"
+						className={link}
+						onClick={() => actions.retry(id)}
+					>
+						Retry
+					</button>
+					<span aria-hidden>·</span>
+					<button
+						type="button"
+						className={link}
+						onClick={() => actions.edit(id)}
+					>
+						Edit
+					</button>
+				</>
+			)}
 		</div>
 	);
 }

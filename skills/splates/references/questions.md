@@ -53,7 +53,13 @@ answer does when that is not plain from the question (`- (a) Yes, keep it for
 one release (chosen)`). The user can always add words of their own to any
 answer, so never ask for a reason or a caveat as a second question. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
-apply. Describe every choice, the one you went with too, and mark that one
+apply. Decide which before writing the choices: ask "could the user sensibly
+want two of these?". A question like "which of these should become tasks?",
+"which should I fix?" or "which of these do you want?" over independent items
+is always `- [a]`, never `- (a)`: a pick-one card forces the user to take one
+and drop the rest, and they cannot fix it from the card. Use `- (a)` only for
+alternatives that exclude each other (one design, one default). The `(chosen)`
+mark goes on each choice you would tick, so more than one may carry it. Describe every choice, the one you went with too, and mark that one
 `(chosen)`: never a bare "That". Order the choices first of all by any order
 they already have: variants lettered A, B, C, D (as in lo-fi mockups), steps,
 sizes, a timeline. Then list them in that order, even when your pick is not
@@ -84,6 +90,10 @@ crowd the choices.
    - a. Profile
    - b. Billing
    - c. Notifications
+5. Which of these should become tasks?
+   - [a] Fix the 400 on save (chosen)
+   - [b] Shorten the upload copy (chosen)
+   - [c] Check why the fetch is slow
 ```
 
 Show what a question is about whenever it is something to see: a screenshot,

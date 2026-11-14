@@ -18,17 +18,19 @@ the skill.
 have never run or already pass (a rerun out of curiosity, or on another model).
 Start a splates task, read the scenario's requirement and history with
 `splates dev eval show` on its latest run if it has one, and begin the loop at
-step 1 with the run card. An `Agents:` line after the limits names the saved
+step 1 with the run card. An `Agents:` line names the saved
 agents to run on: copy it into the run card's `Agents:` line, and with none
 run every saved agent as step 1 says. A `Repetitions: <n>` line after it
 replaces the 3 of step 1. Then carry on exactly as from a failed run.
 
-The directive may carry two more lines of plain text, `Budget: $<usd>` and
-`Rounds: <n>`: the limits the user chose for this loop. Honor them even when
-no splates server gates your run cards: count the rounds you have run, add up
-each batch's cost from its report, and stop as Stopping says once another round
-would pass either limit. Without those lines the limits are the server's
-defaults, which only a refused card tells you.
+`[SPLATES EVAL LOOP scenarios <id> <id> ...]` is one loop over several
+scenarios of a namespace (the Evals page starts one conversation per
+namespace). Ask for runs of all of them in each run card, diagnose every one
+that fails, and stop when every scenario passes or the user rejects.
+
+A run card carries its own dollar budget, which the user sets when pressing Run
+and which you never choose: each card is one round, so there is no loop-wide
+budget or round cap.
 
 ## The loop
 
@@ -95,13 +97,8 @@ On each `[SPLATES EVALS DONE]`, reply with the round's row, the label of
 each failed run, the one change you made, and the run card for the rerun,
 asking nothing else. Every round requires the user's approval: end your turn
 with the run card and wait for the user to review the selected agents and
-press Run, even when the conversation's dollar budget and round cap cover it.
-Those limits cap spending; they never authorize a run. A card the budget cannot
-cover is refused with `budget_exhausted` and the limit it names (`usd` or `rounds`):
-do not retry it or run the eval command yourself, and never edit the budget or
-cap, which only the user tops up. Stop and report instead.
-When the budget is already used up as a card appears, the page refuses it
-and sends you `[SPLATES EVALS BUDGET USED UP]`: treat it as the same stop.
+press Run. Each card's budget is the user's to set; never run the eval command
+yourself.
 
 ## Grader changes
 
@@ -139,25 +136,20 @@ An agent left out of a rerun keeps its last measured rate, so mark it as
 carried over in the round's row and in the report. Before stopping, rerun a
 skipped agent once if a later fix could have changed its result.
 
-Stop at the first of these four limits:
+Stop at the first of these:
 
 - the scenario passes every repetition on each agent;
-- the dollar budget cannot fit another round (the next card is refused with
-  limit `usd`);
-- the round cap is reached (refused with limit `rounds`);
-- three rounds in a row with no gain.
+- three rounds in a row with no gain;
+- the user stops asking for another run.
 
 Then merge the changes you kept, or remove the task if none were kept, and
 report the rate before and after under the Merged title. The report names
-which limit ended the loop, in those words, and when it was the budget or the
-round cap, says the user can top it up to go on.
+which of those ended the loop, in those words.
 
 When nothing was kept because the scenario already passed every repetition on
 each agent, that is a success, not a task that went wrong: remove the task as
 `nothing`, but end on a Done report, not the Removed one, so the conversation
-reads as a result. When rounds ran, put the `## Rounds` table in the report
-(the Done card draws it as one row per round, the layer and rate each) and end
-it with a `Stopped by: <the limit>` line and a `Final batch: <batch id>` line naming the batch of the last run, which the card's Final evidence button opens, and, when changes were kept, a `Commit: <sha>` line naming the commit they landed as, which its View diff button opens. Title it with the scenario and that it passes, then a table
+reads as a result. When a run landed, end the report with a `Final batch: <batch id>` line naming the batch of the last run: the Done card shows that run's results from it, under your one line on the outcome, so keep that line first. Add a `Stopped by: <the limit>` line, and a `Commit: <sha>` line when changes were kept. Title it with the scenario and that it passes, then a table
 of each agent's pass rate and a line on what the baseline run showed. Name an
 agent that errored apart, as a harness problem that left it unmeasured. When
 the scenario did not pass, or no repetition ran, it is still Removed.

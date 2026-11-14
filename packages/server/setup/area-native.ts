@@ -1,6 +1,7 @@
 import { DEFAULT_AGENTS, KIMI_CLI, Roster } from "../models";
 import { FsStorage } from "../storage";
 import type { StepField } from "./fields";
+import { probed } from "./probes";
 import type { SetupArea, SetupMachine, SetupStep, StepAnswers } from "./setup";
 
 /** The agents in `agents.json`, none when it is not there, for it holds the defaults then. */
@@ -233,7 +234,14 @@ function chosenModels(id: AgentId, answers: StepAnswers): string[] {
  * Whether `id`'s CLI answers and is signed in, as far as it tells without a
  * prompt sent: its own status command, never a read of its credentials.
  */
-async function probe(
+function probe(
+	machine: SetupMachine,
+	id: AgentId,
+): Promise<"missing" | "signed-out" | "ready"> {
+	return probed(machine, id, () => probeNow(machine, id));
+}
+
+async function probeNow(
 	{ ps }: SetupMachine,
 	id: AgentId,
 ): Promise<"missing" | "signed-out" | "ready"> {

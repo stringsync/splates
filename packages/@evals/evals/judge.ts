@@ -1,3 +1,4 @@
+import { withoutMedia } from "./media";
 import type { Step } from "./scenario";
 
 /** What the judge decided, and why. */
@@ -53,7 +54,7 @@ export async function judge(
 	);
 }
 
-/** How much of a transcript the judge reads, from its end when it runs longer. */
+/** Text budget shared across steps so a large result cannot hide earlier actions. */
 const READS = 60_000;
 
 /** The judge's model: small, since it only reads and decides. */
@@ -67,14 +68,23 @@ export function judgePrompt(ask: {
 	transcript: readonly Step[];
 	reply: string;
 }): string {
+	const perStep = Math.max(
+		1,
+		Math.floor(READS / Math.max(1, ask.transcript.length)),
+	);
 	const steps = ask.transcript
-		.map((step) =>
-			step.kind === "text"
-				? `AGENT: ${step.text}`
-				: `TOOL ${step.name}: ${step.input}${step.output === null ? "" : `\n→ ${step.output}`}`,
-		)
+		.map((step) => {
+			const text =
+				step.kind === "text"
+					? `AGENT: ${step.text}`
+					: `TOOL ${step.name}: ${withoutMedia(step.input)}${step.output === null ? "" : `\n→ ${withoutMedia(step.output)}`}`;
+			if (text.length <= perStep) {
+				return text;
+			}
+			return `${text.slice(0, Math.floor(perStep / 2))}\n[step truncated]\n${text.slice(-Math.floor(perStep / 2))}`;
+		})
 		.join("\n\n");
-	return `You grade one run of an AI coding agent that was given a skill telling it how to work. Judge only what the requirement and rubric ask, from what the agent did; ignore everything else.
+	return `You grade one run of an AI coding agent that was given a skill telling it how to work. Judge only what the requirement and rubric ask, from what the agent did; ignore everything else. Inline media bytes are omitted, but their tool calls and paths remain evidence of inspection. Truncated step content is unavailable evidence, not proof that an action never happened.
 
 Requirement of the skill: ${ask.requirement}
 
@@ -84,7 +94,7 @@ The person's message to the agent:
 ${ask.message}
 
 What the agent did, in order:
-${steps.length > READS ? `…${steps.slice(-READS)}` : steps}
+${steps}
 
 The agent's final reply:
 ${ask.reply}

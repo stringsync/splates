@@ -1,8 +1,8 @@
 /**
- * A keyboard shortcut, as a setting keeps it: its modifiers in a fixed order
- * and then the key, by its place (`KeyboardEvent.code`) rather than what it
- * prints, since ⌥ types another letter on a Mac. `Mod` is ⌘, or Ctrl off a
- * Mac; `Ctrl` with it means both, as ⌃⌘P. The empty string is no shortcut.
+ * A keyboard shortcut as a setting keeps it, like `Alt+Mod+KeyM`: modifiers
+ * (`Ctrl`, `Alt`, `Shift`, `Mod`) and then the key's place (`KeyboardEvent.code`),
+ * so it holds on any layout. `Mod` is ⌘ on a Mac and Ctrl elsewhere; `Ctrl`
+ * with it means both. The empty string is no shortcut.
  */
 export type Shortcut = string;
 
@@ -136,17 +136,35 @@ export function recorded(event: KeyboardEvent, mac = onMac()): Shortcut | null {
 	return format({ modifiers, code: event.code });
 }
 
-/** How `shortcut` reads, as a Mac prints it: `⌥⌘C`, or "" for none. */
-export function label(shortcut: Shortcut): string {
+/** What each modifier reads as off a Mac, which has no ⌘: Mod is Ctrl. */
+const WORDS: Record<Modifier, string> = {
+	Ctrl: "Ctrl",
+	Alt: "Alt",
+	Shift: "Shift",
+	Mod: "Ctrl",
+};
+
+/**
+ * How `shortcut` reads: `⌥⌘C` on a Mac, `Ctrl+Alt+C` off it, or "" for none.
+ */
+export function label(shortcut: Shortcut, mac = onMac()): string {
 	const parsed = parse(shortcut);
 	if (parsed === null) {
 		return "";
 	}
-	return (
-		MODIFIERS.filter((each) => parsed.modifiers.has(each))
-			.map((each) => GLYPHS[each])
-			.join("") + keyOf(parsed.code)
-	);
+	const held = MODIFIERS.filter((each) => parsed.modifiers.has(each));
+	if (mac) {
+		return held.map((each) => GLYPHS[each]).join("") + keyOf(parsed.code);
+	}
+	return [
+		...new Set(
+			[
+				...held.filter((each) => each === "Mod"),
+				...held.filter((each) => each !== "Mod"),
+			].map((each) => WORDS[each]),
+		),
+		keyOf(parsed.code),
+	].join("+");
 }
 
 /**
@@ -172,6 +190,22 @@ function keyOf(code: string): string {
 	);
 }
 
-function onMac(): boolean {
-	return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+/** The modifiers a shortcut may hold, as a sentence reads them. */
+export function modifierNames(mac = onMac()): string {
+	return mac ? "⌘, ⌃ or ⌥" : "Ctrl or Alt";
+}
+
+let macForTests: boolean | null = null;
+
+/** Test-only: reads every shortcut as on a Mac, or off it, whatever the browser says. */
+export function setMacForTests(mac: boolean | null): void {
+	macForTests = mac;
+}
+
+/** Whether the page runs on a Mac, or reads as one under test. */
+export function onMac(): boolean {
+	return (
+		macForTests ??
+		/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+	);
 }

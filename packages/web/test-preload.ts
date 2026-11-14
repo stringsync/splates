@@ -7,6 +7,12 @@
 // that loads it, and the address and storage outlive a file too.
 import "./register-dom";
 import { afterEach } from "bun:test";
+import { setMacForTests } from "./shortcuts";
+
+// The page's tests read shortcuts as a Mac prints them, while the editor still
+// sees the test browser's own platform; one that wants another passes it to
+// `label` itself.
+setMacForTests(true);
 
 const { cleanup } = await import("@testing-library/react");
 const address = location.href;

@@ -1,6 +1,6 @@
 import type { BoardContext } from "./board";
 import { earlyWarningOf, warningLines } from "./early-warning";
-import { evalsDoneLine, evalsDoneOf } from "./evals-done";
+import { evalsDoneOf } from "./evals-done";
 import { queueStartOf, startLine } from "./queue-start";
 import type { Named, SplatesEventView, Words } from "./splates-event";
 
@@ -18,7 +18,8 @@ export function serverToldLines(
 	}
 	const done = evalsDoneOf(text);
 	if (done !== null) {
-		return [evalsDoneLine(done, at, text)];
+		// The run card keeps its own record, so the message draws no line.
+		return [];
 	}
 	const start = queueStartOf(text);
 	if (start !== null) {

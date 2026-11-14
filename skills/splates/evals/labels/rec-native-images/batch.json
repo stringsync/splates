@@ -1,0 +1,25 @@
+{
+	"format": "splates-evals/1",
+	"startedAt": "2026-11-13T15:42:50.921Z",
+	"title": "splates (regraded) (regraded)",
+	"producer": "splates",
+	"revision": {
+		"commit": "ad805fca9503c7699e9a9a7c25dc890210c51da4",
+		"skillHash": "3f7fd38bc52ddb62eb6fdcaec11b1755dd3cb9657237272d93b7ff792c2c9bfe",
+		"scenarioHash": "4f64f5ab15108b1fdceb5800a96198a8feb58f7e05fb2014adba906723e92b9c"
+	},
+	"cells": [
+		{
+			"id": "run-003",
+			"case": "rec/reviews-ranked-moment",
+			"group": "rec",
+			"about": "Inspect a ranked moment through a targeted slice and screenshots without reading the full recording.",
+			"target": {
+				"agent": "codex",
+				"model": "gpt-6.1-sol"
+			},
+			"repetition": 0,
+			"fingerprint": "95cf6d5c08915832f2c01184fa530b59a01d34809f86fc1100bd4315efcd0c27"
+		}
+	]
+}
