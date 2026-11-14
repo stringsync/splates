@@ -1,4 +1,5 @@
 import type { ComponentProps, JSX } from "react";
+import { PLANNER_COLUMN } from "./history-row";
 import { ShipRecap } from "./ship-recap";
 import { ShipRun } from "./ship-run";
 import type { Live } from "./use-live-ships";
@@ -38,7 +39,11 @@ export function ActiveShip({
 		);
 	}
 	if (["done", "abandoned"].includes(live.cascade.status)) {
-		return <ShipRecap cascade={live.cascade} />;
+		return (
+			<div className={PLANNER_COLUMN}>
+				<ShipRecap cascade={live.cascade} />
+			</div>
+		);
 	}
 	return (
 		<ShipRun

@@ -250,8 +250,8 @@ export const UserMessage: FC = () => {
 					className={cn(
 						"text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs",
 						// The bubble sits at a phone's end; what is said of it
-						// starts at the thread's edge.
-						"max-sm:self-start",
+						// sits under it, at the same end.
+						"max-sm:self-end max-sm:pe-3 max-sm:ps-0",
 					)}
 				>
 					{at !== null && <Stamp at={at} />}

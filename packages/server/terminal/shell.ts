@@ -1,6 +1,5 @@
-import type { AsyncResource, Resource } from "core/disposable";
+import type { AsyncResource } from "core/disposable";
 import type { ProcessEntry } from "core/system";
-import { Duration, type Timer } from "core/time";
 import { z } from "zod";
 import type { ProcessHandle } from "../agents";
 import type { Connection } from "../server/shared";
@@ -13,16 +12,10 @@ import type { RemotePty } from "./remote-pty";
 export const MAX_SIZE = 1000;
 
 /**
- * How long a keyed shell stays once its page's socket goes, for the page to
- * come back to it: through a reload, or a restart of `splates server`.
- */
-export const TERMINAL_GRACE = Duration.mins(2);
-
-/**
  * What a page says to its terminal that is not typing: a resize, asking
  * what job the shell runs in front, as it does before closing it, or that
- * it is closing it for good, so the shell ends now rather than after
- * `TERMINAL_GRACE`.
+ * it is closing it for good, which is the only thing but the shell's own
+ * exit that ends a keyed shell.
  */
 const TerminalMessage = z.discriminatedUnion("type", [
 	z.object({
@@ -55,12 +48,12 @@ export interface KeptShell {
  * One shell the server runs for a page's terminal, by its key: the page's
  * socket shows it, and may go and come back, through a reload or a restart
  * of `splates server`, the worker redrawing the screen for the one that comes
- * back. One with no key ends with its socket; one with a key stays
- * `TERMINAL_GRACE` after it, or until the page says it is closing it.
+ * back. One with no key ends with its socket; one with a key stays until the
+ * page says it is closing it or the shell exits, however long its page is
+ * away (a sleeping laptop, a backgrounded phone tab).
  */
 export class Shell implements AsyncResource {
 	private socket: Bun.ServerWebSocket<Connection> | null = null;
-	private grace: Resource | null = null;
 	private ended = false;
 
 	// vet-ignore objects-over-callbacks: the one owner of a shell hears it go, to drop it from its table
@@ -69,14 +62,12 @@ export class Shell implements AsyncResource {
 		readonly pty: TerminalShell,
 		/** The worker the shell runs on, where its job in front is read from. */
 		private readonly worker: ShellHost,
-		private readonly timer: Timer,
 		/** Hears that the shell is gone: exited, closed, or let go. */
 		private readonly gone: (shell: Shell) => void,
 	) {
 		pty.events.on("data", (bytes) => this.socket?.sendBinary(bytes));
 		pty.events.on("exit", (code) => {
 			this.ended = true;
-			this.grace?.dispose();
 			this.socket?.send(JSON.stringify({ type: "exit", code }));
 			this.socket?.close();
 			this.gone(this);
@@ -95,8 +86,6 @@ export class Shell implements AsyncResource {
 	 * to a shell has the worker redraw its screen first.
 	 */
 	attach(socket: Bun.ServerWebSocket<Connection>, back: boolean): void {
-		this.grace?.dispose();
-		this.grace = null;
 		this.socket?.close();
 		this.socket = socket;
 		if (back) {
@@ -104,16 +93,7 @@ export class Shell implements AsyncResource {
 		}
 	}
 
-	/** Keeps the shell `TERMINAL_GRACE` for a page to come back to it. */
-	wait(): void {
-		this.grace?.dispose();
-		this.grace = this.timer.setTimeout(
-			() => void this.disposeAsync(),
-			TERMINAL_GRACE,
-		);
-	}
-
-	/** The page's `socket` went: keyed, the shell waits for it to come back. */
+	/** The page's `socket` went: keyed, the shell stays for it to come back. */
 	detach(socket: Bun.ServerWebSocket<Connection>): void {
 		if (this.socket !== socket) {
 			return;
@@ -121,8 +101,6 @@ export class Shell implements AsyncResource {
 		this.socket = null;
 		if (this.key === null) {
 			void this.disposeAsync();
-		} else {
-			this.wait();
 		}
 	}
 
@@ -164,8 +142,6 @@ export class Shell implements AsyncResource {
 
 	/** Lets go of the shell for the next run to take back, without ending it. */
 	release(): void {
-		this.grace?.dispose();
-		this.grace = null;
 		this.socket?.close();
 		this.socket = null;
 		this.gone(this);
@@ -173,8 +149,6 @@ export class Shell implements AsyncResource {
 
 	/** Hangs up, as closing a terminal window does. */
 	async disposeAsync(): Promise<void> {
-		this.grace?.dispose();
-		this.grace = null;
 		if (!this.ended) {
 			this.ended = true;
 			this.gone(this);

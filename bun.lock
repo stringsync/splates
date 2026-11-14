@@ -12,14 +12,14 @@
     },
     "packages/@evals/evals": {
       "name": "@evals/evals",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "core": "workspace:*",
       },
     },
     "packages/@mono/rec": {
       "name": "@mono/rec",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@tailwindcss/oxide": "^4.3.3",
         "class-variance-authority": "^0.7.1",
@@ -41,7 +41,7 @@
     },
     "packages/core": {
       "name": "core",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },
@@ -57,7 +57,7 @@
     },
     "packages/evals": {
       "name": "@splates/evals",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@splates/server": "workspace:*",
@@ -69,7 +69,7 @@
     },
     "packages/server": {
       "name": "@splates/server",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
         "@evals/evals": "workspace:*",
@@ -82,7 +82,7 @@
     },
     "packages/splates": {
       "name": "@stringsync/splates",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "bin": {
         "splates": "./index.ts",
         "arbor": "./index.ts",
@@ -101,7 +101,7 @@
     },
     "packages/tooling": {
       "name": "@splates/tooling",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@splates/server": "workspace:*",
       },
@@ -111,7 +111,7 @@
     },
     "packages/web": {
       "name": "@splates/web",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@splates/server": "workspace:*",
         "core": "workspace:*",
@@ -159,7 +159,7 @@
     },
     "skills/splates/evals": {
       "name": "@splates/skill-evals",
-      "version": "2.0.10",
+      "version": "2.0.11",
       "dependencies": {
         "@evals/evals": "workspace:*",
         "@splates/server": "workspace:*",

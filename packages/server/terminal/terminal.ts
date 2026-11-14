@@ -1,4 +1,3 @@
-import { SystemTimer, type Timer } from "core/time";
 import { Exit, fail } from "../exit";
 import type { Connection, Served } from "../server/shared";
 import { type HostGate, refuse } from "../server/shared";
@@ -24,7 +23,6 @@ export interface TerminalProjects {
  */
 export class Terminals {
 	private readonly shells = new Set<Shell>();
-	private readonly timer: Timer;
 
 	constructor(
 		private readonly gate: HostGate,
@@ -32,13 +30,10 @@ export class Terminals {
 		private readonly projects: TerminalProjects,
 		/** The worker the shells run on, whose process table says their jobs in front. */
 		private readonly worker: ShellHost,
-		{ timer = new SystemTimer() }: { timer?: Timer } = {},
-	) {
-		this.timer = timer;
-	}
+	) {}
 
 	/**
-	 * Takes back the shells the last run let go of, each waiting for its page
+	 * Takes back the shells the last run let go of, each staying for its page
 	 * to come back; before the worker joins, whose hello says which it kept.
 	 */
 	takeBack(kept: KeptShell[]): void {
@@ -47,11 +42,9 @@ export class Terminals {
 				key,
 				this.worker.resumePty(handle),
 				this.worker,
-				this.timer,
 				(gone) => this.shells.delete(gone),
 			);
 			this.shells.add(shell);
-			shell.wait();
 		}
 	}
 
@@ -116,7 +109,6 @@ export class Terminals {
 						rows: dimension(params.get("rows"), 24),
 					}),
 					this.worker,
-					this.timer,
 					(gone) => this.shells.delete(gone),
 				);
 				this.shells.add(shell);
