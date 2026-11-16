@@ -44,8 +44,9 @@ describe("REPLICA_AREA", () => {
 					replica: place,
 					evals: null,
 					ship: null,
-					shipStatus: null,
-					ships: null,
+
+					legacyShips: null,
+					ships: [],
 				}),
 				remoteUrl: async () => null,
 				replica: async () => status,

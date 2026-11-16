@@ -115,8 +115,9 @@ the user to restart `splates server`.
 
 - **Ships** (`ships-command`, `ships-status`): name the command that
   releases the project as `ship`, or one target a time under `ships`
-  (`{ paths, ship }`), then optionally a `shipStatus` command that reads
-  live versions where npm's latest is not the truth. Find the project's
+  (`{ ship, after? }`), using the core/ship ShipCommand wrapper. Its
+  `plan --json` declares identity, inputs, steps and source paths; `status --json`
+  reports live artifacts. Find the project's
   existing release script before writing one. Only the user ships, so
   never run the ship command; a `--dry-run` rehearsal is fine.
 - **Evals** (`evals-results`, `evals-run`): `evals: { results }` shows

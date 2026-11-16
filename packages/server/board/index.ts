@@ -1,5 +1,6 @@
 export { BACKLOG_LANE, protectBacklog, ungroomed } from "./backlog";
 export { blockedWarning } from "./blocked-warning";
+export { blockerAdd } from "./blocker-add";
 export {
 	boardAdd,
 	boardList,

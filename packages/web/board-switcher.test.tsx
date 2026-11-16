@@ -6,17 +6,14 @@ import { cleanup, fireEvent, render, waitFor } from "./testing-library";
 
 describe("BoardSwitcher controls", () => {
 	const boards: BoardRecord[] = [
-		{ id: 1, name: "Default", position: 1, archived: false },
-		{ id: 2, name: "Website", position: 2, archived: false },
+		{ id: 1, name: "Default", position: 1 },
+		{ id: 2, name: "Website", position: 2 },
 	];
 
 	const calls: string[] = [];
 	const actions: BoardActions = {
 		addBoard: async () => {},
 		renameBoard: async () => {},
-		archiveBoard: async (id, archived) => {
-			calls.push(`archive ${id} ${archived}`);
-		},
 		dropBoard: async (id) => {
 			calls.push(`drop ${id}`);
 		},
@@ -73,40 +70,12 @@ describe("BoardSwitcher controls", () => {
 		);
 	});
 
-	it("archives a board", async () => {
-		const view = open();
-		fireEvent.click(
-			await view.findByRole("button", { name: "Website actions" }),
-		);
-		fireEvent.click(await view.findByRole("menuitem", { name: /Archive/ }));
-		await waitFor(() => expect(calls).toEqual(["archive 2 true"]));
-	});
-
-	it("restores an archived board", async () => {
-		const view = render(
-			<BoardSwitcher
-				boards={[
-					...boards,
-					{ id: 3, name: "Old", position: 3, archived: true },
-				]}
-				current={1}
-				tasks={[]}
-				onPick={() => {}}
-				actions={actions}
-				mode="index"
-			/>,
-		);
-		fireEvent.click(await view.findByRole("button", { name: "Restore Old" }));
-		await waitFor(() => expect(calls).toEqual(["archive 3 false"]));
-	});
-
-	it("keeps Default from being archived or deleted", async () => {
+	it("keeps Default from being deleted", async () => {
 		const view = open();
 		fireEvent.click(
 			await view.findByRole("button", { name: "Default actions" }),
 		);
 		await view.findByRole("menuitem", { name: /Rename/ });
 		expect(view.queryByRole("menuitem", { name: /Delete/ })).toBeNull();
-		expect(view.queryByRole("menuitem", { name: /Archive/ })).toBeNull();
 	});
 });

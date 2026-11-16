@@ -9,7 +9,7 @@ export interface TaskClass<Id extends string> {
 	noul: Noul;
 }
 
-export const KIND_IDS = ["bugfix", "design", "open"] as const;
+export const KIND_IDS = ["bugfix", "design", "open", "devops"] as const;
 export type KindId = (typeof KIND_IDS)[number];
 export const DEPTH_IDS = ["shallow", "moderate", "deep"] as const;
 export type DepthId = (typeof DEPTH_IDS)[number];
@@ -30,6 +30,11 @@ export const KINDS: readonly TaskClass<KindId>[] = [
 		"open",
 		"Open-ended",
 		"Is the task open-ended or research-like, with investigation needed before the desired outcome is clear?",
+	),
+	question(
+		"devops",
+		"DevOps",
+		"Is the task devops work: cloud infrastructure, AWS or CDK stacks, deploys, CI/CD pipelines, releases and ships, containers, DNS, credentials or runbooks, rather than application code?",
 	),
 ];
 

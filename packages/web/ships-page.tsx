@@ -1,285 +1,308 @@
-import { age } from "@splates/server/age";
-import {
-	shipFailureReference,
-	shipSlowReference,
-} from "@splates/server/plans/browser";
-import type { CascadeSummary, StageKey } from "@splates/server/ship";
-import { shipName } from "@splates/server/ship/browser";
-import { type JSX, useEffect, useState } from "react";
-import { ActiveShip } from "./active-ship";
-import {
-	actOnShip,
-	recordShipAgent,
-	shipHistory,
-	shipHistoryEntry,
-	shipStageLog,
-} from "./api";
-import { promptConversation, startAutoPick } from "./conversation-api";
-import type { ConversationFeed } from "./conversation-feed";
+import { useReactive } from "core/react";
+import { CheckIcon } from "lucide-react";
+import { type JSX, useEffect, useRef, useState } from "react";
+import { shipPlan, shipRuns, shipTargets, startShip } from "./api/ship";
+import { Button } from "./components/ui/button";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
+import { SHIP_HISTORY, shipRunAddress } from "./page-address";
 import { RouteTrail } from "./route-trail";
-import { seenBy } from "./ship-activity";
-import { ShipHistory } from "./ship-history";
-import { ShipPlan } from "./ship-plan";
-import { useAcknowledged } from "./ship-recap-seen";
-import { ProjectStages } from "./ship-run";
-import { ShipRunningCard } from "./ship-running-card";
+import { ShipFlow } from "./ship-flow";
+import { backToShipDepth, shipDepth, useShipHistory } from "./ship-history";
+import { ShipNeededFirst } from "./ship-needed-first";
+import { ShipPastRuns, ShipRunList } from "./ship-past-runs";
+import { ShipPickList } from "./ship-pick-list";
+import { recapSeen } from "./ship-recap-seen";
+import { ShipReview } from "./ship-review";
+import { SHIP_BUS } from "./ship-run-bus";
+import { ShipRunScreen } from "./ship-run-view";
 import { TopBar } from "./top-bar";
-import { type Live, useLiveShips } from "./use-live-ships";
+
+const TITLES = {
+	pick: "Ships",
+	needed: "Needed first",
+	review: "Review",
+};
 
 /**
- * Where you plan a ship: pick the projects that release, press Start, and
- * open past ships. The ship under way, and each past one, has its own page.
+ * The Ships page: pick targets, add what they depend on, review the plan
+ * and ship it. Given `run`, it shows that run live instead; `onRun` opens a
+ * run once shipped, and `onClose` goes back to the pick, by default by moving
+ * the page's address.
  */
 export function ShipsPage({
-	feed = null,
+	run = null,
+	onRun = openRun,
+	onClose = closeRun,
 }: {
-	feed?: ConversationFeed | null;
+	/** The run shown, by id, or null for the pick. */
+	run?: string | null;
+	onRun?: (id: string) => void;
+	onClose?: () => void;
 }): JSX.Element {
-	const viewed = useViewedShip();
-	const live = useLiveShips();
-	const [closed, setClosed] = useState<string | null>(null);
-	const acknowledged = useAcknowledged();
-	// The cascade on show when Start was pressed: the stream still holds it
-	// until the new ship's first message, so it must not be shown as the new one.
-	const [previous, setPrevious] = useState<string | null>(null);
-	// Set from accepting the plan until the new ship's first message arrives.
-	const [starting, setStarting] = useState(false);
+	const [flow] = useState(
+		() => new ShipFlow({ plan: shipPlan, start: startShip }),
+	);
+	const {
+		listing,
+		failed,
+		picks,
+		added,
+		stage,
+		planning,
+		refused,
+		starting,
+		active,
+	} = useReactive(flow, (flow) => flow.state, ["changed"]);
+	const depth = shipDepth(stage);
+	// A failed ship stays shown, but only one under way holds the next back.
+	const holding = active?.status === "running";
+	const opened = useRef(run !== null);
+	useShipHistory(flow, depth);
 	useEffect(() => {
-		if (starting && live?.cascade != null && live.cascade.id !== previous) {
-			setStarting(false);
-		}
-	}, [starting, live, previous]);
-	const busy =
-		(live?.cascade?.status === "running" ||
-			live?.cascade?.status === "stopped") &&
-		live.cascade.id !== closed;
-	// A finished ship's recap stays until the person acknowledges it.
-	const unacknowledged =
-		live?.cascade != null &&
-		["done", "abandoned"].includes(live.cascade.status) &&
-		live.cascade.id !== closed &&
-		!seenBy(live.cascade, acknowledged);
-	// A ship put away has no page left: land on the planner.
-	useEffect(() => {
-		if (
-			viewed === ACTIVE &&
-			!starting &&
-			live !== null &&
-			(live.cascade == null ||
-				live.cascade.id === closed ||
-				seenBy(live.cascade, acknowledged))
-		) {
-			location.replace("#ships");
-		}
-	}, [viewed, live, closed, acknowledged, starting]);
-	const [past, setPast] = useState<CascadeSummary[] | null>(null);
-	useEffect(() => {
-		shipHistory().then(setPast, () => setPast([]));
-	}, []);
+		shipTargets().then(
+			(listing) => flow.listed(listing),
+			(error: unknown) => flow.unlisted(error),
+		);
+		// Only the run under way is read up front; past runs wait for a tap.
+		shipRuns({ running: true }).then(
+			(runs) => {
+				flow.underWay(runs);
+				// Opening the page while a ship runs goes to it, once.
+				const running = runs.find((each) => each.status === "running");
+				if (running !== undefined && !opened.current) {
+					opened.current = true;
+					if (location.hash !== SHIP_HISTORY) {
+						onRun(running.id);
+					}
+				}
+				if (running === undefined && !opened.current) {
+					// With none running, the newest run goes to its recap once, until seen.
+					shipRuns().then(
+						(all) => {
+							const latest = all.at(0);
+							flow.newest(latest);
+							if (
+								(latest?.status === "failed" ||
+									(latest?.status === "done" && latest.id !== recapSeen())) &&
+								!opened.current &&
+								location.hash !== SHIP_HISTORY
+							) {
+								opened.current = true;
+								onRun(latest.id);
+							}
+						},
+						() => {},
+					);
+				}
+			},
+			() => {},
+		);
+		return SHIP_BUS.on("run", ({ state }) => flow.moved(state));
+	}, [flow, onRun]);
+
+	const history = useShipHistoryRoute();
+	if (run === null && history) {
+		return (
+			<>
+				<TopBar
+					title={
+						<RouteTrail
+							items={[
+								{ label: "Ships", onClick: onClose },
+								{ label: "History" },
+							]}
+						/>
+					}
+				/>
+				<div className={cn(PLANNER_COLUMN, "gap-3")}>
+					<ShipPastRuns />
+				</div>
+			</>
+		);
+	}
+
+	if (run !== null) {
+		return (
+			<>
+				<TopBar
+					title={
+						<RouteTrail
+							items={[
+								{ label: "Ships", onClick: onClose },
+								{ label: "Shipping" },
+							]}
+						/>
+					}
+				/>
+				<div className={cn(PLANNER_COLUMN, "gap-3")}>
+					<ShipRunScreen key={run} id={run} />
+				</div>
+			</>
+		);
+	}
+
 	return (
-		<section aria-label="ships" className="flex min-w-0 flex-col gap-6">
+		<>
 			<TopBar
 				title={
-					viewed === null ? (
-						"Ship"
+					stage.at === "pick" ? (
+						TITLES.pick
 					) : (
 						<RouteTrail
 							items={[
 								{
-									label: "Ship",
-									onClick: () => {
-										location.hash = "ships";
-									},
+									label: TITLES.pick,
+									onClick: () => backToShipDepth(depth, 0),
 								},
-								{
-									label:
-										viewed === ACTIVE
-											? "Active ship"
-											: viewed === HISTORY
-												? "History"
-												: "Past ship",
-								},
+								...(stage.at === "review" && depth === 2
+									? [
+											{
+												label: TITLES.needed,
+												onClick: () => backToShipDepth(depth, 1),
+											},
+										]
+									: []),
+								{ label: TITLES[stage.at] },
 							]}
 						/>
 					)
 				}
 			/>
-			{viewed === ACTIVE ? (
-				<div className={cn(PLANNER_COLUMN, "max-w-6xl")}>
-					<ActiveShip
-						live={live}
-						closed={closed}
-						previous={previous}
-						onClose={(id) => {
-							setClosed(id);
-							location.hash = "ships";
-						}}
-						act={actOnShip}
-						sendSlowToAgent={
-							feed === null
-								? undefined
-								: async (slow) => {
-										const opened = await sendSlowShipToAgent(feed, slow);
-										location.hash = `conversations/${opened}`;
-									}
-						}
-						sendToAgent={
-							feed === null
-								? undefined
-								: async (failure) => {
-										const opened = await sendShipToAgent(feed, failure);
-										location.hash = `conversations/${opened}`;
-									}
-						}
-					/>
-				</div>
-			) : viewed === HISTORY ? (
-				<div className={PLANNER_COLUMN}>
-					<ShipHistory cascades={past} />
-				</div>
-			) : viewed !== null ? (
-				<div className={PLANNER_COLUMN}>
-					<PastShip id={viewed} />
-				</div>
-			) : (
-				<div className={cn(PLANNER_COLUMN, "gap-3")}>
-					{live?.cascade != null && (busy || unacknowledged) && (
-						<ShipRunningCard cascade={live.cascade} href={`#ships/${ACTIVE}`} />
-					)}
-					<ShipPlan
-						lead={
-							<HistoryRow
-								href={`#ships/${HISTORY}`}
-								summary={lastShipped(past)}
+			<div className={cn(PLANNER_COLUMN, "gap-3")}>
+				{active !== null && (
+					<section aria-label="Shipping now" className="flex flex-col gap-2">
+						<h3 className="font-semibold text-sm">Shipping now</h3>
+						<ShipRunList runs={[active]} bar />
+					</section>
+				)}
+				{stage.at === "pick" && (
+					<>
+						{failed !== null && (
+							<p className="text-destructive text-sm">
+								Could not read the ship targets: {failed}
+							</p>
+						)}
+						{listing === null && failed === null && (
+							<p className="text-muted-foreground text-sm">
+								Reading the targets…
+							</p>
+						)}
+						{listing !== null && listing.targets.length === 0 && (
+							<p className="text-muted-foreground text-sm">
+								No ship targets: list ship commands under <code>ships</code> in
+								splates.config.ts.
+							</p>
+						)}
+						{listing !== null && listing.targets.length > 0 && (
+							<h3 className="font-semibold text-sm">Targets</h3>
+						)}
+						{listing !== null && listing.targets.length > 0 && (
+							<ShipPickList
+								targets={listing.targets}
+								picks={picks}
+								onPicks={(picks) => flow.pick(picks)}
 							/>
-						}
-						ready={live !== null && past !== null}
-						ship={new URLSearchParams(location.search).get("ship")}
-						endedAt={live?.cascade?.ended ?? null}
-						busy={busy}
-						loading={live === null}
-						onStarted={() => {
-							setPrevious(live?.cascade?.id ?? null);
-							setStarting(true);
-							const url = new URL(location.href);
-							url.searchParams.delete("ship");
-							history.replaceState(null, "", url);
-							location.hash = `ships/${ACTIVE}`;
-						}}
-					></ShipPlan>
-				</div>
-			)}
-		</section>
+						)}
+						{listing?.errors.map((error) => (
+							<p key={error.command} className="text-destructive text-sm">
+								<code>{error.command}</code>: {error.error}
+							</p>
+						))}
+					</>
+				)}
+				{stage.at === "needed" && listing !== null && (
+					<ShipNeededFirst
+						offered={stage.offered}
+						targets={listing.targets}
+						added={added}
+						onAdded={(added) => flow.add(added)}
+					/>
+				)}
+				{stage.at === "review" && <ShipReview plan={stage.plan} />}
+				{refused !== null && (
+					<p className="text-destructive text-sm">{refused}</p>
+				)}
+				{holding && (
+					<p className="text-muted-foreground text-sm">
+						One ship runs at a time: the next can start once this one ends.
+					</p>
+				)}
+				{listing !== null && listing.targets.length > 0 && (
+					<div className="sticky bottom-0 z-30 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+						{stage.at === "pick" && (
+							<Button
+								className="h-11 w-full"
+								disabled={picks.size === 0 || planning || holding}
+								onClick={() => flow.next()}
+							>
+								{planning ? "Planning…" : "Next"}
+							</Button>
+						)}
+						{stage.at === "needed" && (
+							<Button
+								className="h-11 w-full"
+								disabled={planning}
+								onClick={() => flow.next()}
+							>
+								{planning ? "Planning…" : "Next"}
+							</Button>
+						)}
+						{stage.at === "review" && (
+							<Button
+								className="h-11 w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-600/90 dark:bg-emerald-600 dark:hover:bg-emerald-600/90"
+								disabled={
+									starting ||
+									holding ||
+									stage.plan.targets.some((each) => each.error !== undefined)
+								}
+								onClick={async () => {
+									const started = await flow.ship();
+									if (started !== null) {
+										// A read still in flight must not send the page elsewhere.
+										opened.current = true;
+										onRun(started.id);
+									}
+								}}
+							>
+								{starting ? (
+									"Starting…"
+								) : (
+									<>
+										<CheckIcon data-icon="inline-start" />
+										Approve
+									</>
+								)}
+							</Button>
+						)}
+					</div>
+				)}
+				{stage.at === "pick" && (
+					<HistoryRow href={SHIP_HISTORY} summary={null} />
+				)}
+			</div>
+		</>
 	);
 }
 
-/**
- * Starts a conversation, on Auto pick, that
- * is told to look into the ship's failure; answers its id.
- */
-async function sendShipToAgent(
-	feed: ConversationFeed,
-	failure: {
-		id: string;
-		project: string;
-		stage: StageKey | null;
-		note: string | null;
-	},
-): Promise<string> {
-	// What the stage printed goes in the text: the agent may not reach the server.
-	const log =
-		failure.stage === null
-			? null
-			: await shipStageLog(failure.id, failure.project, failure.stage).catch(
-					() => null,
-				);
-	const text = shipFailureReference({ ...failure, log });
-	const state = await startAutoPick({ words: text, task: null });
-	await recordShipAgent(failure.id, failure.project);
-	feed.put(state);
-	const sending = feed.send(state.id, text);
-	void promptConversation(state.id, text, [], false, sending.id)
-		.then((answered) => feed.answered(state.id, sending, answered))
-		.catch((error: unknown) => feed.refused(state.id, sending, error));
-	return state.id;
-}
-
-/** Like {@link sendShipToAgent}, for a stage that is slow while the ship goes on. */
-async function sendSlowShipToAgent(
-	feed: ConversationFeed,
-	slow: {
-		id: string;
-		project: string;
-		stage: StageKey;
-		spent: number;
-		expected: number;
-	},
-): Promise<string> {
-	const log = await shipStageLog(slow.id, slow.project, slow.stage).catch(
-		() => null,
-	);
-	const text = shipSlowReference({ ...slow, log });
-	const state = await startAutoPick({ words: text, task: null });
-	await recordShipAgent(slow.id, slow.project);
-	feed.put(state);
-	const sending = feed.send(state.id, text);
-	void promptConversation(state.id, text, [], false, sending.id)
-		.then((answered) => feed.answered(state.id, sending, answered))
-		.catch((error: unknown) => feed.refused(state.id, sending, error));
-	return state.id;
-}
-
-/** The History row's line: when the last ship that shipped started, if any did. */
-function lastShipped(past: CascadeSummary[] | null): string | null {
-	const last = past?.find((each) => each.status === "done");
-	return last === undefined ? null : `Last shipped ${age(last.started)} ago`;
-}
-
-/** What `#ships/active` opens: the ship under way, rather than a past one. */
-const ACTIVE = "active";
-
-/** What `#ships/history` opens: every ship that ended. */
-const HISTORY = "history";
-
-const readViewed = () => location.hash.match(/^#ships\/([^/]+)$/)?.[1] ?? null;
-
-/** The id `#ships/<id>` opens, kept as the hash changes. */
-function useViewedShip(): string | null {
-	const [id, setId] = useState(readViewed);
+/** Whether the address is `#ships/history`, kept as the hash changes. */
+function useShipHistoryRoute(): boolean {
+	const [on, setOn] = useState(() => location.hash === SHIP_HISTORY);
 	useEffect(() => {
-		const sync = () => setId(readViewed());
+		const sync = () => setOn(location.hash === SHIP_HISTORY);
 		window.addEventListener("hashchange", sync);
 		return () => window.removeEventListener("hashchange", sync);
 	}, []);
-	return id === null ? null : decodeURIComponent(id);
+	return on;
 }
 
-/** One legacy ship with its recorded timeline. */
-function PastShip({ id }: { id: string }): JSX.Element {
-	const [kept, setKept] = useState<Live | null>(null);
-	useEffect(() => {
-		setKept(null);
-		shipHistoryEntry(id).then(setKept, () => undefined);
-	}, [id]);
-	const cascade = kept?.cascade ?? null;
-	return (
-		<section aria-label={id} className="flex flex-col gap-4">
-			{kept === null && (
-				<p className="text-muted-foreground text-sm">Reading…</p>
-			)}
-			{cascade !== null && (
-				<>
-					<div className="flex items-center gap-2">
-						<h2 className="font-medium text-sm">{shipName(cascade.from)}</h2>
-						<span className="text-muted-foreground text-sm">
-							{cascade.status}
-						</span>
-					</div>
-					<ProjectStages cascade={cascade} ship={null} live={false} />
-				</>
-			)}
-		</section>
-	);
+/** Shows run `id`, at its own address, so a reload lands on it. */
+function openRun(id: string): void {
+	// Replaces the Review entry, so Back from the run is not the screen shipped.
+	location.replace(shipRunAddress(id));
+}
+
+/** Back to the pick from a run. */
+function closeRun(): void {
+	location.hash = "#ships";
 }

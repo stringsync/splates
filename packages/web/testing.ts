@@ -375,10 +375,10 @@ export class Testing implements Resource {
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
 			}
-			if (route === "/api/ship/graph") {
+			if (route === "/api/legacy-ship/graph") {
 				return Response.json({ projects: [] });
 			}
-			if (route === "/api/ship/history") {
+			if (route === "/api/legacy-ship/history") {
 				return Response.json([]);
 			}
 			if (route === "/api/evals") {
@@ -494,7 +494,8 @@ export class Testing implements Resource {
 					testing.everywhereStream = this;
 					// Open at once, as the server's is, so the feed lists.
 					queueMicrotask(() => this.onopen?.());
-				} else {
+				} else if (route !== "/api/terminals/events") {
+					// The terminals' own stream is not the board's, which tests drive.
 					testing.stream = this;
 				}
 			}

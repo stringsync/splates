@@ -352,7 +352,7 @@ export interface SetupProject {
 	config(): Promise<
 		Pick<
 			Config,
-			"trunk" | "remote" | "replica" | "evals" | "ship" | "shipStatus" | "ships"
+			"trunk" | "remote" | "replica" | "evals" | "ship" | "legacyShips"
 		>
 	>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */

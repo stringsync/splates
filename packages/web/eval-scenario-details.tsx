@@ -121,7 +121,17 @@ export function ScenarioDetails({
 				{run.error !== undefined && (
 					<p className="text-destructive text-sm">{run.error}</p>
 				)}
-				{run.judge !== null && <p className="text-sm">{run.judge.reason}</p>}
+				{run.judge !== null && (
+					<p className="text-sm">
+						{run.judge.reason}
+						{run.judge.judge !== undefined && (
+							<span className="text-muted-foreground text-xs">
+								{" "}
+								judged by {run.judge.judge}
+							</span>
+						)}
+					</p>
+				)}
 				<span className="flex flex-wrap items-center gap-3">
 					<button
 						type="button"

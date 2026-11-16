@@ -74,7 +74,7 @@ describe("App's todo edits", () => {
 		expect(form.has("position")).toBe(false);
 	});
 
-	it("moves one up the list by its grip, from the keyboard", async () => {
+	it("moves one up the list by its title, from the keyboard", async () => {
 		// happy-dom lays nothing out, and a drag goes by where things are: stack
 		// the cards 50px apart so there is an above and a below.
 		const rect = Element.prototype.getBoundingClientRect;
@@ -93,7 +93,7 @@ describe("App's todo edits", () => {
 				],
 			});
 
-			const grip = view.getByRole("button", { name: "move second" });
+			const grip = view.getByRole("button", { name: "second" });
 			// Focus lights up its links, which is a render of its own.
 			act(() => grip.focus());
 			// Each key gets a moment for the drag to catch up before the next.
@@ -102,9 +102,9 @@ describe("App's todo edits", () => {
 					fireEvent.keyDown(grip, { code });
 					await new Promise((settle) => setTimeout(settle, 20));
 				});
-			await press("Space");
+			await press("Enter");
 			await press("ArrowUp");
-			await press("Space");
+			await press("Enter");
 
 			await waitFor(() => expect(testing.posts).toHaveLength(1));
 			expect(testing.posts[0]?.path).toBe("/api/todos/4/position");

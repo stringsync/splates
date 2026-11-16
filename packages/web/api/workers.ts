@@ -1,5 +1,5 @@
+import type { Cascade, Ship } from "@splates/server/legacy-ship";
 import type { PortLink } from "@splates/server/ports";
-import type { Cascade, Ship } from "@splates/server/ship";
 import type {
 	MachineReading,
 	QueueListing,

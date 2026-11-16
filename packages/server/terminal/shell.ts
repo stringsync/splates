@@ -42,19 +42,32 @@ export interface ShellHost {
 export interface KeptShell {
 	key: string;
 	handle: ProcessHandle;
+	/** The name a page gave it, if any. */
+	name?: string;
 }
 
 /**
- * One shell the server runs for a page's terminal, by its key: the page's
- * socket shows it, and may go and come back, through a reload or a restart
- * of `splates server`, the worker redrawing the screen for the one that comes
- * back. One with no key ends with its socket; one with a key stays until the
- * page says it is closing it or the shell exits, however long its page is
- * away (a sleeping laptop, a backgrounded phone tab).
+ * One shell the server runs for a terminal, by its key, shown on any number
+ * of pages' sockets at once: what it writes goes to every one, and typing
+ * from any reaches it. A socket may go and come back, through a reload or a
+ * restart of `splates server`. One with no key ends with its socket; one with
+ * a key stays until a page says it is closing it or the shell exits, however
+ * long its pages are away (a sleeping laptop, a backgrounded phone tab).
  */
 export class Shell implements AsyncResource {
-	private socket: Bun.ServerWebSocket<Connection> | null = null;
+	private readonly sockets = new Set<Bun.ServerWebSocket<Connection>>();
+	// The shell takes the size of the screen that last typed or resized.
+	/** The size each socket's screen last asked for. */
+	private readonly sizes = new Map<
+		Bun.ServerWebSocket<Connection>,
+		{ cols: number; rows: number }
+	>();
+	/** The socket whose screen the shell's size follows: the last to type or resize. */
+	private active: Bun.ServerWebSocket<Connection> | null = null;
 	private ended = false;
+
+	/** What a page named it, shared by every page that shows it. */
+	name: string | null = null;
 
 	// vet-ignore objects-over-callbacks: the one owner of a shell hears it go, to drop it from its table
 	constructor(
@@ -65,11 +78,18 @@ export class Shell implements AsyncResource {
 		/** Hears that the shell is gone: exited, closed, or let go. */
 		private readonly gone: (shell: Shell) => void,
 	) {
-		pty.events.on("data", (bytes) => this.socket?.sendBinary(bytes));
+		pty.events.on("data", (bytes) => {
+			for (const socket of this.sockets) {
+				socket.sendBinary(bytes);
+			}
+		});
 		pty.events.on("exit", (code) => {
 			this.ended = true;
-			this.socket?.send(JSON.stringify({ type: "exit", code }));
-			this.socket?.close();
+			for (const socket of this.sockets) {
+				socket.send(JSON.stringify({ type: "exit", code }));
+				socket.close();
+			}
+			this.sockets.clear();
 			this.gone(this);
 		});
 	}
@@ -78,40 +98,63 @@ export class Shell implements AsyncResource {
 	get kept(): KeptShell | null {
 		return this.key === null || this.ended
 			? null
-			: { key: this.key, handle: this.pty.handle };
+			: {
+					key: this.key,
+					handle: this.pty.handle,
+					...(this.name === null ? {} : { name: this.name }),
+				};
 	}
 
-	/**
-	 * Shows the shell on `socket`, in place of any before it: one come back
-	 * to a shell has the worker redraw its screen first.
-	 */
+	/** Shows the shell on `socket` as well as on any before it; `back` has the worker redraw its screen. */
 	attach(socket: Bun.ServerWebSocket<Connection>, back: boolean): void {
-		this.socket?.close();
-		this.socket = socket;
+		this.sockets.add(socket);
 		if (back) {
+			// Every socket is told to clear first, so each draws the same screen.
+			for (const each of this.sockets) {
+				each.send(JSON.stringify({ type: "redraw" }));
+			}
 			this.pty.describe();
 		}
 	}
 
-	/** The page's `socket` went: keyed, the shell stays for it to come back. */
+	/** Takes `socket` off the shell, which a keyed one outlives. */
 	detach(socket: Bun.ServerWebSocket<Connection>): void {
-		if (this.socket !== socket) {
+		if (!this.sockets.delete(socket)) {
 			return;
 		}
-		this.socket = null;
-		if (this.key === null) {
+		this.sizes.delete(socket);
+		if (this.active === socket) {
+			this.active = null;
+		}
+		if (this.key === null && this.sockets.size === 0) {
 			void this.disposeAsync();
 		}
+	}
+
+	/** Hears from `socket` that its screen has `cols` by `rows`. */
+	private resized(
+		socket: Bun.ServerWebSocket<Connection>,
+		cols: number,
+		rows: number,
+	): void {
+		this.sizes.set(socket, { cols, rows });
+		this.active = socket;
+		this.pty.resize(cols, rows);
 	}
 
 	message(
 		socket: Bun.ServerWebSocket<Connection>,
 		message: string | Buffer<ArrayBuffer>,
 	): void {
-		if (this.socket !== socket) {
+		if (!this.sockets.has(socket)) {
 			return;
 		}
 		if (typeof message !== "string") {
+			// Typing from a screen the shell is not sized to takes its size.
+			const size = this.sizes.get(socket);
+			if (this.active !== socket && size !== undefined) {
+				this.resized(socket, size.cols, size.rows);
+			}
 			this.pty.write(message);
 			return;
 		}
@@ -120,10 +163,16 @@ export class Shell implements AsyncResource {
 			return;
 		}
 		if (parsed.data.type === "resize") {
-			this.pty.resize(parsed.data.cols, parsed.data.rows);
+			this.resized(socket, parsed.data.cols, parsed.data.rows);
 		} else if (parsed.data.type === "front") {
 			void this.front(socket);
 		} else {
+			// The other pages showing it are told it ended, so none starts another.
+			for (const each of this.sockets) {
+				if (each !== socket) {
+					each.send(JSON.stringify({ type: "exit", code: 0 }));
+				}
+			}
 			void this.disposeAsync();
 		}
 	}
@@ -142,19 +191,24 @@ export class Shell implements AsyncResource {
 
 	/** Lets go of the shell for the next run to take back, without ending it. */
 	release(): void {
-		this.socket?.close();
-		this.socket = null;
+		for (const socket of this.sockets) {
+			socket.close();
+		}
+		this.sockets.clear();
 		this.gone(this);
 	}
 
 	/** Hangs up, as closing a terminal window does. */
+	// vet-ignore resources-are-disposable: the sockets are the server's, hung up on here as the shell ends
 	async disposeAsync(): Promise<void> {
 		if (!this.ended) {
 			this.ended = true;
 			this.gone(this);
 		}
-		this.socket?.close();
-		this.socket = null;
+		for (const socket of this.sockets) {
+			socket.close();
+		}
+		this.sockets.clear();
 		await this.pty.disposeAsync();
 	}
 }

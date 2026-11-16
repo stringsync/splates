@@ -10,13 +10,13 @@ describe("decide", () => {
 	it("takes the first rule matching the likeliest kind and depth, saying why", () => {
 		expect(decide({ ...BASE, classification: SHALLOW })).toEqual({
 			pick: { agent: "claude", model: "sonnet", effort: "low" },
-			rule: 0,
+			rule: 1,
 			kind: "bugfix",
 			depth: "shallow",
 			reasons: [
 				"Sonnet 5.5, low effort",
 				"judged: Bugfix 72%, Shallow 64%",
-				"rule 1: any kind, Shallow",
+				"rule 2: any kind, Shallow",
 			],
 		});
 	});
@@ -24,7 +24,7 @@ describe("decide", () => {
 	it("routes deep design work to Opus", () => {
 		expect(decide({ ...BASE, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 5,
+			rule: 6,
 			kind: "design",
 			depth: "deep",
 		});
@@ -32,12 +32,12 @@ describe("decide", () => {
 
 	it("starts a deep bugfix on Opus", () => {
 		const bugfix: Classification = {
-			kinds: { bugfix: 0.9, design: 0.1, open: 0.1 },
+			kinds: { bugfix: 0.9, design: 0.1, open: 0.1, devops: 0.1 },
 			depth: { shallow: 0.05, moderate: 0.1, deep: 0.85 },
 		};
 		expect(decide({ ...BASE, classification: bugfix })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 4,
+			rule: 5,
 			kind: "bugfix",
 			depth: "deep",
 		});
@@ -49,18 +49,19 @@ describe("decide", () => {
 				bugfix: 0.3,
 				design: 0.4,
 				open: 0.1,
+				devops: 0.1,
 			},
 			depth: { shallow: 0.1, moderate: 0.2, deep: 0.8 },
 		};
 		expect(decide({ ...BASE, classification: unsure })).toMatchObject({
 			pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
-			rule: 7,
+			rule: 8,
 			kind: null,
 			depth: "deep",
 			reasons: [
 				"K3.1 Pro, max effort",
 				"judged: unsure (Design 40%), Deep 80%",
-				"rule 8: any kind, Deep",
+				"rule 9: any kind, Deep",
 			],
 		});
 	});
@@ -69,7 +70,7 @@ describe("decide", () => {
 		const strict: AutoPickRules = { ...DEFAULT_RULES, threshold: 0.75 };
 		expect(
 			decide({ ...BASE, rules: strict, classification: SHALLOW }),
-		).toMatchObject({ rule: 8, kind: null, depth: null });
+		).toMatchObject({ rule: 9, kind: null, depth: null });
 	});
 
 	it("lets an earlier rule win over a more specific one below it", () => {
@@ -374,7 +375,7 @@ describe("decide", () => {
 			reasons: [
 				expect.any(String),
 				expect.any(String),
-				"rule 6: Design, Deep",
+				"rule 7: Design, Deep",
 				"passed over Claude: can't run here",
 				"passed over Kimi: can't run here",
 			],
@@ -426,7 +427,7 @@ describe("decide", () => {
 		).toMatchObject({
 			pick: { agent: "claude", model: "opus" },
 			reasons: expect.arrayContaining([
-				"none of rule 6's picks can see images, so the first: Claude",
+				"none of rule 7's picks can see images, so the first: Claude",
 			]),
 		});
 	});
@@ -502,6 +503,26 @@ describe("decide", () => {
 		});
 	});
 
+	it("never gives devops work to Codex, at any depth", () => {
+		const shallow = decide({
+			...BASE,
+			classification: {
+				kinds: { bugfix: 0.1, design: 0.1, open: 0.1, devops: 0.9 },
+				depth: { shallow: 0.9, moderate: 0.05, deep: 0.05 },
+			},
+		});
+		expect(shallow).toMatchObject({ kind: "devops", rule: 0 });
+		expect(DEFAULT_RULES.rules[0]).toEqual({
+			kind: "devops",
+			depth: "*",
+			picks: [
+				{ agent: "claude", model: "sonnet", effort: "medium" },
+				{ agent: "claude", model: "opus", effort: "high" },
+				{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+			],
+		});
+	});
+
 	it("never picks K3.1 Pro highspeed by default", () => {
 		const models = DEFAULT_RULES.rules.flatMap((each) =>
 			each.picks.map((pick) => pick.model),
@@ -518,13 +539,13 @@ const IN_SIX_DAYS = "2026-10-25T12:00:00Z";
 
 /** A task the judge takes for shallow bugfix work. */
 const SHALLOW: Classification = {
-	kinds: { bugfix: 0.72, design: 0.1, open: 0.1 },
+	kinds: { bugfix: 0.72, design: 0.1, open: 0.1, devops: 0.1 },
 	depth: { shallow: 0.64, moderate: 0.3, deep: 0.05 },
 };
 
 /** A design task the judge takes for deep work. */
 const DESIGN: Classification = {
-	kinds: { bugfix: 0.72, design: 0.9, open: 0.3 },
+	kinds: { bugfix: 0.72, design: 0.9, open: 0.3, devops: 0.1 },
 	depth: { shallow: 0.1, moderate: 0.3, deep: 0.8 },
 };
 

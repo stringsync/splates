@@ -7,7 +7,7 @@ import type { AutoPickRules } from "./rules";
 import { setOf } from "./start";
 
 const DESIGN: Classification = {
-	kinds: { bugfix: 0.1, design: 0.9, open: 0.1 },
+	kinds: { bugfix: 0.1, design: 0.9, open: 0.1, devops: 0.1 },
 	depth: { shallow: 0.1, moderate: 0.2, deep: 0.8 },
 };
 const BASE = {
@@ -30,7 +30,7 @@ describe("Auto pick certainty", () => {
 			depth: "deep",
 			clarity: "settled",
 		});
-		expect(result.reasons).toContain("rule 6: Design, Deep");
+		expect(result.reasons).toContain("rule 7: Design, Deep");
 		expect(setOf(result)).toMatchObject({ clarity: "settled", depth: "deep" });
 	});
 

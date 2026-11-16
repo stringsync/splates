@@ -24,3 +24,14 @@ export function questionOutcome(
 		? [said]
 		: [said, { kind: "task", task: escalation.task }];
 }
+
+/** What a phone's Send says when nothing was written. */
+const NOTHING = "Nothing to add.";
+
+/** What a send says: approving, with what was written beside it. */
+export function replyText(approving: boolean, text: string): string {
+	if (!approving) {
+		return text === "" ? NOTHING : text;
+	}
+	return text === "" ? APPROVE : `${APPROVE}\n\n${text}`;
+}

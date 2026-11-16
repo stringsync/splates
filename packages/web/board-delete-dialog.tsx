@@ -26,7 +26,6 @@ export function DeleteBoard({
 	lanes,
 	count,
 	onClose,
-	onArchive,
 	onDelete,
 }: {
 	board: BoardRecord | null;
@@ -34,7 +33,6 @@ export function DeleteBoard({
 	lanes: number[];
 	count: number;
 	onClose: () => void;
-	onArchive: (board: BoardRecord) => void;
 	onDelete: (board: BoardRecord, to: number, lanes: number[]) => Promise<void>;
 }): JSX.Element {
 	const [to, setTo] = useState(DEFAULT_BOARD);
@@ -46,11 +44,11 @@ export function DeleteBoard({
 		<Dialog open={board !== null} onOpenChange={(next) => !next && onClose()}>
 			<DialogContent showCloseButton={false}>
 				<DialogHeader>
-					<DialogTitle>Delete {board?.name}?</DialogTitle>
+					<DialogTitle>Are you sure?</DialogTitle>
 					<DialogDescription>
 						{moving.length === 0
-							? "It has no lanes."
-							: `It holds ${moving.length} lane${moving.length === 1 ? "" : "s"} with ${count} task${count === 1 ? "" : "s"}. They move to the board below; archive it instead to keep it as it is.`}
+							? `Deleting ${board?.name} cannot be undone. It has no lanes.`
+							: `Deleting ${board?.name} cannot be undone. Its ${moving.length} lane${moving.length === 1 ? "" : "s"} with ${count} task${count === 1 ? "" : "s"} move to the board below.`}
 					</DialogDescription>
 				</DialogHeader>
 				{moving.length === 0 ? null : (
@@ -73,17 +71,6 @@ export function DeleteBoard({
 					<DialogClose render={<Button variant="outline" />}>
 						Cancel
 					</DialogClose>
-					<Button
-						variant="outline"
-						onClick={() => {
-							if (board !== null) {
-								onArchive(board);
-							}
-							onClose();
-						}}
-					>
-						Archive instead
-					</Button>
 					<Button
 						variant="destructive"
 						onClick={() => {

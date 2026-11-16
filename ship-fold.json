@@ -1,0 +1,12 @@
+{
+	"@evals/evals": {},
+	"@mono/rec": {
+		"files": [
+			"extension/**",
+			"skill/**",
+			"control/index.html",
+			"control/built/control.js",
+			"control/built/control.css"
+		]
+	}
+}

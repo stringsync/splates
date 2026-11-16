@@ -104,12 +104,12 @@ export function Todos({
 	useEffect(() => {
 		if (
 			picked !== null &&
-			snapshot.boards?.some((each) => each.id === picked && !each.archived)
+			snapshot.boards?.some((each) => each.id === picked)
 		) {
 			saveBoard(picked);
 		}
 	}, [picked, snapshot.boards]);
-	const liveBoards = snapshot.boards?.filter((each) => !each.archived) ?? [];
+	const liveBoards = snapshot.boards ?? [];
 	// Something opened that sits on another board brings its board up: a lane
 	// the board was opened on, a task from a link or search, a note's card.
 	const boardOf = (laneId: number | null | undefined) =>

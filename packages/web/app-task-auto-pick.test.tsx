@@ -262,6 +262,7 @@ const PICKED: AutoPicked = {
 				bugfix: 0.9,
 				design: 0.1,
 				open: 0.1,
+				devops: 0.1,
 			},
 			depth: { shallow: 0.8, moderate: 0.3, deep: 0.1 },
 		},

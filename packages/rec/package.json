@@ -1,0 +1,29 @@
+{
+	"name": "@mono/rec",
+	"description": "Narrated bug sessions in Chrome: the active tab's screencast and the mic recorded from a control window, written to a session folder an agent can read",
+	"private": true,
+	"type": "module",
+	"module": "index.ts",
+	"exports": {
+		".": "./index.ts"
+	},
+	"dependencies": {
+		"@tailwindcss/oxide": "^4.3.3",
+		"class-variance-authority": "catalog:",
+		"clsx": "^2.1.1",
+		"core": "workspace:*",
+		"lucide-react": "catalog:",
+		"radix-ui": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"tailwind-merge": "^3.7.0",
+		"tailwindcss": "catalog:",
+		"tw-animate-css": "catalog:",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:"
+	}
+}

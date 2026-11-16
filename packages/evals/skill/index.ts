@@ -3,6 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { AGENTS, type AgentPick } from "@evals/evals/agents";
+import { type JudgePick, judgePickOf } from "@evals/evals/judge";
 import {
 	type Cell,
 	type Result,
@@ -30,13 +31,14 @@ Selection:
                              claude, codex or kimi, repeatable; claude when none
   --baseline <rev>           also runs each with the skill as it was at <rev>
   --reps <n>                 runs of each, 1 by default
+  --judge-with <pick>        the judge, claude:<model>[@<effort>], claude:sonnet by default
   --skill <dir>              the skill to run, this checkout's skills/splates by default
   --directory <dir>          where batches go, ~/.splates/evals by default
   --parallel <n>             runs at once, 2 by default
 
 Run from the Evals card, as splates.config.ts's evals.run, the selection is
 read from SPLATES_EVALS_CASES, SPLATES_EVALS_TARGETS, SPLATES_EVALS_REPS,
-SPLATES_EVALS_BASELINE and SPLATES_EVALS_RESULTS when its flags are absent.
+SPLATES_EVALS_BASELINE, SPLATES_EVALS_JUDGE and SPLATES_EVALS_RESULTS when its flags are absent.
 
 Each run is graded by its code checks and, where it has one, a judge.`;
 
@@ -71,17 +73,23 @@ export function toldBy(env: Record<string, string | undefined>): {
 	agent: string[];
 	reps?: string;
 	baseline?: string;
+	judge?: string;
 	directory?: string;
 } {
 	const lines = (value: string | undefined) =>
 		(value ?? "").split("\n").filter((each) => each !== "");
-	const { SPLATES_EVALS_REPS, SPLATES_EVALS_BASELINE, SPLATES_EVALS_RESULTS } =
-		env;
+	const {
+		SPLATES_EVALS_REPS,
+		SPLATES_EVALS_BASELINE,
+		SPLATES_EVALS_JUDGE,
+		SPLATES_EVALS_RESULTS,
+	} = env;
 	return {
 		scenario: lines(env.SPLATES_EVALS_CASES),
 		agent: lines(env.SPLATES_EVALS_TARGETS),
 		...(SPLATES_EVALS_REPS ? { reps: SPLATES_EVALS_REPS } : {}),
 		...(SPLATES_EVALS_BASELINE ? { baseline: SPLATES_EVALS_BASELINE } : {}),
+		...(SPLATES_EVALS_JUDGE ? { judge: SPLATES_EVALS_JUDGE } : {}),
 		...(SPLATES_EVALS_RESULTS ? { directory: SPLATES_EVALS_RESULTS } : {}),
 	};
 }
@@ -95,6 +103,7 @@ async function main(argv: string[]): Promise<number> {
 			scenario: { type: "string", multiple: true, default: [] },
 			agent: { type: "string", multiple: true, default: [] },
 			baseline: { type: "string" },
+			"judge-with": { type: "string" },
 			reps: { type: "string", default: told.reps ?? "1" },
 			skill: { type: "string", default: DEFAULT_SKILL },
 			directory: {
@@ -164,6 +173,14 @@ async function main(argv: string[]): Promise<number> {
 			: SCENARIOS.filter((each) => picked.includes(each.id));
 	const targets = values.agent.length === 0 ? told.agent : values.agent;
 	const agents = (targets.length === 0 ? ["claude"] : targets).map(pickOf);
+	let judge: JudgePick | undefined;
+	try {
+		const named = values["judge-with"] ?? told.judge;
+		judge = named === undefined ? undefined : judgePickOf(named);
+	} catch (error) {
+		console.error(error instanceof Error ? error.message : String(error));
+		return 2;
+	}
 	const reps = Math.max(1, Number(values.reps) || 1);
 	const skills: { dir: string; used: SkillUsed }[] = [
 		{ dir: values.skill, used: { label: "current", revision: null } },
@@ -204,6 +221,7 @@ async function main(argv: string[]): Promise<number> {
 		const batch = await runBatch(cells, {
 			directory: values.directory,
 			skill: "splates",
+			...(judge === undefined ? {} : { judge }),
 			producer: "splates",
 			sandbox: splatesSandbox(SCENARIOS),
 			parallel: Number(values.parallel) || 2,

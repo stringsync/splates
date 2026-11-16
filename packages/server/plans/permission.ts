@@ -22,9 +22,13 @@ export function queueIsSettled(
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
-	return [PERMISSION, GRANT_PERMISSION, EVALS_PERMISSION, RUN_PERMISSION].some(
-		(each) => each.test(line),
-	);
+	return [
+		PERMISSION,
+		GRANT_PERMISSION,
+		EVALS_PERMISSION,
+		RUN_PERMISSION,
+		SHIP_PERMISSION,
+	].some((each) => each.test(line));
 }
 
 /** What the permission card titled `line`, with `body` under it, asks; null for any other line. */
@@ -36,6 +40,29 @@ export function permissionOf(
 	const evals = EVALS_PERMISSION.exec(line);
 	const run = RUN_PERMISSION.exec(line);
 	const grant = GRANT_PERMISSION.exec(line);
+	const ship = SHIP_PERMISSION.exec(line);
+	if (ship !== null) {
+		const picks: ShipPick[] = [];
+		const prose = body.split("\n").filter((each) => {
+			const pick = SHIP_PICK.exec(each);
+			if (pick === null) {
+				return true;
+			}
+			picks.push({
+				name: pick[1] as string,
+				...(pick[2] === undefined ? {} : { bump: pick[2] as ShipBump }),
+			});
+			return false;
+		});
+		return {
+			action: "ship",
+			lane: null,
+			tasks: [],
+			title: ship[1] || null,
+			body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
+			ship: { picks },
+		};
+	}
 	if (run !== null) {
 		const rows = body.split("\n");
 		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
@@ -71,6 +98,7 @@ export function permissionOf(
 		const scenarios: string[] = [];
 		let baseline: string | null = null;
 		let reps: number | undefined;
+		let judge: string | undefined;
 		let agents: string[] | undefined;
 		const prose = body.split("\n").filter((each) => {
 			const scenario = EVAL_PROBE.exec(each);
@@ -91,6 +119,11 @@ export function permissionOf(
 				);
 				return false;
 			}
+			const judged = EVAL_JUDGE.exec(each);
+			if (judged !== null) {
+				judge = judged[1] as string;
+				return false;
+			}
 			const times = EVAL_REPS.exec(each);
 			if (times !== null && Number(times[1]) > 0) {
 				reps = Number(times[1]);
@@ -109,6 +142,7 @@ export function permissionOf(
 				scenarios,
 				baseline,
 				...(reps === undefined ? {} : { reps }),
+				...(judge === undefined ? {} : { judge }),
 				...(agents === undefined ? {} : { agents }),
 			},
 		};
@@ -140,9 +174,16 @@ export interface PermissionProposal {
 	/**
 	 * What it asks: queue work, remove a lane with its tasks, run evals, run
 	 * a heavy command, the whole test suite among them, or let one project
-	 * reach further into another.
+	 * reach further into another, or ship targets, which only the person
+	 * starts.
 	 */
-	action: "queue" | "remove-lane" | "run-evals" | "run-command" | "grant";
+	action:
+		| "queue"
+		| "remove-lane"
+		| "run-evals"
+		| "run-command"
+		| "grant"
+		| "ship";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
@@ -162,6 +203,23 @@ export interface PermissionProposal {
 	evals?: EvalAsk;
 	/** For `run-command`: the command to run, from the first backticked line. */
 	command?: string;
+	/** For `ship`: the targets it asks to ship, each with its bump. */
+	ship?: ShipAsk;
+}
+
+/** A bump a ship card names, as `core/ship` takes it. */
+export type ShipBump = "patch" | "minor" | "major";
+
+/** One target a ship card names: its name, and its bump when it says one. */
+export type ShipPick = { name: string; bump?: ShipBump };
+
+/**
+ * The ship a `## 🔐 Permission: ship: <why>` card asks the person to start:
+ * one `` - `<target>` <bump> `` item a target, in the order it lists them.
+ * Only the person starts it, with the card's Approve.
+ */
+export interface ShipAsk {
+	picks: ShipPick[];
 }
 
 /**
@@ -189,6 +247,8 @@ export interface EvalAsk {
 	baseline: string | null;
 	/** Runs of each cell; the runner's own default when absent. */
 	reps?: number;
+	/** The judge, as `claude:<model>[@<effort>]`; the runner's default when absent. */
+	judge?: string;
 	/** The saved agents to run on, as `agent:model@effort`; every saved agent when absent. */
 	agents?: string[];
 }
@@ -199,7 +259,12 @@ const EVALS_PERMISSION =
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_AGENTS = /^Agents:[ \t]*(`[^`\s]+`(?:,?[ \t]*`[^`\s]+`)*)[ \t]*$/;
+const EVAL_JUDGE = /^Judge:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
+const SHIP_PERMISSION = /^## 🔐 Permission: ship(?::[ \t]*(.*?))?[ \t]*$/;
+/** A ship card's target: a list item that is one code span, then maybe its bump. */
+const SHIP_PICK =
+	/^[-*][ \t]+`([^`\n]+)`(?:[ \t]+(patch|minor|major)\b)?(?:[ \t].*)?$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;

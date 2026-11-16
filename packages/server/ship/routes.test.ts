@@ -1,49 +1,55 @@
-import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "core/log";
-import { FakeFs, FakePs } from "core/system/testing";
-import { FsStorage } from "../storage";
-import { ShipRoutes } from "./routes";
-import { Shipping } from "./run";
-import { FakeReleaseGit, nth } from "./testing";
+import { describe, expect, it } from "bun:test";
+import { ShipCommands } from "./commands";
+import { ShipPlanRoutes } from "./routes";
+import { FakeShipPs } from "./testing";
 
-describe("ShipRoutes", () => {
-	let ps: FakePs;
-	let routes: ShipRoutes;
-	let shipping: Shipping;
-
-	beforeEach(() => {
-		const fs = new FakeFs();
-		ps = new FakePs();
-		shipping = new Shipping({
-			git: new FakeReleaseGit(),
-			storage: new FsStorage("/home/projects/1", fs),
-			fs,
-			ps,
-			log: new MemoryLogger(),
-			root: "/demo",
-			dir: "/home/projects/1",
-			command: "wiz dev ship",
-			slug: async () => "demo",
+describe("ShipPlanRoutes", () => {
+	it("lists the targets", async () => {
+		const response = await routes().shipTargets();
+		expect(await response.json()).toEqual({
+			targets: [{ command: "bin/net ship", plan: net }],
+			errors: [],
 		});
-		routes = new ShipRoutes(shipping, fs);
 	});
 
-	it("says there is no ship before one starts", async () => {
-		expect(await (await routes.ship()).json()).toBeNull();
-	});
-
-	it("follows a ship's output to its end", async () => {
-		await shipping.start();
-		const child = await nth(ps, 0);
-		const output = (await routes.shipOutput()).text();
-		child.print("shipped 0.0.58\n");
-		child.exit(0);
-
-		expect(await output).toBe(
-			"origin/main verified at abc\nshipped 0.0.58\norigin/main verified at abc\n",
+	it("composes a pick", async () => {
+		const response = await routes().shipPlan(
+			post({ picks: [{ name: "net" }] }),
 		);
-		expect(await (await routes.ship()).json()).toMatchObject({
-			status: "done",
+		expect(response.status).toBe(200);
+		expect((await response.json()).waves).toEqual([["net"]]);
+	});
+
+	it("answers 400 to a body it cannot read or a pick it cannot compose", async () => {
+		expect((await routes().shipPlan(post({ nope: 1 }))).status).toBe(400);
+		const unknown = await routes().shipPlan(post({ picks: [{ name: "zz" }] }));
+		expect(unknown.status).toBe(400);
+		expect(await unknown.json()).toEqual({
+			error: 'No ship command serves "zz"',
 		});
 	});
 });
+
+const net = {
+	name: "net",
+	dependencies: [],
+	steps: [{ id: "deploy", does: "Deploy" }],
+};
+
+const routes = () =>
+	new ShipPlanRoutes(
+		new ShipCommands(
+			["bin/net ship"],
+			new FakeShipPs({
+				"bin/net ship plan": net,
+				"bin/net ship plan --target net": net,
+			}),
+			"/r",
+		),
+	);
+
+const post = (body: unknown) =>
+	new Request("http://x/api/ship/plan", {
+		method: "POST",
+		body: JSON.stringify(body),
+	});

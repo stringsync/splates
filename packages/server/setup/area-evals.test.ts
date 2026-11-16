@@ -22,8 +22,9 @@ describe("EVALS_AREA", () => {
 					replica: null,
 					evals,
 					ship: null,
-					shipStatus: null,
-					ships: null,
+
+					legacyShips: null,
+					ships: [],
 				}),
 				remoteUrl: async () => null,
 			},

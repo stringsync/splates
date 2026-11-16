@@ -211,14 +211,6 @@ export async function renameBoard(id: number, name: string): Promise<void> {
 	await sendJson(`/api/boards/${id}`, "PUT", { name });
 }
 
-/** Puts board `id` away, or brings it back, keeping its lanes, tasks and links. */
-export async function archiveBoard(
-	id: number,
-	archived: boolean,
-): Promise<void> {
-	await sendJson(`/api/boards/${id}`, "PUT", { archived });
-}
-
 /** Deletes board `id`; the lanes still on it go with it, so move any worth keeping first. */
 export async function dropBoard(id: number): Promise<void> {
 	await sendJson(`/api/boards/${id}`, "DELETE", {});

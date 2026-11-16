@@ -5,7 +5,7 @@ import { Disposer, disposables, type Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration, SystemTimer, type Timer } from "core/time";
 import { scoped } from "./api";
-import { tabId } from "./tab";
+import { switchToPageFont, TERMINAL_FONT } from "./terminal-font";
 
 /** How long after its socket goes short of an exit a session tries the shell again. */
 export const RECONNECT = Duration.secs(2);
@@ -78,7 +78,7 @@ export class TerminalSession
 
 	/**
 	 * A shell in `task`'s worktree, or the main tree for null, kept by the
-	 * server under `key` for this tab, which leaves to the page each key
+	 * server under `key` for every page, which leaves to the page each key
 	 * `toggles` says shows or hides it.
 	 */
 	constructor(
@@ -100,7 +100,7 @@ export class TerminalSession
 		this.element.className = "h-full w-full";
 		this.terminal = new Terminal({
 			cursorBlink: true,
-			fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+			fontFamily: TERMINAL_FONT,
 			fontSize: 13,
 			theme: { background: "#0a0a0a" },
 		});
@@ -142,6 +142,7 @@ export class TerminalSession
 			this.terminal.open(this.element);
 			this.draw();
 			this.fitted();
+			void switchToPageFont(this.terminal).then(() => this.fitted());
 			this.connect();
 		} else {
 			this.fitted();
@@ -204,14 +205,19 @@ export class TerminalSession
 		});
 	}
 
-	/** Hangs up for good: the server ends the shell now rather than waiting for this tab. */
+	/** Hangs up for good: the server ends the shell now rather than waiting for a page to come back. */
 	dispose(): void {
+		this.send(JSON.stringify({ type: "close" }));
+		this.detach();
+	}
+
+	/** Lets go of the shell, left running for any page to show again. */
+	detach(): void {
 		this.disposed = true;
 		this.pending = [];
 		this.retrying?.dispose();
 		this.retrying = null;
 		this.answered(null);
-		this.send(JSON.stringify({ type: "close" }));
 		this.socket?.close();
 		this.socket = null;
 		this.disposer.dispose();
@@ -245,7 +251,7 @@ export class TerminalSession
 		const query = new URLSearchParams({
 			cols: String(this.terminal.cols),
 			rows: String(this.terminal.rows),
-			terminal: `${tabId()}/${this.key}`,
+			terminal: this.key,
 		});
 		if (this.task !== null) {
 			query.set("task", this.task);
@@ -279,7 +285,10 @@ export class TerminalSession
 				type: string;
 				command?: string | null;
 			};
-			if (control.type === "exit") {
+			if (control.type === "redraw") {
+				// Another page joined the shell, which draws its screen for all again.
+				this.terminal.reset();
+			} else if (control.type === "exit") {
 				this.set("exited");
 			} else if (control.type === "front") {
 				this.asking.shift()?.(control.command ?? null);

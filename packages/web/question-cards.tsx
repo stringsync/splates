@@ -38,13 +38,10 @@ import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 import { questionHeading } from "./question-heading";
-import { questionOutcome } from "./question-outcome";
+import { questionOutcome, replyText } from "./question-outcome";
 import { Refusal, refusalOf } from "./refusal";
 import { label } from "./shortcuts";
 import { SplatesEvent } from "./splates-event";
-
-/** What a phone's Send says when nothing was written. */
-const NOTHING = "Nothing to add.";
 
 /**
  * The panel a thread's questions are answered in, by keyboard alone. Questions
@@ -158,7 +155,9 @@ export function QuestionCards({
 			: (answerIn(sent, asked) ?? unsaid(asked)),
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
-	const answered = answers.filter((answer) => answer !== null).length;
+	const taking = useBoxTaking();
+	// A take under way is words on their way, so it sends rather than approves.
+	const settled = !taking && answers.every((answer) => answer !== null);
 	const send = answer !== null ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
@@ -170,7 +169,7 @@ export function QuestionCards({
 	// sending approves the proposal; anything changed is a reply to it.
 	const approving =
 		proposal !== null &&
-		answered === questions.length &&
+		settled &&
 		!questions.some(
 			(asked) =>
 				unsaid(asked) !== null && said(asked, writtenFor(asked)) !== null,
@@ -206,14 +205,7 @@ export function QuestionCards({
 		if (!live || (empty && !paging)) {
 			return;
 		}
-		const approved = (text: string) =>
-			!approving
-				? text === ""
-					? NOTHING
-					: text
-				: text === ""
-					? APPROVE
-					: `${APPROVE}\n\n${text}`;
+		const approved = (text: string) => replyText(approving, text);
 		if (answer !== null) {
 			void attempt(
 				answer(saidOf()).then(() => {
@@ -241,7 +233,6 @@ export function QuestionCards({
 	};
 	const panel = useRef<HTMLDivElement>(null);
 	const finishThen = useCardDictationTurn(panel);
-	const taking = useBoxTaking();
 	// A take under way sends once it is done, from the render that holds its
 	// words: the click's own `submit` reads the box from before them.
 	const [sendTaken, setSendTaken] = useState(false);

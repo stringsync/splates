@@ -29,6 +29,7 @@ export {
 	eventNamed,
 	fromHooks,
 	HookStore,
+	invokesNamed,
 	lanesNamed,
 	stagesNamed,
 } from "./store";

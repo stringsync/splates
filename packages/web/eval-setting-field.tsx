@@ -9,8 +9,8 @@ export function SettingField({
 		<label className="flex flex-col justify-between gap-1 text-muted-foreground">
 			{label}
 			<input
-				{...input}
 				type="number"
+				{...input}
 				className="w-full rounded-md border bg-background px-2 py-1.5 text-foreground text-sm tabular-nums"
 			/>
 		</label>

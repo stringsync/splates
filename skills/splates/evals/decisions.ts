@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Label } from "@evals/evals/labels";
 import type { Check, Repo } from "@evals/evals/scenario";
 import { APPROVE, stretches } from "@splates/server/plans";
 import { splatesSandbox } from "./sandbox";
@@ -371,6 +372,40 @@ const uninitialized: Scenario[] = [
 		judge:
 			"Pass when the question asked is one the design hinges on and its choices are sound options. Fail when it asks something trivial or the agent decides without asking.",
 	},
+	{
+		id: "decisions/yes-no-card",
+		aspect,
+		requirement:
+			"A yes or no question is asked as a numbered question card with Yes and No choices, never as free-form prose.",
+		message:
+			"No task is open. I am about to remove our old upload endpoint, but the mobile app's last version may still call it. Ask me now whether to remove it in this release, and wait for my answer. Build nothing and start no task this turn.",
+		checks: [
+			{
+				id: "yes-no-choices",
+				about:
+					"the reply asks a numbered question with exactly a Yes choice and a No choice, one of them chosen, in either order",
+				test: ({ reply }) =>
+					stretches(reply).some(
+						(each) =>
+							each.type === "questions" &&
+							each.questions.some(
+								(question) =>
+									question.choices.length === 2 &&
+									question.choices.some((choice) =>
+										/^yes\b/i.test(choice.text),
+									) &&
+									question.choices.some((choice) =>
+										/^no\b/i.test(choice.text),
+									) &&
+									question.choices.some((choice) => choice.chosen),
+							),
+					),
+			},
+			notMerged,
+		],
+		judge:
+			"Pass when the check-in about removing the upload endpoint is a question card whose two choices begin with Yes and No, in either order, with a consequence after each allowed (`No, keep it` is a No choice). Fail when it is asked in plain prose, such as 'ok to remove it? I lean yes', or only as open-ended questions.",
+	},
 ];
 
 /** Each starts in an initialized project, so `splates add` works as the skill says. */
@@ -380,3 +415,18 @@ export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
 }));
 
 export const sandbox = splatesSandbox(scenarios);
+
+export const labels: Label[] = [
+	{
+		scenario: "decisions/yes-no-card",
+		run: "labels/batch-uKhOuo-run-003",
+		expect: "fail",
+		why: "Stated a prose lean and asked open-ended questions, no Yes/No card; the check must keep failing it.",
+	},
+	{
+		scenario: "decisions/yes-no-card",
+		run: "labels/batch-fRQxVW-run-016",
+		expect: "pass",
+		why: "Yes/No card with the pick first (No, keep it chosen; Yes, remove it); the check once demanded Yes first.",
+	},
+];

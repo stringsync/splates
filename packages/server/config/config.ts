@@ -62,13 +62,6 @@ export interface Config {
 	 */
 	ship: string | null;
 	/**
-	 * Command that reads live release versions, via `sh -c` in the main tree.
-	 * Prints JSON `{version, artifacts: [{name, deployed}]}`; `deployed` is a
-	 * version string or null before anything is live. Null reads npm's latest
-	 * dist-tag for each public package instead. Failures stop the read.
-	 */
-	shipStatus: string | null;
-	/**
 	 * Command a project that pins this one's packages runs once a ship's
 	 * cascade has moved its pins to the versions this one shipped, after `bun
 	 * install`: its bump task lists it as a step for the agent to run in the
@@ -183,23 +176,21 @@ export interface Config {
 	 * (relative to the root, as `core/**`) it owns, as
 	 * `{ core: ["core/**"], wren: ["wren/**"] }`. A repository keeps the git
 	 * side (trunk, remote, worktrees, merge lock, hooks); a project is a set
-	 * of its paths, and may override `ship`, `shipStatus` and `afterBump` as
+	 * of its paths, and may override `ship` and `afterBump` as
 	 * `{ wren: { paths: ["wren/**"], ship: "wren/bin/ship" } }`, falling back
 	 * to the repository's for any it leaves out. Two projects may not claim
 	 * overlapping paths. Null
 	 * makes the whole repository one project at its root.
 	 */
 	projects: Record<string, string[] | ProjectConfig> | null;
+	/** The legacy ship targets, each the command that ships it through core/legacy-ship and the targets it ships after. */
+	legacyShips: Record<string, ShipTargetConfig> | null;
 	/**
-	 * The ship targets of this repository, each a name, the packages or deploys it
-	 * ships and the command that ships it, as `{ mdom: { packages:
-	 * ["@stringsync/mdom"], ship: "bin/mdom ship" } }`. Unlike `projects` it splits no tasks, queues or
-	 * gates: it only names what the Ships page can ship from one repository.
-	 * `shipStatus` and `afterBump` fall back to the repository's. Two targets
-	 * may overlap. Null makes the repository one target,
-	 * as its `ship` and `projects` say.
+	 * The commands that ship this repository's targets, as
+	 * `["bin/mdom ship", "bin/net ship"]`. Each serves one target or several
+	 * with core/ship's `serve`, and runs from the repository's root.
 	 */
-	ships: Record<string, ShipTargetConfig> | null;
+	ships: string[];
 	/**
 	 * Path globs that count against no project, such as the root `package.json`
 	 * or `bun.lock`, which every project shares. Only read with `projects`.
@@ -236,36 +227,15 @@ export interface ProjectConfig {
 	paths: string[];
 	/** Overrides `ship` for this project; `null` never ships it. */
 	ship?: string | null;
-	/** Overrides `shipStatus` for this project. */
-	shipStatus?: string | null;
 	/** Overrides `afterBump` for this project. */
 	afterBump?: string | null;
 }
 
-/**
- * A ship target inside a repository: what it ships, named by exactly one of
- * `packages` or `deploys`, and how it ships.
- */
+/** A command-backed ship target, ordered after other targets by name. */
 export interface ShipTargetConfig {
-	/**
-	 * The workspace packages an npm target publishes, as `["@scope/name"]`:
-	 * its version is theirs, and its files are those packages plus the
-	 * workspace packages they depend on. Targets naming packages may overlap.
-	 */
-	packages?: string[];
-	/**
-	 * The workspace packages a deploy target puts out, as `["@scope/web"]`.
-	 * It has no version: its `shipStatus` prints the commit deployed, and
-	 * what is unshipped is the commits since it that touch those packages and
-	 * the workspace packages they depend on. Targets naming deploys may overlap.
-	 */
-	deploys?: string[];
-	/** The command that ships it, as `ship`; `null` never ships it. */
-	ship: string | null;
-	/** Overrides `shipStatus` for this target. */
-	shipStatus?: string | null;
-	/** Overrides `afterBump` for this target. */
-	afterBump?: string | null;
+	ship: string;
+	/** Targets that ship, or are already current, before this one. */
+	dependencies?: string[];
 }
 
 /**
@@ -302,6 +272,7 @@ export interface EvalsConfig {
  */
 export type ConfigFile = Partial<Config>;
 
+// vet-ignore doc-comments-address-users: a deprecated helper, kept only for older configs; its comment points them to `satisfies ConfigFile`
 /**
  * Return your project settings with their types checked.
  *

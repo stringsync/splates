@@ -58,10 +58,13 @@ export function blockersLeft(
 }
 
 /**
- * The body of a Deferred card, built from the board record of the deferred
- * task: why it stopped, what it waits on and where each stands, an answer
- * box for each open question. Each action shows at once and is undone, with the
- * refusal said, if the server refuses it.
+ * The body of a Blocked card, built from the board record of the blocked
+ * task: why it stopped, a row for each task it waits on with where it stands
+ * and a button to queue or unqueue it, a row to add another, and Queue all.
+ * Blockers are named by task number, so what the board shows of one, its
+ * name, lane or stage, is read live. Each action shows at once and is
+ * undone, with the refusal said, if the server refuses it. The questions
+ * and outside to-dos an older deferral recorded are listed apart, read-only.
  */
 export function DeferredBody({
 	task,
@@ -69,76 +72,172 @@ export function DeferredBody({
 	task: TaskRecord;
 }): JSX.Element | null {
 	const board = useContext(Board);
+	const { refusal, attempt, pending, act } = useActs();
+	const expect = useExpectSnapshot();
 	const deferred = task.deferred;
-	const blockers = deferralBlockers(
+	if (deferred === undefined) {
+		return null;
+	}
+	const all = deferralBlockers(
 		task,
 		board.todos,
 		board.elsewhere?.blockers[task.id],
 	);
-	if (deferred === undefined) {
-		return null;
-	}
-	const queued = task.stage === "queued" && task.takenBy === null;
-	const open = blockers.filter((each) => !cleared(each));
-	// The server resumes it once every task it waits on has merged.
-	const _alone =
-		deferred.conversation !== undefined &&
-		deferred.questions.length === 0 &&
-		deferred.outside.length === 0 &&
-		open.length > 0;
+	const blockers = all.filter((each) => each.kind === "task");
+	const legacy = all.filter((each) => each.kind !== "task" && !cleared(each));
+	const left = blockers.filter((each) => !cleared(each)).length;
+	const unqueued = blockers.filter(
+		(each) => each.project === undefined && each.status === "available",
+	);
+	const held = [...task.blockedBy];
 	return (
-		<div className="flex flex-col gap-3 px-4 py-3.5 text-sm @max-md:px-3 @max-md:py-2.5">
-			{task.takenBy === null && (
-				<p className="text-muted-foreground text-xs">
-					{queued ? "Queued" : "Back on the board"}
-					{task.blockedBy.length > 0 &&
-						` · waits on ${task.blockedBy.map((id) => `#${id}`).join(", ")}`}
-				</p>
-			)}
-			<CardSection
-				label="why it stopped"
-				title="Why it stopped"
-				ruled={task.takenBy === null}
-			>
+		<div className="flex flex-col text-sm">
+			<div className="flex flex-col gap-1 px-4 py-3 @max-md:px-3 @max-md:py-2.5">
 				<p className="leading-relaxed">{deferred.why}</p>
-			</CardSection>
-			{blockers.length > 0 && (
-				<CardSection label="waits on" title="Waits on">
-					<ol className="flex flex-col gap-2">
-						{blockers.map((blocker, i) => {
-							const key = `${blocker.kind}:${i}`;
-							const done = cleared(blocker);
-							return (
-								<li key={key} className="flex items-start gap-2">
-									<Mark done={done} />
-									<div className="flex min-w-0 flex-1 flex-col gap-1.5">
-										{blocker.kind === "task" && (
-											<TaskBlocker blocker={blocker} done={done} />
-										)}
-										{blocker.kind === "question" && (
-											<>
-												<p className={cn(done && "text-muted-foreground")}>
-													{blocker.text.split("\n")[0]}
-												</p>
-												{blocker.answer !== undefined && (
-													<p className="whitespace-pre-wrap rounded-md bg-muted px-2 py-1">
-														{blocker.answer}
-													</p>
-												)}
-											</>
-										)}
-										{blocker.kind === "outside" && (
-											<span className={cn(done && "text-muted-foreground")}>
-												{blocker.what}
-											</span>
-										)}
-									</div>
-								</li>
-							);
-						})}
-					</ol>
-				</CardSection>
+				<p className="text-muted-foreground text-xs">
+					{task.takenBy !== null ? (
+						<>
+							Started in{" "}
+							<button
+								type="button"
+								className="underline"
+								onClick={() => board.openTask(task.takenBy as string)}
+							>
+								{task.takenBy}
+							</button>
+						</>
+					) : left > 0 ? (
+						`${left} of ${blockers.length} left · wakes on its own when every blocker merges`
+					) : (
+						"Every blocker is done"
+					)}
+				</p>
+			</div>
+			<ol aria-label="blockers" className="flex flex-col">
+				{blockers.map((blocker) => {
+					const key = `task:${blocker.id}`;
+					const done = cleared(blocker);
+					const status = blocker.status;
+					return (
+						<li
+							key={key}
+							className={cn(
+								"flex items-center gap-3 border-foreground/10 border-t px-4 py-2.5 @max-md:px-3",
+								done && "opacity-60",
+							)}
+						>
+							<div className="flex min-w-0 flex-1 flex-col">
+								{blocker.project !== undefined ? (
+									<span className="flex flex-wrap items-center gap-2">
+										<ElsewhereMention
+											project={
+												blocker.slug ??
+												blocker.project.split("/").filter(Boolean).at(-1) ??
+												blocker.project
+											}
+											id={blocker.id}
+										/>
+										<span>{blocker.subject}</span>
+									</span>
+								) : (
+									<button
+										type="button"
+										onClick={() => board.open(blocker.id)}
+										className="cursor-pointer text-left hover:underline"
+									>
+										<span className="font-medium tabular-nums">
+											#{blocker.id}
+										</span>{" "}
+										{board.todos.find((each) => each.id === blocker.id)
+											?.subject ?? blocker.subject}
+									</button>
+								)}
+								<span className="flex items-center gap-1 text-muted-foreground text-xs">
+									{done && (
+										<CheckIcon
+											aria-label="cleared"
+											className="size-3 text-success"
+											strokeWidth={3}
+										/>
+									)}
+									{TASK_STATUS[status] ?? status}
+								</span>
+							</div>
+							{blocker.project === undefined &&
+								(status === "available" || status === "queued") && (
+									<Button
+										size="sm"
+										variant={status === "available" ? "default" : "outline"}
+										disabled={pending.has(key)}
+										onClick={() =>
+											void act(key, () =>
+												queueTodo(blocker.id, status === "available"),
+											)
+										}
+									>
+										{status === "available" ? "Queue" : "Unqueue"}
+									</Button>
+								)}
+						</li>
+					);
+				})}
+			</ol>
+			{legacy.length > 0 && (
+				<ul
+					aria-label="older notes"
+					className="flex flex-col gap-1 border-foreground/10 border-t px-4 py-2.5 text-muted-foreground text-xs @max-md:px-3"
+				>
+					{legacy.map((blocker) => (
+						<li
+							key={`${blocker.kind}:${blocker.kind === "question" ? blocker.text : blocker.kind === "outside" ? blocker.what : ""}`}
+						>
+							{blocker.kind === "question"
+								? blocker.text.split("\n")[0]
+								: blocker.kind === "outside"
+									? blocker.what
+									: ""}
+						</li>
+					))}
+				</ul>
 			)}
+			<div className="flex flex-wrap items-center gap-2 border-foreground/10 border-t bg-muted/40 px-4 py-2 @max-md:px-3">
+				{task.takenBy === null && (
+					<TodoPicker
+						label="Add blocker"
+						exclude={[task.id, ...task.blockedBy]}
+						loops={(other) => cycle(board.todos, task.id, other.id)}
+						onPick={(other) =>
+							void attempt(
+								expect(
+									linked(task.id, [...held, other.id]),
+									linkTodo(task.id, [...held, other.id]),
+								),
+								"Not linked",
+							)
+						}
+					>
+						<LinkIcon />
+						Add blocker
+					</TodoPicker>
+				)}
+				{unqueued.length > 0 && (
+					<Button
+						size="sm"
+						className="ms-auto"
+						disabled={pending.has("all")}
+						onClick={() =>
+							void act("all", async () => {
+								for (const each of unqueued) {
+									await queueTodo(each.id, true);
+								}
+							})
+						}
+					>
+						Queue all ({unqueued.length})
+					</Button>
+				)}
+			</div>
+			<Refusal refusal={refusal} className="px-4 pb-2" />
 		</div>
 	);
 }

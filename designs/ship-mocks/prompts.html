@@ -1,0 +1,38 @@
+<!doctype html><meta charset=utf-8><style>
+*{box-sizing:border-box} body{margin:0;padding:24px;font:15px -apple-system,system-ui,sans-serif;background:#fff;color:#111}
+h1{font-size:22px;margin:0 0 4px} .sub{color:#555;margin:0 0 20px}
+.row{display:flex;gap:28px;align-items:flex-start}
+.col{width:390px} .cap{font-weight:600;margin:0 0 8px;font-size:14px}
+.phone{width:390px;height:780px;border:2px solid #333;border-radius:28px;overflow:hidden;position:relative;background:#fafafa;display:flex;flex-direction:column}
+.status{height:28px;font-size:11px;color:#777;padding:6px 18px}
+.nav{height:44px;border-bottom:1px solid #ccc;display:flex;align-items:center;padding:0 14px;gap:10px;font-weight:600;background:#eee}
+.nav .sp{flex:1} .badge{background:#555;color:#fff;border-radius:10px;padding:1px 7px;font-size:12px}
+.body{flex:1;padding:14px;overflow:hidden;position:relative}
+.box{border:1px solid #999;background:#fff;border-radius:6px;padding:12px;margin-bottom:10px}
+.grey{background:#e6e6e6;border:1px dashed #999}
+.step{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #ddd;font-size:14px}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid #777;flex:none}
+.dot.done{background:#777}.dot.wait{border-style:dashed}
+.btn{display:block;text-align:center;border:2px solid #333;border-radius:8px;padding:12px;font-weight:600;margin-top:8px;background:#fff}
+.btn.pri{background:#333;color:#fff}
+.btn.big{padding:18px;font-size:17px}
+.pair{display:flex;gap:10px}.pair .btn{flex:1}
+.muted{color:#666;font-size:13px}
+.code{font:600 26px ui-monospace,monospace;letter-spacing:4px;text-align:center;padding:10px;border:1px dashed #777;border-radius:6px;background:#fff}
+.input{border:2px solid #333;border-radius:8px;padding:12px;font:600 24px ui-monospace,monospace;letter-spacing:8px;background:#fff}
+.kb{position:absolute;left:0;right:0;bottom:0;height:250px;background:#d4d4d4;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px}
+.kb div{background:#f4f4f4;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:2px solid #333;border-radius:18px 18px 0 0;padding:16px}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.handle{width:40px;height:5px;border-radius:3px;background:#bbb;margin:0 auto 12px}
+.bar{border-top:2px solid #333;background:#fff;padding:12px 14px}
+.banner{background:#333;color:#fff;padding:10px 14px;font-size:14px;display:flex;gap:8px}
+.notif{border:1px solid #999;border-radius:12px;background:#fff;padding:10px 12px;margin:8px;font-size:13px}
+.tag{font-size:11px;border:1px solid #777;border-radius:4px;padding:0 5px;margin-left:4px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #999;border-top-color:transparent;border-radius:50%;vertical-align:-2px}
+.lbl{font-size:12px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px}
+</style><h1>A · Inline in the step list <span class="muted">(lo-fi mock)</span></h1><p class="sub">The waiting step opens in place in the run's step list; the rest of the run stays visible above and below.</p><div class="row"><div class="col"><p class="cap">Confirm</p><div class="phone"><div class="status">9:41</div><div class="nav">‹ Ships<span class="sp"></span>Ship #14 </div><div class="body">
+<div class="step"><span class="dot done"></span>Build mdom</div>
+<div class="step"><span class="dot done"></span>Test mdom</div>
+<div class="step"><span class="dot wait"></span><b>Publish to npm</b><span class="tag">needs you</span></div>
+<div class="box" style="border-width:2px"><div class="lbl">Publish mdom 1.4.0</div><div>Publishes <b>@stringsync/mdom 1.4.0</b> to npm as <i>latest</i>. A version cannot be republished.</div><div class="pair"><span class="btn">No, stop</span><span class="btn pri">Yes, publish</span></div></div><div class="step"><span class="dot"></span>Tag and push</div></div></div></div><div class="col"><p class="cap">Sign in, waiting</p><div class="phone"><div class="status">9:41</div><div class="nav">‹ Ships<span class="sp"></span>Ship #14 </div><div class="body"><div class="step"><span class="dot done"></span>Build</div><div class="box" style="border-width:2px"><div class="lbl">Sign in to AWS</div><div>sound2score prod needs a session to deploy.</div><span class="btn pri big">Open sign-in link ↗</span><div class="muted" style="margin:10px 0 4px">Check the page shows this code:</div><div class="code">WDJB-MJHT</div><div class="muted" style="margin-top:10px"><span class="spin"></span> Waiting for you to finish signing in…</div><span class="btn">I've signed in</span></div><div class="step"><span class="dot"></span>Diff</div></div></div></div><div class="col"><p class="cap">Sign in, went through</p><div class="phone"><div class="status">9:41</div><div class="nav">‹ Ships<span class="sp"></span>Ship #14 </div><div class="body"><div class="step"><span class="dot done"></span>Build</div><div class="box"><div class="lbl">✓ Signed in to AWS</div><div>sound2score prod needs a session to deploy.</div><div class="muted">Account …4821 · session until 13:41</div></div><div class="step"><span class="dot wait"></span>Diff <span class="spin" style="margin-left:6px"></span></div><div class="step"><span class="dot"></span>Deploy</div></div></div></div><div class="col"><p class="cap">Enter a code</p><div class="phone"><div class="status">9:41</div><div class="nav">‹ Ships<span class="sp"></span>Ship #14 </div><div class="body"><div class="step"><span class="dot done"></span>Test mdom</div><div class="box" style="border-width:2px"><div class="lbl">npm one-time code</div><div class="muted">From your authenticator app.</div><div class="input">48 1_</div><span class="btn pri">Send code</span></div></div><div class="kb"><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div></div><div>0</div><div>⌫</div></div></div></div><div class="col"><p class="cap">Noticed from elsewhere</p><div class="phone"><div class="status">9:41</div><div class="nav">splates<span class="sp"></span>Ships <span class="badge">1</span></div><div class="body"><div class="notif"><b>splates</b> · now<br>Ship #14 needs you: Publish to npm</div><div class="lbl">Ships</div><div class="box"><b>Ship #14</b> mdom, vexml<div class="muted">● Waiting on you: Publish to npm</div></div><div class="box grey">Ship #13 · done</div><div class="muted" style="margin-top:20px">A phone notification when a prompt opens, tapping it lands on the step. The Ships tab in the nav counts prompts waiting; the run row says which step.</div></div></div></div></div>

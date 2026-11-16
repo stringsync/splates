@@ -1,9 +1,17 @@
 import { elsewhereMention, MENTION } from "@splates/server/board/browser";
 import { ArchiveIcon, FolderGit2Icon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
-import { type ComponentProps, type JSX, memo, useContext } from "react";
+import {
+	Children,
+	type ComponentProps,
+	isValidElement,
+	type JSX,
+	memo,
+	useContext,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
+import { DiagramView } from "./diagram-view";
 import { FinishedReferences } from "./finished-references";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
@@ -108,11 +116,7 @@ const OPTIONS: MarkdownToJSX.Options = {
 		blockquote: {
 			props: { className: "my-1 border-l-2 pl-3 text-muted-foreground" },
 		},
-		pre: {
-			props: {
-				className: "my-2 overflow-x-auto rounded bg-current/8 p-3 text-xs",
-			},
-		},
+		pre: Pre,
 		code: {
 			props: {
 				className:
@@ -391,6 +395,27 @@ function Unlinked({ children }: ComponentProps<"a">): JSX.Element {
 /** An image shows what it names, when that is a file splates holds. */
 function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
 	return <Media src={src} alt={alt} />;
+}
+
+/** A fenced `d2` block is drawn as a diagram; any other fence stays code. */
+function Pre(props: ComponentProps<"pre">): JSX.Element {
+	const code = Children.toArray(props.children)[0];
+	if (isValidElement<ComponentProps<"code">>(code)) {
+		const source = code.props.children;
+		if (
+			/\blang-d2\b/.test(code.props.className ?? "") &&
+			typeof source === "string" &&
+			source.trim() !== ""
+		) {
+			return <DiagramView source={source.trim()} />;
+		}
+	}
+	return (
+		<pre
+			{...props}
+			className="my-2 overflow-x-auto rounded bg-current/8 p-3 text-xs"
+		/>
+	);
 }
 
 /** A checklist box only reports: the document is the agent's to tick. */

@@ -49,7 +49,7 @@ with their queue card, naming them and then the deferred task (see
 [queue.md](queue.md), Asking the user to queue), so one press queues all:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on #812 and #813
+## ⏸ Blocked <task>: waiting on #812 and #813
 
 The task set out to stop uploads retrying a 413; it is back on the board.
 
@@ -82,7 +82,7 @@ report, what came of it after the colon. It too asks and offers nothing, and
 a reply in a talk that carries on is none. Done says nothing is left, so it
 is for a finished answer or a finished step, never for a finding that leaves
 something to do: "I found the bug" with the fix not made ends on the
-finding and a numbered question (`1. Should I fix it this way?`), not Done.
+finding and a numbered question (`1. Should we fix it this way?`), not Done.
 Without the user's go-ahead on what remains, the request is not complete:
 
 ```markdown
@@ -93,8 +93,8 @@ Its body limit is 1 MB; nothing in this repository needs to change.
 
 When what came of it is something to see, such as a flow you traced, put a
 D2 diagram of it (see [proposing.md](proposing.md), Showing the change) under
-the colon line, attached and named as `![flow](/abs/path.png)`, as a before and
-after when it changed anything.
+the colon line, as a fenced `d2` block, as a before and after when it changed
+anything.
 
 A Done report carries no demo (a screenshot or recording of a result, a
 server to try). To mention one, send it as its own card in a separate reply
@@ -158,3 +158,92 @@ margin, outside code blocks, wherever you ask it, even a lone one as
 Each item's line ends at its `?`, as under `## Blocked`, its body and choices
 indented under it.
 
+## Reports
+
+Any time you report on something that is not a task's end (a check's results,
+an audit, a survey, a comparison), write a Report card rather than a wall of
+text. Its title is `## 📊 Report: <subject>`; it runs to the next `##`
+heading, so `###` sections stay inside it. Everything in it is markdown, so
+it reads the same in a terminal, GitHub or a paste; the `splates server`
+page draws the readouts below as a card. A readout is read-only: it displays data and takes no action. Use none, some or all of them: the
+headline sentence is the only part a report needs. Any card whose body is
+prose (Merged, Done, Removed, Blocked, Proposed, Permission) draws the same
+read-only readouts, so a Merged card may carry a `stats` row; Review and
+Questions cards do not.
+
+````markdown
+## 📊 Report: test health, 2026-11-16
+
+Pass rate dipped to 98.9%. One test has failed every run since Friday; two others are flaky.
+
+```stats
+Pass rate: 98.9% (-0.7 pts ❌)
+Failing: 1 (+1 ❌)
+Flaky: 2
+Suite time: 4m 12s (-8s ✅)
+```
+
+> ❌ **vexml/render.test.ts** broke in `a1b2c3`; it needs a fix task.
+
+```chart line: Pass rate, last 14 days
+| Day | Rate |
+| --- | --- |
+| Nov 15 | 99.5 |
+| Nov 16 | 98.9 |
+```
+
+```progress
+✅ Pass: 1204
+⚠️ Flaky: 2
+❌ Fail: 1
+```
+
+| | Test | Detail |
+| --- | --- | --- |
+| ❌ | `vexml/render.test.ts` | Failing since a1b2c3, 4 of 4 runs |
+| ⚠️ | `net/sync.test.ts` | Flaky, 2 of 10 runs |
+
+```steps
+✅ Ran the suite 10 times · 41m
+❌ Bisected render.test.ts · a1b2c3
+```
+
+```gallery
+![Failing render](/abs/path/failing.png)
+![Expected render](/abs/path/expected.png)
+```
+
+```d2
+client -> server: request
+server -> db: query
+```
+
+### Details
+
+Logs and longer evidence, folded on the page.
+````
+
+- **Headline**: the first paragraph, one or two sentences with the finding.
+- **`stats`**: one `Label: value` a line, an optional change in parentheses;
+  an icon ending the change (✅ good, ⚠️ worse, ❌ bad) colors it.
+- **Callout**: a quote that opens with ✅, ⚠️, ❌ or ℹ️.
+- **`chart line|bar|stacked: <title>`**: its body is a markdown table, the
+  first column the labels and each other column a series (a bar chart draws
+  the first). Use a line for change over time, a bar to compare, stacked for
+  parts of each. One chart carries one measure; split different scales into
+  charts.
+- **`progress`**: `Label: count` lines as parts of a whole; a leading icon
+  gives a part its status color.
+- **Status table**: a table whose first column is a status icon on every row.
+- **`steps`**: what was done, one a line, an optional ` · note`, an icon for
+  the outcome.
+- **`gallery`**: screenshots in a row, one `![caption](/abs/path.png)` a
+  line, paths as `splates attach` prints them; a click enlarges one.
+- **`d2`**: a D2 diagram, drawn as SVG on the page with no `d2` binary
+  needed; invalid source shows as a code block.
+- **`### Details`**: everything after it is folded; put logs and long
+  evidence there, not in the headline.
+
+Leave out a readout that adds nothing: a table of three rows needs no chart.
+An unknown fence stays a code block. A report that ends an automation's run
+comes before its Done report, which stays one line.

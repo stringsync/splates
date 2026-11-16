@@ -4,7 +4,7 @@ import { BACKLOG_LANE } from "./backlog";
 import { BoardLifecycle } from "./board-lifecycle";
 import { boardsOf, DEFAULT_BOARD } from "./boards";
 
-const DEFAULT = { id: 1, name: "Default", position: 1, archived: false };
+const DEFAULT = { id: 1, name: "Default", position: 1 };
 
 describe("boards", () => {
 	it("gives a project from before boards a Default board holding every lane, Backlog first", async () => {
@@ -32,7 +32,7 @@ describe("boards", () => {
 			"boards",
 			JSON.stringify([
 				{ id: 1, name: "Default" },
-				{ id: 2, name: "Site", archived: true },
+				{ id: 2, name: "Site" },
 			]),
 		);
 
@@ -45,10 +45,10 @@ describe("boards", () => {
 			1, 1, 2,
 		]);
 		expect(
-			(await deps.tasks.boards()).map(({ id, archived }) => [id, archived]),
+			(await deps.tasks.boards()).map((board) => Object.keys(board).sort()),
 		).toEqual([
-			[1, false],
-			[2, true],
+			["id", "name", "position"],
+			["id", "name", "position"],
 		]);
 		expect(deps.tasks.addLane("Lost", 9)).toBail("not_found");
 	});
@@ -167,29 +167,10 @@ describe("boards", () => {
 		await expect(deps.tasks.moveBoard(9, 1)).toBail("not_found");
 	});
 
-	it("archives a board and restores it, leaving its lanes in place", async () => {
-		const { deps, third } = await open();
-		await using _ = deps;
-
-		expect((await new BoardLifecycle(deps.tasks).archive(2)).archived).toBe(
-			true,
-		);
-		expect(
-			(await deps.tasks.boards()).find((each) => each.id === 2)?.archived,
-		).toBe(true);
-		expect(
-			(await deps.tasks.lanes()).find((each) => each.id === third.id)?.board,
-		).toBe(2);
-		expect((await new BoardLifecycle(deps.tasks).restore(2)).archived).toBe(
-			false,
-		);
-	});
-
-	it("never archives or deletes the default board", async () => {
+	it("never deletes the default board", async () => {
 		const { deps } = await open();
 		await using _ = deps;
 
-		await expect(new BoardLifecycle(deps.tasks).archive(1)).toBail("usage");
 		await expect(new BoardLifecycle(deps.tasks).delete(1)).toBail("usage");
 	});
 

@@ -60,6 +60,7 @@ import { SearchDialog } from "./search-dialog";
 import { searchedIn } from "./searched-in";
 import type { Settings } from "./settings";
 import { SetupProvider } from "./setup-state";
+import { SharedTerminals } from "./shared-terminals";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { StatsReport } from "./stats-report";
@@ -168,7 +169,13 @@ export function App({
 				input: window,
 			}),
 	);
-	useDisposerEffect((disposer) => disposer.use(terminals), [terminals]);
+	useDisposerEffect(
+		(disposer) => {
+			terminals.start();
+			disposer.use(terminals);
+		},
+		[terminals],
+	);
 	const { opener } = useReactive(
 		settings,
 		(settings) => ({ opener: settings.get("editor.opener") }),
@@ -187,6 +194,7 @@ export function App({
 		rule,
 		evals,
 		openEval,
+		shipRun,
 		setup,
 		openSetup,
 	} = usePageRoute();
@@ -309,6 +317,7 @@ export function App({
 		rule,
 		evals,
 		openEval,
+		shipRun,
 		setup,
 		openSetup,
 		available,
@@ -555,7 +564,7 @@ function projectScope(
 			(event) =>
 				matches(event, settings.get("shortcuts.terminal")) ||
 				matches(event, settings.get("shortcuts.newTerminal")),
-			{ timer },
+			{ timer, shared: new SharedTerminals() },
 		),
 		// So ⌘K can open a todo on the board.
 		todoView: new TodoView(localStorage),

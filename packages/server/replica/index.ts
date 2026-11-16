@@ -1,5 +1,6 @@
 export type { AwsCredentials } from "./aws-sign";
 export { DirReplica } from "./dir";
+export { replicated } from "./legacy-shipped";
 export type { ReplicaPlace } from "./place";
 export { openReplica, REPLICA_ACCESS_KEY, REPLICA_SECRET_KEY } from "./place";
 export type { Replica, ReplicaObject } from "./replica";
@@ -9,6 +10,5 @@ export type { Restored, RestoreTarget } from "./restore";
 export { restoreFromReplica } from "./restore";
 export type { S3Place, S3ReplicaOptions } from "./s3";
 export { S3Replica } from "./s3";
-export { replicated } from "./shipped";
 export type { ReplicaStatus } from "./status";
 export { statusLines } from "./status";

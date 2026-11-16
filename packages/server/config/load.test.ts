@@ -37,19 +37,17 @@ describe("loadConfig", () => {
 		expect(config.postCheckout).toBeNull();
 		expect(config.postRewrite).toBeNull();
 		expect(config.preMerge).toBeNull();
-		expect(config.shipStatus).toBeNull();
 	});
 
 	it("overrides only the defaults splates.config.ts names", async () => {
 		await fs.write(
 			join(root, "splates.config.ts"),
-			`export default { trunk: "trunk", mergeRetryCount: 7, shipStatus: "status --json" };\n`,
+			`export default { trunk: "trunk", mergeRetryCount: 7 };\n`,
 		);
 
 		const config = await loadConfig(root, { fs, git });
 
 		expect(config.trunk).toBe("trunk");
-		expect(config.shipStatus).toBe("status --json");
 		expect(config.mergeRetryCount).toBe(7);
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
@@ -68,6 +66,24 @@ describe("loadConfig", () => {
 
 		expect(config.taskStalenessMs).toBe(1000);
 		expect("todoStalenessMs" in config).toBe(false);
+	});
+
+	it("reads ships as a list of commands, and refuses the legacy record", async () => {
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { ships: ["bin/a ship", "bin/b ship"] };\n`,
+		);
+		expect((await loadConfig(root, { fs, git })).ships).toEqual([
+			"bin/a ship",
+			"bin/b ship",
+		]);
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { ships: { a: { ship: "bin/a ship" } } };\n`,
+		);
+		expect(loadConfig(root, { fs, git })).rejects.toThrow(
+			"rename the legacy targets' record to `legacyShips`",
+		);
 	});
 
 	it("falls back to main when the repo has no origin/HEAD", async () => {

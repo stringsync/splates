@@ -1,4 +1,5 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
+import { cleared, deferralBlockers } from "@splates/server/board/browser";
 import type { TaskReport } from "@splates/server/plans";
 import { type JSX, useContext } from "react";
 import { CardArchive, useArchivable } from "./archive-offer";
@@ -68,6 +69,13 @@ export function ReportCard({
 	const { sent } = useCardReply();
 	const resumed =
 		deferral !== null && (sent !== null || deferral.takenBy !== null);
+	// Still blocked once the conversation went on: its line names the tasks left.
+	const blockedOn =
+		resumed && deferral !== null && deferral.takenBy === null
+			? deferralBlockers(deferral, board.todos)
+					.filter((each) => each.kind === "task" && !cleared(each))
+					.flatMap((each) => (each.kind === "task" ? [each.id] : []))
+			: [];
 	// A merge leads with the Before and After its record kept, when it did.
 	const record = merged ? cardRecord(landed?.outcome.outcome) : null;
 	// A merge shows once its outcome is read, so it never grows a footer.
@@ -94,7 +102,11 @@ export function ReportCard({
 				folded={resumed}
 				aside={
 					resumed ? (
-						<span className="text-muted-foreground text-xs">Resumed</span>
+						<span className="text-muted-foreground text-xs">
+							{blockedOn.length > 0
+								? `Blocked on ${blockedOn.map((id) => `#${id}`).join(", ")}`
+								: "Resumed"}
+						</span>
 					) : undefined
 				}
 			>

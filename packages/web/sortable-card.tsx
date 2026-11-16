@@ -19,8 +19,8 @@ export function Sortable(props: CardProps): JSX.Element {
 	const {
 		attributes,
 		listeners,
-		setNodeRef,
 		setActivatorNodeRef,
+		setNodeRef,
 		transform,
 		transition,
 		isDragging,
@@ -57,7 +57,8 @@ export function Sortable(props: CardProps): JSX.Element {
 			)}
 			<Card
 				{...props}
-				// The card answers a mouse and a finger; its grip, a keyboard.
+				// The whole card answers a mouse and a finger; its title, a keyboard
+				// (Enter picks it up, Space still opens it).
 				pointer={{
 					onMouseDown: listeners?.onMouseDown as MouseEventHandler,
 					onTouchStart: listeners?.onTouchStart as TouchEventHandler,

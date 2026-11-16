@@ -5,6 +5,7 @@ import type { TaskEventName } from "./events";
 import {
 	type Automation,
 	type Hook,
+	invokesNamed,
 	lanesNamed,
 	stagesNamed,
 	type TaskFilter,
@@ -23,6 +24,8 @@ export interface HookChange {
 	cron: string;
 	stage: string;
 	lane: string;
+	/** Run on every Nth match of its event, `any` for each; "" to leave it. */
+	invokes: string;
 	prompt: string;
 	run: string;
 	/** The agent to run in place of the one it runs, when given. */
@@ -41,7 +44,7 @@ export function changed(
 }
 
 function retriggered(trigger: Trigger, change: HookChange): Trigger {
-	const { event, every, cron, stage, lane } = change;
+	const { event, every, cron, stage, lane, invokes } = change;
 	const given = [event, every, cron].filter((each) => each !== "");
 	if (given.length > 1) {
 		fail(
@@ -58,12 +61,22 @@ function retriggered(trigger: Trigger, change: HookChange): Trigger {
 				: cron !== ""
 					? { cron }
 					: trigger;
-	if (stage === "" && lane === "") {
+	if (stage === "" && lane === "" && invokes === "") {
 		return base;
 	}
 	if (!("event" in base)) {
-		fail("usage", "--stage and --lane narrow a task event, not a schedule", {});
+		fail(
+			"usage",
+			"--stage, --lane and --invokes narrow a task event, not a schedule",
+			{},
+		);
 	}
+	const count =
+		invokes === ""
+			? base.invokes
+			: invokes === "any"
+				? undefined
+				: invokesNamed(invokes);
 	const filter: TaskFilter = { ...base.filter };
 	if (stage === "any") {
 		delete filter.stages;
@@ -75,9 +88,10 @@ function retriggered(trigger: Trigger, change: HookChange): Trigger {
 	} else if (lane !== "") {
 		filter.lanes = lanesNamed(lane);
 	}
+	const every_ = count === undefined ? {} : { invokes: count };
 	return Object.keys(filter).length === 0
-		? { event: base.event }
-		: { event: base.event, filter };
+		? { event: base.event, ...every_ }
+		: { event: base.event, filter, ...every_ };
 }
 
 function rehooked(hook: Hook, { run, prompt, pick }: HookChange): Hook {

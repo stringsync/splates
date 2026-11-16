@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { wakesItself } from "../queue/order";
 import { Testing } from "../testing";
 import { cleared, deferralBlockers, deferralProblem } from "./deferral";
 
@@ -77,5 +78,28 @@ describe("deferral", () => {
 		expect(deferralProblem({})).toContain("--why");
 		expect(deferralProblem({ why: "x" })).toContain("--blocked-by");
 		expect(deferralProblem({ why: "x", questions: ["Which?"] })).toBeNull();
+	});
+
+	it("suspends a taken task on a blocker, waking it once the blocker merged", async () => {
+		await using deps = await Testing.open();
+		const blocker = await deps.tasks.add("Build the client", null);
+		const held = await deps.tasks.add("Retry on 413", null);
+		await held.take("alpha");
+		await held.suspend({
+			blockedBy: [blocker.id],
+			task: "alpha",
+			conversation: "talk",
+		});
+		const states = async () =>
+			(await deps.tasks.all()).map(({ state }) => state);
+		const now = async () => (await deps.tasks.find(held.id)).state;
+
+		expect(wakesItself(await now(), await states())).toBe(false);
+
+		await (await deps.tasks.find(blocker.id)).remove("abc123");
+		expect(wakesItself(await now(), await states())).toBe(true);
+
+		await (await deps.tasks.find(held.id)).wake();
+		expect(wakesItself(await now(), await states())).toBe(false);
 	});
 });

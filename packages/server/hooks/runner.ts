@@ -162,12 +162,36 @@ export class HookRunner implements Resource {
 					continue;
 				}
 				const matching = await this.#matching(event, trigger.filter);
-				if (matching !== null) {
+				if (matching !== null && (await this.#due(automation, trigger))) {
 					await fire(automation, { event: matching }, this.deps);
 				}
 			}
 		}
 		await this.#write(last?.at ?? null, events);
+	}
+
+	/**
+	 * Whether a matching event runs `automation` now: always, or for an
+	 * every-Nth trigger, only on the Nth, counting from its last edit.
+	 */
+	async #due(
+		automation: Automation,
+		trigger: { invokes?: number },
+	): Promise<boolean> {
+		const { invokes } = trigger;
+		if (invokes === undefined || invokes <= 1) {
+			return true;
+		}
+		const kept = (await this.deps.runs.read())[automation.id]?.counted;
+		const was = kept?.since === automation.editedAt ? (kept?.count ?? 0) : 0;
+		const count = was + 1;
+		const due = count >= invokes;
+		await this.deps.runs.counted(
+			automation.id,
+			due ? 0 : count,
+			automation.editedAt,
+		);
+		return due;
 	}
 
 	/**

@@ -2,11 +2,8 @@ import type { MergeEstimates } from "@splates/server/merge";
 import type { Event } from "@splates/server/records";
 import type { Details } from "@splates/server/tasks";
 import {
-	CheckIcon,
 	ChevronsUpIcon,
-	CircleIcon,
 	GitMergeIcon,
-	Loader2Icon,
 	SquareTerminalIcon,
 	XIcon,
 } from "lucide-react";
@@ -27,13 +24,18 @@ import {
 	endedChecklist,
 	mergeChecklist,
 	type PhaseRow,
-	type Standing,
 	type StepRow,
 } from "./merge-checklist";
 import { MergeWhy } from "./merge-failed-line";
 import { spanOf } from "./merge-lines";
 import { TaskChip } from "./reference-chip";
 import type { WatchMergeStep } from "./side-panes";
+import {
+	Mark,
+	StepTimeline,
+	StepTimelineItem,
+	standingWord,
+} from "./step-timeline";
 
 type MergeEvent = Extract<Event, { action: "merge" }>;
 
@@ -272,7 +274,7 @@ function Timeline({
 	why?: (() => void) | null;
 }): JSX.Element {
 	return (
-		<ol aria-label="Merge steps" className="px-4 py-3 @max-md:px-3">
+		<StepTimeline label="Merge steps">
 			{rows.map((row, index) => (
 				<StepItem
 					// A retest takes a step again, so a step names no one row.
@@ -288,7 +290,7 @@ function Timeline({
 					}
 				/>
 			))}
-		</ol>
+		</StepTimeline>
 	);
 }
 
@@ -303,70 +305,47 @@ function StepItem({
 	open: (() => void) | null;
 	why: (() => void) | null;
 }): JSX.Element {
-	const line = (
-		<>
-			<span
-				className={cn(
-					"min-w-0 flex-1 truncate text-left",
-					row.standing === "next" && "text-muted-foreground/60",
-					row.standing === "running" && "font-medium",
-				)}
-			>
-				{row.label}
-			</span>
-			{open !== null && (
-				<SquareTerminalIcon
-					aria-hidden
-					className="size-3.5 shrink-0 text-muted-foreground group-hover/step:text-foreground"
-				/>
-			)}
-			<Times ms={row.ms} typical={row.typical} />
-			{why !== null && (
-				<Button size="xs" variant="outline" onClick={why}>
-					Why
-				</Button>
-			)}
-		</>
-	);
 	return (
-		<li
-			aria-label={`${row.label}, ${standingOf(row.standing)}`}
-			className="relative flex gap-3"
-		>
-			{!last && (
-				<span
-					aria-hidden
-					className={cn(
-						"absolute top-5 bottom-0 left-[7px] w-px",
-						row.standing === "done" ? "bg-success/50" : "bg-border",
-					)}
-				/>
-			)}
-			<span className="z-10 flex h-6 items-center bg-card">
-				<Mark standing={row.standing} className="size-[15px]" />
-			</span>
-			<div className="min-w-0 flex-1 pb-1.5">
-				{open === null ? (
-					<div className="flex h-6 items-center gap-2 text-sm">{line}</div>
-				) : (
-					<button
-						type="button"
-						title="Show what it printed"
-						onClick={open}
-						className="group/step -mx-1.5 flex h-6 w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40"
+		<StepTimelineItem
+			label={row.label}
+			standing={row.standing}
+			last={last}
+			onPress={open}
+			pressTitle="Show what it printed"
+			line={
+				<>
+					<span
+						className={cn(
+							"min-w-0 flex-1 truncate text-left",
+							row.standing === "next" && "text-muted-foreground/60",
+							row.standing === "running" && "font-medium",
+						)}
 					>
-						{line}
-					</button>
-				)}
-				{row.phases.length > 0 && (
-					<ol aria-label="Premerge phases" className="mt-0.5 mb-1.5">
-						{row.phases.map((phase) => (
-							<PhaseItem key={phase.phase} phase={phase} depth={0} />
-						))}
-					</ol>
-				)}
-			</div>
-		</li>
+						{row.label}
+					</span>
+					{open !== null && (
+						<SquareTerminalIcon
+							aria-hidden
+							className="size-3.5 shrink-0 text-muted-foreground group-hover/step:text-foreground"
+						/>
+					)}
+					<Times ms={row.ms} typical={row.typical} />
+					{why !== null && (
+						<Button size="xs" variant="outline" onClick={why}>
+							Why
+						</Button>
+					)}
+				</>
+			}
+		>
+			{row.phases.length > 0 && (
+				<ol aria-label="Premerge phases" className="mt-0.5 mb-1.5">
+					{row.phases.map((phase) => (
+						<PhaseItem key={phase.phase} phase={phase} depth={0} />
+					))}
+				</ol>
+			)}
+		</StepTimelineItem>
 	);
 }
 
@@ -378,7 +357,7 @@ function PhaseItem({
 	depth: number;
 }): JSX.Element {
 	return (
-		<li aria-label={`${phase.phase}, ${standingOf(phase.standing)}`}>
+		<li aria-label={`${phase.phase}, ${standingWord(phase.standing)}`}>
 			<span
 				className="flex h-6 items-center gap-2"
 				style={{ paddingLeft: `${depth * 1.125}rem` }}
@@ -430,52 +409,4 @@ function Times({
 			)}
 		</>
 	);
-}
-
-function Mark({
-	standing,
-	className,
-}: {
-	standing: Standing;
-	className: string;
-}): JSX.Element {
-	if (standing === "done" || standing === "failed") {
-		const Icon = standing === "done" ? CheckIcon : XIcon;
-		return (
-			<span
-				className={cn(
-					"flex shrink-0 items-center justify-center rounded-full text-white",
-					standing === "done" ? "bg-success" : "bg-destructive",
-					className,
-				)}
-			>
-				<Icon className="size-[70%]" strokeWidth={3.5} />
-			</span>
-		);
-	}
-	if (standing === "running") {
-		return (
-			<Loader2Icon
-				className={cn("shrink-0 animate-spin text-muted-foreground", className)}
-			/>
-		);
-	}
-	return (
-		<CircleIcon
-			className={cn("shrink-0 text-muted-foreground/40", className)}
-		/>
-	);
-}
-
-function standingOf(standing: Standing): string {
-	switch (standing) {
-		case "done":
-			return "done";
-		case "running":
-			return "under way";
-		case "next":
-			return "to come";
-		case "failed":
-			return "failed";
-	}
 }

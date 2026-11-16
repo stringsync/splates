@@ -420,7 +420,6 @@ export class TaskLanes {
 				id,
 				name: called,
 				position: boards.length + 1,
-				archived: false,
 			};
 			await this.writeBoards([...boards, added]);
 			return added;
@@ -454,7 +453,7 @@ export class TaskLanes {
 		await this.tasks.store.records.write(
 			"boards",
 			`${JSON.stringify(
-				boards.map(({ id, name, archived }) => ({ id, name, archived })),
+				boards.map(({ id, name }) => ({ id, name })),
 				null,
 				"\t",
 			)}\n`,

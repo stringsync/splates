@@ -36,3 +36,11 @@ test("the merged card has one rule between Before, After and Checks each", () =>
 	);
 	expect(ruled(container)).toEqual(["after", "checks"]);
 });
+
+test("a card whose only readout is a d2 diagram draws the diagram, not plain code", () => {
+	const { container } = render(
+		<CardBody text={"Flow:\n\n```d2\na -> b\n```"} />,
+	);
+	// The diagram view's source fallback carries a border; markdown code does not.
+	expect(container.querySelector("pre.border")).not.toBeNull();
+});

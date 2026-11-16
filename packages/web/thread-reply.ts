@@ -236,6 +236,10 @@ export function replied(
 					asking?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
+			case "findings":
+				return [
+					{ type: "data-findings", data: { findings: stretch.findings } },
+				];
 			case "permission":
 				return [
 					{

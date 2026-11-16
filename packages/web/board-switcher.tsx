@@ -9,6 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
+	rectSortingStrategy,
 	SortableContext,
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
@@ -18,18 +19,8 @@ import {
 	DEFAULT_BOARD,
 	type TaskRecord,
 } from "@splates/server/board/browser";
-import {
-	ArchiveIcon,
-	ArrowDownIcon,
-	ArrowUpIcon,
-	ChevronDownIcon,
-	MoreHorizontalIcon,
-	PencilIcon,
-	PlusIcon,
-	Trash2Icon,
-} from "lucide-react";
+import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -38,13 +29,6 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "#web/components/ui/dropdown-menu.tsx";
-import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
@@ -52,22 +36,21 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import {
 	addBoard,
-	archiveBoard,
 	dropBoard,
 	moveBoard,
 	moveLaneToBoard,
 	renameBoard,
 } from "./api";
-import { ArchivedBoards } from "./board-archived";
 import { DeleteBoard } from "./board-delete-dialog";
+import { BoardMenu } from "./board-menu";
 import { saveBoard } from "./board-places";
 import { NameField, needsLook, SortableRow } from "./board-row";
+import { BoardTile, SortableTile } from "./board-tile";
 
-/** Pass these operations to BoardSwitcher to create, edit, move, archive, or delete boards. */
+/** Pass these operations to BoardSwitcher to create, edit, move, or delete boards. */
 export interface BoardActions {
 	addBoard: (name: string) => Promise<unknown>;
 	renameBoard: (id: number, name: string) => Promise<void>;
-	archiveBoard: (id: number, archived: boolean) => Promise<void>;
 	dropBoard: (id: number) => Promise<void>;
 	moveBoard: (id: number, position: number) => Promise<void>;
 	moveLaneToBoard: (lane: number, board: number) => Promise<void>;
@@ -76,7 +59,6 @@ export interface BoardActions {
 const serverActions: BoardActions = {
 	addBoard,
 	renameBoard,
-	archiveBoard,
 	dropBoard,
 	moveBoard,
 	moveLaneToBoard,
@@ -92,7 +74,7 @@ export interface BoardTasks {
 /**
  * The top bar's board switcher: names the current board and opens a list of
  * the project's boards in their order, each with its task count and
- * a dot when something there needs a look, with Create, and a menu on each to rename, reorder, archive or delete it. Typing
+ * a dot when something there needs a look, with Create, and a menu on each to rename, reorder or delete it. Typing
  * filters; `b` opens it.
  */
 export function BoardSwitcher({
@@ -121,7 +103,7 @@ export function BoardSwitcher({
 	const [refused, setRefused] = useState<string | null>(null);
 	const [deleting, setDeleting] = useState<BoardRecord | null>(null);
 	const field = useRef<HTMLInputElement>(null);
-	const live = boards.filter((each) => !each.archived);
+	const live = boards;
 	const now = live.find((each) => each.id === current) ?? live[0];
 
 	useEffect(() => {
@@ -215,69 +197,23 @@ export function BoardSwitcher({
 	};
 
 	const management = (board: BoardRecord) => (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button
-						size="icon"
-						variant="ghost"
-						aria-label={`${board.name} actions`}
-						title="Board actions"
-						className="max-md:size-11"
-					/>
-				}
-			>
-				<MoreHorizontalIcon />
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-44">
-				<DropdownMenuItem onClick={() => setEditing(board.id)}>
-					<PencilIcon />
-					Rename
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					disabled={
-						(isDefault(board) && mode === "index") ||
-						board.id === ordered[0]?.id
-					}
-					onClick={() => shift(board, -1)}
-				>
-					<ArrowUpIcon />
-					Move up
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					disabled={
-						(isDefault(board) && mode === "index") ||
-						board.id === ordered.at(-1)?.id
-					}
-					onClick={() => shift(board, 1)}
-				>
-					<ArrowDownIcon />
-					Move down
-				</DropdownMenuItem>
-				{isDefault(board) ? null : (
-					<>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onClick={() =>
-								void attempt(() => actions.archiveBoard(board.id, true))
-							}
-						>
-							<ArchiveIcon />
-							Archive
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							variant="destructive"
-							onClick={() => setDeleting(board)}
-						>
-							<Trash2Icon />
-							Delete…
-						</DropdownMenuItem>
-					</>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<BoardMenu
+			board={board}
+			onTile={mode === "index"}
+			canMove={!(isDefault(board) && mode === "index")}
+			first={board.id === ordered[0]?.id}
+			last={board.id === ordered.at(-1)?.id}
+			onRename={() => setEditing(board.id)}
+			onShift={(by) => shift(board, by)}
+			onDelete={() => setDeleting(board)}
+		/>
 	);
-	const row = (board: BoardRecord, draggable: boolean) => {
+	const pick = (board: BoardRecord) => {
+		saveBoard(board.id);
+		onPick(board.id);
+		setOpen(false);
+	};
+	const row = (board: BoardRecord) => {
 		const own = tasks.find((each) => each.id === board.id)?.tasks ?? [];
 		const inner = (
 			<>
@@ -289,11 +225,7 @@ export function BoardSwitcher({
 				) : (
 					<button
 						type="button"
-						onClick={() => {
-							saveBoard(board.id);
-							onPick(board.id);
-							setOpen(false);
-						}}
+						onClick={() => pick(board)}
 						className={cn(
 							"flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent",
 							board.id === now?.id && "font-medium",
@@ -315,74 +247,122 @@ export function BoardSwitcher({
 				{management(board)}
 			</>
 		);
-		const className =
-			mode === "index"
-				? "group flex min-h-16 items-center gap-2 py-2"
-				: "group flex items-center gap-1";
-		return draggable ? (
+		return (
 			<SortableRow
 				key={board.id}
 				board={board}
 				locked={filter !== ""}
-				className={className}
+				className="group flex items-center gap-1"
 			>
 				{inner}
 			</SortableRow>
-		) : (
-			<li key={board.id} className={className}>
-				{mode === "index" && <span aria-hidden className="w-4 shrink-0" />}
-				{inner}
-			</li>
 		);
 	};
+	const naming = (initial: string) => (
+		<div className="flex h-full min-h-28 items-center rounded-lg border bg-card p-3 shadow-sm">
+			<NameField initial={initial} onDone={(value) => void submit(value)} />
+		</div>
+	);
+	const tile = (board: BoardRecord) =>
+		editing === board.id ? (
+			naming(board.name)
+		) : (
+			<BoardTile
+				id={board.id}
+				name={board.name}
+				current={board.id === now?.id}
+				tasks={tasks.find((each) => each.id === board.id)?.tasks ?? []}
+				onOpen={() => pick(board)}
+				action={management(board)}
+			/>
+		);
+	const grid =
+		"grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+	const heading = (text: string) => (
+		<h3 className="pb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+			{text}
+		</h3>
+	);
 	const builtInSection =
 		mode === "index" && (builtIn !== undefined || pinned.length > 0) ? (
 			<section aria-label="Built-in boards" className="flex flex-col">
-				<h3 className="pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Built in
-				</h3>
-				<ul className="flex flex-col divide-y">
+				{heading("Built in")}
+				<ul className={grid}>
 					{builtIn}
-					{pinned.map((board) => row(board, false))}
+					{pinned.map((board) => (
+						<li key={board.id} className="list-none">
+							{tile(board)}
+						</li>
+					))}
 				</ul>
 			</section>
 		) : null;
-	const archived = boards
-		.filter((each) => each.archived)
-		.filter((each) => each.name.toLowerCase().includes(filter.toLowerCase()));
-	const archivedSection = (
-		<ArchivedBoards
-			boards={archived}
-			onRestore={(board) =>
-				void attempt(() => actions.archiveBoard(board.id, false))
-			}
-		/>
+	const index = (
+		<>
+			{builtInSection}
+			<section aria-label="Your boards" className="flex flex-col">
+				{heading("Your boards")}
+				<DndContext
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					onDragEnd={reorder}
+				>
+					<SortableContext
+						items={sortable.map((each) => each.id)}
+						strategy={rectSortingStrategy}
+					>
+						<ul className={grid}>
+							{sortable.map((board) => (
+								<SortableTile
+									key={board.id}
+									board={board}
+									locked={editing === board.id}
+								>
+									{tile(board)}
+								</SortableTile>
+							))}
+							<li className="list-none">
+								{editing === "new" ? (
+									naming("")
+								) : (
+									<button
+										type="button"
+										onClick={() => setEditing("new")}
+										className="flex h-full min-h-28 w-full items-center justify-center gap-2 rounded-lg bg-muted/60 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+									>
+										<PlusIcon className="size-4" />
+										Add board
+									</button>
+								)}
+							</li>
+						</ul>
+					</SortableContext>
+				</DndContext>
+			</section>
+			{refused === null ? null : (
+				<p role="alert" className="text-destructive text-xs">
+					{refused}
+				</p>
+			)}
+		</>
 	);
 	const content = (
 		<>
-			{builtInSection}
-			{mode === "index" && sortable.length > 0 && (
-				<h3 className="-mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Your boards
-				</h3>
-			)}
-			{mode !== "index" && (
-				<input
-					ref={field}
-					value={filter}
-					onChange={(event) => setFilter(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" && shown[0]) {
-							saveBoard(shown[0].id);
-							onPick(shown[0].id);
-							setOpen(false);
-						}
-					}}
-					placeholder="Find a board"
-					aria-label="Find a board"
-					className="h-11 w-full rounded-md border bg-transparent px-3 text-base outline-none md:h-9 md:text-sm"
-				/>
-			)}
+			<input
+				ref={field}
+				value={filter}
+				onChange={(event) => setFilter(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter" && shown[0]) {
+						saveBoard(shown[0].id);
+						onPick(shown[0].id);
+						setOpen(false);
+					}
+				}}
+				placeholder="Find a board"
+				aria-label="Find a board"
+				className="h-11 w-full rounded-md border bg-transparent px-3 text-base outline-none md:h-9 md:text-sm"
+			/>
 			<DndContext
 				sensors={sensors}
 				collisionDetection={closestCenter}
@@ -393,19 +373,13 @@ export function BoardSwitcher({
 					items={sortable.map((each) => each.id)}
 					strategy={verticalListSortingStrategy}
 				>
-					<ul
-						className={
-							mode === "index"
-								? "flex flex-col divide-y"
-								: "flex max-h-72 flex-col overflow-y-auto"
-						}
-					>
-						{sortable.length === 0 && pinned.length === 0 && (
+					<ul className="flex max-h-72 flex-col overflow-y-auto">
+						{sortable.length === 0 && (
 							<li className="py-6 text-muted-foreground text-sm">
 								No boards found.
 							</li>
 						)}
-						{sortable.map((board) => row(board, true))}
+						{sortable.map((board) => row(board))}
 					</ul>
 				</SortableContext>
 			</DndContext>
@@ -415,17 +389,12 @@ export function BoardSwitcher({
 				<button
 					type="button"
 					onClick={() => setEditing("new")}
-					className={
-						mode === "index"
-							? "flex min-h-14 items-center justify-center gap-2 rounded-lg border border-dashed text-muted-foreground text-sm hover:bg-accent hover:text-foreground"
-							: "flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
-					}
+					className="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
 				>
 					<PlusIcon className="size-3.5" />
-					{mode === "index" ? "Add board" : "Create board"}
+					Create board
 				</button>
 			)}
-			{archivedSection}
 			{refused === null ? null : (
 				<p role="alert" className="text-destructive text-xs">
 					{refused}
@@ -436,7 +405,7 @@ export function BoardSwitcher({
 	return (
 		<>
 			{mode === "index" ? (
-				<div className="flex flex-col gap-4">{content}</div>
+				<div className="flex flex-col gap-8">{index}</div>
 			) : mode === "current" ? (
 				now ? (
 					management(now)
@@ -496,9 +465,6 @@ export function BoardSwitcher({
 					tasks.find((each) => each.id === deleting?.id)?.tasks.length ?? 0
 				}
 				onClose={() => setDeleting(null)}
-				onArchive={(board) =>
-					void attempt(() => actions.archiveBoard(board.id, true))
-				}
 				onDelete={(board, to, lanes) =>
 					attempt(async () => {
 						for (const lane of lanes) {

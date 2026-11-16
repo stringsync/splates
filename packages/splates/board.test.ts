@@ -17,17 +17,12 @@ it("lets an agent manage boards and place lanes on them, deleting only empty boa
 	await splates.run(deps, ["board", "add", "Later"]);
 	await splates.run(deps, ["board", "update", "3", "--position", "2"]);
 	await splates.run(deps, ["board", "update", "2", "--name", "Ship"]);
-	await splates.run(deps, ["board", "update", "3", "--archived"]);
 	expect(
-		(await testing.tasks.boards()).map((board) => [
-			board.id,
-			board.name,
-			board.archived,
-		]),
+		(await testing.tasks.boards()).map((board) => [board.id, board.name]),
 	).toEqual([
-		[1, "Default", false],
-		[3, "Later", true],
-		[2, "Ship", false],
+		[1, "Default"],
+		[3, "Later"],
+		[2, "Ship"],
 	]);
 
 	await splates.run(deps, ["lane", "add", "Docs", "--board", "2"]);

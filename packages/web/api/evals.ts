@@ -152,6 +152,8 @@ export interface EvalRunAsk {
 	baseline: string | null;
 	/** Runs of each cell; the runner's default when absent. */
 	reps?: number;
+	/** The judge, as `claude:<model>[@<effort>]`; the runner's default when absent. */
+	judge?: string;
 	/** The conversation whose card asks, told once the run is done, and whose worktree it runs in. */
 	conversation?: string | null;
 	/** The dollars and rounds the conversation may spend; its first run sets them. */

@@ -1,9 +1,10 @@
 import type { Resource } from "core/disposable";
-import { Debouncer, SystemTimer } from "core/time";
+import { UuidProvider } from "core/id";
+import { Debouncer, SystemTimer, SystemWallClock } from "core/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks } from "../board";
-import { shipSettings, shipTargets } from "../config";
+import { loadConfig, shipSettings, shipTargets } from "../config";
 import {
 	ConversationRoutes,
 	type ConversationState,
@@ -13,16 +14,20 @@ import {
 } from "../conversations";
 import { CredRoutes } from "../creds";
 import { fail } from "../exit";
+import { ShipLock, Shipping, ShipRoutes } from "../legacy-ship";
 import type { AgentPick } from "../models";
 import { needs, taskNumberReference, waitsOnYou } from "../plans";
 import { QUEUE_SWEEP, QueueCapacity, QueueRunner } from "../queue";
 import { Replicator } from "../replica";
 import {
-	readGraph,
-	ShipLock,
-	Shipping,
-	ShipRoutes,
-	targetPaths,
+	ShellStepProcesses,
+	ShipCommands,
+	ShipComposer,
+	ShipEngine,
+	ShipFixes,
+	ShipPlanRoutes,
+	ShipRunRoutes,
+	waitingIn,
 } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details } from "../tasks";
@@ -75,7 +80,7 @@ export async function serveProject(
 	// since each commits to the same trunk; the one above stays for the
 	// repository as a whole.
 	const lock = new ShipLock();
-	const targets = project.config.ships ? shipTargets(project.config) : [];
+	const targets = project.config.legacyShips ? shipTargets(project.config) : [];
 	const targetShippings = new Map(
 		targets.map((target) => [
 			target.name,
@@ -85,17 +90,6 @@ export async function serveProject(
 				slug: async () => target.name,
 				target: target.name,
 				lock,
-				version: async () =>
-					(
-						await readGraph(project.fs, [
-							{
-								slug: target.name,
-								root: service.git.root,
-								...targetPaths(target),
-								ship: target.ship,
-							},
-						])
-					).projects[0]?.version ?? null,
 			}),
 		]),
 	);
@@ -137,6 +131,19 @@ export async function serveProject(
 				);
 				if (conversation === undefined) {
 					return false;
+				}
+				if (task.deferred?.suspended === true) {
+					// The person writing to it already woke it.
+					const spoke = conversation.state.messages.some(
+						(message) =>
+							message.role === "user" &&
+							message.told === undefined &&
+							(message.at ?? "") > (task.deferred?.at ?? ""),
+					);
+					await (await project.tasks.find(task.id)).wake();
+					if (spoke) {
+						return false;
+					}
 				}
 				if (conversation.state.archived) {
 					await conversation.unarchive();
@@ -201,6 +208,103 @@ export async function serveProject(
 		handOff();
 	}
 
+	const shipCommands = new ShipCommands(
+		// Read from the main tree each time, so a ship command that lands on
+		// the base shows without a restart; the start-up list stands when the
+		// file cannot be read.
+		async () => {
+			try {
+				return (await loadConfig(service.git.root)).ships ?? [];
+			} catch (error) {
+				log.error(
+					`splates server could not reread ships from ${service.git.root}: ${String(error)}`,
+				);
+				return project.config.ships ?? [];
+			}
+		},
+		project.ps,
+		service.git.root,
+	);
+	const shipEngine = new ShipEngine({
+		storage,
+		processes: new ShellStepProcesses(project.ps, service.git.root),
+		clock: new SystemWallClock(),
+		ids: new UuidProvider(),
+		log,
+	});
+	// A page holds the project's stream already, so a run's changes ride on it.
+	const runWatch = shipEngine.listen((id, state) =>
+		watch.announce("ship", { id, state }),
+	);
+	// A ship a restart cut short carries on now, not once the page asks.
+	void shipEngine
+		.resume()
+		.catch((error: unknown) =>
+			log.error(`splates server could not resume its ships: ${String(error)}`),
+		);
+
+	const shipFixes = new ShipFixes(
+		shipEngine,
+		{
+			add: async (subject, text) =>
+				(await project.tasks.add(subject, null, { text })).id,
+			start: async (task) => {
+				if (conversations === null) {
+					throw new Error("conversations are off");
+				}
+				const response = await new AutoPickRoutes(
+					project,
+					conversations,
+					watch,
+					slug,
+				).startAutoPick(
+					new Request("http://localhost/start", {
+						method: "POST",
+						body: JSON.stringify({ todo: task }),
+					}),
+				);
+				const { id } = (await response.json()) as { id: string };
+				const conversation = (await conversations.list()).find(
+					(each) => each.state.id === id,
+				);
+				if (conversation === undefined) {
+					throw new Error(`the conversation for task #${task} was not created`);
+				}
+				void conversation
+					.prompt(
+						`${taskNumberReference(task)}\n\nThis task fixes a step of a ship the user started: its words say how to read the run and try the step again. Once the task ends, merged or removed, the ship retries the step by itself.`,
+						[],
+					)
+					.catch((error: unknown) => log.error(String(error)));
+			},
+			ended: async (task) => {
+				if ((await project.tasks.stored()).some((each) => each.id === task)) {
+					return null;
+				}
+				const finished = (await service.finished.list()).find((each) =>
+					each.took.some((taken) => taken.id === task),
+				);
+				return finished?.ended ?? "removed";
+			},
+			takenBy: async (task) =>
+				(await project.tasks.stored()).find((each) => each.id === task)
+					?.takenBy ?? null,
+		},
+		log,
+	);
+	// A fix that merged while the server was down retries its step now.
+	void shipEngine.resume().then(() => shipFixes.settle());
+	let fixWatch: Resource | null = null;
+	try {
+		const watching = storage.watch("tasks");
+		watching.events.on("changed", () => void shipFixes.settle());
+		fixWatch = watching;
+	} catch (error) {
+		log.error(
+			`splates server cannot watch ${service.git.root}'s tasks, so a ship retries a fixed step only as it starts: ${String(error)}`,
+		);
+	}
+
 	const talks = new ConversationRoutes(
 		project,
 		conversations,
@@ -218,10 +322,11 @@ export async function serveProject(
 		...new BudgetRoutes(project),
 		...automations.routes,
 		...new ShipRoutes(shipping, project.fs),
+		...new ShipPlanRoutes(shipCommands),
+		...new ShipRunRoutes(shipEngine, new ShipComposer(shipCommands), shipFixes),
 		shipping,
 		targetShipping: (name) => targetShippings.get(name) ?? null,
-		afterBumpOf: (name) =>
-			targets.find((each) => each.name === name)?.afterBump ?? null,
+		afterBumpOf: (_name) => project.config.afterBump,
 		startShipTask: async (task: string, ship: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
@@ -289,6 +394,7 @@ export async function serveProject(
 				todos,
 			);
 		},
+		shipPrompts: async () => (await shipEngine.list()).flatMap(waitingIn),
 		needing: async () => {
 			const { tasks, todos } = await watch.current();
 			return {
@@ -334,6 +440,9 @@ export async function serveProject(
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
 			await conflicts.disposeAsync();
+			runWatch.dispose();
+			fixWatch?.dispose();
+			await shipEngine.disposeAsync();
 			shipping.dispose();
 			for (const each of targetShippings.values()) {
 				each.dispose();

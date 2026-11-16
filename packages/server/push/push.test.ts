@@ -5,6 +5,7 @@ import type { ConversationState } from "../conversations";
 import { conversation } from "../fixtures";
 import { type Needing, need } from "../plans";
 import type { Served } from "../server/shared";
+import type { Waiting } from "../ship";
 import { FsStorage } from "../storage";
 import { Testing } from "../testing";
 import type { Pushed } from "./push";
@@ -14,6 +15,7 @@ describe("Pushes", () => {
 	let deps: Testing;
 	let pusher: FakePusher;
 	let rows: Needing[];
+	let asking: Waiting[];
 	let pushes: Pushes;
 
 	const runs = conversation({ id: "c1", title: "Fix", status: "running" });
@@ -42,6 +44,7 @@ describe("Pushes", () => {
 					Promise.resolve({
 						root: deps.root,
 						needing: async () => ({ rows, lanes: [] }),
+						shipPrompts: async () => asking,
 					} as unknown as Served),
 				],
 			]),
@@ -54,6 +57,7 @@ describe("Pushes", () => {
 		await deps.projects.register(deps.root);
 		pusher = new FakePusher();
 		rows = [row(runs)];
+		asking = [];
 		pushes = await start();
 	});
 
@@ -87,6 +91,45 @@ describe("Pushes", () => {
 			url: `?project=${slug}#conversations/c1`,
 			inFront: false,
 		});
+	});
+
+	it("pushes a ship prompt once as it opens, opening its run", async () => {
+		await pushes.subscribe(
+			subscribing({
+				subscription: subscription("https://push.example/a"),
+				wants: WANTS,
+			}),
+		);
+		await pushes.look();
+		asking = [
+			{
+				run: "r1",
+				target: "@stringsync/mdom",
+				step: "publish",
+				does: "Publish to npm",
+				id: "p1",
+				prompt: { kind: "confirm", question: "Publish 1.4.0?" },
+				at: 1,
+			},
+		];
+
+		await pushes.look();
+		await pushes.look();
+
+		const slug = (await deps.projects.list()).find(
+			(each) => each.root === deps.root,
+		)?.slug;
+		expect(
+			pusher.pushed.map((each) => JSON.parse(each.payload) as Pushed),
+		).toEqual([
+			{
+				title: "Ship needs you: Publish to npm",
+				body: "@stringsync/mdom: Publish 1.4.0?",
+				key: "ship r1 @stringsync/mdom publish p1",
+				url: `?project=${slug}#ships/r1`,
+				inFront: false,
+			},
+		]);
 	});
 
 	it("pushes only what a device wants", async () => {

@@ -21,6 +21,8 @@ export {
 	unmigrated,
 } from "./legacy-names";
 export { systemPs } from "./legacy-ps";
+export type { ShipTarget } from "./legacy-ships";
+export { shipTargets } from "./legacy-ships";
 export {
 	ARTIFACT_LIMITS,
 	CONFIG_FILE,
@@ -29,7 +31,5 @@ export {
 } from "./load";
 export type { PathScope, ShipSettings } from "./scopes";
 export { pickScope, Scopes, shipSettings } from "./scopes";
-export type { ShipTarget } from "./ships";
-export { shipTargets } from "./ships";
 export { typedConfig } from "./source";
 export { Tags } from "./tags";

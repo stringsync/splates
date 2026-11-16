@@ -135,6 +135,53 @@ describe("HookRunner", () => {
 		expect(ran).toEqual(["notify task.created #1"]);
 	});
 
+	it("runs one set to every Nth match on each Nth, counting on past a restart", async () => {
+		automations = [
+			automation(
+				"1",
+				{ event: "task.created", invokes: 3 },
+				{ kind: "run", command: "third" },
+			),
+		];
+		const following = await follow();
+		await add("One");
+		await add("Two");
+		await look(following);
+		expect(ran).toEqual([]);
+
+		following.dispose();
+		await add("Three");
+		await add("Four");
+		await look(await follow());
+		expect(ran).toEqual(["third task.created #3"]);
+
+		await add("Five");
+		await add("Six");
+		await add("Seven");
+		await look(await follow());
+		expect(ran).toEqual(["third task.created #3", "third task.created #6"]);
+	});
+
+	it("starts an edited every-Nth count over", async () => {
+		automations = [
+			automation(
+				"1",
+				{ event: "task.created", invokes: 2 },
+				{ kind: "run", command: "second" },
+			),
+		];
+		const following = await follow();
+		await add("One");
+		await look(following);
+		automations = [{ ...(automations[0] as Automation), editedAt: "later" }];
+		await add("Two");
+		await look(following);
+		expect(ran).toEqual([]);
+		await add("Three");
+		await look(following);
+		expect(ran).toEqual(["second task.created #3"]);
+	});
+
 	it("fires a filtered one only for the tasks its filter matches", async () => {
 		automations = [
 			automation(

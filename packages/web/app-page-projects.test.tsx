@@ -70,7 +70,7 @@ describe("App's pages and the project switcher", () => {
 		const switchers = [
 			await switcherOn(view, "Boards"),
 			await switcherOn(view, "Stats"),
-			await switcherOn(view, "Ship"),
+			await switcherOn(view, "Legacy ships"),
 			await switcherOn(view, "Evals"),
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
@@ -104,7 +104,8 @@ describe("App's pages and the project switcher", () => {
 				"Creds",
 				"Automations",
 				"Stats",
-				"Ship",
+				"Ships",
+				"Legacy ships",
 				"Rec",
 				"Evals",
 				"Billing",

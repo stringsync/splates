@@ -47,6 +47,7 @@ describe("classify", () => {
 					bugfix: 0.9,
 					design: 0.5,
 					open: 0.5,
+					devops: 0.5,
 				},
 				depth: { shallow: 0.5, moderate: 0.5, deep: 0.1 },
 				breadth: { spot: 0.5, module: 0.5, system: 0.5 },

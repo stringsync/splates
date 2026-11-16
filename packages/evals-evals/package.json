@@ -1,0 +1,22 @@
+{
+	"name": "@evals/evals",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./agents": "./agents.ts",
+		"./contract": "./contract.ts",
+		"./judge": "./judge.ts",
+		"./keep": "./keep.ts",
+		"./labels": "./labels.ts",
+		"./run": "./run.ts",
+		"./sandbox": "./sandbox.ts",
+		"./scenario": "./scenario.ts",
+		"./loop": "./loop.ts"
+	},
+	"devDependencies": {
+		"@types/bun": "catalog:"
+	},
+	"dependencies": {
+		"core": "workspace:*"
+	}
+}

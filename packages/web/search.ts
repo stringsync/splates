@@ -187,7 +187,7 @@ function inText(body: string): (word: string) => string | null {
 
 /** The name of the board `todo` is on, only when the project has more than one. */
 function boardNamed(todo: TaskRecord, searched: Searched): string | null {
-	const boards = searched.boards?.filter((each) => !each.archived) ?? [];
+	const boards = searched.boards ?? [];
 	if (boards.length < 2 || todo.lane === null) {
 		return null;
 	}

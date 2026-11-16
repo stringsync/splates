@@ -7,12 +7,13 @@ import type { ElsewhereBoards, LaneRecord } from "../board";
 import type { Conversations, ConversationsHeard } from "../conversations";
 import type { SecretStores } from "../creds";
 import type { TranscriberFor } from "../dictate";
+import type { Shipping } from "../legacy-ship";
 import type { Needing } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import type { Format, Journal, Repository } from "../records";
 import type { ReplicaStatus } from "../replica";
-import type { Shipping } from "../ship";
+import type { Waiting } from "../ship";
 import type { Snapshot } from "../tasks";
 import type { Assets } from "./assets";
 import type { Behind, Release } from "./release";
@@ -112,6 +113,8 @@ export interface Served extends AsyncResource {
 	waiting: () => Promise<number>;
 	/** What each of its agents needs, and the lanes that name an orchestrator. */
 	needing: () => Promise<{ rows: Needing[]; lanes: LaneRecord[] }>;
+	/** Every prompt its ship runs have open, waiting on the person. */
+	shipPrompts: () => Promise<Waiting[]>;
 	/** Every lane there has been, to name an orchestrator after. */
 	lanes: () => Promise<LaneRecord[]>;
 	/** Its tasks' worktrees and agents, whose processes' ports are the tasks'. */
@@ -167,6 +170,30 @@ export interface Served extends AsyncResource {
 	restoreQueued: Handler;
 	/** The project's latest ship. */
 	ship: Handler;
+	/** The targets the `ships` commands serve. */
+	shipTargets: Handler;
+	/** Composes picked targets of the `ships` commands into one plan. */
+	shipPlan: Handler;
+	/** Every ship run, or, posted from the page, a new one started. */
+	shipRuns: Handler;
+	/** One ship run. */
+	shipRun: Handler;
+	/** One ship run as it goes, as server-sent events. */
+	shipRunEvents: Handler;
+	/** Every prompt a ship run's step has open. */
+	shipWaiting: Handler;
+	/** Answers a prompt a ship run's step waits on. */
+	shipRunAnswer: Handler;
+	/** Sends a ship run's failed step round again. */
+	shipRunRetry: Handler;
+	/** Stops a ship run, for the user only. */
+	shipRunStop: Handler;
+	/** Sends a ship run's failed step to an agent, as a board task. */
+	shipRunSend: Handler;
+	/** Sends a failed step round again for the started task fixing it. */
+	shipRunFixRetry: Handler;
+	/** Adds an agent's note to a ship run. */
+	shipRunNote: Handler;
 	/** Runs the project's ship, as a cascade's step. */
 	shipping: Shipping;
 	/** Runs the ship target `name` of its `ships`, null when it names none. */

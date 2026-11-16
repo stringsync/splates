@@ -5,7 +5,7 @@ import { type TaskRecord, ungroomed } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
-import { canStart, queueOrder, resumesItself } from "./order";
+import { canStart, queueOrder, resumesItself, wakesItself } from "./order";
 
 /** How often the queue checks itself again when it has seen no change. */
 export const QUEUE_SWEEP = Duration.mins(1);
@@ -242,7 +242,10 @@ export class QueueRunner implements Resource {
 		}
 		for (const task of all) {
 			const at = task.deferred?.at;
-			if (at === undefined || !resumesItself(task, all)) {
+			if (
+				at === undefined ||
+				!(resumesItself(task, all) || wakesItself(task, all))
+			) {
 				this.#resumed.delete(task.id);
 				continue;
 			}

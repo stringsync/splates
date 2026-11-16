@@ -17,6 +17,7 @@ import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
+import { useShipPushOpens } from "./legacy-ship-badge";
 import {
 	type EvalsOpen,
 	type Move,
@@ -24,16 +25,27 @@ import {
 	type SetupOpen,
 } from "./page-address";
 import type { ShortcutKey } from "./settings";
-import { useShipPushOpens } from "./ship-badge";
 
 /** Where the page is, from its address, and the actions that move it. */
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, todo, cred, rule, evals, setup } =
+	const { page, open, task, lane, todo, cred, rule, evals, shipRun, setup } =
 		useReactive(
 			address,
-			({ page, open, task, lane, todo, cred, rule, evals, setup }) => ({
+			({
+				page,
+				open,
+				task,
+				lane,
+				todo,
+				cred,
+				rule,
+				evals,
+				shipRun,
+				setup,
+			}) => ({
+				shipRun,
 				page,
 				open,
 				task,
@@ -61,6 +73,7 @@ export function usePageRoute(): PageRoute {
 		cred,
 		rule,
 		evals,
+		shipRun,
 		setup,
 		openSetup: useCallback(
 			(area, step, how) => address.openSetup(area, step, how),
@@ -83,7 +96,7 @@ export function usePageRoute(): PageRoute {
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
- * for it with todo N open, `#stats`, `#ships`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
+ * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#legacy-ships`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#billing` (`#budget` too), `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
@@ -95,6 +108,7 @@ export type Page =
 	| "conversations"
 	| "stats"
 	| "ships"
+	| "legacy-ships"
 	| "rec"
 	| "evals"
 	| "creds"
@@ -137,7 +151,13 @@ export const PAGES: {
 		Icon: ChartColumnIcon,
 		scope: "everywhere",
 	},
-	{ value: "ships", label: "Ship", Icon: ShipIcon, scope: "everywhere" },
+	{ value: "ships", label: "Ships", Icon: ShipIcon, scope: "everywhere" },
+	{
+		value: "legacy-ships",
+		label: "Legacy ships",
+		Icon: ShipIcon,
+		scope: "everywhere",
+	},
 	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{
 		value: "evals",
@@ -171,6 +191,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
 	ships: "min-w-0 px-4 py-6",
+	"legacy-ships": "min-w-0 px-4 py-6",
 	rec: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
@@ -203,7 +224,7 @@ export function PageShortcuts({
 	onTerminal: (() => void) | null;
 }): null {
 	useShortcut("shortcuts.todos", () => onPage("boards"));
-	useShipPushOpens(() => onPage("ships"));
+	useShipPushOpens(() => onPage("legacy-ships"));
 	useShortcut("shortcuts.back", () => onBack?.(), onBack !== null);
 	useShortcut("shortcuts.forward", () => onForward?.(), onForward !== null);
 	useShortcut("shortcuts.settings", onSettings);
@@ -241,6 +262,8 @@ export interface PageRoute {
 	rule: number | null;
 	/** The batch and run the Evals page has open. */
 	evals: EvalsOpen;
+	/** The ship run the Ships page shows, by id, or null. */
+	shipRun: string | null;
 	/** The journey and step the Setup page is on, each null for none. */
 	setup: SetupOpen;
 	/** Sets Setup on journey `area` and its `step`, or on the index for a null `area`. */

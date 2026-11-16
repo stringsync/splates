@@ -54,12 +54,14 @@ describe("App's lanes", () => {
 			todos: [todo({ id: 1, subject: "unplaced" })],
 			lanes: [{ id: 0, name: "Backlog", board: 1 }],
 			boards: [
-				{ id: 1, name: "Main", position: 1, archived: false },
-				{ id: 2, name: "Other", position: 2, archived: false },
+				{ id: 1, name: "Main", position: 1 },
+				{ id: 2, name: "Other", position: 2 },
 			],
 		});
 		await act(async () =>
-			fireEvent.click(await view.findByRole("button", { name: /^Main \d+$/ })),
+			fireEvent.click(
+				await view.findByRole("button", { name: /^Main \d+ tasks?\b/ }),
+			),
 		);
 		expect(view.queryByRole("region", { name: "Untriaged" })).toBeNull();
 		const backlog = within(view.getByRole("region", { name: "Backlog" }));
@@ -277,8 +279,8 @@ describe("App's lanes", () => {
 
 	it("moves a lane to another board from its menu, at a chosen place, and not Backlog", async () => {
 		const boards = [
-			{ id: 1, name: "Default", position: 1, archived: false },
-			{ id: 2, name: "Site", position: 2, archived: false },
+			{ id: 1, name: "Default", position: 1 },
+			{ id: 2, name: "Site", position: 2 },
 		];
 		const view = await testing.open({
 			todos: [],
@@ -292,7 +294,7 @@ describe("App's lanes", () => {
 		});
 		await act(async () =>
 			fireEvent.click(
-				await view.findByRole("button", { name: /^Default \d+$/ }),
+				await view.findByRole("button", { name: /^Default \d+ tasks?\b/ }),
 			),
 		);
 
@@ -325,7 +327,7 @@ describe("App's lanes", () => {
 	it("starts a board from a lane's Move to board menu and moves the lane onto it", async () => {
 		const view = await testing.open({
 			todos: [],
-			boards: [{ id: 1, name: "Default", position: 1, archived: false }],
+			boards: [{ id: 1, name: "Default", position: 1 }],
 			lanes: [
 				{ id: 0, name: "Backlog", board: 1 },
 				{ id: 3, name: "Editor", board: 1 },
@@ -333,7 +335,7 @@ describe("App's lanes", () => {
 		});
 		await act(async () =>
 			fireEvent.click(
-				await view.findByRole("button", { name: /^Default \d+$/ }),
+				await view.findByRole("button", { name: /^Default \d+ tasks?\b/ }),
 			),
 		);
 		await act(async () =>

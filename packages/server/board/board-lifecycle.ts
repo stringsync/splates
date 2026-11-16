@@ -11,31 +11,10 @@ export interface DeleteBoardOptions {
 }
 
 /**
- * Puts boards away, brings them back and deletes them, as Trello does:
- * archiving keeps the lanes, tasks and links as they were.
+ * Deletes boards, with their lanes.
  */
 export class BoardLifecycle {
 	constructor(private readonly tasks: Tasks) {}
-
-	/** Puts a board away, off the switcher, its lanes, tasks and links as they were. */
-	async archive(id: number): Promise<BoardRecord> {
-		return this.change(id, (board) => {
-			if (board.id === DEFAULT_BOARD) {
-				// Backlog lives on it, and Backlog is never put away.
-				fail(
-					"usage",
-					"the default board holds Backlog: it cannot be archived or deleted",
-					{ board: id },
-				);
-			}
-			return { ...board, archived: true };
-		});
-	}
-
-	/** Brings an archived board back to the switcher. */
-	async restore(id: number): Promise<BoardRecord> {
-		return this.change(id, (board) => ({ ...board, archived: false }));
-	}
 
 	/**
 	 * Deletes board `id`, with its empty lanes. A board whose lanes hold tasks
@@ -80,30 +59,12 @@ export class BoardLifecycle {
 		});
 	}
 
-	private async change(
-		id: number,
-		change: (board: BoardRecord) => BoardRecord,
-	): Promise<BoardRecord> {
-		return this.tasks.locked(async () => {
-			const boards = await this.tasks.boards();
-			const found = boards.find((board) => board.id === id);
-			if (!found) {
-				fail("not_found", `no board ${id}`, { board: id });
-			}
-			const changed = change(found);
-			await this.write(
-				boards.map((board) => (board.id === id ? changed : board)),
-			);
-			return changed;
-		});
-	}
-
 	/** Writes the boards whole, in order. Call it under the lock. */
 	private async write(boards: BoardRecord[]): Promise<void> {
 		await this.tasks.store.records.write(
 			"boards",
 			`${JSON.stringify(
-				boards.map(({ id, name, archived }) => ({ id, name, archived })),
+				boards.map(({ id, name }) => ({ id, name })),
 				null,
 				"\t",
 			)}\n`,

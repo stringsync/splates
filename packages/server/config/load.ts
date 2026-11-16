@@ -56,9 +56,29 @@ function renamedSettings(
 	found: Partial<Config> & { todoStalenessMs?: number },
 ): Partial<Config> {
 	const { todoStalenessMs, ...rest } = found;
+	checkShips(rest.ships);
 	return todoStalenessMs === undefined || rest.taskStalenessMs !== undefined
 		? rest
 		: { ...rest, taskStalenessMs: todoStalenessMs };
+}
+
+/** Refuses a `ships` that is not a list of commands, as the legacy record was. */
+function checkShips(ships: unknown): void {
+	if (ships === undefined || ships === null) {
+		return;
+	}
+	if (!Array.isArray(ships)) {
+		throw new Error(
+			"splates.config.ts: `ships` is a list of ship commands now; rename the legacy targets' record to `legacyShips`",
+		);
+	}
+	for (const command of ships) {
+		if (typeof command !== "string" || !command.trim()) {
+			throw new Error(
+				'splates.config.ts: each of `ships` is a command, as "bin/mdom ship"',
+			);
+		}
+	}
 }
 
 function defaults(root: string, trunk: string): Config {
@@ -75,7 +95,7 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		preLock: null,
 		ship: null,
-		shipStatus: null,
+
 		afterBump: null,
 		on: {},
 		queueLoad: QUEUE_LOAD_DEFAULT,
@@ -97,7 +117,8 @@ function defaults(root: string, trunk: string): Config {
 		dictationWords: [],
 		evals: null,
 		projects: null,
-		ships: null,
+		legacyShips: null,
+		ships: [],
 		shared: [],
 		tags: null,
 	};

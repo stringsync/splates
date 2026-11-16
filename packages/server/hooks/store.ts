@@ -28,10 +28,16 @@ export interface TaskFilter {
 
 /**
  * What sets an automation off: a task event, narrowed by a filter; or a
- * time, every so often (`30m`, `2h`, `1d`) or on a five-field cron.
+ * time, every so often (`30m`, `2h`, `1d`) or on a five-field cron. An
+ * event trigger may run on only every Nth time it matches.
  */
 export type Trigger =
-	| { event: TaskEventName; filter?: TaskFilter }
+	| {
+			event: TaskEventName;
+			filter?: TaskFilter;
+			/** Runs on every Nth time the event matches, not each time; none or 1 for each. */
+			invokes?: number;
+	  }
 	| { every: string }
 	| { cron: string };
 
@@ -321,6 +327,15 @@ export function stagesNamed(names: readonly string[]): TaskStage[] {
 	return names as TaskStage[];
 }
 
+/** `text` as a count of event matches, refusing what is none. */
+export function invokesNamed(text: string): number {
+	const count = Number(text);
+	if (!Number.isInteger(count) || count < 1) {
+		fail("usage", `'${text}' is no count: give 1 or more`, { invokes: text });
+	}
+	return count;
+}
+
 /** `text` as lane numbers, comma separated, refusing what is none. */
 export function lanesNamed(text: string): number[] {
 	const lanes = commaList(text).map(Number);
@@ -335,6 +350,16 @@ function checked(trigger: Trigger): void {
 	if ("event" in trigger) {
 		eventNamed(trigger.event);
 		stagesNamed(trigger.filter?.stages ?? []);
+		const { invokes } = trigger;
+		if (invokes !== undefined && (!Number.isInteger(invokes) || invokes < 1)) {
+			fail(
+				"usage",
+				`'${invokes}' is no count: run on every 1st or later time`,
+				{
+					invokes,
+				},
+			);
+		}
 	} else {
 		scheduleOf(trigger);
 	}

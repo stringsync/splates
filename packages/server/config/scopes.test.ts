@@ -48,7 +48,7 @@ describe("Scopes and shipSettings", () => {
 		expect(make({ "": ["a/**"] })).toThrow("empty");
 	});
 
-	const base = { ship: "repo ship", shipStatus: null, afterBump: "repo bump" };
+	const base = { ship: "repo ship", afterBump: "repo bump" };
 
 	it("falls back to the repository's settings", () => {
 		const projects = { a: ["a/**"], b: { paths: ["b/**"] } };
@@ -59,13 +59,12 @@ describe("Scopes and shipSettings", () => {
 
 	it("takes a project's own, null included", () => {
 		const projects = {
-			a: { paths: ["a/**"], ship: "a ship", shipStatus: "a status" },
+			a: { paths: ["a/**"], ship: "a ship" },
 			b: { paths: ["b/**"], ship: null },
 		};
 
 		expect(shipSettings({ ...base, projects }, "a")).toEqual({
 			ship: "a ship",
-			shipStatus: "a status",
 			afterBump: "repo bump",
 		});
 		expect(shipSettings({ ...base, projects }, "b").ship).toBeNull();

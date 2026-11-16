@@ -128,9 +128,13 @@ export function triggerLabel(trigger: Trigger): string {
 		...(stages === undefined ? [] : [stages.join(" or ")]),
 		...(lanes === undefined ? [] : [`lane ${lanes.join(" or ")}`]),
 	];
-	return narrowed.length === 0
-		? trigger.event
-		: `${trigger.event} in ${narrowed.join(", ")}`;
+	const on =
+		narrowed.length === 0
+			? trigger.event
+			: `${trigger.event} in ${narrowed.join(", ")}`;
+	return trigger.invokes === undefined || trigger.invokes <= 1
+		? on
+		: `every ${trigger.invokes} ${on}`;
 }
 
 /** `hook` in a few words. */

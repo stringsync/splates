@@ -113,6 +113,34 @@ async function stylesheet(id: string): Promise<string> {
 	}
 }
 
+/**
+ * The page's own fonts, Inter and JetBrains Mono, as `@font-face` rules with
+ * the files inlined, so every system draws the same letters rather than its
+ * own (Segoe UI and Consolas on Windows read thin beside a Mac's). Latin only:
+ * a character outside it falls back to the system font after them in
+ * styles.css. Inlined because the server hands out the stylesheet as one blob
+ * and caches it by hash, so the fonts come and go with it.
+ */
+async function fonts(): Promise<string> {
+	const faces = [
+		["Inter Variable", "@fontsource-variable/inter", "inter"],
+		[
+			"JetBrains Mono Variable",
+			"@fontsource-variable/jetbrains-mono",
+			"jetbrains-mono",
+		],
+	] as const;
+	let css = "";
+	for (const [family, pkg, file] of faces) {
+		const path = await stylesheet(
+			`${pkg}/files/${file}-latin-wght-normal.woff2`,
+		);
+		const data = (await Bun.file(path).bytes()).toBase64();
+		css += `@font-face{font-family:"${family}";font-style:normal;font-display:swap;font-weight:100 900;src:url(data:font/woff2;base64,${data}) format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}\n`;
+	}
+	return css;
+}
+
 /** The stylesheet, with only the utilities the page actually uses in it. */
 async function styles(): Promise<string> {
 	const base = here;
@@ -178,7 +206,7 @@ for (const [name, entry, splitting] of [
 		);
 	}
 }
-await Bun.write(`${out}/styles.txt`, await styles());
+await Bun.write(`${out}/styles.txt`, (await fonts()) + (await styles()));
 await Bun.write(
 	`${out}/manifest.txt`,
 	await Bun.file(`${here}/manifest.webmanifest`).text(),

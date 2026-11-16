@@ -22,8 +22,8 @@ afterEach(() => {
 	history.replaceState(null, "", "/");
 });
 const boards = [
-	{ id: 1, name: "Default", position: 1, archived: false },
-	{ id: 2, name: "Product", position: 2, archived: false },
+	{ id: 1, name: "Default", position: 1 },
+	{ id: 2, name: "Product", position: 2 },
 ];
 
 it("opens the chooser each time Boards is opened", async () => {
@@ -31,7 +31,7 @@ it("opens the chooser each time Boards is opened", async () => {
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	expect(view.getAllByRole("heading", { name: "Boards" })).toHaveLength(1);
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 0" })),
+		fireEvent.click(view.getByRole("button", { name: "Product 0 tasks" })),
 	);
 	await waitFor(() => view.getByRole("navigation", { name: "Breadcrumb" }));
 	expect(
@@ -46,16 +46,7 @@ it("opens the chooser each time Boards is opened", async () => {
 		fireEvent.click(view.getByRole("tab", { name: "Boards" })),
 	);
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
-	expect(view.getByRole("button", { name: "Product 0" })).toBeTruthy();
-});
-
-it("returns to the chooser if the remembered board is archived", async () => {
-	history.replaceState(null, "", "/?board=2");
-	const view = testing.render({
-		boards: boards.map((board) => ({ ...board, archived: board.id === 2 })),
-	});
-	await waitFor(() => view.getByRole("region", { name: "Boards" }));
-	expect(view.queryByRole("button", { name: "Product 0" })).toBeNull();
+	expect(view.getByRole("button", { name: "Product 0 tasks" })).toBeTruthy();
 });
 
 it("switches away from a populated board without following an unassigned task back to it", async () => {
@@ -68,7 +59,7 @@ it("switches away from a populated board without following an unassigned task ba
 	});
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 1" })),
+		fireEvent.click(view.getByRole("button", { name: "Product 1 task" })),
 	);
 	await waitFor(() => view.getByRole("button", { name: "Product actions" }));
 	await act(async () =>
@@ -76,7 +67,7 @@ it("switches away from a populated board without following an unassigned task ba
 	);
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Default 0" })),
+		fireEvent.click(view.getByRole("button", { name: "Default 0 tasks" })),
 	);
 	await waitFor(() => view.getByRole("button", { name: "Default actions" }));
 	expect(location.search).toBe("?board=1");
@@ -90,7 +81,7 @@ it("adds a lane to the board being viewed", async () => {
 	});
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 1" })),
+		fireEvent.click(view.getByRole("button", { name: "Product 1 task" })),
 	);
 	await act(async () =>
 		fireEvent.click(

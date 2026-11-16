@@ -47,6 +47,7 @@ describe("checkRules", () => {
 
 	it("puts each default task class on its intended primary pick", () => {
 		expect(DEFAULT_RULES.rules.map((each) => each.picks[0])).toEqual([
+			{ agent: "claude", model: "sonnet", effort: "medium" },
 			{ agent: "claude", model: "sonnet", effort: "low" },
 			{ agent: "claude", model: "sonnet", effort: "high" },
 			{ agent: "claude", model: "sonnet", effort: "high" },

@@ -132,6 +132,11 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 						<span className="flex items-center gap-2">
 							<StatusChip status={run.judge.pass ? "pass" : "fail"} />
 							{run.judge.reason}
+							{run.judge.judge !== undefined && (
+								<span className="text-muted-foreground text-xs">
+									judged by {run.judge.judge}
+								</span>
+							)}
 						</span>
 						{run.rubric !== null && (
 							<p className="text-muted-foreground text-xs">

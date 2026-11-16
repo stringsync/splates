@@ -48,6 +48,7 @@ import { cli } from "core/cmd";
 import { Duration } from "core/time";
 import { z } from "zod";
 import { splatesArtifact } from "./artifact";
+import { splatesBlocker } from "./blocker";
 import { blockerFlags } from "./blockers";
 import { splatesBoard } from "./board";
 import { splatesCreds } from "./creds";
@@ -55,6 +56,7 @@ import { splatesEvals } from "./evals";
 import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
+import { splatesShip } from "./legacy-ship";
 import { printMachine } from "./machine";
 import { runProgress } from "./progress";
 import { splatesProjects } from "./projects";
@@ -62,7 +64,7 @@ import { splatesQueue } from "./queue";
 import { splatesReplica } from "./replica";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
-import { splatesShip } from "./ship";
+import { splatesShips } from "./ships";
 import { splatesSlots } from "./slots";
 import { splatesTask } from "./task";
 import { splatesTunnel } from "./tunnel";
@@ -742,9 +744,11 @@ splates
 splates
 	.mount("artifact", splatesArtifact)
 	.mount("task", splatesTask)
+	.mount("blocker", splatesBlocker)
 	.mount("lane", splatesLane)
 	.mount("board", splatesBoard)
 	.mount("ship", splatesShip)
+	.mount("ships", splatesShips)
 	.mount("projects", splatesProjects)
 	.mount("creds", splatesCreds)
 	.mount("tunnel", splatesTunnel)

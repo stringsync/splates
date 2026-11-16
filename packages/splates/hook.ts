@@ -10,6 +10,7 @@ import {
 	hookPause,
 	hookRemove,
 	hookRun,
+	invokesNamed,
 	lanesNamed,
 	stagesNamed,
 	TASK_EVENTS,
@@ -55,6 +56,11 @@ splatesHook
 	.option("lane", z.string(), {
 		default: "",
 		description: "only for tasks in these lanes, by number, comma separated",
+	})
+	.option("invokes", z.string(), {
+		default: "",
+		description:
+			"run on only every Nth time the event matches, as 10 for every 10th task.done",
 	})
 	.option("every", z.string(), {
 		default: "",
@@ -124,6 +130,11 @@ splatesHook
 		default: "",
 		description:
 			"only for tasks in these lanes, by number, comma separated, or `any`",
+	})
+	.option("invokes", z.string(), {
+		default: "",
+		description:
+			"run on only every Nth time the event matches, as 10, or `any` for each",
 	})
 	.option("every", z.string(), {
 		default: "",
@@ -261,10 +272,10 @@ function triggerOf(opts: TriggerOptions): Trigger {
 		);
 	}
 	if (opts.event === undefined || opts.event === "") {
-		if (opts.stage !== "" || opts.lane !== "") {
+		if (opts.stage !== "" || opts.lane !== "" || opts.invokes !== "") {
 			fail(
 				"usage",
-				"--stage and --lane narrow a task event, not a schedule",
+				"--stage, --lane and --invokes narrow a task event, not a schedule",
 				{},
 			);
 		}
@@ -278,7 +289,11 @@ function triggerOf(opts: TriggerOptions): Trigger {
 		filter.lanes = lanesNamed(opts.lane);
 	}
 	const event = opts.event as TaskEventName;
-	return Object.keys(filter).length === 0 ? { event } : { event, filter };
+	const invokes =
+		opts.invokes === "" ? {} : { invokes: invokesNamed(opts.invokes) };
+	return Object.keys(filter).length === 0
+		? { event, ...invokes }
+		: { event, filter, ...invokes };
 }
 
 /** The options of `splates hook add` that say what sets it off. */
@@ -288,6 +303,7 @@ interface TriggerOptions {
 	cron: string;
 	stage: string;
 	lane: string;
+	invokes: string;
 }
 
 function storeOf(ctx: { storage: Storage }) {

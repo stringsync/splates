@@ -190,3 +190,25 @@ export function resumesItself(
 		deferralBlockers(task, all).every(cleared)
 	);
 }
+
+/**
+ * Whether the suspended task `task`, which kept its worktree when it added
+ * blockers, wakes its conversation by itself: each blocker has merged, none
+ * was lost.
+ */
+export function wakesItself(
+	task: TaskRecord,
+	all: readonly TaskRecord[],
+): boolean {
+	const deferred = task.deferred;
+	return (
+		deferred?.suspended === true &&
+		deferred.conversation !== undefined &&
+		task.takenBy !== null &&
+		task.blockedBy.length === 0 &&
+		(task.blockersLost ?? []).length === 0 &&
+		deferred.questions.length === 0 &&
+		deferred.outside.length === 0 &&
+		deferralBlockers(task, all).every(cleared)
+	);
+}

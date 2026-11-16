@@ -161,9 +161,11 @@ function triggerIn(raw: unknown): Trigger {
 		...(lanes.length === 0 ? {} : { lanes }),
 	};
 	const event = given.event as TaskEventName;
+	const invokes =
+		typeof given.invokes === "number" ? { invokes: given.invokes } : {};
 	return Object.keys(narrowed).length === 0
-		? { event }
-		: { event, filter: narrowed };
+		? { event, ...invokes }
+		: { event, filter: narrowed, ...invokes };
 }
 
 /** The agent a request sent a built-in automation to run as, refusing none. */

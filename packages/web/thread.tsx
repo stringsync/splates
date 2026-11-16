@@ -4,7 +4,6 @@ import type { TaskReport } from "@splates/server/plans";
 import { isEscalation } from "@splates/server/records/browser";
 import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import { ArchiveIcon, XIcon } from "lucide-react";
 import {
 	type JSX,
 	memo,
@@ -26,11 +25,13 @@ import {
 	ArchiveOfferProvider,
 	useArchiveOffer,
 } from "./archive-offer";
+import { ArchivedBanner } from "./archived-banner";
 import { toWaiting, useArrived } from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { BackgroundCard, BackgroundUI } from "./background";
+import { BlockedPanel } from "./blocked-panel";
 import { ReplyContext } from "./card-reply";
 import { useReply, useTyped } from "./composer-drafts";
 import {
@@ -46,10 +47,11 @@ import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
-import { bleed, ErrorBanner } from "./error-banner";
+import { ErrorBanner } from "./error-banner";
 import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
+import { FindingsUI } from "./findings-card";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
@@ -367,6 +369,7 @@ function Conversation({
 												<QuestionsUI />
 												<ReviewUI />
 												<ReportUI />
+												<FindingsUI />
 												<PermissionUI />
 												<DemoUI />
 												<WorkUI />
@@ -431,6 +434,9 @@ function Conversation({
 																							discard,
 																							busy: queueBusy,
 																						})}
+																					/>
+																					<BlockedPanel
+																						conversation={conversation}
 																					/>
 																					{conversation.ask !== null && (
 																						<AskPanel
@@ -503,40 +509,4 @@ function ended(conversation: ConversationState): TaskReport | null {
 				event.at > said && (isEscalation(event) || tierOf(event) === "loud"),
 		);
 	return movedOn ? null : report;
-}
-
-/**
- * Atop an archived conversation, across the pane's padding to its edges,
- * saying so and how it comes back.
- */
-function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element | null {
-	const [dismissed, setDismissed] = useState(false);
-	if (dismissed) {
-		return null;
-	}
-	return (
-		<p
-			role="status"
-			className={cn(
-				bleed(phone),
-				"flex shrink-0 items-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
-			)}
-		>
-			<ArchiveIcon className="size-4 shrink-0" />
-			<span className="min-w-0 flex-1">
-				<span className="font-medium text-foreground">
-					This conversation is archived.
-				</span>{" "}
-				Sending a message unarchives it.
-			</span>
-			<button
-				type="button"
-				aria-label="Dismiss"
-				onClick={() => setDismissed(true)}
-				className="-mr-2 ml-auto shrink-0 rounded-md p-1 active:bg-background"
-			>
-				<XIcon className="size-4" />
-			</button>
-		</p>
-	);
 }

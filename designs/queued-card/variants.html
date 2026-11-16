@@ -1,0 +1,123 @@
+<!doctype html><meta charset="utf-8"><title>Blocked card</title><style>
+:root{--radius:.625rem;--background:oklch(.968 .004 264);--foreground:oklch(.255 .014 264);
+--card:oklch(.993 .002 264);--muted:oklch(.928 .006 264);--muted-foreground:oklch(.52 .014 264);
+--brand:oklch(.32 .014 264);--brand-foreground:oklch(.97 .004 264);
+--accent:color-mix(in oklab,var(--brand) 12%,var(--card));
+--destructive:oklch(.577 .215 27.3);--success:oklch(.6 .15 152);--warning:oklch(.666 .157 58.3);--info:oklch(.588 .158 241.966);
+--border:oklch(.885 .007 264);--input:oklch(.86 .008 264)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:#d9dbe0;color:var(--foreground);
+ display:flex;gap:28px;padding:28px;align-items:flex-start;-webkit-font-smoothing:antialiased;font-size:14px}
+.col{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cap{font-weight:600;font-size:15px;color:oklch(.35 .01 264)}
+.phone{width:390px;height:844px;background:var(--background);border-radius:28px;overflow:hidden;position:relative;
+ display:flex;flex-direction:column;box-shadow:0 2px 12px rgb(0 0 0/.12)}
+.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);flex:none}
+.top .t{font-weight:600;font-size:16px;flex:1}
+.top .x{color:var(--muted-foreground);font-size:20px;width:24px;text-align:center}
+.body{flex:1;overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:12px}
+.foot{flex:none;padding:12px 16px 28px;border-top:1px solid var(--border);background:var(--background);display:flex;flex-direction:column;gap:8px}
+.btn{height:44px;border-radius:var(--radius);background:var(--brand);color:var(--brand-foreground);font-weight:600;
+ display:flex;align-items:center;justify-content:center;font-size:15px}
+.btn.ghost{background:transparent;color:var(--foreground);border:1px solid var(--input)}
+.btn.sm{height:32px;font-size:13px;padding:0 12px;font-weight:500}
+.btn.dis{opacity:.45}
+.row-btns{display:flex;gap:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.list>.it{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border)}
+.list>.it:first-child{border-top:0}
+.it .main{flex:1;min-width:0}
+.name{font-weight:600}
+.sub{color:var(--muted-foreground);font-size:12.5px;margin-top:2px}
+.cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--input);flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--brand-foreground)}
+.cb.on{background:var(--brand);border-color:var(--brand)}
+.cb.on::after{content:"✓";font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:8px;overflow:hidden;margin-top:8px}
+.seg span{padding:5px 14px;font-size:13px;color:var(--muted-foreground);border-left:1px solid var(--input)}
+.seg span:first-child{border-left:0}
+.seg span.on{background:var(--brand);color:var(--brand-foreground);font-weight:600}
+.pill{display:inline-flex;align-items:center;font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-weight:500;white-space:nowrap}
+.pill.warn{background:color-mix(in oklab,var(--warning) 18%,var(--card));color:oklch(.5 .13 58)}
+.pill.ok{background:color-mix(in oklab,var(--success) 16%,var(--card));color:oklch(.45 .12 152)}
+.pill.bad{background:color-mix(in oklab,var(--destructive) 14%,var(--card));color:var(--destructive)}
+.pill.run{background:color-mix(in oklab,var(--info) 14%,var(--card));color:oklch(.48 .14 241)}
+.h{font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em}
+.lead{font-size:13.5px;color:var(--muted-foreground);line-height:1.45}
+.stepper{display:flex;gap:6px;padding:10px 16px 0}
+.stepper div{flex:1;height:4px;border-radius:2px;background:var(--muted)}
+.stepper div.on{background:var(--brand)}
+.steplabels{display:flex;padding:6px 16px 0;font-size:11.5px;color:var(--muted-foreground)}
+.steplabels span{flex:1}
+.steplabels span.on{color:var(--foreground);font-weight:600}
+.ic{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.ic.done{background:var(--success);color:white}
+.ic.done::after{content:"✓"}
+.ic.fail{background:var(--destructive);color:white}
+.ic.fail::after{content:"!"}
+.ic.run{border:2.5px solid color-mix(in oklab,var(--info) 25%,transparent);border-top-color:var(--info)}
+.ic.wait{border:2px dashed var(--input)}
+.mono{font-family:"JetBrains Mono Variable",ui-monospace,Menlo,monospace;font-size:12px}
+.bar{height:6px;border-radius:3px;background:var(--muted);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--info);border-radius:3px}
+body{flex-wrap:wrap;width:1300px}
+.grid{display:grid;grid-template-columns:repeat(2,390px);gap:14px 28px}
+.sec{width:100%;font-size:17px;font-weight:700}
+.msg{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:12px 14px;font-size:14px;line-height:1.45}
+.msg.me{align-self:flex-end;background:var(--muted);max-width:85%}
+.dim{color:var(--muted-foreground)}
+.composer{margin:0 12px 24px;border:1px solid var(--input);border-radius:16px;padding:12px 14px;color:var(--muted-foreground);background:var(--card);font-size:14px;flex:none}
+.dotlive{width:8px;height:8px;border-radius:50%;background:var(--info);flex:none;animation:p 1.4s infinite}
+@keyframes p{50%{opacity:.3}}
+.log{background:oklch(.22 .014 264);color:oklch(.9 .01 264);border-radius:10px;padding:9px 11px;font-size:11.5px;line-height:1.55}
+.log .m{color:oklch(.7 .01 264)}
+.task{border:1px solid color-mix(in oklab,var(--foreground) 10%,transparent);background:var(--card);border-radius:16px;overflow:hidden}
+.task .hd{display:flex;gap:8px;align-items:center;padding:12px 16px 0;font-size:12px;color:var(--muted-foreground)}
+.task .hd b{font-weight:600}.task .hd .r{margin-left:auto}
+.task h2{font-size:16px;font-weight:600;padding:4px 16px 12px;line-height:1.3}
+.task .ft{border-top:1px solid color-mix(in oklab,var(--foreground) 10%,transparent);background:color-mix(in oklab,var(--muted) 40%,transparent);padding:9px 16px;font-size:12px;color:var(--muted-foreground);display:flex;gap:8px;align-items:center}
+.blk{border:1px solid color-mix(in oklab,var(--warning) 50%,transparent);background:color-mix(in oklab,var(--warning) 9%,var(--card));border-radius:16px;overflow:hidden}
+.blk .t{display:flex;gap:10px;align-items:center;padding:12px 14px 4px;font-weight:600;font-size:14px}
+.blk .t .w{color:var(--warning);font-size:16px}
+.blk .why{padding:0 14px 10px;font-size:13px;color:var(--muted-foreground)}
+.wr{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid color-mix(in oklab,var(--warning) 25%,transparent);background:color-mix(in oklab,var(--card) 70%,transparent)}
+.wr .main{flex:1;min-width:0}.wr .n{font-weight:600;font-size:13.5px}
+.wr .s{font-size:12px;color:var(--muted-foreground);margin-top:1px}
+.wr .id{font-size:12px;color:var(--muted-foreground)}
+.act{padding:10px 14px;border-top:1px solid color-mix(in oklab,var(--warning) 25%,transparent);display:flex;gap:8px}
+.chain{padding:6px 14px 12px}
+.ch{display:flex;gap:12px}
+.ch .rail{display:flex;flex-direction:column;align-items:center;width:22px}
+.ch .rail u{flex:1;width:2px;background:var(--input);margin:3px 0}
+.ch .c{flex:1;padding-bottom:12px;min-width:0}
+.hint{font-size:12px;color:var(--muted-foreground);margin-top:2px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);background:var(--card);border-radius:999px;padding:4px 10px;font-size:12.5px}
+.ctx{font-size:12px;color:var(--muted-foreground);text-align:center}
+</style>
+<body>
+<div class="sec">Blocked card · same card on a queued task’s page (left) and in a conversation queued but blocked (right)</div><div class="col" style="width:100%"><div class="cap">A · Rows</div><div class="grid"><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="task"><div class="hd"><b>#820</b><span>Phone</span><span class="pill">splates</span><span class="r pill warn">Blocked</span></div><h2>Dark mode for the phone inbox</h2><div class="ft"><span>👤</span>Any agent will pick this up</div></div><div class="blk"><div class="t"><span class="w">▲</span>This will not start yet</div><div class="why">It starts once both tasks below land.</div>
+<div class="wr"><span class="ic run" style="width:16px;height:16px;border-width:2.5px"></span><div class="main"><div class="n"><span class="id">#812</span> Phone swipe cue</div><div class="s">Editing phone-swipe.tsx</div><div class="bar" style="margin-top:6px"><i style="width:64%"></i></div></div><span class="pill run">running</span></div>
+<div class="wr"><span class="ic wait" style="width:16px;height:16px"></span><div class="main"><div class="n"><span class="id">#813</span> Inbox row menu</div><div class="s">2nd in line</div></div><span class="pill ok" style="background:var(--muted);color:var(--muted-foreground)">queued</span></div>
+<div class="wr"><span class="ic" style="width:16px;height:16px;border:2px solid var(--warning)"></span><div class="main"><div class="n"><span class="id">#814</span> Theme tokens</div><div class="s">Nobody has queued it</div></div><span class="pill warn">not queued</span></div>
+<div class="act"><div class="btn sm">＋ Queue #814</div></div></div></div><div class="composer">Add to this task before an agent takes it</div></div><div class="ctx">Queued task page</div></div><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="msg me">Add dark mode to the phone inbox</div><div class="msg"><b>Plan.</b> Rows, chips and the drawer follow the system theme; the sheets come after. I will start once the tasks below land.</div><div class="blk"><div class="t"><span class="w">▲</span>This will not start yet</div><div class="why">It starts once both tasks below land.</div>
+<div class="wr"><span class="ic run" style="width:16px;height:16px;border-width:2.5px"></span><div class="main"><div class="n"><span class="id">#812</span> Phone swipe cue</div><div class="s">Editing phone-swipe.tsx</div><div class="bar" style="margin-top:6px"><i style="width:64%"></i></div></div><span class="pill run">running</span></div>
+<div class="wr"><span class="ic wait" style="width:16px;height:16px"></span><div class="main"><div class="n"><span class="id">#813</span> Inbox row menu</div><div class="s">2nd in line</div></div><span class="pill ok" style="background:var(--muted);color:var(--muted-foreground)">queued</span></div>
+<div class="wr"><span class="ic" style="width:16px;height:16px;border:2px solid var(--warning)"></span><div class="main"><div class="n"><span class="id">#814</span> Theme tokens</div><div class="s">Nobody has queued it</div></div><span class="pill warn">not queued</span></div>
+<div class="act"><div class="btn sm">＋ Queue #814</div></div></div></div><div class="composer">Message the agent</div></div><div class="ctx">Conversation, queued but blocked</div></div></div></div><div class="col" style="width:100%"><div class="cap">B · Chain</div><div class="grid"><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="task"><div class="hd"><b>#820</b><span>Phone</span><span class="pill">splates</span><span class="r pill warn">Blocked</span></div><h2>Dark mode for the phone inbox</h2><div class="ft"><span>👤</span>Any agent will pick this up</div></div><div class="blk"><div class="t"><span class="w">▲</span>Waiting on 3 tasks · about 14 min</div><div class="chain">
+<div class="ch"><div class="rail"><span class="ic run" style="width:16px;height:16px;border-width:2.5px"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#812</span> Phone swipe cue <span class="pill run">64%</span></div><div class="log mono" style="margin-top:6px"><div class="m">12:41 Edit phone-swipe.tsx</div><div>12:42 Running tests…</div></div></div></div>
+<div class="ch"><div class="rail"><span class="ic wait" style="width:16px;height:16px"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#813</span> Inbox row menu</div><div class="hint">Starts after #812 · 2nd in line</div></div></div>
+<div class="ch"><div class="rail"><span class="ic" style="width:16px;height:16px;border:2px solid var(--warning)"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#814</span> Theme tokens <span class="pill warn">not queued</span></div><div class="hint">No agent will start it</div><div class="btn sm" style="width:fit-content;margin-top:6px">＋ Queue #814</div></div></div>
+<div class="ch"><div class="rail"><span class="ic wait" style="width:16px;height:16px;border-style:solid;border-color:var(--foreground)"></span></div><div class="c" style="padding-bottom:0"><div class="n" style="font-weight:600;font-size:13.5px">Then this task, #820</div></div></div>
+</div></div></div><div class="composer">Add to this task before an agent takes it</div></div><div class="ctx">Queued task page</div></div><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="msg me">Add dark mode to the phone inbox</div><div class="msg"><b>Plan.</b> Rows, chips and the drawer follow the system theme; the sheets come after. I will start once the tasks below land.</div><div class="blk"><div class="t"><span class="w">▲</span>Waiting on 3 tasks · about 14 min</div><div class="chain">
+<div class="ch"><div class="rail"><span class="ic run" style="width:16px;height:16px;border-width:2.5px"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#812</span> Phone swipe cue <span class="pill run">64%</span></div><div class="log mono" style="margin-top:6px"><div class="m">12:41 Edit phone-swipe.tsx</div><div>12:42 Running tests…</div></div></div></div>
+<div class="ch"><div class="rail"><span class="ic wait" style="width:16px;height:16px"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#813</span> Inbox row menu</div><div class="hint">Starts after #812 · 2nd in line</div></div></div>
+<div class="ch"><div class="rail"><span class="ic" style="width:16px;height:16px;border:2px solid var(--warning)"></span><u></u></div><div class="c"><div class="n" style="font-weight:600;font-size:13.5px"><span class="id dim">#814</span> Theme tokens <span class="pill warn">not queued</span></div><div class="hint">No agent will start it</div><div class="btn sm" style="width:fit-content;margin-top:6px">＋ Queue #814</div></div></div>
+<div class="ch"><div class="rail"><span class="ic wait" style="width:16px;height:16px;border-style:solid;border-color:var(--foreground)"></span></div><div class="c" style="padding-bottom:0"><div class="n" style="font-weight:600;font-size:13.5px">Then this task, #820</div></div></div>
+</div></div></div><div class="composer">Message the agent</div></div><div class="ctx">Conversation, queued but blocked</div></div></div></div><div class="col" style="width:100%"><div class="cap">C · Live peek</div><div class="grid"><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="task"><div class="hd"><b>#820</b><span>Phone</span><span class="pill">splates</span><span class="r pill warn">Blocked</span></div><h2>Dark mode for the phone inbox</h2><div class="ft"><span>👤</span>Any agent will pick this up</div></div><div class="blk"><div class="t"><span class="w">▲</span>Blocked by 3 tasks</div><div class="why">Live from #812, the one running now.</div>
+<div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:8px"><span class="dotlive"></span><b style="font-size:13.5px">#812 Phone swipe cue</b><span class="pill run" style="margin-left:auto">64%</span></div><div class="bar"><i style="width:64%"></i></div>
+<div class="log mono"><div class="m">12:41 Read phone-swipe.tsx</div><div class="m">12:41 Edit phone-swipe.tsx</div><div>12:42 Running tests…</div></div></div>
+<div class="wr"><div class="main" style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">#813 queued</span><span class="chip" style="border-color:var(--warning)">#814 not queued</span></div></div>
+<div class="act"><div class="btn sm">＋ Queue #814</div><div class="btn ghost sm">Open #812 ↗</div></div></div></div><div class="composer">Add to this task before an agent takes it</div></div><div class="ctx">Queued task page</div></div><div class="col"><div class="phone"><div class="top"><span class="x">‹</span><span class="t" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dark mode for the phone inbox</span><span class="dim" style="font-size:13px">Unqueue</span></div><div class="body" style="overflow:hidden"><div class="msg me">Add dark mode to the phone inbox</div><div class="msg"><b>Plan.</b> Rows, chips and the drawer follow the system theme; the sheets come after. I will start once the tasks below land.</div><div class="blk"><div class="t"><span class="w">▲</span>Blocked by 3 tasks</div><div class="why">Live from #812, the one running now.</div>
+<div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;align-items:center;gap:8px"><span class="dotlive"></span><b style="font-size:13.5px">#812 Phone swipe cue</b><span class="pill run" style="margin-left:auto">64%</span></div><div class="bar"><i style="width:64%"></i></div>
+<div class="log mono"><div class="m">12:41 Read phone-swipe.tsx</div><div class="m">12:41 Edit phone-swipe.tsx</div><div>12:42 Running tests…</div></div></div>
+<div class="wr"><div class="main" style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip">#813 queued</span><span class="chip" style="border-color:var(--warning)">#814 not queued</span></div></div>
+<div class="act"><div class="btn sm">＋ Queue #814</div><div class="btn ghost sm">Open #812 ↗</div></div></div></div><div class="composer">Message the agent</div></div><div class="ctx">Conversation, queued but blocked</div></div></div></div></body>

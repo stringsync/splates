@@ -15,6 +15,7 @@ import { IndexedPageCopies } from "./page-copies";
 import { PageCopy } from "./page-copy";
 import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
+import { SHIP_RUN_PREVIEW, ShipRunPreview } from "./ship-run-preview";
 
 const root = document.getElementById("root");
 if (root === null) {
@@ -101,7 +102,11 @@ const everywhere = new EverywhereFeed({
 });
 
 createRoot(root).render(
-	location.hash === EVENTS_PREVIEW ? (
+	location.hash === SHIP_RUN_PREVIEW ? (
+		<StrictMode>
+			<ShipRunPreview />
+		</StrictMode>
+	) : location.hash === EVENTS_PREVIEW ? (
 		<StrictMode>
 			<EventsPreview settings={settings} />
 		</StrictMode>

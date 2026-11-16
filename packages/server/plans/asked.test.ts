@@ -153,7 +153,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's deferred report as its own ending", async () => {
-		const deferred = await skillExample("## ⏸ Deferred");
+		const deferred = await skillExample("## ⏸ Blocked");
 
 		expect(stretches(deferred)[0]).toMatchObject({
 			report: {
@@ -341,6 +341,44 @@ describe("stretches", () => {
 				},
 			},
 		]);
+	});
+
+	it("reads a ship permission with its targets, bumps and why", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: ship: release the slur fix",
+				"",
+				"- `@stringsync/mdom` minor",
+				"- `@stringsync/vexml`",
+				"",
+				"mdom's slur fix is unreleased; vexml takes it.",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "permission",
+				permission: {
+					action: "ship",
+					lane: null,
+					tasks: [],
+					title: "release the slur fix",
+					body: "mdom's slur fix is unreleased; vexml takes it.",
+					ship: {
+						picks: [
+							{ name: "@stringsync/mdom", bump: "minor" },
+							{ name: "@stringsync/vexml" },
+						],
+					},
+				},
+			},
+		]);
+	});
+
+	it("reads `ship wren` as no ship card", () => {
+		const found = stretches("## 🔐 Permission: ship wren\n\nNow.");
+
+		expect(found.some((each) => each.type === "permission")).toBe(false);
 	});
 
 	it("reads a run evals permission with its scenarios and baseline", () => {

@@ -277,6 +277,64 @@ export class Task {
 	}
 
 	/**
+	 * Adds the tasks in `blockedBy` as blockers of the work of `task`, which
+	 * keeps its worktree, and suspends its `conversation` until they merge.
+	 */
+	async suspend({
+		blockedBy,
+		task,
+		conversation,
+	}: {
+		blockedBy: number[];
+		task: string;
+		conversation?: string;
+	}): Promise<Task> {
+		const ids = [...new Set(blockedBy)];
+		const named = await Promise.all(ids.map((id) => this.tasks.find(id)));
+		const add = ids.filter((id) => !this.blockedBy.includes(id));
+		if (add.length > 0) {
+			await this.tasks.link(this.id, { add });
+		}
+		return this.tasks.revise(this.id, (state) => {
+			const before = state.deferred;
+			const known = before?.tasks ?? [];
+			const deferred: Deferral = {
+				why: before?.why ?? "waiting on tasks to merge",
+				at: new Date().toISOString(),
+				task,
+				...(conversation === undefined
+					? before?.conversation === undefined
+						? {}
+						: { conversation: before.conversation }
+					: { conversation }),
+				tasks: [
+					...known.filter(
+						(each) =>
+							each.project !== undefined ||
+							!named.some(({ id }) => id === each.id),
+					),
+					...named.map(({ id, subject }) => ({ id, subject })),
+				],
+				questions: before?.questions ?? [],
+				outside: before?.outside ?? [],
+				suspended: true,
+			};
+			return { ...state, deferred };
+		});
+	}
+
+	/** Ends a suspension, because its conversation went on or was woken. */
+	async wake(): Promise<Task> {
+		return this.tasks.revise(this.id, (state) => {
+			if (state.deferred?.suspended === undefined) {
+				return state;
+			}
+			const { suspended: _, ...rest } = state.deferred;
+			return { ...state, deferred: rest };
+		});
+	}
+
+	/**
 	 * Records the person's answer to question `index` of its deferral, adding
 	 * it to its detail for whoever takes it next.
 	 */
@@ -395,9 +453,8 @@ export interface TaskRecord {
 	 */
 	scope?: string;
 	/**
-	 * The tags grouping it, which the task that takes it inherits; absent for
-	 * none. Kept as `labels` because `tags` is the field lanes replaced,
-	 * which a record is refused for.
+	 * The tags that group it, passed on to the task that takes it; absent for
+	 * none.
 	 */
 	labels?: string[];
 	/**
@@ -407,8 +464,8 @@ export interface TaskRecord {
 	blockersLanded?: LandedBlocker[];
 	/**
 	 * Tasks it was blocked by that were removed without merging. While any
-	 * is here, nothing starts it on its own: whether it still makes sense is
-	 * the person's call, made by unlinking each. Absent for none.
+	 * is here, nothing starts it on its own; unlink each to let it go on.
+	 * Absent for none.
 	 */
 	blockersLost?: GoneBlocker[];
 	/**

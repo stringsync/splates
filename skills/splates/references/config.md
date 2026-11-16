@@ -44,10 +44,9 @@ in the splates repository) documents each one, and its defaults are in
 | `queueLoad`    | `1.5`   | Load per core that holds starts when CPU is also at least 80%. CPU or memory at 90% also holds starts; they resume after ten seconds below 80% CPU and 85% memory, checked every five seconds. Tasks the user starts by hand are never held. `null` never holds. |
 | `preLock`      | `null`  | After the first rebase, before the merge waits for the premerge lock: a quick check that needs neither the lock nor the cores. A nonzero exit fails the gate. `preMerge` then gets `$SPLATES_CHECKED`, the commit it passed on, to skip what it covered. |
 | `preMerge`     | `null`  | The last gate, after the rebase: a nonzero exit leaves the base untouched. `null` merges on a clean rebase alone. Writing a JUnit report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test over 5 seconds, and from Bun charges an attempt only for failures the task caused. |
-| `ship`         | `null`  | What the publish runner runs from the root to publish the project's packages at their next version and commit and tag the release on trunk. `null` never ships it. Only the user ships. |
-| `shipStatus` | `null` | A read-only command in the main tree printing JSON `{ "version": "1.2.3", "artifacts": [{ "name": "npm", "deployed": "1.2.3" }, { "name": "git", "deployed": null }] }`. Every artifact must match the requested release before a ship step proceeds. Null reads npm latest for every public package. Failed commands and invalid replies are errors, retried by the step. |
+| `ship`         | `null`  | What the ship runner runs from the root to ship the project: publish its packages at their next version and tag the release on trunk, or, for a deploy target (see `legacyShips`), put it out with no version. `null` never ships it. Only the user ships. |
 | `afterBump` | `null` | A command for consumers to run after installing this project’s new versions, such as `"bunx @stringsync/splates refresh"`. Retained for ship-step adoption; the old cascade no longer runs bump tasks. |
-| `ships` | `null` | `{ name: { packages \| deploys, ship, shipStatus?, afterBump? } }`: the ship targets of a repository that holds several, each shipped by its own command. Unlike `projects` it splits no tasks, queues or gates. A target names what it ships with exactly one of `packages: ["@scope/name"]` (an npm target: its version is those packages', its files they and the workspace packages they depend on) or `deploys: ["@scope/web"]` (a versionless deploy target: its `shipStatus` prints the commit deployed, and what is unshipped is the commits since it touching those packages and their workspace dependencies; the Ships page shows it by commits, with no bump picker). `shipStatus` and `afterBump` fall back to the repository's. An empty name, a target with no names, or one naming both kinds is refused; targets may overlap. With none, the repository has no ship targets: nothing is found by path. |
+| `legacyShips` (read as `ships` when absent) | `null` | `{ name: { ship, dependencies?: ["other-target"] } }`: commands implementing the core/legacy-ship ShipCommand contract (`plan --json`, `status --json`, and run). `dependencies` names targets that ship, or are already current, before this one (the page pulls them in and locks them, and leaves out one already current), forming a tree; unknown names and cycles are refused. `needs` and `after` are refused: rename them to `dependencies`. The command owns identity, inputs, steps, source paths and live evidence. Unsupported commands are refused with adoption guidance. Versioned plans declare step packages; deploy plans declare repository-relative literal source paths for unshipped counts. With none, there are no ship targets. |
 
 ## Task events
 
@@ -81,8 +80,8 @@ export default {
 
 - `projects` maps a slug to the globs, relative to the repository root, that
   project owns. A path belongs to the first project whose glob matches it.
-  A slug may instead map to `{ paths: [...], ship, shipStatus, afterBump }`:
-  the project's own `ship`, `shipStatus` and `afterBump` (`null` included),
+  A slug may instead map to `{ paths: [...], ship, afterBump }`:
+  the project's own `ship` and `afterBump` (`null` included),
   each falling back to the repository's when left out.
 - `shared` lists paths every project uses, such as the lockfile or root
   tooling. A change to them counts against no project.

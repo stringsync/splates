@@ -1,6 +1,6 @@
 {
 	"name": "@stringsync/splates",
-	"version": "2.0.11",
+	"version": "2.0.12",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "stringsync LLC",
@@ -18,8 +18,7 @@
 	},
 	"exports": {
 		".": "./index.ts",
-		"./config": "./config.ts",
-		"./mirror": "./mirror.ts"
+		"./config": "./config.ts"
 	},
 	"engines": {
 		"bun": ">=1.3"

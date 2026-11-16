@@ -147,9 +147,9 @@ describe("App's terminal", () => {
 		const pane = view.getByRole("complementary", { name: "terminal" });
 		const [shell] = testing.shells;
 		expect(shell?.task).toBeNull();
-		// Keyed by this tab and the conversation, so the server keeps it for them.
+		// Keyed by the conversation alone, so any page finds it again.
 		expect(shell?.url).toMatch(
-			/\/api\/terminal\?cols=\d+&rows=\d+&terminal=[\w-]+%2Fc1$/,
+			/\/api\/terminal\?cols=\d+&rows=\d+&terminal=c1$/,
 		);
 		expect(within(pane).getByRole("status").textContent).toBe("Connecting");
 

@@ -5,6 +5,8 @@ import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
+import { hasActiveShip } from "./legacy-ship-activity";
+import { useAcknowledged } from "./legacy-ship-recap-seen";
 import { useMachine } from "./machine";
 import { OrphansDot } from "./orphans";
 import type { Move } from "./page-address";
@@ -12,8 +14,7 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
-import { hasActiveShip } from "./ship-activity";
-import { useAcknowledged } from "./ship-recap-seen";
+import { useShipsWaiting } from "./use-ships-waiting";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -66,10 +67,10 @@ export function Drawer({
 			home(page, conversation) || home(to, open) ? "push" : "replace",
 		);
 		// With a ship under way, Ship opens it rather than the planner.
-		if (to === "ships" && hasActiveShip(ship, acknowledged)) {
+		if (to === "legacy-ships" && hasActiveShip(ship, acknowledged)) {
 			// After the move to the planner above, which would otherwise win.
 			queueMicrotask(() => {
-				location.hash = "ships/active";
+				location.hash = "legacy-ships/active";
 			});
 		}
 		onOpenChange(false);
@@ -77,10 +78,12 @@ export function Drawer({
 	const requested =
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	const [adding, setAdding] = useState(false);
+	const asking = useShipsWaiting().length;
 	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}
 			current={navPage(page) === value}
+			{...(value === "ships" && { count: asking, urgent: true })}
 			onClick={() => go(value)}
 			icon={
 				<span className="relative flex">

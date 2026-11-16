@@ -7,8 +7,8 @@ import { cleanup, fireEvent, render, waitFor } from "./testing-library";
 describe("Board index and board header", () => {
 	afterEach(cleanup);
 	const boards: BoardRecord[] = [
-		{ id: 1, name: "Default", position: 1, archived: false },
-		{ id: 2, name: "Website", position: 2, archived: false },
+		{ id: 1, name: "Default", position: 1 },
+		{ id: 2, name: "Website", position: 2 },
 	];
 	const renamed: string[] = [];
 	const actions: BoardActions = {
@@ -16,7 +16,6 @@ describe("Board index and board header", () => {
 		renameBoard: async (id, name) => {
 			renamed.push(`${id}: ${name}`);
 		},
-		archiveBoard: async () => {},
 		dropBoard: async () => {},
 		moveBoard: async () => {},
 		moveLaneToBoard: async () => {},

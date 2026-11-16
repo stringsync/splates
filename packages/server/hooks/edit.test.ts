@@ -28,6 +28,32 @@ describe("changed", () => {
 		).toThrow("one of them");
 	});
 
+	it("sets an event to run on every Nth match, `any` taking that away", () => {
+		expect(changed(NOTIFY, { ...NONE, invokes: "10" }).trigger).toEqual({
+			event: "task.created",
+			filter: { stages: ["available"] },
+			invokes: 10,
+		});
+		const counted: Automation = {
+			...NOTIFY,
+			trigger: { event: "task.done", invokes: 10 },
+		};
+		expect(changed(counted, { ...NONE, lane: "2" }).trigger).toEqual({
+			event: "task.done",
+			filter: { lanes: [2] },
+			invokes: 10,
+		});
+		expect(changed(counted, { ...NONE, invokes: "any" }).trigger).toEqual({
+			event: "task.done",
+		});
+		expect(() => changed(NOTIFY, { ...NONE, invokes: "0" })).toThrow(
+			"no count",
+		);
+		expect(() =>
+			changed(NOTIFY, { ...NONE, every: "1h", invokes: "3" }),
+		).toThrow("not a schedule");
+	});
+
 	it("changes an agent's prompt or agent, keeping the other", () => {
 		expect(changed(NOTIFY, { ...NONE, prompt: "say bye" }).hook).toEqual({
 			kind: "agent",
@@ -60,6 +86,7 @@ const NONE: HookChange = {
 	cron: "",
 	stage: "",
 	lane: "",
+	invokes: "",
 	prompt: "",
 	run: "",
 };

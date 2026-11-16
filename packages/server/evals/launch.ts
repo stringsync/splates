@@ -428,6 +428,8 @@ export interface EvalLaunchSpec {
 	baseline: string | null;
 	/** Runs of each cell; the runner's own default when absent. */
 	reps?: number;
+	/** The judge, as `claude:<model>[@<effort>]`; the runner's own default when absent. */
+	judge?: string;
 	/** The conversation whose card it is, told once it is done; null for none. */
 	conversation?: string | null;
 	/** Where the commands run, the conversation's task worktree; the project's root when null. */
@@ -490,6 +492,7 @@ function envOf(
 		...(spec.reps === undefined
 			? {}
 			: { SPLATES_EVALS_REPS: String(spec.reps) }),
+		...(spec.judge === undefined ? {} : { SPLATES_EVALS_JUDGE: spec.judge }),
 		...(spec.baseline === null
 			? {}
 			: { SPLATES_EVALS_BASELINE: spec.baseline }),

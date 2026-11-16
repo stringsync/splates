@@ -1,5 +1,6 @@
 import { Exit, fail } from "../exit";
-import type { Connection, Served } from "../server/shared";
+import { body, eventStream } from "../server/http";
+import type { Connection, EventSink, Served } from "../server/shared";
 import { type HostGate, refuse } from "../server/shared";
 import { TerminalConnection } from "./connection";
 import { type KeptShell, MAX_SIZE, Shell, type ShellHost } from "./shell";
@@ -17,12 +18,15 @@ export interface TerminalProjects {
 /**
  * The shells a page opens over `/api/terminal`, each in the main tree or a
  * task's worktree. Open one with `?terminal=<key>` to come back to it by
- * that key after a reload or a restart of `splates server`; `handOver` and
- * `takeBack` carry keyed shells across the restart, and `disposeAsync`
- * hangs up on them all.
+ * that key after a reload or a restart of `splates server`, from any page:
+ * a keyed shell belongs to its project, not to the page that made it, so
+ * `list` says which are up, `name` names one for every page, and `events`
+ * tells the pages when any of that changes. `handOver` and `takeBack` carry
+ * keyed shells across the restart, and `disposeAsync` hangs up on them all.
  */
 export class Terminals {
 	private readonly shells = new Set<Shell>();
+	private readonly pages = new Set<EventSink>();
 
 	constructor(
 		private readonly gate: HostGate,
@@ -37,13 +41,20 @@ export class Terminals {
 	 * to come back; before the worker joins, whose hello says which it kept.
 	 */
 	takeBack(kept: KeptShell[]): void {
-		for (const { key, handle } of kept) {
+		for (const { key, handle, name } of kept) {
 			const shell = new Shell(
 				key,
 				this.worker.resumePty(handle),
 				this.worker,
-				(gone) => this.shells.delete(gone),
+				(gone) => this.dropped(gone),
 			);
+			// A key from before shells were shared names a browser tab, which
+			// no page finds again.
+			if (!key.includes(SEPARATOR)) {
+				void shell.disposeAsync();
+				continue;
+			}
+			shell.name = name ?? null;
 			this.shells.add(shell);
 		}
 	}
@@ -84,7 +95,9 @@ export class Terminals {
 					fail("not_found", "terminals are off", {});
 				}
 				const params = new URL(request.url).searchParams;
-				const key = params.get("terminal");
+				const page = params.get("terminal");
+				const key =
+					page === null ? null : shellKey(params.get("project"), page);
 				const back = [...this.shells].find(
 					(each) => key !== null && each.key === key,
 				);
@@ -109,9 +122,10 @@ export class Terminals {
 						rows: dimension(params.get("rows"), 24),
 					}),
 					this.worker,
-					(gone) => this.shells.delete(gone),
+					(gone) => this.dropped(gone),
 				);
 				this.shells.add(shell);
+				this.changed(shell.key);
 				// Bun answers an upgrade itself, so there is nothing to return.
 				if (
 					server.upgrade(request, {
@@ -128,6 +142,66 @@ export class Terminals {
 				);
 			}),
 		)(request);
+
+	/** The keyed shells of the project `request` names, which any page may show. */
+	readonly list = (request: Request) =>
+		this.gate.local(
+			this.gate.guarded(async (request): Promise<Response> => {
+				const project = new URL(request.url).searchParams.get("project");
+				const terminals = [...this.shells].flatMap((shell) => {
+					const key = shell.key === null ? null : pageKey(project, shell.key);
+					return key === null ? [] : [{ key, name: shell.name }];
+				});
+				return Response.json({ terminals });
+			}),
+		)(request);
+
+	/** The stream that says a project's terminals changed, for the pages to list again. */
+	readonly events = (request: Request) =>
+		this.gate.local(this.gate.guarded(async () => eventStream(this.pages)))(
+			request,
+		);
+
+	/** Names a terminal for every page, or, given a blank name, goes back to its default. */
+	readonly rename = (request: Request) =>
+		this.gate.local(
+			this.gate.guarded(async (request): Promise<Response> => {
+				const project = new URL(request.url).searchParams.get("project");
+				const { key, name } = await body(request);
+				if (typeof key !== "string" || typeof name !== "string") {
+					return refuse(400, "usage", "a name needs a key and a name");
+				}
+				const wanted = shellKey(project, key);
+				const shell = [...this.shells].find((each) => each.key === wanted);
+				if (shell === undefined) {
+					return refuse(404, "not_found", "no such terminal");
+				}
+				shell.name = name.trim() === "" ? null : name.trim();
+				this.changed(wanted);
+				return Response.json({});
+			}),
+		)(request);
+
+	/** Drops a shell that is gone, and says so. */
+	private dropped(shell: Shell): void {
+		if (this.shells.delete(shell)) {
+			this.changed(shell.key);
+		}
+	}
+
+	/** Tells every page the terminals of `key`'s project changed. */
+	private changed(key: string | null): void {
+		if (key === null || !key.includes(SEPARATOR)) {
+			return;
+		}
+		const project = key.slice(0, key.indexOf(SEPARATOR));
+		const bytes = new TextEncoder().encode(
+			`event: terminals\ndata: ${JSON.stringify({ project })}\n\n`,
+		);
+		for (const sink of this.pages) {
+			sink.enqueue(bytes);
+		}
+	}
 
 	/**
 	 * Where a new shell for `request` starts: the tree it names in its
@@ -154,6 +228,20 @@ export class Terminals {
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.shells].map((shell) => shell.disposeAsync()));
 	}
+}
+
+/** Between a shell's project and the key its pages know it by. */
+const SEPARATOR = "|";
+
+/** The key a shell of `project` goes by on the server, for the `key` its pages use. */
+function shellKey(project: string | null, key: string): string {
+	return `${project ?? ""}${SEPARATOR}${key}`;
+}
+
+/** The key pages use for a shell keyed `key` on the server, or null when it is another project's. */
+function pageKey(project: string | null, key: string): string | null {
+	const prefix = `${project ?? ""}${SEPARATOR}`;
+	return key.startsWith(prefix) ? key.slice(prefix.length) : null;
 }
 
 /** A terminal's size as the page asked for it, or `fallback` for nonsense. */

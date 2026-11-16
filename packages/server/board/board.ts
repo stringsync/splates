@@ -28,12 +28,11 @@ export async function boardList(
 	}
 	log.info(
 		table(
-			["BOARD", "NAME", "LANES", "ARCHIVED"],
+			["BOARD", "NAME", "LANES"],
 			boards.map((board) => [
 				String(board.id),
 				board.name,
 				(lanes.get(board.id) ?? []).map((lane) => lane.id).join(","),
-				board.archived ? "yes" : "",
 			]),
 		),
 	);
@@ -53,7 +52,7 @@ export async function boardShow(
 	}
 	log.info(
 		[
-			`${color.bold(`board ${id}`)} ${board.name}${board.archived ? " (archived)" : ""}: ${lanes.length} lane${lanes.length === 1 ? "" : "s"}`,
+			`${color.bold(`board ${id}`)} ${board.name}: ${lanes.length} lane${lanes.length === 1 ? "" : "s"}`,
 			...lanes.map((lane, i) => `  ${i + 1}. lane ${lane.id} ${lane.name}`),
 		].join("\n"),
 	);
@@ -74,7 +73,6 @@ function boardJson(board: BoardRecord, lanes: LaneRecord[]) {
 		board: board.id,
 		name: board.name,
 		position: board.position,
-		archived: board.archived,
 		lanes: lanes.map((lane) => lane.id),
 	};
 }
@@ -111,23 +109,21 @@ export interface BoardUpdateOptions {
 	name?: string;
 	/** Where it goes among the boards, 1 the first. */
 	position?: number;
-	/** Put it away (true) or bring it back (false). */
-	archived?: boolean;
 }
 
 /**
- * Renames a board, moves it among the others, or archives or restores it.
+ * Renames a board or moves it among the others.
  * Returns the facts of a rename, the one change the journal records.
  */
 export async function boardUpdate(
 	{ tasks, log }: Deps,
 	id: number,
-	{ name, position, archived }: BoardUpdateOptions,
+	{ name, position }: BoardUpdateOptions,
 ): Promise<BoardRecord> {
-	if (name === undefined && position === undefined && archived === undefined) {
+	if (name === undefined && position === undefined) {
 		fail(
 			"usage",
-			"nothing to change: pass `--name <name>`, `--position <n>`, `--archived` or `--no-archived`",
+			"nothing to change: pass `--name <name>` or `--position <n>`",
 			{ board: id },
 		);
 	}
@@ -135,17 +131,13 @@ export async function boardUpdate(
 	if (name !== undefined) {
 		await tasks.renameBoard(id, name);
 	}
-	if (archived !== undefined) {
-		const lifecycle = new BoardLifecycle(tasks);
-		await (archived ? lifecycle.archive(id) : lifecycle.restore(id));
-	}
 	if (position !== undefined) {
 		await tasks.moveBoard(id, position);
 	}
 	const board = await found(tasks, id);
 	log.info(
 		[
-			`${color.green("updated")} board ${id}: ${board.name}${board.archived ? " (archived)" : ""}`,
+			`${color.green("updated")} board ${id}: ${board.name}`,
 			`  boards in order: ${(await tasks.boards()).map((each) => `${each.id} ${each.name}`).join(", ")}`,
 		].join("\n"),
 	);

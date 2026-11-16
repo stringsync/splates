@@ -288,3 +288,13 @@ describe("Markdown", () => {
 });
 
 const PROJECTS = [{ slug: "wren" }, { slug: "vexml" }];
+
+describe("Markdown fences", () => {
+	it("draws a d2 fence as a diagram and leaves other fences as code", () => {
+		const d2 = render(<Markdown text={"```d2\na -> b\n```"} />);
+		expect(d2.container.querySelector("pre.border")).not.toBeNull();
+		const ts = render(<Markdown text={"```ts\nlet a\n```"} />);
+		expect(ts.container.querySelectorAll("pre.border")).toHaveLength(0);
+		expect(ts.container.querySelector("pre")).not.toBeNull();
+	});
+});

@@ -6,7 +6,6 @@ import { isBlocked } from "@splates/server/queue/browser";
 import {
 	CircleAlertIcon,
 	ClockIcon,
-	GripVerticalIcon,
 	HourglassIcon,
 	type LucideIcon,
 	PaperclipIcon,
@@ -45,10 +44,11 @@ export interface CardProps {
 	/** Its place in its lane, 1 at the top, when it is in one. */
 	step?: number;
 	pointer?: HTMLAttributes<HTMLElement>;
+	/** The title's keyboard handle for a drag, which the card as a whole has no need of. */
 	grip?: HTMLAttributes<HTMLButtonElement> & {
 		ref?: (element: HTMLElement | null) => void;
 	};
-	/** On the Queue board: names its lane on a chip, without its detail, and draws no grip since it stays put. */
+	/** On the Queue board: names its lane on a chip, without its detail, and cannot be dragged since it stays put. */
 	listed?: boolean;
 	/** A fact the card's list adds to its line, as how long it has waited. */
 	detail?: ReactNode;
@@ -140,8 +140,7 @@ export function Card({
 		<div
 			{...pointer}
 			className={cn(
-				// A pointer, since a tap opens it; a drag from anywhere still moves
-				// it, and the grip says so with its own cursor.
+				// A pointer, since a tap opens it; a drag from anywhere still moves it.
 				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
 				// Queued, waiting for an agent, or at work, it stands out from the
 				// rest of its lane in the same way.
@@ -170,13 +169,17 @@ export function Card({
 				    buttons on top of it keep their own. */}
 				<button
 					type="button"
+					{...grip}
 					onClick={() => board.open(todo.id)}
 					className="cursor-pointer text-left font-medium text-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
 				>
 					{todo.subject}
 				</button>
 				{todo.ship !== undefined && (
-					<a href="#ships" className="relative text-muted-foreground text-xs">
+					<a
+						href="#legacy-ships"
+						className="relative text-muted-foreground text-xs"
+					>
 						Ship’s task
 					</a>
 				)}
@@ -246,21 +249,9 @@ export function Card({
 				</span>
 				<Refusal refusal={board.refusedTodos.get(todo.id)} />
 			</div>
-			{listed ? (
-				<span aria-hidden className="w-7 pointer-coarse:w-10 shrink-0" />
-			) : (
-				<button
-					type="button"
-					{...grip}
-					aria-label={`move ${todo.subject}`}
-					// Shown on a touch screen, which has no hover to bring it out.
-					className="relative flex w-7 pointer-coarse:w-10 shrink-0 cursor-grab items-center active:cursor-grabbing justify-center rounded-r-lg text-muted-foreground opacity-0 pointer-coarse:opacity-60 outline-none group-hover:opacity-60 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-				>
-					<GripVerticalIcon className="size-4" />
-				</button>
-			)}
+			<span aria-hidden className="w-7 pointer-coarse:w-10 shrink-0" />
 			{/* An agent at work spins in the top right, on every card the same
-			    place, in the grip's column so the subject keeps its width; a
+			    place, in the column at its right so the subject keeps its width; a
 			    queued card free to start waits there for one. */}
 			{(todo.takenBy || (held && !listed)) && (
 				<OnIt

@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { Disposer, disposables, type Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { scoped } from "./api";
+import { switchToPageFont, TERMINAL_FONT } from "./terminal-font";
 
 export type BackgroundOutputEvents = { changed: undefined };
 
@@ -10,8 +11,8 @@ export type BackgroundOutputEvents = { changed: undefined };
 export type BackgroundOutputStatus = "connecting" | "open" | "ended" | "closed";
 
 /**
- * What a background command printed, read from the server as it prints it
- * and drawn by xterm.js, which takes no keys: only the agent writes to it.
+ * What a background command printed, shown as it prints. It takes no keys:
+ * only the agent writes to it.
  */
 export class BackgroundOutput
 	implements Eventful<BackgroundOutputEvents>, Resource
@@ -32,7 +33,7 @@ export class BackgroundOutput
 		// A file of output has bare new lines, which a terminal would leave
 		// at the column they ended on.
 		convertEol: true,
-		fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+		fontFamily: TERMINAL_FONT,
 		fontSize: 13,
 		theme: { background: "#0a0a0a" },
 	});
@@ -63,6 +64,7 @@ export class BackgroundOutput
 		if (this.terminal.element === undefined) {
 			this.terminal.open(this.element);
 			this.fitted();
+			void switchToPageFont(this.terminal).then(() => this.fitted());
 			if (this.command !== null) {
 				this.terminal.write(`$ ${this.command}\n`);
 			}

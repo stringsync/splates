@@ -8,7 +8,7 @@ export function laneReference(id: number): string {
 	return `[SPLATES LANE ${id}]`;
 }
 
-/** The lane name that old `[SPLATES LANE untriaged]` lines in saved conversation logs carry. */
+/** Read as the Backlog lane where an old saved conversation says `[SPLATES LANE untriaged]`. */
 export const UNTRIAGED = "untriaged";
 
 /**
@@ -120,7 +120,7 @@ export function shipFailureReference(ship: {
 		ship.stage === null
 			? `\`${ship.project}\``
 			: `the \`${ship.stage}\` stage of \`${ship.project}\``;
-	const log = `$SPLATES_DEV/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
+	const log = `$SPLATES_DEV/api/legacy-ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage ?? "" })}`;
 	const note = ship.note ? `\n\nThe ship's note: ${ship.note}` : "";
 	const tail = ship.log
 		?.trimEnd()
@@ -132,9 +132,9 @@ export function shipFailureReference(ship: {
 		: "";
 	return `Ship \`${ship.id}\` stopped at ${where}. Examine its logs, find why it failed, and prescribe a fix.${note}${printed}
 
-- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/ship/steps"\` (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
+- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/legacy-ship/steps"\` (its cascade, every step and stage), and any other stage's log takes that URL's \`project\` and \`stage\`.
 - When the fix is a code change, make it as a task and land it as the splates skill says. When it is not (a registry, a credential, something outside the repository), say what the person must do.
-- Once the fix is in, continue the ship by retrying it in place: \`curl -X POST -H "Origin: $SPLATES_DEV" "$SPLATES_DEV/api/ship/steps/retry"\`. The person asked for this by sending you here. Retry nothing else, and never start a ship, bump a version or publish by hand.
+- Once the fix is in, continue the ship by retrying it in place: \`curl -X POST -H "Origin: $SPLATES_DEV" "$SPLATES_DEV/api/legacy-ship/steps/retry"\`. The person asked for this by sending you here. Retry nothing else, and never start a ship, bump a version or publish by hand.
 - Report what failed, what you changed, and where the ship stands.`;
 }
 
@@ -152,7 +152,7 @@ export function shipSlowReference(ship: {
 	expected: number;
 	log?: string | null;
 }): string {
-	const log = `$SPLATES_DEV/api/ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage })}`;
+	const log = `$SPLATES_DEV/api/legacy-ship/history/${encodeURIComponent(ship.id)}/log?${new URLSearchParams({ project: ship.project, stage: ship.stage })}`;
 	const minutes = (ms: number) => `${Math.round(ms / 60_000)}m`;
 	const tail = ship.log
 		?.trimEnd()
@@ -164,7 +164,7 @@ export function shipSlowReference(ship: {
 		: "";
 	return `Ship \`${ship.id}\` is still going, but the \`${ship.stage}\` stage of \`${ship.project}\` is slow: ${minutes(ship.spent)} so far against about ${minutes(ship.expected)} expected. Examine its logs and find why.${printed}
 
-- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/ship/steps"\` (its cascade, every step and stage).
+- The stage's log: \`curl "${log}"\`. The ship itself is at \`curl "$SPLATES_DEV/api/legacy-ship/steps"\` (its cascade, every step and stage).
 - The ship keeps running while you look. Do not stop it, retry it, start a ship, bump a version or publish. If the stage is stuck, say so and what the person should do.
 - Report why it is slow and whether it will finish on its own.`;
 }
@@ -261,6 +261,30 @@ export const GRANTED = "[SPLATES GRANTED]";
  * means.
  */
 export const GRANT_DENIED = "[SPLATES GRANT DENIED]";
+
+/**
+ * What tells an agent the person approved its ship card and the ship it
+ * named is under way as run `run`, which the page started itself, as only
+ * the person may: the splates skill says what it means.
+ */
+export function shipStartedReference(run: string): string {
+	return `${SHIP_STARTED} ${run}]`;
+}
+
+/** What {@link shipStartedReference} starts with, before the run's id. */
+export const SHIP_STARTED = "[SPLATES SHIP STARTED";
+
+/** The run a {@link shipStartedReference} in `text` names, or null. */
+export function shipStartedIn(text: string): string | null {
+	return /\[SPLATES SHIP STARTED ([^\]\s]+)\]/.exec(text)?.[1] ?? null;
+}
+
+/**
+ * What tells an agent the person declined the ship its card asked for, from
+ * the card's Decline, any note after it: the splates skill says what it
+ * means.
+ */
+export const SHIP_DECLINED = "[SPLATES SHIP DECLINED]";
 
 /**
  * What approves an agent's proposal as it stands and asks it to go ahead,

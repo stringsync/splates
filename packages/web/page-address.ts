@@ -49,6 +49,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	rule = ruleIn(location.hash);
 	/** The batch and run the Evals page has open, each null for none. */
 	evals = evalsIn(location.hash);
+	/** The ship run the Ships page shows, by id, or null. */
+	shipRun = shipRunIn(location.hash);
 	/** The journey and step the Setup page is on, each null for none. */
 	setup = setupIn(location.hash);
 	/** Where Setup was left, which the Setup nav entry returns to. */
@@ -99,6 +101,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.cred = null;
 		this.rule = null;
 		this.evals = NO_EVALS;
+		this.shipRun = null;
 		this.setup = next === "setup" && this.leftSetup ? this.leftSetup : NO_SETUP;
 		this.move(
 			next === "setup"
@@ -231,6 +234,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			this.cred = credIn(location.hash);
 			this.rule = ruleIn(location.hash);
 			this.evals = evalsIn(location.hash);
+			this.shipRun = shipRunIn(location.hash);
 			this.setup = setupIn(location.hash);
 			this.remember();
 			this.scroll = entry()?.scroll ?? 0;
@@ -320,8 +324,11 @@ function pageIn(hash: string): Page {
 	if (hash === "#stats") {
 		return "stats";
 	}
-	if (hash === "#ships" || hash.startsWith("#ships/")) {
+	if (hash === "#ships" || hash === SHIP_HISTORY || shipRunIn(hash) !== null) {
 		return "ships";
+	}
+	if (hash === "#legacy-ships" || hash.startsWith("#legacy-ships/")) {
+		return "legacy-ships";
 	}
 	if (hash === "#rec" || hash.startsWith("#rec/")) {
 		return "rec";
@@ -392,6 +399,22 @@ function todoIn(hash: string): number | null {
  */
 export function todoAddress(id: number): string {
 	return `#todos/${id}`;
+}
+
+/** The ship run `#ships/<id>` shows, or null. */
+function shipRunIn(hash: string): string | null {
+	const [, run] = hash.match(/^#ships\/(.+)$/) ?? [];
+	return run === undefined || hash === SHIP_HISTORY
+		? null
+		: decodeURIComponent(run);
+}
+
+/** The address of the Ships page's History, every past run. */
+export const SHIP_HISTORY = "#ships/history";
+
+/** The address of the Ships page showing run `id`. */
+export function shipRunAddress(id: string): string {
+	return `#ships/${encodeURIComponent(id)}`;
 }
 
 /** The cred `#creds/<name>` sets the Creds page on, or null. */

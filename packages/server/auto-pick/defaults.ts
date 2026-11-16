@@ -6,6 +6,7 @@ export const DEFAULT_RULES: AutoPickRules = {
 	format: RULES_FORMAT,
 	threshold: 0.5,
 	rules: [
+		devops(),
 		shallow(),
 		designModerate("design"),
 		designModerate("open"),
@@ -21,6 +22,19 @@ export const DEFAULT_RULES: AutoPickRules = {
 
 // Sonnet leads everything short of deep work; K3.1 Pro is kept for deep work
 // alone, and its highspeed variant, which spends twice the tokens, is never picked.
+
+/** DevOps work never goes to Codex: Sonnet, then Opus, then K3.1 Pro. */
+function devops(): Rule {
+	return {
+		kind: "devops",
+		depth: ANY,
+		picks: [
+			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+		],
+	};
+}
 
 /** Shallow work starts on Sonnet, then Sol, then Haiku, at low effort. */
 function shallow(): Rule {

@@ -154,7 +154,7 @@ export function LaneMenu({
 									New board
 								</DropdownMenuItem>
 								{boards
-									.filter((each) => !each.archived && each.id !== lane.board)
+									.filter((each) => each.id !== lane.board)
 									.map((each) => (
 										<DropdownMenuSub key={each.id}>
 											<DropdownMenuSubTrigger>

@@ -16,6 +16,16 @@ import {
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
+import {
+	AdoptTask,
+	CascadeRoutes,
+	GRAPH_INPUTS,
+	ReleaseGit,
+	registeredGraph,
+	ShipLive,
+	ShipRoutes,
+	ShipSteps,
+} from "../legacy-ship";
 import { splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
@@ -23,16 +33,6 @@ import { Pushes } from "../push";
 import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
 import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
-import {
-	CascadeRoutes,
-	MechanicalAdoption,
-	ReleaseGit,
-	registeredGraph,
-	ShipLive,
-	ShipRegistry,
-	ShipRoutes,
-	ShipSteps,
-} from "../ship";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -238,9 +238,9 @@ export async function dev(
 	 * `afterBump` that is its own.
 	 */
 	const shipTarget = async (slug: string) => {
-		const target = (await registeredGraph({ projects, fs, log })).projects.find(
-			(each) => each.slug === slug && each.repo !== undefined,
-		);
+		const target = (
+			await registeredGraph({ projects, fs, log, ps })
+		).projects.find((each) => each.slug === slug && each.repo !== undefined);
 		const served = await projectNamed(target?.repo ?? slug);
 		const shipping =
 			target === undefined ? null : served.targetShipping(target.slug);
@@ -600,9 +600,9 @@ export async function dev(
 	});
 	disposer.defer(async () => pushes.dispose());
 	const cascades = new ShipSteps(machineStorage, fs, {
-		graph: () => registeredGraph({ projects, fs, log, ps }),
+		graph: (inputs) => registeredGraph({ projects, fs, log, ps }, inputs),
 		project: async (slug) => {
-			const { served, shipping, paths } = await shipTarget(slug);
+			const { served, shipping } = await shipTarget(slug);
 			return {
 				shipping,
 				released: (version) =>
@@ -613,35 +613,23 @@ export async function dev(
 						{ at: served.root },
 					);
 					try {
-						await new MechanicalAdoption({ ...repo, ps, log }).discard(
-							ship,
-							step,
-						);
+						await new AdoptTask({ ...repo, ps, log }).discard(ship, step);
 					} finally {
 						repo.dispose();
 					}
 				},
-				adopt: async (ship, step, pins, output, signal, assigned) => {
+				adopt: async (ship, step, request, output, signal, assigned) => {
 					const repo = await openRepository(
 						{ fs, ps, log },
 						{ at: served.root },
 					);
 					try {
-						const commands: string[] = [];
-						for (const use of step.takes) {
-							const command = (await shipTarget(use.project)).afterBump;
-							if (command !== null) {
-								commands.push(command);
-							}
-						}
-						return await new MechanicalAdoption({ ...repo, ps, log }).run(
+						return await new AdoptTask({ ...repo, ps, log }).run(
 							ship,
 							step,
-							pins,
+							request,
 							output,
 							{
-								afterBump: commands,
-								paths,
 								signal,
 								assigned,
 								agent: (task) => served.startShipTask(task, ship.id),
@@ -654,7 +642,6 @@ export async function dev(
 			};
 		},
 		live: new ShipLive(ps),
-		registry: new ShipRegistry(),
 		error: (error) => log.error(`running ship steps: ${error}`),
 	});
 	const cascadeRoutes = new CascadeRoutes(cascades);
@@ -900,27 +887,77 @@ export async function dev(
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
-					"/api/ship": { GET: shipScoped((routes) => routes.ship) },
-					"/api/ship/graph": guarded(async () =>
-						Response.json(await registeredGraph({ projects, fs, log, ps })),
+					"/api/ship/targets": {
+						GET: scoped((project) => project.shipTargets),
+					},
+					"/api/ship/plan": { POST: scoped((project) => project.shipPlan) },
+					"/api/ship/runs": {
+						GET: scoped((project) => project.shipRuns),
+						POST: scoped((project) => project.shipRuns),
+					},
+					"/api/ship/runs/:id": {
+						GET: scoped((project) => project.shipRun),
+					},
+					"/api/ship/runs/:id/events": {
+						GET: scoped((project) => project.shipRunEvents),
+					},
+					"/api/ship/waiting": {
+						GET: scoped((project) => project.shipWaiting),
+					},
+					"/api/ship/runs/:id/answer": {
+						POST: scoped((project) => project.shipRunAnswer),
+					},
+					"/api/ship/runs/:id/retry": {
+						POST: scoped((project) => project.shipRunRetry),
+					},
+					"/api/ship/runs/:id/stop": {
+						POST: scoped((project) => project.shipRunStop),
+					},
+					"/api/ship/runs/:id/send": {
+						POST: scoped((project) => project.shipRunSend),
+					},
+					"/api/ship/runs/:id/note": {
+						POST: scoped((project) => project.shipRunNote),
+					},
+					"/api/ship/runs/:id/fix-retry": {
+						POST: scoped((project) => project.shipRunFixRetry),
+					},
+					"/api/legacy-ship": { GET: shipScoped((routes) => routes.ship) },
+					"/api/legacy-ship/graph": guarded(async (request) =>
+						Response.json(
+							await registeredGraph(
+								{ projects, fs, log, ps },
+								GRAPH_INPUTS.parse(
+									JSON.parse(
+										new URL(request.url).searchParams.get("inputs") ?? "{}",
+									),
+								),
+							),
+						),
 					),
-					"/api/ship/cascade": { GET: guarded(cascadeRoutes.cascade) },
-					"/api/ship/steps": {
+					"/api/legacy-ship/cascade": { GET: guarded(cascadeRoutes.cascade) },
+					"/api/legacy-ship/steps": {
 						GET: guarded(cascadeRoutes.cascade),
 						POST: guarded(cascadeRoutes.start),
 					},
-					"/api/ship/steps/agent": { POST: guarded(cascadeRoutes.handToAgent) },
-					"/api/ship/steps/agent-record": {
+					"/api/legacy-ship/steps/agent-record": {
 						POST: guarded(cascadeRoutes.recordAgent),
 					},
-					"/api/ship/steps/retry": { POST: guarded(cascadeRoutes.retry) },
-					"/api/ship/steps/seen": { POST: guarded(cascadeRoutes.see) },
-					"/api/ship/steps/abandon": { POST: guarded(cascadeRoutes.abandon) },
-					"/api/ship/events": guarded(cascadeRoutes.cascadeEvents),
-					"/api/ship/history": guarded(cascadeRoutes.history),
-					"/api/ship/history/:id": guarded(cascadeRoutes.historyEntry),
-					"/api/ship/history/:id/log": guarded(cascadeRoutes.historyLog),
-					"/api/ship/output": shipScoped((routes) => routes.shipOutput),
+					"/api/legacy-ship/steps/answer": {
+						POST: guarded(cascadeRoutes.answer),
+					},
+					"/api/legacy-ship/steps/retry": {
+						POST: guarded(cascadeRoutes.retry),
+					},
+					"/api/legacy-ship/steps/seen": { POST: guarded(cascadeRoutes.see) },
+					"/api/legacy-ship/steps/abandon": {
+						POST: guarded(cascadeRoutes.abandon),
+					},
+					"/api/legacy-ship/events": guarded(cascadeRoutes.cascadeEvents),
+					"/api/legacy-ship/history": guarded(cascadeRoutes.history),
+					"/api/legacy-ship/history/:id": guarded(cascadeRoutes.historyEntry),
+					"/api/legacy-ship/history/:id/log": guarded(cascadeRoutes.historyLog),
+					"/api/legacy-ship/output": shipScoped((routes) => routes.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
 					"/api/quarantined": scoped((project) => project.quarantined),
@@ -1168,6 +1205,15 @@ export async function dev(
 				const { pathname } = new URL(request.url);
 				if (pathname === "/api/terminal") {
 					return terminals.open(request, server);
+				}
+				if (pathname === "/api/terminals") {
+					return terminals.list(request);
+				}
+				if (pathname === "/api/terminals/events") {
+					return terminals.events(request);
+				}
+				if (pathname === "/api/terminals/name" && request.method === "PUT") {
+					return terminals.rename(request);
 				}
 				if (pathname === "/api/dictation") {
 					return dictations.open(request, server);

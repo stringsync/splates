@@ -39,7 +39,7 @@ describe("dev terminal kept by its key", () => {
 		);
 		void daemon.run();
 		server = await run();
-		first = await terminal(server.port, "?terminal=tab-1/c1");
+		first = await terminal(server.port, "?terminal=c1");
 		// The quotes keep the command the terminal echoes from reading as its output.
 		first.socket.send(new TextEncoder().encode('echo pid"":$$\n'));
 		await first.shows("pid:");
@@ -80,7 +80,7 @@ describe("dev terminal kept by its key", () => {
 	it("keeps the shell once its socket goes, and redraws it for the page that comes back", async () => {
 		first.socket.close();
 
-		const back = await terminal(server.port, "?terminal=tab-1/c1");
+		const back = await terminal(server.port, "?terminal=c1");
 
 		// The screen so far, then the shell as it goes on.
 		await back.shows(`pid:${pid}`);
@@ -88,11 +88,49 @@ describe("dev terminal kept by its key", () => {
 		await back.shows(`again:${pid}`);
 	});
 
+	it("shows the shell to a second page at once, and takes typing from either", async () => {
+		const other = await terminal(server.port, "?terminal=c1");
+
+		// Both clear and draw the screen so far, then follow the shell.
+		await other.shows(`pid:${pid}`);
+		other.socket.send(new TextEncoder().encode("echo shared:$$\n"));
+		await other.shows(`shared:${pid}`);
+		await first.shows(`shared:${pid}`);
+		expect(first.said.controls).toContainEqual({ type: "redraw" });
+	});
+
+	it("lists the terminals up and the names given them", async () => {
+		const read = async () =>
+			(
+				(await (
+					await fetch(`http://127.0.0.1:${server.port}/api/terminals`)
+				).json()) as { terminals: { key: string; name: string | null }[] }
+			).terminals;
+		expect(await read()).toEqual([{ key: "c1", name: null }]);
+
+		await json(server.port, "/api/terminals/name", "PUT", {
+			key: "c1",
+			name: "build",
+		});
+
+		expect(await read()).toEqual([{ key: "c1", name: "build" }]);
+	});
+
+	it("tells every page a terminal ended when one closes it", async () => {
+		const other = await terminal(server.port, "?terminal=c1");
+		await other.shows(`pid:${pid}`);
+
+		first.socket.send(JSON.stringify({ type: "close" }));
+
+		await other.closes();
+		expect(other.said.controls).toContainEqual({ type: "exit", code: 0 });
+	});
+
 	it("ends the shell at once when the page says it is closing it, and starts another under its key", async () => {
 		first.socket.send(JSON.stringify({ type: "close" }));
 		await first.closes();
 
-		const next = await terminal(server.port, "?terminal=tab-1/c1");
+		const next = await terminal(server.port, "?terminal=c1");
 		next.socket.send(new TextEncoder().encode('echo pid"":$$\n'));
 
 		await next.shows("pid:");
@@ -106,7 +144,7 @@ describe("dev terminal kept by its key", () => {
 		await server.disposeAsync();
 
 		server = await run();
-		const back = await terminal(server.port, "?terminal=tab-1/c1");
+		const back = await terminal(server.port, "?terminal=c1");
 
 		expect(exits).toEqual([RESTART]);
 		await back.shows(`pid:${pid}`);

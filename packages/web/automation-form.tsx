@@ -63,6 +63,7 @@ export function AutomationForm({
 		event,
 		stage,
 		lane,
+		invokes,
 		schedule,
 		kind,
 		pick,
@@ -153,6 +154,17 @@ export function AutomationForm({
 								</NativeSelectOption>
 							))}
 						</NativeSelect>
+						<Input
+							aria-label="Every Nth"
+							type="number"
+							min={1}
+							step={1}
+							className="w-60"
+							placeholder="Run on every Nth match (blank: each)"
+							title="Run on only every Nth time the event matches"
+							value={invokes}
+							onChange={(change) => draft.set("invokes", change.target.value)}
+						/>
 					</>
 				) : (
 					<Input

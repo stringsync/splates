@@ -1,111 +1,181 @@
 import type {
-	Cascade,
-	CascadeSummary,
-	Ship,
-	ShipGraph,
-	StageKey,
+	Composed,
+	Listing,
+	Pick,
+	RunState,
+	Waiting,
 } from "@splates/server/ship";
+import { Duration } from "core/time";
 import { ApiError, answered, scoped } from "./request";
 
-/** Every registered project and who pins whose packages, the Ship page's tree. */
-export async function shipGraph(): Promise<ShipGraph> {
-	const response = await answered("/api/ship/graph");
+/** Every target the registered ship commands serve, and the commands that failed. */
+export async function shipTargets(): Promise<Listing> {
+	const response = await answered(scoped("/api/ship/targets"));
 	if (!response.ok) {
-		throw new ApiError("error", `/api/ship/graph: ${response.status}`);
+		throw new ApiError("error", `/api/ship/targets: ${response.status}`);
 	}
-	return (await response.json()) as ShipGraph;
+	return (await response.json()) as Listing;
 }
 
-/** The cascades history keeps, newest first. */
-export async function shipHistory(): Promise<CascadeSummary[]> {
-	const response = await answered(scoped("/api/ship/history"));
+/** One plan of `picks`: the steps in order, and the dependencies left unpicked. */
+export async function shipPlan(picks: readonly Pick[]): Promise<Composed> {
+	const response = await answered(scoped("/api/ship/plan"), {
+		method: "POST",
+		// It lists every command, then plans each pick, each with half a minute to answer.
+		within: Duration.mins(2),
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ picks }),
+	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
 	if (!response.ok) {
-		throw new ApiError("error", `/api/ship/history: ${response.status}`);
+		throw new ApiError(
+			"error",
+			body.error ?? `/api/ship/plan: ${response.status}`,
+		);
 	}
-	return (await response.json()) as CascadeSummary[];
+	return body as Composed;
 }
 
-/** The cascade history keeps as `id`, with its steps. */
-export async function shipHistoryEntry(
-	id: string,
-): Promise<{ cascade: Cascade; ship: Ship | null }> {
+/** Starts a ship of `picks`: the server composes them again and runs the plan. */
+export async function startShip(picks: readonly Pick[]): Promise<RunState> {
+	const response = await answered(scoped("/api/ship/runs"), {
+		method: "POST",
+		within: Duration.mins(2),
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ picks }),
+	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError(
+			"error",
+			body.error ?? `/api/ship/runs: ${response.status}`,
+		);
+	}
+	return body as RunState;
+}
+
+/** Every ship run, newest first, or with `running` only the one under way. */
+export async function shipRuns({
+	running = false,
+}: {
+	running?: boolean;
+} = {}): Promise<RunState[]> {
 	const response = await answered(
-		scoped(`/api/ship/history/${encodeURIComponent(id)}`),
+		scoped(running ? "/api/ship/runs?status=running" : "/api/ship/runs"),
 	);
 	if (!response.ok) {
-		throw new ApiError("error", `/api/ship/history/${id}: ${response.status}`);
+		throw new ApiError("error", `/api/ship/runs: ${response.status}`);
 	}
-	return (await response.json()) as { cascade: Cascade; ship: Ship | null };
+	return ((await response.json()) as { runs?: RunState[] }).runs ?? [];
 }
 
-/** Retain a successful page handoff in the ship record. */
-export async function recordShipAgent(
+/** Run `id` as it stands, or null when there is none by that id. */
+export async function shipRun(id: string): Promise<RunState | null> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}`;
+	const response = await answered(scoped(path));
+	if (response.status === 404) {
+		return null;
+	}
+	if (!response.ok) {
+		throw new ApiError("error", `${path}: ${response.status}`);
+	}
+	return (await response.json()) as RunState;
+}
+
+/** The address of run `id`'s stream: its state, then each event of it. */
+export function shipRunEvents(id: string): string {
+	return scoped(`/api/ship/runs/${encodeURIComponent(id)}/events`);
+}
+
+/** Sends failed step `step` of `target` in run `id` round again. */
+export async function retryShipStep(
 	id: string,
-	project: string,
-): Promise<void> {
-	const response = await answered("/api/ship/steps/agent-record", {
+	target: string,
+	step: string,
+): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/retry`;
+	const response = await answered(scoped(path), {
 		method: "POST",
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ id, project }),
+		body: JSON.stringify({ target, step }),
 	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
 	if (!response.ok) {
-		throw new ApiError("error", await response.text());
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
 	}
+	return body as RunState;
 }
 
-/** What step `stage` of `project`'s part in cascade `id` printed, or null for none. */
-export async function shipStageLog(
+/** Stops run `id`: the server ends its steps and records it stopped. */
+export async function stopShipRun(id: string): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/stop`;
+	const response = await answered(scoped(path), { method: "POST" });
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
+	}
+	return body as RunState;
+}
+
+/** Sends failed step `step` of `target` in run `id` to an agent, as a board task. */
+export async function sendShipStep(
 	id: string,
-	project: string,
-	stage: StageKey,
-): Promise<string | null> {
-	const response = await answered(
-		scoped(
-			`/api/ship/history/${encodeURIComponent(id)}/log?${new URLSearchParams({ project, stage })}`,
-		),
-	);
-	return response.ok ? await response.text() : null;
-}
-
-/** Records on the server that the person has seen ship `id`'s result. */
-export async function markShipSeen(id: string): Promise<void> {
-	const response = await answered("/api/ship/steps/seen", {
+	target: string,
+	step: string,
+): Promise<{ state: RunState; task: number }> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/send`;
+	const response = await answered(scoped(path), {
 		method: "POST",
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ id }),
+		body: JSON.stringify({ target, step }),
 	});
-	if (!response.ok) {
-		throw new ApiError("error", await response.text());
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+		state?: RunState;
+		task?: number;
+	};
+	if (!response.ok || body.state === undefined || body.task === undefined) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
 	}
+	return { state: body.state, task: body.task };
 }
 
-/** Retry the failed stage or end the ship, retaining everything already published. */
-export async function actOnShip(
-	action: "retry" | "abandon" | "agent",
-): Promise<void> {
-	const response = await answered(`/api/ship/steps/${action}`, {
-		method: "POST",
-	});
-	if (!response.ok) {
-		throw new ApiError("error", await response.text());
-	}
-}
-
-/** Start the ship with the person's confirmed project choices. */
-export async function startShip(selection: {
-	projects: {
-		slug: string;
-		bump: "patch" | "minor" | "major";
-		adopt: "mechanical" | "agent";
-		instructions: string;
-	}[];
-}): Promise<void> {
-	const response = await answered("/api/ship/steps", {
+/** Answers prompt `prompt` that step `step` of `target` in run `id` waits on. */
+export async function answerShipPrompt(
+	id: string,
+	target: string,
+	step: string,
+	prompt: string,
+	value: unknown,
+): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/answer`;
+	const response = await answered(scoped(path), {
 		method: "POST",
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify(selection),
+		body: JSON.stringify({ target, step, prompt, value }),
 	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
 	if (!response.ok) {
-		throw new ApiError("error", await response.text());
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
 	}
+	return body as RunState;
+}
+
+/** Every prompt a ship run has open, waiting on the user. */
+export async function shipWaiting(): Promise<Waiting[]> {
+	const response = await answered(scoped("/api/ship/waiting"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/waiting: ${response.status}`);
+	}
+	return (await response.json()) as Waiting[];
 }

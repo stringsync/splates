@@ -10,6 +10,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { useNameOf } from "./conversation-names";
 import { rowsOf } from "./conversation-rows";
 import { Notifier } from "./notifier";
+import { shipRunAddress } from "./page-address";
 import { syncPush } from "./push";
 import { refusalOf } from "./refusal";
 import type { Settings } from "./settings";
@@ -83,6 +84,12 @@ export function useNotifier(
 	// The latest, for the listener below, which outlives a render.
 	const opened = useRef((_key: string) => {});
 	opened.current = (key) => {
+		// A ship prompt's push opens its run, as `ship <run> <target> <step> <prompt>`.
+		const ship = /^ship (\S+) /.exec(key);
+		if (ship?.[1] !== undefined) {
+			location.hash = shipRunAddress(ship[1]);
+			return;
+		}
 		const row = rows.find((each) => keyOf(each) === key);
 		if (row !== undefined) {
 			open(row);

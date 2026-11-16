@@ -1,6 +1,6 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, LoaderCircleIcon } from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -11,6 +11,8 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
+import { hasActiveShip, shipActivity } from "./legacy-ship-activity";
+import { useAcknowledged } from "./legacy-ship-recap-seen";
 import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
@@ -19,10 +21,9 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
-import { hasActiveShip, shipActivity } from "./ship-activity";
-import { useAcknowledged } from "./ship-recap-seen";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
+import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 /** The dot on the Ships icon for each thing the ship can ask of the person. */
@@ -91,6 +92,8 @@ export function AppNav({
 	const reading = useMachine()?.ship;
 	const acknowledged = useAcknowledged();
 	const shipping = shipActivity(reading, acknowledged);
+	const asking = useShipsWaiting().length;
+	const shipsRunning = useShipsRunning();
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
@@ -102,10 +105,10 @@ export function AppNav({
 					onPage(value);
 				}
 				// With a ship under way, the Ship tab opens it rather than the planner.
-				if (value === "ships" && hasActiveShip(reading, acknowledged)) {
+				if (value === "legacy-ships" && hasActiveShip(reading, acknowledged)) {
 					// After the tab's own move to the planner, which would otherwise win.
 					queueMicrotask(() => {
-						location.hash = "ships/active";
+						location.hash = "legacy-ships/active";
 					});
 				}
 			}}
@@ -129,13 +132,29 @@ export function AppNav({
 				)}
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
-				{value === "ships" && shipping !== null && (
+				{value === "legacy-ships" && shipping !== null && (
 					<span role="img" aria-label={SHIP_DOTS[shipping].label}>
 						<UpdateDot ring="ring-sidebar" color={SHIP_DOTS[shipping].color} />
 					</span>
 				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>
+			{value === "ships" && shipsRunning && (
+				<LoaderCircleIcon
+					role="status"
+					aria-label="a ship runs"
+					className="size-4 animate-spin text-muted-foreground"
+				/>
+			)}
+			{value === "ships" && asking > 0 && (
+				<span
+					role="status"
+					aria-label={`${asking} waiting on you`}
+					className="rounded-full bg-warning px-1.5 font-medium text-background text-xs tabular-nums"
+				>
+					{asking}
+				</span>
+			)}
 			<HeldKey shortcut={shortcut} held={held} />
 		</TabsTrigger>
 	);

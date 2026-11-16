@@ -16,7 +16,9 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { WIDE } from "./app-nav";
 import { CardSection } from "./card-section";
+import { blocksOf } from "./findings-blocks";
 import { Markdown } from "./markdown";
+import { BlockView } from "./readouts";
 import { TaskOnto } from "./task-onto";
 
 /**
@@ -111,7 +113,8 @@ export type Tone =
 	| "warning"
 	| "destructive"
 	| "info"
-	| "eval";
+	| "eval"
+	| "ship";
 
 export const TONES: Record<
 	Tone,
@@ -149,6 +152,12 @@ export const TONES: Record<
 		icon: "text-orange-600 dark:text-orange-400",
 		focus: "focus-within:border-orange-500/50 focus-within:ring-orange-500/15",
 	},
+	// Ships are teal.
+	ship: {
+		header: "bg-teal-500/15",
+		icon: "text-teal-600 dark:text-teal-400",
+		focus: "focus-within:border-teal-500/50 focus-within:ring-teal-500/15",
+	},
 };
 
 /** How each ending shows: on its report card, and beside its conversation. */
@@ -161,7 +170,7 @@ export const ENDINGS: Record<
 	merged: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "neutral" },
-	deferred: { title: "Deferred", Icon: PauseIcon, tone: "warning" },
+	deferred: { title: "Blocked", Icon: PauseIcon, tone: "warning" },
 	// From before escalating was retired.
 	escalated: {
 		title: "Escalated",
@@ -270,6 +279,18 @@ export function partsOf(text: string): {
 	};
 }
 
+/** The block kinds that are readouts: read-only displays drawn in place of their markdown. */
+const READOUTS = new Set([
+	"stats",
+	"chart",
+	"progress",
+	"steps",
+	"gallery",
+	"diagram",
+	"callout",
+	"status",
+]);
+
 /**
  * Render a card's markdown with its spacing contained. Each heading in it
  * opens and closes the text under it.
@@ -284,6 +305,28 @@ export function CardBody({
 	lead?: boolean;
 	className?: string;
 }): JSX.Element {
+	const blocks = blocksOf(text);
+	if (blocks.some((block) => READOUTS.has(block.kind))) {
+		return (
+			<div className={cn("flex flex-col divide-y", className)}>
+				{blocks.map((block, i) => (
+					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
+						key={i}
+						className={
+							block.kind === "markdown" ? "" : "px-4 py-3 @max-md:px-3"
+						}
+					>
+						{block.kind === "markdown" ? (
+							<CardBody text={block.text} lead={lead && i === 0} />
+						) : (
+							<BlockView block={block} lead={false} />
+						)}
+					</div>
+				))}
+			</div>
+		);
+	}
 	const cut = partsOf(text);
 	if (cut.parts.length === 0) {
 		return <CardMarkdown text={text} lead={lead} className={className} />;

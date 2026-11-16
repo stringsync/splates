@@ -43,6 +43,23 @@ describe("dev projects", () => {
 			body: JSON.stringify(body),
 		});
 
+	it("lists projects for updates even when ship configuration is invalid", async () => {
+		await Bun.write(
+			join(deps.root, "splates.config.ts"),
+			'export default { legacyShips: { broken: { ship: "" } } };\n',
+		);
+		await serving(deps, async (_, port) => {
+			const response = await fetch(`http://127.0.0.1:${port}/api/projects`);
+			expect(response.status).toBe(200);
+			const listed = await response.json();
+			expect(listed.projects).toEqual([
+				expect.objectContaining({ root: deps.root, ships: false }),
+			]);
+			expect(listed.run).toBeString();
+			expect(listed.restarting).toBeNull();
+		});
+	});
+
 	it("replicates a registered project no page has opened", async () => {
 		await using other = await another();
 		const folder = join(tmpdir(), `replica-${crypto.randomUUID()}`);

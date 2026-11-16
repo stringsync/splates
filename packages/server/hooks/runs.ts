@@ -19,6 +19,8 @@ export type AutomationRuns = Record<
 		scheduledAt?: string;
 		/** The automation's latest `requestedAt` it ran for, so each request runs once. */
 		requestedAt?: string;
+		/** Event matches counted toward its every-Nth trigger since it last ran, with the trigger edit they count from. */
+		counted?: { count: number; since?: string };
 	}
 >;
 
@@ -63,6 +65,18 @@ export class RunStore {
 		return this.#change((all) => ({
 			...all,
 			[id]: { ...all[id], runs: all[id]?.runs ?? [], scheduledAt: at },
+		}));
+	}
+
+	/** Keeps that automation `id` has `count` event matches toward its next run. */
+	counted(id: string, count: number, since?: string): Promise<void> {
+		return this.#change((all) => ({
+			...all,
+			[id]: {
+				...all[id],
+				runs: all[id]?.runs ?? [],
+				counted: { count, ...(since === undefined ? {} : { since }) },
+			},
 		}));
 	}
 

@@ -127,9 +127,10 @@ export class Testing implements AsyncDisposable {
 			preMerge: "true",
 			preLock: null,
 			ship: null,
-			shipStatus: null,
+
 			afterBump: null,
-			ships: null,
+			legacyShips: null,
+			ships: [],
 			on: {},
 			queueLoad: null,
 			leaseStalenessMs: 90_000,

@@ -8,8 +8,6 @@ export interface BoardRecord {
 	name: string;
 	/** Where it comes among the project's boards, 1 the first. */
 	position: number;
-	/** Put away: kept, but off the switcher. */
-	archived: boolean;
 }
 
 /** The board every lane starts on; the first board of a project that never made another. */
@@ -32,20 +30,13 @@ export function boardsOf(stored: unknown): BoardRecord[] {
 				typeof each?.name === "string" &&
 				!found.some((board) => board.id === each.id)
 			) {
-				found.push({
-					id: each.id,
-					name: each.name,
-					archived: each.archived === true,
-				});
+				// A board archived before archiving went away is an ordinary one.
+				found.push({ id: each.id, name: each.name });
 			}
 		}
 	}
 	if (!found.some((board) => board.id === DEFAULT_BOARD)) {
-		found.unshift({
-			id: DEFAULT_BOARD,
-			name: DEFAULT_BOARD_NAME,
-			archived: false,
-		});
+		found.unshift({ id: DEFAULT_BOARD, name: DEFAULT_BOARD_NAME });
 	}
 	return found.map((board, i) => ({ ...board, position: i + 1 }));
 }

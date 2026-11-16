@@ -12,7 +12,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's Deferred card", () => {
+describe("App's Blocked card", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -85,23 +85,83 @@ describe("App's Deferred card", () => {
 		expect(card.textContent).toContain("Rewrite the upload client");
 		expect(card.textContent).toContain("Keep the retry for old clients?");
 		expect(card.textContent).toContain("an upstream release");
-		expect(card.textContent).toContain("Back on the board · waits on #812");
+		expect(card.textContent).toContain("1 of 1 left");
 		expect(
 			within(card)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Taskupload-retry", "#812 Rewrite the upload client"]);
+		).toEqual([
+			"Taskupload-retry",
+			"#812 Rewrite the upload client",
+			"Queue",
+			"Add blocker",
+			"Queue all (1)",
+		]);
 	});
 
-	it("folds to a record once the conversation went on past it", async () => {
+	it("queues a blocker, or all of them, from the card", async () => {
+		const { card } = await openCard(deferring, board);
+		fireEvent.click(within(card).getByRole("button", { name: "Queue" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/812/queued")).toEqual([
+				{ method: "PUT", body: { queued: true } },
+			]),
+		);
+	});
+
+	it("adds a blocker from the card", async () => {
+		const { view, card } = await openCard(deferring, {
+			todos: [
+				...board.todos,
+				todo({
+					id: 900,
+					subject: "Document the retry flag",
+					stage: "available",
+				}),
+			],
+			lanes: [],
+		});
+		fireEvent.click(within(card).getByRole("button", { name: "Add blocker" }));
+		fireEvent.click(
+			await waitFor(() =>
+				view.getByRole("button", { name: /Document the retry flag/ }),
+			),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/todos/20/blocked-by")).toEqual([
+				{ method: "PUT", body: { blockedBy: [812, 900] } },
+			]),
+		);
+	});
+
+	it("folds to a line naming what it waits on once the conversation went on past it", async () => {
 		const resumed = conversation({
 			title: "Deferring",
 			messages: [...deferring.messages, message("user", "[SPLATES TASK #20]")],
 		});
 		const { card } = await openCard(resumed, board);
-		expect(card.textContent).toContain("Resumed");
+		expect(card.textContent).toContain("Blocked on #812");
 		expect(within(card).queryByRole("button", { name: "Resume" })).toBeNull();
 		expect(card.textContent).not.toContain("The fix needs the new client.");
+	});
+
+	it("shows again at the bottom, its first card a line, while the conversation talks on", async () => {
+		const talking = conversation({
+			title: "Deferring",
+			messages: [
+				...deferring.messages,
+				message("user", "Why is it blocked?"),
+				message("agent", "It needs the new client."),
+			],
+		});
+		const view = await testing.openConversations([talking], undefined, board);
+		const pinned = await waitFor(() =>
+			view.getByRole("region", { name: "blocked upload-retry" }),
+		);
+		expect(pinned.textContent).toContain("Rewrite the upload client");
+		const first = view.getByRole("region", { name: "deferred upload-retry" });
+		expect(first.textContent).toContain("Blocked on #812");
+		expect(first.textContent).not.toContain("The fix needs the new client.");
 	});
 
 	it("lets the person link a blocker to an old deferral, which recorded none", async () => {

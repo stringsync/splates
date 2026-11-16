@@ -21,7 +21,14 @@ export {
 	orphaned,
 	TASK,
 } from "./needs";
-export type { EvalAsk, PermissionProposal, ReachAsk } from "./permission";
+export type {
+	EvalAsk,
+	PermissionProposal,
+	ReachAsk,
+	ShipAsk,
+	ShipBump,
+	ShipPick,
+} from "./permission";
 export { queueIsSettled } from "./permission";
 export type { Decision, Question } from "./plan";
 export {

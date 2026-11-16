@@ -7,6 +7,7 @@ import { EARLY_READS } from "./early-reads";
 import type { SnapshotExpecter } from "./expecting";
 import { LiveStream } from "./live-stream";
 import { type KeptCopy, NoopPageCopy } from "./noop-page-copy";
+import { SHIP_BUS, type ShipBusEvents } from "./ship-run-bus";
 
 export type FeedEvents = { changed: undefined };
 
@@ -107,12 +108,22 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 		}
 		this.stream = new LiveStream(scoped("/events", this.project), {
 			message: () => void this.load(),
+			named: {
+				// A ship run moved: the run on view takes the state it now stands in.
+				ship: (event) =>
+					SHIP_BUS.dispatch(
+						"run",
+						JSON.parse(event.data) as ShipBusEvents["run"],
+					),
+			},
 			// Back after the stream dropped, or gave way to another as stale, what
 			// moved meanwhile was never said; the first read, still on its way, says it.
-			open: (again) =>
-				again || (!this.fresh && this.loading === null)
+			open: (again) => {
+				SHIP_BUS.dispatch("open", again);
+				return again || (!this.fresh && this.loading === null)
 					? void this.load()
-					: this.reached({}),
+					: this.reached({});
+			},
 			// The stream reconnects on its own, so this is a notice rather than
 			// an error to recover from: `open` clears it when the server comes
 			// back.
@@ -123,7 +134,10 @@ export class Feed implements Eventful<FeedEvents>, SnapshotExpecter, Resource {
 				}
 				this.lost();
 			},
-			dropped: () => this.set({ fresh: false }),
+			dropped: () => {
+				SHIP_BUS.dispatch("dropped");
+				this.set({ fresh: false });
+			},
 		});
 		void this.paint();
 		void this.load();

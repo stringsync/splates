@@ -1,192 +1,143 @@
-import type { Cascade } from "@splates/server/ship";
-import { shipName } from "@splates/server/ship/browser";
-import { CircleCheckIcon, CircleSlashIcon, CircleXIcon } from "lucide-react";
+import type { RunState, StepState, TargetState } from "@splates/server/ship";
+import { CircleCheckIcon, OctagonXIcon } from "lucide-react";
 import type { JSX } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { markShipSeen } from "./api/ship";
-import { cn } from "./lib/utils";
-import {
-	lasted,
-	type Recap,
-	type RecapProject,
-	type RecapRow,
-	recapOf,
-} from "./ship-recap-figures";
-import { acknowledge } from "./ship-recap-seen";
-
-const TONES: Record<RecapRow["tone"], string> = {
-	quiet: "bg-muted-foreground/40",
-	slow: "bg-amber-500",
-	failed: "bg-destructive",
-	person: "bg-sky-400",
-};
+import { Button } from "./components/ui/button";
+import { spanOf } from "./merge-lines";
 
 /**
- * What a finished ship comes to, shown until the person acknowledges it:
- * how long it took, split into what the machine spent and what waited on
- * them, the step that ran longest past its expected time, any errors, and
- * every step of every project against the time it was expected to take.
- * Done acknowledges it and goes back to the plan.
+ * What a finished or stopped run comes to: the time it took, the longest step, and each
+ * target with the version it released and its time, its steps as
+ * bars against the target's longest, always shown. Done goes back to the Ships list.
  */
-export function ShipRecap({ cascade }: { cascade: Cascade }): JSX.Element {
-	const recap = recapOf(cascade, Date.now());
-	const done = cascade.status === "done";
-	const Icon = done
-		? CircleCheckIcon
-		: cascade.status === "abandoned"
-			? CircleSlashIcon
-			: CircleXIcon;
-	const title = done
-		? `Shipped ${cascade.steps.length === 1 ? shipName(cascade.from) : `${cascade.steps.length} projects`} in ${lasted(recap.total)}`
-		: `Stopped after ${lasted(recap.total)}`;
+export function ShipRecap({
+	run,
+	onDone,
+}: {
+	run: RunState;
+	onDone: () => void;
+}): JSX.Element {
+	const ended = Math.max(
+		run.started,
+		...run.targets.flatMap((target) =>
+			target.steps.flatMap((step) => step.ended ?? []),
+		),
+	);
+	const longest = run.targets
+		.flatMap((target) =>
+			target.steps.map((step) => ({ target: target.name, step })),
+		)
+		.reduce<{ target: string; step: StepState } | null>(
+			(best, each) =>
+				took(each.step) > (best === null ? 0 : took(best.step)) ? each : best,
+			null,
+		);
+	const shipped = run.targets.filter(shippedTarget).length;
+	const count = run.targets.length;
+	const stopped = run.status === "stopped";
 	return (
-		<section aria-label="ship recap" className="flex flex-col gap-4">
+		<section aria-label="Ship recap" className="flex flex-col gap-3">
 			<h2 className="flex items-center gap-2 font-medium text-lg">
-				<Icon
-					aria-hidden
-					className={cn(
-						"size-5",
-						done
-							? "text-green-600 dark:text-green-400"
-							: "text-muted-foreground",
-					)}
-				/>
-				{title}
+				{stopped ? (
+					<OctagonXIcon aria-hidden className="size-5 text-destructive" />
+				) : (
+					<CircleCheckIcon aria-hidden className="size-5 text-green-600" />
+				)}
+				{stopped
+					? `Stopped by you after ${spanOf(ended - run.started)}: ${shipped} of ${count === 1 ? "1 target" : `${count} targets`} shipped`
+					: `Shipped ${count === 1 ? "1 target" : `${count} targets`} in ${spanOf(ended - run.started)}`}
 			</h2>
-			<Facts recap={recap} />
-			<div className="flex flex-col gap-4">
-				{recap.projects.map((project) => (
-					<Project key={project.slug} project={project} />
-				))}
-			</div>
-			<p className="text-muted-foreground text-xs">
-				Each bar is the time a step took; the line marks how long it is expected
-				to take from earlier ships. Orange ran over, blue waited on you.
-			</p>
-			{cascade.status !== "stopped" && (
-				<Button
-					className="min-h-11 w-full"
-					onClick={() => {
-						acknowledge(cascade.id);
-						markShipSeen(cascade.id).catch(() => {});
-						location.hash = "ships";
-					}}
-				>
-					Done
-				</Button>
+			{longest !== null && (
+				<p className="text-muted-foreground text-sm">
+					Longest: {longest.step.id} of {longest.target},{" "}
+					{spanOf(took(longest.step))}
+				</p>
 			)}
+			{run.targets.map((target) => (
+				<RecapTarget
+					key={target.name}
+					target={target}
+					stopped={stopped && !shippedTarget(target)}
+				/>
+			))}
+			<Button className="min-h-11 w-full" onClick={onDone}>
+				Done
+			</Button>
 		</section>
 	);
 }
 
-function Facts({ recap }: { recap: Recap }): JSX.Element {
-	return (
-		<ul className="flex flex-col gap-1 text-sm">
-			<li className="text-muted-foreground">
-				Machine {lasted(recap.machine)}
-				{recap.person > 0 && (
-					<>
-						{" "}
-						· Waiting on you {lasted(recap.person)} (sign-in, 2FA, npm approval)
-					</>
-				)}
-			</li>
-			{recap.slowest !== null && (
-				<li className="text-amber-600 dark:text-amber-400">
-					Slowest: {recap.slowest.row.name} of {recap.slowest.project} took{" "}
-					{lasted(recap.slowest.row.spent)}, expected about{" "}
-					{lasted(recap.slowest.row.expected)}
-				</li>
-			)}
-			{recap.errors.length === 0 ? (
-				<li className="text-muted-foreground">No errors</li>
-			) : (
-				recap.errors.map((error) => (
-					<li
-						key={`${error.project}${error.text}`}
-						className="text-destructive"
-					>
-						{error.project}: {error.text}
-					</li>
-				))
-			)}
-			<li className="text-muted-foreground">
-				{recap.agents.length === 0
-					? "Not sent to an agent"
-					: `Sent to an agent for ${recap.agents.join(", ")}`}
-			</li>
-		</ul>
+/** Whether every step of the target finished, so it went out. */
+function shippedTarget(target: TargetState): boolean {
+	return target.steps.every(
+		(step) => step.status === "done" || step.status === "skipped",
 	);
 }
 
-/** A project's steps; a project that went as expected folds into its heading. */
-function Project({ project }: { project: RecapProject }): JSX.Element {
-	const scale = Math.max(
-		1,
-		...project.rows.flatMap((row) => [row.spent, row.expected]),
-	);
-	const heading = (
-		<span className="flex w-full items-center justify-between gap-2">
-			<span className="font-medium">{shipName(project.slug)}</span>
-			<span className="text-muted-foreground tabular-nums">
-				{lasted(project.spent)}
-			</span>
-		</span>
-	);
-	const rows = (
-		<ol aria-label={`${project.slug} steps`} className="flex flex-col gap-1">
-			{project.rows.map((row) => (
-				<li
-					key={row.key}
-					className={cn(
-						"grid grid-cols-[9rem_1fr_5rem] items-center gap-2 text-sm",
-						row.tone === "quiet" && "text-muted-foreground",
-					)}
-				>
-					<span className="truncate">{row.name}</span>
-					<span className="relative h-2 rounded bg-muted">
-						<span
-							className={cn(
-								"absolute inset-y-0 left-0 rounded",
-								TONES[row.tone],
-							)}
-							style={{ width: `${(row.spent / scale) * 100}%` }}
-						/>
-						{row.expected > 0 && (
-							<span
-								className="absolute -inset-y-0.5 w-0.5 bg-foreground"
-								style={{ left: `${(row.expected / scale) * 100}%` }}
-							/>
-						)}
-					</span>
-					<span
-						className={cn(
-							"text-right tabular-nums",
-							row.tone === "slow" && "text-amber-600 dark:text-amber-400",
-							row.tone === "failed" && "text-destructive",
-						)}
-					>
-						{lasted(row.spent)}
-					</span>
-				</li>
-			))}
-		</ol>
-	);
-	return project.clean ? (
-		<details
-			aria-label={project.slug}
-			className="rounded-lg border bg-card p-3"
-		>
-			<summary className="flex cursor-pointer text-sm">{heading}</summary>
-			<div className="pt-2">{rows}</div>
-		</details>
-	) : (
+/** How long a step took, from when it started to when it ended. */
+function took(step: StepState): number {
+	return step.started === undefined || step.ended === undefined
+		? 0
+		: step.ended - step.started;
+}
+
+/** A target's time: its first step starting to its last ending. */
+function targetTime(target: TargetState): number {
+	const started = target.steps.flatMap((each) => each.started ?? []);
+	const ended = target.steps.flatMap((each) => each.ended ?? []);
+	return started.length === 0 || ended.length === 0
+		? 0
+		: Math.max(...ended) - Math.min(...started);
+}
+
+function RecapTarget({
+	target,
+	stopped,
+}: {
+	target: TargetState;
+	stopped: boolean;
+}): JSX.Element {
+	const scale = Math.max(1, ...target.steps.map(took));
+	return (
 		<section
-			aria-label={project.slug}
-			className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-sm"
+			aria-label={target.name}
+			className="rounded-lg border bg-card px-3.5 py-3"
 		>
-			{heading}
-			{rows}
+			<div className="flex items-baseline gap-2 text-sm">
+				<span className="min-w-0 flex-1 truncate font-semibold">
+					{target.name}
+					{target.released !== undefined && ` ${target.released}`}
+					{stopped && " (stopped)"}
+				</span>
+				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+					{spanOf(targetTime(target))}
+				</span>
+			</div>
+			<ol
+				aria-label={`${target.name} steps`}
+				className="flex flex-col gap-2 pt-2"
+			>
+				{target.steps.map((step) => (
+					<li key={step.id} className="flex flex-col gap-1 text-xs">
+						<span className="flex justify-between gap-2">
+							<span className="truncate text-muted-foreground">
+								{step.id}
+								{step.status === "skipped" && " (skipped)"}
+								{stopped &&
+									step.status !== "done" &&
+									step.status !== "skipped" &&
+									" (not run)"}
+							</span>
+							<span className="tabular-nums">{spanOf(took(step))}</span>
+						</span>
+						<span className="h-1.5 overflow-hidden rounded-full bg-muted">
+							<span
+								className="block h-full rounded-full bg-foreground/60"
+								style={{ width: `${(took(step) / scale) * 100}%` }}
+							/>
+						</span>
+					</li>
+				))}
+			</ol>
 		</section>
 	);
 }

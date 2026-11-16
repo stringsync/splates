@@ -106,9 +106,9 @@ export function QueueBlockersIcon({
 			)}
 		>
 			{busy ? (
-				<Loader2Icon aria-hidden className="size-4 animate-spin" />
+				<Loader2Icon aria-hidden className="size-3.5 animate-spin" />
 			) : (
-				<TriangleAlertIcon aria-hidden className="size-4" />
+				<TriangleAlertIcon aria-hidden className="size-3.5" />
 			)}
 		</button>
 	);

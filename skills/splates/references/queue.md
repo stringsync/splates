@@ -90,7 +90,7 @@ user asked for this task now, do only what does not need the blocker and say
 so in your report.
 
 When `splates task show` prints a `deferred:` line, the task was set aside
-before, and the user's Resume on its Deferred card, or the queue, sends it
+before, and the user's Resume on its Blocked card, or the queue, sends it
 again: check each blocker under it still unticked (an upstream release, a
 key) before any other work. One that still holds defers it again with
 `splates remove <task> --reason blocked`, its why saying what you checked
@@ -138,7 +138,7 @@ a numbered Yes/No question, naming the tasks it would split into and picking
 Yes, and do no part of the work until it is answered:
 
 ```markdown
-1. Should I split this into a lane of three tasks?
+1. Should we split this into a lane of three tasks?
    Smaller tasks land faster and are easier to review: the CSV writer, the
    endpoint that uses it, and the page's export button.
    - (a) Yes, add a lane and queue nothing yet (chosen)
@@ -292,12 +292,10 @@ placed on a board: read `splates board list`, pick the board whose lanes
 share its theme, and `splates lane add '<name>' --board <n>`; `splates lane
 update <n> --board <n>` moves one (Backlog stays on the default board, 1). When
 no board fits, `splates board add '<name>'`, named for the area its lanes
-cover. `splates board update <n>` renames (`--name`), reorders (`--position`)
-and archives (`--archived`, `--no-archived` to bring back), and `splates
+cover. `splates board update <n>` renames (`--name`), and reorders (`--position`), and `splates
 board show <n>` lists its lanes. Agents delete an empty board with `splates
 board remove <n>`; one whose lanes hold tasks is refused: move
-the lanes to another board, or ask the user, as a question, to delete it. The default board cannot be archived or
-deleted. There is no `board queue`: queueing stays the user's, per lane.
+the lanes to another board, or ask the user, as a question, to delete it. The default board cannot be deleted. There is no `board queue`: queueing stays the user's, per lane.
 
 ## Positions
 

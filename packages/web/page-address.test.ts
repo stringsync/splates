@@ -2,7 +2,12 @@ import "./register-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "core/disposable";
 import { showAddress } from "./navigation";
-import { PageAddress, ruleAddress, todoAddress } from "./page-address";
+import {
+	PageAddress,
+	ruleAddress,
+	shipRunAddress,
+	todoAddress,
+} from "./page-address";
 
 /** Waits for the browser to move through its history, as a swipe does. */
 function traverse(step: () => void): Promise<void> {
@@ -78,6 +83,15 @@ describe("PageAddress", () => {
 		expect([arrived.page, arrived.todo]).toEqual(["todos", 404]);
 		arrived.go("todos", null, "replace");
 		expect([arrived.todo, location.hash]).toEqual([null, "#todos"]);
+	});
+
+	it("lands on a ship run from its address, and leaves it for the pick", () => {
+		history.replaceState(null, "", shipRunAddress("run 1"));
+		const arrived = new PageAddress();
+
+		expect([arrived.page, arrived.shipRun]).toEqual(["ships", "run 1"]);
+		arrived.go("ships", null, "replace");
+		expect([arrived.shipRun, location.hash]).toEqual([null, "#ships"]);
 	});
 
 	it("sets the Creds page on one cred and leaves it for the page", () => {

@@ -49,6 +49,12 @@ export function BoardDrag({
 		}),
 		useSensor(KeyboardSensor, {
 			coordinateGetter: sortableKeyboardCoordinates,
+			// Space opens a card from its title, so only Enter picks it up.
+			keyboardCodes: {
+				start: ["Enter"],
+				cancel: ["Escape"],
+				end: ["Enter", "Space"],
+			},
 		}),
 	);
 

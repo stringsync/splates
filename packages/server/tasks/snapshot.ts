@@ -2,11 +2,11 @@ import { basename, resolve } from "node:path";
 import type { Fs } from "core/system";
 import type * as Board from "../board";
 import type { CredRequest, Creds } from "../creds";
+import type { Ship } from "../legacy-ship";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { MergeLine } from "../merge";
 import type { Slot } from "../ports";
 import type { Behind, Release } from "../server/shared";
-import type { Ship } from "../ship";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 

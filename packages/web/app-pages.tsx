@@ -10,6 +10,7 @@ import {
 	AutoPickPage,
 	BillingPage,
 	EvalsPage,
+	LegacyShipsPage,
 	RecPage,
 	SetupPage,
 	ShipsPage,
@@ -42,6 +43,7 @@ export function useAppPages({
 	rule,
 	evals,
 	openEval,
+	shipRun,
 	setup,
 	openSetup,
 	available,
@@ -61,6 +63,7 @@ export function useAppPages({
 	| "open"
 	| "evals"
 	| "openEval"
+	| "shipRun"
 	| "setup"
 	| "openSetup"
 > & {
@@ -119,7 +122,8 @@ export function useAppPages({
 							</TagFilterContext.Provider>
 						),
 						stats: <StatsPage report={report} />,
-						ships: <ShipsPage feed={available ? talk : null} />,
+						ships: <ShipsPage run={shipRun} />,
+						"legacy-ships": <LegacyShipsPage feed={available ? talk : null} />,
 						rec: <RecPage feed={available ? talk : null} />,
 						evals: (
 							<EvalsPage
@@ -209,6 +213,7 @@ export function useAppPages({
 			rule,
 			evals,
 			openEval,
+			shipRun,
 			setup,
 			openSetup,
 			available,

@@ -1,9 +1,12 @@
+import { join } from "node:path";
 import type { SplatesDeps } from "@splates/server/server";
 import type { Cli } from "core/cmd";
+import { serve } from "core/ship";
 import { z } from "zod";
+import { splatesShip } from "../ship";
 import { evalSkill } from "./eval";
-import { mirrorTest } from "./mirror-test";
-import { publish, ship, trust } from "./ship";
+import { placeholderShips } from "./placeholder-ships";
+import { ROOT } from "./root";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
 export function mountDev(program: Cli<SplatesDeps>): void {
@@ -28,33 +31,29 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 
 	dev
 		.command("ship")
-		.description("release the package, with its skill stamped at its version")
-		.option("dry-run", z.boolean(), {
-			default: false,
-			description: "rehearse the release, publishing and pushing nothing",
+		.description(
+			"ship @stringsync/splates to npm: answers splates's plan, done and run, or ships it all at a terminal",
+		)
+		.rest("args", z.string(), {
+			description:
+				"[plan | done <step> | run <step>] [--bump patch|minor|major]",
 		})
-		.action((opts, { log, fs, ps }) =>
-			ship({ log, fs, ps, dryRun: opts["dry-run"] }),
-		);
+		.allowUnknownOption()
+		.action((opts, { ps }) => {
+			// The release's commands run from mono's root, one above splates's.
+			ps.cd(join(ROOT, ".."));
+			return serve(splatesShip, opts.args, { ps });
+		});
 
 	dev
-		.command("publish")
+		.command("placeholder-ship")
 		.description(
-			"build @stringsync/splates, the server folded in, and publish it at this checkout's version: what stringsync/splates's publish workflow runs, from a job npm trusts",
+			"serve the placeholder ship targets, which send nothing out, for hand testing the Ships page",
 		)
-		.action((_opts, { log, fs, ps }) => publish({ log, fs, ps }));
-
-	dev
-		.command("trust")
-		.description(
-			"have npm trust stringsync/splates's publish workflow to publish @stringsync/splates; once, signing in in a browser",
-		)
-		.action((_opts, { log, ps }) => trust({ log, ps }));
-
-	dev
-		.command("test")
-		.description(
-			"check that what rec reads from disk is in this checkout; a mirrored release runs it in the mirror before publishing",
-		)
-		.action(() => mirrorTest());
+		.rest("args", z.string(), {
+			description:
+				"[plan | done <step> | run <step>] [--target name] [--bump patch|minor|major] [--upstream name=version]",
+		})
+		.allowUnknownOption()
+		.action((opts) => serve(placeholderShips(), opts.args));
 }

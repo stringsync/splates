@@ -1,7 +1,11 @@
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
-import { SystemTimer, type Timer } from "core/time";
+import { Duration, SystemTimer, type Timer } from "core/time";
+import type { SharedTerminals } from "./shared-terminals";
 import type { TerminalSession } from "./terminal-session";
+
+/** How often each shell is asked what it runs in front. */
+const FRONT_POLL = Duration.secs(2);
 
 export type TerminalsEvents = {
 	changed: undefined;
@@ -10,17 +14,17 @@ export type TerminalsEvents = {
 };
 
 /**
- * The page's shells, one per conversation, each started in that
- * conversation's tree the first time its pane opens, and kept running while
- * the pane is shut or another conversation is up, until the browser tab
- * closes. The pane shows the terminal of the one conversation it was last
- * opened beside, never another's as you move to it, so a shell starts only
- * where one was asked for; which one outlives a reload in `storage`, as each
- * name a terminal was given does. The main tree's own terminals, opened from New, are
- * more shells, kept under `terminal/<n>` until closed. A shell that exits is
- * closed with it, as a terminal's window would be. It changes whenever one of
- * its shells does.
+ * The page's shells: one per conversation, plus the main tree's own
+ * terminals. Ask `sessionFor` for a conversation's shell, `nameOf` for what a
+ * terminal is called, and listen for `changed`.
  */
+// A shell starts in its conversation's tree the first time its pane opens and
+// keeps running on the server until it is closed, whichever page is open: given
+// `shared`, the terminals every device has up, with their names, show on this
+// page too, and a close on one closes it on all. Which one the pane shows
+// outlives a reload in `storage`, as do names given while the server has no
+// shell by that key. Main-tree terminals, opened from New, live under
+// `terminal/<n>` until closed, and a shell that exits is closed with it.
 export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<TerminalsEvents>();
 	readonly events = this.dispatcher.events;
@@ -40,13 +44,21 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	private readonly sessions = new Map<string, TerminalSession>();
 
-	/**
-	 * The names terminals were given, by key, in place of the ones they go by;
-	 * replaced whole on each rename.
-	 */
+	/** The names terminals were given by hand, by key; they win over every default. */
 	names: Record<string, string>;
 
+	/** The job each shell runs in front now, by key, as `sleep 5`; absent at a prompt. */
+	private fronts: Record<string, string> = {};
+
+	private polling: ReturnType<Timer["setTimeout"]> | null = null;
+
 	private readonly timer: Timer;
+
+	/** The terminals the server keeps for every page, or null for this page's own alone. */
+	private readonly shared: SharedTerminals | null;
+
+	/** The keys `shared` has said are up, so one it stops saying is known closed elsewhere. */
+	private remote = new Set<string>();
 
 	/** Its shells leave to the page each key `toggles` says shows or hides one. */
 	// vet-ignore objects-over-callbacks: a test of one key, handed to each shell
@@ -54,20 +66,28 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		private readonly storage: Storage,
 		// vet-ignore objects-over-callbacks: a test of one key, handed to each shell
 		private readonly toggles: (event: KeyboardEvent) => boolean,
-		{ timer = new SystemTimer() }: { timer?: Timer } = {},
+		{
+			timer = new SystemTimer(),
+			shared = null,
+		}: { timer?: Timer; shared?: SharedTerminals | null } = {},
 	) {
 		this.timer = timer;
+		this.shared = shared;
+		shared?.events.on("changed", () => this.synced());
 		this.open = this.stored();
 		this.names = this.storedNames();
 	}
 
 	/**
-	 * What terminal `key` is called: the name it was given, or else a main
-	 * tree's by its number and a conversation's plain "Terminal".
+	 * What terminal `key` is called: the name it was given, or else the
+	 * command it runs in front, or else a main tree's by its number and a
+	 * conversation's plain "Terminal".
 	 */
 	nameOf(key: string): string {
+		const listed = this.shared?.find(key);
 		return (
-			this.names[key] ??
+			(listed === undefined ? this.names[key] : listed.name) ??
+			this.fronts[key] ??
 			(isMain(key) ? `Terminal ${numberOf(key)}` : "Terminal")
 		);
 	}
@@ -81,7 +101,47 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		} catch {
 			// Storage refused, full or off: the name holds until a reload.
 		}
+		void this.shared?.rename(key, name);
 		this.dispatcher.dispatch("changed");
+	}
+
+	/**
+	 * Takes in what the server says is up: terminals another page opened show
+	 * here, and one it no longer says, closed elsewhere, goes.
+	 */
+	private synced(): void {
+		if (this.shared === null || !this.shared.loaded) {
+			return;
+		}
+		const now = new Set(this.shared.list.map((each) => each.key));
+		for (const key of this.remote) {
+			if (!now.has(key)) {
+				this.gone(key);
+			}
+		}
+		this.remote = now;
+		const added = [...now].filter(
+			(key) => isMain(key) && !this.mains.includes(key),
+		);
+		if (added.length > 0) {
+			this.mains = [...this.mains, ...added].sort(
+				(left, right) => numberOf(left) - numberOf(right),
+			);
+		}
+		this.dispatcher.dispatch("changed");
+	}
+
+	/** Lets go of terminal `key`, which another page closed, leaving the shell as it is. */
+	private gone(key: string): void {
+		const session = this.sessions.get(key);
+		this.sessions.delete(key);
+		if (this.open === key) {
+			this.hide();
+		}
+		this.forget(key);
+		this.mains = this.mains.filter((each) => each !== key);
+		this.dispatcher.dispatch("exited", key);
+		session?.detach();
 	}
 
 	/**
@@ -120,8 +180,50 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 			});
 			session = made;
 			this.sessions.set(conversation, session);
+			this.poll();
 		}
 		return session;
+	}
+
+	/** Starts listening for the terminals other pages open, if it is given any to hear. */
+	start(): void {
+		this.shared?.start();
+	}
+
+	/** Asks each shell what it runs in front, now and again every few seconds. */
+	private poll(): void {
+		if (this.polling !== null) {
+			return;
+		}
+		this.polling = this.timer.setTimeout(() => {
+			this.polling = null;
+			void this.refreshFronts();
+		}, FRONT_POLL);
+	}
+
+	private async refreshFronts(): Promise<void> {
+		const entries = [...this.sessions.entries()];
+		const asked = await Promise.all(
+			entries.map(
+				async ([key, session]) => [key, await session.front()] as const,
+			),
+		);
+		const next: Record<string, string> = {};
+		for (const [key, command] of asked) {
+			if (command !== null && this.sessions.has(key)) {
+				next[key] = command;
+			}
+		}
+		const same =
+			JSON.stringify(Object.entries(next).sort()) ===
+			JSON.stringify(Object.entries(this.fronts).sort());
+		this.fronts = next;
+		if (!same) {
+			this.dispatcher.dispatch("changed");
+		}
+		if (this.sessions.size > 0) {
+			this.poll();
+		}
 	}
 
 	/** The shell class once its chunk is in, which `sessionFor` needs. */
@@ -177,11 +279,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.set(null);
 	}
 
-	/**
-	 * Hangs up on `conversation`'s shell; the next one starts in whatever tree
-	 * the conversation is in then, which is how a lost shell comes back and
-	 * how one follows its agent into a task.
-	 */
+	/** Hangs up on `conversation`'s shell so a fresh one starts in its current tree. */
 	restart(conversation: string): void {
 		this.sessions.get(conversation)?.dispose();
 		this.sessions.delete(conversation);
@@ -194,7 +292,12 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	 */
 	running(conversation: string): boolean {
 		const status = this.sessions.get(conversation)?.status;
-		return status === "connecting" || status === "open";
+		return (
+			status === "connecting" ||
+			status === "open" ||
+			(this.sessions.get(conversation) === undefined &&
+				this.remote.has(conversation))
+		);
 	}
 
 	/**
@@ -207,7 +310,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	/** The conversations whose shells are up, which the sidebar nests under each. */
 	up(): string[] {
-		return [...this.sessions.keys()].filter(
+		return [...new Set([...this.sessions.keys(), ...this.remote])].filter(
 			(key) => !isMain(key) && this.running(key),
 		);
 	}
@@ -294,10 +397,14 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	}
 
 	dispose(): void {
+		this.polling?.dispose();
+		this.polling = null;
+		// Left running for whichever page shows them next, as on a switch of project.
 		for (const session of this.sessions.values()) {
-			session.dispose();
+			session.detach();
 		}
 		this.sessions.clear();
+		this.shared?.dispose();
 		this.dispatcher.dispose();
 	}
 }

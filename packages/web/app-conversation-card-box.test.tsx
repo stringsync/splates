@@ -217,6 +217,53 @@ describe("App's card answer boxes", () => {
 		);
 	});
 
+	it("sends a take's words on Enter under a proposal rather than approving", async () => {
+		const proposal = conversation({
+			title: "Header",
+			messages: [
+				message(
+					"agent",
+					[
+						"## 💡 Proposed a wrapping header",
+						"",
+						"Let the header wrap on phones.",
+						"",
+						"1. Where should the header wrap?",
+						"   - (a) Below 400px (chosen)",
+						"   - (b) Below 600px",
+					].join("\n"),
+				),
+			],
+		});
+		const view = await testing.openConversations([proposal]);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "proposal a wrapping header" }),
+		);
+		const more = panel.querySelector("[data-more]") as HTMLElement;
+		await act(async () =>
+			fireEvent.click(within(more).getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() =>
+			within(panel).getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak("make it blue"));
+		expect(within(panel).queryByRole("button", { name: "Approve" })).toBeNull();
+
+		await act(async () => fireEvent.keyDown(document.body, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt").length).toBe(1),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: {
+					text: "> **Where should the header wrap?**\n\n- (a) Below 400px\n\n> **Anything else?**\n\nsomethingmake it blue",
+					dictated: "true",
+				},
+			},
+		]);
+	});
+
 	it("finishes a take on Enter, keeping its words, then goes on to the next question", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "1"));

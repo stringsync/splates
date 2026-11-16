@@ -1,4 +1,4 @@
-export type { Ending, Review, Stretch, TaskReport } from "./asked";
+export type { Ending, Findings, Review, Stretch, TaskReport } from "./asked";
 export { stretches } from "./asked";
 export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
@@ -37,9 +37,12 @@ export {
 	RUN_ALLOWED,
 	RUN_DENIED,
 	RUN_ELSEWHERE,
+	SHIP_DECLINED,
 	setupReference,
 	shipFailureReference,
 	shipSlowReference,
+	shipStartedIn,
+	shipStartedReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

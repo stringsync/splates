@@ -16,6 +16,7 @@ import type { Handler, Served } from "../server/shared";
 import { body } from "../server/shared";
 import type { Document, Storage } from "../storage";
 import { keyOf, Notices } from "./notices";
+import { keyOfWaiting, ShipNotices } from "./ship-notices";
 
 /** How often the server looks for something worth pushing, while a device listens. */
 export const PUSH_EVERY = Duration.secs(5);
@@ -78,6 +79,8 @@ export class Pushes {
 	private readonly pusher: Pusher;
 	/** By device and project, what the last look saw. */
 	private readonly notices = new Map<string, Notices>();
+	/** By device and project, the ship prompts the last look saw. */
+	private readonly shipNotices = new Map<string, ShipNotices>();
 	private readonly tick: { dispose(): void };
 	private looking: Promise<void> | null = null;
 
@@ -178,6 +181,7 @@ export class Pushes {
 				continue;
 			}
 			const { rows, lanes } = await project.needing();
+			const asking = await project.shipPrompts();
 			const name = (row: Needing) =>
 				row.conversation !== null
 					? nameOf(row.conversation, lanes)
@@ -198,6 +202,22 @@ export class Pushes {
 						inFront: device.wants.inFront,
 					};
 					await this.push(device, pushed);
+				}
+				let ships = this.shipNotices.get(seen);
+				if (ships === undefined) {
+					ships = new ShipNotices();
+					this.shipNotices.set(seen, ships);
+				}
+				for (const notice of ships.look(asking)) {
+					if (device.wants.waiting) {
+						await this.push(device, {
+							title: notice.title,
+							body: notice.body,
+							key: keyOfWaiting(notice.waiting),
+							url: `?project=${encodeURIComponent(slug)}#ships/${encodeURIComponent(notice.waiting.run)}`,
+							inFront: device.wants.inFront,
+						});
+					}
 				}
 			}
 		}
@@ -234,6 +254,11 @@ export class Pushes {
 		for (const seen of this.notices.keys()) {
 			if (seen.startsWith(`${endpoint} `)) {
 				this.notices.delete(seen);
+			}
+		}
+		for (const seen of this.shipNotices.keys()) {
+			if (seen.startsWith(`${endpoint} `)) {
+				this.shipNotices.delete(seen);
 			}
 		}
 		await this.keep(

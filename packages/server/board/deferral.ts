@@ -25,6 +25,11 @@ export interface Deferral {
 	questions: DeferredQuestion[];
 	/** What it waits on outside splates: a key, an upstream release. */
 	outside: OutsideBlocker[];
+	/**
+	 * Set by `splates blocker add`: its worktree was kept and its conversation
+	 * suspended until the tasks merge; cleared once it woke.
+	 */
+	suspended?: true;
 }
 
 export interface DeferredQuestion {

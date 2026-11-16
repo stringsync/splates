@@ -1,0 +1,90 @@
+<!doctype html><meta charset="utf-8"><title>Ships flow</title><style>
+:root{--radius:.625rem;--background:oklch(.968 .004 264);--foreground:oklch(.255 .014 264);
+--card:oklch(.993 .002 264);--muted:oklch(.928 .006 264);--muted-foreground:oklch(.52 .014 264);
+--brand:oklch(.32 .014 264);--brand-foreground:oklch(.97 .004 264);
+--accent:color-mix(in oklab,var(--brand) 12%,var(--card));
+--destructive:oklch(.577 .215 27.3);--success:oklch(.6 .15 152);--warning:oklch(.666 .157 58.3);--info:oklch(.588 .158 241.966);
+--border:oklch(.885 .007 264);--input:oklch(.86 .008 264)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:#d9dbe0;color:var(--foreground);
+ display:flex;gap:28px;padding:28px;align-items:flex-start;-webkit-font-smoothing:antialiased;font-size:14px}
+.col{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cap{font-weight:600;font-size:15px;color:oklch(.35 .01 264)}
+.phone{width:390px;height:844px;background:var(--background);border-radius:28px;overflow:hidden;position:relative;
+ display:flex;flex-direction:column;box-shadow:0 2px 12px rgb(0 0 0/.12)}
+.top{height:56px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border);flex:none}
+.top .t{font-weight:600;font-size:16px;flex:1}
+.top .x{color:var(--muted-foreground);font-size:20px;width:24px;text-align:center}
+.body{flex:1;overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:12px}
+.foot{flex:none;padding:12px 16px 28px;border-top:1px solid var(--border);background:var(--background);display:flex;flex-direction:column;gap:8px}
+.btn{height:44px;border-radius:var(--radius);background:var(--brand);color:var(--brand-foreground);font-weight:600;
+ display:flex;align-items:center;justify-content:center;font-size:15px}
+.btn.ghost{background:transparent;color:var(--foreground);border:1px solid var(--input)}
+.btn.sm{height:32px;font-size:13px;padding:0 12px;font-weight:500}
+.btn.dis{opacity:.45}
+.row-btns{display:flex;gap:8px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.list>.it{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border)}
+.list>.it:first-child{border-top:0}
+.it .main{flex:1;min-width:0}
+.name{font-weight:600}
+.sub{color:var(--muted-foreground);font-size:12.5px;margin-top:2px}
+.cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--input);flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--brand-foreground)}
+.cb.on{background:var(--brand);border-color:var(--brand)}
+.cb.on::after{content:"✓";font-weight:700}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:8px;overflow:hidden;margin-top:8px}
+.seg span{padding:5px 14px;font-size:13px;color:var(--muted-foreground);border-left:1px solid var(--input)}
+.seg span:first-child{border-left:0}
+.seg span.on{background:var(--brand);color:var(--brand-foreground);font-weight:600}
+.pill{display:inline-flex;align-items:center;font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-weight:500;white-space:nowrap}
+.pill.warn{background:color-mix(in oklab,var(--warning) 18%,var(--card));color:oklch(.5 .13 58)}
+.pill.ok{background:color-mix(in oklab,var(--success) 16%,var(--card));color:oklch(.45 .12 152)}
+.pill.bad{background:color-mix(in oklab,var(--destructive) 14%,var(--card));color:var(--destructive)}
+.pill.run{background:color-mix(in oklab,var(--info) 14%,var(--card));color:oklch(.48 .14 241)}
+.h{font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em}
+.lead{font-size:13.5px;color:var(--muted-foreground);line-height:1.45}
+.stepper{display:flex;gap:6px;padding:10px 16px 0}
+.stepper div{flex:1;height:4px;border-radius:2px;background:var(--muted)}
+.stepper div.on{background:var(--brand)}
+.steplabels{display:flex;padding:6px 16px 0;font-size:11.5px;color:var(--muted-foreground)}
+.steplabels span{flex:1}
+.steplabels span.on{color:var(--foreground);font-weight:600}
+.ic{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.ic.done{background:var(--success);color:white}
+.ic.done::after{content:"✓"}
+.ic.fail{background:var(--destructive);color:white}
+.ic.fail::after{content:"!"}
+.ic.run{border:2.5px solid color-mix(in oklab,var(--info) 25%,transparent);border-top-color:var(--info)}
+.ic.wait{border:2px dashed var(--input)}
+.mono{font-family:"JetBrains Mono Variable",ui-monospace,Menlo,monospace;font-size:12px}
+.bar{height:6px;border-radius:3px;background:var(--muted);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--brand)}
+.grp{border:1px dashed var(--input);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:8px}
+.grp .gl{font-size:11.5px;color:var(--muted-foreground);font-weight:600;padding:0 4px}
+.side{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.tile.fail{border-color:color-mix(in oklab,var(--destructive) 50%,var(--border))}
+.tile.run{border-color:color-mix(in oklab,var(--info) 50%,var(--border))}
+.arrow{text-align:center;color:var(--muted-foreground);font-size:14px;line-height:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgb(0 0 0/.15);padding:10px 16px 28px;display:flex;flex-direction:column;gap:12px}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--input);margin:0 auto 4px}
+.dim{position:absolute;inset:0;background:rgb(0 0 0/.28)}
+.chip{font-size:12.5px;font-weight:600;border:1px solid var(--input);border-radius:8px;padding:4px 10px;background:var(--card)}
+.chip.on{background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)}
+.tl{display:flex;flex-direction:column}
+.tl .s{display:flex;gap:12px;position:relative;padding-bottom:16px}
+.tl .s:not(:last-child)::before{content:"";position:absolute;left:10.5px;top:24px;bottom:2px;width:1.5px;background:var(--border)}
+.note{font-size:12px;color:var(--muted-foreground);display:flex;align-items:center;gap:6px}
+.fixed-note{font-size:12.5px;color:var(--muted-foreground);text-align:center}
+.need{margin:0 14px 12px 46px;padding:8px 10px;border-radius:8px;background:var(--accent);font-size:12.5px;display:flex;align-items:center;gap:8px}
+.need b{font-weight:600}
+</style><body><div class="col"><div class="cap">Pick</div><div class="phone">
+<div class="top"><span class="x">☰</span><span class="t">Ship</span></div>
+<div class="body"><div class="card list"><div class="it" style="padding:10px 14px"><div class="cb "></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:500">@stringsync/mdom</span><span class="pill">21</span></div></div><div class="it" style="padding:10px 14px"><div class="cb on"></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:600">@stringsync/vexml</span></div><div class="seg" style="margin:0"><span class="" style="padding:4px 7px;font-size:12px">patch</span><span class="on" style="padding:4px 7px;font-size:12px">minor</span><span class="" style="padding:4px 7px;font-size:12px">major</span></div></div><div class="it" style="padding:10px 14px"><div class="cb "></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:500">net-staging</span><span class="pill">11</span></div><span class="sub">deploy</span></div><div class="it" style="padding:10px 14px"><div class="cb on"></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:600">s2s-staging</span><span class="pill">650</span></div><span class="sub">deploy</span></div><div class="it" style="padding:10px 14px"><div class="cb "></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:500">s2s-prod</span><span class="pill">650</span></div><span class="sub">deploy</span></div><div class="it" style="padding:10px 14px"><div class="cb "></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:500">@sound2score/player</span><span class="pill">4</span></div></div><div class="it" style="padding:10px 14px"><div class="cb "></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:500">net-prod</span><span class="pill">213</span></div><span class="sub">deploy</span></div><div class="it" style="padding:10px 14px"><div class="cb on"></div><div class="main" style="display:flex;align-items:center;gap:8px"><span class="name" style="font-weight:600">@stringsync/splates</span></div><div class="seg" style="margin:0"><span class="on" style="padding:4px 7px;font-size:12px">patch</span><span class="" style="padding:4px 7px;font-size:12px">minor</span><span class="" style="padding:4px 7px;font-size:12px">major</span></div></div></div></div><div class="foot"><div class="btn">Next</div></div></div></div><div class="col"><div class="cap">Dependencies</div><div class="phone">
+<div class="top"><span class="x">‹</span><span class="t">Needed first</span></div>
+<div class="body"><div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span class="name">@stringsync/mdom</span><div style="display:flex;gap:6px"><span class="chip">Skip</span><span class="chip on">Add</span></div></div><div class="sub">vexml and s2s-staging use its unshipped 21 commits</div><div class="seg"><span class="on">patch</span><span class="">minor</span><span class="">major</span></div></div><div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:center"><span class="name">net-staging</span><div style="display:flex;gap:6px"><span class="chip">Skip</span><span class="chip on">Add</span></div></div><div class="sub">s2s-staging deploys onto it; 11 commits not live</div></div>
+<div class="lead">Skipping ships your picks against what is already out.</div></div><div class="foot"><div class="btn">Next</div></div></div></div><div class="col"><div class="cap">Review</div><div class="phone">
+<div class="top"><span class="x">‹</span><span class="t">Review</span></div>
+<div class="body"><div class="lead">3 steps, in order. Each starts once the one before is done.</div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 1</span><span class="sub" style="margin:0">· 3 at the same time</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile " style="padding:10px 12px"><span class="name" style="font-size:13.5px">@stringsync/mdom</span><div class="sub">Publish 0.8.18 to npm</div></div><div class="tile " style="padding:10px 12px"><span class="name" style="font-size:13.5px">net-staging</span><div class="sub">Deploy Staging-Network (cdk)</div></div><div class="tile " style="padding:10px 12px"><span class="name" style="font-size:13.5px">@stringsync/splates</span><div class="sub">Publish 2.0.12 to npm from the mirror</div></div></div></div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 2</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile " style="padding:10px 12px"><span class="name" style="font-size:13.5px">@stringsync/vexml</span><div class="sub">Publish 1.15.0 to npm, on mdom 0.8.18</div></div></div></div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 3</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile " style="padding:10px 12px"><span class="name" style="font-size:13.5px">s2s-staging</span><div class="sub">Deploy the app on the new net and vexml</div></div></div></div></div><div class="foot"><div class="btn">Ship</div></div></div></div><div class="col"><div class="cap">Run</div><div class="phone">
+<div class="top"><span class="x">‹</span><span class="t">Shipping</span></div>
+<div class="body"><div><div class="bar"><i style="width:20%"></i></div><div class="sub" style="margin-top:6px">1 of 5 done · 6m 20s</div></div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 1</span><span class="sub" style="margin:0">· 3 at the same time</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile done" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div class="ic done" style="width:18px;height:18px;font-size:10px"></div><span class="name" style="font-size:13.5px;flex:1">@stringsync/mdom</span><span class="sub" style="margin:0">1m 12s</span></div><div class="sub" style="margin-left:28px">Published 0.8.18</div></div><div class="tile fail" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div class="ic fail" style="width:18px;height:18px;font-size:10px"></div><span class="name" style="font-size:13.5px;flex:1">net-staging</span><span class="sub" style="margin:0">3m 40s</span></div><div class="sub" style="margin-left:28px">Stack rolled back: SecurityGroup in use</div><div class="row-btns" style="margin:6px 0 0 28px"><div class="btn sm">Send to agent</div><div class="btn sm ghost">Retry</div></div></div><div class="tile run" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div class="ic run" style="width:18px;height:18px;font-size:10px"></div><span class="name" style="font-size:13.5px;flex:1">@stringsync/splates</span><span class="sub" style="margin:0">5m 02s</span></div><div class="sub" style="margin-left:28px">Waiting for the publish workflow</div></div></div></div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 2</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile wait" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div class="ic wait" style="width:18px;height:18px;font-size:10px"></div><span class="name" style="font-size:13.5px;flex:1">@stringsync/vexml</span><span class="sub" style="margin:0"></span></div><div class="sub" style="margin-left:28px">Starts when step 1 is done</div></div></div></div><div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;font-size:13px">Step 3</span></div><div style="display:flex;flex-direction:column;gap:6px"><div class="tile wait" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div class="ic wait" style="width:18px;height:18px;font-size:10px"></div><span class="name" style="font-size:13.5px;flex:1">s2s-staging</span><span class="sub" style="margin:0"></span></div><div class="sub" style="margin-left:28px">Starts when step 2 is done</div></div></div></div></div></div></div></body>

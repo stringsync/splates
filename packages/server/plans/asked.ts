@@ -81,6 +81,21 @@ function cut(text: string): Stretch[] {
 			i = end - 1;
 			continue;
 		}
+		const reported = FINDINGS.exec(line);
+		if (reported !== null) {
+			const end = findingsEnd(lines, i + 1);
+			found.push(...prose(lines.slice(from, i)));
+			found.push({
+				type: "findings",
+				findings: {
+					subject: reported[1] ?? "",
+					body: trimmed(lines.slice(i + 1, end)),
+				},
+			});
+			from = end;
+			i = end - 1;
+			continue;
+		}
 		const demo = demoHere(lines, i);
 		if (demo !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -126,6 +141,7 @@ export type Stretch =
 	| { type: "review"; review: Review }
 	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: TaskReport }
+	| { type: "findings"; findings: Findings }
 	| { type: "permission"; permission: PermissionProposal }
 	| { type: "demo"; demo: Demo };
 
@@ -157,13 +173,24 @@ export interface Proposal {
 	body: string;
 }
 
+/**
+ * What an agent reports on anything, as its `## 📊 Report: <subject>` puts it:
+ * plain markdown first, with readouts (fenced `stats`, `chart`, `progress`
+ * and `steps` blocks and the like) a page may draw. It runs to the next `#`
+ * or `##` heading, so its own `###` sections stay inside it.
+ */
+export interface Findings {
+	subject: string;
+	body: string;
+}
+
 /** How a task ended, or what it waits on, as the skill's reports title them. */
 export type Ending = "merged" | "done" | "removed" | "deferred" | "escalated";
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## ✅ Done:
  * <what came of it>` (work over with no task, such as an automation's run), `## 🧹 Removed
- * <task>: <why>`, `## ⏸ Deferred <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`.
+ * <task>: <why>`, `## ⏸ Blocked <task>: <what it waits on>`, `## ⚠️ Escalated <task>: <what it needs>`.
  */
 export interface TaskReport {
 	ending: Ending;
@@ -190,7 +217,7 @@ const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 /** A conversation's work is over with no task: `## ✅ Done: <what came of it>`. */
 const DONE = /^## ✅ Done(?::[ \t]*(.*?))?[ \t]*$/;
 const ENDED =
-	/^## (?:(🧹) Removed|(⏸)\uFE0F? Deferred|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+	/^## (?:(🧹) Removed|(⏸)\uFE0F? (?:Blocked|Deferred)|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
  * within its body.
@@ -202,6 +229,8 @@ const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
 /** A proposal's title. */
 const PROPOSED = /^## 💡 Proposed (.+?)[ \t]*$/;
+/** A findings report's title. */
+const FINDINGS = /^## 📊 Report(?::[ \t]*(.*?))?[ \t]*$/;
 /** A review's line naming the checks that passed, each in a code span. */
 const CHECKS = /^Checks:[ \t]*(.*)$/;
 /** A review's line naming the checks that failed, the same way. */
@@ -362,6 +391,29 @@ function endAt(lines: string[], start: number): number {
 		if (
 			!fenced &&
 			(HEADING.test(line) ||
+				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
+		) {
+			return i;
+		}
+	}
+	return lines.length;
+}
+
+/**
+ * Where the findings report starting at `start` ends: at the next heading of
+ * `##` or above, or the questions that follow it, outside code blocks.
+ */
+function findingsEnd(lines: string[], start: number): number {
+	let fenced = false;
+	for (let i = start; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (
+			!fenced &&
+			(/^#{1,2}[ \t]/.test(line) ||
 				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
 		) {
 			return i;

@@ -33,11 +33,18 @@ export {
 	stopEvalRun,
 } from "./evals";
 export {
+	actOnShip,
+	recordShipAgent,
+	shipGraph,
+	shipHistory,
+	shipHistoryEntry,
+	shipStageLog,
+} from "./legacy-ship";
+export {
 	addBoard,
 	addLane,
 	addTodo,
 	answerDeferral,
-	archiveBoard,
 	arrangeTodo,
 	assignTodo,
 	dropBoard,
@@ -86,14 +93,6 @@ export {
 	sendJson,
 	WAITS,
 } from "./request";
-export {
-	actOnShip,
-	recordShipAgent,
-	shipGraph,
-	shipHistory,
-	shipHistoryEntry,
-	shipStageLog,
-} from "./ship";
 export {
 	billing,
 	pullBilling,

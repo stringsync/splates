@@ -3,8 +3,8 @@ import type { Resource } from "core/disposable";
 import { Debouncer, Duration, SystemTimer } from "core/time";
 import { ElsewhereStanding } from "../board";
 import { LEGACY_PLAN_FILE } from "../config";
+import { shipRecord } from "../legacy-ship";
 import { PLAN_FILE } from "../plans";
-import { shipRecord } from "../ship";
 import { fingerprint, type Snapshot, snapshot, TaskDetails } from "../tasks";
 import { type EventSink, eventStream, type StreamWatcher } from "./http";
 import type { DevContext, Project } from "./project";
@@ -113,6 +113,20 @@ export class ProjectWatch implements StreamWatcher {
 		this.details.moved(worktree);
 		this.edits.call(this.changed);
 	};
+
+	/** Tells every page listening a named event, which `data` carries as JSON. */
+	announce(name: string, data: unknown): void {
+		const chunk = encoder.encode(
+			`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`,
+		);
+		for (const stream of this.open) {
+			try {
+				stream.enqueue(chunk);
+			} catch {
+				// closed on the way: its cancel removes it
+			}
+		}
+	}
 
 	/** The stream a page listens to for `changed`. */
 	events(): Response {

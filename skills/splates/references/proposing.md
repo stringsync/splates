@@ -52,34 +52,23 @@ A proposal shows what it would change, in a picture, when the change is
 big enough to need one: a backend change touching more than one service,
 table or flow, and any visible frontend change. A small change needs none.
 
-- **Backend: a D2 diagram.** Write the `.d2` source (a sequence, flow, data or
-  state diagram, whichever the change is) in a scratch directory outside the
-  worktree and render it to SVG. When `d2` is on the PATH (`command -v d2`),
-  use it: `d2 in.d2 out.svg`. Otherwise use `@terrastruct/d2`, the WASM build
-  of D2 on npm. It ships no command, and nothing is added to any repository:
-  write this script beside the source, where Bun installs the import on the
-  first run and caches it after, and run `bun render-d2.ts in.d2 out.svg`.
+- **Backend: a D2 diagram.** Write the D2 source (a sequence, flow, data or
+  state diagram, whichever the change is) in a fenced `d2` block in the
+  proposal itself, under a short heading for what it shows. The page draws it
+  as an SVG, with no `d2` binary, render script, screenshot or attach; invalid
+  source shows as a code block, so check the syntax. A proposal for such a
+  change is not ready until its diagram is in it, so do not send it as text
+  alone. Keep the sections beside it in the same order each time (`Flow`,
+  `Data`, `Risks`), each a few lines, so the page can fold them later.
 
-  ```ts
-  import { D2 } from "@terrastruct/d2";
+  ````markdown
+  ### Flow
 
-  const [input, output] = process.argv.slice(2);
-  const d2 = new D2();
-  const result = await d2.compile(await Bun.file(input).text());
-  await Bun.write(output, await d2.render(result.diagram, result.renderOptions));
-  process.exit(0); // the WASM runtime keeps the process alive otherwise
+  ```d2
+  client -> server: upload
+  server -> store: save
   ```
-
-  Cards show attached images, not SVGs, so the SVG becomes a PNG: with `d2`
-  on the PATH, `d2 in.d2 out.png` renders the PNG directly, no browser
-  needed; otherwise open the SVG in the browser tool and screenshot it.
-  A proposal for such a change is not ready until its diagram is attached,
-  so do not send it as text alone. `splates attach` works from a task's
-  worktree: when no task is under way, `splates add` one for the proposal
-  first (After says what is proposed), rather than skipping the picture.
-  Put the PNG in the proposal under a short heading for what it shows. Keep the sections beside
-  it in the same order each time (`Flow`, `Data`, `Risks`), each a few lines,
-  so the page can fold them later.
+  ````
 - **Frontend: lo-fi variants first, hi-fi only when asked.** UI work
   proposes two or more lo-fi variants before any code. Build each as a
   throwaway mock in plain HTML, grey boxes and system text, no styling, in a

@@ -28,6 +28,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 *.tsbuildinfo
 
 # a release under way; the last part to land deletes it (wiz dev ship)
+/RELEASE
+/RELEASE.*
 
 # IntelliJ based IDEs
 .idea
@@ -45,4 +47,4 @@ SPLATES.md
 .splates-shots
 
 # the splates server page, compiled by splates/packages/web/build.ts
-packages/server/web-build
+splates/packages/server/web-build

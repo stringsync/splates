@@ -73,11 +73,11 @@ describe.skip("App's run-command card", () => {
 				await waitFor(() => view.getByRole("link", { name: "Open Ships" })),
 			),
 		);
-		await waitFor(() => expect(location.hash).toBe("#ships"));
+		await waitFor(() => expect(location.hash).toBe("#legacy-ships"));
 		await waitFor(() =>
 			expect(view.getAllByText(/wren/).length).toBeGreaterThan(0),
 		);
-		expect(testing.posted("/api/ship/run")).toEqual([]);
+		expect(testing.posted("/api/legacy-ship/run")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 		history.replaceState(null, "", "/");
 	});

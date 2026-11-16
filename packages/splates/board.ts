@@ -53,9 +53,7 @@ splatesBoard
 splatesBoard
 	.command("update")
 	.use(repository({ needs: "tasks" }))
-	.description(
-		"rename a board, move it among the others, or put it away (`--archived`) or bring it back (`--no-archived`); archiving keeps its lanes, tasks and links. The default board cannot be archived",
-	)
+	.description("rename a board or move it among the others")
 	.arg("board", boardNumber, { description: "board number" })
 	.option("name", z.string().optional(), {
 		description: "what it is called from now on",
@@ -63,14 +61,10 @@ splatesBoard
 	.option("position", position, {
 		description: "where to move it among the boards, 1 the first",
 	})
-	.option("archived", z.boolean().optional(), {
-		description: "put it away, or with --no-archived bring it back",
-	})
 	.action(async (opts, ctx) => {
 		const change = {
 			name: opts.name,
 			position: opts.position,
-			archived: opts.archived,
 		};
 		if (opts.name === undefined) {
 			await boardUpdate(ctx, opts.board, change);

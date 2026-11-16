@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { type JSX, useContext, useRef, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
-import { ActiveShip } from "./active-ship";
 import { actOnShip } from "./api";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
@@ -26,6 +25,7 @@ import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { useNow } from "./hooks/use-now";
+import { ActiveShip } from "./legacy-ship-active";
 import { MachineStats, useLiveMachine } from "./machine";
 import { NavigationContext } from "./navigation";
 import { PendingSpinner, useShowPending } from "./pending";
@@ -33,7 +33,7 @@ import { shipsUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
 import { SplatesEvent } from "./splates-event";
-import { useLiveShips } from "./use-live-ships";
+import { useLiveShips } from "./use-live-legacy-ships";
 
 /**
  * Shows an agent's request to run a heavy command, with why and how loaded

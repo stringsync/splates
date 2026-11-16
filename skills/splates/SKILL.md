@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive or a `#rec:<name>` reference to a recorded session. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.11
+version: 2.0.12
 ---
 
 # Using splates
@@ -140,9 +140,10 @@ queue), write the choices as `- [a]` lines, each you would tick marked
 `(chosen)`; `- (a)` lines are for alternatives that exclude each other, and a
 pick-one card for non-exclusive items leaves the user unable to answer.
 
-A plain yes or no is asked the same way, as `- (a) Yes` and `- (b) No` choices; the user can always add words to the answer.
+A plain yes or no is asked the same way, as `- (a) Yes` and `- (b) No` choices, never as prose and never as named options: "Should we remove it?" is `- (a) Yes, remove it` and `- (b) No, keep it`, not `- (a) Remove it` and `- (b) Keep it`. The user can always add words to the answer.
 
-Never as `Should I keep the old endpoint? I'd lean yes.`, a bold line, or
+Never as `Should I keep the old endpoint? I'd lean yes.` (and keep "I" and "you" out of
+questions and choices: say "we" or name the subject), a bold line, or
 your harness's own question tool: the page shows none of those as a card.
 [references/questions.md](references/questions.md) has the rest.
 
@@ -163,16 +164,22 @@ After a remove, why it went after the colon:
 The task set out to stop uploads retrying a 413.
 ```
 
+When a task that took a queued board task waits on another task to merge,
+`splates blocker add <#id | "subject">` keeps the worktree and suspends the
+conversation: end your turn after it, and it wakes when every blocker has
+merged or the user writes to it. A subject makes a new Backlog task, so end
+the reply with its queue card.
+
 When the work is blocked and only set aside for later, remove it with
 `--reason blocked`, which asks why it stopped and what it waits on (a task
 in another project as `--blocked-by wren#404`), and report it
-deferred, the blockers in short after the colon, not removed. Ask any
+blocked, the blockers in short after the colon, not removed. Ask any
 question the work waits on as a numbered question, never as a blocker. When
 the tasks it waits on can be queued, end the reply with their queue card,
 the deferred task last, so the user queues them all in one press:
 
 ```markdown
-## ⏸ Deferred <task>: waiting on #812 and #813
+## ⏸ Blocked <task>: waiting on #812 and #813
 
 The task set out to stop uploads retrying a 413; it is back on the board.
 
@@ -204,6 +211,16 @@ its own card, sent before it. A reply in a talk that carries on is no Done repor
 
 Both kept their tests; the notes needed no change.
 ```
+
+Reporting anything else (a health check, an audit, a survey, a comparison:
+findings the user reads rather than answers) is a Report card, whatever
+the subject: `## 📊 Report: <subject>`, a one-sentence headline, then only
+the readouts that help. It is plain markdown, so it reads as it is outside the
+page. [references/reporting.md](references/reporting.md), Reports, has the
+readouts (`stats`, `chart`, `progress`, `steps`, `gallery`, `d2`, callouts, a status table, a
+folded `### Details`) and their shapes; copy one from there. Any card's prose
+body (Merged, Done, Proposed and the rest, not Review or Questions) may use them too. A report asks
+nothing; when it ends an automation's run, send it before the Done report.
 
 Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with what
 changed, any screenshots, a `Checks:` line and the last line `Reply "merge",
@@ -252,7 +269,9 @@ splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
 scenarios you picked, one `` - `id` `` item each, and optionally the
 revision the change is judged against and how many times to run each cell
-(`Repetitions: <n>`, to tell a change from noise) and the saved agents to
+(`Repetitions: <n>`, to tell a change from noise), the judge that grades
+the runs (`Judge:` then `` `claude:<model>@<effort>` ``, the runner's default when left out)
+and the saved agents to
 run on (`Agents:` then each as `` `agent:model@effort` ``), chosen only from the saved
 eval agents the project allows, never an agent you invent, leaving out those that need no
 rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
@@ -270,6 +289,7 @@ Checks the new wording of the scoped-tests rule.
 
 Baseline: `main`
 Repetitions: 3
+Judge: `claude:opus@high`
 Agents: `<agent:model@effort>`, `<agent:model@effort>`
 ```
 
@@ -311,24 +331,48 @@ pause or resume automatic starts across the server, as Pause on the Queue
 page does. Running agents finish, and the user can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
-Only the user ships, and a ship starts on the Ships page, never from you.
+Only the user ships, and a ship starts from the user, never from you: from
+the Ships page, or by approving your ship card. Being told to ship, even
+"ship it yourself" from a user stepping away, is no leave to start one:
+run no target's ship command beyond `plan` and `done`, and answer with the
+ship card. A ship is what releases or
+deploys a project (an npm release, a stack deploy); a merge is never a
+release, and you never run what a ship would (`npm publish`, a deploy, a
+target's `ship run`).
 A project that cannot ship yet, or has no evals on the Evals page, has a setup
 journey for each on the welcome page and in Setup (`splates setup ships`,
 `splates setup evals`): see [setup.md](references/setup.md), Ships and evals.
-Never run `npm login` or `npm publish`: only the user starts a publish, and a ship signs in to nothing. When you think a release is due (a fix on
-the base that users are waiting on), end your reply with a run-command card
-naming `splates ship <project>`, the why under it saying what the release
-carries. The page shows it as a ship card whose button opens the Ships page
-with that project picked; it starts nothing, so carry on without waiting. A
-merge is never a release.
+Never run `npm login` or `npm publish`: only the user starts a publish, and a ship signs in to nothing.
+
+A fix is out only once a release after it is: a fix committed after the
+last release tag is unreleased, and `<command> done <step>` of a target's
+release step (`publish`, `deploy`) prints `false` while the next release has
+yet to happen. When a release is due (a fix on the base that users are
+waiting on), even when the user tells you to ship it yourself, end your reply
+with a ship card: one `` - `<target>` <bump> `` line a
+target by the `name` its plan prints (`<command> plan` for each command
+under `ships` in `splates.config.ts`, which runs nothing), never the
+command, its bump `patch`, `minor` or
+`major`, and the why under them saying what the release carries. Name a
+target's dependency too when it must release first. The user's Approve on
+the card starts the ship and sends `[SPLATES SHIP STARTED <run>]`; the card
+then follows the run, so carry on without waiting. A typed "approve" starts
+nothing: say the ship starts from the card's Approve or the Ships page.
 
 ```markdown
-## 🔐 Permission: run command: ship wren
+## 🔐 Permission: ship: release the slur fix
 
-`splates ship wren`
+- `@stringsync/mdom` minor
+- `@stringsync/vexml` patch
 
-The log rotation fix is on main and unreleased; mdom and vexml take it next.
+mdom's slur fix is unreleased; vexml takes it.
 ```
+
+Only when `splates.config.ts` lists no `ships` and the project ships
+under `legacyShips` is the card instead a run-command card naming
+`splates ship <project>`, which opens the Legacy ships page with that
+project picked and starts nothing. A project with `ships` always gets the
+ship card.
 
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
 tasks needs the user's remove-lane permission card (see
@@ -344,6 +388,8 @@ asks you to queue work, add it; either way, end your reply with its queue
 card for the user to queue it now or later.
 
 A task started by a ship belongs to that ship alone. Follow its mechanical detail and the user’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
+
+A board task sent from a failed step on the Ships page is that step's fix: take it as any queued task, read the run with `splates ships show <run>` (with `--target` and `--step` for everything the step printed), fix what made the step fail, and land with `splates merge`; the ship retries the step by itself once the fix task ends, merged or removed, so press nothing and change no code for it, and start no ship. To try the step before merging, `splates ships retry <run> --target <target> --step <step>` from your worktree runs it again from the main tree. Any agent may carry a ship the user started on that way, retrying a failed step, and leave what it found or changed with `splates ships note <run> "<text>" [--target <target> --step <step>] [--link <task or URL>]`; none may start a ship, answer its prompts or stop it.
 
 ## Seeing a bug in a browser
 
@@ -380,7 +426,7 @@ because the page sends them rarely: `[SPLATES SETUP <step>]` ([setup.md](referen
 `[SPLATES EVALS DONE <batch>]` ([evals.md](references/evals.md)), and hook
 prompts `[SPLATES EVENT ...]` and `[SPLATES SCHEDULE <n>]`, where you do what
 the prompt after it asks and end with the Done report in Formats above,
-unless your last reply is already a Merged, Removed or Deferred report. Read
+unless your last reply is already a Merged, Removed or Blocked report. Read
 the file when one arrives.
 
 | Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -391,6 +437,8 @@ the file when one arrives.
 | `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize ungroomed Backlog task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
 | `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
+| `[SPLATES SHIP STARTED <run>]`      | The user approved your ship card, and the page started the ship as run `<run>` | Carry on: the card follows the run on the page, so wait on nothing |
+| `[SPLATES SHIP DECLINED]`           | The user declined your ship card, with any note after it | Nothing ships: carry on without it, and offer it again only when the user asks |
 | `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN ELSEWHERE]`           | The user is not at the machine that can run the `rec` command your run-command card asked to run | Do not run it, and do not offer rec again in this conversation: carry on without it |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
@@ -562,7 +610,7 @@ you learned. The reason is `nothing`
 (nothing to change), `moot`, `superseded` (done some other way), `redo`
 (better redone against current trunk) or `blocked` (set aside until other work
 lands, a person's answer or something outside splates, each named as its
-refusal says: report it as Deferred); the Stats page counts them.
+refusal says: report it as Blocked); the Stats page counts them.
 
 `wait` ends on `removed` (landed or dropped: check for overlap again),
 waits on a person (the other task's questions are open: tell the user you

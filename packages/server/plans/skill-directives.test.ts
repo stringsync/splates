@@ -13,6 +13,8 @@ import {
 	RUN_ALLOWED,
 	RUN_DENIED,
 	RUN_ELSEWHERE,
+	SHIP_DECLINED,
+	shipStartedReference,
 	taskNumberReference,
 	taskReference,
 } from "./prompts";
@@ -34,6 +36,8 @@ describe("the splates skill's Directives table", () => {
 				RETRIED,
 				GRANTED,
 				GRANT_DENIED,
+				shipStartedReference("<run>"),
+				SHIP_DECLINED,
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
 				"[SPLATES EVAL LOOP <run>]",

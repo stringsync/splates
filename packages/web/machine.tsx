@@ -126,7 +126,7 @@ export function MachineStats({
 					<span className="font-normal">{secondsAgo(age)}</span>
 				)}
 			</h3>
-			<ul className="grid grid-cols-[4rem_1fr_2.5rem] gap-x-2 gap-y-1.5">
+			<ul className="grid grid-cols-[4rem_1fr_3rem] gap-x-2 gap-y-1.5">
 				{reading === null ? (
 					<>
 						<Meter name="CPU" share={0} tone={null} shown="-" />
@@ -233,7 +233,7 @@ function Meter({
 			</span>
 			<span
 				className={cn(
-					"text-right",
+					"whitespace-nowrap text-right",
 					tone === "warning" && "text-warning",
 					tone === "destructive" && "text-destructive",
 				)}

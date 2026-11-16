@@ -88,6 +88,8 @@ export interface EvalCheck {
 export interface EvalVerdict {
 	pass: boolean;
 	reason: string;
+	/** Who judged, as `claude:<model>[@<effort>]`, when the batch records it. */
+	judge?: string;
 }
 
 /** One step of what the agent did: something it said, or a tool it called and what came back. */

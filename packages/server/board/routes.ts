@@ -365,26 +365,12 @@ export class BoardRoutes {
 		return Response.json((await this.#project.tasks.find(found.id)).state);
 	};
 
-	// Puts a board away or brings it back with `archived`, true or false, or
-	// renames it with `name`, or reorders it with `position`.
+	// Renames a board with `name`, or reorders it with `position`.
 	readonly updateBoard = async (request: Request): Promise<Response> => {
-		const { archived, name } = await body(request.clone());
-		if (archived === undefined) {
-			return name === undefined
-				? this.moveBoard(request)
-				: this.renameBoard(request);
-		}
-		if (typeof archived !== "boolean") {
-			fail("usage", "say `archived`, true or false");
-		}
-		const { tasks } = this.#project;
-		const id = boardAt(request);
-		const lifecycle = new BoardLifecycle(tasks);
-		const board = await (archived
-			? lifecycle.archive(id)
-			: lifecycle.restore(id));
-		this.#watch.tick();
-		return Response.json(board);
+		const { name } = await body(request.clone());
+		return name === undefined
+			? this.moveBoard(request)
+			: this.renameBoard(request);
 	};
 
 	/**

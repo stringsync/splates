@@ -1,0 +1,129 @@
+import type {
+	Cascade,
+	CascadeStep,
+	Ship,
+	Stage,
+} from "@splates/server/legacy-ship";
+import { shipName } from "@splates/server/legacy-ship/browser";
+
+/**
+ * What the ship asks of the page: `waiting` while it needs the person (a
+ * bump task's questions), `error` once its cascade stopped and so waits on
+ * the person to retry or abandon it, `done` once it shipped and its recap
+ * waits to be acknowledged, `running` while it goes on its own, null otherwise.
+ */
+export type ShipActivity = "error" | "waiting" | "done" | "running" | null;
+
+/** Whether the cascade under way, with its ship, waits on the person. */
+export function needsYou(cascade: Cascade): boolean {
+	return cascade.steps.some(
+		(step) =>
+			step.status === "asking" ||
+			step.stages.some((stage) => stage.state === "asking") ||
+			step.status === "stopped" ||
+			step.status === "failed",
+	);
+}
+
+/**
+ * Whether the person has seen `cascade`'s result: the server says so for every
+ * browser, and `acknowledged` covers this one until the server's word arrives.
+ */
+export function seenBy(cascade: Cascade, acknowledged: string | null): boolean {
+	return cascade.seen === true || cascade.id === acknowledged;
+}
+
+/** What the ship in `reading` asks of the page; `acknowledged` is the last ship whose recap the person saw. */
+export function shipActivity(
+	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
+	acknowledged: string | null = null,
+): ShipActivity {
+	const { cascade, ship } = reading ?? { cascade: null, ship: null };
+	if (cascade?.status === "stopped") {
+		return "error";
+	}
+	if (cascade?.status === "done" && !seenBy(cascade, acknowledged)) {
+		return "done";
+	}
+	if (cascade === null || cascade.status !== "running") {
+		return ship?.status === "running" ? "running" : null;
+	}
+	return needsYou(cascade) ? "waiting" : "running";
+}
+
+/** The step of `step` past its deadline, or null while none is. */
+export function hungIn(step: CascadeStep): Stage | null {
+	return step.stages.find((stage) => stage.state === "hung") ?? null;
+}
+
+/**
+ * One line on where the ship cascade stands, for a card that follows it:
+ * "wren publishing", "waiting on your 2FA", "splates hung at build";
+ * null before it first speaks.
+ */
+export function shipLine(
+	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
+): string | null {
+	const { cascade } = reading ?? { cascade: null, ship: null };
+	if (cascade === null) {
+		return null;
+	}
+	if (cascade.status === "done") {
+		return `${shipName(cascade.from)} shipped`;
+	}
+	if (cascade.status === "abandoned") {
+		return `${shipName(cascade.from)} ship abandoned`;
+	}
+	for (const step of cascade.steps) {
+		if (
+			step.status === "shipping" &&
+			step.stages.some((stage) => stage.state === "asking")
+		) {
+			return `${step.slug} waits on you`;
+		}
+		const hung = hungIn(step);
+		if (hung !== null) {
+			return `${step.slug} hung at ${hung.name}`;
+		}
+		if (step.status === "failed" || step.status === "stopped") {
+			return `${step.slug} ${step.status}`;
+		}
+		if (step.status === "registry") {
+			return step.deploy === true
+				? `${step.slug} waits for its deploy`
+				: `${step.slug} waits for npm`;
+		}
+		if (step.status === "asking") {
+			return `${step.slug}'s bump task asks you`;
+		}
+	}
+	const going = cascade.steps.find((step) =>
+		["shipping", "bumping"].includes(step.status),
+	);
+	return going === undefined
+		? "starting"
+		: `${going.slug} ${
+				going.status === "shipping"
+					? going.deploy === true
+						? "deploying"
+						: "publishing"
+					: "taking its bump"
+			}`;
+}
+
+/**
+ * Whether the ship has an active page to open: a cascade that is running,
+ * stopped, or done with its recap not yet acknowledged.
+ */
+export function hasActiveShip(
+	reading: { cascade: Cascade | null; ship: Ship | null } | null | undefined,
+	acknowledged: string | null = null,
+): boolean {
+	const cascade = reading?.cascade ?? null;
+	return (
+		cascade !== null &&
+		shipActivity(reading, acknowledged) !== null &&
+		(cascade.status !== "done" || !seenBy(cascade, acknowledged)) &&
+		cascade.status !== "abandoned"
+	);
+}

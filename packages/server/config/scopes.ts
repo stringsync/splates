@@ -129,18 +129,15 @@ function pathsOf(project: string[] | ProjectConfig): string[] {
 /** The ship settings a project resolves to. */
 export interface ShipSettings {
 	ship: string | null;
-	shipStatus: string | null;
 	afterBump: string | null;
 }
 
 /**
- * The `ship`, `shipStatus` and `afterBump` of project `slug`: its own where
+ * The `ship` and `afterBump` of project `slug`: its own where
  * its `projects` entry sets them (`null` included), else the repository's.
  */
 export function shipSettings(
-	config: Partial<
-		Pick<Config, "projects" | "ship" | "shipStatus" | "afterBump">
-	>,
+	config: Partial<Pick<Config, "projects" | "ship" | "afterBump">>,
 	slug: string,
 ): ShipSettings {
 	const entry = config.projects?.[slug];
@@ -148,10 +145,6 @@ export function shipSettings(
 		entry === undefined || Array.isArray(entry) ? {} : entry;
 	return {
 		ship: own.ship !== undefined ? own.ship : (config.ship ?? null),
-		shipStatus:
-			own.shipStatus !== undefined
-				? own.shipStatus
-				: (config.shipStatus ?? null),
 		afterBump:
 			own.afterBump !== undefined ? own.afterBump : (config.afterBump ?? null),
 	};

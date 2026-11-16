@@ -335,7 +335,10 @@ function DetailText({ text }: { text: string }): JSX.Element {
 	const rest = [parts.steps, parts.notes].filter((each) => each !== "");
 	return (
 		<div className="flex min-w-0 flex-col">
-			<BeforeAfter record={{ before: parts.before, after: parts.goal }} />
+			<BeforeAfter
+				record={{ before: parts.before, after: parts.goal }}
+				className={rest.length > 0 ? "pb-5" : undefined}
+			/>
 			{rest.length > 0 && (
 				<CardSection label="More" title="More">
 					<Markdown text={rest.join("\n\n")} />

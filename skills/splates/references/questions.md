@@ -42,20 +42,27 @@ tradeoff), the ones you found in the code or docs included. Never send them to
 a file, a diff or an earlier message for it, and never write a question or
 choice that only makes sense with that context in view.
 
+Keep "I" and "you" out of questions and choices. The agent writes the card and
+the user answers it, and the answer returns to the chat in the user's voice, so
+a pronoun can be read as either speaker. Say "we" or name the subject ("the
+agent retries", "the user re-runs"), and write a choice as a bare action or
+outcome: "Yes, keep it for one release", not "I'll keep it" or "You can keep
+it". The same goes for the lines under a question.
+
 Number questions 1, 2, … in the order you write them. A question's line is
 its subject, short enough to scan and ending at its `?`, with nothing after
 it; everything else, the why included, goes in markdown lines indented under
 it, code blocks included. When checking your own work, ask for what is wrong
 rather than a bare yes or no. A yes or no question is a question like any other: ask
 it as a numbered item with `- (a) Yes` and `- (b) No` choices, your pick
-first and marked `(chosen)`, and never as free-form prose. Say what each
+first and marked `(chosen)`, and never as free-form prose or as two named options: a question that reads "Should we X?" has `Yes` and `No` choices even when each answer has a plain consequence. Say what each
 answer does when that is not plain from the question (`- (a) Yes, keep it for
 one release (chosen)`). The user can always add words of their own to any
 answer, so never ask for a reason or a caveat as a second question. When the answer is one of a few, end with
 `- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
 apply. Decide which before writing the choices: ask "could the user sensibly
 want two of these?". A question like "which of these should become tasks?",
-"which should I fix?" or "which of these do you want?" over independent items
+"which should be fixed?" or "which of these are wanted?" over independent items
 is always `- [a]`, never `- (a)`: a pick-one card forces the user to take one
 and drop the rest, and they cannot fix it from the card. Use `- (a)` only for
 alternatives that exclude each other (one design, one default). The `(chosen)`

@@ -19,6 +19,8 @@ export interface DraftFields {
 	stage: string;
 	/** The lanes it narrows the event to, by number, comma separated, or "" for any. */
 	lane: string;
+	/** Run on only every Nth match of the event, or "" for each. */
+	invokes: string;
 	/** The interval or cron line, for a schedule. */
 	schedule: string;
 	kind: Hook["kind"];
@@ -42,6 +44,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 		event: "task.created",
 		stage: "",
 		lane: "",
+		invokes: "",
 		schedule: "",
 		kind: "agent",
 		pick: null,
@@ -58,6 +61,8 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			fields.event = trigger.event;
 			fields.stage = trigger.filter?.stages?.join(",") ?? "";
 			fields.lane = trigger.filter?.lanes?.join(",") ?? "";
+			fields.invokes =
+				trigger.invokes === undefined ? "" : String(trigger.invokes);
 		} else if ("every" in trigger) {
 			fields.when = "every";
 			fields.schedule = trigger.every;
@@ -91,6 +96,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			event,
 			stage,
 			lane,
+			invokes,
 			schedule,
 			kind,
 			pick,
@@ -104,11 +110,12 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			...(stage === "" ? {} : { stages: stage.split(",") as TaskStage[] }),
 			...(lane === "" ? {} : { lanes: lane.split(",").map(Number) }),
 		};
+		const count = invokes.trim() === "" ? {} : { invokes: Number(invokes) };
 		const trigger: Trigger =
 			when === "event"
 				? Object.keys(filter).length === 0
-					? { event }
-					: { event, filter }
+					? { event, ...count }
+					: { event, filter, ...count }
 				: when === "every"
 					? { every: schedule }
 					: { cron: schedule };

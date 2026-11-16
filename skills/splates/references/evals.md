@@ -52,6 +52,28 @@ budget or round cap.
      the agent to something the rubric and the skill never ask.
    - **skill**: the agent did what the skill as written led it to, or
      missed something the skill says too faintly or not at all.
+   Within its label, name the category, so the report says what broke and
+   not only which layer:
+   - **harness**: `errored` (the run crashed or timed out), `sandbox` (the
+     environment or its tools differed from what the scenario assumes),
+     `seed` (the starting state was wrong or stale), `launch` (the agent
+     started with the wrong settings, model or prompt).
+   - **scenario**: `check-too-strict` (rejects an outcome the skill allows),
+     `check-too-loose` (passes an outcome it should fail), `message-coaches`
+     (the user message hints the answer), `message-contradicts` (it asks
+     against the skill), `seed-drift` (the seed no longer matches splates).
+   - **judge**: `self-contradiction` (the reason argues against the verdict),
+     `rubric-overreach` (holds the agent to what neither rubric nor skill
+     asks), `rubric-gap` (misses what the rubric asks), `unstable` (the same
+     reply gets different verdicts).
+   - **skill**: `missing` (the skill never says it), `faint` (it says it too
+     weakly or too far from where the agent needs it), `conflicting` (two
+     passages disagree), `followed-as-written` (the agent did what the skill
+     said, and that was wrong).
+   - **agent noise**: the agent slipped on something the skill states plainly;
+     a rerun tells it apart from `faint`.
+   A run can carry two labels (both, as the user put it): name each with its
+   category and say which accounts for more of the failure.
    Then leave remarks on the batch, so they can be viewed later and show in the
    run's card. Write as Markdown, to a file outside the repository, the labels
    and the shared cause, and also what held up and any special circumstance
@@ -93,9 +115,28 @@ budget or round cap.
    for a gain: it starts a new baseline (see Grader changes), and the row's
    Label says so.
 
-On each `[SPLATES EVALS DONE]`, reply with the round's row, the label of
-each failed run, the one change you made, and the run card for the rerun,
-asking nothing else. Every round requires the user's approval: end your turn
+On each `[SPLATES EVALS DONE]`, reply with the round's report card, then
+the run card for the rerun, asking nothing else. The remarks and the round's
+row are too thin to say what changed, so the report card is the account:
+
+```markdown
+## 📊 Report: <scenario> round <n>
+
+<One-sentence headline: what went wrong and where.>
+
+| Run | Agent | Label | Category | What went wrong |
+| --- | ----- | ----- | -------- | --------------- |
+| `<run>` | `<agent>` | skill | faint | The claim step sits below the investigation steps |
+
+**Remedy:** the one change, the layer it is in, and the files it touches.
+**Expected:** which runs and agents it should move, and which it should not.
+**Not fixing:** other labels in this round, and why they wait.
+```
+
+Write it before proposing the run: a remedy that cannot be stated against a
+category means the diagnosis is not done. Name an errored or carried-over
+agent in the table too. The run card follows it, so the user approves the
+rerun knowing what it tests. Every round requires the user's approval: end your turn
 with the run card and wait for the user to review the selected agents and
 press Run. Each card's budget is the user's to set; never run the eval command
 yourself.

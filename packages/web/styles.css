@@ -177,6 +177,16 @@
 	--brand-foreground: oklch(0.24 0.01 264);
 }
 
+/* The fonts build.ts inlines, then each system's own for what they lack. */
+@theme {
+	--font-sans:
+		"Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+		Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+	--font-mono:
+		"JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas,
+		monospace;
+}
+
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);

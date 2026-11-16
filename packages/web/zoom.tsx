@@ -39,7 +39,10 @@ export function ZoomableImage({
 					: zoom.fit,
 			secondaryZoomLevel: (zoom) =>
 				mobile() ? zoom.fit : Math.max(1, zoom.fit * 2.5),
-			maxZoomLevel: (zoom) => Math.max(2, zoom.fill * 4),
+			// PhotoSwipe springs a pinch released past this back to it, so on a phone
+			// it sits well beyond where a pinch ends.
+			maxZoomLevel: (zoom) =>
+				mobile() ? Math.max(4, zoom.fill * 8) : Math.max(2, zoom.fill * 4),
 			padding: { top: 0, right: 0, bottom: 0, left: 0 },
 			bgOpacity: 0,
 			showHideAnimationType: "none",
@@ -122,7 +125,7 @@ export function ZoomableImage({
 				<Button
 					variant="secondary"
 					size="sm"
-					className="absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+3rem)] left-3 z-10"
+					className="absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+3rem)] right-[max(0.75rem,env(safe-area-inset-right))] z-10"
 					onClick={() => {
 						const slide = viewer.current?.currSlide;
 						if (slide) {
