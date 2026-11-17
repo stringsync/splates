@@ -26,6 +26,7 @@ import remarkGfm from "remark-gfm";
 import { attachmentIn } from "#web/attachment-chips.tsx";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import { DiagramView } from "#web/diagram-view.tsx";
 import { DirectiveChip, directiveIn } from "#web/directives.tsx";
 import { useCopyToClipboard } from "#web/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#web/lib/utils.ts";
@@ -128,6 +129,7 @@ function MarkdownTextImpl({
 					}
 					className="aui-md"
 					components={markdownComponents}
+					componentsByLanguage={BY_LANGUAGE}
 					smooth={typed === undefined}
 					defer
 				/>
@@ -166,6 +168,19 @@ const keepBreaks = () => (tree: MdNode) => {
 		});
 	};
 	visit(tree);
+};
+
+/** A fenced d2 block is drawn as a diagram, with no code header; an empty one stays code. */
+const BY_LANGUAGE = {
+	d2: {
+		CodeHeader: ({ code }: CodeHeaderProps) =>
+			code.trim() === "" ? <CodeHeader language="d2" code={code} /> : null,
+		SyntaxHighlighter: ({ code }: { code: string }) => (
+			<div className="my-3">
+				<DiagramView source={code.trim()} />
+			</div>
+		),
+	},
 };
 
 const PLUGINS = [remarkGfm];

@@ -39,8 +39,6 @@ export {
 	RUN_ELSEWHERE,
 	SHIP_DECLINED,
 	setupReference,
-	shipFailureReference,
-	shipSlowReference,
 	shipStartedIn,
 	shipStartedReference,
 	taskNumberReference,
@@ -58,5 +56,5 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
-export { recOf, retryOf, shipOf } from "./run-command";
+export { recOf, retryOf } from "./run-command";
 export { unanswered, waitsOnYou } from "./unanswered";

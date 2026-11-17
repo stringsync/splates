@@ -183,8 +183,6 @@ export interface Config {
 	 * makes the whole repository one project at its root.
 	 */
 	projects: Record<string, string[] | ProjectConfig> | null;
-	/** The legacy ship targets, each the command that ships it through core/legacy-ship and the targets it ships after. */
-	legacyShips: Record<string, ShipTargetConfig> | null;
 	/**
 	 * The commands that ship this repository's targets, as
 	 * `["bin/mdom ship", "bin/net ship"]`. Each serves one target or several
@@ -229,13 +227,6 @@ export interface ProjectConfig {
 	ship?: string | null;
 	/** Overrides `afterBump` for this project. */
 	afterBump?: string | null;
-}
-
-/** A command-backed ship target, ordered after other targets by name. */
-export interface ShipTargetConfig {
-	ship: string;
-	/** Targets that ship, or are already current, before this one. */
-	dependencies?: string[];
 }
 
 /**

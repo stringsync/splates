@@ -17,7 +17,6 @@ import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
-import { useShipPushOpens } from "./legacy-ship-badge";
 import {
 	type EvalsOpen,
 	type Move,
@@ -96,7 +95,7 @@ export function usePageRoute(): PageRoute {
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
- * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#legacy-ships`, `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
+ * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#billing` (`#budget` too), `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
@@ -108,7 +107,6 @@ export type Page =
 	| "conversations"
 	| "stats"
 	| "ships"
-	| "legacy-ships"
 	| "rec"
 	| "evals"
 	| "creds"
@@ -152,12 +150,6 @@ export const PAGES: {
 		scope: "everywhere",
 	},
 	{ value: "ships", label: "Ships", Icon: ShipIcon, scope: "everywhere" },
-	{
-		value: "legacy-ships",
-		label: "Legacy ships",
-		Icon: ShipIcon,
-		scope: "everywhere",
-	},
 	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{
 		value: "evals",
@@ -191,7 +183,6 @@ export const PHONE_PAGES: Record<Page, string> = {
 	tasks: "px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
 	ships: "min-w-0 px-4 py-6",
-	"legacy-ships": "min-w-0 px-4 py-6",
 	rec: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
@@ -224,7 +215,6 @@ export function PageShortcuts({
 	onTerminal: (() => void) | null;
 }): null {
 	useShortcut("shortcuts.todos", () => onPage("boards"));
-	useShipPushOpens(() => onPage("legacy-ships"));
 	useShortcut("shortcuts.back", () => onBack?.(), onBack !== null);
 	useShortcut("shortcuts.forward", () => onForward?.(), onForward !== null);
 	useShortcut("shortcuts.settings", onSettings);

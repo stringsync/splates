@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { Prompt, RunEvent, RunState } from "@splates/server/ship";
+import type { ReactNode } from "react";
 import type { StreamHandlers } from "./live-stream";
 import type { ShipRunServer } from "./ship-run";
 import { SHIP_BUS } from "./ship-run-bus";
 import { ShipRunScreen } from "./ship-run-view";
+import {
+	ShipStepPane,
+	type ShipStepRef,
+	WatchShipStep,
+} from "./ship-step-pane";
 import {
 	act,
 	cleanup,
@@ -13,8 +19,16 @@ import {
 	within,
 } from "./testing-library";
 
+let opened: ShipStepRef[] = [];
+const Provider = ({ children }: { children: ReactNode }) => (
+	<WatchShipStep value={(step) => opened.push(step)}>{children}</WatchShipStep>
+);
+
 describe("ShipRunScreen", () => {
-	afterEach(cleanup);
+	afterEach(() => {
+		opened = [];
+		cleanup();
+	});
 
 	test("shows the steps in order, each target waiting, then live as it runs", async () => {
 		const fake = fakeServer();
@@ -52,7 +66,9 @@ describe("ShipRunScreen", () => {
 
 	test("a target's steps sit on a rail, the running one with its update and the tail of its output", async () => {
 		const fake = fakeServer();
-		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />, {
+			wrapper: Provider,
+		});
 		await fake.open(run());
 		await fake.send(
 			{ type: "checking", at: 2_000, ...at, step: "build" },
@@ -66,32 +82,32 @@ describe("ShipRunScreen", () => {
 		expect(running).not.toBeNull();
 		expect(within(running as HTMLElement).getByText("Bundling")).toBeTruthy();
 		expect(within(rail).queryByRole("log")).toBeNull();
-		fireEvent.click(
-			within(running as HTMLElement).getByRole("button", { expanded: false }),
-		);
-		expect(within(rail).getByRole("log").textContent).toContain(
-			"compiled 12 files",
-		);
+		fireEvent.click(within(running as HTMLElement).getByRole("button"));
+		expect(opened).toHaveLength(1);
+		expect(opened[0]?.initial.output.join("")).toContain("compiled 12 files");
 	});
 
-	test("a step's output is a numbered log that its does line folds", async () => {
-		const fake = fakeServer();
-		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
-		await fake.open(run());
-		await fake.send(
-			{ type: "checking", at: 2_000, ...at, step: "build" },
-			{ type: "running", at: 2_000, ...at, step: "build", pid: 7 },
-			{ type: "output", ...at, step: "build", text: "one\ntwo\n" },
+	test("the pane names the step and closes on Escape", () => {
+		let closed = 0;
+		const step = {
+			id: "build",
+			does: "Build",
+			dependencies: [],
+			status: "running",
+			output: ["one", "two", ""],
+		} as unknown as ShipStepRef["initial"];
+		const pane = render(
+			<ShipStepPane
+				step={{ run: "run-1", target: "t", step: "build", initial: step }}
+				phone={false}
+				onClose={() => {
+					closed++;
+				}}
+			/>,
 		);
-		const mdom = view.getByRole("article", { name: "@stringsync/mdom" });
-		expect(within(mdom).queryByRole("log")).toBeNull();
-		fireEvent.click(within(mdom).getByRole("button", { expanded: false }));
-		const log = within(mdom).getByRole("log");
-		expect(log.textContent).toContain("1one");
-		expect(log.textContent).toContain("2two");
-		const toggle = within(mdom).getByRole("button", { expanded: true });
-		fireEvent.click(toggle);
-		expect(within(mdom).queryByRole("log")).toBeNull();
+		expect(pane.getByRole("heading", { name: "Build" })).toBeTruthy();
+		fireEvent.keyDown(window, { key: "Escape" });
+		expect(closed).toBe(1);
 	});
 
 	test("a failed target says why and offers Retry, which retries its step", async () => {

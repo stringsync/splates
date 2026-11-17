@@ -327,9 +327,6 @@ function pageIn(hash: string): Page {
 	if (hash === "#ships" || hash === SHIP_HISTORY || shipRunIn(hash) !== null) {
 		return "ships";
 	}
-	if (hash === "#legacy-ships" || hash.startsWith("#legacy-ships/")) {
-		return "legacy-ships";
-	}
 	if (hash === "#rec" || hash.startsWith("#rec/")) {
 		return "rec";
 	}

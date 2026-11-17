@@ -2,7 +2,6 @@ import { basename, resolve } from "node:path";
 import type { Fs } from "core/system";
 import type * as Board from "../board";
 import type { CredRequest, Creds } from "../creds";
-import type { Ship } from "../legacy-ship";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { MergeLine } from "../merge";
 import type { Slot } from "../ports";
@@ -135,8 +134,6 @@ export interface Snapshot {
 	unbuilt: boolean;
 	/** The slot `splates server --slot` serves under, shown beside the project's name. */
 	slot: Slot | null;
-	/** The project's latest ship, going or ended. Absent from older servers. */
-	ship?: Ship | null;
 }
 
 /** `list` and `show` for each task, as {@link snapshot} reads them. */
@@ -165,14 +162,12 @@ export function fingerprint({
 	creds,
 	release,
 	behind,
-	ship,
 }: Snapshot): string {
 	// Leaves out the fields that move on their own: `age` ticks every
 	// minute, and hashing it would push to every open page for nothing.
 	return JSON.stringify([
 		release,
 		behind,
-		ship ?? null,
 		todos,
 		boards ?? [],
 		lanes,

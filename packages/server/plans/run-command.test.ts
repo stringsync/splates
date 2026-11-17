@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { stretches } from "./asked";
-import { recOf, retryOf, shipOf } from "./run-command";
+import { recOf, retryOf } from "./run-command";
 
 describe("run-command helpers", () => {
 	it("takes its command from the first backticked line", () => {
@@ -29,19 +29,6 @@ describe("run-command helpers", () => {
 		expect(retryOf("splates merge --message x")).toBeNull();
 		expect(retryOf("splates retry")).toBeNull();
 		expect(retryOf("git retry upload-413")).toBeNull();
-	});
-
-	it("names the project of a `splates ship`, or none for the conversation's own", () => {
-		expect(shipOf("splates ship wren")).toBe("wren");
-		expect(shipOf("bin/splates ship")).toBe("");
-		expect(shipOf("bunx @stringsync/splates ship mdom")).toBe("mdom");
-	});
-
-	it("names no ship for a plan or any other command", () => {
-		expect(shipOf("splates ship --plan wren")).toBeNull();
-		expect(shipOf("splates ship wren --json")).toBeNull();
-		expect(shipOf("splates merge --message x")).toBeNull();
-		expect(shipOf("npm ship wren")).toBeNull();
 	});
 
 	it("recognizes a rec command, with env words or a path", () => {

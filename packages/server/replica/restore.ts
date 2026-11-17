@@ -2,8 +2,8 @@ import type { Fs } from "core/system";
 import type { Storage } from "../storage";
 import { replace } from "../storage";
 import { readListing, readManifest } from "./layout";
-import { replicated } from "./legacy-shipped";
 import type { Replica } from "./replica";
+import { replicated } from "./replicated";
 import { Replicator } from "./replicator";
 
 /** The project's records, as a restore needs them; a `ProjectHome` is one. */

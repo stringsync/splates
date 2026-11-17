@@ -6,40 +6,32 @@ import {
 	RUN_ELSEWHERE,
 	recOf,
 	retryOf,
-	shipOf,
 } from "@splates/server/plans/browser";
 import {
 	BanIcon,
 	CheckIcon,
 	MonitorOffIcon,
 	RotateCcwIcon,
-	ShipIcon,
 	TerminalIcon,
 } from "lucide-react";
-import { type JSX, useContext, useRef, useState } from "react";
-import { Button, buttonVariants } from "#web/components/ui/button.tsx";
-import { actOnShip } from "./api";
+import { type JSX, useRef, useState } from "react";
+import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
 import { useCardReply, useKept } from "./card-reply";
 import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { useNow } from "./hooks/use-now";
-import { ActiveShip } from "./legacy-ship-active";
 import { MachineStats, useLiveMachine } from "./machine";
-import { NavigationContext } from "./navigation";
 import { PendingSpinner, useShowPending } from "./pending";
-import { shipsUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
 import { SplatesEvent } from "./splates-event";
-import { useLiveShips } from "./use-live-legacy-ships";
 
 /**
  * Shows an agent's request to run a heavy command, with why and how loaded
  * the machine is, for the person to Allow or Deny. Grant on
- * `splates retry <task>` runs the retry; Ship on `splates ship <project>` opens the Ships page with
- * that project picked, which starts nothing itself.
+ * `splates retry <task>` runs the retry.
  */
 export function RunCommandCard({
 	proposal,
@@ -54,7 +46,6 @@ export function RunCommandCard({
 	const [busy, setBusy] = useState<string | null>(null);
 	const showBusy = useShowPending(busy !== null);
 	const [opened, setOpened] = useState(false);
-	const navigation = useContext(NavigationContext);
 	const kept = useKept(
 		`run-command:${proposal.command}:${proposal.title}`,
 		sent,
@@ -69,7 +60,6 @@ export function RunCommandCard({
 			.slice(1)
 			.join("\n\n> **Anything else?**\n\n") ?? more;
 	const retry = retryOf(proposal.command ?? "");
-	const ship = shipOf(proposal.command ?? "");
 	const rec = recOf(proposal.command ?? "");
 	const choice =
 		sent?.includes(RUN_ALLOWED) || sent?.includes(RETRIED)
@@ -84,7 +74,7 @@ export function RunCommandCard({
 	const send = reply?.send ?? null;
 	const enterDoes = useEnterDoes(
 		panel,
-		send === null || busy !== null || ship !== null
+		send === null || busy !== null
 			? null
 			: () => turn(() => answer(RUN_ALLOWED, "Not allowed")),
 	);
@@ -151,12 +141,8 @@ export function RunCommandCard({
 	}
 	return (
 		<CardShell
-			label={
-				retry !== null ? "retry merge" : ship !== null ? "ship" : "run command"
-			}
-			Icon={
-				retry !== null ? RotateCcwIcon : ship !== null ? ShipIcon : TerminalIcon
-			}
+			label={retry !== null ? "retry merge" : "run command"}
+			Icon={retry !== null ? RotateCcwIcon : TerminalIcon}
 			title={proposal.title ?? "Run a command"}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
@@ -164,8 +150,7 @@ export function RunCommandCard({
 				<code>{proposal.command}</code>
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{ship !== null && choice === null && <ShipUnderWay />}
-			{choice === null && retry === null && ship === null && !rec && (
+			{choice === null && retry === null && !rec && (
 				<MachineStats
 					reading={live?.reading ?? null}
 					at={live?.at}
@@ -247,66 +232,25 @@ export function RunCommandCard({
 								Not on this device
 							</Button>
 						)}
-						{ship !== null ? (
-							<a
-								href={shipsUrl(ship)}
-								className={buttonVariants({ size: "sm" })}
-								onClick={(event) => {
-									event.preventDefault();
-									navigation.show(shipsUrl(ship));
-								}}
-							>
-								<ShipIcon data-icon="inline-start" />
-								Open Ships
-							</a>
-						) : (
-							<Button
-								size="sm"
-								disabled={send === null || busy !== null}
-								onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
-								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-							>
-								{busy === RUN_ALLOWED && showBusy ? (
-									<PendingSpinner shown />
-								) : retry !== null ? (
-									<RotateCcwIcon data-icon="inline-start" />
-								) : (
-									<CheckIcon data-icon="inline-start" />
-								)}
-								{retry !== null ? "Grant attempts" : "Allow"}
-							</Button>
-						)}
+						<Button
+							size="sm"
+							disabled={send === null || busy !== null}
+							onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
+						>
+							{busy === RUN_ALLOWED && showBusy ? (
+								<PendingSpinner shown />
+							) : retry !== null ? (
+								<RotateCcwIcon data-icon="inline-start" />
+							) : (
+								<CheckIcon data-icon="inline-start" />
+							)}
+							{retry !== null ? "Grant attempts" : "Allow"}
+						</Button>
 					</>
 				)}
 			</div>
 			<Refusal refusal={refusal} />
 		</CardShell>
-	);
-}
-
-/**
- * The Ships page's own view of the ship under way, shown in the card of the
- * ship's command once one runs, so the two never differ.
- */
-function ShipUnderWay(): JSX.Element | null {
-	const live = useLiveShips();
-	const [closed, setClosed] = useState<string | null>(null);
-	const status = live?.cascade?.status;
-	if (
-		live?.cascade == null ||
-		live.cascade.id === closed ||
-		(status !== "running" && status !== "stopped")
-	) {
-		return null;
-	}
-	return (
-		<div className="border-t px-4 py-4">
-			<ActiveShip
-				live={live}
-				closed={closed}
-				onClose={setClosed}
-				act={actOnShip}
-			/>
-		</div>
 	);
 }

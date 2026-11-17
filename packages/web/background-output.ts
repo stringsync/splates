@@ -37,6 +37,7 @@ export class BackgroundOutput
 		fontSize: 13,
 		theme: { background: "#0a0a0a" },
 	});
+	private shown = "";
 	private readonly fit = new FitAddon();
 	private readonly disposer = new Disposer();
 	private readonly reading = new AbortController();
@@ -44,10 +45,10 @@ export class BackgroundOutput
 	/**
 	 * What the server streams at `path`: a background command's output, or a
 	 * merge step's. Led by `command` after a `$` as a shell would echo it,
-	 * where it has one.
+	 * where it has one. With no `path` it reads nothing: the page `show`s it.
 	 */
 	constructor(
-		readonly path: string,
+		readonly path: string | null,
 		readonly command: string | null = null,
 	) {
 		this.element.className = "h-full w-full";
@@ -68,7 +69,9 @@ export class BackgroundOutput
 			if (this.command !== null) {
 				this.terminal.write(`$ ${this.command}\n`);
 			}
-			void this.read();
+			if (this.path !== null) {
+				void this.read();
+			}
 		} else {
 			this.fitted();
 		}
@@ -78,6 +81,17 @@ export class BackgroundOutput
 			observer.disconnect();
 			this.element.remove();
 		});
+	}
+
+	/** Shows `text` as the whole output, writing only what follows what it showed before when it extends it. */
+	show(text: string): void {
+		if (this.shown !== "" && text.startsWith(this.shown)) {
+			this.terminal.write(text.slice(this.shown.length));
+		} else {
+			this.terminal.reset();
+			this.terminal.write(text);
+		}
+		this.shown = text;
 	}
 
 	/** Everything the terminal holds, scrollback included, as plain text. */
@@ -114,7 +128,7 @@ export class BackgroundOutput
 
 	private async read(): Promise<void> {
 		try {
-			const response = await fetch(scoped(this.path), {
+			const response = await fetch(scoped(this.path ?? ""), {
 				signal: this.reading.signal,
 			});
 			if (!response.ok || response.body === null) {

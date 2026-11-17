@@ -4,8 +4,7 @@ A project's ship targets, declared as plain objects: what it ships, what
 ships first, and the steps one ship takes. Nothing here runs a step:
 `target()` and `step()` only return objects, and planning a target only
 returns its steps, so importing a target file or showing its plan is safe.
-The design is `splates/designs/ship.md`. It replaces `core/legacy-ship` and
-shares nothing with it.
+The design is `splates/designs/ship.md`. It replaced the legacy ship library, which is gone.
 
 ```ts
 // mdom/ship.ts
@@ -221,7 +220,7 @@ widened access stays the one place that asks.
 
 ## Publishing to npm
 
-`npm.release({ package, bump, repository, test, keep, pins, fold, scope, prepare, check, dependencies })` publishes a
+`npm.release({ package, bump, repository, test, keep, pins, fold, scope, prepare, check, mirrorTest, dependencies })` publishes a
 package of mono from its public mirror, through a GitHub workflow npm
 trusts:
 
@@ -273,15 +272,20 @@ export const mdom = target({
   what it changes (a stamped version, say) is in the release commit; the
   publish workflow runs it too, before its build, with the version read from
   the package. `check` runs after the build and fails the mirror step before
-  anything is committed. A release naming neither runs as before.
+  anything is committed. `mirrorTest` is a command that tests the composed mirror (`bun test`), run
+  from its root after the build and `check`, before anything is committed; a
+  failure fails the mirror step. A release naming none runs as before.
 - **login** signs in to npm (`npm login --auth-type=web`) only when
-  `npm whoami` fails, so a signed-in machine skips it; the login link reaches
+  `npm whoami` fails and the workflow has not already published the latest
+  version (npm's `_npmUser` is its GitHub Actions bot), so a trusted package
+  releases with no sign-in; the login link reaches
   the user as a prompt.
 - **first-publish**, only for a package npm has never had, builds and
   publishes from this machine, since npm trusts a workflow only for a
   package it has.
 - **trust** runs `npm trust github` when npm does not yet trust the
-  workflow (it needs npm 11.15 or later and the account's second factor).
+  workflow (a workflow-published latest version proves it does, since
+  `npm trust list` itself needs a one-time password) (it needs npm 11.15 or later and the account's second factor).
 - **publish** runs the workflow on the release commit and waits until npm
   has the version, failing when the run fails.
 - **tag** creates the GitHub release, tagging `v<version>` with its notes.

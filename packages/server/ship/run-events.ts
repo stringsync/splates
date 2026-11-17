@@ -44,8 +44,23 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("stopped"), ...AT }),
 	/** The step's `done` is being asked. */
 	z.object({ type: z.literal("checking"), ...AT, ...STEP }),
-	/** The step's `run` started as process `pid`. */
-	z.object({ type: z.literal("running"), ...AT, ...STEP, pid: z.number() }),
+	/**
+	 * The step's `run` started as process `pid`, or was taken back after a
+	 * restart. A `handle` says where a worker keeps it, so a restart can take
+	 * it back; a run on this server's own has none.
+	 */
+	z.object({
+		type: z.literal("running"),
+		...AT,
+		...STEP,
+		pid: z.number(),
+		handle: z.object({ worker: z.string(), channel: z.number() }).optional(),
+	}),
+	/**
+	 * Every frame of the step's process up to `seq` is written down above, so a
+	 * restart takes it back from past it.
+	 */
+	z.object({ type: z.literal("held"), ...STEP, seq: z.number() }),
 	z.object({ type: z.literal("output"), ...STEP, text: z.string() }),
 	z.object({ type: z.literal("update"), ...STEP, line: z.string() }),
 	z.object({

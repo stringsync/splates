@@ -134,7 +134,7 @@ export function Lane({
 			{...pendingRow(
 				pending,
 				showPending,
-				"flex max-h-full w-72 shrink-0 snap-start flex-col gap-1.5 max-md:w-full max-md:snap-always",
+				"flex max-h-full w-80 shrink-0 snap-start flex-col gap-1.5 max-md:w-full max-md:snap-always",
 			)}
 		>
 			<Column
@@ -339,7 +339,7 @@ export function LiftedLane({
 	return (
 		<section
 			aria-hidden
-			className="flex max-h-[calc(100dvh-6rem)] w-72 rotate-2 cursor-grabbing flex-col gap-1.5 overflow-hidden rounded-xl bg-muted p-2 shadow-lg"
+			className="flex max-h-[calc(100dvh-6rem)] w-80 rotate-2 cursor-grabbing flex-col gap-1.5 overflow-hidden rounded-xl bg-muted p-2 shadow-lg"
 		>
 			<h3 className="flex items-baseline gap-1.5 px-1 pt-1 font-medium text-sm">
 				{lane.name}

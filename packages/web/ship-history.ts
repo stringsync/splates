@@ -23,6 +23,12 @@ export function useShipHistory(flow: ShipFlow, depth: number): void {
 			history.replaceState({ ...history.state, shipDepth: 0 }, "");
 		}
 		const follow = () => {
+			// Leaving the pick for a run: WebKit tells of `location.replace`
+			// before the entry's state is the new one's, which would read as
+			// Forward and step back off the run just opened.
+			if (location.hash.startsWith(RUN)) {
+				return;
+			}
 			const target = entryDepth();
 			const here = shipDepth(flow.state.stage);
 			if (target < here) {
@@ -48,6 +54,9 @@ export function useShipHistory(flow: ShipFlow, depth: number): void {
 export function backToShipDepth(from: number, depth: number): void {
 	history.go(depth - from);
 }
+
+/** Where a run's address starts, which no pick screen is at. */
+const RUN = "#ships/";
 
 /** The depth the current history entry was pushed for; a reload starts at the pick, so deeper entries are rewritten. */
 function entryDepth(): number {

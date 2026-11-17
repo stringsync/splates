@@ -39,6 +39,14 @@ describe("ShipAskCard", () => {
 		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
 	});
 
+	test("Approve opens the started run's active ship page", async () => {
+		const fake = fakeServer();
+		const opened: string[] = [];
+		const view = shown(fake, (id) => opened.push(id));
+		fireEvent.click(view.getByRole("button", { name: "Approve" }));
+		await waitFor(() => expect(opened).toEqual(["run-1"]));
+	});
+
 	test("the same card shows a failed step, then done with what shipped", async () => {
 		const fake = fakeServer();
 		const view = shown(fake);
@@ -170,13 +178,17 @@ const run = (): RunState => ({
 	],
 });
 
-function shown(fake: ReturnType<typeof fakeServer>) {
+function shown(
+	fake: ReturnType<typeof fakeServer>,
+	open: (id: string) => void = () => {},
+) {
 	return render(
 		<ReplyContext value={fake.reply}>
 			<ShipAskCard
 				proposal={proposal}
 				server={fake.server}
 				start={fake.start}
+				open={open}
 			/>
 		</ReplyContext>,
 	);

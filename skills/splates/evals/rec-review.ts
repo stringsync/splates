@@ -94,9 +94,25 @@ const session = "sessions/settings-bug";
 
 /** Install the real rec instructions and deterministic slice outputs; no browser or video decoding. */
 async function recording(repo: Repo): Promise<void> {
-	const skill = await fs.read(
-		join(import.meta.dir, "../../../../rec/skills/rec/SKILL.md"),
+	// The public mirror folds rec in without its `skills` folder, so there the
+	// copy bundled in the rec package is the one to install.
+	const repoSkill = join(
+		import.meta.dir,
+		"../../../../rec/skills/rec/SKILL.md",
 	);
+	// In the mirror, rec's package sits at `packages/rec`, not under `rec/`.
+	const bundledSkills = [
+		"../../../../rec/packages/rec/skill/SKILL.md",
+		"../../../packages/rec/skill/SKILL.md",
+	].map((path) => join(import.meta.dir, path));
+	let source = repoSkill;
+	for (const path of [repoSkill, ...bundledSkills]) {
+		if (await Bun.file(path).exists()) {
+			source = path;
+			break;
+		}
+	}
+	const skill = await fs.read(source);
 	for (const dir of [".agents/skills/rec", ".claude/skills/rec"]) {
 		await repo.write(`${dir}/SKILL.md`, skill);
 	}

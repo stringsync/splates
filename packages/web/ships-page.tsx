@@ -169,9 +169,9 @@ export function ShipsPage({
 					)
 				}
 			/>
-			<div className={cn(PLANNER_COLUMN, "gap-3")}>
+			<div className={cn(PLANNER_COLUMN, "gap-5")}>
 				{active !== null && (
-					<section aria-label="Shipping now" className="flex flex-col gap-2">
+					<section aria-label="Shipping now" className="flex flex-col gap-2.5">
 						<h3 className="font-semibold text-sm">Shipping now</h3>
 						<ShipRunList runs={[active]} bar />
 					</section>

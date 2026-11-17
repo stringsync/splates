@@ -3,6 +3,7 @@ import type { IdProvider } from "core/id";
 import type { Logger } from "core/log";
 import type { WallClock } from "core/time";
 import type { Log, Storage } from "../storage";
+import { eventOfLine } from "./line-event";
 import { RunError } from "./run-error";
 import { RUN_EVENT, type RunEvent, type RunTarget } from "./run-events";
 import { keyOf, messageOf, requestOf, stepIn, stepsOf } from "./run-lookup";
@@ -314,6 +315,20 @@ export class ShipEngine {
 		await this.flushed();
 	}
 
+	/**
+	 * Lets go of every step a worker runs, without ending it, for a server
+	 * started again to take back: each step's run file, flushed, says where
+	 * it stopped. Says whether there was one to let go of.
+	 */
+	async detachAsync(): Promise<boolean> {
+		const kept = [...this.#runs.values()].some((run) =>
+			[...run.live.values()].some((step) => step.handle != null),
+		);
+		this.#disposed = true;
+		await this.flushed();
+		return kept;
+	}
+
 	async #load(): Promise<void> {
 		const { storage, log } = this.#o;
 		const keys = await storage.keys(RUNS).catch(() => [] as string[]);
@@ -424,23 +439,41 @@ export class ShipEngine {
 	async #launch(run: LiveRun, target: string, step: string): Promise<void> {
 		const key = keyOf(target, step);
 		const before = run.cutShort.get(key);
-		if (before !== undefined) {
-			await this.#gone(before);
-			run.cutShort.delete(key);
+		// A step a worker kept through the restart is taken back where it
+		// stood; one it cannot, or that has none, is waited out as it was.
+		const kept = stepIn(run.state, target, step);
+		let taken: RunningStep | null = null;
+		if (kept.handle !== undefined && this.#o.processes.resume !== undefined) {
+			try {
+				taken = this.#o.processes.resume(
+					requestOf(run.state, target, step),
+					kept.handle,
+					kept.held ?? 0,
+				);
+			} catch (error) {
+				this.#o.log.error(
+					`The ship run ${run.id} could not take back "${step}" of ${target}: ${messageOf(error)}`,
+				);
+			}
 		}
+		if (taken === null && before !== undefined) {
+			await this.#gone(before);
+		}
+		run.cutShort.delete(key);
 		if (this.#disposed || run.state.status === "stopped") {
+			taken?.dispose();
 			return;
 		}
+		if (taken !== null) {
+			if (await this.#follow(run, target, step, taken, true)) {
+				return;
+			}
+			if (this.#disposed || this.#stopped(run)) {
+				return;
+			}
+		}
 		const at = () => this.#o.clock.now();
-		const ended = (outcome: "done" | "skipped" | "failed", error?: string) =>
-			this.#record(run, {
-				type: "ended",
-				at: at(),
-				target,
-				step,
-				outcome,
-				...(error !== undefined && { error }),
-			});
+		const ended = this.#ender(run, target, step);
 		this.#record(run, { type: "checking", at: at(), target, step });
 		const request = requestOf(run.state, target, step);
 		let answer: DoneAnswer;
@@ -465,7 +498,30 @@ export class ShipEngine {
 		if (this.#stopped(run)) {
 			return;
 		}
-		const running = this.#o.processes.run(request);
+		await this.#follow(
+			run,
+			target,
+			step,
+			this.#o.processes.run(request),
+			false,
+		);
+	}
+
+	/**
+	 * Records what `running`, the `run` of a step, does until it exits, and
+	 * how it ended. Answers false for one taken back that the worker no longer
+	 * holds, which leaves the step to be checked and run again.
+	 */
+	async #follow(
+		run: LiveRun,
+		target: string,
+		step: string,
+		running: RunningStep,
+		taken: boolean,
+	): Promise<boolean> {
+		const key = keyOf(target, step);
+		const at = () => this.#o.clock.now();
+		const ended = this.#ender(run, target, step);
 		run.live.set(key, running);
 		this.#record(run, {
 			type: "running",
@@ -473,52 +529,25 @@ export class ShipEngine {
 			target,
 			step,
 			pid: running.pid ?? 0,
+			...(running.handle != null && { handle: running.handle }),
 		});
 		let failure: string | undefined;
+		let heard = false;
+		let acked = stepIn(run.state, target, step).held;
 		try {
 			for await (const line of running.lines) {
-				switch (line.type) {
-					case "output":
-						this.#record(run, {
-							type: "output",
-							target,
-							step,
-							text: line.text,
-						});
-						break;
-					case "update":
-						this.#record(run, {
-							type: "update",
-							target,
-							step,
-							line: line.line,
-						});
-						break;
-					case "released":
-						this.#record(run, {
-							type: "released",
-							target,
-							step,
-							version: line.version,
-						});
-						break;
-					case "withdrawn":
-						this.#record(run, { type: "withdrawn", target, step, id: line.id });
-						break;
-					case "error":
-						failure = line.message;
-						break;
-					default: {
-						const { type: _, id, ...prompt } = line;
-						this.#record(run, {
-							type: "prompt",
-							at: at(),
-							target,
-							step,
-							id,
-							prompt,
-						});
-					}
+				heard = true;
+				const read = eventOfLine(line, target, step, at());
+				if ("failure" in read) {
+					failure = read.failure;
+				} else {
+					this.#record(run, read);
+				}
+				const seq = running.held;
+				if (seq != null && seq !== acked) {
+					acked = seq;
+					this.#record(run, { type: "held", target, step, seq });
+					void run.writes.then(() => running.ack?.(seq));
 				}
 			}
 		} catch (error) {
@@ -526,16 +555,33 @@ export class ShipEngine {
 		}
 		const code = await running.exited;
 		run.live.delete(key);
+		if (taken && !heard && code === 127 && failure === undefined) {
+			return false;
+		}
 		if (code === 0) {
 			ended("done");
 		} else {
 			ended("failed", failure ?? `"${step}" exited ${code}`);
 		}
+		return true;
 	}
 
 	/** Whether run `run` is stopped, read afresh: it changes while a step awaits. */
 	#stopped(run: LiveRun): boolean {
 		return run.state.status === "stopped";
+	}
+
+	/** Records how `step` of `target` ended. */
+	#ender(run: LiveRun, target: string, step: string) {
+		return (outcome: "done" | "skipped" | "failed", error?: string) =>
+			this.#record(run, {
+				type: "ended",
+				at: this.#o.clock.now(),
+				target,
+				step,
+				outcome,
+				...(error !== undefined && { error }),
+			});
 	}
 
 	/** Resolves once process `pid` is gone, or once it has had long enough. */

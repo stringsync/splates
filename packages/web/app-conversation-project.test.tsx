@@ -36,7 +36,6 @@ describe("App's new conversation, by project", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 			{
 				slug: "shop",
@@ -45,7 +44,6 @@ describe("App's new conversation, by project", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 		];
 		// With none open, the page starts a new one.

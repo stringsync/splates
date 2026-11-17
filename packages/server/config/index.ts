@@ -3,7 +3,6 @@ export type {
 	ConfigFile,
 	EvalsConfig,
 	ProjectConfig,
-	ShipTargetConfig,
 	TagsConfig,
 } from "./config";
 export { defineConfig } from "./config";
@@ -21,8 +20,6 @@ export {
 	unmigrated,
 } from "./legacy-names";
 export { systemPs } from "./legacy-ps";
-export type { ShipTarget } from "./legacy-ships";
-export { shipTargets } from "./legacy-ships";
 export {
 	ARTIFACT_LIMITS,
 	CONFIG_FILE,

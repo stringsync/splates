@@ -23,10 +23,6 @@
 		"./push": "./push/index.ts",
 		"./push/testing": "./push/testing.ts",
 		"./react": "./react/index.ts",
-		"./legacy-ship": "./legacy-ship/index.ts",
-		"./legacy-ship/contract": "./legacy-ship/contract.ts",
-		"./legacy-ship/aws": "./legacy-ship/aws/index.ts",
-		"./legacy-ship/testing": "./legacy-ship/testing.ts",
 		"./ship": "./ship/index.ts",
 		"./skills": "./skills/index.ts",
 		"./system": "./system/index.ts",
@@ -38,26 +34,16 @@
 		"@standard-schema/spec": "catalog:"
 	},
 	"peerDependencies": {
-		"@aws-cdk/toolkit-lib": "catalog:",
-		"aws-cdk-lib": "catalog:",
 		"react": "catalog:"
 	},
 	"peerDependenciesMeta": {
-		"@aws-cdk/toolkit-lib": {
-			"optional": true
-		},
-		"aws-cdk-lib": {
-			"optional": true
-		},
 		"react": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@aws-cdk/toolkit-lib": "catalog:",
-		"aws-cdk-lib": "catalog:",
 		"react": "catalog:",
 		"zod": "catalog:"
 	},
-	"version": "2.0.12"
+	"version": "2.0.13"
 }

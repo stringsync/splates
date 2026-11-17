@@ -32,7 +32,6 @@ import {
 	previousProject,
 	projectUrl,
 	rememberPlace,
-	shipsUrl,
 	shownProject,
 } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
@@ -297,10 +296,6 @@ export function ProjectSwitcher({
 					current={current(each)}
 					hidden={!each.gone && at !== active}
 					onCopyPath={() => void copyPath(each)}
-					onShip={() => {
-						setOpen(false);
-						navigation.show(shipsUrl(each.slug));
-					}}
 					pending={forgetting.pending(each.slug)}
 					onForget={() => void forget(each)}
 				/>
@@ -533,7 +528,6 @@ const GENERAL_CHOICE: ProjectChoice = {
 	focused: false,
 	conversations: [],
 	waiting: 0,
-	ships: false,
 };
 
 /** What the switcher calls `each`: its slug, or General's own name. */

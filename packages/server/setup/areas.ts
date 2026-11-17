@@ -1,10 +1,10 @@
 import { AUTO_PICK_AREA } from "./area-auto-pick";
 import { DICTATION_AREA } from "./area-dictation";
 import { EVALS_AREA } from "./area-evals";
-import { SHIPS_AREA } from "./area-legacy-ships";
 import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
 import { REMOTE_ACCESS_AREA } from "./area-remote";
 import { REPLICA_AREA } from "./area-replica";
+import { SHIPS_AREA } from "./area-ships";
 import type { SetupArea } from "./setup";
 
 /**

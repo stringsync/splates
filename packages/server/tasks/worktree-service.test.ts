@@ -32,7 +32,6 @@ describe("WorktreeService", () => {
 			ship: null,
 
 			afterBump: null,
-			legacyShips: null,
 			ships: [],
 			on: {},
 			queueLoad: null,

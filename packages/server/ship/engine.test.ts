@@ -300,6 +300,59 @@ describe("ShipEngine", () => {
 		expect(again.answers).toEqual([{ id: "p2", value: "123456" }]);
 	});
 
+	it("takes back a step a worker kept through a restart, replaying from the frame written down, with its prompt still open", async () => {
+		const storage = new MemoryStorage();
+		const first = setup(storage);
+		first.processes.worker = true;
+		await first.engine.start([app]);
+		const pin = await first.processes.started("app/pin");
+		pin.say({ type: "output", text: "building\n" }, 3);
+		pin.say({ type: "prompt", id: "p1", kind: "ask", question: "OTP?" }, 4);
+		await until(
+			async () => status(await first.engine.get("0"), "app/pin") === "waiting",
+		);
+		await first.engine.flushed();
+		expect(pin.acked).toEqual([3, 4]);
+		expect(await first.engine.detachAsync()).toBe(true);
+
+		const second = setup(storage);
+		second.processes.worker = true;
+		await second.engine.resume();
+		const again = await second.processes.started("app/pin");
+		expect(second.processes.taken.map((each) => each.held)).toEqual([4]);
+		// Not asked, not run again: the same process carries on.
+		expect(second.processes.asked).toEqual([]);
+		await until(
+			async () => status(await second.engine.get("0"), "app/pin") === "waiting",
+		);
+		const open = (await second.engine.get("0"))?.targets[0]?.steps[0];
+		expect(open?.prompts.map((each) => each.id)).toEqual(["p1"]);
+		await second.engine.answer("0", "app", "pin", "p1", "123456");
+		expect(again.answers).toEqual([{ id: "p1", value: "123456" }]);
+		again.exit(0);
+		await until(async () => (await second.engine.get("0"))?.status === "done");
+		expect(second.processes.names()).toEqual(["app/pin"]);
+	});
+
+	it("checks and runs again a step the worker no longer holds after a restart", async () => {
+		const storage = new MemoryStorage();
+		const first = setup(storage);
+		first.processes.worker = true;
+		await first.engine.start([app]);
+		await first.processes.started("app/pin");
+		await first.engine.detachAsync();
+
+		const second = setup(storage);
+		second.processes.worker = true;
+		second.processes.lost = true;
+		await second.engine.resume();
+		await until(() => second.processes.runs.length === 2);
+		const again = await second.processes.started("app/pin");
+		expect(again.handle).not.toBeNull();
+		again.exit(0);
+		await until(async () => (await second.engine.get("0"))?.status === "done");
+	});
+
 	it("leaves a finished run be after a restart", async () => {
 		const storage = new MemoryStorage();
 		const first = setup(storage);

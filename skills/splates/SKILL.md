@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive or a `#rec:<name>` reference to a recorded session. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.12
+version: 2.0.13
 ---
 
 # Using splates
@@ -368,12 +368,6 @@ nothing: say the ship starts from the card's Approve or the Ships page.
 mdom's slur fix is unreleased; vexml takes it.
 ```
 
-Only when `splates.config.ts` lists no `ships` and the project ships
-under `legacyShips` is the card instead a run-command card naming
-`splates ship <project>`, which opens the Legacy ships page with that
-project picked and starts nothing. A project with `ships` always gets the
-ship card.
-
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
 tasks needs the user's remove-lane permission card (see
 [reporting.md](references/reporting.md)). Backlog is permanent. Agents place
@@ -546,7 +540,7 @@ queuing work there and asking for a grant.
    committed branch tips, and a working agent hears a notice when one appears.
    These checks never rebase a worktree; commit in steps so they can see the work.
 4. **Work.** Commit each step with git as you go, and check off any under
-   `## Next` as you commit it; splates never commits for you. A task changes
+   `## Next` as you commit it; splates never commits for you. A task prefers
    one unit of the repository, the package or project its After names (the
    repository's own instructions say what a unit is). When something outside
    your After comes up (a bug next door, a follow-up, a reply that widens the
@@ -558,9 +552,11 @@ queuing work there and asking for a grant.
    queued (see [queue.md](references/queue.md), Do, queue or drop). When your change breaks another unit's use of yours,
    migrate it through expand/contract, one queued task per unit, rather than
    fix it here (see [queue.md](references/queue.md), Changing several units).
-   A task that spans units is the rare exception, only when the change
-   cannot land in steps, and its After names every unit it touches, so the
-   reach is chosen and shown rather than crept into. A snag on the way, such as a lost
+   A task may span units when that is simpler than landing in steps, and
+   its After names every unit it touches, so the reach is chosen and shown
+   rather than crept into. Take extra care not to
+   creep scope across packages when changing several at once: touch only
+   what the After needs in each, and queue the rest. A snag on the way, such as a lost
    connection, a conflict or a retry, is no task to queue; `splates merge`
    records failures on the merge attempt. It queues confirmed
    trunk or environment failures as one incident, and flakes only after they

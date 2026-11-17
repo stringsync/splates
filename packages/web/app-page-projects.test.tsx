@@ -42,7 +42,6 @@ describe("App's pages and the project switcher", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 			{
 				slug: "shop",
@@ -51,7 +50,6 @@ describe("App's pages and the project switcher", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 		];
 	});
@@ -70,7 +68,6 @@ describe("App's pages and the project switcher", () => {
 		const switchers = [
 			await switcherOn(view, "Boards"),
 			await switcherOn(view, "Stats"),
-			await switcherOn(view, "Legacy ships"),
 			await switcherOn(view, "Evals"),
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
@@ -105,7 +102,6 @@ describe("App's pages and the project switcher", () => {
 				"Automations",
 				"Stats",
 				"Ships",
-				"Legacy ships",
 				"Rec",
 				"Evals",
 				"Billing",

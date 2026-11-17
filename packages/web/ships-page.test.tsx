@@ -28,13 +28,13 @@ describe("ShipsPage", () => {
 		const view = render(<ShipsPage />);
 		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
 		expect(view.getByText("deploy")).toBeTruthy();
-		expect(view.queryByRole("group", { name: /bump/ })).toBeNull();
+		expect(view.queryByRole("combobox", { name: /bump/ })).toBeNull();
 		const next = view.getByRole("button", { name: "Next" });
 		expect(next.hasAttribute("disabled")).toBe(true);
 
 		fireEvent.click(view.getByRole("checkbox", { name: "net-staging" }));
 		await waitFor(() => expect(next.hasAttribute("disabled")).toBe(false));
-		expect(view.queryByRole("group", { name: /bump/ })).toBeNull();
+		expect(view.queryByRole("combobox", { name: /bump/ })).toBeNull();
 	});
 
 	test("a picked package offers patch, minor and major, its own bump chosen", async () => {
@@ -52,24 +52,22 @@ describe("ShipsPage", () => {
 		// Tapping the name picks the line too.
 		fireEvent.click(view.getByText("@stringsync/vexml"));
 
-		const mdom = await view.findByRole("group", {
+		const mdom = (await view.findByRole("combobox", {
 			name: "@stringsync/mdom's bump",
-		});
-		const pressed = (group: HTMLElement) =>
-			[...group.querySelectorAll("[aria-pressed=true]")].map(
-				(button) => button.textContent,
-			);
-		expect(pressed(mdom)).toEqual(["minor"]);
+		})) as HTMLSelectElement;
+		expect(mdom.value).toBe("minor");
 
-		fireEvent.click(within(mdom).getByRole("button", { name: "major" }));
-		await waitFor(() => expect(pressed(mdom)).toEqual(["major"]));
-		const vexml = view.getByRole("group", { name: "@stringsync/vexml's bump" });
-		expect(pressed(vexml)).toEqual(["patch"]);
+		fireEvent.change(mdom, { target: { value: "major" } });
+		await waitFor(() => expect(mdom.value).toBe("major"));
+		const vexml = view.getByRole("combobox", {
+			name: "@stringsync/vexml's bump",
+		}) as HTMLSelectElement;
+		expect(vexml.value).toBe("patch");
 
 		fireEvent.click(view.getByRole("checkbox", { name: "@stringsync/mdom" }));
 		await waitFor(() =>
 			expect(
-				view.queryByRole("group", { name: "@stringsync/mdom's bump" }),
+				view.queryByRole("combobox", { name: "@stringsync/mdom's bump" }),
 			).toBeNull(),
 		);
 	});
@@ -152,7 +150,10 @@ describe("ShipsPage", () => {
 			name: "@stringsync/mdom",
 		});
 		expect(view.getAllByText(/s2s-staging depends on it/)).toHaveLength(2);
-		fireEvent.click(view.getByRole("button", { name: "minor" }));
+		fireEvent.change(
+			view.getByRole("combobox", { name: "@stringsync/mdom's bump" }),
+			{ target: { value: "minor" } },
+		);
 		const net = view.getByRole("checkbox", { name: "net-staging" });
 		fireEvent.click(net);
 		await waitFor(() => expect(net.getAttribute("aria-checked")).toBe("false"));
@@ -168,9 +169,11 @@ describe("ShipsPage", () => {
 			{ name: "@stringsync/mdom", bump: "minor" },
 			{ name: "s2s-staging" },
 		]);
-		const first = view.getByRole("region", { name: "Step 1" });
-		expect(within(first).getByText("Publish @stringsync/mdom")).toBeTruthy();
-		expect(view.getByRole("region", { name: "Step 2" })).toBeTruthy();
+		const first = view.getByRole("region", { name: "Group 1" });
+		expect(
+			within(first).getByRole("article", { name: "@stringsync/mdom" }),
+		).toBeTruthy();
+		expect(view.getByRole("region", { name: "Group 2" })).toBeTruthy();
 
 		fireEvent.click(view.getByRole("button", { name: "Needed first" }));
 		expect(await view.findByText("Needed first")).toBeTruthy();
@@ -179,7 +182,7 @@ describe("ShipsPage", () => {
 		).toBeTruthy();
 	});
 
-	test("Review shows every step in order, parallel ones grouped, with no Needed first when nothing is", async () => {
+	test("Review shows the groups in order, parallel ones together, with no Needed first when nothing is", async () => {
 		serveFlow(
 			{
 				targets: [plan("@stringsync/mdom", "patch"), plan("net-staging")],
@@ -192,11 +195,10 @@ describe("ShipsPage", () => {
 		fireEvent.click(view.getByRole("checkbox", { name: "@stringsync/mdom" }));
 		fireEvent.click(view.getByRole("button", { name: "Next" }));
 
-		const step = await view.findByRole("region", { name: "Step 1" });
-		expect(within(step).getByText(/2 at the same time/)).toBeTruthy();
-		const net = within(step).getByRole("article", { name: "net-staging" });
-		const lines = [...net.querySelectorAll("li")].map((li) => li.textContent);
-		expect(lines).toEqual(["Test net-staging", "Publish net-staging"]);
+		const group = await view.findByRole("region", { name: "Group 1" });
+		expect(within(group).getByText(/2 at the same time/)).toBeTruthy();
+		const net = within(group).getByRole("article", { name: "net-staging" });
+		expect(net.querySelectorAll("li")).toHaveLength(0);
 
 		fireEvent.click(view.getByRole("button", { name: "Ships" }));
 		expect(
@@ -217,6 +219,57 @@ describe("ShipsPage", () => {
 		expect(
 			await view.findByRole("checkbox", { name: "net-staging" }),
 		).toBeTruthy();
+	});
+
+	test("Approve stays on the run it opened when the browser reports the move before its state", async () => {
+		const running = {
+			id: "run-1",
+			started: 1,
+			status: "running",
+			notes: [],
+			targets: [{ name: "net-staging", steps: [] }],
+		};
+		const routes: Record<string, (init?: RequestInit) => Response> = {
+			"/api/ship/plan": () => Response.json(composed([["net-staging"]])),
+			"/api/ship/runs?status=running": () => Response.json({ runs: [] }),
+			"/api/ship/runs": (init) =>
+				init?.method === "POST"
+					? Response.json(running, { status: 201 })
+					: Response.json({ runs: [] }),
+		};
+		globalThis.fetch = (async (url: string, init?: RequestInit) =>
+			(routes[String(url)] ?? (() => Response.json(listed)))(
+				init,
+			)) as unknown as typeof fetch;
+		const back = history.back;
+		let backs = 0;
+		history.back = () => {
+			backs++;
+		};
+		const opened: string[] = [];
+		try {
+			const view = render(
+				<ShipsPage
+					onRun={(id) => {
+						opened.push(id);
+						// As WebKit does inside location.replace: the run's
+						// address, still with the Review entry's state.
+						history.replaceState(history.state, "", `#ships/${id}`);
+						window.dispatchEvent(new PopStateEvent("popstate"));
+					}}
+				/>,
+			);
+			fireEvent.click(
+				await view.findByRole("checkbox", { name: "net-staging" }),
+			);
+			fireEvent.click(view.getByRole("button", { name: "Next" }));
+			fireEvent.click(await view.findByRole("button", { name: "Approve" }));
+			await waitFor(() => expect(opened).toEqual(["run-1"]));
+			expect(backs).toBe(0);
+		} finally {
+			history.back = back;
+			history.replaceState(null, "", "#");
+		}
 	});
 
 	test("a plan the server refuses shows why and stays on the pick", async () => {

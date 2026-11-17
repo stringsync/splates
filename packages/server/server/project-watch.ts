@@ -3,7 +3,6 @@ import type { Resource } from "core/disposable";
 import { Debouncer, Duration, SystemTimer } from "core/time";
 import { ElsewhereStanding } from "../board";
 import { LEGACY_PLAN_FILE } from "../config";
-import { shipRecord } from "../legacy-ship";
 import { PLAN_FILE } from "../plans";
 import { fingerprint, type Snapshot, snapshot, TaskDetails } from "../tasks";
 import { type EventSink, eventStream, type StreamWatcher } from "./http";
@@ -187,23 +186,19 @@ export class ProjectWatch implements StreamWatcher {
 			details.moved();
 		}
 		const { boards } = this.context;
-		const [read, ship] = await Promise.all([
-			snapshot({
-				project: await this.context.everywhere.slug(service.git.root),
-				service,
-				tasks,
-				creds,
-				fs,
-				details,
-				home: ps.env("HOME"),
-			}),
-			shipRecord(this.project.storage).read(),
-		]);
+		const read = await snapshot({
+			project: await this.context.everywhere.slug(service.git.root),
+			service,
+			tasks,
+			creds,
+			fs,
+			details,
+			home: ps.env("HOME"),
+		});
 		return boards === undefined
-			? { ...read, ship }
+			? read
 			: {
 					...read,
-					ship,
 					elsewhere: await new ElsewhereStanding(boards).onBoard(
 						read.todos,
 						service.git.root,

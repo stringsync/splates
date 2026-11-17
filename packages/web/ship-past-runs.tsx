@@ -66,9 +66,9 @@ function RunRow({ run, bar }: { run: RunState; bar: boolean }): JSX.Element {
 		<li>
 			<a
 				href={shipRunAddress(run.id)}
-				className="flex items-center gap-2 px-3.5 py-2.5 text-sm"
+				className="flex items-center gap-3 px-3.5 py-3 text-sm"
 			>
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="flex min-w-0 flex-1 flex-col gap-2.5">
 					<span className="flex items-baseline gap-2">
 						<span className="min-w-0 flex-1 truncate">
 							{run.targets.map((each) => each.name).join(", ")}
@@ -99,24 +99,26 @@ function RunRow({ run, bar }: { run: RunState; bar: boolean }): JSX.Element {
 						</span>
 					)}
 					{bar && (
-						<div
-							role="progressbar"
-							aria-label="Steps done"
-							aria-valuemin={0}
-							aria-valuemax={steps.length}
-							aria-valuenow={finished}
-							className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"
-						>
+						<div className="flex min-h-8 items-center">
 							<div
-								className={
-									run.status === "failed"
-										? "h-full rounded-full bg-destructive"
-										: "h-full rounded-full bg-foreground"
-								}
-								style={{
-									width: `${steps.length === 0 ? 0 : (finished / steps.length) * 100}%`,
-								}}
-							/>
+								role="progressbar"
+								aria-label="Steps done"
+								aria-valuemin={0}
+								aria-valuemax={steps.length}
+								aria-valuenow={finished}
+								className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+							>
+								<div
+									className={
+										run.status === "failed"
+											? "h-full rounded-full bg-destructive"
+											: "h-full rounded-full bg-foreground"
+									}
+									style={{
+										width: `${steps.length === 0 ? 0 : (finished / steps.length) * 100}%`,
+									}}
+								/>
+							</div>
 						</div>
 					)}
 				</span>

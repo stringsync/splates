@@ -45,7 +45,7 @@ export function ShipPickList({
 				const chosen = picks.get(name);
 				const deploy = target.plan.bump === undefined;
 				return (
-					<li key={name} className="flex min-h-12 items-center gap-2.5 px-3.5">
+					<li key={name} className="flex min-h-14 items-center gap-3 px-3.5">
 						<Checkbox
 							checked={picked}
 							onCheckedChange={() => toggle(target)}
@@ -56,11 +56,11 @@ export function ShipPickList({
 							aria-hidden="true"
 							onClick={() => toggle(target)}
 							className={cn(
-								"min-w-0 flex-1 cursor-pointer select-none self-stretch truncate py-3 text-sm",
+								"flex min-w-0 flex-1 cursor-pointer select-none items-center self-stretch py-3 text-sm",
 								picked ? "font-semibold" : "font-medium",
 							)}
 						>
-							{name}
+							<span className="truncate">{name}</span>
 						</span>
 						{!picked && target.plan.unshipped !== undefined && (
 							<span

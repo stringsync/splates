@@ -1,10 +1,13 @@
 import type { Bump } from "@splates/server/ship";
 import type { JSX } from "react";
-import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "./components/ui/native-select";
 
 const BUMPS: Bump[] = ["patch", "minor", "major"];
 
-/** Patch, minor or major for the target `name`, `bump` pressed. */
+/** A dropdown of patch, minor or major for the target `name`, `bump` selected. */
 export function BumpToggle({
 	name,
 	bump,
@@ -18,29 +21,23 @@ export function BumpToggle({
 	className?: string;
 }): JSX.Element {
 	return (
-		<ToggleGroup
-			aria-label={`${name}'s bump`}
-			variant="outline"
+		<NativeSelect
 			size="sm"
-			spacing={0}
-			value={[bump]}
 			className={className}
-			onValueChange={(value: string[]) => {
-				const to = BUMPS.find((each) => each === value[0]);
+			aria-label={`${name}'s bump`}
+			value={bump}
+			onChange={(event) => {
+				const to = BUMPS.find((each) => each === event.target.value);
 				if (to !== undefined) {
 					onBump(to);
 				}
 			}}
 		>
 			{BUMPS.map((each) => (
-				<ToggleGroupItem
-					key={each}
-					value={each}
-					className="h-7 min-w-0 px-1.5 text-xs group-data-[spacing=0]/toggle-group:px-1.5 data-pressed:bg-primary data-pressed:text-primary-foreground data-pressed:hover:bg-primary data-pressed:hover:text-primary-foreground"
-				>
+				<NativeSelectOption key={each} value={each}>
 					{each}
-				</ToggleGroupItem>
+				</NativeSelectOption>
 			))}
-		</ToggleGroup>
+		</NativeSelect>
 	);
 }

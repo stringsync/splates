@@ -113,12 +113,9 @@ welcome page while any step is left. Their steps check the project's
 make each change in a task (the page opens `setup-<step>` for it), then ask
 the user to restart `splates server`.
 
-- **Ships** (`ships-command`, `ships-status`): name the command that
-  releases the project as `ship`, or one target a time under `ships`
-  (`{ ship, after? }`), using the core/ship ShipCommand wrapper. Its
-  `plan --json` declares identity, inputs, steps and source paths; `status --json`
-  reports live artifacts. Find the project's
-  existing release script before writing one. Only the user ships, so
+- **Ships** (`ships-command`): list the commands that ship the project
+  under `ships` (`["bin/<project> ship"]`), each serving its targets through
+  core/ship. Find the project's existing release script before writing one. Only the user ships, so
   never run the ship command; a `--dry-run` rehearsal is fine.
 - **Evals** (`evals-results`, `evals-run`): `evals: { results }` shows
   results from any framework on the Evals page; adding `list` and `run`

@@ -46,14 +46,14 @@ describe("dev projects", () => {
 	it("lists projects for updates even when ship configuration is invalid", async () => {
 		await Bun.write(
 			join(deps.root, "splates.config.ts"),
-			'export default { legacyShips: { broken: { ship: "" } } };\n',
+			'export default { ships: { broken: "" } };\n',
 		);
 		await serving(deps, async (_, port) => {
 			const response = await fetch(`http://127.0.0.1:${port}/api/projects`);
 			expect(response.status).toBe(200);
 			const listed = await response.json();
 			expect(listed.projects).toEqual([
-				expect.objectContaining({ root: deps.root, ships: false }),
+				expect.objectContaining({ root: deps.root }),
 			]);
 			expect(listed.run).toBeString();
 			expect(listed.restarting).toBeNull();

@@ -33,14 +33,6 @@ export {
 	stopEvalRun,
 } from "./evals";
 export {
-	actOnShip,
-	recordShipAgent,
-	shipGraph,
-	shipHistory,
-	shipHistoryEntry,
-	shipStageLog,
-} from "./legacy-ship";
-export {
 	addBoard,
 	addLane,
 	addTodo,

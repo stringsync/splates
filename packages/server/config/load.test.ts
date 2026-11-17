@@ -82,7 +82,7 @@ describe("loadConfig", () => {
 			`export default { ships: { a: { ship: "bin/a ship" } } };\n`,
 		);
 		expect(loadConfig(root, { fs, git })).rejects.toThrow(
-			"rename the legacy targets' record to `legacyShips`",
+			"`ships` is a list of ship commands",
 		);
 	});
 

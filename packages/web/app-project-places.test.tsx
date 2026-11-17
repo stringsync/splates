@@ -32,7 +32,6 @@ describe("App coming back to a project", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 			{
 				slug: "shop",
@@ -41,7 +40,6 @@ describe("App coming back to a project", () => {
 				focused: false,
 				conversations: [],
 				waiting: 2,
-				ships: false,
 			},
 		];
 	});

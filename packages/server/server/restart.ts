@@ -5,7 +5,6 @@ import type { Fs, Ps } from "core/system";
 import type { After, Conversation, ConversationState } from "../conversations";
 import { realName } from "../conversations";
 import { fail } from "../exit";
-import { shipsFrom } from "../legacy-ship";
 import { RESUME } from "../plans";
 import type { Projects } from "../projects";
 import type { Document, Storage } from "../storage";
@@ -171,9 +170,6 @@ export class Restarts {
 					focused: each.root === focused?.root,
 					conversations: await this.checkpointable(each.root),
 					waiting: each.gone ? 0 : await this.waitingIn(each.root),
-					ships: each.gone
-						? false
-						: await shipsFrom(this.home, each.root, each.slug),
 				})),
 			),
 			servers: await this.opts.servers(),

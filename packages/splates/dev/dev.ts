@@ -5,7 +5,6 @@ import { serve } from "core/ship";
 import { z } from "zod";
 import { splatesShip } from "../ship";
 import { evalSkill } from "./eval";
-import { placeholderShips } from "./placeholder-ships";
 import { ROOT } from "./root";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
@@ -44,16 +43,4 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 			ps.cd(join(ROOT, ".."));
 			return serve(splatesShip, opts.args, { ps });
 		});
-
-	dev
-		.command("placeholder-ship")
-		.description(
-			"serve the placeholder ship targets, which send nothing out, for hand testing the Ships page",
-		)
-		.rest("args", z.string(), {
-			description:
-				"[plan | done <step> | run <step>] [--target name] [--bump patch|minor|major] [--upstream name=version]",
-		})
-		.allowUnknownOption()
-		.action((opts) => serve(placeholderShips(), opts.args));
 }

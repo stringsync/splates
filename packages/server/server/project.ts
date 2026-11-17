@@ -4,7 +4,7 @@ import { Debouncer, SystemTimer, SystemWallClock } from "core/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks } from "../board";
-import { loadConfig, shipSettings, shipTargets } from "../config";
+import { loadConfig } from "../config";
 import {
 	ConversationRoutes,
 	type ConversationState,
@@ -14,7 +14,6 @@ import {
 } from "../conversations";
 import { CredRoutes } from "../creds";
 import { fail } from "../exit";
-import { ShipLock, Shipping, ShipRoutes } from "../legacy-ship";
 import type { AgentPick } from "../models";
 import { needs, taskNumberReference, waitsOnYou } from "../plans";
 import { QUEUE_SWEEP, QueueCapacity, QueueRunner } from "../queue";
@@ -62,37 +61,6 @@ export async function serveProject(
 	const slug = () => context.everywhere.slug(project.service.git.root);
 	const conflicts = new ConflictWatch(project, listed);
 	await conflicts.start();
-	const shippingOptions = {
-		storage,
-		fs: project.fs,
-		ps: project.ps,
-		log,
-		root: service.git.root,
-		dir: project.dir,
-		prepare: project.config.postRewrite,
-	};
-	const shipping = new Shipping({
-		...shippingOptions,
-		command: shipSettings(project.config, await slug()).ship,
-		slug,
-	});
-	// A repository naming `ships` has a runner for each target, one at a time
-	// since each commits to the same trunk; the one above stays for the
-	// repository as a whole.
-	const lock = new ShipLock();
-	const targets = project.config.legacyShips ? shipTargets(project.config) : [];
-	const targetShippings = new Map(
-		targets.map((target) => [
-			target.name,
-			new Shipping({
-				...shippingOptions,
-				command: target.ship,
-				slug: async () => target.name,
-				target: target.name,
-				lock,
-			}),
-		]),
-	);
 	// A task `splates add --agent` handed to an agent starts it, whether or
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
@@ -227,7 +195,11 @@ export async function serveProject(
 	);
 	const shipEngine = new ShipEngine({
 		storage,
-		processes: new ShellStepProcesses(project.ps, service.git.root),
+		processes: new ShellStepProcesses(
+			project.ps,
+			service.git.root,
+			context.shipLauncher,
+		),
 		clock: new SystemWallClock(),
 		ids: new UuidProvider(),
 		log,
@@ -321,12 +293,8 @@ export async function serveProject(
 		...new CredRoutes(project, watch),
 		...new BudgetRoutes(project),
 		...automations.routes,
-		...new ShipRoutes(shipping, project.fs),
 		...new ShipPlanRoutes(shipCommands),
 		...new ShipRunRoutes(shipEngine, new ShipComposer(shipCommands), shipFixes),
-		shipping,
-		targetShipping: (name) => targetShippings.get(name) ?? null,
-		afterBumpOf: (_name) => project.config.afterBump,
 		startShipTask: async (task: string, ship: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
@@ -375,7 +343,6 @@ export async function serveProject(
 			return new Response(null, { status: 204 });
 		},
 		root: service.git.root,
-		afterBump: shipSettings(project.config, await slug()).afterBump,
 		journal,
 		format,
 		conversations,
@@ -438,15 +405,12 @@ export async function serveProject(
 			};
 		},
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
+		detachShips: () => shipEngine.detachAsync(),
 		async disposeAsync() {
 			await conflicts.disposeAsync();
 			runWatch.dispose();
 			fixWatch?.dispose();
 			await shipEngine.disposeAsync();
-			shipping.dispose();
-			for (const each of targetShippings.values()) {
-				each.dispose();
-			}
 			watch.dispose();
 			handOffs?.dispose();
 			queueRunner?.dispose();

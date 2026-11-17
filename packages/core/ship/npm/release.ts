@@ -37,6 +37,7 @@ export interface ReleaseOptions {
 	 * is committed.
 	 */
 	check?: string;
+	mirrorTest?: string; // Tests the built mirror from its root, before the commit.
 	/**
 	 * Private packages of other projects to fold into the mirror and the
 	 * build, by package name, with the files each reads from disk.
@@ -123,6 +124,18 @@ export function release(opts: ReleaseOptions): Step[] {
 			)
 		).trim();
 
+	/**
+	 * Whether npm's latest version was published by the GitHub workflow, which
+	 * only happens once npm trusts it: `npm trust list` needs a one-time
+	 * password even to read, so this is how a release avoids asking for a login
+	 * it will not use.
+	 */
+	const publishedByWorkflow = (ctx: Ctx) =>
+		ok(
+			ctx,
+			`npm view --prefer-online ${quote(opts.package)} _npmUser | grep -q npm-oidc-no-reply`,
+		);
+
 	return [
 		step({
 			id: "test",
@@ -196,6 +209,9 @@ export function release(opts: ReleaseOptions): Step[] {
 				if (opts.check) {
 					await hook(opts.check);
 				}
+				if (opts.mirrorTest) {
+					await hook(opts.mirrorTest);
+				}
 				const monoSha = (await ctx.sh("git rev-parse HEAD"))
 					.trim()
 					.split("\n")
@@ -215,7 +231,8 @@ export function release(opts: ReleaseOptions): Step[] {
 			id: "login",
 			does: "Sign in to npm, unless this machine already is",
 			dependencies: ["mirror"],
-			done: (ctx) => ok(ctx, "npm whoami"),
+			done: async (ctx) =>
+				(await publishedByWorkflow(ctx)) || ok(ctx, "npm whoami"),
 			run: (ctx) => ctx.sh(tty("npm login --auth-type=web"), { prompts: true }),
 		}),
 		step({
@@ -239,7 +256,8 @@ export function release(opts: ReleaseOptions): Step[] {
 			id: "trust",
 			does: `Have npm trust ${WORKFLOW_FILE} of ${opts.repository} to publish ${opts.package}`,
 			dependencies: ["first-publish", "login"],
-			done: (ctx) =>
+			done: async (ctx) =>
+				(await publishedByWorkflow(ctx)) ||
 				ok(
 					ctx,
 					`npm trust list ${quote(opts.package)} | grep -q ${quote(WORKFLOW_FILE)}`,

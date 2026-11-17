@@ -132,7 +132,7 @@ queues, from the board or from the queue card your reply ends with.
 A task is one medium-sized change: one coherent thing you can state in a
 sentence, that an agent can finish without carrying decisions from an earlier
 step. When a request is several of those, such as a feature in steps or a
-list of fixes, or needs a second project, judge that from the request itself,
+list of fixes, judge that from the request itself,
 before reading code, and offer a lane rather than do them all here. Ask it as
 a numbered Yes/No question, naming the tasks it would split into and picking
 Yes, and do no part of the work until it is answered:
@@ -194,9 +194,9 @@ they ask you to.
 
 ## Changing several units
 
-A task changes one unit of the repository, the package or project its After
-names, so a change that reaches several lands as several tasks, in order,
-rather than one that touches them all. When a unit's change breaks what
+A task preferably changes one unit of the repository, the package or project
+its After names, so a change that reaches several usually lands as several
+tasks, in order, rather than one that touches them all. When a unit's change breaks what
 another unit takes from it (an export's signature, a schema, a config
 key), the merge gate fails on the consumer's tests, which is no reason to
 widen the task. Expand, migrate, contract instead:
@@ -211,10 +211,12 @@ widen the task. Expand, migrate, contract instead:
 
 Queue steps 2 and 3 before merging step 1, each written as Queueing tasks
 says, its detail naming the old and new forms and the files it reaches.
-Only a change that cannot land in steps (a rename the old form cannot
-survive beside, a format both sides must switch at once) takes one task
-across units, and then its After names every unit it touches, so the reach
+A change that is simpler as one task, or cannot land in steps (a rename the
+old form cannot survive beside, a format both sides must switch at once),
+may take one task across units, and then its After names every unit it touches, so the reach
 is chosen and shown rather than crept into.
+A task across units invites scope creep, so touch only what the After needs in
+each and queue the rest.
 
 ## Links
 

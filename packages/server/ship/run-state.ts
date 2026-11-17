@@ -52,6 +52,10 @@ export type StepState = {
 	status: StepStatus;
 	/** The process of its `run` while it runs, or of the last one cut short. */
 	pid?: number;
+	/** Where a worker keeps its process, for a restart to take it back. */
+	handle?: { worker: string; channel: number };
+	/** The last frame of its process written down in the run file. */
+	held?: number;
 	/** The step's line, as it last updated it. */
 	update?: string;
 	/** The last {@link OUTPUT_LINES} lines its commands printed. */
@@ -154,7 +158,12 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 				...target,
 				steps: target.steps.map((step) =>
 					isActive(step.status)
-						? { ...step, status: "pending", prompts: [] }
+						? {
+								...step,
+								status: "pending",
+								// What a worker holds is taken back still asking.
+								prompts: step.handle === undefined ? [] : step.prompts,
+							}
 						: step,
 				),
 			})),
@@ -189,11 +198,21 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 function stepAfter(step: StepState, event: RunEvent): StepState {
 	switch (event.type) {
 		case "checking": {
-			const { error: _, signedIn: __, ...rest } = step;
+			const { error: _, signedIn: __, handle: ___, held: ____, ...rest } = step;
 			return { ...rest, status: "checking", started: event.at, prompts: [] };
 		}
-		case "running":
-			return { ...step, status: "running", pid: event.pid };
+		case "running": {
+			const { handle: _, ...rest } = step;
+			return {
+				...rest,
+				// A step taken back after a restart still waits on what it asked.
+				status: step.prompts.length > 0 ? "waiting" : "running",
+				pid: event.pid,
+				...(event.handle !== undefined && { handle: event.handle }),
+			};
+		}
+		case "held":
+			return { ...step, held: event.seq };
 		case "output":
 			return { ...step, output: kept(step.output, event.text) };
 		case "update":
@@ -230,7 +249,14 @@ function stepAfter(step: StepState, event: RunEvent): StepState {
 				...(event.error !== undefined && { error: event.error }),
 			};
 		case "retried": {
-			const { error: _, ended: __, signedIn: ___, ...rest } = step;
+			const {
+				error: _,
+				ended: __,
+				signedIn: ___,
+				handle: ____,
+				held: _____,
+				...rest
+			} = step;
 			return {
 				...rest,
 				status: "pending",

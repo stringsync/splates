@@ -56,7 +56,6 @@ import { splatesEvals } from "./evals";
 import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
-import { splatesShip } from "./legacy-ship";
 import { printMachine } from "./machine";
 import { runProgress } from "./progress";
 import { splatesProjects } from "./projects";
@@ -747,7 +746,6 @@ splates
 	.mount("blocker", splatesBlocker)
 	.mount("lane", splatesLane)
 	.mount("board", splatesBoard)
-	.mount("ship", splatesShip)
 	.mount("ships", splatesShips)
 	.mount("projects", splatesProjects)
 	.mount("creds", splatesCreds)

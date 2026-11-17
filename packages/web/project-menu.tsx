@@ -1,10 +1,4 @@
-import {
-	CopyIcon,
-	EllipsisIcon,
-	ExternalLinkIcon,
-	ShipIcon,
-	XIcon,
-} from "lucide-react";
+import { CopyIcon, EllipsisIcon, ExternalLinkIcon, XIcon } from "lucide-react";
 import { type JSX, use } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -27,7 +21,6 @@ export function ProjectMenu({
 	current,
 	hidden,
 	onCopyPath,
-	onShip,
 	onForget,
 	pending = false,
 }: {
@@ -37,7 +30,6 @@ export function ProjectMenu({
 	/** Whether its button hides until its row is hovered or picked. */
 	hidden: boolean;
 	onCopyPath: () => void;
-	onShip: () => void;
 	onForget: () => void;
 	/** Forgetting it is on its way: held until the server answers. */
 	pending?: boolean;
@@ -74,15 +66,6 @@ export function ProjectMenu({
 					<CopyIcon />
 					Copy path
 				</DropdownMenuItem>
-				{project.ships && (
-					<DropdownMenuItem
-						title="Picks it on the Ships page, which starts a conversation to plan the ship"
-						onClick={onShip}
-					>
-						<ShipIcon />
-						Ship {project.slug}…
-					</DropdownMenuItem>
-				)}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
 					variant="destructive"

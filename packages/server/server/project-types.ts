@@ -3,11 +3,11 @@ import type { Transcriber } from "core/dictate";
 import type { AsyncResource, Resource } from "core/disposable";
 import type { Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
+import type { Launcher } from "../agents/process";
 import type { ElsewhereBoards, LaneRecord } from "../board";
 import type { Conversations, ConversationsHeard } from "../conversations";
 import type { SecretStores } from "../creds";
 import type { TranscriberFor } from "../dictate";
-import type { Shipping } from "../legacy-ship";
 import type { Needing } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
@@ -82,6 +82,8 @@ export interface DevContext {
 	 * a test of one project, none is read.
 	 */
 	readonly boards?: ElsewhereBoards;
+	/** What starts a ship's steps on a worker and takes them back after a restart; absent, each is a child of this server. */
+	readonly shipLauncher?: Launcher;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
 	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
@@ -96,12 +98,12 @@ export type Handler = (request: Request) => Promise<Response>;
 /** One project as the server holds it: what each of its routes does. */
 export interface Served extends AsyncResource {
 	root: string;
-	/** Its config's `afterBump`, for the bump tasks of a ship's cascade. */
-	afterBump: string | null;
 	/** Its journal, for the events the server logs on its behalf. */
 	journal: Journal;
 	format: Format;
 	conversations: Conversations | null;
+	/** Lets go of the ship steps a worker runs for a restart to take back; whether there were any. */
+	detachShips: () => Promise<boolean>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;
@@ -168,8 +170,6 @@ export interface Served extends AsyncResource {
 	dropBoard: Handler;
 	removeQueued: Handler;
 	restoreQueued: Handler;
-	/** The project's latest ship. */
-	ship: Handler;
 	/** The targets the `ships` commands serve. */
 	shipTargets: Handler;
 	/** Composes picked targets of the `ships` commands into one plan. */
@@ -194,15 +194,6 @@ export interface Served extends AsyncResource {
 	shipRunFixRetry: Handler;
 	/** Adds an agent's note to a ship run. */
 	shipRunNote: Handler;
-	/** Runs the project's ship, as a cascade's step. */
-	shipping: Shipping;
-	/** Runs the ship target `name` of its `ships`, null when it names none. */
-	targetShipping(name: string): Shipping | null;
-	/** The `afterBump` of ship target `name`, null when it has none. */
-	afterBumpOf(name: string): string | null;
-	/** The project's bump tasks in a cascade. */
-	/** What its latest ship printed, as it prints. */
-	shipOutput: Handler;
 	listCreds: Handler;
 	saveCred: Handler;
 	removeCred: Handler;

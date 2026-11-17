@@ -36,7 +36,6 @@ describe("App's projects", () => {
 				focused: true,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 			{
 				slug: "shop",
@@ -45,7 +44,6 @@ describe("App's projects", () => {
 				focused: false,
 				conversations: [],
 				waiting: 2,
-				ships: true,
 			},
 			{
 				slug: "old",
@@ -54,7 +52,6 @@ describe("App's projects", () => {
 				focused: false,
 				conversations: [],
 				waiting: 0,
-				ships: false,
 			},
 		];
 	});
@@ -320,29 +317,6 @@ describe("App's projects", () => {
 		);
 		expect(view.queryByRole("menuitem", { name: "Open in Cursor" })).toBeNull();
 		localStorage.clear();
-	});
-
-	it("opens the Ships page with a project picked from its menu", async () => {
-		const view = await testing.open();
-		await openSwitcher(view);
-
-		await openMenu(view, "shop");
-		await clickShown(() => view.getByRole("menuitem", { name: "Ship shop…" }));
-
-		const shown = new URL(testing.visited.at(-1) ?? "", "http://localhost");
-		expect(shown.hash).toBe("#legacy-ships");
-		expect(shown.searchParams.get("ship")).toBe("shop");
-	});
-
-	it("offers no Ship on a project that names no ship command", async () => {
-		const view = await testing.open();
-		await openSwitcher(view);
-
-		await openMenu(view, "wren");
-		await waitFor(() =>
-			view.getByRole("menuitem", { name: "Remove project wren" }),
-		);
-		expect(view.queryByRole("menuitem", { name: "Ship wren…" })).toBeNull();
 	});
 
 	it("forgets a project that is gone", async () => {

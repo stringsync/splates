@@ -91,3 +91,44 @@ it("leaves settled messages and their markdown alone while a reply streams", asy
 	expect(turns[0]?.textContent).toContain("Settled reply");
 	expect(turns[1]?.textContent).toContain("Next words");
 });
+
+it("draws a fenced d2 block in an assistant message as a diagram, not a code block", async () => {
+	const Text: TextMessagePartComponent = (props) => (
+		<MarkdownText {...props} typed={(text) => text} />
+	);
+	const parts = { Text };
+	const components = {
+		AssistantMessage: () => <MessagePrimitive.Parts components={parts} />,
+	};
+	function View() {
+		const runtime = useExternalStoreRuntime({
+			messages: [
+				{
+					id: "m",
+					role: "assistant",
+					content: [
+						{
+							type: "text",
+							text: "Flow\n\n```d2\na -> b\n```\n\n```ts\nlet a\n```",
+						},
+					],
+				} as ThreadMessageLike,
+			],
+			isRunning: false,
+			convertMessage: (message: ThreadMessageLike) => message,
+			onNew: async () => {},
+		});
+		return (
+			<AssistantRuntimeProvider runtime={runtime}>
+				<Thread components={components} autoFocus={false} />
+			</AssistantRuntimeProvider>
+		);
+	}
+	const view = render(<View />);
+	await waitFor(() => expect(view.getByText("let a")).toBeTruthy());
+	// The ts fence keeps its code header; the d2 fence has none.
+	expect(view.container.querySelectorAll(".aui-code-header-root")).toHaveLength(
+		1,
+	);
+	expect(view.container.querySelectorAll("pre.aui-md-pre")).toHaveLength(1);
+});

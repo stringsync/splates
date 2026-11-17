@@ -28,17 +28,20 @@ import { SplatesEvent } from "./splates-event";
 /**
  * Render for a `ship` permission: the targets an agent asks you to ship, each
  * with its bump, and why. Approve starts the ship and tells the agent its
- * run, and the card then follows that run to done; Decline tells the agent
+ * run and opens its active ship page, and the card follows that run to done; Decline tells the agent
  * no. Approve is the only way an agent's ask becomes a ship.
  */
 export function ShipAskCard({
 	proposal,
 	server = SHIP_RUN_SERVER,
 	start = startShip,
+	open = openRun,
 }: {
 	proposal: PermissionProposal;
 	server?: ShipRunServer;
 	start?: typeof startShip;
+	/** Shows run `id` on the Ships page, as Approve does once the agent is told. */
+	open?: (id: string) => void;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
 	const { refusal, attempt } = useRefusal();
@@ -96,6 +99,7 @@ export function ShipAskCard({
 				.then(async (state) => {
 					setStarted(state.id);
 					await send(withNote(shipStartedReference(state.id)));
+					open(state.id);
 				})
 				.finally(() => setBusy(null)),
 			"Not shipped",
@@ -192,6 +196,11 @@ export function ShipAskCard({
 			<Refusal refusal={refusal} />
 		</CardShell>
 	);
+}
+
+/** Opens run `id`'s active ship page, the way the Ships page does on Approve. */
+function openRun(id: string): void {
+	location.hash = shipRunAddress(id);
 }
 
 /** A target's line: its name, and on the right where it stands. */

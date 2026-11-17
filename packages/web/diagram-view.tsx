@@ -1,4 +1,5 @@
-import { type JSX, useEffect, useId, useState } from "react";
+import { type JSX, useEffect, useId, useMemo, useState } from "react";
+import { ITEM, type Shown, useLightbox } from "./lightbox";
 
 /** A D2 diagram drawn as SVG in the browser; its source shows as code while it loads or when it fails to compile. */
 export function DiagramView({ source }: { source: string }): JSX.Element {
@@ -24,20 +25,48 @@ export function DiagramView({ source }: { source: string }): JSX.Element {
 			live = false;
 		};
 	}, [source, salt]);
-	if (svg === null) {
+	const { open, lightbox } = useLightbox();
+	// The lightbox loads an image from a URL, so the drawn SVG is served from a blob.
+	const url = useMemo(
+		() =>
+			svg === null
+				? null
+				: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
+		[svg],
+	);
+	useEffect(
+		() => () => {
+			if (url !== null) {
+				URL.revokeObjectURL(url);
+			}
+		},
+		[url],
+	);
+	if (svg === null || url === null) {
 		return (
 			<pre className="overflow-x-auto rounded-md border p-2 text-xs">
 				<code>{source}</code>
 			</pre>
 		);
 	}
+	const shown: Shown = {
+		url,
+		alt: "diagram",
+		video: false,
+		name: "diagram.svg",
+	};
 	return (
-		<div
-			role="img"
-			aria-label="diagram"
-			className="overflow-x-auto [&>svg]:h-auto [&>svg]:max-w-full"
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: SVG compiled from the card's own D2 source
-			dangerouslySetInnerHTML={{ __html: svg }}
-		/>
+		<>
+			<button
+				type="button"
+				aria-label="diagram"
+				className="block w-full cursor-zoom-in overflow-x-auto text-left [&>svg]:h-auto [&>svg]:max-w-full"
+				{...{ [ITEM]: JSON.stringify(shown) }}
+				onClick={(event) => open(event.currentTarget)}
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: SVG compiled from the card's own D2 source
+				dangerouslySetInnerHTML={{ __html: svg }}
+			/>
+			{lightbox}
+		</>
 	);
 }

@@ -202,7 +202,6 @@ export class Testing implements Resource {
 			focused: true,
 			conversations: [],
 			waiting: 0,
-			ships: false,
 		},
 	];
 	/** The `splates server`s on this machine the page is told of. */
@@ -374,12 +373,6 @@ export class Testing implements Resource {
 				return this.workers === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
-			}
-			if (route === "/api/legacy-ship/graph") {
-				return Response.json({ projects: [] });
-			}
-			if (route === "/api/legacy-ship/history") {
-				return Response.json([]);
 			}
 			if (route === "/api/evals") {
 				return Response.json([]);

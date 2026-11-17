@@ -33,7 +33,6 @@ export function project(
 		focused,
 		conversations: listed,
 		waiting: 0,
-		ships: false,
 	};
 }
 

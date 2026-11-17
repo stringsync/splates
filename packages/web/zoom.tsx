@@ -3,7 +3,7 @@ import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 
-/** An image to explore with pinch, drag and double tap, with a button to fit it all on screen. */
+/** An image that opens whole, to explore with pinch, drag and double tap, with a button to fit it all on screen. */
 export function ZoomableImage({
 	src,
 	alt,
@@ -30,15 +30,10 @@ export function ZoomableImage({
 			dataSource: [{ src, alt, ...size }],
 			appendToEl: host,
 			getViewportSizeFn: () => ({ x: host.clientWidth, y: host.clientHeight }),
-			initialZoomLevel: (zoom) =>
-				mobile()
-					? Math.max(
-							host.clientWidth / size.width,
-							host.clientHeight / size.height,
-						)
-					: zoom.fit,
-			secondaryZoomLevel: (zoom) =>
-				mobile() ? zoom.fit : Math.max(1, zoom.fit * 2.5),
+			// Open on the whole image; double tap steps in at the tapped point and
+			// a pinch moves freely between there and the maximum.
+			initialZoomLevel: "fit",
+			secondaryZoomLevel: (zoom) => Math.max(1, zoom.fit * 2.5),
 			// PhotoSwipe springs a pinch released past this back to it, so on a phone
 			// it sits well beyond where a pinch ends.
 			maxZoomLevel: (zoom) =>

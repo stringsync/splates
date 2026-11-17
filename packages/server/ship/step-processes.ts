@@ -1,6 +1,12 @@
 import type { Resource } from "core/disposable";
 import type { Ps } from "core/system";
 import { z } from "zod";
+import type {
+	AgentFrame,
+	AgentProcess,
+	Launcher,
+	ProcessHandle,
+} from "../agents/process";
 import { PROMPT } from "./run-events";
 import { lastLines, quoted } from "./shell";
 import type { Bump } from "./wire";
@@ -29,6 +35,16 @@ export type RunLine = z.infer<typeof RUN_LINE>;
 /** A step's `run` under way. */
 export interface RunningStep extends Resource {
 	pid: number | null;
+	/** Where a worker keeps it for a restart to take back; null for a child of this server. */
+	handle?: ProcessHandle | null;
+	/**
+	 * The last frame whose lines have all been yielded, none left half
+	 * written; it moves as the line that ends that frame is yielded. Null
+	 * for a process that ends with this server.
+	 */
+	held?: number | null;
+	/** Says everything up to frame `seq` is written down, so a worker lets it go. */
+	ack?(seq: number): void;
 	/** Each line it writes, ending when it exits. */
 	lines: AsyncIterable<RunLine>;
 	/** Answers prompt `id` on its stdin. */
@@ -45,6 +61,15 @@ export type DoneAnswer = { done: boolean; released?: string };
 export interface StepProcesses {
 	done(request: StepRequest): Promise<DoneAnswer>;
 	run(request: StepRequest): RunningStep;
+	/**
+	 * The `run` of `request` a worker kept going through a restart, its lines
+	 * carrying on from past frame `held`. Throws when nothing takes it back.
+	 */
+	resume?(
+		request: StepRequest,
+		handle: ProcessHandle,
+		held: number,
+	): RunningStep;
 	/** Whether the process `pid`, a run cut short, is still at work. */
 	alive(pid: number): boolean;
 }
@@ -57,6 +82,8 @@ export class ShellStepProcesses implements StepProcesses {
 	constructor(
 		private readonly ps: Pick<Ps, "spawnCapture" | "start" | "alive">,
 		private readonly root: string,
+		/** Starts each step on a worker that keeps it through a restart; a child of this server without. */
+		private readonly launcher?: Launcher,
 	) {}
 
 	async done(request: StepRequest): Promise<DoneAnswer> {
@@ -89,6 +116,15 @@ export class ShellStepProcesses implements StepProcesses {
 	}
 
 	run(request: StepRequest): RunningStep {
+		if (this.launcher !== undefined) {
+			return heldStep(
+				this.launcher.launch(
+					["sh", "-c", commandLine(request, "run")],
+					this.root,
+					{},
+				),
+			);
+		}
 		const child = this.ps.start(["sh", "-c", commandLine(request, "run")], {
 			cwd: this.root,
 		});
@@ -108,9 +144,89 @@ export class ShellStepProcesses implements StepProcesses {
 		};
 	}
 
+	resume(
+		_request: StepRequest,
+		handle: ProcessHandle,
+		held: number,
+	): RunningStep {
+		if (this.launcher === undefined) {
+			throw new Error("nothing here takes back a step from a worker");
+		}
+		return heldStep(this.launcher.resume(handle, held));
+	}
+
 	alive(pid: number): boolean {
 		return this.ps.alive(pid);
 	}
+}
+
+/** `process`, which a worker holds, as a running step that keeps its place for a restart. */
+function heldStep(process: AgentProcess): RunningStep {
+	const writer = process.input.getWriter();
+	const encoder = new TextEncoder();
+	const read = frameLines(process.output);
+	return {
+		get pid() {
+			return process.pid;
+		},
+		get handle() {
+			return process.handle;
+		},
+		get held() {
+			return read.held;
+		},
+		ack: (seq) => process.ack(seq),
+		lines: read.lines,
+		answer: (id, value) =>
+			writer.write(
+				encoder.encode(`${JSON.stringify({ type: "answer", id, value })}\n`),
+			),
+		dispose: () => process.kill(),
+		exited: process.exited.finally(() => writer.close().catch(() => {})),
+	};
+}
+
+/**
+ * The lines `frames` carry, and `held`, the last frame whose lines are all
+ * out and ending on a line's end, set as the last of them is yielded.
+ */
+function frameLines(frames: ReadableStream<AgentFrame>): {
+	lines: AsyncIterable<RunLine>;
+	readonly held: number | null;
+} {
+	let held: number | null = null;
+	async function* lines(): AsyncIterable<RunLine> {
+		const decoder = new TextDecoder();
+		let partial = "";
+		for await (const frame of frames) {
+			const split = (
+				partial + decoder.decode(frame.bytes, { stream: true })
+			).split("\n");
+			partial = split.pop() ?? "";
+			const read = split
+				.map((line) => readLine(line))
+				.filter((line): line is RunLine => line !== null);
+			for (const [index, line] of read.entries()) {
+				if (partial === "" && index === read.length - 1) {
+					held = frame.seq;
+				}
+				yield line;
+			}
+			if (partial === "" && read.length === 0) {
+				held = frame.seq;
+			}
+		}
+		const last = readLine(partial + decoder.decode());
+		if (last !== null) {
+			yield last;
+		}
+	}
+	return {
+		lines: lines(),
+		get held() {
+			return held;
+		},
+	};
 }
 
 /** The shell line of `request` for `kind`, with the flags it plans with. */

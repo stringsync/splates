@@ -16,16 +16,6 @@ import {
 	projectEvalCommands,
 } from "../evals";
 import { fail } from "../exit";
-import {
-	AdoptTask,
-	CascadeRoutes,
-	GRAPH_INPUTS,
-	ReleaseGit,
-	registeredGraph,
-	ShipLive,
-	ShipRoutes,
-	ShipSteps,
-} from "../legacy-ship";
 import { splatesHome } from "../models";
 import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
@@ -194,6 +184,10 @@ export async function dev(
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 		boards: new OpenBoards({ fs, ps, log }, projects),
+		shipLauncher: {
+			launch: (argv, cwd, env) => workers.local.launch(argv, cwd, env),
+			resume: (handle, held) => workers.local.resume(handle, held),
+		},
 		onWorkerRoom: (listener) =>
 			workers.placement.scheduler.events.on("changed", listener),
 		paused: () => workers.records.paused,
@@ -232,29 +226,6 @@ export async function dev(
 			);
 	};
 
-	/**
-	 * The ship `slug` names: a registered project's, or one target of the
-	 * repository whose `ships` name it, with the runner, paths and
-	 * `afterBump` that is its own.
-	 */
-	const shipTarget = async (slug: string) => {
-		const target = (
-			await registeredGraph({ projects, fs, log, ps })
-		).projects.find((each) => each.slug === slug && each.repo !== undefined);
-		const served = await projectNamed(target?.repo ?? slug);
-		const shipping =
-			target === undefined ? null : served.targetShipping(target.slug);
-		return {
-			served,
-			shipping: shipping ?? served.shipping,
-			paths: target?.paths,
-			afterBump:
-				target === undefined
-					? served.afterBump
-					: served.afterBumpOf(target.slug),
-		};
-	};
-
 	/** The project a request names with `?project=`, or the focused one. */
 	const projectFor = (request: Request): Promise<Served> =>
 		projectNamed(new URL(request.url).searchParams.get("project") ?? "");
@@ -291,20 +262,6 @@ export async function dev(
 				const project = await projectFor(request);
 				await project.format.check();
 				return pick(project)(request);
-			})(request);
-
-	/** Like `scoped`, for a route of the ship that `?project=` names, a ship target included. */
-	const shipScoped =
-		(pick: (routes: ShipRoutes) => Handler) =>
-		(request: Request): Promise<Response> =>
-			guarded(async (request) => {
-				const slug = new URL(request.url).searchParams.get("project") ?? "";
-				const { served, shipping } =
-					slug === ""
-						? { served: await projectFor(request), shipping: null }
-						: await shipTarget(slug);
-				await served.format.check();
-				return pick(new ShipRoutes(shipping ?? served.shipping, fs))(request);
 			})(request);
 
 	const talkingFor = async (request: Request): Promise<Served | General> => {
@@ -442,7 +399,9 @@ export async function dev(
 				const roots: string[] = [];
 				for (const [root, opened] of served) {
 					const project = await opened.catch(() => null);
-					if (await project?.conversations?.detachAsync()) {
+					const conversations = await project?.conversations?.detachAsync();
+					const ships = await project?.detachShips();
+					if (conversations || ships) {
 						roots.push(root);
 					}
 				}
@@ -599,52 +558,6 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	const cascades = new ShipSteps(machineStorage, fs, {
-		graph: (inputs) => registeredGraph({ projects, fs, log, ps }, inputs),
-		project: async (slug) => {
-			const { served, shipping } = await shipTarget(slug);
-			return {
-				shipping,
-				released: (version) =>
-					new ReleaseGit(ps, served.root).tagged(version).catch(() => true),
-				discard: async (ship, step) => {
-					const repo = await openRepository(
-						{ fs, ps, log },
-						{ at: served.root },
-					);
-					try {
-						await new AdoptTask({ ...repo, ps, log }).discard(ship, step);
-					} finally {
-						repo.dispose();
-					}
-				},
-				adopt: async (ship, step, request, output, signal, assigned) => {
-					const repo = await openRepository(
-						{ fs, ps, log },
-						{ at: served.root },
-					);
-					try {
-						return await new AdoptTask({ ...repo, ps, log }).run(
-							ship,
-							step,
-							request,
-							output,
-							{
-								signal,
-								assigned,
-								agent: (task) => served.startShipTask(task, ship.id),
-							},
-						);
-					} finally {
-						repo.dispose();
-					}
-				},
-			};
-		},
-		live: new ShipLive(ps),
-		error: (error) => log.error(`running ship steps: ${error}`),
-	});
-	const cascadeRoutes = new CascadeRoutes(cascades);
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(
 		machineStorage,
@@ -813,11 +726,6 @@ export async function dev(
 						Response.json({
 							...(await machine.read()),
 							queue: queueListing(workers.placement.scheduler.queue()),
-							// The machine's, as a merge under way is, so every page shows it.
-							ship: await cascades.shown().catch((error: unknown) => {
-								log.error(`reading the ship cascade: ${error}`);
-								return { cascade: null, ship: null };
-							}),
 						}),
 					),
 					// Through a tunnel only once Access verified who is asking, as a
@@ -922,42 +830,6 @@ export async function dev(
 					"/api/ship/runs/:id/fix-retry": {
 						POST: scoped((project) => project.shipRunFixRetry),
 					},
-					"/api/legacy-ship": { GET: shipScoped((routes) => routes.ship) },
-					"/api/legacy-ship/graph": guarded(async (request) =>
-						Response.json(
-							await registeredGraph(
-								{ projects, fs, log, ps },
-								GRAPH_INPUTS.parse(
-									JSON.parse(
-										new URL(request.url).searchParams.get("inputs") ?? "{}",
-									),
-								),
-							),
-						),
-					),
-					"/api/legacy-ship/cascade": { GET: guarded(cascadeRoutes.cascade) },
-					"/api/legacy-ship/steps": {
-						GET: guarded(cascadeRoutes.cascade),
-						POST: guarded(cascadeRoutes.start),
-					},
-					"/api/legacy-ship/steps/agent-record": {
-						POST: guarded(cascadeRoutes.recordAgent),
-					},
-					"/api/legacy-ship/steps/answer": {
-						POST: guarded(cascadeRoutes.answer),
-					},
-					"/api/legacy-ship/steps/retry": {
-						POST: guarded(cascadeRoutes.retry),
-					},
-					"/api/legacy-ship/steps/seen": { POST: guarded(cascadeRoutes.see) },
-					"/api/legacy-ship/steps/abandon": {
-						POST: guarded(cascadeRoutes.abandon),
-					},
-					"/api/legacy-ship/events": guarded(cascadeRoutes.cascadeEvents),
-					"/api/legacy-ship/history": guarded(cascadeRoutes.history),
-					"/api/legacy-ship/history/:id": guarded(cascadeRoutes.historyEntry),
-					"/api/legacy-ship/history/:id/log": guarded(cascadeRoutes.historyLog),
-					"/api/legacy-ship/output": shipScoped((routes) => routes.shipOutput),
 					"/api/finished": scoped((project) => project.finishedTasks),
 					"/api/merge-estimates": scoped((project) => project.mergeEstimates),
 					"/api/quarantined": scoped((project) => project.quarantined),
@@ -1307,8 +1179,6 @@ export async function dev(
 			}
 		}
 	});
-	disposer.defer(() => cascades.disposeAsync());
-	await cascades.resume();
 	// Last, so it runs first: a restart under way writes before all else goes.
 	disposer.defer(() => restarts.disposeAsync());
 	return {

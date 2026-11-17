@@ -176,10 +176,7 @@ export function Card({
 					{todo.subject}
 				</button>
 				{todo.ship !== undefined && (
-					<a
-						href="#legacy-ships"
-						className="relative text-muted-foreground text-xs"
-					>
+					<a href="#ships" className="relative text-muted-foreground text-xs">
 						Ship’s task
 					</a>
 				)}

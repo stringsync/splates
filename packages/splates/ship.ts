@@ -40,5 +40,11 @@ export const splatesShip = target({
 				"bun run --cwd packages/web build && bun packages/rec/control/build.ts --out packages/rec/control/built && bun packages/splates/dev/stamp-skill.ts",
 			// What npm would get, installed and run as a user would.
 			check: "bun packages/splates/dev/check-build.ts",
+			// The composed mirror's own tests, before it is committed. Each
+			// package runs on its own, as `bin/mono test` runs them: one `bun test`
+			// over the root mixes the page's happy-dom globals and the default 5 s
+			// timeout into the server's tests, which then fail and hang.
+			mirrorTest:
+				'for dir in packages/* skills/splates/evals; do [ -d "$dir" ] || continue; (cd "$dir" && bun test --pass-with-no-tests --timeout 120000) || exit 1; done',
 		}),
 });

@@ -42,6 +42,7 @@ import {
 	type TargetSummary,
 } from "./ship-run-summary";
 import { StepRail } from "./ship-step-rail";
+import { TargetTime } from "./ship-target-time";
 
 /** The server's ship routes, as every view of a run reads them. */
 export const SHIP_RUN_SERVER: ShipRunServer = {
@@ -150,6 +151,7 @@ export function ShipRunScreen({
 					{step.map((target) => (
 						<TargetCard
 							key={target.name}
+							runId={run.id}
 							target={target}
 							prompt={first?.target === target.name ? first.open : undefined}
 							retrying={target.failed.some((each) =>
@@ -378,6 +380,7 @@ const ICONS = {
  * and Send to agent and Retry once failed.
  */
 function TargetCard({
+	runId,
 	target,
 	prompt,
 	retrying,
@@ -387,6 +390,7 @@ function TargetCard({
 	answering,
 	onAnswer,
 }: {
+	runId: string;
 	target: TargetSummary;
 	/** The one prompt open on the page, when it is this target's. */
 	prompt: StepPrompt | undefined;
@@ -430,7 +434,9 @@ function TargetCard({
 						{target.line}
 					</p>
 				) : null}
-				{target.steps.length > 1 && <StepRail steps={target.steps} />}
+				{target.steps.length > 1 && (
+					<StepRail run={runId} target={target.name} steps={target.steps} />
+				)}
 				{target.signedIn.map((each) => (
 					<ShipSignedIn key={each.step} url={each.url} />
 				))}
@@ -517,18 +523,5 @@ function FixLine({
 				</>
 			)}
 		</p>
-	);
-}
-
-/** How long a target has taken, ticking while it runs. */
-function TargetTime({ target }: { target: TargetSummary }): JSX.Element | null {
-	const now = useNow(target.status === "running");
-	if (target.started === undefined) {
-		return null;
-	}
-	return (
-		<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-			{spanOf((target.ended ?? now) - target.started)}
-		</span>
 	);
 }

@@ -14,8 +14,8 @@ import {
 	readManifest,
 	valueKey,
 } from "./layout";
-import { replicated } from "./legacy-shipped";
 import { md5, type Replica } from "./replica";
+import { replicated } from "./replicated";
 import type { ReplicaStatus } from "./status";
 
 export interface ReplicatorOptions {

@@ -11,9 +11,6 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
-import { hasActiveShip, shipActivity } from "./legacy-ship-activity";
-import { useAcknowledged } from "./legacy-ship-recap-seen";
-import { useMachine } from "./machine";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
@@ -26,14 +23,6 @@ import type { Terminals } from "./terminals";
 import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
-/** The dot on the Ships icon for each thing the ship can ask of the person. */
-const SHIP_DOTS = {
-	running: { label: "a ship runs", color: "animate-pulse bg-primary" },
-	waiting: { label: "a ship waits on you", color: "bg-warning" },
-	error: { label: "the ship failed", color: "bg-destructive" },
-	done: { label: "a ship recap is ready", color: "bg-green-500" },
-};
-
 export const WIDE = "(min-width: 768px)";
 
 /**
@@ -89,9 +78,6 @@ export function AppNav({
 		available && snapshot !== null
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
-	const reading = useMachine()?.ship;
-	const acknowledged = useAcknowledged();
-	const shipping = shipActivity(reading, acknowledged);
 	const asking = useShipsWaiting().length;
 	const shipsRunning = useShipsRunning();
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
@@ -103,13 +89,6 @@ export function AppNav({
 				// History and sessions sit under it, goes back to its start here.
 				if (value === "boards" || (value === "rec" && page === "rec")) {
 					onPage(value);
-				}
-				// With a ship under way, the Ship tab opens it rather than the planner.
-				if (value === "legacy-ships" && hasActiveShip(reading, acknowledged)) {
-					// After the tab's own move to the planner, which would otherwise win.
-					queueMicrotask(() => {
-						location.hash = "legacy-ships/active";
-					});
 				}
 			}}
 			aria-current={value === navPage(page) ? "page" : undefined}
@@ -132,11 +111,6 @@ export function AppNav({
 				)}
 				{value === "tasks" && orphans > 0 && <OrphansDot ring="ring-sidebar" />}
 				{value === "setup" && <SetupDot ring="ring-sidebar" />}
-				{value === "legacy-ships" && shipping !== null && (
-					<span role="img" aria-label={SHIP_DOTS[shipping].label}>
-						<UpdateDot ring="ring-sidebar" color={SHIP_DOTS[shipping].color} />
-					</span>
-				)}
 			</span>
 			<span className="flex-1 text-left">{label}</span>
 			{value === "ships" && shipsRunning && (

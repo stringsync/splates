@@ -14,6 +14,7 @@ import { focusComposer } from "./composer-editor";
 import type { ConversationFeed } from "./conversation-feed";
 import { BackgroundPane, MergeOutputPane } from "./lazy-pages";
 import type { Page } from "./page-route";
+import { ShipStepPane, type ShipStepRef } from "./ship-step-pane";
 import { TerminalPane } from "./terminal";
 import type { Terminals } from "./terminals";
 
@@ -25,6 +26,8 @@ export interface SidePanes {
 	watch: (conversation: string, background: string) => void;
 	/** Opens what a step of a task's merge printed, from its card in `conversation`. */
 	watchMerge: WatchMergeStep;
+	/** Opens what a step of a ship run printed, from the Ships page. */
+	watchShip: (step: ShipStepRef) => void;
 	/** Whether `conversation`'s shell has a job running. */
 	shellRunning: (conversation: string) => boolean;
 	/** Shows or hides `conversation`'s terminal, in place of another pane. */
@@ -123,6 +126,7 @@ export function useSidePanes({
 	} | null>(null);
 	// The merge step whose output is open beside the page, from its card in
 	// a conversation, in place of that conversation's terminal.
+	const [shipStep, setShipStep] = useState<ShipStepRef | null>(null);
 	const [following, setFollowing] = useState<
 		Parameters<WatchMergeStep>[0] | null
 	>(null);
@@ -133,6 +137,7 @@ export function useSidePanes({
 		setReviewing(null);
 		setWatching(null);
 		setFollowing(null);
+		setShipStep(null);
 	}
 	// The conversation up, unless archived, whose terminal the pane shows when the changes
 	// do not have it.
@@ -164,6 +169,7 @@ export function useSidePanes({
 		(conversation: string, background: string) => {
 			setReviewing(null);
 			setFollowing(null);
+			setShipStep(null);
 			terminals.hide();
 			setWatching({ conversation, background });
 		},
@@ -173,6 +179,7 @@ export function useSidePanes({
 		(step) => {
 			setReviewing(null);
 			setWatching(null);
+			setShipStep(null);
 			terminals.hide();
 			setFollowing(step);
 		},
@@ -180,15 +187,28 @@ export function useSidePanes({
 	);
 	const closeWatching = useCallback(() => setWatching(null), []);
 	const closeFollowing = useCallback(() => setFollowing(null), []);
+	const closeShipStep = useCallback(() => setShipStep(null), []);
+	const watchShip = useCallback(
+		(step: ShipStepRef) => {
+			setReviewing(null);
+			setWatching(null);
+			setFollowing(null);
+			terminals.hide();
+			setShipStep(step);
+		},
+		[terminals],
+	);
 	const review = useCallback((task: string) => {
 		setWatching(null);
 		setFollowing(null);
+		setShipStep(null);
 		setReviewing(task);
 	}, []);
 	const showTerminal = useCallback(
 		(conversation: string) => {
 			setWatching(null);
 			setFollowing(null);
+			setShipStep(null);
 			setReviewing(null);
 			terminals.show(conversation);
 		},
@@ -229,6 +249,7 @@ export function useSidePanes({
 		reviewed !== undefined ||
 		watched !== null ||
 		followed !== null ||
+		shipStep !== null ||
 		(shown !== null && terminal === shown.id);
 	const pane =
 		reviewed !== undefined ? (
@@ -238,6 +259,13 @@ export function useSidePanes({
 				version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
 				phone={!wide}
 				onClose={() => setReviewing(null)}
+			/>
+		) : shipStep !== null ? (
+			<ShipStepPane
+				key={`${shipStep.run}:${shipStep.target}:${shipStep.step}`}
+				step={shipStep}
+				phone={!wide}
+				onClose={closeShipStep}
 			/>
 		) : followed !== null ? (
 			<MergeOutputPane
@@ -273,6 +301,7 @@ export function useSidePanes({
 		review,
 		watch,
 		watchMerge,
+		watchShip,
 		shellRunning,
 		toggleTerminal,
 		showTerminal,

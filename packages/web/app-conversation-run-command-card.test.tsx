@@ -52,36 +52,6 @@ describe.skip("App's run-command card", () => {
 		]);
 	});
 
-	it("opens the Ships page with the project picked and starts nothing itself", async () => {
-		const asking = conversation({
-			title: "Release",
-			messages: [
-				message(
-					"agent",
-					"## 🔐 Permission: run command: ship wren\n\n`splates ship wren`\n\nThe log fix is on main and unreleased.",
-				),
-			],
-		});
-		// The Ships page rewrites the address from its path, which a window
-		// left on about:blank has no real one of.
-		(
-			window as unknown as { happyDOM: { setURL(url: string): void } }
-		).happyDOM.setURL("http://localhost/");
-		const view = await testing.openConversations([asking]);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("link", { name: "Open Ships" })),
-			),
-		);
-		await waitFor(() => expect(location.hash).toBe("#legacy-ships"));
-		await waitFor(() =>
-			expect(view.getAllByText(/wren/).length).toBeGreaterThan(0),
-		);
-		expect(testing.posted("/api/legacy-ship/run")).toEqual([]);
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
-		history.replaceState(null, "", "/");
-	});
-
 	it("sends Anything else with Allow and keeps it in the reopened card", async () => {
 		const view = await testing.openConversations([asking()]);
 		await typeIn(

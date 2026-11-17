@@ -350,10 +350,7 @@ export interface SetupProject {
 	readonly root: string;
 	/** Its `splates.config.ts`, as it stands now. */
 	config(): Promise<
-		Pick<
-			Config,
-			"trunk" | "remote" | "replica" | "evals" | "ship" | "legacyShips"
-		>
+		Pick<Config, "trunk" | "remote" | "replica" | "evals" | "ship" | "ships">
 	>;
 	/** The URL `remote` fetches from, or null when there is no such remote. */
 	remoteUrl(remote: string): Promise<string | null>;

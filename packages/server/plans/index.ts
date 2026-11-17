@@ -74,8 +74,6 @@ export {
 	RUN_ELSEWHERE,
 	scheduleReference,
 	setupReference,
-	shipFailureReference,
-	shipSlowReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

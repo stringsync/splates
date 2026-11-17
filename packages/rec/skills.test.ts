@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { FakeFs } from "core/system/testing";
 import { BUNDLED_SKILL, installSkill, isUntouched, stamp } from "./skills";
 
-const SOURCE = `${import.meta.dir}/../../skills/rec/SKILL.md`;
+// The public mirror folds rec in without its `skills` folder, so there the
+// bundled copy is the only one and the equality test below is trivial.
+const REPO_SOURCE = `${import.meta.dir}/../../skills/rec/SKILL.md`;
+const SOURCE = (await Bun.file(REPO_SOURCE).exists())
+	? REPO_SOURCE
+	: BUNDLED_SKILL;
 const SKILL = await Bun.file(SOURCE).text();
 
 describe("rec skill", () => {

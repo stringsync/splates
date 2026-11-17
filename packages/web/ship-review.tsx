@@ -1,10 +1,9 @@
 import type { Composed, ComposedTarget } from "@splates/server/ship";
 import type { JSX } from "react";
-import { StepTimeline, StepTimelineItem } from "./step-timeline";
 
 /**
- * The composed plan as numbered steps run in order, each a card per target
- * shipping in it, and each card every `does` line its target will run.
+ * The composed plan as numbered groups run in order, each a card per target
+ * shipping in it. The steps inside a target are left to the run page.
  */
 export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 	const byName = new Map(plan.targets.map((each) => [each.name, each]));
@@ -13,20 +12,20 @@ export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 		<div className="flex flex-col gap-3">
 			{count > 1 && (
 				<p className="text-muted-foreground text-sm">
-					{count} steps, in order. Each starts once the one before is done.
+					{count} groups, in order. Each starts once the one before is done.
 				</p>
 			)}
 			{plan.waves.map((wave, index) => (
 				<section
 					key={wave.join(" ")}
-					aria-label={`Step ${index + 1}`}
+					aria-label={`Group ${index + 1}`}
 					className="flex flex-col gap-2"
 				>
 					{(count > 1 || wave.length > 1) && (
 						<h3 className="font-semibold text-sm">
 							{count > 1 ? (
 								<>
-									Step {index + 1}
+									Group {index + 1}
 									{wave.length > 1 && (
 										<span className="font-normal text-muted-foreground text-xs">
 											{" "}
@@ -51,10 +50,8 @@ export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 	);
 }
 
-/** One target's card: its name, then each step's `does` line in order. */
+/** One target's card: its name and bump, and its error when composing failed. */
 function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
-	const does = new Map(target.steps.map((step) => [step.id, step.does]));
-	const ids = target.waves.flat();
 	return (
 		<article
 			aria-label={target.name}
@@ -72,20 +69,6 @@ function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
 			{target.error !== undefined && (
 				<p className="text-destructive text-xs">{target.error}</p>
 			)}
-			<StepTimeline label="Steps">
-				{ids.map((id, index) => (
-					<StepTimelineItem
-						key={id}
-						label={does.get(id) ?? id}
-						standing="next"
-						wrap
-						last={index === ids.length - 1}
-						line={
-							<span className="min-w-0 flex-1 text-left">{does.get(id)}</span>
-						}
-					/>
-				))}
-			</StepTimeline>
 		</article>
 	);
 }

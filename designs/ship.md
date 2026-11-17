@@ -4,7 +4,7 @@
 
 Agreed with the user on 2026-11-15. Every task in the Ship overhaul lane
 builds to this page; ask the user before departing from it. It replaces the
-legacy designs (`legacy-ship-*.md`) and shares nothing with them.
+legacy designs, since deleted, and shares nothing with them.
 
 ### Declaration
 
@@ -186,9 +186,8 @@ several targets (net staging and prod).
 ships: ["bin/mdom ship", "bin/vex ship", "bin/net ship"],
 ```
 
-`ships` means only this list (settled 2026-11-15): the legacy record lives
-under `legacyShips`, and splates refuses a record under `ships`, naming the
-rename. splates asks each command `plan` for its targets; one that fails to
+`ships` means only this list (settled 2026-11-15): splates refuses a record
+under `ships`. splates asks each command `plan` for its targets; one that fails to
 answer shows as that command's error beside the others.
 
 ### Engine
@@ -205,7 +204,17 @@ the server's project storage, `ship-runs/<run-id>.jsonl`, one event a line:
 `started` (the composed targets), `resumed`, and per step `checking`,
 `running` (its pid), `output`, `update`, `prompt`, `answered`, `withdrawn`,
 `released`, `ended` (done, skipped or failed) and `retried`. The run is
-these folded in order; a line a kill tore mid-write is dropped. On start
+these folded in order; a line a kill tore mid-write is dropped.
+
+Settled 2026-11-17: a step runs on the local worker, as a conversation's agent
+does, so a restart need not orphan it. `running` carries the worker's `handle`,
+and `held` the last frame whose lines are all written to the file (never one
+that ends half a line); the engine acks that frame to the worker. On a
+restart `detachAsync` lets the steps go without ending them, and the next
+server takes each back with `resume(handle, held)`: output replays from past
+`held`, a prompt still open stays open, and the step's stdin still answers.
+A step the worker no longer holds, or a run with no handle, is waited out by
+its pid and asked `done` again, as below. On start
 the server folds each file, and a step that was mid-flight waits for its
 old process to go, then asks `done` again. One ship runs at a time.
 
@@ -243,11 +252,11 @@ stops a run: those stay the user's.
 ### Rollout
 
 1. Legacy ships (`core/legacy-ship`, splates `legacy-ship`, config
-   `legacyShips`) keep working beside the new one.
-2. Placeholder ships come first, and the user hand tests them.
-3. Real targets are ported one at a time: mdom, vexml, splates, the Player,
+   `legacyShips`) kept working beside the new one.
+2. Placeholder ships came first, and the user hand tested them.
+3. Real targets were ported one at a time: mdom, vexml, splates, the Player,
    the networks, sound2score staging and prod.
-4. Legacy and the placeholders are removed last.
+4. Legacy and the placeholders are removed last: splates's own are gone.
 
 ### From scratch
 

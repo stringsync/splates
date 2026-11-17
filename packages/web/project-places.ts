@@ -43,14 +43,6 @@ function places(): Record<string, Place> {
 	}
 }
 
-/** The Ships page with `project` picked to ship, which starts nothing itself. */
-export function shipsUrl(project: string): string {
-	const url = new URL(location.href);
-	url.searchParams.set("ship", project);
-	url.hash = "#legacy-ships";
-	return url.toString();
-}
-
 /** Where `project`, a slug or "" for the focused one, was last left. */
 export function placeOf(project: string): Place {
 	return places()[project] ?? {};

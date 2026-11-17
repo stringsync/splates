@@ -69,7 +69,7 @@ function checkShips(ships: unknown): void {
 	}
 	if (!Array.isArray(ships)) {
 		throw new Error(
-			"splates.config.ts: `ships` is a list of ship commands now; rename the legacy targets' record to `legacyShips`",
+			'splates.config.ts: `ships` is a list of ship commands, as ["bin/mdom ship"]',
 		);
 	}
 	for (const command of ships) {
@@ -117,7 +117,6 @@ function defaults(root: string, trunk: string): Config {
 		dictationWords: [],
 		evals: null,
 		projects: null,
-		legacyShips: null,
 		ships: [],
 		shared: [],
 		tags: null,

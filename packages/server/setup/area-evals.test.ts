@@ -23,7 +23,6 @@ describe("EVALS_AREA", () => {
 					evals,
 					ship: null,
 
-					legacyShips: null,
 					ships: [],
 				}),
 				remoteUrl: async () => null,
