@@ -381,6 +381,33 @@ describe("ShipRunScreen", () => {
 		expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
 	});
 
+	test("a recap step that printed output opens it in the pane when pressed", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />, {
+			wrapper: Provider,
+		});
+		const done = run();
+		done.status = "done";
+		done.targets = done.targets.map((target, index) => ({
+			...target,
+			steps: target.steps.map((each) => ({
+				...each,
+				status: "done" as const,
+				started: 2_000,
+				ended: 12_000,
+				output: index === 0 ? ["published"] : [],
+			})),
+		}));
+		await fake.open(done);
+		const shows = view.getAllByTitle("Show what it printed");
+		const first = done.targets[0];
+		expect(shows.length).toBe(first?.steps.length ?? 0);
+		fireEvent.click(shows[0] as HTMLElement);
+		expect(
+			opened.map((each) => `${each.run} ${each.target} ${each.step}`),
+		).toEqual([`run-1 ${first?.name} ${first?.steps[0]?.id}`]);
+	});
+
 	test("a stopped run opens on a recap showing it stopped beside what shipped", async () => {
 		const fake = fakeServer();
 		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);

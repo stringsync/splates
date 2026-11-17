@@ -1,13 +1,19 @@
 import type { RunState, StepState, TargetState } from "@splates/server/ship";
-import { CircleCheckIcon, OctagonXIcon } from "lucide-react";
-import type { JSX } from "react";
+import {
+	CircleCheckIcon,
+	OctagonXIcon,
+	SquareTerminalIcon,
+} from "lucide-react";
+import { type JSX, useContext } from "react";
 import { Button } from "./components/ui/button";
 import { spanOf } from "./merge-lines";
+import { WatchShipStep } from "./ship-step-pane";
 
 /**
  * What a finished or stopped run comes to: the time it took, the longest step, and each
  * target with the version it released and its time, its steps as
- * bars against the target's longest, always shown. Done goes back to the Ships list.
+ * bars against the target's longest, always shown. A step that printed anything opens
+ * its output in the pane beside the page when pressed. Done goes back to the Ships list.
  */
 export function ShipRecap({
 	run,
@@ -55,6 +61,7 @@ export function ShipRecap({
 			{run.targets.map((target) => (
 				<RecapTarget
 					key={target.name}
+					run={run.id}
 					target={target}
 					stopped={stopped && !shippedTarget(target)}
 				/>
@@ -90,12 +97,15 @@ function targetTime(target: TargetState): number {
 }
 
 function RecapTarget({
+	run,
 	target,
 	stopped,
 }: {
+	run: string;
 	target: TargetState;
 	stopped: boolean;
 }): JSX.Element {
+	const watch = useContext(WatchShipStep);
 	const scale = Math.max(1, ...target.steps.map(took));
 	return (
 		<section
@@ -117,27 +127,81 @@ function RecapTarget({
 				className="flex flex-col gap-2 pt-2"
 			>
 				{target.steps.map((step) => (
-					<li key={step.id} className="flex flex-col gap-1 text-xs">
-						<span className="flex justify-between gap-2">
-							<span className="truncate text-muted-foreground">
-								{step.id}
-								{step.status === "skipped" && " (skipped)"}
-								{stopped &&
-									step.status !== "done" &&
-									step.status !== "skipped" &&
-									" (not run)"}
-							</span>
-							<span className="tabular-nums">{spanOf(took(step))}</span>
-						</span>
-						<span className="h-1.5 overflow-hidden rounded-full bg-muted">
-							<span
-								className="block h-full rounded-full bg-foreground/60"
-								style={{ width: `${(took(step) / scale) * 100}%` }}
-							/>
-						</span>
+					<li key={step.id}>
+						<RecapStep
+							step={step}
+							stopped={stopped}
+							scale={scale}
+							onShow={
+								watch !== null && step.output.length > 0
+									? () =>
+											watch({
+												run,
+												target: target.name,
+												step: step.id,
+												initial: step,
+											})
+									: null
+							}
+						/>
 					</li>
 				))}
 			</ol>
 		</section>
+	);
+}
+
+/** A step's name and time over its bar; a button that shows its output when it has any. */
+function RecapStep({
+	step,
+	stopped,
+	scale,
+	onShow,
+}: {
+	step: StepState;
+	stopped: boolean;
+	scale: number;
+	onShow: (() => void) | null;
+}): JSX.Element {
+	const body = (
+		<>
+			<span className="flex justify-between gap-2">
+				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+					<span className="truncate">
+						{step.id}
+						{step.status === "skipped" && " (skipped)"}
+						{stopped &&
+							step.status !== "done" &&
+							step.status !== "skipped" &&
+							" (not run)"}
+					</span>
+					{onShow !== null && (
+						<SquareTerminalIcon
+							aria-hidden
+							className="size-3.5 shrink-0 group-hover/step:text-foreground"
+						/>
+					)}
+				</span>
+				<span className="tabular-nums">{spanOf(took(step))}</span>
+			</span>
+			<span className="h-1.5 overflow-hidden rounded-full bg-muted">
+				<span
+					className="block h-full rounded-full bg-foreground/60"
+					style={{ width: `${(took(step) / scale) * 100}%` }}
+				/>
+			</span>
+		</>
+	);
+	return onShow === null ? (
+		<div className="flex flex-col gap-1 text-xs">{body}</div>
+	) : (
+		<button
+			type="button"
+			title="Show what it printed"
+			className="group/step -mx-1.5 flex w-[calc(100%+0.75rem)] flex-col gap-1 rounded-md px-1.5 py-1 text-left text-xs hover:bg-muted/60"
+			onClick={onShow}
+		>
+			{body}
+		</button>
 	);
 }
