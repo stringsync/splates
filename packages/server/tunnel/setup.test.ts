@@ -103,7 +103,7 @@ describe("tunnelSetup", () => {
 		const { cloudflare, store, creds, setup } = machine();
 		store.values.delete(API_TOKEN);
 
-		expect(setup()).rejects.toThrow("splates creds wait");
+		expect(setup()).rejects.toThrow("cred.saved");
 
 		const [request] = await creds.requests();
 		expect(request).toMatchObject({

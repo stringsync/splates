@@ -7,7 +7,6 @@ import {
 	DropdownMenuContent,
 	DropdownMenuGroup,
 	DropdownMenuLabel,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -15,25 +14,18 @@ import { touchItems } from "./board";
 import type { TaskFilter } from "./task-filter";
 
 /**
- * Where a person narrows the tasks a page shows by project and tag. Put it
- * under the page's bar, with the options it can offer; each pick shows as a
- * chip that removes it, so a filter that hides tasks is never out of sight.
+ * Lets a person narrow a page's tasks by project. Put it under the page's
+ * bar with the `projects` to offer; each pick shows as a chip that removes it.
  */
 export function TaskFilterBar({
 	filter,
 	projects,
-	tags,
 }: {
 	filter: TaskFilter;
 	/** The projects to offer. */
 	projects: string[];
-	/** The tags to offer. */
-	tags: string[];
 }): JSX.Element {
-	const picks = [
-		...filter.projects.map((name) => ({ name, project: true })),
-		...filter.tags.map((name) => ({ name, project: false })),
-	];
+	const picks = filter.projects;
 	return (
 		<fieldset
 			aria-label="Filter"
@@ -62,32 +54,15 @@ export function TaskFilterBar({
 								))}
 							</>
 						)}
-						{projects.length > 0 && tags.length > 0 && (
-							<DropdownMenuSeparator />
-						)}
-						{tags.length > 0 && (
-							<>
-								<DropdownMenuLabel>Tag</DropdownMenuLabel>
-								{tags.map((tag) => (
-									<DropdownMenuCheckboxItem
-										key={`tag:${tag}`}
-										checked={filter.tags.includes(tag)}
-										onCheckedChange={() => filter.toggleTag(tag)}
-									>
-										{tag}
-									</DropdownMenuCheckboxItem>
-								))}
-							</>
-						)}
-						{projects.length === 0 && tags.length === 0 && (
-							<DropdownMenuLabel>No projects or tags yet</DropdownMenuLabel>
+						{projects.length === 0 && (
+							<DropdownMenuLabel>No projects yet</DropdownMenuLabel>
 						)}
 					</DropdownMenuGroup>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			{picks.map(({ name, project }) => (
+			{picks.map((name) => (
 				<span
-					key={`${project ? "project" : "tag"}:${name}`}
+					key={name}
 					className="inline-flex items-center h-6 gap-0.5 rounded-md bg-accent pr-0.5 pl-2 text-foreground text-xs"
 				>
 					{name}
@@ -96,9 +71,7 @@ export function TaskFilterBar({
 						aria-label={`Remove filter ${name}`}
 						title={`Remove filter ${name}`}
 						className="flex size-5 items-center justify-center rounded outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring max-md:size-8 [&_svg]:size-3"
-						onClick={() =>
-							project ? filter.toggleProject(name) : filter.toggleTag(name)
-						}
+						onClick={() => filter.toggleProject(name)}
 					>
 						<XIcon />
 					</button>

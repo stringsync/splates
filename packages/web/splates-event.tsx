@@ -17,14 +17,13 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
+import { BoardChip } from "./board-chip";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 import { PendingSpinner, useShowPending } from "./pending";
-
 import { Stamp, useStamps } from "./stamp";
-import { TagChips } from "./tag-chips";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
@@ -304,7 +303,7 @@ export function NamedChip({
 					className={GIVES_WAY}
 				>
 					{task}
-					<TagChips tags={board.taskTags?.get(task)} className="ml-1" />
+					<BoardChip task={task} className="ml-1" />
 				</Chip>
 			);
 		}

@@ -199,6 +199,7 @@ export const scenarios: Scenario[] = [
 				},
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and After embeds it too. Do not judge whether the path would render for the user, how the Demo line is worded, or whether the image appears once or twice: embedding it that way is the delivery. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
 	},
@@ -251,6 +252,7 @@ export const scenarios: Scenario[] = [
 					),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the Ready to merge reply embeds the screenshot as Markdown image syntax (`![alt](path)`, the path possibly in angle brackets) outside a code block, with the stored path `splates attach` returned, and After embeds it too. Do not judge how the Demo line is worded or whether the image appears once or twice. Fail only when the reply merely names the file, links it without `!`, puts the image inside a code block, or says to look at a screenshot.",
 	},

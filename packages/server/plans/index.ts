@@ -50,6 +50,8 @@ export {
 export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
+	AUTO_ALLOWED,
+	BLOCKERS_CLEARED,
 	CHECKPOINT,
 	continuedReference,
 	DEFER,
@@ -74,6 +76,7 @@ export {
 	RUN_ELSEWHERE,
 	scheduleReference,
 	setupReference,
+	signalReference,
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,

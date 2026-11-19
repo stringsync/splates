@@ -1,13 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Testing } from "@splates/server/testing";
-import { Duration, sleep } from "core/time";
 import { splates } from "./splates";
 
 const WHY = "To read the build logs through the dashboard's API.";
 const HOW = "Open the dashboard, create a token, and paste it here.";
-
-/** Long enough that a test only reaches it when waiting is genuinely stuck. */
-const PATIENT = { timeout: Duration.secs(5), poll: Duration.ms(5) };
 
 describe("creds", () => {
 	let deps: Testing;
@@ -135,53 +131,6 @@ describe("creds", () => {
 		expect(await deps.readRecord("creds.json")).not.toContain("hunter2");
 	});
 
-	it("ends a wait once the value is saved", async () => {
-		await deps.creds.request("API_TOKEN", {
-			scope: "project",
-			purpose: WHY,
-			instructions: HOW,
-			task: null,
-		});
-
-		const waiting = deps.creds.wait("API_TOKEN", PATIENT);
-		await sleep(Duration.ms(20));
-		await deps.creds.save("API_TOKEN", "secret");
-
-		expect(await waiting).toBe("saved");
-	});
-
-	it("ends a wait once the request is dismissed", async () => {
-		await deps.creds.request("API_TOKEN", {
-			scope: "project",
-			purpose: WHY,
-			instructions: HOW,
-			task: null,
-		});
-		await deps.creds.dismiss("API_TOKEN");
-
-		expect(await deps.creds.wait("API_TOKEN", PATIENT)).toBe("dismissed");
-	});
-
-	it("gives up waiting on a request nobody fills", async () => {
-		await deps.creds.request("API_TOKEN", {
-			scope: "project",
-			purpose: WHY,
-			instructions: HOW,
-			task: null,
-		});
-
-		await expect(
-			deps.creds.wait("API_TOKEN", {
-				timeout: Duration.ms(20),
-				poll: Duration.ms(5),
-			}),
-		).toBail("timeout");
-	});
-
-	it("refuses to wait on a cred nothing requested", async () => {
-		await expect(deps.creds.wait("API_TOKEN", PATIENT)).toBail("not_found");
-	});
-
 	it("lists what each store keeps, and what a tool saved itself", async () => {
 		await deps.projectStore.set("DATABASE_URL", "x");
 		await deps.creds.save("TUNNEL_TOKEN", "y", {
@@ -240,7 +189,7 @@ describe("splates creds", () => {
 
 	afterEach(() => env.disposeAsync());
 
-	it("requests a cred, then waits until a person saves it", async () => {
+	it("requests a cred and prints where it shows", async () => {
 		await splates.run(deps, [
 			"creds",
 			"request",
@@ -251,32 +200,8 @@ describe("splates creds", () => {
 			HOW,
 			"--device",
 		]);
+
 		expect(env.out()).toContain(`requested API_TOKEN  ${WHY}`);
-
-		const waiting = splates.run(deps, ["creds", "wait", "API_TOKEN"]);
-		await sleep(Duration.ms(20));
-		await env.creds.save("API_TOKEN", "secret");
-		await waiting;
-
-		expect(env.out()).toContain("saved API_TOKEN");
-		expect(await env.deviceStore.get("API_TOKEN")).toBe("secret");
-	});
-
-	it("exits dismissed when the person turns the request down", async () => {
-		await splates.run(deps, [
-			"creds",
-			"request",
-			"API_TOKEN",
-			"--purpose",
-			WHY,
-			"--instructions",
-			HOW,
-		]);
-		await env.creds.dismiss("API_TOKEN");
-
-		await splates.run(deps, ["creds", "wait", "API_TOKEN"]);
-
-		expect(env.proc.exits).toEqual([22]);
 	});
 
 	it("lists requests and kept creds by name, never a value", async () => {

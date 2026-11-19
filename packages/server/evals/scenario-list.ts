@@ -13,6 +13,9 @@ export function parseScenarioList(stdout: string): EvalScenario[] {
 						...(typeof each.judge === "string" || each.judge === null
 							? { judge: each.judge }
 							: {}),
+						...(typeof each.judgeWith === "string"
+							? { judgeWith: each.judgeWith }
+							: {}),
 						...(Array.isArray(each.checks)
 							? {
 									checks: each.checks.flatMap((check: unknown) => {

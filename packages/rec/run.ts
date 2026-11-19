@@ -1,6 +1,7 @@
 import type { Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
 import type { WallClock } from "core/time";
+import type { CommandLogSpec } from "./command-logs";
 import type { ExtraLogs } from "./extra-logs";
 import type { LiveSignals } from "./live-signals";
 import type { LiveSpeech } from "./live-speech";
@@ -33,7 +34,7 @@ export interface Run {
 	pointer?: PointerEvents;
 	live?: LiveSignals;
 	speech?: LiveSpeech;
-	sources: { docker?: string; tails: string[] };
+	sources: { docker?: string; tails: string[]; logs?: CommandLogSpec[] };
 	dropped: number;
 	receivedBefore: number;
 	finished: (stats: RecorderStats & { at: number }) => void;

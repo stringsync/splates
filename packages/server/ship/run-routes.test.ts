@@ -133,6 +133,27 @@ describe("ShipRunRoutes", () => {
 		await until(() => processes.runs.length === 2);
 	});
 
+	it("starts a ship supervised, and gives a run more fixes only from the page", async () => {
+		const { routes, processes } = setup();
+		const started = await routes.shipRuns(
+			request("", { picks: [{ name: "net" }], supervise: { budget: 3 } }),
+		);
+		expect((await started.json()).supervise).toEqual({ budget: 3, spent: 0 });
+		await processes.started("net/deploy");
+		const outside = await routes.shipRunSupervise(
+			request("/0/supervise", { fixes: 1 }, {}),
+		);
+		expect(outside.status).toBe(403);
+		const none = await routes.shipRunSupervise(
+			request("/0/supervise", { fixes: 0 }),
+		);
+		expect(none.status).toBe(400);
+		const more = await routes.shipRunSupervise(
+			request("/0/supervise", { fixes: 1 }),
+		);
+		expect((await more.json()).supervise).toEqual({ budget: 4, spent: 0 });
+	});
+
 	it("takes an agent's note on the run or a step, and refuses one on a step it lacks", async () => {
 		const { routes, processes } = setup();
 		await routes.shipRuns(request("", { picks: [{ name: "net" }] }));

@@ -39,7 +39,6 @@ import { Board } from "./board";
 import { arranged, linked, linkedElsewhere } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 import { ElsewhereList, ElsewherePicker } from "./links-elsewhere";
-import { LostList } from "./lost-blockers";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -59,10 +58,8 @@ export function Links({
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const blockers = todos.filter((other) => todo.blockedBy.includes(other.id));
-	const lost = todo.blockersLost ?? [];
-	// What blocks it as the server takes the whole list: those it lost stay
-	// held for the person until they are left out.
-	const held = [...todo.blockedBy, ...lost.map((gone) => gone.id)];
+	// What blocks it as the server takes the whole list.
+	const held = todo.blockedBy;
 	const blocking = followers(todos, todo.id);
 	// Each row says what of it was refused, under its own links.
 	const lane = useRefusal();
@@ -75,7 +72,7 @@ export function Links({
 	// Its blockers in other projects still waiting, which the server is told
 	// whole with the todos blocking it.
 	const waiting = (todo.blockedElsewhere ?? []).filter(
-		(blocker) => blocker.landed === undefined,
+		(blocker) => blocker.landed === undefined && !blocker.lost,
 	);
 	/** Has the todo blocked by exactly `elsewhere` in other projects, shown so at once. */
 	const linkElsewhere = (elsewhere: ElsewhereBlocker[]) =>
@@ -101,18 +98,6 @@ export function Links({
 								held.filter((id) => id !== other.id),
 							),
 							"Not unlinked",
-						)
-					}
-				/>
-				<LostList
-					lost={lost}
-					onRemove={(gone) =>
-						blockedBy.attempt(
-							link(
-								todo.id,
-								held.filter((id) => id !== gone.id),
-							),
-							"Not let go",
 						)
 					}
 				/>

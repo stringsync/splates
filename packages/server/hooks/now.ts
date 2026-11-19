@@ -12,5 +12,7 @@ export function runsNow({
 	trigger,
 	hook,
 }: Pick<Automation, "trigger" | "hook">): boolean {
-	return !("event" in trigger) || hook.kind === "groom";
+	return (
+		(!("event" in trigger) && !("signal" in trigger)) || hook.kind === "groom"
+	);
 }

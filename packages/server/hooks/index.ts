@@ -18,8 +18,13 @@ export { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 export { BY_HAND, runsNow } from "./now";
 export type { AutomationRow } from "./routes";
 export { AutomationRoutes } from "./routes";
-export type { FireDeps, Fired, HookActions, HookRunnerDeps } from "./runner";
-export { HookRunner } from "./runner";
+export type {
+	FireDeps,
+	Fired,
+	HookActions,
+	TaskEventDeps,
+} from "./runner";
+export { fire, fireTaskEvent } from "./runner";
 export type { AutomationRun, AutomationRuns } from "./runs";
 export { RunStore } from "./runs";
 export type { SchedulerDeps } from "./scheduler";
@@ -33,3 +38,5 @@ export {
 	lanesNamed,
 	stagesNamed,
 } from "./store";
+export type { TaskSignalsDeps } from "./task-signals";
+export { TaskSignals } from "./task-signals";

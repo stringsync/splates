@@ -35,6 +35,7 @@ describe("WorktreeService", () => {
 			ships: [],
 			on: {},
 			queueLoad: null,
+			autoAllowBusyRuns: false,
 			leaseStalenessMs: 90_000,
 			mergeRetryCount: 2,
 			mergeConflictCount: 3,
@@ -55,6 +56,7 @@ describe("WorktreeService", () => {
 			projects: null,
 			shared: [],
 			tags: null,
+			rec: null,
 		};
 	});
 

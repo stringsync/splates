@@ -229,7 +229,6 @@ function OtherQueueCard({
 				verb: todos.length === 1 ? "Queue task" : `Queue ${todos.length} tasks`,
 				VerbIcon: ListPlusIcon,
 				done: "Queued",
-				command: work.command,
 				run: () =>
 					work.queue(expect, {
 						// A card names another project's tasks, never its lane.
@@ -287,7 +286,6 @@ export function OwnQueueCard({
 						: `Queue ${todos.length} tasks`,
 				VerbIcon: ListPlusIcon,
 				done: "Queued",
-				command: work.command,
 				run: () => work.queue(expect, { queueLane, queueTodo }),
 				failed: "Not queued",
 			}}

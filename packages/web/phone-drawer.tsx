@@ -12,6 +12,7 @@ import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
 import { useShipsWaiting } from "./use-ships-waiting";
+import { useArmedSignals } from "./use-signals";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -67,11 +68,13 @@ export function Drawer({
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	const [adding, setAdding] = useState(false);
 	const asking = useShipsWaiting().length;
+	const armedSignals = useArmedSignals();
 	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}
 			current={navPage(page) === value}
 			{...(value === "ships" && { count: asking, urgent: true })}
+			{...(value === "signals" && { count: armedSignals })}
 			onClick={() => go(value)}
 			icon={
 				<span className="relative flex">

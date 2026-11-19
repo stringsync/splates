@@ -29,6 +29,7 @@ export function Mark({
 	picking = false,
 	quiet = null,
 	background = false,
+	signal = false,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
@@ -47,7 +48,21 @@ export function Mark({
 	quiet?: Quiet | null;
 	/** Whether it has left a command running in the background. */
 	background?: boolean;
+	/** Whether its agent waits on a signal. */
+	signal?: boolean;
 }): JSX.Element {
+	if (signal) {
+		return (
+			<span
+				role="status"
+				aria-label="waiting on a signal"
+				title="Waiting on a signal"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<HourglassIcon className="size-3.5 text-warning" />
+			</span>
+		);
+	}
 	if (need.kind === "working" && need.merge === "running") {
 		return (
 			<span

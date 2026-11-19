@@ -3,6 +3,7 @@ import { color, type Logger } from "core/log";
 import type { Fs, Lock } from "core/system";
 import { type Clock, Duration, SystemClock } from "core/time";
 import type { Tasks } from "../board";
+import { openBlockers } from "../board/blocker-gate";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import type { Git } from "../git";
@@ -140,6 +141,7 @@ export async function merge(
 		{ git, fs, config, log },
 		worktree,
 		async () => (await asking?.(task)) ?? [],
+		() => openBlockers(tasks, task),
 	);
 	const remote = base === config.trunk ? branches.remote() : null;
 

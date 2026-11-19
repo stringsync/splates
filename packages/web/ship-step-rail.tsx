@@ -23,7 +23,7 @@ export function StepRail({
 	steps: StepState[];
 }): JSX.Element {
 	return (
-		<StepTimeline label="Steps">
+		<StepTimeline label="Steps" className="py-1">
 			{steps.map((step, index) => (
 				<StepRow
 					key={step.id}
@@ -74,6 +74,7 @@ function StepRow({
 		<StepTimelineItem
 			label={step.does}
 			standing={standing}
+			wrap={active}
 			last={last}
 			status={step.status}
 			onPress={
@@ -86,24 +87,27 @@ function StepRow({
 				<>
 					<span
 						className={cn(
-							"min-w-0 flex-1 truncate text-left",
+							"min-w-0 flex-1 text-left",
+							active ? "line-clamp-3 break-words" : "truncate",
 							standing === "next" && "text-muted-foreground/60",
 							standing === "running" && "font-medium",
 						)}
 					>
 						{step.does}
 					</span>
-					{hasLog && (
-						<SquareTerminalIcon
-							aria-hidden
-							className="size-3.5 shrink-0 text-muted-foreground group-hover/step:text-foreground"
-						/>
-					)}
-					{step.started !== undefined && (
-						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-							{spanOf((step.ended ?? now) - step.started)}
-						</span>
-					)}
+					<span className="min-w-12 shrink-0 whitespace-nowrap text-right text-muted-foreground text-xs tabular-nums">
+						{step.started !== undefined
+							? spanOf((step.ended ?? now) - step.started)
+							: null}
+					</span>
+					<span className="flex size-3.5 shrink-0 items-center justify-center">
+						{hasLog && (
+							<SquareTerminalIcon
+								aria-hidden
+								className="size-3.5 text-muted-foreground group-hover/step:text-foreground"
+							/>
+						)}
+					</span>
 				</>
 			}
 		>

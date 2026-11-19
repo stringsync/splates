@@ -1,3 +1,4 @@
+import type { CommandLogSpec } from "./command-logs";
 import type { Routes } from "./run";
 import type { Scrubber } from "./scrub";
 
@@ -9,6 +10,8 @@ export interface OpenOptions {
 	scrubber?: Scrubber;
 	docker?: string;
 	tails?: string[];
+	/** Each `--logs` source, run once the recording stops. */
+	logs?: CommandLogSpec[];
 	/** Open the control window idle: nothing is captured or written until its Start button is pressed. */
 	staged?: boolean;
 	/** The session is narrated by remarks, not a mic: the control window opens none. */
@@ -24,6 +27,8 @@ export interface OpenOptions {
 export interface RecorderServerOptions {
 	routes?: Routes;
 	baseName?: string;
+	/** How long a closed control panel may take to come back before rec ends; defaults to `PANEL_RECONNECT_GRACE_MS`. */
+	panelGraceMs?: number;
 	usedNames?: ReadonlySet<string>;
 	/** The file holding the mic the person chose; without it the choice is not remembered. */
 	micFile?: string;

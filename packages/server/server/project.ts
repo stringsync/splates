@@ -15,10 +15,16 @@ import {
 import { CredRoutes } from "../creds";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { needs, taskNumberReference, waitsOnYou } from "../plans";
+import {
+	BLOCKERS_CLEARED,
+	needs,
+	taskNumberReference,
+	waitsOnYou,
+} from "../plans";
 import { QUEUE_SWEEP, QueueCapacity, QueueRunner } from "../queue";
 import { Replicator } from "../replica";
 import {
+	GitRunCheckouts,
 	ShellStepProcesses,
 	ShipCommands,
 	ShipComposer,
@@ -33,6 +39,8 @@ import type { Details } from "../tasks";
 import { startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, Machine, OsSensors } from "../workers";
 import { Automations } from "./automations";
+import { BusyRunWatch } from "./busy-run-watch";
+import { cardWatches } from "./card-watches";
 import { ConflictWatch } from "./conflict-watch";
 import { heldFor } from "./held";
 import { MergeRoutes } from "./merges";
@@ -68,7 +76,9 @@ export async function serveProject(
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
 	let starting = Promise.resolve();
-	const automations = new Automations(project);
+	const automations = new Automations(project, slug, async (name, payload) => {
+		await context.raiseSignal?.(`${await slug()}/${name}`, "splates", payload);
+	});
 	const replicator = context.replicas.of(project);
 	let events: Resource | null = null;
 	if (conversations !== null) {
@@ -100,26 +110,20 @@ export async function serveProject(
 				if (conversation === undefined) {
 					return false;
 				}
-				if (task.deferred?.suspended === true) {
-					// The person writing to it already woke it.
-					const spoke = conversation.state.messages.some(
-						(message) =>
-							message.role === "user" &&
-							message.told === undefined &&
-							(message.at ?? "") > (task.deferred?.at ?? ""),
-					);
-					await (await project.tasks.find(task.id)).wake();
-					if (spoke) {
-						return false;
-					}
+				const notice = task.deferred?.notify === true;
+				if (notice) {
+					await (await project.tasks.find(task.id)).noticed();
 				}
 				if (conversation.state.archived) {
 					await conversation.unarchive();
 				}
 				void conversation
-					.prompt(taskNumberReference(task.id), [], undefined, {
-						told: SERVER_TOLD,
-					})
+					.prompt(
+						notice ? BLOCKERS_CLEARED : taskNumberReference(task.id),
+						[],
+						undefined,
+						{ told: SERVER_TOLD },
+					)
 					.catch((error: unknown) =>
 						log.error(`could not resume task ${task.id}: ${String(error)}`),
 					);
@@ -133,12 +137,13 @@ export async function serveProject(
 			log,
 		});
 		const queue = queueRunner;
-		unwatchRoom = context.onWorkerRoom(() => void queue.sweep());
-		events = await JournalEvents.follow({
-			journal,
-			conversations,
-			log,
-		});
+		const unwatch = context.onWorkerRoom(() => void queue.sweep());
+		const stopRuns = BusyRunWatch.begin(project, conversations, machine);
+		unwatchRoom = () => {
+			unwatch();
+			stopRuns();
+		};
+		events = await JournalEvents.follow({ journal, conversations, log });
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
 		conversations.lift = lifting(project, conversations, { slug });
@@ -193,12 +198,26 @@ export async function serveProject(
 		project.ps,
 		service.git.root,
 	);
+	const shipComposer = new ShipComposer(shipCommands);
+	const shipCards =
+		conversations === null
+			? null
+			: cardWatches(project, conversations, shipComposer, context);
 	const shipEngine = new ShipEngine({
 		storage,
 		processes: new ShellStepProcesses(
 			project.ps,
 			service.git.root,
 			context.shipLauncher,
+		),
+		// Each run's steps run on the commit it started on, in a checkout of
+		// its own, so what lands on the base meanwhile ships with the next run.
+		checkouts: new GitRunCheckouts(
+			service.git,
+			project.ps,
+			project.fs,
+			project.config.worktreeRoot,
+			project.config.postCheckout,
 		),
 		clock: new SystemWallClock(),
 		ids: new UuidProvider(),
@@ -244,7 +263,7 @@ export async function serveProject(
 				}
 				void conversation
 					.prompt(
-						`${taskNumberReference(task)}\n\nThis task fixes a step of a ship the user started: its words say how to read the run and try the step again. Once the task ends, merged or removed, the ship retries the step by itself.`,
+						`${taskNumberReference(task)}\n\nThis task fixes a step of a ship the user started: its words say how to read the run and try the step again. Once the task merges, the ship retries the step by itself; removing it hands the step back to the user.`,
 						[],
 					)
 					.catch((error: unknown) => log.error(String(error)));
@@ -258,11 +277,21 @@ export async function serveProject(
 				);
 				return finished?.ended ?? "removed";
 			},
+			landed: async (task) =>
+				(await service.finished.list()).find(
+					(each) =>
+						each.ended === "merged" &&
+						each.took.some((taken) => taken.id === task),
+				)?.commit ?? null,
 			takenBy: async (task) =>
 				(await project.tasks.stored()).find((each) => each.id === task)
 					?.takenBy ?? null,
 		},
 		log,
+	);
+	// A supervised run sends a step to an agent as soon as it fails.
+	const superviseWatch = shipEngine.listen((_, state) =>
+		shipFixes.changed(state),
 	);
 	// A fix that merged while the server was down retries its step now.
 	void shipEngine.resume().then(() => shipFixes.settle());
@@ -290,11 +319,13 @@ export async function serveProject(
 			boards: context.boards,
 			root: service.git.root,
 		}),
-		...new CredRoutes(project, watch),
+		...new CredRoutes(project, watch, async (name, payload) => {
+			await context.raiseSignal?.(`${await slug()}/${name}`, "creds", payload);
+		}),
 		...new BudgetRoutes(project),
 		...automations.routes,
 		...new ShipPlanRoutes(shipCommands),
-		...new ShipRunRoutes(shipEngine, new ShipComposer(shipCommands), shipFixes),
+		...new ShipRunRoutes(shipEngine, shipComposer, shipFixes),
 		startShipTask: async (task: string, ship: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
@@ -351,6 +382,10 @@ export async function serveProject(
 		kept: async (name) =>
 			(await project.creds.credentials.get(name)) !== undefined,
 		refresh: watch.changed,
+		signalRaised: (name, by, payload) =>
+			automations.signalRaised(name, by, payload),
+		signalAutomations: (name) => automations.on(name),
+		signalAutomationList: () => automations.onSignals(),
 		snapshot: async () => Response.json(await watch.current()),
 		current: () => watch.current(),
 		waiting: async () => {
@@ -408,7 +443,9 @@ export async function serveProject(
 		detachShips: () => shipEngine.detachAsync(),
 		async disposeAsync() {
 			await conflicts.disposeAsync();
+			shipCards?.dispose();
 			runWatch.dispose();
+			superviseWatch.dispose();
 			fixWatch?.dispose();
 			await shipEngine.disposeAsync();
 			watch.dispose();

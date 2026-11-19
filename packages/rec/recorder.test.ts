@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import { PANEL_RECONNECT_GRACE_MS, RecorderServer } from "./recorder";
+import { RecorderServer } from "./recorder";
+
+const GRACE_MS = 150;
 
 function connect(url: string): Promise<WebSocket> {
 	return new Promise((resolve, reject) => {
@@ -10,7 +12,9 @@ function connect(url: string): Promise<WebSocket> {
 }
 
 test("a control panel closing while staged ends rec after the grace, unless it reconnects", async () => {
-	const server = new RecorderServer({} as never, "/tmp/rec-test");
+	const server = new RecorderServer({} as never, "/tmp/rec-test", {
+		panelGraceMs: GRACE_MS,
+	});
 	try {
 		const url = `${server.origin.replace("http", "ws")}/ws`;
 		let ended = false;
@@ -19,16 +23,12 @@ test("a control panel closing while staged ends rec after the grace, unless it r
 		});
 		const first = await connect(url);
 		first.close();
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await new Promise((resolve) => setTimeout(resolve, 20));
 		const second = await connect(url);
-		await new Promise((resolve) =>
-			setTimeout(resolve, PANEL_RECONNECT_GRACE_MS + 200),
-		);
+		await new Promise((resolve) => setTimeout(resolve, GRACE_MS * 3));
 		expect(ended).toBe(false);
 		second.close();
-		await new Promise((resolve) =>
-			setTimeout(resolve, PANEL_RECONNECT_GRACE_MS + 200),
-		);
+		await new Promise((resolve) => setTimeout(resolve, GRACE_MS * 3));
 		expect(ended).toBe(true);
 		expect(server.recordingNow).toBe(false);
 	} finally {

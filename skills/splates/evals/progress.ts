@@ -60,6 +60,7 @@ export const scenarios: Scenario[] = [
 				test: ({ commands }) => commands.some(reports),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does the reply give a short summary of how the import went or stands, rather than narrating every step of it one line at a time? Answer yes or no.",
 		limits: { turns: 25, minutes: 10 },
@@ -149,8 +150,45 @@ export const scenarios: Scenario[] = [
 				test: ({ commands }) => commands.some(streams),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does the reply avoid reproducing the script's progress lines one by one, as a running transcript? Answer yes or no.",
 		limits: { turns: 20, minutes: 10 },
+	},
+	{
+		id: `${aspect}/subagent-card`,
+		aspect,
+		requirement:
+			"A subagent left running in the background gets a progress card, opened as it starts and closed with `--done` or `--failed` when it reports back.",
+		seed: async (repo) => {
+			await repo.write("package.json", '{"name":"audit","private":true}\n');
+			for (const name of ["auth", "billing", "search", "uploads"]) {
+				await repo.write(
+					`src/${name}.ts`,
+					`export function ${name}(input: string): string {\n\treturn input.trim();\n}\n`,
+				);
+			}
+		},
+		message:
+			"Start a subagent in the background to review every file in src for missing input validation, and tell me what it finds when it's done.",
+		checks: [
+			{
+				id: "opened",
+				about: "ran `splates progress` for the subagent without closing it",
+				test: ({ commands }) =>
+					commands.some(
+						(command) => reports(command) && !/--(done|failed)\b/.test(command),
+					),
+			},
+			{
+				id: "closed",
+				about: "closed a card with `--done` or `--failed`",
+				test: ({ commands }) =>
+					commands.some(
+						(command) => reports(command) && /--(done|failed)\b/.test(command),
+					),
+			},
+		],
+		limits: { turns: 25, minutes: 10 },
 	},
 ];

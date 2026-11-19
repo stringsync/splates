@@ -1,21 +1,33 @@
+import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { CheckIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
-import { shipPlan, shipRuns, shipTargets, startShip } from "./api/ship";
+import {
+	shipPlan,
+	shipRuns,
+	shipTargets,
+	shipUnshipped,
+	startShip,
+} from "./api/ship";
 import { Button } from "./components/ui/button";
+import type { ConversationFeed } from "./conversation-feed";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
 import { SHIP_HISTORY, shipRunAddress } from "./page-address";
 import { RouteTrail } from "./route-trail";
+import { ShipAgents } from "./ship-agents";
 import { ShipFlow } from "./ship-flow";
+import { ShipHeading } from "./ship-heading";
 import { backToShipDepth, shipDepth, useShipHistory } from "./ship-history";
 import { ShipNeededFirst } from "./ship-needed-first";
 import { ShipPastRuns, ShipRunList } from "./ship-past-runs";
-import { ShipPickList } from "./ship-pick-list";
+import { chosen, ShipPickList } from "./ship-pick-list";
 import { recapSeen } from "./ship-recap-seen";
 import { ShipReview } from "./ship-review";
 import { SHIP_BUS } from "./ship-run-bus";
 import { ShipRunScreen } from "./ship-run-view";
+import { useSpawnedOf } from "./ship-spawned-of";
+import { ShipSupervise } from "./ship-supervise";
 import { TopBar } from "./top-bar";
 
 const TITLES = {
@@ -34,9 +46,15 @@ export function ShipsPage({
 	run = null,
 	onRun = openRun,
 	onClose = closeRun,
+	snapshot = null,
+	talk = null,
 }: {
 	/** The run shown, by id, or null for the pick. */
 	run?: string | null;
+	/** The project's board and tasks, for what a run spawned. */
+	snapshot?: Snapshot | null;
+	/** The project's conversations, for where what a run spawned stands. */
+	talk?: ConversationFeed | null;
 	onRun?: (id: string) => void;
 	onClose?: () => void;
 }): JSX.Element {
@@ -46,6 +64,7 @@ export function ShipsPage({
 	const {
 		listing,
 		failed,
+		unshipped,
 		picks,
 		added,
 		stage,
@@ -53,7 +72,9 @@ export function ShipsPage({
 		refused,
 		starting,
 		active,
+		supervise,
 	} = useReactive(flow, (flow) => flow.state, ["changed"]);
+	const spawnedOf = useSpawnedOf(snapshot, talk);
 	const depth = shipDepth(stage);
 	// A failed ship stays shown, but only one under way holds the next back.
 	const holding = active?.status === "running";
@@ -63,6 +84,11 @@ export function ShipsPage({
 		shipTargets().then(
 			(listing) => flow.listed(listing),
 			(error: unknown) => flow.unlisted(error),
+		);
+		// Counted apart, so a slow or failing count never holds the targets.
+		shipUnshipped().then(
+			(counts) => flow.counted(counts),
+			() => {},
 		);
 		// Only the run under way is read up front; past runs wait for a tap.
 		shipRuns({ running: true }).then(
@@ -136,7 +162,12 @@ export function ShipsPage({
 					}
 				/>
 				<div className={cn(PLANNER_COLUMN, "gap-3")}>
-					<ShipRunScreen key={run} id={run} />
+					<ShipRunScreen
+						key={run}
+						id={run}
+						spawned={spawnedOf}
+						agents={<ShipAgents id={run} talk={talk} />}
+					/>
 				</div>
 			</>
 		);
@@ -170,6 +201,34 @@ export function ShipsPage({
 				}
 			/>
 			<div className={cn(PLANNER_COLUMN, "gap-5")}>
+				{stage.at === "pick" && (
+					<ShipHeading
+						title="Pick what to ship"
+						line={
+							listing?.targets.some((each) => each.plan.versioned)
+								? "Tick each target to ship and choose its bump or version."
+								: listing?.targets.some((each) => each.plan.bump !== undefined)
+									? "Tick each target to ship and choose its bump."
+									: "Tick each target to ship."
+						}
+					/>
+				)}
+				{stage.at === "needed" && (
+					<ShipHeading
+						title="Ship these first?"
+						line="Your picks depend on unshipped changes here. Unticked ones are skipped."
+					/>
+				)}
+				{stage.at === "review" && (
+					<ShipHeading
+						title={`Ready to ship ${targets(stage.plan.targets.length)}`}
+						line={
+							stage.plan.waves.length > 1
+								? `${stage.plan.waves.length} groups, in order: each starts once the one before is done.`
+								: "Approve starts the ship."
+						}
+					/>
+				)}
 				{active !== null && (
 					<section aria-label="Shipping now" className="flex flex-col gap-2.5">
 						<h3 className="font-semibold text-sm">Shipping now</h3>
@@ -194,12 +253,15 @@ export function ShipsPage({
 								splates.config.ts.
 							</p>
 						)}
-						{listing !== null && listing.targets.length > 0 && (
-							<h3 className="font-semibold text-sm">Targets</h3>
-						)}
+						{active !== null &&
+							listing !== null &&
+							listing.targets.length > 0 && (
+								<h3 className="font-semibold text-sm">Targets</h3>
+							)}
 						{listing !== null && listing.targets.length > 0 && (
 							<ShipPickList
 								targets={listing.targets}
+								unshipped={unshipped}
 								picks={picks}
 								onPicks={(picks) => flow.pick(picks)}
 							/>
@@ -220,6 +282,14 @@ export function ShipsPage({
 					/>
 				)}
 				{stage.at === "review" && <ShipReview plan={stage.plan} />}
+				{stage.at === "review" && (
+					<ShipSupervise
+						on={supervise.on}
+						budget={supervise.budget}
+						onOn={(on) => flow.supervising(on)}
+						onFixes={(budget) => flow.fixes(budget)}
+					/>
+				)}
 				{refused !== null && (
 					<p className="text-destructive text-sm">{refused}</p>
 				)}
@@ -232,8 +302,10 @@ export function ShipsPage({
 					<div className="sticky bottom-0 z-30 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 						{stage.at === "pick" && (
 							<Button
-								className="h-11 w-full"
-								disabled={picks.size === 0 || planning || holding}
+								block
+								disabled={
+									picks.size === 0 || !chosen(picks) || planning || holding
+								}
 								onClick={() => flow.next()}
 							>
 								{planning ? "Planning…" : "Next"}
@@ -241,8 +313,8 @@ export function ShipsPage({
 						)}
 						{stage.at === "needed" && (
 							<Button
-								className="h-11 w-full"
-								disabled={planning}
+								block
+								disabled={planning || !chosen(added)}
 								onClick={() => flow.next()}
 							>
 								{planning ? "Planning…" : "Next"}
@@ -250,7 +322,8 @@ export function ShipsPage({
 						)}
 						{stage.at === "review" && (
 							<Button
-								className="h-11 w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-600/90 dark:bg-emerald-600 dark:hover:bg-emerald-600/90"
+								block
+								className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-600/90 dark:bg-emerald-600 dark:hover:bg-emerald-600/90"
 								disabled={
 									starting ||
 									holding ||
@@ -283,6 +356,11 @@ export function ShipsPage({
 			</div>
 		</>
 	);
+}
+
+/** "1 target" or "3 targets". */
+function targets(count: number): string {
+	return count === 1 ? "1 target" : `${count} targets`;
 }
 
 /** Whether the address is `#ships/history`, kept as the hash changes. */

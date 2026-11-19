@@ -41,7 +41,11 @@ Read in this order, stopping when you know enough:
 3. `frames/`: stills cut at each click, highlight and mark. Open the ones a
    moment or timeline line names.
 4. The `logs/` windows the timeline points at (`console.log`, `network.log`,
-   and any `docker-*.log` or `tail-*.log`). Read only the named line ranges.
+   and any `docker-*.log`, `tail-*.log` or `cmd-*.log`). Read only the named line ranges.
+   A `--logs` source that failed (an expired sign-in, a missing CLI) is in
+   `manifest.json` under `commandLogs` with its `note` and the `retry`
+   command, `rec logs fetch <session> --source <name>`, which fetches it
+   again and redoes the timeline and moments.
 
 Deeper only if needed: `moments.jsonl` (raw signals and answers),
 `events.jsonl`, `manifest.json` (start time, wall-clock ms = video time 0;
@@ -109,6 +113,13 @@ a lock: nothing stops an agent running the command itself, so keep to it.
    - `--out <dir>`: the session folder (default `~/Desktop/rec/<time>`).
    - `--docker[=<ids or names>]` and `--tail <path>[@-5m]`: also follow
      container or file logs into `logs/`. `bin/rec sources` lists what exists.
+   - `--logs <name>=<command>` (repeatable; `<name>@utc=<command>` when its
+     stamps without an offset are UTC): a shell command run once at Stop for
+     the recording's window, a minute before to 30 s after, for a log that
+     lives in a cloud service. `{since}` and `{until}` (ISO, UTC) or
+     `{sinceMs}` and `{untilMs}` fill in the window; its lines go, stamped
+     and scrubbed, into `logs/cmd-<name>.log`. Use the command the project
+     gives for its logs, such as `--logs 'api=bin/s2s logs staging --since {since}'`.
 2. It is ready when its output says `staged:` and `bin/rec sources` lists the
    working tab. If Chrome 136+ or the profile is the problem, say what rec
    printed; do not launch another browser.

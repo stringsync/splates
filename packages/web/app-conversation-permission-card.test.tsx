@@ -121,12 +121,7 @@ describe("App's permission card", () => {
 		expect(card.textContent).toContain("Write the CSV");
 		expect(card.textContent).toContain("Serve the export");
 		expect(card.textContent).toContain("Two tasks, the writer first.");
-		// The command to queue it from a terminal instead, which the card copies.
-		expect(
-			within(card)
-				.getByRole("button", { name: "copy splates lane queue 3" })
-				.getAttribute("title"),
-		).toBe("splates lane queue 3");
+		expect(within(card).queryByRole("button", { name: /^copy / })).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /Queue lane/ })),
@@ -251,11 +246,7 @@ describe("App's permission card", () => {
 		);
 		await waitFor(() => expect(card.textContent).toContain("Fix the cart"));
 		expect(card.textContent).toContain("Add shop the cart to its queue");
-		expect(
-			within(card).getByRole("button", {
-				name: "copy splates --project shop queue add 404",
-			}),
-		).toBeTruthy();
+		expect(within(card).queryByRole("button", { name: /^copy / })).toBeNull();
 		// It starts at once, and each task opens shop's board.
 		expect(card.textContent).toContain("Fix the cart");
 		expect(

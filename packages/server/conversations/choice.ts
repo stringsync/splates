@@ -4,9 +4,8 @@ import type { ConversationHost } from "./host";
 import { type Setting, switched } from "./state";
 
 /**
- * Applies a validated choice to the session and its log: the person's, or,
- * `byAutoPick`, Auto pick's own. Picking a model or effort yourself switches
- * Auto pick off for the conversation, so it never moves what you chose.
+ * Sets the conversation's setting `id` to `value`, one its agent offers, as
+ * the person chose it or, `byAutoPick`, as Auto pick did.
  */
 export async function choose(
 	host: ConversationHost,
@@ -41,15 +40,19 @@ export async function choose(
 			at: new Date().toISOString(),
 		});
 	}
-	if (aspect !== null && !byAutoPick) {
+	// A model the person picks leaves Auto pick on, moving only the effort
+	// from then on. An effort they pick leaves it on too, standing for that
+	// turn alone (`personChose`), then judged again from the next message.
+	if (aspect === "model" && !byAutoPick) {
 		const { autoPick } = host.state;
-		if (autoPick !== null && !autoPick.overridden) {
+		if (autoPick !== null && !autoPick.overridden && !autoPick.keepModel) {
 			host.log.write({
 				kind: "auto-pick-switch",
-				on: false,
+				on: true,
+				keepModel: true as const,
 				at: new Date().toISOString(),
 			});
-			host.set({ autoPick: switched(host.state, false) });
+			host.set({ autoPick: switched(host.state, true, true) });
 		}
 	}
 	const settings = await connection.choose(setting, value);

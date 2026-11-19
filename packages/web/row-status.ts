@@ -1,8 +1,7 @@
 import { deferralBlockers } from "@splates/server/board/browser";
 import { type Needing, unanswered } from "@splates/server/plans/browser";
-import type { Details } from "@splates/server/tasks";
-import { useContext, useMemo } from "react";
-import type { BoardContext } from "./board";
+import type { SignalWait } from "@splates/server/signals";
+import { useContext } from "react";
 import { Board } from "./board";
 import { lastReport, useNameOf } from "./conversation-names";
 import { blockersLeft, deferredTask } from "./deferred-body";
@@ -10,12 +9,15 @@ import { Trunk } from "./dispatching";
 import { placeInLine } from "./merge-place";
 import { useEnding } from "./queued-ending";
 import { type Quiet, quietText, useQuiet } from "./quiet";
+import { timeLeft } from "./signal-of";
 
 /** What a row says of its agent: the full `text`, a short `label` for the line under its name. */
 export interface RowStatus {
 	text: string;
 	label: string;
 	urgent: boolean;
+	/** Set while its agent waits on a signal, which the row shows in amber. */
+	signal?: true;
 }
 
 /** The status of a row, from what the page knows of its conversation and task. */
@@ -51,43 +53,18 @@ export function useRowStatus(row: Needing): RowStatus {
 }
 
 /**
- * The board as the sidebar and the inbox see it, which sit outside the
- * conversations page's own: the same, but knowing the tags of `tasks`, so
- * a row names them.
+ * What names the board of a row's task: the task it runs or last ran in,
+ * and the todo a queued row waits for. Pass both to `BoardChip`.
  */
-export function useTaggedBoard(tasks: readonly Details[]): BoardContext {
-	const board = useContext(Board);
-	return useMemo(
-		() => ({
-			...board,
-			taskTags: new Map(tasks.map((each) => [each.task, each.tags])),
-		}),
-		[board, tasks],
-	);
-}
-
-/**
- * The tags of a row's task: the live task's, else what the board still
- * knows of the task its conversation ran in, else the tags the conversation
- * kept once that task was gone.
- */
-export function useRowTags({
-	conversation,
-	task,
-}: Needing): readonly string[] | undefined {
-	const board = useContext(Board);
-	const name = conversation?.task ?? conversation?.lastTask;
-	const held = conversation?.heldForTask;
-	return (
-		task?.tags ??
-		// A queued row has no task yet: the board task it waits for names them.
-		(held == null
-			? undefined
-			: board.todos.find((each) => each.id === held)?.labels) ??
-		(name == null ? undefined : board.taskTags?.get(name)) ??
-		conversation?.lastTags ??
-		undefined
-	);
+export function boardRef({ conversation, task }: Needing): {
+	task: string | undefined;
+	held: number | undefined;
+} {
+	return {
+		task:
+			task?.task ?? conversation?.task ?? conversation?.lastTask ?? undefined,
+		held: conversation?.heldForTask ?? undefined,
+	};
 }
 
 /** The words before the first ` · `: "Ready to merge · alpha" is "Ready to merge". */
@@ -104,6 +81,11 @@ export function statusOf(
 	queued = false,
 	blockers: { left: number; total: number } | null = null,
 ): RowStatus {
+	const waiting = waitingSignal(row.conversation);
+	if (waiting !== null) {
+		const text = `Waiting on ${waiting.name} · ${timeLeft(waiting.deadline, Date.now())} left`;
+		return { text, label: text, urgent: false, signal: true };
+	}
 	const { text, urgent } = fullStatus(
 		row,
 		name,
@@ -118,6 +100,15 @@ export function statusOf(
 			? "Working"
 			: shorten(text);
 	return { text, label, urgent };
+}
+
+/** The signal wait its conversation's agent is suspended on, if any. */
+export function waitingSignal(
+	conversation: Needing["conversation"],
+): SignalWait | null {
+	return (
+		conversation?.signals?.find((wait) => wait.state === "waiting") ?? null
+	);
 }
 
 function fullStatus(

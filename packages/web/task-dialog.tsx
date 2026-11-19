@@ -12,6 +12,7 @@ import {
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AreaChips } from "./area-chips";
+import { BoardChip } from "./board-chip";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Dispatching } from "./dispatching";
 import {
@@ -20,7 +21,6 @@ import {
 	useHeldConversations,
 } from "./handed-out";
 import { HEADING } from "./markdown";
-import { TagChips } from "./tag-chips";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
 import { useDemo } from "./task-demo";
@@ -150,8 +150,8 @@ function Header({
 				</DialogDescription>
 			)}
 			<span className="flex min-w-0 flex-wrap items-center gap-1">
-				<TagChips tags={task.tags} />
-				<AreaChips areas={task.areas} divided={task.tags.length > 0} />
+				<BoardChip task={task.task} />
+				<AreaChips areas={task.areas} />
 			</span>
 			<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
 				<GitBranchIcon aria-hidden className="size-3 shrink-0" />

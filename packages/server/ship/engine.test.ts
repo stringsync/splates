@@ -67,6 +67,36 @@ describe("ShipEngine", () => {
 		expect(pin.request.bump).toBeUndefined();
 	});
 
+	it("passes every step and retry of a versioned target its reviewed version, not its bump", async () => {
+		const { processes, engine } = setup();
+		const staging: RunTarget = {
+			name: "staging",
+			command: "bin/stage ship",
+			bump: "patch",
+			version: "1.4.3",
+			dependencies: [],
+			steps: [{ id: "deploy", does: "Deploy 1.4.3" }],
+		};
+		await engine.start([staging]);
+		expect(processes.asked.at(0)).toMatchObject({ version: "1.4.3" });
+		expect(processes.asked.at(0)?.bump).toBeUndefined();
+		(await processes.started("staging/deploy")).exit(1);
+		await until(async () => (await engine.get("0"))?.status === "failed");
+		await engine.retry("0", "staging", "deploy");
+		await until(() => processes.runs.length === 2);
+		const request = {
+			command: "bin/stage ship",
+			target: "staging",
+			step: "deploy",
+			version: "1.4.3",
+			upstream: {},
+		};
+		expect(processes.runs.map((each) => each.request)).toEqual([
+			request,
+			request,
+		]);
+	});
+
 	it("passes on what a step skipped as done found released", async () => {
 		const { processes, engine } = setup();
 		processes.done_.set("lib/publish", true);

@@ -9,17 +9,27 @@ import {
 	AutomationRoutes,
 	type FireDeps,
 	type Fired,
+	fire,
+	fireTaskEvent,
 	fromHooks,
 	GROOMER_AUTOMATION,
 	type Hook,
-	HookRunner,
 	HookStore,
 	RunStore,
 	Scheduler,
+	TASK_EVENTS,
+	type TaskEvent,
+	type TaskEventDeps,
 	type TaskEventName,
+	TaskSignals,
 } from "../hooks";
 import { type AgentPick, pickSettings } from "../models";
-import { eventReference, need, scheduleReference } from "../plans";
+import {
+	eventReference,
+	need,
+	scheduleReference,
+	signalReference,
+} from "../plans";
 import type { Journal } from "../records";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
@@ -32,14 +42,28 @@ import type { Project } from "./project";
 export class Automations implements Resource {
 	readonly routes: AutomationRoutes;
 	readonly #project: Project;
+	readonly #raise:
+		| ((name: string, payload: unknown) => Promise<void>)
+		| undefined;
+	readonly #slug: () => Promise<string>;
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
-	#runner: HookRunner | null = null;
+	#signals: TaskSignals | null = null;
 	#scheduler: Scheduler | null = null;
 	#groomer: Groomer | null = null;
+	#signalDeps: FireDeps | null = null;
+	#taskDeps: TaskEventDeps | null = null;
 	#watching: Resource | null = null;
 
-	constructor(project: Project) {
+	constructor(
+		project: Project,
+		/** The project's slug, the prefix of its signals. */
+		slug: () => Promise<string>,
+		/** Raises `<project>.<name>` as a signal with `payload`. */
+		raise?: (name: string, payload: unknown) => Promise<void>,
+	) {
+		this.#raise = raise;
+		this.#slug = slug;
 		this.#project = project;
 		this.#store = new HookStore(project.storage);
 		this.#runs = new RunStore(project.storage);
@@ -66,6 +90,84 @@ export class Automations implements Resource {
 		),
 	];
 
+	/**
+	 * Fires each automation of the person's, not paused, on signal `name`,
+	 * once, with who raised it and the payload.
+	 */
+	async signalRaised(
+		name: string,
+		by: string,
+		payload: unknown,
+	): Promise<number> {
+		const deps = this.#signalDeps;
+		if (deps === null) {
+			return 0;
+		}
+		const event = await this.#taskEventOf(name, by, payload);
+		if (event !== null && this.#taskDeps !== null) {
+			await fireTaskEvent(event, await this.all(), this.#taskDeps);
+		}
+		const matching = await this.#onSignal(name);
+		for (const automation of matching) {
+			await fire(automation, { signal: name, by, payload }, deps);
+		}
+		return matching.length;
+	}
+
+	/**
+	 * The task event signal `name` is, when splates raised it for this
+	 * project, as `Automations` raises each one; null for any other signal.
+	 */
+	async #taskEventOf(
+		name: string,
+		by: string,
+		payload: unknown,
+	): Promise<TaskEvent | null> {
+		const slug = await this.#slug();
+		const event = TASK_EVENTS.find((each) => name === `${slug}/${each}`);
+		if (by !== "splates" || event === undefined) {
+			return null;
+		}
+		const { numbers, task } = (payload ?? {}) as Partial<TaskEvent>;
+		return {
+			name: event,
+			from: "",
+			at: new Date().toISOString(),
+			numbers: Array.isArray(numbers) ? numbers : [],
+			task: typeof task === "string" ? task : null,
+		};
+	}
+
+	/** How many automations, not paused, are set on signal `name`. */
+	async on(name: string): Promise<number> {
+		return (await this.#onSignal(name)).length;
+	}
+
+	/** Every automation set on a signal, paused or not. */
+	async onSignals(): Promise<
+		{ id: string; name: string | null; signal: string; paused: boolean }[]
+	> {
+		const found = [];
+		for (const { id, name, trigger, paused } of await this.all()) {
+			if ("signal" in trigger) {
+				found.push({
+					id,
+					name: name ?? null,
+					signal: trigger.signal,
+					paused: paused === true,
+				});
+			}
+		}
+		return found;
+	}
+
+	async #onSignal(name: string) {
+		return (await this.all()).filter(
+			({ trigger, paused }) =>
+				paused !== true && "signal" in trigger && trigger.signal === name,
+		);
+	}
+
 	/** Starts running them, catching up on what came while the server was down. */
 	async start(conversations: Conversations, journal: Journal): Promise<void> {
 		const { storage, tasks, service, log } = this.#project;
@@ -76,16 +178,25 @@ export class Automations implements Resource {
 			log,
 		});
 		const fireDeps = this.#fireDeps(conversations);
-		this.#runner = await HookRunner.follow({
+		this.#signalDeps = fireDeps;
+		this.#taskDeps = {
 			...fireDeps,
-			journal,
-			storage,
-			automations: this.all,
 			task: async (id) => {
 				const task = (await tasks.stored()).find((each) => each.id === id);
 				return task === undefined
 					? null
 					: { stage: task.stage, lane: task.lane };
+			},
+		};
+		this.#signals = await TaskSignals.follow({
+			journal,
+			log,
+			raise: async (event) => {
+				// Task numbers and the started task's name; the same words as the event hooks hear.
+				await this.#raise?.(event.name, {
+					numbers: event.numbers,
+					task: event.task,
+				});
 			},
 		});
 		this.#scheduler = await Scheduler.start({
@@ -161,7 +272,7 @@ export class Automations implements Resource {
 
 	dispose(): void {
 		this.#watching?.dispose();
-		this.#runner?.dispose();
+		this.#signals?.dispose();
 		this.#scheduler?.dispose();
 		this.#groomer?.dispose();
 	}
@@ -205,7 +316,13 @@ export class Automations implements Resource {
 				run: async (command, fired) => {
 					const { exitCode, stderr } = await ps.spawnCapture(
 						["sh", "-c", command],
-						{ cwd: root, env: envOf(fired) },
+						{
+							cwd: root,
+							env: envOf(fired),
+							...("signal" in fired
+								? { stdin: JSON.stringify(fired.payload ?? null) }
+								: {}),
+						},
 					);
 					if (exitCode !== 0) {
 						throw new Error(
@@ -229,6 +346,15 @@ export class Automations implements Resource {
 
 /** What a shell hook is told of what set it off. */
 function envOf(fired: Fired): Record<string, string> {
+	if ("signal" in fired) {
+		return {
+			SPLATES_EVENT: "signal",
+			SPLATES_SIGNAL: fired.signal,
+			SPLATES_PAYLOAD: JSON.stringify(fired.payload ?? null),
+			SPLATES_TASKS: "",
+			SPLATES_TASK: "",
+		};
+	}
 	if (!("event" in fired)) {
 		return { SPLATES_EVENT: "schedule", SPLATES_TASKS: "", SPLATES_TASK: "" };
 	}
@@ -241,9 +367,11 @@ function envOf(fired: Fired): Record<string, string> {
 
 /** The directive an agent hook's conversation opens with. */
 function referenceOf(fired: Fired): string {
-	return "event" in fired
-		? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
-		: scheduleReference(fired.schedule);
+	return "signal" in fired
+		? signalReference(fired.signal, fired.by, fired.payload)
+		: "event" in fired
+			? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
+			: scheduleReference(fired.schedule);
 }
 
 /** The agent, model and thinking level a groom hook runs its groomer as. */

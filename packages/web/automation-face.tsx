@@ -25,7 +25,10 @@ export function AutomationMark({
 }: {
 	trigger: Trigger | null;
 }): JSX.Element {
-	const Icon = trigger === null || "event" in trigger ? ZapIcon : ClockIcon;
+	const Icon =
+		trigger === null || "event" in trigger || "signal" in trigger
+			? ZapIcon
+			: ClockIcon;
 	return (
 		<span
 			aria-hidden

@@ -3,14 +3,20 @@ import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 
-/** An image that opens whole, to explore with pinch, drag and double tap, with a button to fit it all on screen. */
+/**
+ * An image that opens whole, to explore with pinch, drag and double tap, with
+ * a button to fit it all on screen. Mark an SVG `vector` so it opens filling
+ * the screen rather than at its own, often small, size.
+ */
 export function ZoomableImage({
 	src,
 	alt,
+	vector = false,
 	className,
 }: {
 	src: string;
 	alt: string;
+	vector?: boolean;
 	className?: string;
 }): JSX.Element {
 	const box = useRef<HTMLDivElement>(null);
@@ -106,7 +112,21 @@ export function ZoomableImage({
 					className="h-full w-full object-contain"
 					onLoad={(event) => {
 						const image = event.currentTarget;
-						setSize({ width: image.naturalWidth, height: image.naturalHeight });
+						const { naturalWidth: width, naturalHeight: height } = image;
+						const host = box.current;
+						// PhotoSwipe never fits an image larger than its own size, and a
+						// browser sizes an SVG with no width of its own to 300 pixels.
+						const scale =
+							vector && host && width > 0 && height > 0
+								? Math.max(
+										1,
+										Math.min(
+											host.clientWidth / width,
+											host.clientHeight / height,
+										),
+									)
+								: 1;
+						setSize({ width: width * scale, height: height * scale });
 					}}
 					onError={() => setFailed(true)}
 				/>

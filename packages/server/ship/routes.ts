@@ -2,15 +2,14 @@ import { z } from "zod";
 import type { ShipCommands } from "./commands";
 import { ShipComposer } from "./compose";
 import { ComposeError } from "./compose-error";
-import { BUMP } from "./wire";
+import { PICK } from "./wire";
 
-const PICKS = z.object({
-	picks: z.array(z.object({ name: z.string().min(1), bump: BUMP.optional() })),
-});
+const PICKS = z.object({ picks: z.array(PICK) });
 
 /**
- * The new ship over HTTP: `GET /api/ship/targets` lists what the registered
- * commands serve, and `POST /api/ship/plan` composes a pick of them.
+ * What the Ships page calls to plan a ship: `GET /api/ship/targets` lists
+ * what the registered commands serve, `GET /api/ship/unshipped` counts what
+ * each has waiting, and `POST /api/ship/plan` composes a pick of them.
  */
 export class ShipPlanRoutes {
 	readonly #commands: ShipCommands;
@@ -25,12 +24,16 @@ export class ShipPlanRoutes {
 	readonly shipTargets = async (): Promise<Response> =>
 		Response.json(await this.#commands.list());
 
-	/** One plan for `{ picks: [{ name, bump? }] }`. */
+	/** Each target's unshipped commit count, by name, for those that count. */
+	readonly shipUnshipped = async (): Promise<Response> =>
+		Response.json(await this.#commands.unshipped());
+
+	/** One plan for `{ picks: [{ name, bump?, version? }] }`. */
 	readonly shipPlan = async (request: Request): Promise<Response> => {
 		const body = PICKS.safeParse(await request.json().catch(() => null));
 		if (!body.success) {
 			return Response.json(
-				{ error: "send { picks: [{ name, bump? }] }" },
+				{ error: "send { picks: [{ name, bump?, version? }] }" },
 				{ status: 400 },
 			);
 		}

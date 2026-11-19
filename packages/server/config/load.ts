@@ -6,6 +6,7 @@ import { Git } from "../git";
 import { QUEUE_LOAD_DEFAULT } from "../queue/load";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
+import { recLogSources } from "./rec-logs";
 import { Scopes } from "./scopes";
 
 /** What `splates.config.ts` leaves the artifact limits at unless it says otherwise. */
@@ -57,6 +58,7 @@ function renamedSettings(
 ): Partial<Config> {
 	const { todoStalenessMs, ...rest } = found;
 	checkShips(rest.ships);
+	recLogSources(rest.rec);
 	return todoStalenessMs === undefined || rest.taskStalenessMs !== undefined
 		? rest
 		: { ...rest, taskStalenessMs: todoStalenessMs };
@@ -99,11 +101,12 @@ function defaults(root: string, trunk: string): Config {
 		afterBump: null,
 		on: {},
 		queueLoad: QUEUE_LOAD_DEFAULT,
+		autoAllowBusyRuns: false,
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 5,
 		mergeConflictCount: 10,
 		removedCapacity: 50,
-		finishedCapacity: 500,
+		finishedCapacity: 50_000,
 		logCapacity: 1000,
 		taskStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		attachmentCapacity: 100 * 1024 * 1024,
@@ -120,6 +123,7 @@ function defaults(root: string, trunk: string): Config {
 		ships: [],
 		shared: [],
 		tags: null,
+		rec: null,
 	};
 }
 

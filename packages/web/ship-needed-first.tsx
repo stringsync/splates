@@ -1,5 +1,4 @@
 import type { Listed, Offered } from "@splates/server/ship";
-import { InfoIcon } from "lucide-react";
 import type { JSX } from "react";
 import { type Picks, ShipPickList } from "./ship-pick-list";
 
@@ -28,16 +27,6 @@ export function ShipNeededFirst({
 	});
 	return (
 		<div className="flex flex-col gap-3">
-			<p
-				role="status"
-				className="flex items-start gap-2 rounded-lg border bg-muted px-3 py-2 text-muted-foreground text-sm"
-			>
-				<InfoIcon className="mt-0.5 size-4 shrink-0" />
-				<span>
-					These targets have unshipped changes that your picks depend on, so
-					tick any you want to ship first.
-				</span>
-			</p>
 			<ShipPickList targets={shown} picks={added} onPicks={onAdded} />
 			<ul className="flex flex-col gap-1 text-muted-foreground text-xs">
 				{offered.map((offer) => (
@@ -57,9 +46,6 @@ export function ShipNeededFirst({
 					</li>
 				))}
 			</ul>
-			<p className="text-muted-foreground text-sm">
-				Unticked ones are skipped: your picks ship against what is already out.
-			</p>
 		</div>
 	);
 }

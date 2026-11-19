@@ -391,7 +391,7 @@ describe("QueueRunner", () => {
 		expect((await deps.tasks.find(1)).state.stage).toBe("queued");
 	});
 
-	it("keeps queued, unstarted, a task still holding a blocker removed without merging", async () => {
+	it("starts a task whose blocker was removed without merging, telling its agent", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Breakdowns", null);
 		await queueAdd(deps, [2]);
@@ -404,9 +404,8 @@ describe("QueueRunner", () => {
 
 		await runner.sweep();
 
-		expect(started).toEqual([]);
+		expect(started.length).toBe(1);
 		const waiting = (await deps.tasks.find(2)).state;
-		expect(waiting.stage).toBe("queued");
 		expect(waiting.blockersLost?.map((gone) => gone.id)).toEqual([1]);
 	});
 

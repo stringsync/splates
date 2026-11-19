@@ -96,7 +96,11 @@ export function lifting(
 		) {
 			return;
 		}
-		const settings = settingsFor(state.settings, decision.pick);
+		// A model the person chose stands: only the effort moves.
+		const settings = settingsFor(
+			state.settings,
+			on.keepModel ? { ...decision.pick, model: undefined } : decision.pick,
+		);
 		if (Object.keys(settings).length === 0) {
 			return;
 		}

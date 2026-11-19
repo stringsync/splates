@@ -23,8 +23,8 @@ export interface Action {
 	VerbIcon: LucideIcon;
 	/** What the card says once it is done, such as `Queued`. */
 	done: string;
-	/** The `splates` command that does the same from a terminal. */
-	command: string;
+	/** The `splates` command that does the same from a terminal, offered as a copy button when given. */
+	command?: string;
 	/** Makes the write, shown at once; rejects as the write does. */
 	run: () => Promise<void>;
 	/** What its refusal says, such as `Not queued`. */
@@ -34,8 +34,8 @@ export interface Action {
 /**
  * The frame of a card through which an agent asks the person to have splates
  * do what it may not: what it asks, then a foot with a note on its left and,
- * at its right, a button that copies the command to run it in a terminal,
- * and the action's own button. Once it is done, from its button or
+ * at its right, a button that copies the command to run it in a terminal
+ * when the action has one, and the action's own button. Once it is done, from its button or
  * anywhere else, it offers to archive the conversation, whose work splates
  * now has.
  */
@@ -120,7 +120,9 @@ export function ActionCard({
 					</>
 				) : (
 					<>
-						<Command command={action.command} />
+						{action.command !== undefined && (
+							<Command command={action.command} />
+						)}
 						<Button
 							size="sm"
 							onClick={run}

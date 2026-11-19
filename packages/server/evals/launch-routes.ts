@@ -162,7 +162,7 @@ export class EvalLaunchRoutes {
 	private spec(
 		sent: Record<string, unknown>,
 	): Omit<EvalLaunchSpec, "key" | "conversation" | "cwd"> {
-		const { skill, scenarios, agents, baseline, reps, judge } = sent;
+		const { skill, scenarios, agents, baseline, reps } = sent;
 		if (typeof skill !== "string" || skill === "") {
 			fail("usage", "a run names the skill or suite of its card", {});
 		}
@@ -193,16 +193,12 @@ export class EvalLaunchRoutes {
 		) {
 			fail("usage", "repetitions are a whole number of at least 1", {});
 		}
-		if (judge != null && (typeof judge !== "string" || judge === "")) {
-			fail("usage", "the judge is claude:<model>[@<effort>]", {});
-		}
 		return {
 			skill,
 			scenarios,
 			agents,
 			baseline: baseline ?? null,
 			...(reps == null ? {} : { reps }),
-			...(judge == null ? {} : { judge }),
 		};
 	}
 }

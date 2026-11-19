@@ -31,8 +31,8 @@ a task of its own, as Workflow says.
    next.
 4. **Request every secret as a cred** (see [creds.md](creds.md)), with
    `--device`, since setup is for the whole machine: never ask for it in
-   chat or read it from the environment. `splates creds wait <NAME>` until
-   they save it.
+   chat or read it from the environment. Then wait on its `cred.saved` signal, as
+   creds.md says, until they save it.
 5. **Check the step after each thing you or the user did**: `splates setup
    <step>`. While it is not `done`, say in a line what went wrong, its
    `problem` or what you saw, and the one next thing to try, not every one

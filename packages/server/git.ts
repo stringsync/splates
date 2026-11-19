@@ -421,6 +421,16 @@ export class Git {
 		);
 	}
 
+	/** Applies `commit` on top of the checkout at `cwd`, signed as a rebase is. */
+	async cherryPick(cwd: string, commit: string): Promise<GitResult> {
+		return this.run(
+			cwd,
+			...(await fallbackIdentity(this.runner, cwd, this.identity)),
+			"cherry-pick",
+			commit,
+		);
+	}
+
 	resetHard(cwd: string, commit: string): Promise<GitResult> {
 		return this.run(cwd, "reset", "--hard", commit);
 	}

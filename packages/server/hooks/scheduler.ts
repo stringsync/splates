@@ -60,7 +60,11 @@ export class Scheduler implements Resource {
 					this.deps,
 				);
 			}
-			if (automation.paused === true || "event" in trigger) {
+			if (
+				automation.paused === true ||
+				"event" in trigger ||
+				"signal" in trigger
+			) {
 				continue;
 			}
 			let due: number;

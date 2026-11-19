@@ -13,6 +13,7 @@ import {
 	openRow,
 	resize,
 	Testing,
+	todo,
 	waitFor,
 	within,
 } from "./testing";
@@ -38,20 +39,26 @@ describe("App's conversation list", () => {
 		expect(view.queryByRole("button", { name: "New" })).toBeNull();
 	});
 
-	it("shows a task's tags as chips on its row", async () => {
+	it("shows the board of a task's lane as a chip on its row", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			null,
 			{
-				tasks: [
-					details({ task: "alpha", lease: "held", tags: ["web", "bug"] }),
+				tasks: [details({ task: "alpha", lease: "held" })],
+				todos: [
+					todo({ id: 1, subject: "Fix login", takenBy: "alpha", lane: 1 }),
+				],
+				lanes: [{ id: 1, name: "Now", board: 2 }],
+				boards: [
+					{ id: 1, name: "Main", position: 1 },
+					{ id: 2, name: "Daily", position: 2 },
 				],
 			},
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		expect(within(nav).getByTitle("Tag web")).toBeTruthy();
-		expect(within(nav).getByTitle("Tag bug")).toBeTruthy();
+		expect(within(nav).getByTitle("Board Daily")).toBeTruthy();
+		expect(within(nav).queryByTitle("Board Main")).toBeNull();
 	});
 
 	it("puts New atop the sidebar, above its tabs and out of the list", async () => {

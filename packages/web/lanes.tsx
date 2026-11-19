@@ -109,7 +109,7 @@ export function Lane({
 			)
 		: undefined;
 	const external = next?.blockedElsewhere?.find(
-		(blocker) => blocker.landed === undefined,
+		(blocker) => blocker.landed === undefined && !blocker.lost,
 	);
 	const holdup =
 		local !== undefined

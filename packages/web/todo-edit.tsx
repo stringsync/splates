@@ -18,7 +18,6 @@ import {
 } from "#web/components/ui/input-group.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { assignTodo } from "./api";
-import { BeforeAfter } from "./before-after";
 import { BlockedFixButton, blockedFix } from "./blocked-fix";
 import { Board as BoardContext } from "./board";
 import { assigned } from "./board-expectations";
@@ -32,9 +31,9 @@ import { Dropped, FileList } from "./files";
 import { Links, Property } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
+import { paragraphs } from "./merged-body";
 import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
-import { TagChips } from "./tag-chips";
 import { TaskIcon } from "./task-icon";
 import { planParts } from "./task-plan-parts";
 import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
@@ -183,7 +182,6 @@ export function Edit({
 							)
 						)}
 						{stage === "blocked" && <BlockedPart todo={todo} />}
-						<TagChips tags={todo.labels} />
 						<Detail editor={editor} />
 						<FileList files={editor.files} />
 						<Dropped names={dropped} />
@@ -324,24 +322,49 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 }
 
 /**
- * A detail written as `## Before` and `## After` shows as that pair stacked,
- * with the rest folded below; any other detail is plain markdown.
+ * An idle task's detail: its goal, the first paragraph of `## After` (or of
+ * a plain detail), led as the goal, then the rest as details. A detail
+ * written as `## Before` and `## After` folds Before into the details,
+ * labelled, so an old task loses nothing.
  */
 function DetailText({ text }: { text: string }): JSX.Element {
 	const parts = planParts(text);
-	if (parts.before === "" && parts.goal === "") {
-		return <Markdown text={text} />;
-	}
-	const rest = [parts.steps, parts.notes].filter((each) => each !== "");
+	const sectioned = parts.before !== "" || parts.goal !== "";
+	const source = sectioned ? parts.goal : text;
+	const [first = "", ...others] = paragraphs(source);
+	const leads = !/^\s*(#|[-*+>|]|\d+[.)]|```|~~~)/.test(first);
+	const goal = leads ? first : "";
+	const rest = leads ? others.join("\n\n") : source.trim();
+	const details = [
+		rest,
+		...(sectioned
+			? [
+					parts.before === "" ? "" : `### Before\n\n${parts.before}`,
+					parts.steps,
+					parts.notes,
+				]
+			: []),
+	].filter((each) => each !== "");
 	return (
 		<div className="flex min-w-0 flex-col">
-			<BeforeAfter
-				record={{ before: parts.before, after: parts.goal }}
-				className={rest.length > 0 ? "pb-5" : undefined}
-			/>
-			{rest.length > 0 && (
-				<CardSection label="More" title="More">
-					<Markdown text={rest.join("\n\n")} />
+			{goal !== "" && (
+				<div
+					className={cn(
+						"font-medium text-base text-foreground",
+						details.length > 0 && "pb-5",
+					)}
+				>
+					<Markdown text={goal} />
+				</div>
+			)}
+			{details.length > 0 && (
+				<CardSection
+					label="Details"
+					title="Details"
+					ruled={goal !== ""}
+					className={goal === "" ? "py-0" : undefined}
+				>
+					<Markdown text={details.join("\n\n")} />
 				</CardSection>
 			)}
 		</div>
@@ -367,9 +390,7 @@ function BlockedPart({ todo }: { todo: TaskRecord }): JSX.Element | null {
 			<p className="text-muted-foreground">
 				{fix.kind === "queue"
 					? `It cannot start until ${fix.chain.length === 1 ? "this task is" : "these tasks are"} queued too:`
-					: fix.kind === "drop"
-						? "It still waits on a task removed without merging:"
-						: `It waits on #${fix.id}, blocked by the same tasks.`}
+					: `It waits on #${fix.id}, blocked by the same tasks.`}
 			</p>
 			{fix.kind === "queue" && (
 				<ul className="flex flex-col gap-0.5">

@@ -7,6 +7,7 @@ import {
 	CircleAlertIcon,
 	ClockIcon,
 	HourglassIcon,
+	InfoIcon,
 	type LucideIcon,
 	PaperclipIcon,
 } from "lucide-react";
@@ -34,7 +35,6 @@ import { LaneChip } from "./lane-chip";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
-import { TagChips } from "./tag-chips";
 import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
 import { waitLines, waitsOn, waitsShort } from "./waits-on";
 
@@ -108,13 +108,9 @@ export function Card({
 		const text = `left the queue: queue ${leftFor.map((id) => `#${id}`).join(", ")} first`;
 		notes.push({ key: "left", text, Icon: CircleAlertIcon });
 	}
-	if (!blocked && (todo.blockersLost ?? []).length > 0) {
-		notes.push({
-			key: "lost",
-			text: "needs you: a blocker was removed",
-			short: "needs you",
-			Icon: CircleAlertIcon,
-		});
+	for (const gone of todo.blockersLost ?? []) {
+		const text = `#${gone.id}${gone.subject === "" ? "" : ` ${gone.subject}`} was removed without merging`;
+		notes.push({ key: `lost-${gone.id}`, text, short: text, Icon: InfoIcon });
 	}
 	if (!blocked && waits.length > 0) {
 		notes.push({
@@ -203,7 +199,6 @@ export function Card({
 							{todo.scope}
 						</span>
 					)}
-					<TagChips tags={todo.labels} />
 					{/* A list's column already says where it stands. */}
 					{!listed && <StageBadge todo={todo} />}
 					{/* With no agent named, it runs on whichever is picked then. */}
@@ -229,7 +224,6 @@ export function Card({
 					{todo.takenBy === null &&
 						todo.assignee &&
 						blockers.length === 0 &&
-						(todo.blockersLost ?? []).length === 0 &&
 						!heldElsewhere(todo) && (
 							<StartAssigned
 								assignment={{ kind: "todo", id: todo.id }}

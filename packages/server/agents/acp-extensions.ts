@@ -2,6 +2,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { ConversationState, Tool } from "../conversations";
 import { toolIn } from "./tool-calls";
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /**
  * What every session is opened with. Claude's AskUserQuestion is off, so its
  * questions go under `## Blocked` and into its reply, as the splates skill asks,
@@ -14,6 +15,7 @@ export const SESSION_META = {
 /** The ACP extension that says a prompt into the turn the agent is running. */
 export const STEER = "_session/steering";
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /**
  * The updates and request, an ACP draft Claude's adapter speaks ahead of the
  * SDK, that say when a background command starts and ends, and stop one.
@@ -23,9 +25,11 @@ export const ASYNC_TASK_STATE = "async_task_state_update";
 export const ASYNC_TASK_PROGRESS = "async_task_progress";
 export const ASYNC_TASK_STOP = "_session/async_task/stop";
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /** The notification the client hears each of those updates as (see `asyncTasks`). */
 export const ASYNC_TASK_UPDATE = "_splates/async_task";
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /**
  * The messages from an agent, each update on a background command moved to
  * `ASYNC_TASK_UPDATE`, ahead of the SDK's checks, which would refuse it as a
@@ -63,6 +67,14 @@ export interface AsyncTaskSpawned {
 	description: string;
 	toolCallId?: string;
 	outputFilePath?: string;
+	/** False for one the agent cannot stop, as Claude's monitors. */
+	canStop?: boolean;
+	// vet-ignore doc-comments-address-users: says what the caller reads from it
+	/** Set only by splates, for a process it found that no agent reported. */
+	pid?: number;
+	// vet-ignore doc-comments-address-users: says what the caller reads from it
+	/** Set only by splates: the found process's full command line. */
+	command?: string;
 }
 
 export interface AsyncTaskState {
@@ -97,6 +109,7 @@ export function steers(initialized: acp.InitializeResponse): boolean {
 	);
 }
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /**
  * The AIR session list: subscribed for a working directory, the agent says
  * as each of its sessions there starts or ends a turn. Codex says so of a
@@ -179,12 +192,14 @@ export function foldBackground(
 	at: string | null,
 ): void {
 	if (update.sessionUpdate === ASYNC_TASK_SPAWNED) {
-		if (update.taskType === "shell") {
+		// A turn Claude starts on its own is the turn itself, not work beside it.
+		if (update.taskType !== "turn") {
+			const shell = update.taskType === "shell";
 			const tool =
 				update.toolCallId === undefined
 					? null
 					: toolIn(state, update.toolCallId);
-			if (tool !== null) {
+			if (tool !== null && shell) {
 				tool.background ??= {
 					id: update.asyncTaskId,
 					state: "running",
@@ -201,7 +216,7 @@ export function foldBackground(
 				{
 					id: update.asyncTaskId,
 					name: update.description || update.name,
-					command: tool?.command ?? null,
+					command: tool?.command ?? update.command ?? null,
 					subagent:
 						parent === null
 							? null
@@ -212,6 +227,8 @@ export function foldBackground(
 					// A repeated announcement must not revive a command that exited.
 					state: previous?.state ?? "running",
 					output: update.outputFilePath ?? previous?.output ?? null,
+					...(update.canStop === false ? { canStop: false } : {}),
+					...(update.pid === undefined ? {} : { pid: update.pid }),
 				},
 			];
 		}

@@ -4,7 +4,6 @@ import { merge } from "../merge";
 import { PLAN_FILE } from "../plans";
 import { add, recommend, remove } from "../tasks";
 import { Testing } from "../testing";
-import { isReady } from "./lanes";
 import type { TaskRecord } from "./task";
 import { taskAdd, taskRemove, taskUpdate } from "./task-edit";
 import { decodeTask, encodeTask } from "./task-file";
@@ -504,33 +503,16 @@ describe.concurrent("task", () => {
 		);
 	});
 
-	it("holds what a removed blocker blocked until the person lets go of it", async () => {
+	it("removes what declared a removed blocker, and what declared those", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await taskAdd(deps, "chart data", null);
-		await taskAdd(deps, "dark charts", null, { blockedBy: [1, 2] });
+		await taskAdd(deps, "dark charts", null, { blockedBy: [1] });
+		await taskAdd(deps, "chart legend", null, { blockedBy: [3] });
 
 		await taskRemove(deps, 1);
 
-		const held = await deps.tasks.find(3);
-		expect(held.state.blockedBy).toEqual([2]);
-		expect(held.state.blockersLost).toEqual([
-			{ id: 1, subject: "support dark mode" },
-		]);
-		expect(isReady(held.state)).toBe(false);
-
-		await taskRemove(deps, 2);
-
-		const still = await deps.tasks.find(3);
-		expect(still.state.blockedBy).toEqual([]);
-		expect(still.state.blockersLost).toHaveLength(2);
-		expect(isReady(still.state)).toBe(false);
-
-		await deps.tasks.link(3, { drop: [1, 2] });
-
-		const freed = await deps.tasks.find(3);
-		expect(freed.state.blockersLost).toBeUndefined();
-		expect(isReady(freed.state)).toBe(true);
+		expect(await order(deps)).toEqual(["chart data"]);
 	});
 
 	it("recommends the highest open task, and sets stale ones aside", async () => {

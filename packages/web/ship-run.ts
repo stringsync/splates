@@ -17,41 +17,17 @@ export type ShipRunViewState = {
 	retrying: ReadonlySet<string>;
 	/** The steps being sent to an agent, as `target\nstep`. */
 	sending: ReadonlySet<string>;
-	/** The prompts being answered, as `target\nstep\nprompt`: a step numbers its own. */
+	/** The prompts being answered, each as `target\nstep\nprompt`. */
 	answering: ReadonlySet<string>;
 	/** Whether Stop was pressed and the server has yet to answer. */
 	stopping: boolean;
+	/** Whether the supervisor is being given fixes and the server has yet to answer. */
+	supervising: boolean;
 	/** The reason the server gave for refusing the last action, shown under the run. */
 	refused: string | null;
 };
 
 export type ShipRunViewEvents = { changed: undefined };
-
-/** What the run view reads from and asks of the server. */
-export interface ShipRunServer {
-	/** The address of run `id`'s stream. */
-	events(id: string): string;
-	/** Run `id`, or null when there is none. */
-	get(id: string): Promise<RunState | null>;
-	retry(id: string, target: string, step: string): Promise<RunState>;
-	/** Stops run `id`. */
-	stop(id: string): Promise<RunState>;
-	/** Sends failed step `step` to an agent, answering its fix task's number. */
-	send(
-		id: string,
-		target: string,
-		step: string,
-	): Promise<{ state: RunState; task: number }>;
-	answer(
-		id: string,
-		target: string,
-		step: string,
-		prompt: string,
-		value: unknown,
-	): Promise<RunState>;
-	/** Opens the run's stream; leave it out to follow the page's own stream. */
-	connect?(url: string, handlers: StreamHandlers): Resource;
-}
 
 /**
  * Follows ship run `id` live: the state its stream opens with, then each
@@ -69,6 +45,7 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		sending: new Set(),
 		answering: new Set(),
 		stopping: false,
+		supervising: false,
 		refused: null,
 	};
 	/** Asking whether the run is there, after the stream failed. */
@@ -188,6 +165,38 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 	}
 
 	/**
+	 * Gives the supervisor `fixes` more fixes, as Supervise and + 1 fix do;
+	 * a failed step then goes to an agent, and the stream shows it.
+	 */
+	async supervise(fixes: number): Promise<void> {
+		if (this.state.supervising) {
+			return;
+		}
+		this.set({ supervising: true, refused: null });
+		let refused: string | null = null;
+		try {
+			await this.server.supervise(this.id, fixes);
+		} catch (error) {
+			refused = error instanceof Error ? error.message : String(error);
+		}
+		this.set({ supervising: false, refused });
+	}
+
+	/** Retries every failed step of `target`, as its Retry does. */
+	retryFailed(target: { name: string; failed: { id: string }[] }): void {
+		for (const step of target.failed) {
+			void this.retry(target.name, step.id);
+		}
+	}
+
+	/** Sends every failed step of `target` to an agent, as its Send to agent does. */
+	sendFailed(target: { name: string; failed: { id: string }[] }): void {
+		for (const step of target.failed) {
+			void this.send(target.name, step.id);
+		}
+	}
+
+	/**
 	 * Sends failed step `step` of `target` to an agent; the ship retries it
 	 * once the agent's fix merges. The run's stream shows it sent.
 	 */
@@ -263,4 +272,32 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		this.state = { ...this.state, ...change };
 		this.dispatcher.dispatch("changed");
 	}
+}
+
+/** What the run view reads from and asks of the server. */
+export interface ShipRunServer {
+	/** The address of run `id`'s stream. */
+	events(id: string): string;
+	/** Run `id`, or null when there is none. */
+	get(id: string): Promise<RunState | null>;
+	retry(id: string, target: string, step: string): Promise<RunState>;
+	/** Stops run `id`. */
+	stop(id: string): Promise<RunState>;
+	/** Gives the run's supervisor `fixes` more fixes, switching it on when off. */
+	supervise(id: string, fixes: number): Promise<RunState>;
+	/** Sends failed step `step` to an agent, answering its fix task's number. */
+	send(
+		id: string,
+		target: string,
+		step: string,
+	): Promise<{ state: RunState; task: number }>;
+	answer(
+		id: string,
+		target: string,
+		step: string,
+		prompt: string,
+		value: unknown,
+	): Promise<RunState>;
+	/** Opens the run's stream; leave it out to follow the page's own stream. */
+	connect?(url: string, handlers: StreamHandlers): Resource;
 }

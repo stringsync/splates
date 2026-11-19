@@ -6,5 +6,8 @@ export function definitionOf(scenario: Scenario) {
 		prompt: scenario.message,
 		checks: (scenario.checks ?? []).map(({ id, about }) => ({ id, about })),
 		...(scenario.judge === undefined ? {} : { judge: scenario.judge }),
+		...(scenario.judgeWith === undefined
+			? {}
+			: { judgeWith: scenario.judgeWith }),
 	};
 }

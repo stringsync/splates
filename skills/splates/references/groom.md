@@ -15,8 +15,7 @@ when.
 ## Grooming a task you write
 
 Give it its tag (`--tag <name>`) when the config lists tags, and none of the
-project's name in its subject or slug. Write its detail as `## Before` and
-`## After` (see [queue.md](queue.md), Queueing tasks).
+project's name in its subject or slug. Write its detail as a goal, then details (see [queue.md](queue.md), Queueing tasks).
 
 Before `splates task add`, check none already asks it (see One that already
 asks it), give it `--blocked-by` for each task whose code it needs or whose
@@ -104,12 +103,11 @@ few `splates task` commands, then your turn ends.
    `#### From grooming` heading, with paths and line numbers, or attach a
    longer note with `--file`, and say there that the notes date from
    grooming, on today's date, and may be stale by the time it starts, for
-   its agent to check rather than trust. Where the detail lacks `## Before` or `## After`,
-   fill in the missing one: draft After's first line from what you found, and
-   write Before (a line, and a real screenshot of today's screen when one is
-   cheap; for a new thing, what exists today instead), so no task holds only
-   an After; the what then reaches the user before any agent starts, the
-   cheapest point to propose at. The grooming notes stay under their own
+   its agent to check rather than trust. Where the detail has no clear goal in its first paragraph,
+   draft one from what you found, one or two sentences on what is true when it
+   is done, so the what reaches the user before any agent starts, the
+   cheapest point to propose at. Leave Before and After to the agent that
+   starts it. The grooming notes stay under their own
    heading below those. Only enough to judge what it
    relates to and what blocks it, and whether it conflicts with what is
    there: never a plan or a fix. Read `git log` for the files it touches,

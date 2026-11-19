@@ -1,20 +1,16 @@
 import { createHash } from "node:crypto";
-import { type JudgePick, judgeFor, judgeName, judgePrompt } from "./judge";
+import { judgeFor, judgeName, judgePrompt } from "./judge";
 import type { Scenario } from "./scenario";
 
 /** Associate a discovered scenario with the helper sources its graders import. */
 export const dependencyFingerprint = new WeakMap<Scenario, readonly string[]>();
 
-/** Fingerprint a scenario, its discovered helpers, the skill, and the judge harness, with the run's judge pick. */
-export function fingerprintOf(
-	scenario: Scenario,
-	skillHash: string,
-	judge?: JudgePick,
-): string {
+/** Fingerprint a scenario, its discovered helpers, the skill, and the judge harness. */
+export function fingerprintOf(scenario: Scenario, skillHash: string): string {
 	return digest({
 		skillHash,
 		helpers: dependencyFingerprint.get(scenario) ?? [],
-		judge: judgeHarness(judgeName(judgeFor(scenario, judge))),
+		judge: judgeHarness(judgeName(judgeFor(scenario))),
 		scenario: {
 			id: scenario.id,
 			aspect: scenario.aspect,

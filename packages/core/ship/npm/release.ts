@@ -114,9 +114,15 @@ export function release(opts: ReleaseOptions): Step[] {
 	 * `script` does (it fails when stdin is a socket), and keeps the exit code.
 	 * `npm_config_browser=false` keeps npm from asking to press ENTER to open a
 	 * browser on this machine, where nobody is: it prints the link instead.
+	 *
+	 * On macOS a pseudo-terminal reads as end of file once the command exits,
+	 * where Linux raises EIO. Python 3.9's `pty.spawn` (macOS's own
+	 * `/usr/bin/python3`) waits forever on that end of file once stdin has
+	 * ended too, so the read raises at end of file, which every version takes
+	 * as the command being done.
 	 */
 	const tty = (command: string) =>
-		`python3 -I -c ${quote("import os,pty,sys; sys.exit(os.waitstatus_to_exitcode(pty.spawn(['sh','-c',sys.argv[1]])))")} ${quote(`export npm_config_browser=false; ${command}`)}`;
+		`python3 -I -c ${quote(PTY)} ${quote(`export npm_config_browser=false; ${command}`)}`;
 	const publishedVersions = async (ctx: Ctx) =>
 		(
 			await ctx.sh(
@@ -354,3 +360,15 @@ function quote(word: string): string {
 		? word
 		: `'${word.replaceAll("'", `'\\''`)}'`;
 }
+
+/** Runs `sys.argv[1]` under a pseudo-terminal and exits with its exit code. */
+const PTY = `import os, pty, sys
+
+def read(fd):
+    data = os.read(fd, 1024)
+    if not data:
+        raise OSError("end of file")
+    return data
+
+sys.exit(os.waitstatus_to_exitcode(pty.spawn(["sh", "-c", sys.argv[1]], read)))
+`;

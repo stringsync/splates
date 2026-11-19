@@ -24,6 +24,7 @@ import {
 	blank,
 	type ConversationState,
 	callerAfter,
+	lifted,
 	runOn,
 	switched,
 } from "./state";
@@ -223,7 +224,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "model-request") {
 				replayed.model = entry.model;
 			} else if (entry.kind === "auto-pick") {
-				state.autoPick = { ...entry.pick, overridden: false };
+				state.autoPick =
+					entry.lifted === true
+						? lifted(state.autoPick, entry.pick)
+						: { ...entry.pick, overridden: false };
 			} else if (entry.kind === "auto-pick-switch") {
 				state.autoPick = switched(state, entry.on, entry.keepModel === true);
 			} else if (entry.kind === "override") {
@@ -291,6 +295,23 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				const tool = toolIn(state, entry.tool);
 				if (tool !== null) {
 					tool.decision = entry.decision;
+				}
+			} else if (entry.kind === "signal") {
+				const at = state.signals.findIndex((one) => one.id === entry.wait.id);
+				if (at >= 0) {
+					state.signals[at] = entry.wait;
+				} else {
+					state.signals.push(entry.wait);
+				}
+			} else if (entry.kind === "probe") {
+				const { probe } = entry;
+				const at = state.probes.findIndex(
+					(one) => one.name === probe.name && one.startedAt === probe.startedAt,
+				);
+				if (at >= 0) {
+					state.probes[at] = probe;
+				} else {
+					state.probes.push(probe);
 				}
 			} else if (entry.kind === "artifact") {
 				applyArtifact(state.artifacts, entry.change);

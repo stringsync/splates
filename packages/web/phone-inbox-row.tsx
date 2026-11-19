@@ -2,6 +2,7 @@ import { answersTo, type Needing } from "@splates/server/plans/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { BoardChip } from "./board-chip";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { automated, shipped } from "./conversation-rows";
 import { useHeldConversations } from "./handed-out";
@@ -12,8 +13,7 @@ import { useEnding } from "./queued-ending";
 import { useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
-import { useRowStatus, useRowTags } from "./row-status";
-import { TagChips } from "./tag-chips";
+import { boardRef, useRowStatus } from "./row-status";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -47,7 +47,7 @@ export function Row({
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const quiet = useQuiet(conversation);
 	const { text, label } = useRowStatus(row);
-	const tags = useRowTags(row);
+	const on = boardRef(row);
 	const moved = movedAt(row);
 	const { refusal, refuse } = useRowRefusal(
 		conversation?.id ?? `task ${task?.task}`,
@@ -127,7 +127,7 @@ export function Row({
 					/>
 				</span>
 				<span className="flex items-center gap-2">
-					<TagChips tags={tags} max={3} className="shrink-0 flex-nowrap" />
+					<BoardChip {...on} />
 					<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground leading-4">
 						{label}
 					</span>

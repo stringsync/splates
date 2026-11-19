@@ -95,4 +95,18 @@ describe("linkNamed", () => {
 		expect(namedIn("#conversations/archived")).toBeNull();
 		expect(linkNamed(`\`#${id}\``, named)).toBe(`\`#${id}\``);
 	});
+
+	it("links a known #<project>.<name> signal and reads it back", () => {
+		const withSignal = { ...named, signals: ["mdom.released"] };
+
+		expect(linkNamed("wait for #mdom.released.", withSignal)).toBe(
+			"wait for [#mdom.released](#signal=mdom.released).",
+		);
+		expect(namedIn("#signal=mdom.released")).toEqual({
+			signal: "mdom.released",
+		});
+		expect(linkNamed("wait for #mdom/other", withSignal)).toBe(
+			"wait for #mdom/other",
+		);
+	});
 });

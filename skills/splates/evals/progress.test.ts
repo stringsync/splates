@@ -74,4 +74,16 @@ describe("progress evals", () => {
 			await piped("scripts/build.sh | splates progress build --title Build"),
 		).toBe(false);
 	});
+
+	it("wants a subagent's card opened, then closed", async () => {
+		const open = ['splates progress review "reading src" --title "Review"'];
+		const done = ["splates progress review --done"];
+		const failed = ["splates progress review --failed"];
+
+		expect(await passes("subagent-card", "opened", open)).toBe(true);
+		expect(await passes("subagent-card", "opened", done)).toBe(false);
+		expect(await passes("subagent-card", "closed", done)).toBe(true);
+		expect(await passes("subagent-card", "closed", failed)).toBe(true);
+		expect(await passes("subagent-card", "closed", open)).toBe(false);
+	});
 });

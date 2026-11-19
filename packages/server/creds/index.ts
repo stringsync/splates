@@ -1,4 +1,4 @@
-export { Creds, DEFAULT_TIMEOUT } from "./creds";
+export { Creds } from "./creds";
 export { KeyFileStore } from "./key-file";
 export type { CredRequest, KeptCred } from "./requests";
 export { CredRoutes } from "./routes";

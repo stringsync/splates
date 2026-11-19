@@ -135,6 +135,8 @@ export function conversation(
 		lastCaller: null,
 		background: [],
 		progress: [],
+		signals: [],
+		probes: [],
 		artifacts: [],
 		...overrides,
 	};

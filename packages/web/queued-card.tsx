@@ -6,7 +6,6 @@ import { AgentMark } from "./agent-icons";
 import { Board } from "./board";
 import { Dispatching } from "./dispatching";
 import { Markdown } from "./markdown";
-import { TagChips } from "./tag-chips";
 import { StageBadge } from "./todo-queue";
 
 /**
@@ -33,7 +32,6 @@ export function TaskCard({
 			<header className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pt-3 text-muted-foreground text-xs">
 				<span className="font-medium tabular-nums">#{todo.id}</span>
 				{lane !== undefined && <span className="truncate">{lane}</span>}
-				<TagChips tags={todo.labels} />
 				<span className="ms-auto">
 					<StageBadge todo={todo} />
 				</span>

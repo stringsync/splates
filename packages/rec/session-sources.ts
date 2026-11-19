@@ -1,9 +1,10 @@
+import type { CommandLogSpec } from "./command-logs";
 import type { Source } from "./session";
 
 /** The sources a session's manifest lists: what recorded it, from the mic's label and the log options. */
 export function manifestSources(
 	mic: string | undefined,
-	sources: { docker?: string; tails: string[] },
+	sources: { docker?: string; tails: string[]; logs?: CommandLogSpec[] },
 ): Source[] {
 	return [
 		{
@@ -36,6 +37,10 @@ export function manifestSources(
 		...sources.tails.map((tail) => ({
 			kind: "tail" as const,
 			detail: `${tail}, followed, scrubbed`,
+		})),
+		...(sources.logs ?? []).map((log) => ({
+			kind: "command" as const,
+			detail: `${log.name}: \`${log.command}\`, run at Stop for the recording's window${log.zone === "utc" ? " (offset-less stamps are UTC)" : ""}, scrubbed`,
 		})),
 	];
 }

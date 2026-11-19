@@ -22,9 +22,13 @@ the conversation that opens the cred on its Creds page, with what it is for,
 your instructions and a field to paste it in; say nothing more of the
 request. The page's Creds item gets a yellow dot while any request is open, and its
 Creds page lists them too, with every cred kept, so a user outside the
-conversation finds it there. `splates creds wait <NAME>` until the user saves
-it, again on `timeout`, doing meanwhile what does not need it; it ends on
-`dismissed` when they turn it down, so carry on without it or ask why.
+conversation finds it there. Then wait by suspending, as the
+splates skill says under waiting on an outside condition: `splates signal wait
+<project>/cred.saved/<NAME> --timeout 1d --description "<NAME> saved"`, and end
+your turn. Saving raises it, with the name and scope as payload and never the
+value; dismissing raises `<project>/cred.dismissed/<NAME>` instead, so wait on
+both when you can carry on without it. Add `--since` when it may be saved
+already. On `timeout`, carry on without it or ask why.
 
 You never see the value: it goes into the system's store (the macOS
 Keychain, Windows Credential Manager, a Linux secret service), and code

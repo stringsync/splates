@@ -17,8 +17,12 @@ export type StepRequest = {
 	target: string;
 	step: string;
 	bump?: Bump;
+	/** The exact version it ships, passed in place of `bump`. */
+	version?: string;
 	/** What each upstream released, as `--upstream <name>=<version>`. */
 	upstream: Record<string, string>;
+	/** The checkout it runs in, the run's own; the main tree when unset. */
+	cwd?: string;
 };
 
 /** A line a step's `run` writes, as splates reads it. */
@@ -54,9 +58,6 @@ export interface RunningStep extends Resource {
 	exited: Promise<number>;
 }
 
-/** What `done` answered: whether the step happened, and any version it found out. */
-export type DoneAnswer = { done: boolean; released?: string };
-
 /** Runs the requests of `serve` in `core/ship`: `done` and `run` of one step. */
 export interface StepProcesses {
 	done(request: StepRequest): Promise<DoneAnswer>;
@@ -74,10 +75,13 @@ export interface StepProcesses {
 	alive(pid: number): boolean;
 }
 
+/** What `done` answered: whether the step happened, and any version it found out. */
+export type DoneAnswer = { done: boolean; released?: string };
+
 /** How long a step's `done` has to answer. */
 const DONE_TIMEOUT_MS = 10 * 60 * 1000;
 
-/** {@link StepProcesses} through each target's ship command, from `root`. */
+/** {@link StepProcesses} through each target's ship command, from each request's `cwd` or else `root`. */
 export class ShellStepProcesses implements StepProcesses {
 	constructor(
 		private readonly ps: Pick<Ps, "spawnCapture" | "start" | "alive">,
@@ -89,7 +93,7 @@ export class ShellStepProcesses implements StepProcesses {
 	async done(request: StepRequest): Promise<DoneAnswer> {
 		const line = commandLine(request, "done");
 		const result = await this.ps.spawnCapture(["sh", "-c", line], {
-			cwd: this.root,
+			cwd: request.cwd ?? this.root,
 			stdin: "",
 			timeoutMs: DONE_TIMEOUT_MS,
 		});
@@ -120,13 +124,13 @@ export class ShellStepProcesses implements StepProcesses {
 			return heldStep(
 				this.launcher.launch(
 					["sh", "-c", commandLine(request, "run")],
-					this.root,
+					request.cwd ?? this.root,
 					{},
 				),
 			);
 		}
 		const child = this.ps.start(["sh", "-c", commandLine(request, "run")], {
-			cwd: this.root,
+			cwd: request.cwd ?? this.root,
 		});
 		const writer = child.stdin.getWriter();
 		const encoder = new TextEncoder();
@@ -239,7 +243,11 @@ export function commandLine(
 		request.step,
 		"--target",
 		request.target,
-		...(request.bump ? ["--bump", request.bump] : []),
+		...(request.version !== undefined
+			? ["--version", request.version]
+			: request.bump
+				? ["--bump", request.bump]
+				: []),
 		...Object.entries(request.upstream).flatMap(([name, version]) => [
 			"--upstream",
 			`${name}=${version}`,

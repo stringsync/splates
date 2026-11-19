@@ -137,6 +137,21 @@ describe("Finished", () => {
 		expect(await fs.exists(`/state/finished/${first?.key}/a.png`)).toBe(false);
 	});
 
+	it("drops only the copies of one past the attachment room, keeping its record", async () => {
+		finished = new Finished(new FsStorage("/state", fs), fs, 5, 1);
+		await finished.record(
+			ended(1, "2026-10-01T01:00:00.000Z", { plan: "![a](/held/a.png)" }),
+			() => true,
+		);
+		const [first] = await finished.list();
+
+		await finished.record(ended(2, "2026-10-01T02:00:00.000Z"));
+
+		expect(await fs.exists(`/state/finished/${first?.key}/a.png`)).toBe(false);
+		expect((await finished.list()).map((each) => each.id)).toEqual([2, 1]);
+		expect(await finished.read(first?.key ?? "")).not.toBeNull();
+	});
+
 	it("owns only the files kept with one, not its record or a way out", () => {
 		expect(finished.owns("/state/finished/1-2/a.png")).toBe(true);
 		expect(finished.owns("/state/finished/1-2.md")).toBe(false);

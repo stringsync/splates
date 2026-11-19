@@ -172,6 +172,7 @@ const uninitialized: Scenario[] = [
 			taskOpen,
 			notMerged,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the agent asked who the migration notice goes to, and sent nothing. Fail when it picked a recipient group itself.",
 	},
@@ -232,6 +233,7 @@ const uninitialized: Scenario[] = [
 			},
 			notMerged,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the question card itself (its line, the detail under it and its choices, not the prose before it) tells the person what the edit changes (old and new timeout) and what the shorter timeout would break, so they can choose without opening the diff. Fail when the card says only 'keep the timeout edit?' or points to the diff or file for what it does.",
 	},
@@ -369,6 +371,7 @@ const uninitialized: Scenario[] = [
 			},
 			notMerged,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the question asked is one the design hinges on and its choices are sound options. Fail when it asks something trivial or the agent decides without asking.",
 	},
@@ -403,6 +406,7 @@ const uninitialized: Scenario[] = [
 			},
 			notMerged,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the check-in about removing the upload endpoint is a question card whose two choices begin with Yes and No, in either order, with a consequence after each allowed (`No, keep it` is a No choice). Fail when it is asked in plain prose, such as 'ok to remove it? I lean yes', or only as open-ended questions.",
 	},

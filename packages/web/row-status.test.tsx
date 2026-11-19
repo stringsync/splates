@@ -77,4 +77,28 @@ describe("statusOf", () => {
 			urgent: true,
 		});
 	});
+
+	it("says what it waits on and for how long", () => {
+		const row: Needing = {
+			conversation: conversation({
+				signals: [
+					{
+						id: "w",
+						name: "mdom.released",
+						description: "mdom",
+						state: "waiting",
+						startedAt: new Date().toISOString(),
+						deadline: new Date(Date.now() + 5 * 3_600_000 - 1000).toISOString(),
+						since: null,
+					},
+				],
+			}),
+			task: null,
+			need: { kind: "idle" },
+		};
+
+		expect(statusOf(row, "alpha", "main").text).toBe(
+			"Waiting on mdom.released · 5h left",
+		);
+	});
 });

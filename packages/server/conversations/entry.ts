@@ -2,6 +2,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { AsyncTaskUpdate, Flag, ProcessHandle } from "../agents";
 import type { ArtifactChange } from "../artifacts";
 import type { ObservedTurn } from "../models";
+import type { SignalProbe, SignalWait } from "../signals/types";
 import type {
 	Ask,
 	Attached,
@@ -183,6 +184,10 @@ type Said =
 	| { kind: "decision"; tool: string; decision: Decision }
 	/** A progress card as the server published it: the whole card, replacing its earlier one. */
 	| { kind: "progress"; progress: Progress }
+	/** A signal wait as it stands: the whole wait, replacing its earlier one. */
+	| { kind: "signal"; wait: SignalWait }
+	/** A signal probe this conversation started, as it stands: the whole probe, replacing its earlier one. */
+	| { kind: "probe"; probe: SignalProbe }
 	/** An artifact added, removed, or its bytes deleted. */
 	| { kind: "artifact"; change: ArtifactChange }
 	/**

@@ -1,6 +1,12 @@
 import type { Ps } from "core/system";
 
-type Answer = { exitCode?: number; stdout?: string; stderr?: string };
+type Answer = {
+	exitCode?: number;
+	stdout?: string;
+	stderr?: string;
+	/** Held until this settles, as a slow command is. */
+	after?: Promise<unknown>;
+};
 
 /**
  * Ship commands for tests: each shell line, as `bin/a ship plan --target a`,
@@ -19,6 +25,7 @@ export class FakeShipPs implements Pick<Ps, "spawnCapture"> {
 		}
 		const answer = this.answers[line];
 		if (isAnswer(answer)) {
+			await answer.after;
 			return {
 				exitCode: answer.exitCode ?? 0,
 				stdout: answer.stdout ?? "",
@@ -33,7 +40,7 @@ function isAnswer(value: unknown): value is Answer {
 	return (
 		typeof value === "object" &&
 		value !== null &&
-		("exitCode" in value || "stdout" in value)
+		("exitCode" in value || "stdout" in value || "after" in value)
 	);
 }
 

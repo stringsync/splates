@@ -60,10 +60,12 @@ import { printMachine } from "./machine";
 import { runProgress } from "./progress";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
+import { printRelated } from "./related";
 import { splatesReplica } from "./replica";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
 import { splatesShips } from "./ships";
+import { splatesSignal } from "./signal";
 import { splatesSlots } from "./slots";
 import { splatesTask } from "./task";
 import { splatesTunnel } from "./tunnel";
@@ -186,6 +188,11 @@ splates
 		description:
 			"one or two lines on what done means, written under `## Goal` in the task's SPLATES.md; required unless --task seeds the Goal",
 	})
+	.option("related", z.coerce.number().int().min(0), {
+		default: 3,
+		description:
+			"how many related tasks to name under the add, in any state (queued, started, or merged or removed in the last 30 days), most related first; 0 looks none up",
+	})
 	.option("agent", z.string(), {
 		default: "",
 		description:
@@ -280,6 +287,14 @@ splates
 				model: dispatch?.model ?? null,
 			},
 		);
+		// A task handed to another agent is read by that agent, not this one.
+		if (dispatch === undefined && ctx.elsewhere === null && opts.related > 0) {
+			await printRelated(ctx, opts.slug, {
+				goal: opts.goal.trim() || undefined,
+				taking: taskIds(opts.task),
+				shown: opts.related,
+			});
+		}
 		if (ctx.elsewhere !== null) {
 			await serveProject(ctx);
 		}
@@ -749,6 +764,7 @@ splates
 	.mount("ships", splatesShips)
 	.mount("projects", splatesProjects)
 	.mount("creds", splatesCreds)
+	.mount("signal", splatesSignal)
 	.mount("tunnel", splatesTunnel)
 	.mount("slots", splatesSlots)
 	.mount("worker", splatesWorker)

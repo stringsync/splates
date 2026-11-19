@@ -181,7 +181,7 @@ describe("Conversation background", () => {
 		).toEqual([{ id: "a1", title: "Check the build" }]);
 	});
 
-	it("keeps one once it ends, as it ended, and leaves out what is not a command", async () => {
+	it("keeps one once it ends, as it ended, and lists a workflow beside it", async () => {
 		leaves(
 			"b1",
 			"bun test",
@@ -195,7 +195,24 @@ describe("Conversation background", () => {
 
 		expect(
 			conversation.state.background.map(({ id, state }) => [id, state]),
-		).toEqual([["b1", "failed"]]);
+		).toEqual([
+			["b1", "failed"],
+			["w1", "running"],
+		]);
+	});
+
+	it("leaves out a turn Claude starts on its own", async () => {
+		leaves(
+			"b1",
+			"bun dev",
+			backgroundStarted("turn-1", "Claude is working", "t-x", "turn"),
+		);
+		const conversation = await started();
+
+		await conversation.prompt("serve it");
+		await until(conversation, "idle");
+
+		expect(conversation.state.background.map(({ id }) => id)).toEqual(["b1"]);
 	});
 
 	it("marks the call that started one with how it ended and its exit code, as the log reads back", async () => {

@@ -2,19 +2,14 @@ import type { Composed, ComposedTarget } from "@splates/server/ship";
 import type { JSX } from "react";
 
 /**
- * The composed plan as numbered groups run in order, each a card per target
- * shipping in it. The steps inside a target are left to the run page.
+ * Shows `plan` as numbered groups run in order, each a card per target
+ * shipping in it; the steps inside a target are left to the run page.
  */
 export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 	const byName = new Map(plan.targets.map((each) => [each.name, each]));
 	const count = plan.waves.length;
 	return (
 		<div className="flex flex-col gap-3">
-			{count > 1 && (
-				<p className="text-muted-foreground text-sm">
-					{count} groups, in order. Each starts once the one before is done.
-				</p>
-			)}
 			{plan.waves.map((wave, index) => (
 				<section
 					key={wave.join(" ")}
@@ -50,7 +45,7 @@ export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 	);
 }
 
-/** One target's card: its name and bump, and its error when composing failed. */
+/** One target's card: its name, the version it resolved and its bump, and its error when composing failed. */
 function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
 	return (
 		<article
@@ -59,10 +54,13 @@ function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
 		>
 			<span className="font-semibold text-sm">
 				{target.name}
-				{target.bump !== undefined && (
+				{(target.version ?? target.bump) !== undefined && (
 					<span className="font-normal text-muted-foreground text-xs">
 						{" "}
-						· {target.bump}
+						·{" "}
+						{target.version === undefined
+							? target.bump
+							: `${target.version}${target.bump === undefined ? "" : ` (${target.bump})`}`}
 					</span>
 				)}
 			</span>

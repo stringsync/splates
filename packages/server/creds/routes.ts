@@ -3,19 +3,23 @@ import type { Project, ProjectWatch } from "../server/shared";
 import { body } from "../server/shared";
 import { PROVIDERS, type Provider, SCOPES, type Scope } from "./stores";
 
-/**
- * How a project's Creds page fills, replaces and removes creds, and turns
- * requests down. A value only ever comes in: no route answers with one.
- * Each handler is a property, so `serveProject` spreads them into the
- * project's routes.
- */
+/** The routes behind the Creds page. A value only comes in: none answers with one. */
 export class CredRoutes {
 	readonly #project: Project;
 	readonly #watch: ProjectWatch;
 
-	constructor(project: Project, watch: ProjectWatch) {
+	readonly #raise: (name: string, payload: unknown) => Promise<void>;
+
+	// `raise` announces cred.saved/<NAME> or cred.dismissed/<NAME>, with the
+	// name and scope as payload, never the value.
+	constructor(
+		project: Project,
+		watch: ProjectWatch,
+		raise: (name: string, payload: unknown) => Promise<void> = async () => {},
+	) {
 		this.#project = project;
 		this.#watch = watch;
+		this.#raise = raise;
 	}
 
 	/** What each store keeps, by name, and what the stores are called. */
@@ -49,6 +53,7 @@ export class CredRoutes {
 			}),
 		);
 		this.#watch.tick();
+		await this.#raise(`cred.saved/${name}`, { name, scope: kept });
 		return Response.json({ name, scope: kept });
 	};
 
@@ -70,6 +75,7 @@ export class CredRoutes {
 			this.#project.creds.dismiss(name),
 		);
 		this.#watch.tick();
+		await this.#raise(`cred.dismissed/${name}`, { name });
 		return Response.json({ name });
 	};
 }

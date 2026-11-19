@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { wakesItself } from "../queue/order";
+import { blockersEnded } from "../queue/order";
 import { Testing } from "../testing";
+import { openBlockers } from "./blocker-gate";
 import { cleared, deferralBlockers, deferralProblem } from "./deferral";
 
 describe("deferral", () => {
@@ -80,12 +81,12 @@ describe("deferral", () => {
 		expect(deferralProblem({ why: "x", questions: ["Which?"] })).toBeNull();
 	});
 
-	it("suspends a taken task on a blocker, waking it once the blocker merged", async () => {
+	it("links a taken task to a blocker, owing its conversation a notice once the blocker merged", async () => {
 		await using deps = await Testing.open();
 		const blocker = await deps.tasks.add("Build the client", null);
 		const held = await deps.tasks.add("Retry on 413", null);
 		await held.take("alpha");
-		await held.suspend({
+		await held.block({
 			blockedBy: [blocker.id],
 			task: "alpha",
 			conversation: "talk",
@@ -94,12 +95,26 @@ describe("deferral", () => {
 			(await deps.tasks.all()).map(({ state }) => state);
 		const now = async () => (await deps.tasks.find(held.id)).state;
 
-		expect(wakesItself(await now(), await states())).toBe(false);
+		expect(blockersEnded(await now(), await states())).toBe(false);
 
 		await (await deps.tasks.find(blocker.id)).remove("abc123");
-		expect(wakesItself(await now(), await states())).toBe(true);
+		expect(blockersEnded(await now(), await states())).toBe(true);
 
-		await (await deps.tasks.find(held.id)).wake();
-		expect(wakesItself(await now(), await states())).toBe(false);
+		await (await deps.tasks.find(held.id)).noticed();
+		expect(blockersEnded(await now(), await states())).toBe(false);
+	});
+
+	it("names the blockers a taken task still waits on, none once they ended", async () => {
+		await using deps = await Testing.open();
+		const blocker = await deps.tasks.add("Build the client", null);
+		const held = await deps.tasks.add("Retry on 413", null);
+		await held.take("alpha");
+		expect(await openBlockers(deps.tasks, "alpha")).toEqual([]);
+		await held.block({ blockedBy: [blocker.id], task: "alpha" });
+		expect(await openBlockers(deps.tasks, "alpha")).toEqual([
+			`#${blocker.id} Build the client`,
+		]);
+		await (await deps.tasks.find(blocker.id)).remove("abc123");
+		expect(await openBlockers(deps.tasks, "alpha")).toEqual([]);
 	});
 });

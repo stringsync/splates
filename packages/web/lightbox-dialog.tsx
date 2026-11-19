@@ -129,6 +129,7 @@ export function Lightbox({
 										key={shown.url}
 										src={shown.url}
 										alt={shown.alt}
+										vector={SVG.test(nameOf(shown))}
 										className="min-h-0 flex-1"
 									/>
 								)}

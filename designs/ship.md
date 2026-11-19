@@ -242,6 +242,16 @@ A run is durable like a task: `splates ships list` and `splates ships show
 retry that step itself with `splates ships retry`, before its fix merges.
 A fix removed without merging retries the step too: any ending of the task, with no code change needed, sends the step round again.
 
+Settled 2026-11-17: a run is pinned to the commit it started on. The engine
+records the main tree's HEAD on `started` and runs every `done` and `run` in a
+detached checkout of that commit beside the task worktrees
+(`<worktreeRoot>/.ships/<run>`, readied with `postCheckout`), removed once the
+run is done or stopped; a run from before has no commit and runs in the main
+tree. A fix that merges is cherry-picked onto that checkout (an `advanced`
+event records the new commit) before the step retries, so a retry carries the
+fix and nothing else that landed meanwhile; a fix that will not apply leaves
+the step failed, saying so. `record` tags whatever the checkout stands on.
+
 Settled 2026-11-15, later: the user's intent to ship covers carrying the run
 on, so any agent may retry a failed step of a run, the run file recording
 its task, and add a `noted` event with `splates ships note` (text, task,

@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { Dispatcher, type Events } from "core/events";
 import type { Cdp } from "./cdp";
+import { pendingCommandLogs } from "./command-logs";
 import { controlRoutes } from "./control/build";
 import { ExtraLogs } from "./extra-logs";
 import { LastOutcome } from "./last-outcome";
@@ -53,12 +54,7 @@ export class RecorderServer {
 	private screencast: Screencast | undefined;
 	private cdp: Cdp | undefined;
 	private capture:
-		| {
-				scrubber?: Scrubber;
-				docker?: string;
-				tails?: string[];
-				liveKey?: string;
-		  }
+		| Pick<OpenOptions, "scrubber" | "docker" | "tails" | "logs" | "liveKey">
 		| undefined;
 	private readonly micChoice: MicChoice | undefined;
 	private staged = false;
@@ -158,7 +154,7 @@ export class RecorderServer {
 						clearTimeout(this.closeTimer);
 						this.closeTimer = setTimeout(
 							() => this.closedWindow(),
-							PANEL_RECONNECT_GRACE_MS,
+							opts.panelGraceMs ?? PANEL_RECONNECT_GRACE_MS,
 						);
 					}
 				},
@@ -296,7 +292,11 @@ export class RecorderServer {
 			skip: new OtherPages(origin),
 			entries: live,
 		});
-		run.sources = { docker: options.docker, tails: options.tails ?? [] };
+		run.sources = {
+			docker: options.docker,
+			tails: options.tails ?? [],
+			logs: options.logs ?? [],
+		};
 		run.extra = await ExtraLogs.start({
 			ps: this.deps.ps,
 			fs: this.deps.fs,
@@ -376,6 +376,10 @@ export class RecorderServer {
 				startedAt: started.at,
 				stoppedAt: stats.at,
 				processing: { status: "pending" },
+				commandLogs: pendingCommandLogs(run.sources.logs, this.deps.ps.cwd(), {
+					startedAt: started.at,
+					stoppedAt: stats.at,
+				}),
 				micOff: started.mic === undefined ? true : undefined,
 				noMic: this.noMic ? true : undefined,
 				sources: manifestSources(started.mic, run.sources),

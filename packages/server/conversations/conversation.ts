@@ -9,6 +9,7 @@ import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
 import { handOffReference, RECONNECT, taskReference } from "../plans";
+import type { SignalProbe, SignalRaise, SignalWait } from "../signals/types";
 import type { Grant } from "../workers";
 import { answerWords } from "./answered";
 import { put } from "./archive";
@@ -22,11 +23,13 @@ import type {
 	Hold,
 	Placement,
 } from "./host";
+import { LeftRunning } from "./left-running";
 import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
 import { NoopHold } from "./noop-hold";
 import { ConversationProgress, type ProgressUpdate } from "./progress";
 import { AWAY, VISIT_KEPT } from "./reminder";
+import { ConversationSignals, type SignalAsk } from "./signals";
 import {
 	type Answer,
 	type Ask,
@@ -38,6 +41,7 @@ import {
 	type Device,
 	IDLE_STOP,
 	type Limit,
+	lifted,
 	type Progress,
 	type QueueSpot,
 	type ReminderCard,
@@ -74,6 +78,10 @@ export class Conversation
 	private readonly turns: ConversationTurns;
 	private readonly background: ConversationBackground;
 	private readonly progress: ConversationProgress;
+	/** The signals its agent waits on. */
+	private readonly signals: ConversationSignals;
+	/** What the agent left running past a turn, from its process tree. */
+	private readonly leftRunning: LeftRunning;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
 	opening: Promise<void> | null = null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
@@ -160,6 +168,11 @@ export class Conversation
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
 		this.progress = new ConversationProgress(this, deps);
+		this.signals = new ConversationSignals(this, deps, (text) =>
+			this.prompt(text, [], undefined, { told: SERVER_TOLD }),
+		);
+		this.signals.arm();
+		this.leftRunning = new LeftRunning(this, deps, this.connection);
 		this.unlistenDrain =
 			deps.placer?.events.on("drain", (worker) => {
 				if (this.grant?.worker === worker) {
@@ -568,6 +581,36 @@ export class Conversation
 		this.changed();
 	}
 
+	/** Begins the agent's wait on a signal, as `splates signal wait` asks. */
+	waitOnSignal(ask: SignalAsk): SignalWait {
+		return this.signals.begin(ask, this.deps.ids.next());
+	}
+
+	/** A raise of signal `name`: ends each wait on it and wakes the agent; how many it ended. */
+	deliverSignal(name: string, raise: SignalRaise): number {
+		return this.signals.deliver(name, raise);
+	}
+
+	/** Ends wait `id` at the person's word. */
+	stopSignal(id: string): SignalWait {
+		return this.signals.stop(id);
+	}
+
+	/** How many of its waits still subscribe to signal `name`. */
+	signalSubscriptions(name: string): number {
+		return this.signals.subscriptions(name);
+	}
+
+	/** The probe of signal `name` timed out: ends each wait on it as timed out; how many it ended. */
+	expireSignal(name: string): number {
+		return this.signals.expire(name);
+	}
+
+	/** Shows a probe this conversation started on its card. */
+	showProbe(probe: SignalProbe): void {
+		this.signals.showProbe(probe);
+	}
+
 	/** Takes the agent's `splates progress` update; the card as it stands. */
 	reportProgress(update: ProgressUpdate): Progress {
 		return this.progress.report(update);
@@ -625,7 +668,7 @@ export class Conversation
 			await choose(this, this.connection, id, value, true);
 		}
 		this.log.write({ kind: "auto-pick", pick, lifted: true, at: this.now() });
-		this.set({ autoPick: { ...pick, overridden: false } });
+		this.set({ autoPick: lifted(this.state.autoPick, pick) });
 	}
 
 	/**
@@ -1109,6 +1152,8 @@ export class Conversation
 
 	dispose(): void {
 		this.progress.dispose();
+		this.signals.dispose();
+		this.leftRunning.dispose();
 		this.resting?.dispose();
 		this.reconnecting?.dispose();
 		this.unlistenDrain?.();
@@ -1234,6 +1279,7 @@ export class Conversation
 			if (!running) {
 				finishObservation(this.state, at);
 			}
+			void (running ? this.leftRunning.started() : this.leftRunning.ended());
 		}
 		Object.assign(this.state, next);
 		this.changed();
@@ -1271,7 +1317,11 @@ export class Conversation
 			const { status, background, ask, checkpoint } = this.state;
 			return (
 				status === "idle" &&
-				background.every((each) => each.state !== "running") &&
+				// What only the process table found, such as a dev server, never
+				// wakes the agent, so it does not hold the agent up either.
+				background.every(
+					(each) => each.state !== "running" || each.pid !== undefined,
+				) &&
 				ask === null &&
 				checkpoint === null
 			);

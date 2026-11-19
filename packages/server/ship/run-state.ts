@@ -1,4 +1,4 @@
-import type { Prompt, RunEvent, RunTarget } from "./run-events";
+import type { Prompt, RunEvent, RunTarget, Supervise } from "./run-events";
 import type { Bump } from "./wire";
 
 /**
@@ -11,11 +11,21 @@ export type RunState = {
 	id: string;
 	started: number;
 	status: RunStatus;
+	/** The commit its steps run on, from its own checkout; none for a run in the main tree. */
+	commit?: string;
 	/** In the order they ship. */
 	targets: TargetState[];
 	/** What agents added, in the order they did. */
 	notes: RunNote[];
+	/** Present while the server sends failed steps to agents by itself. */
+	supervise?: Supervision;
 };
+
+/**
+ * A supervised run's fixes: `budget` the server may send by itself, and
+ * `spent` the ones it has sent; once they meet, a failure waits for the user.
+ */
+export type Supervision = { budget: number; spent: number };
 
 /** A note an agent added to a run, about one of its steps or the run as a whole. */
 export type RunNote = {
@@ -68,6 +78,13 @@ export type StepState = {
 	ended?: number;
 	/** The agent's fix it was last sent for, from its sending on. */
 	fix?: StepFix;
+	/** The fixes it was sent for before `fix`, oldest first. */
+	earlier?: StepFix[];
+	/**
+	 * Its last fix was removed without merging: the agent gave up, so the
+	 * step waits for the user, unsupervised, until it is sent round again.
+	 */
+	handedBack?: boolean;
 	/** How many times it was sent round again after failing. */
 	retries?: number;
 };
@@ -86,6 +103,8 @@ export type TargetState = {
 	name: string;
 	command: string;
 	bump?: Bump;
+	/** The exact version every step takes, in place of the bump. */
+	version?: string;
 	dependencies: string[];
 	steps: StepState[];
 	/** What it released, once a step of it says. */
@@ -101,23 +120,40 @@ export function foldRun(id: string, events: readonly RunEvent[]): RunState {
 	if (first?.type !== "started") {
 		throw new Error(`The run "${id}" does not begin with its start`);
 	}
-	let state = startedRun(id, first.at, first.targets);
+	let state = startedRun(
+		id,
+		first.at,
+		first.targets,
+		first.supervise,
+		first.commit,
+	);
 	for (const event of rest) {
 		state = applyRunEvent(state, event);
 	}
 	return state;
 }
 
-function startedRun(id: string, at: number, targets: RunTarget[]): RunState {
+function startedRun(
+	id: string,
+	at: number,
+	targets: RunTarget[],
+	supervise?: Supervise,
+	commit?: string,
+): RunState {
 	return settle({
 		id,
 		started: at,
+		...(commit !== undefined && { commit }),
 		status: "running",
 		notes: [],
+		...(supervise !== undefined && {
+			supervise: { budget: supervise.budget, spent: 0 },
+		}),
 		targets: targets.map((target) => ({
 			name: target.name,
 			command: target.command,
 			...(target.bump && { bump: target.bump }),
+			...(target.version !== undefined && { version: target.version }),
 			dependencies: target.dependencies,
 			steps: target.steps.map((step) => ({
 				id: step.id,
@@ -134,7 +170,22 @@ function startedRun(id: string, at: number, targets: RunTarget[]): RunState {
 /** `state` after `event`, a new state, `state` left as it was. */
 export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 	if (event.type === "started") {
-		return startedRun(state.id, event.at, event.targets);
+		return startedRun(
+			state.id,
+			event.at,
+			event.targets,
+			event.supervise,
+			event.commit,
+		);
+	}
+	if (event.type === "supervised") {
+		return {
+			...state,
+			supervise: { budget: event.budget, spent: state.supervise?.spent ?? 0 },
+		};
+	}
+	if (event.type === "advanced") {
+		return { ...state, commit: event.commit };
 	}
 	if (event.type === "stopped") {
 		return {
@@ -176,8 +227,13 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 	if (state.status === "stopped") {
 		return state;
 	}
+	const spent =
+		event.type === "sent" && event.by === "supervisor" && state.supervise
+			? { supervise: { ...state.supervise, spent: state.supervise.spent + 1 } }
+			: {};
 	const next = {
 		...state,
+		...spent,
 		targets: state.targets.map((target) => {
 			if (target.name !== event.target) {
 				return target;
@@ -255,6 +311,7 @@ function stepAfter(step: StepState, event: RunEvent): StepState {
 				signedIn: ___,
 				handle: ____,
 				held: _____,
+				handedBack: ______,
 				...rest
 			} = step;
 			return {
@@ -265,10 +322,20 @@ function stepAfter(step: StepState, event: RunEvent): StepState {
 			};
 		}
 		case "sent":
-			return { ...step, fix: { task: event.task, at: event.at } };
+			return {
+				...step,
+				fix: { task: event.task, at: event.at },
+				...(step.fix !== undefined && {
+					earlier: [...(step.earlier ?? []), step.fix],
+				}),
+			};
 		case "fixed":
 			return step.fix?.task === event.task
-				? { ...step, fix: { ...step.fix, ended: event.outcome } }
+				? {
+						...step,
+						fix: { ...step.fix, ended: event.outcome },
+						...(event.outcome === "removed" && { handedBack: true }),
+					}
 				: step;
 		default:
 			return step;

@@ -14,14 +14,18 @@ export interface FixDesk {
 	start(task: number): Promise<void>;
 	/** How board task `task` ended, or null while it is still on the board. */
 	ended(task: number): Promise<"merged" | "removed" | null>;
+	/** The commit board task `task` landed as, or null when it did not merge or is unknown. */
+	landed?(task: number): Promise<string | null>;
 	/** The started task that took board task `task`, or null for none. */
 	takenBy(task: number): Promise<string | null>;
 }
 
 /**
  * Sends a ship's failed step to an agent as a board task, and sends the step
- * round again once that task ends: call `settle` whenever a task may have
- * ended, and once as the server starts.
+ * round again once that task merges. In a supervised run it sends each failed
+ * step by itself, while the run's budget of fixes lasts and the step's last
+ * fix was not given up on. Call `settle` whenever a task may have ended or a
+ * run changed, and once as the server starts.
  */
 export class ShipFixes {
 	#settling: Promise<void> = Promise.resolve();
@@ -34,11 +38,15 @@ export class ShipFixes {
 		private readonly log: Logger,
 	) {}
 
-	/** Adds the fix task for failed step `step` and starts its agent. */
+	/**
+	 * Adds the fix task for failed step `step` and starts its agent: the
+	 * user's Send to agent, or the supervisor's, spending one of its fixes.
+	 */
 	async send(
 		id: string,
 		target: string,
 		step: string,
+		by?: "supervisor",
 	): Promise<{ state: RunState; task: number }> {
 		const state = await this.engine.get(id);
 		if (state === null) {
@@ -53,9 +61,9 @@ export class ShipFixes {
 		}
 		const task = await this.desk.add(
 			`The ship step ${step} of ${target} passes, and the ship carries on`,
-			fixText(state, found.target, found.step),
+			fixText(state, found.target, found.step, by),
 		);
-		const sent = await this.engine.sent(id, target, step, task);
+		const sent = await this.engine.sent(id, target, step, task, by);
 		await this.desk
 			.start(task)
 			.catch((error: unknown) =>
@@ -67,8 +75,8 @@ export class ShipFixes {
 	}
 
 	/**
-	 * Notes every fix that ended since: either ending, a merge or a
-	 * removal, retries its step.
+	 * Notes every fix that ended since, a merge retrying its step, then sends
+	 * each supervised run's failed steps to agents while its budget lasts.
 	 */
 	settle(): Promise<void> {
 		if (this.#queued !== null) {
@@ -87,6 +95,16 @@ export class ShipFixes {
 		return next;
 	}
 
+	/**
+	 * Settles when run `state` has a failed step its supervisor would send,
+	 * so a step failing, or the user giving more fixes, sends it at once.
+	 */
+	changed(state: RunState): void {
+		if (unsupervised(state) !== undefined) {
+			void this.settle();
+		}
+	}
+
 	async #settle(): Promise<void> {
 		for (const run of await this.engine.list()) {
 			for (const target of run.targets) {
@@ -103,9 +121,34 @@ export class ShipFixes {
 							step.id,
 							fix.task,
 							ended,
+							ended === "merged"
+								? ((await this.desk.landed?.(fix.task)) ?? undefined)
+								: undefined,
 						);
 					}
 				}
+			}
+		}
+		for (const run of await this.engine.list()) {
+			await this.#supervise(run.id);
+		}
+	}
+
+	/** Sends run `id`'s failed steps to agents, one fix each while its budget lasts. */
+	async #supervise(id: string): Promise<void> {
+		for (;;) {
+			const run = await this.engine.get(id);
+			const next = run === null ? undefined : unsupervised(run);
+			if (next === undefined) {
+				return;
+			}
+			try {
+				await this.send(id, next.target, next.step, "supervisor");
+			} catch (error) {
+				this.log.error(
+					`The ship run ${id} could not send "${next.step}" of ${next.target} to an agent: ${String(error)}`,
+				);
+				return;
 			}
 		}
 	}
@@ -129,6 +172,33 @@ export class ShipFixes {
 	}
 }
 
+/**
+ * The next failed step of `run` its supervisor sends to an agent: none once
+ * the run is not under way or unsupervised, its budget is spent, or every
+ * failed step is with an agent or was given up on.
+ */
+function unsupervised(
+	run: RunState,
+): { target: string; step: string } | undefined {
+	const supervise = run.supervise;
+	if (
+		supervise === undefined ||
+		supervise.spent >= supervise.budget ||
+		(run.status !== "running" && run.status !== "failed")
+	) {
+		return undefined;
+	}
+	for (const target of run.targets) {
+		for (const step of target.steps) {
+			const open = step.fix !== undefined && step.fix.ended === undefined;
+			if (step.status === "failed" && !open && step.handedBack !== true) {
+				return { target: target.name, step: step.id };
+			}
+		}
+	}
+	return undefined;
+}
+
 function failedStep(
 	state: RunState,
 	target: string,
@@ -150,6 +220,7 @@ export function fixText(
 	state: RunState,
 	target: TargetState,
 	step: StepState,
+	by?: "supervisor",
 ): string {
 	const plan = target.steps.map((each, index) => {
 		const after =
@@ -160,6 +231,26 @@ export function fixText(
 		return `${index + 1}. \`${each.id}\`: ${each.does}${after}${failed}`;
 	});
 	const output = step.output.slice(-QUOTED_LINES).join("\n").trimEnd();
+	// Written before this fix is sent, so the step's last fix is an earlier one.
+	const before = [...(step.earlier ?? []), ...(step.fix ? [step.fix] : [])];
+	const earlier = before.map(
+		(each) =>
+			`- #${each.task}: ${each.ended === "merged" ? "merged, and the step failed again" : each.ended === "removed" ? "removed without merging" : "still open"}`,
+	);
+	const notes = state.notes
+		.filter((each) => each.target === target.name && each.step === step.id)
+		.map(
+			(each) =>
+				`- ${each.text}${each.link === undefined ? "" : ` (${each.link})`}`,
+		);
+	const supervise = state.supervise;
+	const supervised =
+		by !== "supervisor" || supervise === undefined
+			? []
+			: [
+					`The ship is supervised, and sent this step here by itself: fix ${supervise.spent + 1} of ${supervise.budget}.`,
+					"",
+				];
 	const show = `splates ships show ${state.id} --target ${target.name} --step ${step.id}`;
 	const retry = `splates ships retry ${state.id} --target ${target.name} --step ${step.id}`;
 	return [
@@ -173,18 +264,30 @@ export function fixText(
 		"",
 		"## Details",
 		"",
-		"This task belongs to a ship the user started. Fix what made the step fail and land it with `splates merge`; the ship retries the step once it merges, with no press from the user. Never start a ship or bump a version further.",
+		"This task belongs to a ship the user started. Fix what made the step fail and land it with `splates merge`; the ship takes the commit it lands as into the run's own checkout, which stays on the commit the ship started on, and retries the step once it merges, with no press from the user. When code cannot fix it (a missing token, a sign-in only the user can do), remove the task with `--reason blocked` saying why: the step then waits for the user. Never start a ship or bump a version further.",
 		"",
+		...supervised,
 		`- Read the run, and the step's whole output: \`${show}\``,
-		`- Try the step again before merging (it runs from the main tree): \`${retry}\``,
+		`- Try the step again before merging (it runs in the run's checkout, without your unmerged fix): \`${retry}\``,
 		"",
+		...(earlier.length === 0
+			? []
+			: [
+					"### Earlier fixes of this step",
+					"",
+					"Read what each tried before trying again.",
+					"",
+					...earlier,
+					"",
+				]),
+		...(notes.length === 0 ? [] : ["### Notes on this step", "", ...notes, ""]),
 		"### Error",
 		"",
 		"```",
 		step.error ?? "(no error was given)",
 		"```",
 		"",
-		`### Plan of ${target.name}${target.bump === undefined ? "" : ` (${target.bump})`}`,
+		`### Plan of ${target.name}${(target.version ?? target.bump) === undefined ? "" : ` (${target.version ?? target.bump})`}`,
 		"",
 		...(target.dependencies.length === 0
 			? []

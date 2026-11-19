@@ -226,11 +226,11 @@ describe("dev tasks", () => {
 		});
 	});
 
-	it("keeps a legacy lost blocker while the page's list names it", async () => {
+	it("keeps a removed blocker's note whatever the page's list names", async () => {
 		await deps.tasks.add("first", null);
 		await deps.tasks.add("second", null);
 		await deps.tasks.add("third", null, { blockedBy: [1] });
-		await (await deps.tasks.find(1)).remove();
+		await deps.tasks.delete(1);
 		await deps.tasks.revise(3, (state) => ({
 			...state,
 			blockersLost: [{ id: 1, subject: "first" }],
@@ -255,7 +255,9 @@ describe("dev tasks", () => {
 				blockersLost: [{ id: 1, subject: "first" }],
 			});
 			expect((await link([2])).status).toBe(200);
-			expect((await state())?.blockersLost).toBeUndefined();
+			expect((await state())?.blockersLost).toEqual([
+				{ id: 1, subject: "first" },
+			]);
 		});
 	});
 

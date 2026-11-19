@@ -48,6 +48,8 @@ describe("fold", () => {
 		usage: unused(),
 		background: [],
 		progress: [],
+		signals: [],
+		probes: [],
 		artifacts: [],
 	});
 	const at = (secs: number) =>

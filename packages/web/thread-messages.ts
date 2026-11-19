@@ -12,12 +12,14 @@ import { useReactive } from "core/react";
 import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAged } from "./aged";
+import { cardPart } from "./card-part";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt } from "./held-prompt";
-import { isReminderId, reminderId } from "./reminder-of";
+import { reminderId } from "./reminder-of";
 import { heldAfter, messageOf, queuesNow } from "./sending";
+import { probeId, signalId } from "./signal-of";
 import { supersedeQueues } from "./superseded-queues";
 import { replied, withEscalation } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
@@ -103,6 +105,14 @@ export function useThreadMessages(
 			...conversation.reminders.map((reminder) => ({
 				id: reminderId(reminder.at),
 				startedAt: reminder.at,
+			})),
+			...conversation.signals.map((wait) => ({
+				id: signalId(wait.id),
+				startedAt: wait.startedAt,
+			})),
+			...(conversation.probes ?? []).map((probe) => ({
+				id: probeId(probe.name, probe.startedAt),
+				startedAt: probe.startedAt,
 			})),
 		]);
 		// An agent starting again may carry on the turn its last message holds.
@@ -210,6 +220,8 @@ export function useThreadMessages(
 		conversation.events,
 		conversation.progress,
 		conversation.reminders,
+		conversation.signals,
+		conversation.probes,
 		conversation.id,
 		conversation.lastTask,
 		conversation.resting,
@@ -469,9 +481,7 @@ function convert(
 										},
 									]
 								: stretch.type === "progress"
-									? isReminderId(stretch.id)
-										? [{ type: "data-reminder", data: { id: stretch.id } }]
-										: [{ type: "data-progress", data: { id: stretch.id } }]
+									? [cardPart(stretch.id)]
 									: stretch.type === "background"
 										? [
 												{

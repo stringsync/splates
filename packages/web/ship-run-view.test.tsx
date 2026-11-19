@@ -30,16 +30,75 @@ describe("ShipRunScreen", () => {
 		cleanup();
 	});
 
+	test("lists what the run spawned under the groups, and its notes newest first", async () => {
+		const fake = fakeServer();
+		const view = render(
+			<ShipRunScreen
+				id="run-1"
+				server={fake.server}
+				spawned={() => [
+					{
+						kind: "fix",
+						todo: 7,
+						conversation: "c7",
+						subject: "The publish step passes",
+						target: "@stringsync/vexml",
+						step: "publish",
+						status: "asking",
+						line: "Bump the peer range?",
+					},
+					{
+						kind: "agent",
+						todo: 8,
+						subject: "Check the update",
+						status: "merged",
+					},
+				]}
+			/>,
+		);
+		await fake.open({
+			...run(),
+			notes: [
+				{ at: 2_000, task: "fix-a", text: "First look" },
+				{ at: 3_000, task: "fix-a", text: "Fixed", link: "#7" },
+			],
+		});
+
+		const spawned = view.getByRole("region", { name: "Agents on this ship" });
+		expect(
+			within(spawned).getByText("1 open · 1 waiting on you · 1 ended"),
+		).toBeTruthy();
+		expect(within(spawned).getByText("Asks you")).toBeTruthy();
+		const asking = within(spawned).getByText("Bump the peer range?");
+		expect(asking.getAttribute("href")).toBe("#conversations/c7");
+		const groups = view
+			.getAllByRole("region")
+			.map((each) => each.getAttribute("aria-label"));
+		expect(groups.indexOf("Agents on this ship")).toBeGreaterThan(
+			groups.indexOf("Group 2"),
+		);
+
+		const notes = view.getByRole("region", { name: "Notes" });
+		const said = within(notes)
+			.getAllByRole("listitem")
+			.map((each) => each.textContent);
+		expect(said[0]).toContain("Fixed");
+		expect(said[1]).toContain("First look");
+		expect(within(notes).getByText("Task #7")).toBeTruthy();
+	});
+
 	test("shows the steps in order, each target waiting, then live as it runs", async () => {
 		const fake = fakeServer();
 		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
 		expect(view.getByText("Reading the run…")).toBeTruthy();
 		await fake.open(run());
 
-		const first = view.getByRole("region", { name: "Step 1" });
+		const first = view.getByRole("region", { name: "Group 1" });
 		expect(within(first).getByText(/2 at the same time/)).toBeTruthy();
-		const second = view.getByRole("region", { name: "Step 2" });
-		expect(within(second).getByText("Starts when step 1 is done")).toBeTruthy();
+		const second = view.getByRole("region", { name: "Group 2" });
+		expect(
+			within(second).getByText("Starts when group 1 is done"),
+		).toBeTruthy();
 		expect(view.getByText(/0 of 3 done/)).toBeTruthy();
 
 		await fake.send(
@@ -127,14 +186,18 @@ describe("ShipRunScreen", () => {
 		);
 		const net = view.getByRole("article", { name: "net-staging" });
 		expect(net.dataset.status).toBe("failed");
+		const failure = view.getByRole("region", { name: "net-staging failed" });
 		expect(
-			within(net).getByText("Stack rolled back: SecurityGroup in use"),
+			failure.compareDocumentPosition(net) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
-		fireEvent.click(within(net).getByRole("button", { name: "Retry" }));
+		expect(
+			within(failure).getByText("Stack rolled back: SecurityGroup in use"),
+		).toBeTruthy();
+		fireEvent.click(within(failure).getByRole("button", { name: "Retry" }));
 		expect(fake.retried).toEqual(["net-staging deploy"]);
 		await waitFor(() =>
 			expect(
-				within(net)
+				within(failure)
 					.getByRole("button", { name: "Retry" })
 					.hasAttribute("disabled"),
 			).toBe(false),
@@ -151,18 +214,26 @@ describe("ShipRunScreen", () => {
 			{ type: "ended", at: 5_000, ...deploy, outcome: "failed", error: "No" },
 		);
 		const net = view.getByRole("article", { name: "net-staging" });
-		fireEvent.click(within(net).getByRole("button", { name: "Send to agent" }));
+		const failure = (): HTMLElement =>
+			view.getByRole("region", { name: "net-staging failed" });
+		fireEvent.click(
+			within(failure()).getByRole("button", { name: "Send to agent" }),
+		);
 		expect(fake.sent).toEqual(["net-staging deploy"]);
 
 		await fake.send({ type: "sent", at: 6_000, ...deploy, task: 42 });
-		expect(within(net).getByText(/An agent is fixing deploy in/)).toBeTruthy();
 		expect(
-			within(net).getByRole("link", { name: "#42" }).getAttribute("href"),
+			within(failure()).getByText(/An agent is fixing deploy in/),
+		).toBeTruthy();
+		expect(
+			within(failure()).getByRole("link", { name: "#42" }).getAttribute("href"),
 		).toBe("#todos/42");
 		expect(
-			within(net).queryByRole("button", { name: "Send to agent" }),
+			within(failure()).queryByRole("button", { name: "Send to agent" }),
 		).toBeNull();
-		expect(within(net).getByRole("button", { name: "Retry" })).toBeTruthy();
+		expect(
+			within(failure()).getByRole("button", { name: "Retry" }),
+		).toBeTruthy();
 
 		await fake.send(
 			{ type: "fixed", at: 9_000, ...deploy, task: 42, outcome: "merged" },
@@ -171,7 +242,155 @@ describe("ShipRunScreen", () => {
 		);
 		expect(net.dataset.status).toBe("running");
 		expect(
+			view.queryByRole("region", { name: "net-staging failed" }),
+		).toBeNull();
+		expect(
 			within(net).getByText("deploy was fixed in #42 and retried."),
+		).toBeTruthy();
+	});
+
+	test("a supervised fix says which fix it is, the ones before it, and links its agent in place of Send to agent", async () => {
+		const fake = fakeServer();
+		const view = render(
+			<ShipRunScreen
+				id="run-1"
+				server={fake.server}
+				spawned={() => [
+					{
+						kind: "fix",
+						todo: 43,
+						conversation: "c43",
+						subject: "The deploy step passes",
+						target: "net-staging",
+						step: "deploy",
+						status: "working",
+					},
+				]}
+			/>,
+		);
+		await fake.open({ ...run(), supervise: { budget: 3, spent: 0 } });
+		const deploy = { target: "net-staging", step: "deploy" };
+		await fake.send(
+			{ type: "checking", at: 2_000, ...deploy },
+			{ type: "ended", at: 5_000, ...deploy, outcome: "failed", error: "No" },
+			{ type: "sent", at: 6_000, ...deploy, task: 42, by: "supervisor" },
+			{ type: "fixed", at: 7_000, ...deploy, task: 42, outcome: "merged" },
+			{ type: "retried", at: 7_000, ...deploy, by: "fix" },
+			{ type: "checking", at: 7_000, ...deploy },
+			{ type: "ended", at: 8_000, ...deploy, outcome: "failed", error: "No" },
+			{ type: "sent", at: 9_000, ...deploy, task: 43, by: "supervisor" },
+		);
+		const failure = view.getByRole("region", { name: "net-staging failed" });
+		expect(
+			within(failure).getByText(/Supervised · fix 2 of 3\. Earlier:/),
+		).toBeTruthy();
+		expect(
+			within(failure).getByRole("link", { name: "#42" }).getAttribute("href"),
+		).toBe("#todos/42");
+		expect(
+			within(failure)
+				.getByRole("link", { name: "View agent" })
+				.getAttribute("href"),
+		).toBe("#conversations/c43");
+		expect(
+			within(failure).queryByRole("button", { name: "Send to agent" }),
+		).toBeNull();
+	});
+
+	test("once the supervisor's fixes are spent the failure waits for the user, and + 1 fix gives it one more", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		await fake.open({ ...run(), supervise: { budget: 1, spent: 0 } });
+		const deploy = { target: "net-staging", step: "deploy" };
+		await fake.send(
+			{ type: "checking", at: 2_000, ...deploy },
+			{ type: "ended", at: 5_000, ...deploy, outcome: "failed", error: "No" },
+			{ type: "sent", at: 6_000, ...deploy, task: 42, by: "supervisor" },
+			{ type: "fixed", at: 7_000, ...deploy, task: 42, outcome: "merged" },
+			{ type: "retried", at: 7_000, ...deploy, by: "fix" },
+			{ type: "checking", at: 7_000, ...deploy },
+			{ type: "ended", at: 8_000, ...deploy, outcome: "failed", error: "No" },
+		);
+		const failure = view.getByRole("region", { name: "net-staging failed" });
+		expect(
+			within(failure).getByText(
+				"The supervisor used all 1 fix, so this one waits for you.",
+			),
+		).toBeTruthy();
+		expect(within(failure).getByText("needs you")).toBeTruthy();
+		fireEvent.click(within(failure).getByRole("button", { name: "1 fix" }));
+		expect(fake.supervised).toEqual([1]);
+		expect(
+			within(failure).queryByRole("button", { name: /Supervise/ }),
+		).toBeNull();
+	});
+
+	test("an unsupervised failure offers Supervise, giving the run three fixes", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		await fake.open(run());
+		const deploy = { target: "net-staging", step: "deploy" };
+		await fake.send(
+			{ type: "checking", at: 2_000, ...deploy },
+			{ type: "ended", at: 5_000, ...deploy, outcome: "failed", error: "No" },
+		);
+		const failure = view.getByRole("region", { name: "net-staging failed" });
+		fireEvent.click(
+			within(failure).getByRole("button", { name: "Supervise · 3 fixes" }),
+		);
+		expect(fake.supervised).toEqual([3]);
+	});
+
+	test("every failed target and every waiting prompt open up top at once, each named by its target", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		await fake.open(run());
+		await fake.send(
+			{ type: "checking", at: 2_000, ...at, step: "build" },
+			{
+				type: "ended",
+				at: 3_000,
+				...at,
+				step: "build",
+				outcome: "failed",
+				error: "Bad build",
+			},
+			{ type: "checking", at: 2_000, target: "net-staging", step: "deploy" },
+			{
+				type: "running",
+				at: 2_000,
+				target: "net-staging",
+				step: "deploy",
+				pid: 7,
+			},
+			{
+				...prompt("p1", { kind: "confirm", question: "Deploy?" }),
+				target: "net-staging",
+				step: "deploy",
+			} as RunEvent,
+		);
+		const mdom = view.getByRole("region", { name: "@stringsync/mdom failed" });
+		expect(within(mdom).getByText("@stringsync/mdom")).toBeTruthy();
+		const net = view.getByRole("region", {
+			name: "net-staging: Do deploy needs you",
+		});
+		expect(within(net).getByText("net-staging")).toBeTruthy();
+		expect(
+			mdom.compareDocumentPosition(net) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		await fake.send({
+			type: "ended",
+			at: 4_000,
+			target: "net-staging",
+			step: "deploy",
+			outcome: "failed",
+			error: "No",
+		});
+		expect(
+			view.getByRole("region", { name: "net-staging failed" }),
+		).toBeTruthy();
+		expect(
+			view.getByRole("region", { name: "@stringsync/mdom failed" }),
 		).toBeTruthy();
 	});
 
@@ -186,10 +405,12 @@ describe("ShipRunScreen", () => {
 			{ type: "sent", at: 6_000, ...deploy, task: 42 },
 			{ type: "fixed", at: 7_000, ...deploy, task: 42, outcome: "removed" },
 		);
-		const net = view.getByRole("article", { name: "net-staging" });
-		expect(within(net).getByText(/was removed without merging/)).toBeTruthy();
+		const failure = view.getByRole("region", { name: "net-staging failed" });
 		expect(
-			within(net).getByRole("button", { name: "Send to agent" }),
+			within(failure).getByText(/was removed without merging/),
+		).toBeTruthy();
+		expect(
+			within(failure).getByRole("button", { name: "Send to agent" }),
 		).toBeTruthy();
 	});
 
@@ -221,7 +442,7 @@ describe("ShipRunScreen", () => {
 		).toBe("done");
 	});
 
-	test("a step that asks Yes or No opens in place, and the answer goes back", async () => {
+	test("a step that asks Yes or No opens above the steps, and the answer goes back", async () => {
 		const fake = fakeServer();
 		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
 		await fake.open(run());
@@ -230,8 +451,15 @@ describe("ShipRunScreen", () => {
 			{ type: "running", at: 2_000, ...at, step: "build", pid: 7 },
 			prompt("p1", { kind: "confirm", question: "Publish 1.4.0 to npm?" }),
 		);
-		const card = view.getByRole("region", { name: "Do build needs you" });
+		const card = view.getByRole("region", {
+			name: "@stringsync/mdom: Do build needs you",
+		});
 		expect(within(card).getByText("Publish 1.4.0 to npm?")).toBeTruthy();
+		expect(
+			card.compareDocumentPosition(
+				view.getByRole("article", { name: "@stringsync/mdom" }),
+			) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
 		expect(
 			within(view.getByRole("article", { name: "@stringsync/mdom" })).getByText(
 				"Waiting on you",
@@ -249,7 +477,9 @@ describe("ShipRunScreen", () => {
 			value: true,
 		});
 		expect(
-			view.queryByRole("region", { name: "Do build needs you" }),
+			view.queryByRole("region", {
+				name: "@stringsync/mdom: Do build needs you",
+			}),
 		).toBeNull();
 	});
 
@@ -266,7 +496,9 @@ describe("ShipRunScreen", () => {
 				code: "WDJB-MJHT",
 			}),
 		);
-		const card = view.getByRole("region", { name: "Do build needs you" });
+		const card = view.getByRole("region", {
+			name: "@stringsync/mdom: Do build needs you",
+		});
 		expect(
 			within(card)
 				.getByRole("link", { name: /Open sign-in link/ })
@@ -281,7 +513,9 @@ describe("ShipRunScreen", () => {
 
 		await fake.send({ type: "withdrawn", ...at, step: "build", id: "p1" });
 		expect(
-			view.queryByRole("region", { name: "Do build needs you" }),
+			view.queryByRole("region", {
+				name: "@stringsync/mdom: Do build needs you",
+			}),
 		).toBeNull();
 		expect(view.getByText("Signed in at device.sso.aws.test")).toBeTruthy();
 	});
@@ -303,7 +537,7 @@ describe("ShipRunScreen", () => {
 		expect(fake.answered).toEqual([["build", "p1", "481516"]]);
 	});
 
-	test("two steps asking at once open one at a time, each answering on its own though their ids match", async () => {
+	test("two steps asking at once both open, each answering on its own though their ids match", async () => {
 		const fake = fakeServer();
 		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
 		await fake.open(run());
@@ -317,11 +551,15 @@ describe("ShipRunScreen", () => {
 			} as RunEvent,
 		);
 		expect(
-			view.queryByRole("region", { name: "Do publish needs you" }),
-		).toBeNull();
+			view.getByRole("region", {
+				name: "@stringsync/mdom: Do publish needs you",
+			}),
+		).toBeTruthy();
 		fireEvent.click(
 			within(
-				view.getByRole("region", { name: "Do build needs you" }),
+				view.getByRole("region", {
+					name: "@stringsync/mdom: Do build needs you",
+				}),
 			).getByRole("button", { name: "Yes" }),
 		);
 		await fake.send({
@@ -333,11 +571,15 @@ describe("ShipRunScreen", () => {
 			value: true,
 		});
 		expect(
-			view.queryByRole("region", { name: "Do build needs you" }),
+			view.queryByRole("region", {
+				name: "@stringsync/mdom: Do build needs you",
+			}),
 		).toBeNull();
 		fireEvent.click(
 			within(
-				view.getByRole("region", { name: "Do publish needs you" }),
+				view.getByRole("region", {
+					name: "@stringsync/mdom: Do publish needs you",
+				}),
 			).getByRole("button", { name: "Yes" }),
 		);
 		expect(fake.answered).toEqual([
@@ -446,6 +688,7 @@ describe("ShipRunScreen", () => {
 			retry: async () => found,
 			send: async () => ({ state: found, task: 1 }),
 			stop: async () => found,
+			supervise: async () => found,
 		};
 		const view = render(<ShipRunScreen id="run-1" server={server} />);
 		await waitFor(() => expect(view.getByText(/0 of 3 done/)).toBeTruthy());
@@ -513,6 +756,7 @@ function fakeServer(found: RunState | null = null) {
 	const streams: StreamHandlers[] = [];
 	const retried: string[] = [];
 	const sent: string[] = [];
+	const supervised: number[] = [];
 	const answered: [string, string, unknown][] = [];
 	const control = {
 		refuse: null as string | null,
@@ -535,6 +779,10 @@ function fakeServer(found: RunState | null = null) {
 			return run();
 		},
 		stop: async () => run(),
+		supervise: async (_, fixes) => {
+			supervised.push(fixes);
+			return run();
+		},
 		send: async (_, target, step) => {
 			sent.push(`${target} ${step}`);
 			return { state: run(), task: 42 };
@@ -555,6 +803,7 @@ function fakeServer(found: RunState | null = null) {
 		server,
 		retried,
 		sent,
+		supervised,
 		answered,
 		set refuse(why: string) {
 			control.refuse = why;

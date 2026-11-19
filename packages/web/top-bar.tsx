@@ -47,8 +47,6 @@ export interface BarFrame {
 	menu?: ReactNode;
 	/** Puts Update before the kebab, once a restart would update splates. */
 	dot?: boolean;
-	/** Ends the bar, never folded, as how many agents wait on you. */
-	end?: ReactNode;
 	/** Marks a bar's way back, as with how many agents wait on you. */
 	badge?: ReactNode;
 	/**
@@ -187,7 +185,6 @@ export function TopBar({
 					</span>
 				</div>
 			</div>
-			{frame?.end}
 		</>
 	);
 	if (frame?.slot !== undefined) {

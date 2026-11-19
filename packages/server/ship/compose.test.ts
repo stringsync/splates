@@ -47,15 +47,23 @@ describe("ShipComposer", () => {
 
 	it("does not offer a dependency with nothing unshipped", async () => {
 		const composed = await composer({
-			"bin/app ship plan": [app, { ...net, unshipped: 0 }],
-			"bin/vex ship plan": { ...vexml(), unshipped: 0 },
+			"bin/app ship unshipped": { net: 0 },
+			"bin/vex ship unshipped": { "@x/vexml": 0 },
 		}).compose([{ name: "app" }]);
 		expect(composed.offered).toEqual([]);
 	});
 
 	it("offers a dependency with no changes counted or some unshipped", async () => {
 		const composed = await composer({
-			"bin/app ship plan": [app, { ...net, unshipped: 2 }],
+			"bin/app ship unshipped": { net: 2 },
+		}).compose([{ name: "app" }]);
+		expect(composed.offered.map((each) => each.name)).toContain("net");
+	});
+
+	it("offers a dependency whose count is still out once the plans are in", async () => {
+		const never = new Promise(() => {});
+		const composed = await composer({
+			"bin/app ship unshipped": { after: never, stdout: '{"net":0}' },
 		}).compose([{ name: "app" }]);
 		expect(composed.offered.map((each) => each.name)).toContain("net");
 	});
@@ -104,6 +112,50 @@ describe("ShipComposer", () => {
 		).rejects.toThrow(ComposeError);
 	});
 
+	it("resolves a versioned target's bump to the version it ships", async () => {
+		const composed = await composer().compose([
+			{ name: "staging", bump: "minor" },
+		]);
+		expect(composed.targets[0]).toMatchObject({
+			name: "staging",
+			bump: "minor",
+			version: "1.5.0",
+		});
+	});
+
+	it("plans a versioned target at an exact version, with no bump", async () => {
+		const composed = await composer().compose([
+			{ name: "staging", version: "1.2.0" },
+			{ name: "prod", version: "1.4.3" },
+		]);
+		expect(
+			composed.targets.map(({ name, bump, version }) => ({
+				name,
+				bump,
+				version,
+			})),
+		).toEqual([
+			{ name: "staging", bump: undefined, version: "1.2.0" },
+			{ name: "prod", bump: undefined, version: "1.4.3" },
+		]);
+	});
+
+	it("shows a versioned target with neither a version nor a bump as its error", async () => {
+		const composed = await composer().compose([{ name: "prod" }]);
+		expect(composed.targets[0]?.error).toBe("Choose a version or a bump");
+	});
+
+	it("refuses a version for a target without versions, and a version with a bump", async () => {
+		expect(
+			composer().compose([{ name: "net", version: "1.0.0" }]),
+		).rejects.toThrow('"net" takes no version');
+		expect(
+			composer().compose([
+				{ name: "staging", version: "1.0.0", bump: "patch" },
+			]),
+		).rejects.toThrow('"staging" takes a version or a bump, not both');
+	});
+
 	it("refuses an unknown pick, a pick twice and a bump a target takes none of", async () => {
 		expect(composer().compose([{ name: "nope" }])).rejects.toThrow(
 			'No ship command serves "nope"',
@@ -114,6 +166,13 @@ describe("ShipComposer", () => {
 		expect(
 			composer().compose([{ name: "net", bump: "minor" }]),
 		).rejects.toThrow('"net" takes no bump');
+	});
+
+	it("checks picks alone, with the refusal compose gives", async () => {
+		await composer().check([{ name: "@x/mdom", bump: "minor" }]);
+		expect(composer().check([{ name: "net", bump: "minor" }])).rejects.toThrow(
+			'"net" takes no bump',
+		);
 	});
 
 	it("refuses picks whose dependencies form a cycle", async () => {
@@ -156,6 +215,19 @@ const app = {
 	steps: [{ id: "deploy", does: "Deploy the app" }],
 };
 const net = { name: "net", dependencies: [], steps: [] };
+// A deployment that bumps from a current version, and one that takes only an exact one.
+const staging = {
+	name: "staging",
+	versioned: true,
+	dependencies: [],
+	steps: [{ id: "deploy", does: "Deploy" }],
+};
+const prod = {
+	name: "prod",
+	versioned: true,
+	dependencies: [],
+	steps: [{ id: "deploy", does: "Deploy" }],
+};
 
 function composer(extra: Record<string, unknown> = {}) {
 	const ps = new FakeShipPs({
@@ -168,11 +240,29 @@ function composer(extra: Record<string, unknown> = {}) {
 		"bin/app ship plan": [app, net],
 		"bin/app ship plan --target app": app,
 		"bin/app ship plan --target net": net,
+		"bin/stage ship plan": [staging, prod],
+		"bin/stage ship plan --target staging --bump patch": {
+			...staging,
+			version: "1.4.3",
+		},
+		"bin/stage ship plan --target staging --bump minor": {
+			...staging,
+			version: "1.5.0",
+		},
+		"bin/stage ship plan --target staging --version 1.2.0": {
+			...staging,
+			version: "1.2.0",
+		},
+		"bin/stage ship plan --target prod": prod,
+		"bin/stage ship plan --target prod --version 1.4.3": {
+			...prod,
+			version: "1.4.3",
+		},
 		...extra,
 	});
 	return new ShipComposer(
 		new ShipCommands(
-			["bin/mdom ship", "bin/vex ship", "bin/app ship"],
+			["bin/mdom ship", "bin/vex ship", "bin/app ship", "bin/stage ship"],
 			ps,
 			"/r",
 		),

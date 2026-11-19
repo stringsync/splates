@@ -1,42 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "core/log";
-import { FakeTimer } from "core/time/testing";
 import { taskAdd } from "../board";
 import { queueAdd } from "../queue";
 import { Testing } from "../testing";
-import type { TaskEvent } from "./events";
+import type { TaskEvent, TaskEventName } from "./events";
 import { GROOMER_TRIGGER } from "./groomer";
-import { type Fired, HookRunner } from "./runner";
+import { type Fired, fireTaskEvent } from "./runner";
 import { RunStore } from "./runs";
 import type { Automation } from "./store";
 
-describe("HookRunner", () => {
+describe("fireTaskEvent", () => {
 	let deps: Testing;
 	let automations: Automation[];
 	let runs: RunStore;
 	let ran: string[];
-	let runner: HookRunner | null;
-	let timer: FakeTimer;
 
-	/** Has `following` read the journal again, past its throttle, and run what it found. */
-	const look = async (following: HookRunner) => {
-		void following.changed();
-		timer.fireTimeouts();
-		await following.changed();
-	};
-
-	const follow = async () => {
-		runner = await HookRunner.follow({
-			journal: deps.journal,
-			storage: deps.storage,
-			automations: async () => automations,
+	const fireOn = (name: TaskEventName, ...numbers: number[]) =>
+		fireTaskEvent(eventOf(name, numbers), automations, {
+			runs,
 			task: async (id) => {
 				const task = (await deps.tasks.stored()).find((each) => each.id === id);
 				return task === undefined
 					? null
 					: { stage: task.stage, lane: task.lane };
 			},
-			runs,
 			now: () => "2026-10-19T00:00:00.000Z",
 			actions: {
 				run: async (command, fired) => {
@@ -53,24 +40,9 @@ describe("HookRunner", () => {
 				},
 			},
 			log: new MemoryLogger(),
-			timer,
 		});
-		return runner;
-	};
 
-	/** Adds task `subject` as `splates task add` does, journaled. */
-	const add = (subject: string) =>
-		deps.journal.record(
-			"task add",
-			null,
-			() => taskAdd(deps, subject, null),
-			(task) => ({
-				number: task.id,
-				subject: task.subject,
-				lane: null,
-				position: task.position,
-			}),
-		);
+	const add = (subject: string) => taskAdd(deps, subject, null);
 
 	beforeEach(async () => {
 		deps = await Testing.open();
@@ -88,37 +60,16 @@ describe("HookRunner", () => {
 		];
 		runs = new RunStore(deps.storage);
 		ran = [];
-		runner = null;
-		timer = new FakeTimer();
 	});
 
 	afterEach(async () => {
-		runner?.dispose();
 		await deps.disposeAsync();
 	});
 
-	it("runs nothing for what came before it first followed", async () => {
-		await add("Before");
-
-		await look(await follow());
-
-		expect(ran).toEqual([]);
-	});
-
-	it("runs each event's hooks once, in the order the journal took them", async () => {
-		const following = await follow();
-		await add("Totals first");
-		await deps.journal.record(
-			"queue add",
-			null,
-			() => queueAdd(deps, [1]),
-			(queued) => ({
-				tasks: queued.map((task) => ({ id: task.id, subject: task.subject })),
-			}),
-		);
-
-		await look(following);
-		await look(following);
+	it("runs the hooks set on the event, and no others", async () => {
+		await fireOn("task.created", 1);
+		await fireOn("task.queued", 1);
+		await fireOn("task.done");
 
 		expect(ran).toEqual([
 			"notify task.created #1",
@@ -126,16 +77,7 @@ describe("HookRunner", () => {
 		]);
 	});
 
-	it("catches up on what it missed while it was down", async () => {
-		(await follow()).dispose();
-		await add("While down");
-
-		await look(await follow());
-
-		expect(ran).toEqual(["notify task.created #1"]);
-	});
-
-	it("runs one set to every Nth match on each Nth, counting on past a restart", async () => {
+	it("runs one set to every Nth match on each Nth, counting on", async () => {
 		automations = [
 			automation(
 				"1",
@@ -143,22 +85,14 @@ describe("HookRunner", () => {
 				{ kind: "run", command: "third" },
 			),
 		];
-		const following = await follow();
-		await add("One");
-		await add("Two");
-		await look(following);
+		await fireOn("task.created", 1);
+		await fireOn("task.created", 2);
 		expect(ran).toEqual([]);
 
-		following.dispose();
-		await add("Three");
-		await add("Four");
-		await look(await follow());
-		expect(ran).toEqual(["third task.created #3"]);
-
-		await add("Five");
-		await add("Six");
-		await add("Seven");
-		await look(await follow());
+		await fireOn("task.created", 3);
+		await fireOn("task.created", 4);
+		await fireOn("task.created", 5);
+		await fireOn("task.created", 6);
 		expect(ran).toEqual(["third task.created #3", "third task.created #6"]);
 	});
 
@@ -170,15 +104,11 @@ describe("HookRunner", () => {
 				{ kind: "run", command: "second" },
 			),
 		];
-		const following = await follow();
-		await add("One");
-		await look(following);
+		await fireOn("task.created", 1);
 		automations = [{ ...(automations[0] as Automation), editedAt: "later" }];
-		await add("Two");
-		await look(following);
+		await fireOn("task.created", 2);
 		expect(ran).toEqual([]);
-		await add("Three");
-		await look(following);
+		await fireOn("task.created", 3);
 		expect(ran).toEqual(["second task.created #3"]);
 	});
 
@@ -200,19 +130,12 @@ describe("HookRunner", () => {
 				{ kind: "run", command: "never" },
 			),
 		];
-		const following = await follow();
 		await add("One");
 		await add("Two");
-		await deps.journal.record(
-			"queue add",
-			null,
-			() => queueAdd(deps, [2]),
-			(queued) => ({
-				tasks: queued.map((task) => ({ id: task.id, subject: task.subject })),
-			}),
-		);
+		await queueAdd(deps, [2]);
 
-		await look(following);
+		await fireOn("task.created", 1, 2);
+		await fireOn("task.queued", 1, 2);
 
 		expect(ran).toEqual(["queued task.queued #2"]);
 	});
@@ -224,21 +147,9 @@ describe("HookRunner", () => {
 				agent: "claude",
 			}),
 		];
-		const following = await follow();
-		await add("Rough");
-		await deps.journal.record(
-			"task add",
-			null,
-			() => taskAdd(deps, "Groomed", null),
-			(task) => ({
-				number: task.id,
-				subject: task.subject,
-				lane: null,
-				position: task.position,
-			}),
-		);
 
-		await look(following);
+		await fireOn("task.created", 1);
+		await fireOn("task.created", 2);
 
 		expect(ran).toEqual(["groom with claude", "groom with claude"]);
 	});
@@ -259,10 +170,8 @@ describe("HookRunner", () => {
 				{ kind: "run", command: "fail" },
 			),
 		];
-		const following = await follow();
-		await add("One");
 
-		await look(following);
+		await fireOn("task.created", 1);
 
 		expect(ran).toEqual([]);
 		expect(await runs.read()).toEqual({
@@ -278,6 +187,10 @@ describe("HookRunner", () => {
 		});
 	});
 });
+
+function eventOf(name: TaskEventName, numbers: number[]): TaskEvent {
+	return { name, from: "", at: "", numbers, task: null };
+}
 
 function said(fired: Fired): string {
 	if (!("event" in fired)) {

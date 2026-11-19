@@ -1,7 +1,7 @@
 ---
 name: splates
-description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive or a `#rec:<name>` reference to a recorded session. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.14
+description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
+version: 2.0.15
 ---
 
 # Using splates
@@ -17,6 +17,17 @@ repository itself (its eval and ship commands).
 (before searching the repository for it), run `rec sessions path <name>`, which
 prints the session's folder, then read the files in that folder, and quote what
 its moments say (error text included) when you answer. Never open rec.
+
+**A `#<project>.<name>` in a message** (`#mdom.released`, picked from `#` in
+the composer, which offers every signal on the server) names a signal. Take it
+as the fact the user means you to act on or wait for, and see Waiting on an
+outside condition below: when they ask you to wait for it, `splates signal
+wait` on that exact name with a `--timeout` and a `--description`, adding
+`--since` when the fact may have been raised already; when they say it
+happened, `splates signal raise` it; when they ask about its state, the Signals page holds it, and a payload
+is the state when it was raised, so re-check before acting on it. A name no
+signal has yet is one nobody has raised or probed, which you may still wait on
+or raise. Never turn it into a polling loop.
 
 ## Principles
 
@@ -49,6 +60,10 @@ the rest:
    in a line. See [proposing.md](references/proposing.md).
 3. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
+   **A proposal is the only card in its reply.** Its calls are its numbered
+   questions, so never send a separate questions card, run-command card, queue
+   card or any other card in the same turn: a turn holds a proposal or
+   questions, not both. Put every call in the proposal and end the turn.
 4. **Go easy on a busy machine.** The user works on it beside other agents.
    What is heavy depends on the project and the hardware, and nothing enforces
    this, so it is your best effort:
@@ -61,11 +76,17 @@ the rest:
      anything that keeps cores busy for more than a minute), run
      `splates machine`. Not busy: run the command. Busy: ask with a run-command
      card (`## 🔐 Permission: run command: <why>`, the command alone on a line
-     in backticks, under it that you ask because the machine is busy and what
-     the command would add), end your turn, and run it only on
-     `[SPLATES RUN ALLOWED]`.
-   - A cost that is not compute (tokens, a write outside the repository, a
-     deploy): ask with the same card, however the machine is, saying that cost.
+     in backticks, a `Reason:` line, under it that you ask because the machine
+     is busy and what the command would add), end your turn, and run it only
+     on `[SPLATES RUN ALLOWED]`. `Reason: busy` means the machine's load is
+     the only reason you ask, nothing else about the command: the server may
+     then allow it itself once the machine is idle, and says so in the
+     `[SPLATES RUN ALLOWED]` it sends.
+   - Any other reason (a cost that is not compute: tokens, a write outside the
+     repository, a deploy; or a command that is irreversible, risky or
+     invasive): ask with the same card, however the machine is, saying that
+     reason, with `Reason: cost` or `Reason: risk`. When load is one reason
+     among several, it is never `Reason: busy`; when unsure, `Reason: risk`.
    - Run anything else without a card: an install, a typecheck, a lint, a
      test file or two, a commit, a short script.
 5. **Commit as you go**, in plain messages with no attribution.
@@ -117,6 +138,12 @@ as often as is natural. Finish it with `--done` or `--failed`; use a background
 command's id as `<id>` and it closes when the command ends. Archiving the
 conversation clears its cards.
 
+A subagent you leave running in the background shows nothing on the page, since
+it runs inside your process and has no command to watch. Open a card for it
+when you start it (`splates progress <subagent> "<what it is doing>" --title
+"<name>"`), update it as it reports, and close it with `--done` or `--failed`
+when it reports back.
+
 ## Formats
 
 The `splates server` page turns these shapes, and only these, into cards the
@@ -165,10 +192,11 @@ The task set out to stop uploads retrying a 413.
 ```
 
 When a task that took a queued board task waits on another task to merge,
-`splates blocker add <#id | "subject">` keeps the worktree and suspends the
-conversation: end your turn after it, and it wakes when every blocker has
-merged or the user writes to it. A subject makes a new Backlog task, so end
-the reply with its queue card.
+`splates blocker add <#id | "subject">` links the blocker and keeps the
+conversation open: carry on with what does not need it. `splates merge`
+refuses while any blocker is open, and `[SPLATES BLOCKERS CLEARED]` comes
+when the last one ends. A subject makes a new Backlog task, so end the reply
+with its queue card.
 
 When the work is blocked and only set aside for later, remove it with
 `--reason blocked`, which asks why it stopped and what it waits on (a task
@@ -242,8 +270,10 @@ the user to queue):
 
 A command you expect to take a lot of CPU or memory, asked for because
 `splates machine` says the machine is busy, is asked with the run-command card:
-the command alone on the first backticked line, and under it why you ask and
-what it adds. End your turn after it. The user's Allow sends
+the command alone on the first backticked line, then `Reason: busy` on a line
+of its own (`Reason: cost` or `Reason: risk` for any other reason, never
+`busy` when the command is also irreversible, costly or invasive), and under
+it why you ask and what it adds. End your turn after it. The user's Allow sends
 `[SPLATES RUN ALLOWED]`, and only then do you run it. The card is text: outside
 the page the user can type that directive, or `[SPLATES RUN DENIED]`, or `[SPLATES RUN ELSEWHERE]` (a `rec` card only: not at that machine), or answer
 in plain words, and it means the same.
@@ -252,6 +282,8 @@ in plain words, and it means the same.
 ## 🔐 Permission: run command: build the web app
 
 `bun run build`
+
+Reason: busy
 
 Asking because the machine is busy (CPU 93%); this adds about two minutes of load.
 ```
@@ -269,8 +301,7 @@ splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
 scenarios you picked, one `` - `id` `` item each, and optionally the
 revision the change is judged against and how many times to run each cell
-(`Repetitions: <n>`, to tell a change from noise), the judge that grades
-the runs (`Judge:` then `` `claude:<model>@<effort>` ``, the runner's default when left out)
+(`Repetitions: <n>`, to tell a change from noise)
 and the saved agents to
 run on (`Agents:` then each as `` `agent:model@effort` ``), chosen only from the saved
 eval agents the project allows, never an agent you invent, leaving out those that need no
@@ -289,7 +320,6 @@ Checks the new wording of the scoped-tests rule.
 
 Baseline: `main`
 Repetitions: 3
-Judge: `claude:opus@high`
 Agents: `<agent:model@effort>`, `<agent:model@effort>`
 ```
 
@@ -353,7 +383,9 @@ with a ship card: one `` - `<target>` <bump> `` line a
 target by the `name` its plan prints (`<command> plan` for each command
 under `ships` in `splates.config.ts`, which runs nothing), never the
 command, its bump `patch`, `minor` or
-`major`, and the why under them saying what the release carries. Name a
+`major` only when its plan prints a `bump` (a deploy target's prints none, so its
+line names the target alone; the server refuses a card that gives it one and tells
+you to resend), and the why under them saying what the release carries. Name a
 target's dependency too when it must release first. The user's Approve on
 the card starts the ship and sends `[SPLATES SHIP STARTED <run>]`; the card
 then follows the run, so carry on without waiting. A typed "approve" starts
@@ -383,7 +415,45 @@ card for the user to queue it now or later.
 
 A task started by a ship belongs to that ship alone. Follow its mechanical detail and the user’s instructions: fix what breaks and land with `splates merge`, which tells the server it is OK to publish (run no ship command yourself), never change the release type or bump further. Its branch already holds the adopted pins and refresh work. If it cannot land, remove it with `--reason blocked` and explain why; this stops the ship. Never queue a ship’s task. Its task may be a deliberate "check this upstream update for API breaks" chosen up front (Agent task), not only a fix after a failed adoption: either way fix what breaks, land with `splates merge`, and never bump further.
 
-A board task sent from a failed step on the Ships page is that step's fix: take it as any queued task, read the run with `splates ships show <run>` (with `--target` and `--step` for everything the step printed), fix what made the step fail, and land with `splates merge`; the ship retries the step by itself once the fix task ends, merged or removed, so press nothing and change no code for it, and start no ship. To try the step before merging, `splates ships retry <run> --target <target> --step <step>` from your worktree runs it again from the main tree. Any agent may carry a ship the user started on that way, retrying a failed step, and leave what it found or changed with `splates ships note <run> "<text>" [--target <target> --step <step>] [--link <task or URL>]`; none may start a ship, answer its prompts or stop it.
+A board task sent from a failed step on the Ships page is that step's fix: take it as any queued task, read the run with `splates ships show <run>` (with `--target` and `--step` for everything the step printed), fix what made the step fail, and land with `splates merge`; the ship retries the step by itself once the fix task ends, merged or removed, so press nothing and change no code for it, and start no ship. To try the step before merging, `splates ships retry <run> --target <target> --step <step>` from your worktree runs it again in the run's own checkout, which stays on the commit the ship started on plus any fix that merged for it, so it shows whether the failure was passing, not whether your unmerged fix works. Any agent may carry a ship the user started on that way, retrying a failed step, and leave what it found or changed with `splates ships note <run> "<text>" [--target <target> --step <step>] [--link <task or URL>]`; none may start a ship, answer its prompts or stop it.
+
+## Waiting on an outside condition
+
+Do not poll in a background loop for a fact outside your own process: a
+site, a cloud deploy, another agent's work. Raise and wait on a named signal,
+`<project>.<name>`, which shows the user a card in the conversation and on
+the Signals page, where a hidden loop shows nothing. Your own long command (a
+build or test run in the background) stays a background command: your harness
+wakes you when it exits, so nothing polls.
+
+- `splates signal raise mdom.released --data '{"version":"2.4.0"}'` announces
+  it, with no approval. Every conversation waiting on the name at that moment
+  wakes with the payload; nothing is stored as current truth, so raise it
+  when the fact holds.
+- `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 on npm"`
+  puts one card in the conversation, then end your turn. `--description` is
+  required: one short line on what you wait for, which the card shows in
+  every state. `--timeout` is required too (7d at most). `--since 5h` (or an
+  ISO time) also accepts a raise from after then, for a fact raised before
+  you began to wait; further back than 7 days is refused. After a push two
+  hours ago, `--since 2h` catches a raise that came before the wait.
+- The conversation wakes with `[SPLATES SIGNAL <name>]` and the payload when
+  it is raised, or the same directive ending in `timeout` or `stopped` (the
+  person pressed Stop waiting). On `timeout`, decide what to do without the
+  fact, or ask the user.
+- For a fact only a check can see (a stack finishing, a page changing),
+  attach a probe before waiting, with no approval:
+  `splates signal probe aws.stack-ready --every 5m --timeout 6h --description "stack up" -- <script>`.
+  The server runs the script in the project's main tree, once at once when a
+  wait begins and then every `--every` (30s at the most often), and raises
+  the signal with its stdout when it exits 0 after failing. It stops once
+  nothing waits on it, at its timeout, or when the user stops it; probing the
+  name again replaces it. Then `splates signal wait` on the name as above.
+- A payload is the state when it was raised, not now: re-check before
+  anything hard to undo (a purchase, a cutover, a deploy).
+- Between agents, one raises and another waits on the same name: the task
+  that releases runs `splates signal raise mdom.released --data ...`, and a
+  task needing it runs `splates signal wait mdom.released ...`.
 
 ## Seeing a bug in a browser
 
@@ -433,7 +503,7 @@ the file when one arrives.
 | `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
 | `[SPLATES SHIP STARTED <run>]`      | The user approved your ship card, and the page started the ship as run `<run>` | Carry on: the card follows the run on the page, so wait on nothing |
 | `[SPLATES SHIP DECLINED]`           | The user declined your ship card, with any note after it | Nothing ships: carry on without it, and offer it again only when the user asks |
-| `[SPLATES RUN ALLOWED]`             | The user allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
+| `[SPLATES RUN ALLOWED]`             | The user, or the server for a `Reason: busy` card once the machine is idle, allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
 | `[SPLATES RUN ELSEWHERE]`           | The user is not at the machine that can run the `rec` command your run-command card asked to run | Do not run it, and do not offer rec again in this conversation: carry on without it |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
 | `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
@@ -442,6 +512,8 @@ the file when one arrives.
 | `[SPLATES GRANT DENIED]`            | The user turned down the reach your grant card asked for | Nothing was granted: carry on without that reach, or ask what to do instead |
 | `[SPLATES CHECKPOINT]`              | Bring `SPLATES.md` up to date and stop, as before a restart                                                                                       | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `[SPLATES RESUME]`                  | Carry on from where `SPLATES.md` says you stopped                                                                                                 | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `[SPLATES BLOCKERS CLEARED]`        | The last task your work was blocked on has ended, so `splates merge` is open again | Carry on: finish what the blocker held back, then merge as usual |
+| `[SPLATES SIGNAL <name>]` | A signal you waited on was raised, with its payload, or ended with `timeout` or `stopped` | Carry on with the work the wait was for; see Waiting on an outside condition |
 | `[SPLATES RECONNECT]`               | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on                                        | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop                                                                                                                                                              |
 
 ## Reference files
@@ -536,6 +608,14 @@ queuing work there and asking for a grant.
    were asked, ask the user instead (see [Questions](references/questions.md)).
    `splates add` warns when file paths in the After or the first changes overlap
    open tasks. Coordinate those files or queue dependent work with `--blocked-by`.
+   It also prints up to three `related` tasks, in any state (queued, started,
+   or merged or removed in the last 30 days), as the board's most related to
+   your goal (`--related <k>` names more or fewer). Read each before building (`splates task show <id>`, `splates
+   show <task>`, `git show <commit>`). One that already does the work makes
+   yours moot: check trunk, then `splates remove --reason superseded`. One
+   that works against it is a question for the user. One you must wait on is
+   a `splates blocker add`. Otherwise carry on; a related task alone is no
+   reason to stop.
    While the server runs, `splates list` and `show` name coming conflicts at
    committed branch tips, and a working agent hears a notice when one appears.
    These checks never rebase a worktree; commit in steps so they can see the work.
@@ -626,8 +706,8 @@ small change, a full record for a long one.
 ## Before
 
 Today, in one line, and a real screenshot (`splates attach`ed, inline as
-`![what](/abs/path.png)`) or a D2 diagram of the current flow. Leave it
-empty for a new thing.
+`![what](/abs/path.png)`) or a D2 diagram of the current flow, in a
+```` ```d2 ```` fence (see Diagrams below). Leave it empty for a new thing.
 
 ## After
 
@@ -685,6 +765,21 @@ from git, so leave it out of commit messages.
 A plan from before Before and After may still have `## Goal`, `## Verification`,
 `## Outcome`: the server reads Goal as After and shows the
 others for finished tasks, but use `## Verification` for new evidence; do not write Goal or Outcome in a new plan.
+
+## Diagrams
+
+A D2 diagram renders only inside a fenced block whose info string is exactly
+`d2`: three backticks, `d2`, the source, three closing backticks. An untagged
+fence, or one tagged `text`, `plaintext`, `d2lang` or `D2`, shows as plain
+code and never draws. Never write D2 source bare, in an untagged block, or
+as an attached file in its place. Check the opening line of every diagram
+before sending a reply or saving `SPLATES.md`.
+
+````markdown
+```d2
+client -> server: upload
+```
+````
 
 ## Committing
 

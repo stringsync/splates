@@ -23,7 +23,10 @@ export function requestOf(
 		command: found.command,
 		target,
 		step,
-		...(found.bump && { bump: found.bump }),
+		// The version it was reviewed at, whatever the target counts from now.
+		...(found.version !== undefined
+			? { version: found.version }
+			: found.bump && { bump: found.bump }),
 		upstream,
 	};
 }

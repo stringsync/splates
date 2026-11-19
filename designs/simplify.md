@@ -202,9 +202,9 @@ one is deleted.
    that waits on a later change.
 3. **Events and hooks.** Events from the journal, hook config, the groomer
    as a hook, and its Setup step. Grooming by the agent that runs a task
-   when no groomer is set up. `HookRunner` follows the journal from a cursor
-   in `.git/splates/hooks-seen.json`, starting from now the first time, so
-   no hook runs for the past. The person's hooks live in
+   when no groomer is set up. `TaskSignals` follows the journal from now, raising each task event as a
+   `<project>/task.*` signal, which fires the event automations; no hook runs
+   for the past. The person's hooks live in
    `.git/splates/hooks.json` (`splates hook`). The groomer is off for now:
    agents write their own tasks, and the agent that starts one grooms it
    first, as the queue's prompt and `references/queue.md` say. Bringing a

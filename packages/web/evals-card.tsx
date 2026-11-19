@@ -278,14 +278,6 @@ export function EvalsCard({
 										void run.repeat(Number(event.target.value))
 									}
 								/>
-								<SettingField
-									label="Judge"
-									aria-label="Run judge"
-									type="text"
-									defaultValue={run.ask.judge}
-									placeholder="claude:sonnet"
-									onChange={(event) => run.setJudge(event.target.value)}
-								/>
 								{conversation !== null && (
 									<SettingField
 										label="Budget ($)"

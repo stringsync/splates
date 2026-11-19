@@ -12,6 +12,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
+import { CannedEditor, matchesCanned } from "./canned-editor";
 import { Refusal, useRefusal } from "./refusal";
 import {
 	CATEGORIES,
@@ -33,10 +34,8 @@ import {
 } from "./shortcuts";
 
 /**
- * The page's settings, the way an IDE lays out its options: categories down
- * the left (along the top on a phone), the picked one's settings on the right,
- * and a search over all of them that shows every setting it matches, under
- * its category. The category picked outlives the dialog closing.
+ * The page's settings: pick a category to change its settings, or search for
+ * one. The category picked is kept when the dialog closes.
  */
 export function SettingsDialog({
 	settings,
@@ -60,7 +59,9 @@ export function SettingsDialog({
 	const shown = CATEGORIES.map((category) => ({
 		category,
 		keys: found.filter((key) => definitionOf(key).category === category),
-	})).filter(({ keys }) => keys.length > 0);
+	})).filter(
+		({ category, keys }) => keys.length > 0 || matchesCanned(category, query),
+	);
 	const searching = query !== "";
 	const pages = searching
 		? shown
@@ -150,16 +151,20 @@ export function SettingsDialog({
 									className="mb-6"
 								>
 									<h3 className="mb-2 font-medium text-base">{category}</h3>
-									<ul className="flex flex-col divide-y">
-										{keys.map((key) => (
-											<SettingRow
-												key={key}
-												settings={settings}
-												name={key}
-												query={query}
-											/>
-										))}
-									</ul>
+									{category === "Canned replies" ? (
+										<CannedEditor />
+									) : (
+										<ul className="flex flex-col divide-y">
+											{keys.map((key) => (
+												<SettingRow
+													key={key}
+													settings={settings}
+													name={key}
+													query={query}
+												/>
+											))}
+										</ul>
+									)}
 								</section>
 							))
 						)}

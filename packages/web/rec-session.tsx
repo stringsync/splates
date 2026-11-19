@@ -34,12 +34,12 @@ import {
 	deleteRecSession,
 	openRecFolder,
 	recFileUrl,
-	recLog,
 	recSession,
 	recVideoUrl,
 	renameRecSession,
 } from "./api";
 import { bytesText, clock } from "./rec-format";
+import { FailedLogs, Logs } from "./rec-session-logs";
 
 /** One saved session: its recording with moments marked, and what rec read from it. */
 export function RecSession({
@@ -157,6 +157,7 @@ export function RecSession({
 					This session has no recording to play.
 				</p>
 			)}
+			<FailedLogs session={session} />
 			<Tabs defaultValue="moments">
 				<TabsList>
 					<TabsTrigger value="moments">Moments</TabsTrigger>
@@ -484,42 +485,6 @@ function Timeline({
 					</li>
 				))}
 			</ul>
-		</div>
-	);
-}
-
-function Logs({ name, files }: { name: string; files: string[] }): JSX.Element {
-	const [file, setFile] = useState(files[0] ?? null);
-	const [text, setText] = useState<string | null>(null);
-	useEffect(() => {
-		setText(null);
-		if (file !== null) {
-			recLog(name, file).then(setText, () =>
-				setText("Could not read this log."),
-			);
-		}
-	}, [name, file]);
-	if (file === null) {
-		return <p className="text-muted-foreground text-sm">No logs.</p>;
-	}
-	return (
-		<div className="flex flex-col gap-2">
-			<div className="flex flex-wrap gap-2">
-				{files.map((each) => (
-					<button
-						key={each}
-						type="button"
-						aria-pressed={each === file}
-						onClick={() => setFile(each)}
-						className={`rounded-full border px-3 py-1 text-sm ${each === file ? "border-primary bg-primary/10 text-primary" : "bg-card"}`}
-					>
-						{each}
-					</button>
-				))}
-			</div>
-			<pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-card p-3 font-mono text-xs">
-				{text ?? "Loading…"}
-			</pre>
 		</div>
 	);
 }

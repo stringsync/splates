@@ -26,6 +26,7 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { BoardChip } from "./board-chip";
 import { copiedLabel, useCopy } from "./card";
 import {
 	markUnread,
@@ -45,8 +46,7 @@ import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
-import { useRowStatus, useRowTags } from "./row-status";
-import { TagChips } from "./tag-chips";
+import { boardRef, useRowStatus, waitingSignal } from "./row-status";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
@@ -114,7 +114,7 @@ export function Item({
 	const quiet = useQuiet(conversation);
 	const row = { conversation, task, need };
 	const status = useRowStatus(row);
-	const tags = useRowTags(row);
+	const on = boardRef(row);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
 	const pins = !archived && !nested;
@@ -205,12 +205,13 @@ export function Item({
 					</span>
 					{preview === undefined && (
 						<span className="flex min-w-0 items-center gap-1.5">
-							<TagChips
-								tags={tags}
-								max={3}
-								className="shrink overflow-hidden flex-nowrap"
-							/>
-							<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground leading-4">
+							<BoardChip {...on} className="shrink overflow-hidden" />
+							<span
+								className={cn(
+									"min-w-0 flex-1 truncate text-[11px] leading-4",
+									status.signal ? "text-warning" : "text-muted-foreground",
+								)}
+							>
 								{status.label}
 							</span>
 						</span>
@@ -275,6 +276,7 @@ export function Item({
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
 					<Mark
+						signal={waitingSignal(conversation) !== null}
 						queued={conversation?.heldForTask != null}
 						starting={conversation.status === "starting"}
 						picking={conversation.picking}

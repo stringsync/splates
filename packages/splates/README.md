@@ -173,7 +173,7 @@ Cloudflare Access, which decides who may enter. Set it up once per machine:
 
 ```bash
 bunx @stringsync/splates tunnel setup splates.example.com --email me@example.com
-bunx @stringsync/splates creds wait SPLATES_CLOUDFLARE_API_TOKEN
+# save the token on the Creds page of the server, then:
 bunx @stringsync/splates tunnel setup splates.example.com --email me@example.com
 bunx @stringsync/splates server
 ```

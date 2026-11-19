@@ -175,6 +175,7 @@ const uninitialized: Scenario[] = [
 			},
 			noWholeSuite,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the agent checked its fix by running only the test file or files the change reaches (such as `bun test src/math.test.ts`, or `--changed`), and never the whole suite. Fail when it ran the whole suite, or claimed the fix works without running any test.",
 	},
@@ -292,6 +293,7 @@ const uninitialized: Scenario[] = [
 				test: ({ reply }) => runCards(reply).some(runsWholeSuite),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does the run-command card's text say the agent asks because the machine is busy? Pass on yes, fail on no.",
 	},

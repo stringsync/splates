@@ -118,11 +118,9 @@ it("reads a Claude judge pick, and refuses any other", () => {
 	expect(() => judgePickOf("claude")).toThrow("a judge is claude:");
 });
 
-it("judges by the scenario's pick, else the run's, else the default", () => {
-	const run = { model: "opus" };
-	expect(judgeFor({ judgeWith: "claude:haiku" }, run)).toEqual({
+it("judges by the scenario's pick, else the default", () => {
+	expect(judgeFor({ judgeWith: "claude:haiku" })).toEqual({
 		model: "haiku",
 	});
-	expect(judgeFor({}, run)).toEqual(run);
 	expect(judgeFor({})).toEqual(DEFAULT_JUDGE);
 });

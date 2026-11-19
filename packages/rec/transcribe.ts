@@ -63,8 +63,12 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 	const work = `${dir}/.audio`;
 	await fs.mkdir(work, { recursive: true });
 	try {
+		const silent = opts.micOff || opts.noMic;
+		// A transcript already written holds even without a key, so redoing the timeline keeps the narration.
+		const kept = !silent && opts.reuse ? await existing(fs, dir) : undefined;
 		const transcript: Transcript =
-			opts.micOff || opts.noMic || !opts.key
+			kept ??
+			(silent || !opts.key
 				? {
 						version: 1,
 						model: "whisper-1",
@@ -74,8 +78,7 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 						words: [],
 						utterances: [],
 					}
-				: (opts.reuse && (await existing(fs, dir))) ||
-					(await hear(fetcher, work, opts));
+				: await hear(fetcher, work, opts));
 		const pointers: Pointer[] = [];
 		const logs = (await fs.readdir(`${dir}/logs`).catch(() => [] as string[]))
 			.filter((name) => name.endsWith(".log"))
@@ -97,7 +100,7 @@ export async function transcribe(opts: TranscribeOptions): Promise<Transcript> {
 			renderTimeline(transcript, pointers, {
 				micOff: opts.micOff,
 				noMic: opts.noMic,
-				noKey: !opts.key,
+				noKey: !opts.key && !kept,
 			}),
 		);
 		return transcript;

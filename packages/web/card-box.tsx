@@ -7,7 +7,9 @@ import {
 	useContext,
 	useEffect,
 	useId,
+	useLayoutEffect,
 	useRef,
+	useState,
 	useSyncExternalStore,
 } from "react";
 import { ATTACH } from "#web/components/assistant-ui/elements/attachment.aui.tsx";
@@ -15,6 +17,8 @@ import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip
 import { cn } from "#web/lib/utils.ts";
 import { BoxDictation } from "./box-dictation";
 import { BoxEditor, type BoxEditorProps, caretToEnd } from "./box-editor";
+import { CannedPicker } from "./canned-picker";
+import { withCanned } from "./canned-responses";
 import { ReplyContext } from "./card-reply";
 import { BoxMic } from "./dictate-button";
 import { COMPOSER, type Dictation } from "./dictation";
@@ -28,13 +32,8 @@ type Props = Omit<BoxEditorProps, "inset"> & {
 };
 
 /**
- * A card's answer box as a small composer: the text, with a plus to attach
- * and the mic at its end, and under it the files attached to it. The plus
- * and mic show only while the box has the focus or pointer. During a take,
- * a full-width waveform and stop control cover the editor along its bottom,
- * the box keeping the height it had. A paste of files
- * attaches them, and `@` and `#` offer what the thread's composer does; what
- * is picked or attached is a chip in the words, as in the composer.
+ * A card's answer box: type, paste files, dictate, or add a canned reply
+ * from its buttons. Pass `files` to allow attachments and `roomy` on a phone.
  */
 export function CardBox(props: Props): JSX.Element {
 	const dictation = useContext(DictationContext);
@@ -76,6 +75,7 @@ function DictatedBox({
 
 function Box({
 	onValue,
+	value,
 	files,
 	roomy = false,
 	className,
@@ -84,6 +84,7 @@ function Box({
 	...props
 }: Props & { box: BoxDictation | null; taking?: boolean }): JSX.Element {
 	const shell = useRef<HTMLDivElement>(null);
+	const below = useBelow(shell, value);
 	// A take makes the editor inert, which drops its focus; once the take is
 	// done the box has it back, caret after the words, so Enter and the arrows
 	// work as before. Skipped when the person has moved the focus elsewhere.
@@ -128,12 +129,14 @@ function Box({
 					inert={taking}
 					aria-hidden={taking || undefined}
 					className={cn(
-						"relative grid min-h-(--suffix-height) items-center",
+						"relative grid items-center",
+						!below && "min-h-(--suffix-height)",
 						taking && "invisible",
 					)}
 				>
 					<BoxEditor
 						{...props}
+						value={value}
 						files={files}
 						onValue={(text) => {
 							onValue(text);
@@ -146,16 +149,17 @@ function Box({
 							roomy
 								? "py-3 text-base"
 								: "py-2 text-sm pointer-coarse:text-base",
-							(box !== null || files !== null) && BUTTON_ROOM,
+							!below && BUTTON_ROOM,
 							className,
 						)}
 					/>
-					{(box !== null || files !== null) && (
-						<Suffix roomy={roomy} shell={shell}>
-							{files !== null && <AttachPlus files={files} />}
-							{box !== null && <BoxMic box={box} />}
-						</Suffix>
-					)}
+					<Suffix roomy={roomy} shell={shell} below={below}>
+						{files !== null && <AttachPlus files={files} />}
+						<CannedPicker
+							onPick={(reply) => onValue(withCanned(value, reply))}
+						/>
+						{box !== null && <BoxMic box={box} />}
+					</Suffix>
 				</div>
 				{taking && box !== null && (
 					<div
@@ -186,22 +190,72 @@ function Box({
 	);
 }
 
+/**
+ * Whether the text spans more than one line, so the buttons take a row of
+ * their own under it. With one line they share it. The editor is narrower
+ * with the buttons beside it, so once below, the text goes back beside them
+ * only when it would fit one line there, which keeps the box from flipping.
+ */
+function useBelow(shell: RefObject<HTMLDivElement | null>, value: string) {
+	const [below, setBelow] = useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-measure when the text changes
+	useLayoutEffect(() => {
+		const root = shell.current;
+		const editor = root?.querySelector<HTMLElement>("[contenteditable=true]");
+		if (!root || !editor) {
+			return;
+		}
+		const measure = () => {
+			const style = getComputedStyle(editor);
+			const line = Number.parseFloat(style.lineHeight) || 20;
+			const padding =
+				Number.parseFloat(style.paddingTop) +
+				Number.parseFloat(style.paddingBottom);
+			const lines = Math.round((editor.scrollHeight - padding) / line);
+			if (lines > 1 || editor.textContent?.includes("\n")) {
+				setBelow(true);
+				return;
+			}
+			if (!below) {
+				return;
+			}
+			const buttons = root.style.getPropertyValue("--suffix-width");
+			const range = document.createRange();
+			range.selectNodeContents(editor);
+			const text = range.getBoundingClientRect().width;
+			const room =
+				editor.clientWidth -
+				Number.parseFloat(style.paddingLeft) -
+				Number.parseFloat(style.paddingRight) -
+				(Number.parseFloat(buttons) || 0);
+			setBelow(text > room);
+		};
+		measure();
+		const resized = new ResizeObserver(measure);
+		resized.observe(editor);
+		return () => resized.disconnect();
+	}, [shell, value, below]);
+	return below;
+}
+
 /** Keep wrapped text clear of the buttons, including their full touch height. */
 const BUTTON_ROOM = "pr-[calc(var(--suffix-width,0px)+0.75rem)]";
 
 /**
  * A box's buttons in its bottom corner, beside its last line however many
  * it wraps to. Its room is kept whether it shows or not, so the focus that
- * shows it moves nothing; it shows while the box has focus or the pointer.
+ * shows it moves nothing; it shows while the box has focus or the pointer, and always on a touch screen.
  * Its size goes to the box's shell, for the space the editor keeps and
  * the height of a box of one line.
  */
 function Suffix({
 	roomy,
 	shell,
+	below,
 	children,
 }: {
 	roomy: boolean;
+	below: boolean;
 	shell: RefObject<HTMLDivElement | null>;
 	children: ReactNode;
 }): JSX.Element {
@@ -229,7 +283,10 @@ function Suffix({
 		<div
 			ref={ref}
 			className={cn(
-				"absolute right-0 bottom-0 flex items-center opacity-0 transition-opacity duration-150 group-focus-within/box:opacity-100 group-hover/box:opacity-100",
+				"flex items-center opacity-0 transition-opacity duration-150 group-focus-within/box:opacity-100 group-hover/box:opacity-100 pointer-coarse:opacity-100",
+				below
+					? "col-start-1 row-start-2 justify-end"
+					: "absolute right-0 bottom-0",
 				roomy ? "p-1.5" : "p-1",
 			)}
 		>

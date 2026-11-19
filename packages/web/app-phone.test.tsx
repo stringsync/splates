@@ -10,6 +10,7 @@ import {
 	message,
 	resize,
 	Testing,
+	todo,
 	tool,
 	toThread,
 	waitFor,
@@ -130,20 +131,26 @@ describe("App on a phone", () => {
 		].join("\n"),
 	});
 
-	it("shows a task's tags as chips on its inbox row", async () => {
+	it("shows the board of a task's lane as a chip on its inbox", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			null,
 			{
-				tasks: [
-					details({ task: "alpha", lease: "held", tags: ["web", "bug"] }),
+				tasks: [details({ task: "alpha", lease: "held" })],
+				todos: [
+					todo({ id: 1, subject: "Fix login", takenBy: "alpha", lane: 1 }),
+				],
+				lanes: [{ id: 1, name: "Now", board: 2 }],
+				boards: [
+					{ id: 1, name: "Main", position: 1 },
+					{ id: 2, name: "Daily", position: 2 },
 				],
 			},
 		);
 		const inbox = view.getByRole("region", { name: "inbox" });
 
-		expect(within(inbox).getByTitle("Tag web")).toBeTruthy();
-		expect(within(inbox).getByTitle("Tag bug")).toBeTruthy();
+		expect(within(inbox).getByTitle("Board Daily")).toBeTruthy();
+		expect(within(inbox).queryByTitle("Board Main")).toBeNull();
 	});
 
 	it("lists the agents newest first in its inbox, each saying what it waits on", async () => {

@@ -1,5 +1,6 @@
 import type { Child, Ps } from "core/system";
 import { z } from "zod";
+import type { RecLogSource } from "../config";
 import { isLocal } from "../server/http";
 import type { Handler } from "../server/shared";
 import { body } from "../server/shared";
@@ -13,42 +14,15 @@ import type {
 	RecStatus,
 } from "./browser";
 import { REC_STORE_POLICY } from "./browser";
+import {
+	commandLogs,
+	logsArgs,
+	NO_PROJECT_LOGS,
+	type ProjectLogs,
+	RecLogSources,
+} from "./log-sources";
 import { logEntries, mergeEntries, timelineFileEntries } from "./timeline";
 
-const STATUS = z.object({
-	running: z.boolean(),
-	name: z.string().optional(),
-	recording: z.boolean().optional(),
-	startedAt: z.number().optional(),
-	mic: z.enum(["on", "off"]).optional(),
-	laser: z.boolean().optional(),
-	processing: z.array(z.string()).optional(),
-	lastOutcome: z
-		.discriminatedUnion("status", [
-			z.object({ status: z.literal("saved"), name: z.string() }),
-			z.object({ status: z.literal("failed"), reason: z.string() }),
-		])
-		.optional(),
-});
-
-const SOURCES = z.object({
-	containers: z.array(
-		z.object({ name: z.string(), project: z.string().optional() }),
-	),
-	error: z.string().optional(),
-});
-
-const OPEN = z.object({
-	name: z.string().min(1),
-	url: z.string().min(1),
-	docker: z.array(z.string()),
-	tails: z.array(z.string()),
-});
-
-/**
- * Lets the Rec page see whether rec is there and running, and open a session.
- * Ask `state()` for the page, call `open()` with the choices to start Chrome.
- */
 /**
  * A process recording, however it was started: `rec record`, bare `rec --url`
  * (recording is rec's fallback command), or `bin/rec`, which runs the package's
@@ -57,6 +31,10 @@ const OPEN = z.object({
 const RECORDING_COMMAND =
 	/(^|[ /])rec(\/packages\/rec\/index\.ts)?( record)?( --.*)?$/;
 
+/**
+ * Lets the Rec page see whether rec is there and running, and open a session.
+ * Ask `state()` for the page, call `open()` with the choices to start Chrome.
+ */
 export class Rec {
 	readonly #ps: Ps;
 	/** The rec this server started, while it runs. */
@@ -69,7 +47,10 @@ export class Rec {
 		this.#ps = ps;
 		this.#pollMs = opts.pollMs ?? 3000;
 		this.#graceMs = opts.graceMs ?? 5000;
+		this.#logs = new RecLogSources(opts.logSources ?? NO_PROJECT_LOGS);
 	}
+
+	readonly #logs: RecLogSources;
 
 	/** Runs `rec <args>`, and what it printed; null when it is missing or fails. */
 	async #run(args: string[]): Promise<string | null> {
@@ -128,8 +109,12 @@ export class Rec {
 		};
 	}
 
-	/** Starts rec, which keeps running until the person finishes in Chrome. */
-	open(what: RecOpen): void {
+	/**
+	 * Starts rec, which keeps running until the person finishes in Chrome,
+	 * fetching each of `logs` at Stop, the declared sources `what.logs` names,
+	 * run in `cwd`, the project's root.
+	 */
+	open(what: RecOpen, logs: RecLogSource[] = [], cwd?: string): void {
 		const argv = ["rec", "record", "--name", what.name, "--url", what.url];
 		if (what.docker.length > 0) {
 			argv.push(`--docker=${what.docker.join(",")}`);
@@ -137,7 +122,8 @@ export class Rec {
 		for (const path of what.tails) {
 			argv.push("--tail", path);
 		}
-		const child = this.#ps.start(argv);
+		argv.push(...logsArgs(logs));
+		const child = this.#ps.start(argv, cwd === undefined ? {} : { cwd });
 		// Unread output would fill the pipe and stop it.
 		for (const stream of [child.stdout, child.stderr]) {
 			void stream.pipeTo(new WritableStream()).catch(() => {});
@@ -252,6 +238,7 @@ export class Rec {
 		>;
 		const base = (path: string) => path.split("/").pop() ?? path;
 		const video = await this.#video(shown.folder);
+		const logged = await commandLogs(shown.folder);
 		const timeline =
 			shown.timeline === undefined
 				? undefined
@@ -276,6 +263,7 @@ export class Rec {
 			stills: shown.stills.map(base),
 			logs: shown.logs.map(base),
 			video: video !== null,
+			...(logged.length > 0 ? { commandLogs: logged } : {}),
 		};
 	}
 
@@ -439,6 +427,7 @@ export class Rec {
 	readonly read: Handler = async (request) =>
 		Response.json({
 			...(await this.state()),
+			...(await this.#logs.offered(request)),
 			here: isLocal(request.headers.get("host") ?? ""),
 		});
 
@@ -457,13 +446,17 @@ export class Rec {
 			});
 		}
 		const what = parsed.data;
+		const picked = await this.#logs.picked(request, what.logs ?? []);
+		if ("refused" in picked) {
+			return new Response(picked.refused, { status: 400 });
+		}
 		if ((await this.state()).status.running) {
 			return new Response("rec is already running", { status: 409 });
 		}
 		if ((await this.suggestName()) === null) {
 			return new Response("rec is not available", { status: 503 });
 		}
-		this.open(what);
+		this.open(what, picked.logs, picked.root);
 		return new Response(null, { status: 204 });
 	};
 
@@ -481,10 +474,43 @@ function composeProject(cwd: string): string {
 	return (cwd.split("/").pop() ?? "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
-/** What tunes how Stop waits for rec. */
+/** How a Rec is set up: how Stop waits for rec, and where the page's log sources come from. */
 export interface RecOptions {
 	/** How often Stop asks rec what it still processes. */
 	pollMs?: number;
 	/** How long rec may process nothing after Stop before it is killed as stuck. */
 	graceMs?: number;
+	/** The asking page's project, whose `rec.logs` the page offers; none when absent. */
+	logSources?: ProjectLogs;
 }
+
+const STATUS = z.object({
+	running: z.boolean(),
+	name: z.string().optional(),
+	recording: z.boolean().optional(),
+	startedAt: z.number().optional(),
+	mic: z.enum(["on", "off"]).optional(),
+	laser: z.boolean().optional(),
+	processing: z.array(z.string()).optional(),
+	lastOutcome: z
+		.discriminatedUnion("status", [
+			z.object({ status: z.literal("saved"), name: z.string() }),
+			z.object({ status: z.literal("failed"), reason: z.string() }),
+		])
+		.optional(),
+});
+
+const SOURCES = z.object({
+	containers: z.array(
+		z.object({ name: z.string(), project: z.string().optional() }),
+	),
+	error: z.string().optional(),
+});
+
+const OPEN = z.object({
+	name: z.string().min(1),
+	url: z.string().min(1),
+	docker: z.array(z.string()),
+	tails: z.array(z.string()),
+	logs: z.array(z.string()).optional(),
+});

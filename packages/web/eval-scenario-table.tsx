@@ -341,7 +341,7 @@ export function EvalScenarioTable({
 			<div className="sticky bottom-0 -mx-1 flex flex-col gap-3 bg-background/90 px-1 py-3 backdrop-blur">
 				{running === null ? (
 					<Button
-						className="min-h-11 w-full"
+						block
 						disabled={feed === null || pending || picked.length === 0}
 						onClick={() => runOrOpen(picked)}
 					>

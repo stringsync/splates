@@ -57,9 +57,9 @@ export class ElsewhereStanding {
 	}
 }
 
-/** Whether `blocker` still holds its task back: open there, or gone without merging. */
+/** Whether `blocker` still holds its task back: open there. One removed without merging holds nothing; it stays as a note. */
 export function holding(blocker: ElsewhereBlocker): boolean {
-	return blocker.landed === undefined;
+	return blocker.landed === undefined && !blocker.lost;
 }
 
 /** The same blocker: one project's task by its number. */
@@ -114,7 +114,7 @@ export function elsewhereLine(blocker: ElsewhereBlockerNow): string {
 		blocker.status === "merged"
 			? `merged as ${blocker.landed}`
 			: blocker.status === "removed"
-				? "removed without merging: unlink it once you decide this task still makes sense"
+				? "removed without merging, so it no longer holds this task"
 				: blocker.status === "unknown"
 					? "its project cannot be read"
 					: blocker.status;
@@ -136,8 +136,8 @@ export interface ElsewhereBlocker {
 	/** The commit it landed as there, once it merged. */
 	landed?: string;
 	/**
-	 * Set once it left that board without merging: whether this task still
-	 * makes sense is the person's call, made by unlinking it.
+	 * Set once it left that board without merging. It holds nothing then:
+	 * the link stays only as a note that the prerequisite never landed.
 	 */
 	lost?: true;
 }

@@ -69,7 +69,7 @@ export function BackgroundPane({
 							? "Disconnected"
 							: SAID[background.state])}
 				</span>
-				{running && (
+				{running && background.canStop !== false && (
 					<Button
 						size="sm"
 						variant="destructive"
@@ -101,6 +101,12 @@ export function BackgroundPane({
 					<XIcon />
 				</Button>
 			</header>
+			{background.pid !== undefined && (
+				<p className="text-muted-foreground text-xs">
+					Found running in the agent's processes, pid {background.pid}. Its
+					output goes to the agent, not here.
+				</p>
+			)}
 			<Output
 				output={output}
 				className="min-h-0 flex-1 overflow-hidden rounded-lg bg-[#0a0a0a] p-2"
@@ -187,6 +193,7 @@ export function MergeOutputPane({
 	);
 }
 
+// vet-ignore doc-comments-address-users: this comment predates the check and describes what the caller gets
 /** A command's output, drawn by xterm.js into a box that follows its size. */
 export function Output({
 	output,

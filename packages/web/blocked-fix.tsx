@@ -14,19 +14,18 @@ import {
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { linkTodo, queueTodo } from "./api";
+import { queueTodo } from "./api";
 import { Board, still, touchArea } from "./board";
-import { linked, queued } from "./board-expectations";
+import { queued } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 
 /**
  * Says how to clear a blocked task: queue the tasks it waits on, blockers
- * first; drop its links to removed blockers; or apply the same fix on blocked
+ * first; or apply the same fix on blocked
  * task `id`, which clears this one too.
  */
 export type BlockedFix =
 	| { kind: "queue"; chain: TaskRecord[] }
-	| { kind: "drop"; lost: number[] }
 	| { kind: "with"; id: number };
 
 /** What clears `todo`, among `todos`; null for one not blocked. */
@@ -47,12 +46,8 @@ function fixOf(
 	}
 	const own = blockage(todo, todos);
 	const fallback: BlockedFix | null =
-		own.chain.length > 0
-			? { kind: "queue", chain: own.chain }
-			: own.lost.length > 0
-				? { kind: "drop", lost: own.lost }
-				: null;
-	if (own.lost.length > 0 || seen.has(todo.id)) {
+		own.chain.length > 0 ? { kind: "queue", chain: own.chain } : null;
+	if (seen.has(todo.id)) {
 		return fallback;
 	}
 	seen.add(todo.id);
@@ -112,16 +107,13 @@ export function fixLabel(fix: BlockedFix): string {
 	switch (fix.kind) {
 		case "queue":
 			return `Queue ${fix.chain.length === 1 ? "1 blocker" : `${fix.chain.length} blockers`}`;
-		case "drop":
-			return `Drop link${fix.lost.length === 1 ? "" : "s"} to ${fix.lost.map((id) => `#${id}`).join(", ")}`;
 		case "with":
 			return `Blocked with #${fix.id}`;
 	}
 }
 
 /**
- * Applies `todo`'s fix: queues its chain, blockers first, or drops its
- * links to removed blockers, each pending until the server shows it; gives
+ * Applies `todo`'s fix: queues its chain, blockers first, pending until the server shows it; gives
  * back the tasks it queued, for Undo.
  */
 export function useApplyFix(): (
@@ -129,19 +121,13 @@ export function useApplyFix(): (
 	fix: BlockedFix,
 ) => Promise<number[]> {
 	const expect = useExpectSnapshot();
-	return async (todo, fix) => {
+	return async (_todo, fix) => {
 		if (fix.kind === "queue") {
 			const ids = fix.chain.map((task) => task.id);
 			for (const id of ids) {
 				await expect(queued(id, true), queueTodo(id, true));
 			}
 			return ids;
-		}
-		if (fix.kind === "drop") {
-			await expect(
-				linked(todo.id, todo.blockedBy),
-				linkTodo(todo.id, todo.blockedBy),
-			);
 		}
 		return [];
 	};
@@ -259,9 +245,6 @@ export function BlockedFixButton({
 			{fixLabel(fix)}
 		</button>
 	);
-	if (fix.kind === "drop") {
-		return button;
-	}
 	return (
 		<Tooltip>
 			<TooltipTrigger render={button} />

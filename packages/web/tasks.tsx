@@ -31,12 +31,7 @@ import { useRefusals } from "./refusal";
 import { RouteTrail } from "./route-trail";
 import { QueueMark } from "./start-queue";
 import { Task } from "./task-dialog";
-import {
-	type Filtered,
-	projectOptions,
-	type TaskFilter,
-	tagOptions,
-} from "./task-filter";
+import { type Filtered, projectOptions, type TaskFilter } from "./task-filter";
 import { TaskFilterBar } from "./task-filter-menu";
 import { BlockedColumn, QueuedColumn } from "./task-queue";
 import { TopBar } from "./top-bar";
@@ -71,9 +66,7 @@ export function Tasks({
 	/** Opens the list of boards. */
 	onBoards?: () => void;
 }): JSX.Element {
-	useReactive(filter, ({ projects, tags }) => ({ projects, tags }), [
-		"changed",
-	]);
+	useReactive(filter, ({ projects }) => ({ projects }), ["changed"]);
 	const everyTask = project.tasks;
 	const tasks = everyTask.filter((task) => filter.passes(task));
 	const saved = useContext(FinishedReferences).some(
@@ -118,7 +111,6 @@ export function Tasks({
 		openTask: (name: string) => onOpen(name),
 		openLane: onOpenLane,
 		tasks: everyTask.map((each) => each.task),
-		taskTags: new Map(everyTask.map((each) => [each.task, each.tags])),
 		refusedTodos,
 		refuseTodo,
 	};
@@ -163,11 +155,6 @@ export function Tasks({
 						projects={projectOptions(
 							[...project.todos.map(todoFiltered), ...everyTask],
 							filter.projects,
-						)}
-						tags={tagOptions(
-							project.allowedTags,
-							[...project.todos.map(todoFiltered), ...everyTask],
-							filter.tags,
 						)}
 					/>
 				</div>
@@ -235,7 +222,7 @@ type Here = Pick<
 
 /** What the filter reads of a queued task. */
 function todoFiltered(todo: TaskRecord): Filtered {
-	return { project: todo.scope ?? null, tags: todo.labels ?? [] };
+	return { project: todo.scope ?? null };
 }
 
 /** One project's tasks on the Tasks page. */
@@ -441,7 +428,6 @@ function TaskRow({
 	return (
 		<QueueRow
 			name={task.task}
-			tags={task.tags}
 			by={project ?? (taken && <LaneChip lane={taken.lane} />)}
 			marks={
 				<>

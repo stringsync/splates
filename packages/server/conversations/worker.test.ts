@@ -32,7 +32,12 @@ describe("A conversation on a worker", () => {
 		coordinator = new WorkerSession("coordinator", { timer, clock });
 		worker.events.on(
 			"channel",
-			(channel) => new WorkerProcessHost(channel, worker, ps),
+			// Only a process, as the daemon does: a call such as `processes` is no agent.
+			(channel) => {
+				if (channel.kind === "process") {
+					new WorkerProcessHost(channel, worker, ps);
+				}
+			},
 		);
 		const connecting = worker.connect(pair.worker, { id: "local" });
 		coordinator.accept(

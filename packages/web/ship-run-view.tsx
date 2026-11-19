@@ -7,7 +7,8 @@ import {
 	LoaderCircleIcon,
 	SquareIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { type JSX, useState } from "react";
 import {
 	answerShipPrompt,
 	retryShipStep,
@@ -15,6 +16,7 @@ import {
 	shipRun,
 	shipRunEvents,
 	stopShipRun,
+	superviseShipRun,
 } from "./api/ship";
 import { Button } from "./components/ui/button";
 import {
@@ -26,21 +28,18 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "./components/ui/dialog";
-import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
-import { spanOf } from "./merge-lines";
 import { todoAddress } from "./page-address";
+import { FixLine, ShipFailureCard } from "./ship-failure-card";
+import { ShipHeading } from "./ship-heading";
 import { ShipPromptCard, ShipSignedIn } from "./ship-prompt-card";
 import { ShipRecap } from "./ship-recap";
 import { markRecapSeen } from "./ship-recap-seen";
 import { type ShipRunServer, ShipRunView } from "./ship-run";
-import {
-	type RunSummary,
-	type StepFix,
-	type StepPrompt,
-	summarize,
-	type TargetSummary,
-} from "./ship-run-summary";
+import { ShipRunProgress } from "./ship-run-progress";
+import { summarize, type TargetSummary } from "./ship-run-summary";
+import { RunNotes, SpawnedStrip } from "./ship-spawned";
+import type { SpawnedWork } from "./ship-spawned-work";
 import { StepRail } from "./ship-step-rail";
 import { TargetTime } from "./ship-target-time";
 
@@ -52,21 +51,26 @@ export const SHIP_RUN_SERVER: ShipRunServer = {
 	send: sendShipStep,
 	stop: stopShipRun,
 	answer: answerShipPrompt,
+	supervise: superviseShipRun,
 };
 
 /**
- * The Shipping screen for run `id`: the bar and how many targets are done,
- * then the steps in order, each target's card with its state, its latest
- * line and the time it took, live. A failed target offers Send to agent
- * and Retry, and says which task fixes it; a step that asks opens its
- * prompt in place, under its target.
+ * The Shipping screen for run `id`, live: the bar, what needs the user, then
+ * each target's card in order. What needs the user sits under the bar, every
+ * failed target first, with Send to agent, Retry and the task fixing it, then
+ * every step asking for an answer, each card headed by its target.
  */
 export function ShipRunScreen({
 	id,
 	server = SHIP_RUN_SERVER,
+	spawned = NOTHING_SPAWNED,
+	agents,
 }: {
 	id: string;
+	agents?: ReactNode;
 	server?: ShipRunServer;
+	/** The tasks and conversations `run` spawned, where each stands now. */
+	spawned?: (run: RunState) => SpawnedWork[];
 }): JSX.Element {
 	const [view] = useState(() => new ShipRunView(id, server));
 	useDisposerEffect((disposer) => disposer.use(view.attach()), [view]);
@@ -78,6 +82,7 @@ export function ShipRunScreen({
 		sending,
 		answering,
 		stopping,
+		supervising,
 		refused,
 	} = useReactive(view, (view) => view.state, ["changed"]);
 	if (missing) {
@@ -100,17 +105,33 @@ export function ShipRunScreen({
 		);
 	}
 	const summary = summarize(run);
-	// Only the first prompt waiting opens, so the user answers one at a time.
-	const first = summary.steps
-		.flat()
-		.flatMap((target) =>
-			target.prompts.map((open) => ({ target: target.name, open })),
-		)
-		.at(0);
+	const all = summary.steps.flat();
+	const prompts = all.flatMap((target) =>
+		target.prompts.map((open) => ({ target: target.name, open })),
+	);
+	const broken = all.filter((each) => each.status === "failed");
+	const work = spawned(run);
 	const single = summary.steps.length === 1;
+	const failed = run.status === "failed";
+	const targets =
+		run.targets.length === 1 ? "1 target" : `${run.targets.length} targets`;
 	return (
 		<div className="flex flex-col gap-3">
-			<Progress
+			<ShipHeading
+				icon={failed ? ICONS.failed : ICONS.running}
+				title={failed ? "Stopped on a failure" : `Shipping ${targets}`}
+				line={
+					failed
+						? broken.every((target) => agentOf(work, target) !== undefined)
+							? "An agent is fixing it: the ship retries the step once the fix merges."
+							: "Retry the step or send it to an agent."
+						: prompts.length > 0
+							? "A step asks for an answer below."
+							: "Each step shows here as it runs."
+				}
+			/>
+			{agents}
+			<ShipRunProgress
 				run={run}
 				summary={summary}
 				stop={
@@ -119,6 +140,35 @@ export function ShipRunScreen({
 					)
 				}
 			/>
+			{broken.map((target) => (
+				<ShipFailureCard
+					key={target.name}
+					target={target}
+					retrying={target.failed.some((each) =>
+						retrying.has(`${target.name}\n${each.id}`),
+					)}
+					onRetry={() => view.retryFailed(target)}
+					sending={target.failed.some((each) =>
+						sending.has(`${target.name}\n${each.id}`),
+					)}
+					onSend={() => view.sendFailed(target)}
+					supervise={run.supervise}
+					supervising={supervising}
+					onSupervise={(fixes) => void view.supervise(fixes)}
+					agent={agentOf(work, target)}
+				/>
+			))}
+			{prompts.map(({ target, open }) => (
+				<ShipPromptCard
+					key={`${target}\n${open.step}\n${open.id}`}
+					target={target}
+					open={open}
+					answering={answering.has(`${target}\n${open.step}\n${open.id}`)}
+					onAnswer={(value) =>
+						void view.answer(target, open.step, open.id, value)
+					}
+				/>
+			))}
 			{!live && (
 				<p className="text-muted-foreground text-xs">
 					Reconnecting: this may be behind.
@@ -128,14 +178,14 @@ export function ShipRunScreen({
 				<section
 					// A step is the targets in it, which a run keeps.
 					key={step.map((each) => each.name).join(" ")}
-					aria-label={`Step ${index + 1}`}
+					aria-label={`Group ${index + 1}`}
 					className="flex flex-col gap-2"
 				>
 					{(!single || step.length > 1) && (
 						<h3 className="font-semibold text-sm">
 							{!single ? (
 								<>
-									Step {index + 1}
+									Group {index + 1}
 									{step.length > 1 && (
 										<span className="font-normal text-muted-foreground text-xs">
 											{" "}
@@ -149,36 +199,12 @@ export function ShipRunScreen({
 						</h3>
 					)}
 					{step.map((target) => (
-						<TargetCard
-							key={target.name}
-							runId={run.id}
-							target={target}
-							prompt={first?.target === target.name ? first.open : undefined}
-							retrying={target.failed.some((each) =>
-								retrying.has(`${target.name}\n${each.id}`),
-							)}
-							onRetry={() => {
-								for (const step of target.failed) {
-									void view.retry(target.name, step.id);
-								}
-							}}
-							sending={target.failed.some((each) =>
-								sending.has(`${target.name}\n${each.id}`),
-							)}
-							onSend={() => {
-								for (const step of target.failed) {
-									void view.send(target.name, step.id);
-								}
-							}}
-							answering={answering}
-							onAnswer={(step, prompt, value) =>
-								void view.answer(target.name, step, prompt, value)
-							}
-						/>
+						<TargetCard key={target.name} runId={run.id} target={target} />
 					))}
 				</section>
 			))}
-			<RunNotes run={run} />
+			<SpawnedStrip work={work} />
+			<RunNotes notes={run.notes} />
 			{refused !== null && (
 				<p className="text-destructive text-sm">{refused}</p>
 			)}
@@ -235,123 +261,29 @@ function StopRun({
 	);
 }
 
-/** What agents added to the run, one list, each note tagged with its step. */
-function RunNotes({ run }: { run: RunState }): JSX.Element | null {
-	if (run.notes.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label="Notes" className="flex flex-col gap-1.5">
-			<h3 className="font-semibold text-sm">Notes ({run.notes.length})</h3>
-			<ul className="flex flex-col gap-1.5">
-				{run.notes.map((note) => (
-					<li
-						key={`${note.at}\n${note.task}\n${note.text}`}
-						className="text-sm"
-					>
-						<span className="text-muted-foreground text-xs">
-							{note.target === undefined
-								? "run"
-								: `${note.target} · ${note.step}`}{" "}
-							· {note.task}
-							{" · "}
-							{spanOf(Date.now() - note.at)} ago
-						</span>
-						<p className="whitespace-pre-wrap">
-							{note.text}
-							{note.link !== undefined && (
-								<>
-									{" "}
-									<NoteLink link={note.link} />
-								</>
-							)}
-						</p>
-					</li>
-				))}
-			</ul>
-		</section>
-	);
-}
-
-/** A note's link: `#2851` opens the task, a URL opens itself. */
-function NoteLink({ link }: { link: string }): JSX.Element {
-	const task = /^#(\d+)$/.exec(link);
-	if (task?.[1] !== undefined) {
-		return (
-			<a className="underline" href={todoAddress(Number(task[1]))}>
-				{link}
-			</a>
-		);
-	}
-	return /^https?:\/\//.test(link) ? (
-		<a className="underline" href={link} rel="noreferrer" target="_blank">
-			{link}
-		</a>
-	) : (
-		<span>{link}</span>
-	);
-}
+/** No spawned work, where the page knows of no board or conversations. */
+const NOTHING_SPAWNED = (): SpawnedWork[] => [];
 
 /**
- * The card on top, kept in view as the page scrolls: "1 of 5 done", the time
- * the run has taken, and the bar with Stop beside it while the run is under way.
+ * Where to watch the agent fixing a failed step of `target`: its
+ * conversation once one took the fix, else the fix's board task.
  */
-function Progress({
-	run,
-	summary,
-	stop,
-}: {
-	run: RunState;
-	summary: RunSummary;
-	stop?: ReactNode;
-}): JSX.Element {
-	const running = run.status === "running";
-	const now = useNow(running);
-	const ended = Math.max(
-		run.started,
-		...run.targets.flatMap((target) =>
-			target.steps.flatMap((step) => step.ended ?? []),
-		),
+function agentOf(
+	work: SpawnedWork[],
+	target: TargetSummary,
+): string | undefined {
+	const open = target.fixes.find(
+		(fix) =>
+			fix.ended === undefined &&
+			target.failed.some((step) => step.id === fix.step),
 	);
-	const { done, total, finished, count } = summary;
-	const said =
-		run.status === "done"
-			? "Shipped"
-			: run.status === "stopped"
-				? `Stopped by you, ${done} of ${total} done`
-				: run.status === "failed"
-					? `Stopped on a failure, ${done} of ${total} done`
-					: `Shipping · ${done} of ${total} done`;
-	return (
-		<div className="flex flex-col gap-2.5 rounded-xl border bg-card px-3.5 py-3 shadow-xs">
-			<p className="flex items-baseline justify-between gap-3 font-semibold text-sm">
-				<span>{said}</span>
-				<span className="font-normal text-muted-foreground text-xs tabular-nums">
-					{spanOf((running ? now : ended) - run.started)}
-				</span>
-			</p>
-			<div className="flex items-center gap-3">
-				<div
-					role="progressbar"
-					aria-label="Steps done"
-					aria-valuemin={0}
-					aria-valuemax={count}
-					aria-valuenow={finished}
-					className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
-				>
-					<div
-						// The bar moves with each step, so a run of one target fills as it goes.
-						className={cn(
-							"h-full rounded-full transition-[width] duration-500",
-							run.status === "failed" ? "bg-destructive" : "bg-foreground",
-						)}
-						style={{ width: `${count === 0 ? 0 : (finished / count) * 100}%` }}
-					/>
-				</div>
-				{stop}
-			</div>
-		</div>
-	);
+	if (open === undefined) {
+		return undefined;
+	}
+	const talk = work.find(
+		(each) => each.kind === "fix" && each.todo === open.task,
+	)?.conversation;
+	return talk === undefined ? todoAddress(open.task) : `#conversations/${talk}`;
 }
 
 const ICONS = {
@@ -376,30 +308,15 @@ const ICONS = {
 };
 
 /**
- * One target's card: its state, name and time, the line under, its fixes,
- * and Send to agent and Retry once failed.
+ * One target's card: its state, name and time, the line under and its fixes.
+ * A failed target's fixes, Send to agent and Retry open up top instead.
  */
 function TargetCard({
 	runId,
 	target,
-	prompt,
-	retrying,
-	onRetry,
-	sending,
-	onSend,
-	answering,
-	onAnswer,
 }: {
 	runId: string;
 	target: TargetSummary;
-	/** The one prompt open on the page, when it is this target's. */
-	prompt: StepPrompt | undefined;
-	retrying: boolean;
-	onRetry: () => void;
-	sending: boolean;
-	onSend: () => void;
-	answering: ReadonlySet<string>;
-	onAnswer: (step: string, prompt: string, value: unknown) => void;
 }): JSX.Element {
 	return (
 		<article
@@ -407,11 +324,7 @@ function TargetCard({
 			data-status={target.status}
 			className={cn(
 				"flex gap-2.5 rounded-lg border bg-card px-3.5 py-3",
-				target.status === "failed"
-					? "border-destructive/60"
-					: target.asking
-						? "border-foreground/70"
-						: "border-border",
+				target.asking ? "border-foreground/70" : "border-border",
 			)}
 		>
 			{ICONS[target.status]}
@@ -435,93 +348,22 @@ function TargetCard({
 					</p>
 				) : null}
 				{target.steps.length > 1 && (
-					<StepRail run={runId} target={target.name} steps={target.steps} />
+					<div className="-ml-7.5">
+						<StepRail run={runId} target={target.name} steps={target.steps} />
+					</div>
 				)}
 				{target.signedIn.map((each) => (
 					<ShipSignedIn key={each.step} url={each.url} />
 				))}
-				{prompt !== undefined && (
-					<ShipPromptCard
-						key={`${prompt.step}\n${prompt.id}`}
-						open={prompt}
-						answering={answering.has(
-							`${target.name}\n${prompt.step}\n${prompt.id}`,
-						)}
-						onAnswer={(value) => onAnswer(prompt.step, prompt.id, value)}
-					/>
-				)}
-				{target.fixes.map((fix) => (
-					<FixLine
-						key={`${fix.step}\n${fix.task}`}
-						fix={fix}
-						failed={target.failed.some((step) => step.id === fix.step)}
-					/>
-				))}
-				{target.status === "failed" && (
-					<div className="flex gap-2 pt-1.5">
-						{!fixing(target) && (
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={sending}
-								onClick={onSend}
-							>
-								{sending ? "Sending…" : "Send to agent"}
-							</Button>
-						)}
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={retrying}
-							onClick={onRetry}
-						>
-							{retrying ? "Retrying…" : "Retry"}
-						</Button>
-					</div>
-				)}
+				{target.status !== "failed" &&
+					target.fixes.map((fix) => (
+						<FixLine
+							key={`${fix.step}\n${fix.task}`}
+							fix={fix}
+							failed={false}
+						/>
+					))}
 			</div>
 		</article>
-	);
-}
-
-/** Whether an agent is at work on each failed step of `target`. */
-function fixing(target: TargetSummary): boolean {
-	return target.failed.every((step) =>
-		target.fixes.some((fix) => fix.step === step.id && fix.ended === undefined),
-	);
-}
-
-/** What became of a step sent to an agent, its task linked while open. */
-function FixLine({
-	fix,
-	failed,
-}: {
-	fix: StepFix;
-	/** The step is failed now, the fix's retry refused or failed again. */
-	failed: boolean;
-}): JSX.Element {
-	const task = (
-		<a className="underline" href={todoAddress(fix.task)}>
-			#{fix.task}
-		</a>
-	);
-	return (
-		<p className="text-muted-foreground text-xs">
-			{fix.ended === undefined ? (
-				<>
-					An agent is fixing {fix.step} in {task}: the ship retries it once the
-					fix merges.
-				</>
-			) : fix.ended === "merged" ? (
-				<>
-					{fix.step} was fixed in #{fix.task}
-					{failed ? ", and failed again." : " and retried."}
-				</>
-			) : (
-				<>
-					The fix for {fix.step}, #{fix.task}, was removed without merging.
-				</>
-			)}
-		</p>
 	);
 }

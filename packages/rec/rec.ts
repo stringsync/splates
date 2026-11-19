@@ -8,6 +8,11 @@ import { BENCH_PAGE, summarize, summarizeCpu } from "./bench";
 import { BenchDriver, benchVideo, probe } from "./bench-drive";
 import { CdpSocket } from "./cdp";
 import { Chrome, parseActivePort } from "./chrome";
+import {
+	type CommandLogSpec,
+	parseLogsSpecs,
+	runCommandLog,
+} from "./command-logs";
 import { listContainers } from "./docker";
 import { Jev, optionalJevKey } from "./jev";
 import { RecClient, serverFile } from "./mark";
@@ -23,6 +28,7 @@ import type { SessionDirs } from "./sinks";
 import { BUNDLED_SKILL, installSkill } from "./skills";
 import { parseVideoTime, sliceSession } from "./slice";
 import { KEY_NAME, recCredentials, requireKey, transcribe } from "./transcribe";
+import { writeSignals } from "./write-signals";
 
 export interface RecDeps extends Deps {
 	fs: Fs;
@@ -58,9 +64,11 @@ async function freshDir(
 	return dir;
 }
 
-/** A scrubber for the values in the `.env` files of the directory rec runs in. */
-async function envScrubber(deps: RecDeps): Promise<Scrubber> {
-	const dir = deps.ps.cwd();
+/** A scrubber for the values in the `.env` files of a directory, by default the one rec runs in. */
+async function envScrubber(
+	deps: RecDeps,
+	dir = deps.ps.cwd(),
+): Promise<Scrubber> {
 	const names = (await deps.fs.readdir(dir).catch(() => [] as string[]))
 		.filter((name) => name === ".env" || name.startsWith(".env."))
 		.sort();
@@ -79,6 +87,7 @@ interface OpenSessionOptions {
 	routes?: Routes;
 	docker?: string;
 	tails?: string[];
+	logs?: CommandLogSpec[];
 	staged?: boolean;
 	noMic?: boolean;
 	liveKey?: string;
@@ -126,6 +135,7 @@ async function openSession(
 				scrubber: await envScrubber(deps),
 				docker: opts.docker,
 				tails: opts.tails,
+				logs: opts.logs,
 				staged: opts.staged,
 				noMic: opts.noMic,
 				liveKey: opts.liveKey,
@@ -173,6 +183,10 @@ rec
 		description:
 			"follow a file's lines, as <path> or <path>@-5m to backfill the last 5 minutes (s, m or h)",
 	})
+	.repeated("logs", z.string(), {
+		description:
+			"run a shell command at Stop for the recording's window, into logs/cmd-<name>.log: <name>=<command>, or <name>@utc=<command> when its offset-less stamps are UTC; {since} and {until} (ISO) or {sinceMs} and {untilMs} fill in the window",
+	})
 	.option("no-mic", z.boolean().default(false), {
 		description:
 			"record no audio and skip the transcript: an agent narrates with `rec mark`",
@@ -189,6 +203,7 @@ rec
 			home(deps),
 			deps.ps.env("HOME") ?? deps.ps.cwd(),
 		);
+		const logs = parseLogsSpecs(opts.logs);
 		const name = await names.choose(used, opts.name, opts.out);
 		const key = opts["no-mic"]
 			? ""
@@ -202,6 +217,7 @@ rec
 			await names.remember(home(deps), dir);
 			deps.log.info(`saved ${dir}; processing`);
 			try {
+				await fetchCommandLogs(deps, dir);
 				await transcribeSession(deps, dir, {
 					key,
 					names: opts.names,
@@ -275,6 +291,7 @@ rec
 				usedNames: used,
 				docker: opts.docker,
 				tails: opts.tail,
+				logs,
 				staged: true,
 				noMic: opts["no-mic"],
 				liveKey: key === "" ? undefined : key,
@@ -428,6 +445,78 @@ async function transcribeSession(
 	await deps.fs.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 
+/**
+ * Fetches a saved session's `--logs` sources (or only the one named `only`)
+ * into its `logs/`, so its signals, timeline and moments can read them.
+ * Resolves with how many ran; a command that fails leaves a note in the
+ * manifest with the `rec logs fetch` that retries it, and never throws.
+ */
+export async function fetchCommandLogs(
+	deps: RecDeps,
+	dir: string,
+	only?: string,
+): Promise<number> {
+	const manifestPath = `${dir}/manifest.json`;
+	const manifest = JSON.parse(await deps.fs.read(manifestPath)) as Manifest;
+	const sources = manifest.commandLogs ?? [];
+	const chosen = sources.filter(
+		(source) => only === undefined || source.name === only,
+	);
+	if (only !== undefined && chosen.length === 0) {
+		throw new Error(
+			`${dir} has no --logs source ${only}${sources.length ? `; it has ${sources.map((source) => source.name).join(", ")}` : ""}`,
+		);
+	}
+	if (chosen.length === 0) {
+		return 0;
+	}
+	manifest.commandLogs = await Promise.all(
+		sources.map(async (source) => {
+			if (!chosen.includes(source)) {
+				return source;
+			}
+			const result = await runCommandLog({
+				ps: deps.ps,
+				fs: deps.fs,
+				dir,
+				scrubber: await envScrubber(deps, source.cwd),
+				source,
+				retry: `rec logs fetch ${JSON.stringify(dir)} --source ${source.name}`,
+			});
+			if (result.status === "failed") {
+				deps.log.error(
+					`logs ${result.note}; the session is saved without them: run ${result.retry} to retry`,
+				);
+			} else {
+				manifest.files[`cmd:${result.name}`] = result.file;
+				deps.log.info(
+					`wrote ${result.lines} lines to ${dir}/${result.file}${result.note ? ` (${result.note}; ${result.retry} to retry)` : ""}`,
+				);
+			}
+			return result;
+		}),
+	);
+	await deps.fs.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+	await writeSignals(deps.fs, dir, manifest.startedAt);
+	return chosen.length;
+}
+
+/** `rec logs fetch`: runs a saved session's `--logs` commands again, then redoes its timeline and moments, reusing its transcript. */
+async function refetchLogs(
+	deps: RecDeps,
+	name: string,
+	only?: string,
+): Promise<void> {
+	const dir = await sessionFolder(deps, name);
+	if ((await fetchCommandLogs(deps, dir, only)) === 0) {
+		throw new Error(`${name} was recorded without --logs`);
+	}
+	const key = (await (await recCredentials()).get(KEY_NAME)) ?? "";
+	await transcribeSession(deps, dir, { key, names: "", reuse: true });
+	deps.log.info(`wrote ${dir}/timeline.md`);
+	await rankSession(deps, dir);
+}
+
 /** Records in the manifest that the session's transcript and moments are done, or why they failed. */
 async function markProcessed(
 	deps: RecDeps,
@@ -502,14 +591,7 @@ rec
 		description: "print JSON: { folder, from, to, at, clip, shots }",
 	})
 	.action(async (opts, deps) => {
-		const dir = await library(deps)
-			.path(opts.name)
-			.catch(async (cause) => {
-				if (await deps.fs.exists(`${opts.name}/manifest.json`)) {
-					return opts.name;
-				}
-				throw cause;
-			});
+		const dir = await sessionFolder(deps, opts.name);
 		const result = await sliceSession({
 			fs: deps.fs,
 			ps: deps.ps,
@@ -613,6 +695,18 @@ const sessions = rec.group("sessions");
 
 function client(deps: RecDeps): RecClient {
 	return new RecClient(deps.fs, home(deps));
+}
+
+/** A session's folder, by its name in the store or as a folder path. */
+async function sessionFolder(deps: RecDeps, name: string): Promise<string> {
+	return await library(deps)
+		.path(name)
+		.catch(async (cause) => {
+			if (await deps.fs.exists(`${name}/manifest.json`)) {
+				return name;
+			}
+			throw cause;
+		});
 }
 
 function library(deps: RecDeps): SessionLibrary {
@@ -751,6 +845,20 @@ rec
 		deps.log.info(`transcribed ${opts.dir}/timeline.md`);
 		await rankSession(deps, opts.dir);
 		await markProcessed(deps, opts.dir);
+	});
+
+rec
+	.group("logs")
+	.command("fetch")
+	.description(
+		"run a session's --logs commands again for its window, such as after a sign-in expired, and redo its timeline and moments",
+	)
+	.arg("name", z.string())
+	.option("source", z.string().optional(), {
+		description: "only this --logs source, by name",
+	})
+	.action(async (opts, deps) => {
+		await refetchLogs(deps, opts.name, opts.source);
 	});
 
 rec

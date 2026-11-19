@@ -33,6 +33,7 @@ import {
 	MonitorOffIcon,
 	PlayIcon,
 	PlugIcon,
+	RadioIcon,
 	RotateCcwIcon,
 	TerminalIcon,
 	UtensilsIcon,
@@ -46,6 +47,7 @@ import { Lanes } from "./conversation-names";
 import { FinishedReferences } from "./finished-references";
 import { useHeldConversations } from "./handed-out";
 import { TaskIcon } from "./task-icon";
+import { useSignals } from "./use-signals";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
@@ -72,6 +74,7 @@ const CATEGORIES = [
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
+	{ id: "signal", label: "Signals", icon: RadioIcon },
 	{ id: "rec", label: "Rec sessions", icon: VideoIcon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
@@ -91,6 +94,7 @@ export function useReferences(
 	const finished = useContext(FinishedReferences);
 	const conversations = useHeldConversations();
 	const namedLanes = useContext(Lanes);
+	const { signals } = useSignals();
 	return useMemo(() => {
 		const runnable = actions.filter((action) => action.run !== null);
 		const items: Record<string, TriggerItem[]> = {
@@ -154,6 +158,14 @@ export function useReferences(
 				description: project.root,
 				metadata: { project: project.slug },
 			})),
+			// `<project>.<name>`, with what stands on it as the description.
+			signal: signals.map((signal) => ({
+				id: signal.name,
+				type: "signal",
+				label: signal.name,
+				description: signal.armed ? "armed" : signal.project,
+				metadata: { signal: signal.name },
+			})),
 			// Its age, length and moments as the description.
 			rec: recSessions.map((session) => ({
 				id: `rec:${session.name}`,
@@ -185,7 +197,11 @@ export function useReferences(
 				}
 			},
 			chip: (item) => {
-				const { directive, project, conversation, rec } = item.metadata ?? {};
+				const { directive, project, conversation, rec, signal } =
+					item.metadata ?? {};
+				if (typeof signal === "string") {
+					return { id: signal, type: "signal", label: signal };
+				}
 				if (typeof rec === "string") {
 					return { id: `rec:${rec}`, type: "rec", label: rec };
 				}
@@ -215,6 +231,7 @@ export function useReferences(
 		actions,
 		projects,
 		recSessions,
+		signals,
 		conversations,
 		namedLanes,
 		finished,

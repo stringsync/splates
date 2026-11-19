@@ -293,7 +293,7 @@ describe("App's queue", () => {
 		expect(lane.textContent).toContain("2 blocked");
 	});
 
-	it("lists a blocked task's chain in its dialog, and drops a link to a removed blocker from its card", async () => {
+	it("lists a blocked task's chain in its dialog, and notes a removed blocker on its card", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "store licenses" }),
@@ -336,14 +336,8 @@ describe("App's queue", () => {
 		const old = view
 			.getByRole("button", { name: /^old one/ })
 			.closest("li") as HTMLElement;
-		await act(async () =>
-			fireEvent.click(
-				within(old).getByRole("button", { name: "Drop link to #9" }),
-			),
-		);
-		expect(testing.posted("/api/todos/4/blocked-by")).toEqual([
-			{ method: "PUT", body: { blockedBy: [] } },
-		]);
+		expect(old.textContent).toContain("#9 gone was removed without merging");
+		expect(within(old).queryByRole("button", { name: /Drop link/ })).toBeNull();
 	});
 
 	it("offers neither in the dialog of a todo under way", async () => {

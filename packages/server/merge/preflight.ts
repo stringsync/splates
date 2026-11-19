@@ -17,6 +17,8 @@ export async function refuseUnready(
 	worktree: Worktree,
 	/** The numbers of the question cards its conversation asked that nobody answered. */
 	asking: () => Promise<string[]> = async () => [],
+	/** What the task's work is blocked on that has not ended, each as a line. */
+	blockers: () => Promise<string[]> = async () => [],
 ): Promise<void> {
 	const { task, base } = worktree;
 	const dirty = await worktree.uncommitted();
@@ -69,6 +71,14 @@ export async function refuseUnready(
 			"lease_held",
 			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: another agent is driving this tree`,
 			{ task, lease: worktree.lease },
+		);
+	}
+	const waiting = await blockers();
+	if (waiting.length > 0) {
+		fail(
+			"blocked",
+			`'${task}' waits on ${waiting.join(" and ")}: work on what does not need ${waiting.length === 1 ? "it" : "them"}, and merge again once ${waiting.length === 1 ? "it ends" : "they end"}; a notice comes to the conversation when the last one does. No merge attempt was spent.`,
+			{ task, blockers: waiting },
 		);
 	}
 	// An unchecked question is one the user has yet to answer, or an answer

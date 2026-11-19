@@ -5,7 +5,7 @@ import { type TaskRecord, ungroomed } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
 import { taskName } from "./name";
-import { canStart, queueOrder, resumesItself, wakesItself } from "./order";
+import { blockersEnded, canStart, queueOrder, resumesItself } from "./order";
 
 /** How often the queue checks itself again when it has seen no change. */
 export const QUEUE_SWEEP = Duration.mins(1);
@@ -244,7 +244,7 @@ export class QueueRunner implements Resource {
 			const at = task.deferred?.at;
 			if (
 				at === undefined ||
-				!(resumesItself(task, all) || wakesItself(task, all))
+				!(resumesItself(task, all) || blockersEnded(task, all))
 			) {
 				this.#resumed.delete(task.id);
 				continue;
@@ -583,6 +583,10 @@ export function queuePrompt(queued: TaskRecord): string {
 		...(queued.blockersLanded ?? []).map(
 			(landed) =>
 				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
+		),
+		...(queued.blockersLost ?? []).map(
+			(gone) =>
+				`It was blocked by #${gone.id}${gone.subject === "" ? "" : ` ${gone.subject}`}, which was removed without merging, so its work is not on the base: check that this task still makes sense, and queue or ask if it does not.`,
 		),
 		...(!ungroomed(queued)
 			? []

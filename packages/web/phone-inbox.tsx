@@ -1,4 +1,8 @@
-import type { TaskRecord } from "@splates/server/board";
+import type {
+	BoardRecord,
+	LaneRecord,
+	TaskRecord,
+} from "@splates/server/board";
 import type { Needing } from "@splates/server/plans";
 import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
@@ -11,7 +15,7 @@ import {
 } from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { arriveAt } from "./arrivals";
-import { Board } from "./board";
+import { BoardScope } from "./board-chip";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
@@ -40,7 +44,6 @@ import {
 import { useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
 import { Placing, placesOf } from "./reparent";
-import { useTaggedBoard } from "./row-status";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
 
@@ -55,6 +58,8 @@ export function Inbox({
 	terminals,
 	tasks,
 	todos,
+	lanes,
+	boards,
 	here,
 	chips,
 	loading,
@@ -67,6 +72,9 @@ export function Inbox({
 	terminals: Terminals;
 	tasks: Details[];
 	todos: TaskRecord[];
+	/** The project's lanes and boards, to say which board each task's row is on. */
+	lanes: LaneRecord[];
+	boards?: BoardRecord[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
 	here: { root: string; repo: string; trunk: string | null } | null;
 	/** The row of the project's pages under a phone's bar. */
@@ -166,9 +174,8 @@ export function Inbox({
 	// flat list without them has an empty state.
 	const empty = grouped === null && trees.length === 0;
 	const wide = onMenu === null;
-	const tagged = useTaggedBoard(tasks);
 	return (
-		<Board value={tagged}>
+		<BoardScope todos={todos} lanes={lanes} boards={boards}>
 			<section
 				aria-label="inbox"
 				className={cn(
@@ -290,6 +297,6 @@ export function Inbox({
 				</div>
 				{confirm}
 			</section>
-		</Board>
+		</BoardScope>
 	);
 }

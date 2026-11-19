@@ -40,30 +40,21 @@ Give each task its tag with `--tag <name>` when the config lists tags
 (`splates task update <id> --tag <name>` adds one later), and leave the
 project's name out of the subject and the slug: the tag says it.
 
-Write a task's subject short enough to scan. Write its detail with both `## Before`
-and `## After`, never just After, the shape a task record has, as markdown the `splates server`
-page renders. Each is a line and a picture, as text alone rarely shows the
-change (a real screenshot of today's screen or a D2 diagram of today's flow for
-Before, `splates attach`ed; a lo-fi mock or D2 diagram for After). Before is
-always there: for a new thing it says what exists today in its place (that
-there is nothing yet, or what the user does instead). Leave the picture out
-only for a trivial change or when you have not looked at the code yet, for the
-agent that takes it to add. After is one short
-paragraph saying what changes, with no lists. Put the why, the where and the
-files in a `## Details` section after it, with `- [ ]` steps, inline code for
-paths and commands, and fenced blocks for snippets. Single quotes keep the
-shell off the backticks:
+Write a task's subject short enough to scan. Write its detail as a goal, then
+details, as markdown the `splates server` page renders. The first paragraph is
+the goal: one or two sentences on what is true when the task is done, with no
+lists. It seeds `## After` when an agent starts the task. Everything after it
+is free-form details for the next agent: the why, the files, constraints, calls
+already made and open questions, with `- [ ]` steps, inline code for paths and
+commands, and fenced blocks for snippets. Leave `## Before` and `## After` to
+the working task's `SPLATES.md`, which the agent that takes it writes after
+looking at the code. Tasks written earlier with Before and After still start
+fine. Single quotes keep the shell off the backticks:
 
 ```sh
-splates task add "Upload retries forever on a 413" --slug upload-413 '## Before
+splates task add "Upload retries forever on a 413" --slug upload-413 'An upload stops retrying on a 413 and tells the user the file is too big.
 
 The client retries on any 4xx in `src/upload.ts`, so a 413 loops forever.
-
-## After
-
-An upload stops retrying on a 413 and tells the user the file is too big.
-
-## Details
 
 - [ ] stop retrying on 413
 - [ ] tell the user the file is too big'
@@ -225,10 +216,11 @@ say so with `--blocked-by` (`splates task add <subject> --blocked-by 12`, or
 `splates task update 14 --blocked-by 12`), rather than in its detail. splates
 then warns whoever takes it early, drops the link when 12 merges, and shows
 it on the board. Once 12 merges, `splates task show 14` names the commit it
-landed as; if 12 is removed without merging, 14 is held as Blocked for the
-user, who lets go of the link from its card (the page's remove lists such
-tasks first). `--remove-blocked-by 12` undoes a link or lets go of a removed
-blocker. Several links go in one
+landed as; if 12 is removed without merging, the link is dropped and 14 may start at
+once, with a note on it (its card, `splates task show`, and the prompt of
+the agent that starts it) that 12 was removed and its work is not on the
+base: check 14 still makes sense. `--remove-blocked-by 12` undoes a link.
+Several links go in one
 call, the flag repeated or a comma list: `--blocked-by 12 --blocked-by 13`, or
 `--blocked-by 12,13`.
 Link only for a real order (one needs the other's code or data), never for
@@ -241,9 +233,9 @@ be open; when there is none yet, `splates --project wren task defer`
 it first (see [projects.md](projects.md)). The queue holds this task until
 that one merges there, and the board, `splates task show` and `splates
 queue list` name it with where it stands, while `task show` there lists
-this task under `blocking:`. A blocker removed there without merging holds
-the task for the user, as one here does; `--remove-blocked-by
-wren#404` lets go of it. Never leave such a wait only in a task's
+this task under `blocking:`. A blocker removed there without merging stops
+holding the task, as one here does, and stays as a note on it;
+`--remove-blocked-by wren#404` undoes the link. Never leave such a wait only in a task's
 detail or a deferral's `--waiting-on`: unlinked, the user cannot see what
 holds the work up.
 

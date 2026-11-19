@@ -7,6 +7,7 @@ import {
 import { type JSX, useContext } from "react";
 import { Button } from "./components/ui/button";
 import { spanOf } from "./merge-lines";
+import { ShipHeading } from "./ship-heading";
 import { WatchShipStep } from "./ship-step-pane";
 
 /**
@@ -42,22 +43,25 @@ export function ShipRecap({
 	const stopped = run.status === "stopped";
 	return (
 		<section aria-label="Ship recap" className="flex flex-col gap-3">
-			<h2 className="flex items-center gap-2 font-medium text-lg">
-				{stopped ? (
-					<OctagonXIcon aria-hidden className="size-5 text-destructive" />
-				) : (
-					<CircleCheckIcon aria-hidden className="size-5 text-green-600" />
-				)}
-				{stopped
-					? `Stopped by you after ${spanOf(ended - run.started)}: ${shipped} of ${count === 1 ? "1 target" : `${count} targets`} shipped`
-					: `Shipped ${count === 1 ? "1 target" : `${count} targets`} in ${spanOf(ended - run.started)}`}
-			</h2>
-			{longest !== null && (
-				<p className="text-muted-foreground text-sm">
-					Longest: {longest.step.id} of {longest.target},{" "}
-					{spanOf(took(longest.step))}
-				</p>
-			)}
+			<ShipHeading
+				icon={
+					stopped ? (
+						<OctagonXIcon aria-hidden className="size-5 text-destructive" />
+					) : (
+						<CircleCheckIcon aria-hidden className="size-5 text-green-600" />
+					)
+				}
+				title={
+					stopped
+						? `Stopped by you after ${spanOf(ended - run.started)}: ${shipped} of ${count === 1 ? "1 target" : `${count} targets`} shipped`
+						: `Shipped ${count === 1 ? "1 target" : `${count} targets`} in ${spanOf(ended - run.started)}`
+				}
+				line={
+					longest === null
+						? undefined
+						: `Longest: ${longest.step.id} of ${longest.target}, ${spanOf(took(longest.step))}`
+				}
+			/>
 			{run.targets.map((target) => (
 				<RecapTarget
 					key={target.name}
@@ -66,7 +70,7 @@ export function ShipRecap({
 					stopped={stopped && !shippedTarget(target)}
 				/>
 			))}
-			<Button className="min-h-11 w-full" onClick={onDone}>
+			<Button block onClick={onDone}>
 				Done
 			</Button>
 		</section>
@@ -166,23 +170,23 @@ function RecapStep({
 	const body = (
 		<>
 			<span className="flex justify-between gap-2">
-				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-					<span className="truncate">
-						{step.id}
-						{step.status === "skipped" && " (skipped)"}
-						{stopped &&
-							step.status !== "done" &&
-							step.status !== "skipped" &&
-							" (not run)"}
-					</span>
+				<span className="truncate text-muted-foreground">
+					{step.id}
+					{step.status === "skipped" && " (skipped)"}
+					{stopped &&
+						step.status !== "done" &&
+						step.status !== "skipped" &&
+						" (not run)"}
+				</span>
+				<span className="flex shrink-0 items-center gap-1.5">
+					<span className="tabular-nums">{spanOf(took(step))}</span>
 					{onShow !== null && (
 						<SquareTerminalIcon
 							aria-hidden
-							className="size-3.5 shrink-0 group-hover/step:text-foreground"
+							className="size-3.5 shrink-0 text-muted-foreground group-hover/step:text-foreground"
 						/>
 					)}
 				</span>
-				<span className="tabular-nums">{spanOf(took(step))}</span>
 			</span>
 			<span className="h-1.5 overflow-hidden rounded-full bg-muted">
 				<span

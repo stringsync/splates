@@ -4,7 +4,7 @@ import { cycle, lane, lanes, mentioned, misordered, settle } from "./lanes";
 import type { TaskRecord } from "./task";
 
 describe("lanes", () => {
-	it("is not ready on a lost blocker or one still open in another project", () => {
+	it("is ready past a removed blocker, not on one still open in another project", () => {
 		const external = { project: "/repos/wren", id: 20, subject: "Events" };
 		const record = { id: 1, name: "A", board: 1 };
 		const waiting = task({
@@ -26,7 +26,7 @@ describe("lanes", () => {
 				[{ ...waiting, blockedElsewhere: [{ ...external, lost: true }] }],
 				record,
 			).ready,
-		).toBe(false);
+		).toBe(true);
 	});
 
 	it("draws the sound2score lanes as they were run", () => {

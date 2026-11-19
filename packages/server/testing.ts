@@ -132,6 +132,7 @@ export class Testing implements AsyncDisposable {
 			ships: [],
 			on: {},
 			queueLoad: null,
+			autoAllowBusyRuns: false,
 			leaseStalenessMs: 90_000,
 			removedCapacity: 50,
 			finishedCapacity: 500,
@@ -152,6 +153,7 @@ export class Testing implements AsyncDisposable {
 			projects: null,
 			shared: [],
 			tags: null,
+			rec: null,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = alongside?.splatesHome ?? join(base, "home", ".splates");
@@ -475,7 +477,7 @@ afterAll(async () => {
 	}
 });
 
-/** pid 1 always exists, so it stands in for another agent that is still running. */
+/** A pid for another agent that is still running: pid 1 always exists. */
 export const LIVE_PID = 1;
 
 /** What a refusal carries beyond its reason, when a test says. */

@@ -1,5 +1,6 @@
 import type { PermissionProposal } from "@splates/server/plans";
 import {
+	AUTO_ALLOWED,
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
@@ -69,6 +70,7 @@ export function RunCommandCard({
 				: sent?.includes(RUN_ELSEWHERE)
 					? RUN_ELSEWHERE
 					: chosen;
+	const auto = choice === RUN_ALLOWED && sent?.includes(AUTO_ALLOWED) === true;
 	const live = useLiveMachine(choice === null && retry === null && !rec);
 	const now = useNow(choice === null && retry === null);
 	const send = reply?.send ?? null;
@@ -125,7 +127,9 @@ export function RunCommandCard({
 									]
 								: [
 										choice === RUN_ALLOWED
-											? "Allowed"
+											? auto
+												? "Auto-allowed, machine no longer busy:"
+												: "Allowed"
 											: choice === RUN_ELSEWHERE
 												? "Not on this device for"
 												: "Denied",
@@ -193,7 +197,9 @@ export function RunCommandCard({
 						{choice === RUN_ALLOWED
 							? retry !== null
 								? "Granted"
-								: "Allowed"
+								: auto
+									? "Auto-allowed: the machine was no longer busy"
+									: "Allowed"
 							: choice === RUN_ELSEWHERE
 								? "Not on this device"
 								: "Denied"}

@@ -31,8 +31,8 @@ export const mdom = target({
 });
 ```
 
-- A **target** has a `name`, the `bump` it takes by default (left out for a
-  deployment, which takes none), the `dependencies` that ship before it, by
+- A **target** has a `name`, the `bump` it takes by default (optional for a
+  deployment), the `dependencies` that ship before it, by
   target name, and `plan`, which returns the steps of one ship.
 - A **step** has an `id`, the `does` line the review screen shows, the
   `dependencies` among its target's steps that finish first, an optional
@@ -71,13 +71,17 @@ view(mdom, { bump: "minor" });
 
 A target may also declare `unshipped(ctx)`, returning how many commits are
 not yet shipped; `commitsSince(ctx, { tag, paths })` counts those since a git
-tag. `ship plan` runs it and puts the count in the plan as `unshipped`; a
-target declaring nothing leaves the field out.
+tag, and `commitsSince(ctx, { version: "<package.json>", paths })` since the
+last commit that changed that file's `version`, for a package released
+through a public mirror, which leaves no tag here. `ship plan` does not run it, so a plan prints at once; `ship unshipped`
+counts every target at once and prints `{ "<name>": <count> }`, leaving out a
+target that declares nothing, and one whose count throws (the error goes to
+stderr).
 
 ## Serving a target
 
 splates never imports a target. The project's CLI hands its targets to
-`serve`, which answers three requests, and runs a whole ship for someone at
+`serve`, which answers four requests, and runs a whole ship for someone at
 a terminal when given none:
 
 ```ts
@@ -90,13 +94,15 @@ await serve(mdom, argv); // or serve([staging, prod], argv)
 
 ```sh
 bin/mdom ship plan --bump minor      # the plan as JSON, as view() returns it
+bin/mdom ship unshipped             # { "@stringsync/mdom": 3 }
 bin/mdom ship done publish           # true or false
 bin/mdom ship run publish            # runs one step, writing JSON lines
 bin/mdom ship --bump minor           # shows the plan, asks, ships it all here
 ```
 
-Every request takes `--bump`, `--target <name>` and `--upstream
-<name>=<version>`, once for each target it depends on. With several targets,
+Every request takes `--target <name>`, and all but `unshipped` take
+`--version` or `--bump`, and `--upstream <name>=<version>`, once for each target it depends
+on. With several targets,
 `plan` with no `--target` prints an array of plans, and the rest need one.
 `plan` shows an upstream it was not given as "the version <name> releases";
 the others refuse to plan without it.
@@ -209,6 +215,21 @@ export const staging = target({
   checkout, so a resumed ship deploys nothing twice.
 - **verify** fails unless the deployed stack matches this checkout.
 
+A failed deploy follows what it left the stack in to the end, showing each
+poll on the step's line, and fails saying which it was: rolled back
+(CloudFormation's rollback finished), paused (`--no-rollback`), or a rollback
+that failed too, naming each stuck resource and CloudFormation's reason. A
+rolled-back or paused stack's ECS services are waited on as the circuit
+breaker rolls them back, and the failure says whether each ended healthy.
+A stack left in `UPDATE_ROLLBACK_FAILED` refuses every deploy, so the diff
+and the deploy, before anything else, ask whether to continue its rollback
+(`continue-update-rollback`, skipping no resource) and wait for it; a No, or
+a rollback that fails again, fails the step, and a stuck resource is fixed by
+hand before the step is retried. The deploy step's timeout is 150 minutes, room for a
+deploy and the rollback it waits out. A stack is found by its
+CloudFormation name, `name` with each `/` made `-` unless `stackName` says
+otherwise.
+
 Optional `context`, `noRollback` and `cheapReplacement` serve a stack deployed
 in steps. `context: async (ctx) => ["--context", "digest=..."]` is read when
 the diff and the deploy run, so it can read live state, and reaches both.
@@ -298,3 +319,60 @@ build <folder>`, what the workflow runs) writes `dist/`: JavaScript with
 `dist/types` pointed at each other rather than at those packages, the files
 the manifest's `files` and non-TypeScript exports name, and a manifest
 whose dependencies are what the build imports, with their `@types/`.
+
+## Versioned deployments
+
+A deployment can opt into artifact versions independently of publishing:
+
+```ts
+const staging = target({
+ name: "staging",
+ version: { current: "1.4.2" },
+ bump: "patch",
+ plan: ({ version }) => [
+  step({
+   id: "deploy",
+   does: `Deploy ${version}`,
+   run: async (ctx) => {
+    if (version === undefined) throw new Error("Select a version");
+    await deployArtifact(ctx, version);
+   },
+  }),
+  step({
+   id: "verify",
+   does: `Verify ${version}`,
+   dependencies: ["deploy"],
+   run: async (ctx) => {
+    if (version === undefined) throw new Error("Select a version");
+    await verifyArtifact(ctx, version);
+    ctx.released(version);
+   },
+  }),
+ ],
+});
+```
+
+`version: {}` accepts explicit artifact identifiers only; supplying `current`
+also enables bumps from that stable semantic version. `bump` remains an
+optional default. Current is declared data (for example from a deployment
+ledger), never a live lookup performed by planning. An explicit version is
+opaque, so an image digest or release tag works as well as `1.4.2`.
+
+`ship plan --bump minor` resolves `1.5.0` before review. The returned plan has
+`versioned: true` and `version: "1.5.0"`, with no remaining bump. The caller
+must persist that exact version with the ship and pass `--version 1.5.0` to
+all `done` and `run` requests and retries, even if current has since changed.
+A bare plan may advertise an explicit-only target without a selected version;
+execution requires one. The terminal runner freezes the reviewed version too.
+
+`--version` overrides the default bump; combining explicit `--version` and
+`--bump` is an error. Versions must be nonempty with no surrounding whitespace.
+Targets without `version` retain their existing behavior and reject explicit
+versions. Existing publishing targets still allocate their versions as before.
+
+Selecting an existing version means the target's steps fetch that artifact;
+a bump means its steps build and deploy the resolved new version. The target
+owns those operations and idempotency checks. Only successful verification
+should call `ctx.released(version)`, including verification in `done` when
+resuming an already successful deployment. No release is reported automatically.
+Ships UI support and adoption by individual deployments are separate changes.

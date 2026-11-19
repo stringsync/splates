@@ -9,6 +9,7 @@ import { useHeldConversations } from "./handed-out";
 import type { Named } from "./mentioned";
 import { rank } from "./mentions";
 import { listProjects } from "./project-api";
+import { useSignals } from "./use-signals";
 
 /**
  * The tree's paths for the composer's `@`, once they have loaded, and as the
@@ -62,8 +63,10 @@ export function useNamed(
 ): Named {
 	const held = useHeldConversations();
 	const lanes = useContext(Lanes);
+	const { signals } = useSignals();
 	return useMemo(
 		() => ({
+			signals: signals.map((each) => each.name),
 			conversations: held.map((each) => ({
 				id: each.id,
 				name: nameOf(each, lanes),
@@ -76,7 +79,7 @@ export function useNamed(
 				projects: projects === null,
 			},
 		}),
-		[paths, projects, tree, held, lanes],
+		[paths, projects, tree, held, lanes, signals],
 	);
 }
 

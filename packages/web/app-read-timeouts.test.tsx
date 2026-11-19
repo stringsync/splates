@@ -3,12 +3,16 @@ import { Duration } from "core/time";
 import { setupProgress } from "./setup-testing";
 import { act, cleanup, fireEvent, Testing, waitFor } from "./testing";
 
+/** How long a hung read waits before giving up, short so the tests are fast. */
+const ANSWER_WITHIN = Duration.ms(50);
+const NO_ANSWER = "no answer in 50ms";
+
 describe("App's reads that never answer", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
 		testing = new Testing();
-		testing.answerWithin(Duration.secs(3));
+		testing.answerWithin(ANSWER_WITHIN);
 	});
 
 	afterEach(() => {
@@ -32,7 +36,7 @@ describe("App's reads that never answer", () => {
 		const gaveUp = () =>
 			waitFor(() =>
 				expect(view.getByRole("alert").textContent).toBe(
-					"Couldn't read your setup: no answer in 3s",
+					`Couldn't read your setup: ${NO_ANSWER}`,
 				),
 			);
 
@@ -51,7 +55,7 @@ describe("App's reads that never answer", () => {
 			expect(view.getByRole("button", { name: "Set up Agents" })).toBeTruthy(),
 		);
 		expect(view.queryByText(/Couldn't read your setup/)).toBeNull();
-	}, 15_000);
+	});
 
 	it("says Billing's budgets gave up rather than reading on, and reads again on Try again", async () => {
 		testing.hang("/api/budgets");
@@ -60,14 +64,14 @@ describe("App's reads that never answer", () => {
 		await waitFor(() =>
 			expect(view.getByText("Reading budgets…")).toBeTruthy(),
 		);
-		await waitFor(() => expect(view.getByText("no answer in 3s")).toBeTruthy());
+		await waitFor(() => expect(view.getByText(NO_ANSWER)).toBeTruthy());
 		expect(view.queryByText("Reading budgets…")).toBeNull();
 		testing.unhang();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Try again" })),
 		);
 
-		await waitFor(() => expect(view.queryByText("no answer in 3s")).toBeNull());
+		await waitFor(() => expect(view.queryByText(NO_ANSWER)).toBeNull());
 		expect(view.queryByText("Reading budgets…")).toBeNull();
 	});
 });

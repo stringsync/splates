@@ -12,6 +12,11 @@ describe("ShipPlanRoutes", () => {
 		});
 	});
 
+	it("counts the unshipped commits", async () => {
+		const response = await routes().shipUnshipped();
+		expect(await response.json()).toEqual({ net: 3 });
+	});
+
 	it("composes a pick", async () => {
 		const response = await routes().shipPlan(
 			post({ picks: [{ name: "net" }] }),
@@ -43,6 +48,7 @@ const routes = () =>
 			new FakeShipPs({
 				"bin/net ship plan": net,
 				"bin/net ship plan --target net": net,
+				"bin/net ship unshipped": { net: 3 },
 			}),
 			"/r",
 		),

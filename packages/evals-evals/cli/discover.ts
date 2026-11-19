@@ -109,6 +109,9 @@ export function problems(found: readonly Found[]): string[] {
 		if ((scenario.checks ?? []).length === 0 && scenario.judge === undefined) {
 			out.push(`${at}: no checks and no judge, so nothing can fail`);
 		}
+		if (scenario.judge !== undefined && scenario.judgeWith === undefined) {
+			out.push(`${at}: has a rubric but no judgeWith, so name its judge`);
+		}
 		if (scenario.judgeWith !== undefined) {
 			if (scenario.judge === undefined) {
 				out.push(`${at}: judgeWith names a judge but there is no rubric`);

@@ -43,20 +43,42 @@ describe("ShipCommands", () => {
 		]);
 	});
 
-	it("carries a target's unshipped count, and none when it gives none", async () => {
+	it("counts every command's unshipped commits, apart from the plans", async () => {
 		const ps = new FakeShipPs({
-			"bin/lib ship plan": { ...lib, unshipped: 4 },
-			"bin/net ship plan": staging,
+			"bin/lib ship unshipped": { "@x/lib": 4 },
+			"bin/net ship unshipped": { staging: 0, prod: 2 },
 		});
-		const listing = await new ShipCommands(
+		const counts = await new ShipCommands(
 			["bin/lib ship", "bin/net ship"],
 			ps,
 			"/repo",
-		).list();
-		expect(listing.targets.map((each) => each.plan.unshipped)).toEqual([
-			4,
-			undefined,
+		).unshipped();
+		expect(counts).toEqual({ "@x/lib": 4, staging: 0, prod: 2 });
+		expect(ps.lines).toEqual([
+			"bin/lib ship unshipped",
+			"bin/net ship unshipped",
 		]);
+	});
+
+	it("gives no counts for a command that fails, lacks the subcommand or prints no counts", async () => {
+		const ps = new FakeShipPs({
+			"bin/lib ship unshipped": { "@x/lib": 1 },
+			"bin/bad ship unshipped": { exitCode: 1, stderr: "boom" },
+			"bin/odd ship unshipped": { stdout: "hello" },
+			"bin/neg ship unshipped": { prod: -1 },
+		});
+		const counts = await new ShipCommands(
+			[
+				"bin/lib ship",
+				"bin/bad ship",
+				"bin/odd ship",
+				"bin/neg ship",
+				"bin/old ship",
+			],
+			ps,
+			"/repo",
+		).unshipped();
+		expect(counts).toEqual({ "@x/lib": 1 });
 	});
 
 	it("shows a command that fails or prints no plan as its error", async () => {
@@ -114,7 +136,7 @@ describe("ShipCommands", () => {
 		const plan = await new ShipCommands([], ps, "/repo").plan(
 			"bin/net ship",
 			"my app",
-			"minor",
+			{ bump: "minor" },
 		);
 		expect(plan.name).toBe("my app");
 	});

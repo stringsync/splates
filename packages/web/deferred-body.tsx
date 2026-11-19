@@ -268,11 +268,8 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 	const expect = useExpectSnapshot();
 	const blockers = linkedBlockers(task, board.todos);
 	const left = blockers.filter((each) => !cleared(each)).length;
-	// What blocks it as the server takes the whole list, those it lost included.
-	const held = [
-		...task.blockedBy,
-		...(task.blockersLost ?? []).map(({ id }) => id),
-	];
+	// What blocks it as the server takes the whole list.
+	const held = task.blockedBy;
 	return (
 		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
 			{blockers.length > 0 && (

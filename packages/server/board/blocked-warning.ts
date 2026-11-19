@@ -9,10 +9,10 @@ import type { Task } from "./task";
  */
 export function blockedWarning(taken: Task, blockers: Task[]): string[] {
 	const elsewhere = taken.blockedElsewhere
-		.filter((blocker) => blocker.landed === undefined)
+		.filter((blocker) => blocker.landed === undefined && !blocker.lost)
 		.map(
 			(blocker) =>
-				`  ${color.yellow("blocked")}: task ${taken.id} is blocked by ${elsewhereName(blocker)} ${blocker.subject}, in another project, which ${blocker.lost ? "was removed there without merging: ask the person whether this still makes sense" : `has yet to merge there; \`splates --project ${elsewhereName(blocker).split(" ")[0]} task show ${blocker.id}\` says where it stands`}`,
+				`  ${color.yellow("blocked")}: task ${taken.id} is blocked by ${elsewhereName(blocker)} ${blocker.subject}, in another project, which ${`has yet to merge there; \`splates --project ${elsewhereName(blocker).split(" ")[0]} task show ${blocker.id}\` says where it stands`}`,
 		);
 	const [first] = blockers;
 	if (first === undefined) {

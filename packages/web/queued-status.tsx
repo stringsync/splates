@@ -82,8 +82,6 @@ function reason(fix: BlockedFix | null): string {
 			return fix.chain.length === 1
 				? "It waits on a task nobody has queued, so no agent will start it."
 				: "It waits on tasks nobody has queued, so no agent will start it.";
-		case "drop":
-			return "It waits on a task that was removed without merging, so it can never start.";
 		case "with":
 			return `It waits on the same tasks as #${fix.id}, which cannot start yet. Free #${fix.id} and this one follows.`;
 		default:

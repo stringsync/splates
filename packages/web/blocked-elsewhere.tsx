@@ -63,7 +63,7 @@ export function Elsewhere({ todo }: { todo: TaskRecord }): JSX.Element | null {
 /** Whether `todo` waits on a task of another project that has yet to merge. */
 export function heldElsewhere(todo: TaskRecord): boolean {
 	return (todo.blockedElsewhere ?? []).some(
-		(blocker) => blocker.landed === undefined,
+		(blocker) => blocker.landed === undefined && !blocker.lost,
 	);
 }
 

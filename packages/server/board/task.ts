@@ -277,10 +277,10 @@ export class Task {
 	}
 
 	/**
-	 * Adds the tasks in `blockedBy` as blockers of the work of `task`, which
-	 * keeps its worktree, and suspends its `conversation` until they merge.
+	 * Adds the tasks in `blockedBy` as blockers of the work of `task`, whose
+	 * merge they gate, and has `conversation` told once the last one ends.
 	 */
-	async suspend({
+	async block({
 		blockedBy,
 		task,
 		conversation,
@@ -317,19 +317,19 @@ export class Task {
 				],
 				questions: before?.questions ?? [],
 				outside: before?.outside ?? [],
-				suspended: true,
+				notify: true,
 			};
 			return { ...state, deferred };
 		});
 	}
 
-	/** Ends a suspension, because its conversation went on or was woken. */
-	async wake(): Promise<Task> {
+	/** Ends the notice owed to its conversation, once it was sent. */
+	async noticed(): Promise<Task> {
 		return this.tasks.revise(this.id, (state) => {
-			if (state.deferred?.suspended === undefined) {
+			if (state.deferred?.notify === undefined) {
 				return state;
 			}
-			const { suspended: _, ...rest } = state.deferred;
+			const { notify: _, ...rest } = state.deferred;
 			return { ...state, deferred: rest };
 		});
 	}
@@ -380,10 +380,19 @@ export class Task {
 
 	/**
 	 * Removes it for good. `landed` is the commit it merged as, written on
-	 * each task it blocked; without one, those it blocked are held for the
-	 * person.
+	 * each task it blocked; without one, it was dropped unmerged, so every
+	 * task that declared it a blocker goes too, and the tasks blocked by those
+	 * in turn.
 	 */
 	async remove(landed?: string): Promise<void> {
+		if (landed === undefined) {
+			const dependents = (await this.tasks.all()).filter((other) =>
+				other.blockedBy.includes(this.id),
+			);
+			for (const each of dependents) {
+				await each.remove();
+			}
+		}
 		if (await this.tasks.delete(this.id, landed)) {
 			// Its task goes on, holding its own files beside these.
 			await this.attachments.remove(this.files);
@@ -463,9 +472,9 @@ export interface TaskRecord {
 	 */
 	blockersLanded?: LandedBlocker[];
 	/**
-	 * Tasks it was blocked by that were removed without merging. While any
-	 * is here, nothing starts it on its own; unlink each to let it go on.
-	 * Absent for none.
+	 * Tasks it was blocked by that were removed without merging. Each holds
+	 * nothing: the link is gone and the task is free to start, so this is
+	 * only the note that a prerequisite never landed. Absent for none.
 	 */
 	blockersLost?: GoneBlocker[];
 	/**
@@ -673,6 +682,8 @@ export function tasksNamed(
 export interface GoneBlocker {
 	id: number;
 	subject: string;
+	/** When it was removed without merging, for a note; absent for a merged one or an older record. */
+	at?: string;
 	/** The other project's main tree, for a task of another project; absent for one here. */
 	project?: string;
 }

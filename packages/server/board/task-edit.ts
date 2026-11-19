@@ -265,7 +265,7 @@ async function blockersSaid(
 ): Promise<string> {
 	const elsewhere = await Promise.all(
 		task.blockedElsewhere
-			.filter((blocker) => blocker.landed === undefined)
+			.filter((blocker) => blocker.landed === undefined && !blocker.lost)
 			.map(async (blocker) =>
 				elsewhereName({
 					...blocker,

@@ -21,6 +21,7 @@ import { SetupDot } from "./setup-state";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
+import { useArmedSignals } from "./use-signals";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 export const WIDE = "(min-width: 768px)";
@@ -79,6 +80,7 @@ export function AppNav({
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
 	const asking = useShipsWaiting().length;
+	const armedSignals = useArmedSignals();
 	const shipsRunning = useShipsRunning();
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
@@ -119,6 +121,15 @@ export function AppNav({
 					aria-label="a ship runs"
 					className="size-4 animate-spin text-muted-foreground"
 				/>
+			)}
+			{value === "signals" && armedSignals > 0 && (
+				<span
+					role="status"
+					aria-label={`${armedSignals} signals armed`}
+					className="rounded-full bg-muted px-1.5 font-medium text-muted-foreground text-xs tabular-nums"
+				>
+					{armedSignals}
+				</span>
 			)}
 			{value === "ships" && asking > 0 && (
 				<span
@@ -184,6 +195,8 @@ export function AppNav({
 							terminals={terminals}
 							tasks={snapshot.tasks}
 							todos={snapshot.todos}
+							lanes={snapshot.lanes}
+							boards={snapshot.boards}
 							here={{
 								root: snapshot.root,
 								repo: snapshot.repo,

@@ -3,12 +3,31 @@
 // the evals harness and rec are private, so the build folds them in.
 // `bin/splates dev ship` serves it.
 
-import { npm, target } from "core/ship";
+import { commitsSince, npm, target } from "core/ship";
+
+// What a release carries: the package, the server and the page it serves, the
+// skill it keeps, and what the build folds or bundles in (evals, rec, core).
+const SHIPPED_PATHS = [
+	"splates/packages/splates",
+	"splates/packages/server",
+	"splates/packages/web",
+	"splates/skills/splates",
+	"evals/packages/evals",
+	"rec/packages/rec",
+	"core/packages/core",
+];
 
 export const splatesShip = target({
 	name: "@stringsync/splates",
 	bump: "patch",
 	dependencies: [],
+	// The mirror holds the release tags (the `v0.0.N` tags here are older and
+	// mark no release); here a release is the commit that bumped the version.
+	unshipped: (ctx) =>
+		commitsSince(ctx, {
+			version: "splates/packages/splates/package.json",
+			paths: SHIPPED_PATHS,
+		}),
 	plan: ({ bump = "patch" }) =>
 		npm.release({
 			package: "@stringsync/splates",

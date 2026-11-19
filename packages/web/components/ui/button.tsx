@@ -46,12 +46,21 @@ function Button({
 	className,
 	variant = "default",
 	size = "default",
+	block = false,
 	...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+	VariantProps<typeof buttonVariants> & {
+		/** Fills the width of its block and stands 44px tall, the size for a button that is the block's one action. */
+		block?: boolean;
+	}) {
 	return (
 		<ButtonPrimitive
 			data-slot="button"
-			className={cn(buttonVariants({ variant, size, className }))}
+			className={cn(
+				buttonVariants({ variant, size }),
+				block && "h-11 w-full",
+				className,
+			)}
 			{...props}
 		/>
 	);

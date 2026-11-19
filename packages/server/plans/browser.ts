@@ -18,6 +18,8 @@ export { goalLine, questions, sectionApart } from "./plan";
 export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
+	AUTO_ALLOWED,
+	BLOCKERS_CLEARED,
 	CHECKPOINT,
 	configChangeReference,
 	DEFER,

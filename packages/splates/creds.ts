@@ -1,11 +1,8 @@
-import { DEFAULT_TIMEOUT, PROVIDERS } from "@splates/server/creds";
-import { fail } from "@splates/server/exit";
+import { PROVIDERS } from "@splates/server/creds";
 import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
-import { untilAfter } from "@splates/server/tasks";
 import { cli } from "core/cmd";
 import { color } from "core/log";
-import { Duration } from "core/time";
 import { z } from "zod";
 import { here } from "./flags";
 
@@ -73,39 +70,8 @@ splatesCreds
 			`${color.yellow("requested")} ${opts.name}  ${color.dim(request.purpose)}`,
 		);
 		ctx.log.error(
-			`It shows on the Creds page of \`splates server\`. \`splates creds wait ${opts.name}\` until it is saved.`,
+			`It shows on the Creds page of \`splates server\`. Wait on \`splates signal wait <project>/cred.saved/${opts.name}\` until it is saved.`,
 		);
-	});
-
-splatesCreds
-	.command("wait")
-	.use(repository({ needs: "own" }))
-	.description(
-		"block until a person saves the cred requested, or dismisses the request (`dismissed`); gives up with `timeout` rather than waiting forever",
-	)
-	.arg("name", z.string(), { description: "the cred requested" })
-	.option("timeout-secs", z.coerce.number(), {
-		default: DEFAULT_TIMEOUT.secs,
-		description: "how long to wait before giving up",
-	})
-	.action(async (opts, ctx) => {
-		const timeout = Duration.secs(opts["timeout-secs"]);
-		await ctx.journal.waiting(
-			"creds wait",
-			null,
-			{ name: opts.name, until: untilAfter(timeout) },
-			async () => {
-				const ended = await ctx.creds.wait(opts.name, { timeout });
-				if (ended === "dismissed") {
-					fail(
-						"dismissed",
-						`${opts.name} was dismissed: carry on without it, or ask the person why`,
-						{ name: opts.name },
-					);
-				}
-			},
-		);
-		ctx.log.info(`${color.green("saved")} ${opts.name}`);
 	});
 
 splatesCreds

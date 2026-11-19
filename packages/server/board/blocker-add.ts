@@ -13,14 +13,15 @@ export interface BlockerAdded {
 	subject: string;
 	/** Whether a Backlog task was made for it. */
 	created: boolean;
-	/** The board task of the started work, now suspended. */
-	suspended: Task;
+	/** The board task of the started work, now linked to it. */
+	blocked: Task;
 }
 
 /**
  * Makes `named`, a task number (`12` or `#12`) or else the subject of a new
  * Backlog task, a blocker of the board task that started task `task` took,
- * and suspends `conversation` until it merges. The worktree stays.
+ * and has `conversation` told once the last blocker ends. The conversation
+ * goes on, and the task's merge waits.
  */
 export async function blockerAdd(
 	deps: { tasks: Tasks; log: Logger; fs: Fs; ps: Ps },
@@ -68,7 +69,7 @@ export async function blockerAdd(
 	if (blocker.id === held.id) {
 		fail("usage", "a task cannot block itself", { number: held.id });
 	}
-	const suspended = await held.suspend({
+	const blocked = await held.block({
 		blockedBy: [blocker.id],
 		task,
 		conversation,
@@ -76,7 +77,7 @@ export async function blockerAdd(
 	deps.log.info(
 		[
 			`${color.green("blocked")} task ${held.id} by ${created ? "new " : ""}task ${blocker.id}: ${blocker.subject}`,
-			"  the worktree stays; end your turn now, and the conversation wakes when every blocker has merged, or when the user writes to it",
+			"  `splates merge` refuses until every blocker has ended; work that does not need it can go on, and a notice comes here when the last one ends",
 			...(created
 				? [
 						`  end your reply with \`## 🔐 Permission: queue #${blocker.id}: ${blocker.subject}\` so the user can queue it`,
@@ -84,5 +85,5 @@ export async function blockerAdd(
 				: []),
 		].join("\n"),
 	);
-	return { blocker: blocker.id, subject: blocker.subject, created, suspended };
+	return { blocker: blocker.id, subject: blocker.subject, created, blocked };
 }

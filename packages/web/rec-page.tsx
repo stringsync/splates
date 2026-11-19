@@ -23,6 +23,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { Dispatching } from "./dispatching";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
+import { RecCloudLogs } from "./rec-cloud-logs";
 import { bytesText } from "./rec-format";
 import { groupSources } from "./rec-groups";
 import { RecHistory } from "./rec-history";
@@ -253,6 +254,9 @@ function RecStart(): JSX.Element {
 				url: "about:blank",
 				docker: on("docker"),
 				tails: on("file"),
+				logs: (state?.logs ?? [])
+					.filter((each) => chosen[`logs:${each.name}`] ?? false)
+					.map((each) => each.name),
 			});
 			setState(await recState());
 		} catch (error) {
@@ -418,6 +422,14 @@ function RecStart(): JSX.Element {
 										))}
 								</ul>
 							)}
+							<RecCloudLogs
+								logs={state?.logs ?? []}
+								error={state?.logsError}
+								chosen={chosen}
+								choose={(name, on) =>
+									setChosen({ ...chosen, [`logs:${name}`]: on })
+								}
+							/>
 							{state?.sourcesError !== undefined && (
 								<span className="text-muted-foreground text-xs">
 									Docker containers are not listed: {state.sourcesError}

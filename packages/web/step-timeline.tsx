@@ -6,13 +6,16 @@ import type { Standing } from "./merge-checklist";
 /** The rail every timeline in the app shares: its steps, joined by a line. */
 export function StepTimeline({
 	label,
+	className = "px-4 py-3 @max-md:px-3",
 	children,
 }: {
 	label: string;
+	/** The list's padding, for a timeline that sits inside a padded card. */
+	className?: string;
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<ol aria-label={label} className="px-4 py-3 @max-md:px-3">
+		<ol aria-label={label} className={className}>
 			{children}
 		</ol>
 	);
@@ -71,7 +74,11 @@ export function StepTimelineItem({
 						title={pressTitle}
 						aria-expanded={expanded}
 						onClick={onPress}
-						className="group/step -mx-1.5 flex h-6 w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40"
+						className={cn(
+							"group/step -mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 text-sm outline-none",
+							wrap ? "min-h-6 py-0.5" : "h-6",
+							"hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40",
+						)}
 					>
 						{line}
 					</button>

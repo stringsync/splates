@@ -1,5 +1,5 @@
 import { Credentials, credentialName, type SecretStore } from "core/creds";
-import { Duration, sleep } from "core/time";
+import { Duration } from "core/time";
 import { renamed } from "../config";
 import { fail } from "../exit";
 import type { Document, Storage } from "../storage";
@@ -23,7 +23,7 @@ const FILE_KEY = "creds.json";
 export const DEFAULT_TIMEOUT = Duration.mins(15);
 
 /** How often `wait` reads the record again. */
-const POLL = Duration.secs(2);
+const _POLL = Duration.secs(2);
 
 /**
  * A project's creds: the requests agents make for them, which `splates server`
@@ -146,42 +146,6 @@ export class Creds {
 			];
 		});
 		return request;
-	}
-
-	/**
-	 * Blocks until a person fills or dismisses the request for `name`,
-	 * returning what became of it; gives up with `timeout`.
-	 */
-	async wait(
-		name: string,
-		{
-			timeout = DEFAULT_TIMEOUT,
-			poll = POLL,
-		}: { timeout?: Duration; poll?: Duration } = {},
-	): Promise<"saved" | "dismissed"> {
-		const deadline = Date.now() + timeout.ms;
-		for (;;) {
-			const { requests } = await this.read();
-			const found = requests.find((each) => each.name === name);
-			if (found === undefined) {
-				fail(
-					"not_found",
-					`nothing requested ${name}: \`splates creds request ${name} --purpose '<what for>' --instructions '<how to get it>'\` first`,
-					{ name },
-				);
-			}
-			if (found.status !== "open") {
-				return found.status;
-			}
-			if (Date.now() >= deadline) {
-				fail(
-					"timeout",
-					`${name} is still not saved after ${timeout.secs}s: wait again, or carry on with what does not need it`,
-					{ name },
-				);
-			}
-			await sleep(poll);
-		}
 	}
 
 	/**

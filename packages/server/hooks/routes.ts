@@ -140,6 +140,9 @@ function idIn(request: Request): string {
 /** The trigger a request sent, refusing one of the wrong shape; the store checks the rest. */
 function triggerIn(raw: unknown): Trigger {
 	const given = (raw ?? {}) as Record<string, unknown>;
+	if (typeof given.signal === "string") {
+		return { signal: given.signal };
+	}
 	if (typeof given.every === "string") {
 		return { every: given.every };
 	}
@@ -147,7 +150,11 @@ function triggerIn(raw: unknown): Trigger {
 		return { cron: given.cron };
 	}
 	if (typeof given.event !== "string") {
-		fail("usage", "say what sets it off: an event, every or cron", {});
+		fail(
+			"usage",
+			"say what sets it off: an event, a signal, every or cron",
+			{},
+		);
 	}
 	const filter = (given.filter ?? {}) as Record<string, unknown>;
 	const stages = Array.isArray(filter.stages)

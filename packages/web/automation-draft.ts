@@ -7,7 +7,7 @@ import { Dispatcher, type Eventful } from "core/events";
 export type AutomationDraftEvents = { changed: undefined };
 
 /** What sets an automation off, as the form picks it. */
-export type When = "event" | "every" | "cron";
+export type When = "event" | "every" | "cron" | "signal";
 
 /** The fields of the form that adds or edits an automation, as typed so far. */
 export interface DraftFields {
@@ -56,7 +56,10 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 	static of({ name, trigger, hook }: Automation): AutomationDraft {
 		const draft = new AutomationDraft();
 		const fields = { ...draft.fields, name: name ?? "" };
-		if ("event" in trigger) {
+		if ("signal" in trigger) {
+			fields.when = "signal";
+			fields.schedule = trigger.signal;
+		} else if ("event" in trigger) {
 			fields.when = "event";
 			fields.event = trigger.event;
 			fields.stage = trigger.filter?.stages?.join(",") ?? "";
@@ -116,9 +119,11 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 				? Object.keys(filter).length === 0
 					? { event, ...count }
 					: { event, filter, ...count }
-				: when === "every"
-					? { every: schedule }
-					: { cron: schedule };
+				: when === "signal"
+					? { signal: schedule.trim() }
+					: when === "every"
+						? { every: schedule }
+						: { cron: schedule };
 		const hook: Hook =
 			kind === "run"
 				? { kind, command }

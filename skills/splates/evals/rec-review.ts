@@ -284,6 +284,7 @@ export const scenarios: Scenario[] = [
 		change: recording,
 		message: "#rec:settings-bug why does Save appear to do nothing?",
 		checks: [askedPath, wholeVideo, sliced, unchanged],
+		judgeWith: "claude:sonnet",
 		judge: visualJudge,
 		limits: { turns: 30, minutes: 10 },
 	},
@@ -320,6 +321,7 @@ export const scenarios: Scenario[] = [
 						.length === 0,
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge: `Grade only these conditions, each mandatory. (1) Tool evidence shows a screenshot opened for each finding the reply discusses (Read/ReadMediaFile/view_image, or a recovered exec script returning images; omitted image bytes count). Slice 12 is Save, slice 305 is the theme, slice 570 (ranked moment 2, 09:30) is export. Before frames are optional. (2) The reply covers all three findings: Save blocked by email validation (alex / Enter a valid email address) at 00:12, the theme reverting to Light on reload at 05:05 (unranked, from the timeline), and export returning 500 at 09:30. (3) TASK LIST: the reply names a concrete candidate task for each finding worth acting on, each with what done means. Save may be a clarity task or be set aside as working as designed; do not demand a bug fix for normal validation. Offering to investigate one symptom first, or one task covering every symptom, FAILS. (4) KEEP QUESTIONS: the numbered questions ask which of those tasks to keep (one question per task, or one all-that-apply question listing them), with a recommended pick marked (the (chosen) mark on a choice IS the recommended pick: a multi-select with some choices marked (chosen) and others not satisfies this, and no further recommendation line is required), and say they become one lane once answered. A question that only asks which to do first, or whether to proceed, FAILS. Listing the tasks in prose is allowed; creating tasks or lanes is not (code checks grade that). Name the condition that fails, with the contrary evidence, and state whether (3) and (4) pass.`,
 		limits: { turns: 40, minutes: 10 },
 	},
@@ -369,6 +371,7 @@ export const scenarios: Scenario[] = [
 				},
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Inspect the task creation tool inputs and the resulting task records. Are there exactly the kept theme persistence, export endpoint fix and export retry UI tasks, in one lane named Settings reliability (or equivalent)? Does the retry UI depend on the endpoint fix, with no invented dependency for the theme? Does each task carry the #rec:settings-bug evidence and a Before and After, so another agent can act without this conversation: 05:05 (or 05:00 to 05:05) for the theme and 09:30 for the export endpoint? The retry task may inherit the export time through its dependency. Fail a Save explanation task, any task the answer did not keep, a second lane, implementation or queue starts. Do not demand pictures, a Details heading or new visual investigation: the prior reply already holds it. The lane-queue-card code check grades the final card; add no formatting requirements of your own.",
 		limits: { turns: 40, minutes: 10 },

@@ -24,15 +24,14 @@ describe("fingerprintOf", () => {
 		expect(after[1]).toBe(before[1]);
 	});
 
-	it("changes with the judge that grades it, the scenario's own over the run's", () => {
+	it("changes with the judge the scenario names", () => {
 		const scenario = base("a/one", "rubric");
 		const plain = fingerprintOf(scenario, "s");
-		expect(fingerprintOf(scenario, "s", { model: "sonnet" })).toBe(plain);
-		expect(fingerprintOf(scenario, "s", { model: "opus" })).not.toBe(plain);
 		const own = { ...scenario, judgeWith: "claude:opus" };
-		expect(fingerprintOf(own, "s", { model: "haiku" })).toBe(
-			fingerprintOf(scenario, "s", { model: "opus" }),
-		);
+		expect(fingerprintOf(own, "s")).not.toBe(plain);
+		expect(
+			fingerprintOf({ ...scenario, judgeWith: "claude:sonnet" }, "s"),
+		).toBe(plain);
 	});
 
 	it("changes when follow-up turns are turned on", () => {

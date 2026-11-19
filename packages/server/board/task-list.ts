@@ -16,8 +16,8 @@ import {
 	followers,
 	isReady,
 	lane,
-	lostLine,
 	mentioned,
+	removedLine,
 } from "./lanes";
 import { cameFrom, type TaskRecord } from "./task";
 import type { Tasks } from "./tasks";
@@ -103,7 +103,7 @@ export async function taskList(
 				[
 					...task.blockedBy,
 					...task.blockedElsewhere
-						.filter((blocker) => blocker.landed === undefined)
+						.filter((blocker) => blocker.landed === undefined && !blocker.lost)
 						.map((blocker) => elsewhereName(blocker).replace(" ", "")),
 				].join(","),
 				task.lane === null ? "" : String(task.lane),
@@ -225,7 +225,7 @@ export async function taskShow(
 		),
 		...((task.state.blockersLost ?? []).length === 0
 			? []
-			: [`  held:      ${lostLine(task.state)}`]),
+			: [`  note:      ${removedLine(task.state)}`]),
 		...elsewhere.map((blocker) => `  blocked by: ${elsewhereLine(blocker)}`),
 		...followers(states, task.id).map(
 			(other) => `  blocking:  ${named(other)}`,

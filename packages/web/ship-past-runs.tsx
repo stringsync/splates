@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { shipRuns } from "./api/ship";
 import { shipRunAddress } from "./page-address";
+import { ShipHeading } from "./ship-heading";
 
 const SAID = {
 	running: "Shipping now",
@@ -23,7 +24,17 @@ export function ShipPastRuns({
 		read().then(setRuns, () => setRuns("failed"));
 	}, [read]);
 	return (
-		<section aria-label="Runs" className="flex flex-col gap-2">
+		<section aria-label="Runs" className="flex flex-col gap-3">
+			<ShipHeading
+				title="Past ships"
+				line={
+					Array.isArray(runs) && runs.length > 0
+						? runs.length === 1
+							? "1 run."
+							: `${runs.length} runs, newest first.`
+						: undefined
+				}
+			/>
 			{runs === null ? (
 				<p className="text-muted-foreground text-sm">Reading runs…</p>
 			) : runs === "failed" ? (

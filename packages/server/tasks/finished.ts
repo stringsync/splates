@@ -44,6 +44,8 @@ export interface FinishedPlan extends FinishedTask {
  */
 export class Finished {
 	private readonly records: Collection;
+	/** What `list` last read, kept in step by `record`, so a call reads nothing. */
+	#listed: FinishedTask[] | null = null;
 	/** Where the kept records can be opened. */
 	readonly dir: string;
 
@@ -54,6 +56,8 @@ export class Finished {
 		private readonly fs: Fs,
 		/** How many it keeps, the oldest going first. */
 		private readonly capacity: number,
+		/** How many of the newest keep copies of their attached files. */
+		private readonly attachmentCapacity: number = FINISHED_ATTACHMENT_CAPACITY,
 	) {
 		this.records = storage.collection("finished");
 		this.dir = storage.locate("finished");
@@ -76,10 +80,26 @@ export class Finished {
 			recordName(key),
 			encodeTask({ ...facts, key, text: plan }),
 		);
-		const listed = await this.list();
-		for (const old of listed.slice(this.capacity)) {
-			await this.records.remove(recordName(old.key));
-			await this.storage.remove(this.filesKey(old.key));
+		if (this.#listed !== null) {
+			const { plan: _, ...facts } = (await this.read(key)) as FinishedPlan;
+			this.#listed = [
+				...this.#listed.filter((each) => each.key !== key),
+				facts,
+			].sort(newestFirst);
+		}
+		// Trimmed by the names alone, which hold each one's end time, so a
+		// finish does not read every record kept.
+		const newest = (await this.records.list())
+			.filter((each) => KEY_FILE.test(each))
+			.map((each) => each.slice(0, -".md".length))
+			.sort(newestKeyFirst);
+		for (const old of newest.slice(this.capacity)) {
+			await this.records.remove(recordName(old));
+			await this.storage.remove(this.filesKey(old));
+			this.#listed = null;
+		}
+		for (const old of newest.slice(this.attachmentCapacity, this.capacity)) {
+			await this.storage.remove(this.filesKey(old));
 		}
 	}
 
@@ -181,19 +201,19 @@ export class Finished {
 
 	/** Every one kept, the latest to finish first, without its plan. */
 	async list(): Promise<FinishedTask[]> {
-		const entries = await this.records.list();
-		const kept: FinishedTask[] = [];
-		for (const entry of entries.filter((each) => KEY_FILE.test(each))) {
-			const found = await this.read(entry.slice(0, -".md".length));
-			if (found !== null) {
-				const { plan: _, ...facts } = found;
-				kept.push(facts);
+		if (this.#listed === null) {
+			const entries = await this.records.list();
+			const kept: FinishedTask[] = [];
+			for (const entry of entries.filter((each) => KEY_FILE.test(each))) {
+				const found = await this.read(entry.slice(0, -".md".length));
+				if (found !== null) {
+					const { plan: _, ...facts } = found;
+					kept.push(facts);
+				}
 			}
+			this.#listed = kept.sort(newestFirst);
 		}
-		return kept.sort(
-			(left, right) =>
-				right.endedAt.localeCompare(left.endedAt) || right.id - left.id,
-		);
+		return [...this.#listed];
 	}
 
 	/** The one kept as `key`, with its plan, or null for none. */
@@ -234,3 +254,17 @@ const KEY = /^\d+-\d+$/;
  */
 const PATH = /\/[^\s()<>[\]"'`]*[^\s()<>[\]"'`.,;:!?]/g;
 const KEY_FILE = /^\d+-\d+\.md$/;
+
+/** How many of the newest finished tasks keep copies of their attached files. */
+export const FINISHED_ATTACHMENT_CAPACITY = 5000;
+
+function newestFirst(left: FinishedTask, right: FinishedTask): number {
+	return right.endedAt.localeCompare(left.endedAt) || right.id - left.id;
+}
+
+/** Keys newest first by the end time and number they are named for. */
+function newestKeyFirst(left: string, right: string): number {
+	const [leftId = 0, leftEnd = 0] = left.split("-").map(Number);
+	const [rightId = 0, rightEnd = 0] = right.split("-").map(Number);
+	return rightEnd - leftEnd || rightId - leftId;
+}

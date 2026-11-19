@@ -65,7 +65,6 @@ import { WatchShipStep } from "./ship-step-pane";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { StatsReport } from "./stats-report";
-import { TagColorsContext } from "./tag-chips";
 import {
 	OpenTerminalPage,
 	ShellRunning,
@@ -403,142 +402,140 @@ export function App({
 											tasks={tasks}
 											open={openConversation}
 										>
-											<TagColorsContext.Provider value={snapshot?.tagColors}>
-												<Trunk value={snapshot?.trunk ?? null}>
-													<ReviewChanges value={review}>
-														<WatchBackground value={watch}>
-															<WatchMerge value={watchMerge}>
-																<WatchShipStep value={watchShip}>
-																	<NestedPanesContext value={nested}>
-																		<ToggleTerminal
-																			value={
-																				shown === null ? null : toggleTerminal
-																			}
-																		>
-																			<ShellRunning value={shellRunning}>
-																				<ShowTerminal
+											<Trunk value={snapshot?.trunk ?? null}>
+												<ReviewChanges value={review}>
+													<WatchBackground value={watch}>
+														<WatchMerge value={watchMerge}>
+															<WatchShipStep value={watchShip}>
+																<NestedPanesContext value={nested}>
+																	<ToggleTerminal
+																		value={
+																			shown === null ? null : toggleTerminal
+																		}
+																	>
+																		<ShellRunning value={shellRunning}>
+																			<ShowTerminal
+																				value={
+																					available ? revealTerminal : null
+																				}
+																			>
+																				<OpenTerminalPage
 																					value={
-																						available ? revealTerminal : null
+																						available ? openTerminal : null
 																					}
 																				>
-																					<OpenTerminalPage
-																						value={
-																							available ? openTerminal : null
-																						}
-																					>
-																						<ShortcutSettings value={settings}>
-																							<PageShortcuts
-																								onPage={go}
-																								onBack={
-																									available ? visits.back : null
+																					<ShortcutSettings value={settings}>
+																						<PageShortcuts
+																							onPage={go}
+																							onBack={
+																								available ? visits.back : null
+																							}
+																							onForward={
+																								available
+																									? visits.forward
+																									: null
+																							}
+																							onSettings={() =>
+																								setSetting(true)
+																							}
+																							onTerminal={
+																								shown === null
+																									? null
+																									: () =>
+																											toggleTerminal(shown.id)
+																							}
+																						/>
+																						<TooltipProvider>
+																							<ConversationCheckpoint
+																								feed={talk}
+																								every={checkpointEvery}
+																								restartShown={
+																									checkpointRestartShown
 																								}
-																								onForward={
-																									available
-																										? visits.forward
-																										: null
-																								}
-																								onSettings={() =>
-																									setSetting(true)
-																								}
-																								onTerminal={
-																									shown === null
-																										? null
-																										: () =>
-																												toggleTerminal(shown.id)
-																								}
-																							/>
-																							<TooltipProvider>
-																								<ConversationCheckpoint
+																								reload={reload}
+																								autoRestart={autoRestart}
+																								timer={timer}
+																							>
+																								{wide ? (
+																									<DesktopApp
+																										page={page}
+																										open={open}
+																										go={go}
+																										name={name}
+																										bodies={bodies}
+																										opening={opening}
+																										paned={paned}
+																										available={available}
+																										snapshot={snapshot}
+																										outdated={outdated}
+																										offline={offline}
+																										talk={talk}
+																										drafts={drafts}
+																										terminals={terminals}
+																										menu={pageMenu}
+																									/>
+																								) : (
+																									<PhoneApp
+																										page={page}
+																										open={open}
+																										go={go}
+																										name={name}
+																										header={header}
+																										offline={offline}
+																										body={
+																											bodies === null ? (
+																												opening
+																											) : (
+																												<div
+																													className={
+																														PHONE_PAGES[page]
+																													}
+																												>
+																													{bodies[page]}
+																												</div>
+																											)
+																										}
+																										available={available}
+																										waiting={
+																											counted ? waiting : 0
+																										}
+																										snapshot={snapshot}
+																										talk={talk}
+																										drafts={drafts}
+																										terminals={terminals}
+																										pageMenu={pageMenu}
+																									/>
+																								)}
+																								{pane}
+																								<SearchDialog
+																									searched={searched}
 																									feed={talk}
-																									every={checkpointEvery}
-																									restartShown={
-																										checkpointRestartShown
+																									pick={pick}
+																								/>
+																								<PageDialogs
+																									settings={settings}
+																									settingsOpen={setting}
+																									onSettingsOpenChange={
+																										setSetting
 																									}
-																									reload={reload}
-																									autoRestart={autoRestart}
-																									timer={timer}
-																								>
-																									{wide ? (
-																										<DesktopApp
-																											page={page}
-																											open={open}
-																											go={go}
-																											name={name}
-																											bodies={bodies}
-																											opening={opening}
-																											paned={paned}
-																											available={available}
-																											snapshot={snapshot}
-																											outdated={outdated}
-																											offline={offline}
-																											talk={talk}
-																											drafts={drafts}
-																											terminals={terminals}
-																											menu={pageMenu}
-																										/>
-																									) : (
-																										<PhoneApp
-																											page={page}
-																											open={open}
-																											go={go}
-																											name={name}
-																											header={header}
-																											offline={offline}
-																											body={
-																												bodies === null ? (
-																													opening
-																												) : (
-																													<div
-																														className={
-																															PHONE_PAGES[page]
-																														}
-																													>
-																														{bodies[page]}
-																													</div>
-																												)
-																											}
-																											available={available}
-																											waiting={
-																												counted ? waiting : 0
-																											}
-																											snapshot={snapshot}
-																											talk={talk}
-																											drafts={drafts}
-																											terminals={terminals}
-																											pageMenu={pageMenu}
-																										/>
-																									)}
-																									{pane}
-																									<SearchDialog
-																										searched={searched}
-																										feed={talk}
-																										pick={pick}
-																									/>
-																									<PageDialogs
-																										settings={settings}
-																										settingsOpen={setting}
-																										onSettingsOpenChange={
-																											setSetting
-																										}
-																										onWelcome={() =>
-																											go("welcome")
-																										}
-																									/>
-																									<WelcomeLanding go={go} />
-																								</ConversationCheckpoint>
-																							</TooltipProvider>
-																						</ShortcutSettings>
-																					</OpenTerminalPage>
-																				</ShowTerminal>
-																			</ShellRunning>
-																		</ToggleTerminal>
-																	</NestedPanesContext>
-																</WatchShipStep>
-															</WatchMerge>
-														</WatchBackground>
-													</ReviewChanges>
-												</Trunk>
-											</TagColorsContext.Provider>
+																									onWelcome={() =>
+																										go("welcome")
+																									}
+																								/>
+																								<WelcomeLanding go={go} />
+																							</ConversationCheckpoint>
+																						</TooltipProvider>
+																					</ShortcutSettings>
+																				</OpenTerminalPage>
+																			</ShowTerminal>
+																		</ShellRunning>
+																	</ToggleTerminal>
+																</NestedPanesContext>
+															</WatchShipStep>
+														</WatchMerge>
+													</WatchBackground>
+												</ReviewChanges>
+											</Trunk>
 										</DispatchingProvider>
 									</Lanes>
 								</Talking>

@@ -101,7 +101,6 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	loaded = false;
 
 	private repetitions: number | undefined;
-	private judge: string | undefined;
 	private following: Resource | null = null;
 	private planning = 0;
 	private loading: Promise<void> | null = null;
@@ -116,7 +115,6 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		opts: EvalRunOptions = {},
 	) {
 		this.repetitions = ask.reps;
-		this.judge = ask.judge;
 		this.server = opts.server ?? HTTP_EVAL_RUN;
 		this.timer = opts.timer ?? new SystemTimer();
 		this.conversation = opts.conversation ?? null;
@@ -228,14 +226,6 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		await this.replan();
 	}
 
-	/** Change the judge before starting an unlinked run; empty means the runner's default. */
-	setJudge(judge: string): void {
-		if (this.started) {
-			return;
-		}
-		this.judge = judge.trim() === "" ? undefined : judge.trim();
-	}
-
 	/** Sets the dollars this run may spend. */
 	setBudget(usd: number): void {
 		if (this.started) {
@@ -310,7 +300,6 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			agents: this.picked,
 			baseline: this.ask.baseline,
 			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
-			...(this.judge === undefined ? {} : { judge: this.judge }),
 			conversation: this.conversation,
 			...(this.conversation === null ? {} : { budget: { usd: this.usd } }),
 		};

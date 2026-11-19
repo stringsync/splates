@@ -1,5 +1,6 @@
 import type { ElsewhereOnBoard, TaskRecord } from "@splates/server/board";
 import {
+	type BoardRecord,
 	type LaneRecord,
 	lanesTaken,
 	named,
@@ -76,6 +77,7 @@ export const Conversations = memo(function Conversations({
 	tasks,
 	todos,
 	lanes,
+	boards,
 	elsewhere,
 	trunk,
 	here,
@@ -97,6 +99,7 @@ export const Conversations = memo(function Conversations({
 	/** What a todo an agent proposes is read from, live. */
 	todos: TaskRecord[];
 	lanes: LaneRecord[];
+	boards?: BoardRecord[];
 	/** Where its todos' blockers in other projects stand; absent unread. */
 	elsewhere?: ElsewhereOnBoard;
 	/** The main tree's branch. */
@@ -144,6 +147,7 @@ export const Conversations = memo(function Conversations({
 			linked: true,
 			todos,
 			lanes: named(todos, lanes),
+			boards,
 			elsewhere,
 			open: (id: number) => {
 				const task = takenTask(todos, tasks, id);
@@ -157,7 +161,6 @@ export const Conversations = memo(function Conversations({
 			openTodos: onTodos,
 			openLane: onLane,
 			tasks: tasks.map((each) => each.task),
-			taskTags: new Map(tasks.map((each) => [each.task, each.tags])),
 			moveLane: () => {},
 			refusedTodos,
 			refuseTodo,
@@ -168,6 +171,7 @@ export const Conversations = memo(function Conversations({
 		[
 			todos,
 			lanes,
+			boards,
 			elsewhere,
 			drafts,
 			tasks,

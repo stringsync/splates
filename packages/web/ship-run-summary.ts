@@ -152,7 +152,7 @@ function lineOf(
 		if (steps.some((each) => each.status === "blocked")) {
 			return "Held back by a failed step";
 		}
-		return step === 0 ? "Starting" : `Starts when step ${step} is done`;
+		return step === 0 ? "Starting" : `Starts when group ${step} is done`;
 	}
 	if (status === "running") {
 		const active = steps.find((each) => ACTIVE.has(each.status));

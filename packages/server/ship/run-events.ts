@@ -6,6 +6,8 @@ const RUN_TARGET = z.object({
 	name: z.string(),
 	command: z.string(),
 	bump: BUMP.optional(),
+	/** The exact version every step of it takes, resolved before it started. */
+	version: z.string().optional(),
 	dependencies: z.array(z.string()),
 	steps: z.array(
 		z.object({
@@ -30,6 +32,10 @@ export const PROMPT = z.discriminatedUnion("kind", [
 export type Prompt = z.infer<typeof PROMPT>;
 
 const AT = { at: z.number() };
+
+/** A supervised run's budget: how many fixes the server sends by itself. */
+export const SUPERVISE = z.object({ budget: z.number().int().min(0) });
+export type Supervise = z.infer<typeof SUPERVISE>;
 const STEP = { target: z.string(), step: z.string() };
 
 /**
@@ -37,7 +43,36 @@ const STEP = { target: z.string(), step: z.string() };
  * is these folded in order, so the file alone says where it stands.
  */
 export const RUN_EVENT = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("started"), ...AT, targets: z.array(RUN_TARGET) }),
+	/**
+	 * The run began, with a `supervise` budget of fixes the server sends a
+	 * failed step to an agent for by itself, when it was started supervised,
+	 * on `commit` of the main tree, which every step runs on from its own
+	 * checkout; a run from before there was one has none and runs in the
+	 * main tree.
+	 */
+	z.object({
+		type: z.literal("started"),
+		...AT,
+		targets: z.array(RUN_TARGET),
+		supervise: SUPERVISE.optional(),
+		commit: z.string().optional(),
+	}),
+	/**
+	 * The user switched supervision on, or gave it more fixes: `budget` is the
+	 * run's whole budget from here, counting the fixes already spent.
+	 */
+	z.object({
+		type: z.literal("supervised"),
+		...AT,
+		budget: z.number().int().min(0),
+	}),
+	/** The run's checkout took in the commit fix task `task` landed as, and stands on `commit`. */
+	z.object({
+		type: z.literal("advanced"),
+		...AT,
+		task: z.number(),
+		commit: z.string(),
+	}),
 	/** The server came back to a run it had left unsettled. */
 	z.object({ type: z.literal("resumed"), ...AT }),
 	/** The user stopped the run: every step under way was cut short. */
@@ -112,8 +147,17 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 		step: z.string().optional(),
 		link: z.string().optional(),
 	}),
-	/** The failed step went to an agent, as board task `task`. */
-	z.object({ type: z.literal("sent"), ...AT, ...STEP, task: z.number() }),
+	/**
+	 * The failed step went to an agent, as board task `task`: by the user's
+	 * Send to agent, or by the supervisor, spending one of its fixes.
+	 */
+	z.object({
+		type: z.literal("sent"),
+		...AT,
+		...STEP,
+		task: z.number(),
+		by: z.literal("supervisor").optional(),
+	}),
 	/** The fix the step was sent for merged, or was removed without merging. */
 	z.object({
 		type: z.literal("fixed"),

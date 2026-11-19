@@ -11,12 +11,6 @@ import {
 	RESULTS_FILE,
 } from "../contract";
 import { fingerprintOf } from "../fingerprint";
-import {
-	DEFAULT_JUDGE,
-	type JudgePick,
-	judgeName,
-	judgePickOf,
-} from "../judge";
 import { checkLabel, copyRun } from "../labels";
 import { formatReport, regradeBatch } from "../regrade";
 import { revisionOf } from "../revision";
@@ -51,9 +45,6 @@ Selection:
   --scenario <id>          a scenario, repeatable; all when none
   --agent <agent[:model][@effort]>
                            claude, codex, opencode or kimi, repeatable; claude when none
-  --judge-with <claude:model[@effort]>
-                           the judge of rubrics whose scenario names none (its judgeWith),
-                           ${judgeName(DEFAULT_JUDGE)} by default; on check and regrade it implies --judge
   --reps <n>               runs of each, 1 by default
   --parallel <n>           runs at once, 2 by default
   --directory <dir>        where batches go, ~/.splates/evals by default
@@ -125,7 +116,6 @@ async function main(argv: string[]): Promise<number> {
 			root: { type: "string", default: gitRoot() },
 			json: { type: "boolean", default: false },
 			judge: { type: "boolean", default: false },
-			"judge-with": { type: "string" },
 			out: { type: "string" },
 			expect: { type: "string" },
 			why: { type: "string" },
@@ -134,18 +124,7 @@ async function main(argv: string[]): Promise<number> {
 		},
 	});
 	const [command, ...rest] = positionals;
-	let judgePick: JudgePick | undefined;
-	try {
-		judgePick =
-			values["judge-with"] === undefined
-				? undefined
-				: judgePickOf(values["judge-with"]);
-	} catch (error) {
-		console.error(error instanceof Error ? error.message : String(error));
-		return 2;
-	}
-	const rejudge = values.judge || judgePick !== undefined;
-	const judging = judgePick === undefined ? {} : { judgePick };
+	const rejudge = values.judge;
 	if (values.help || command === undefined) {
 		console.log(HELP);
 		return 0;
@@ -217,7 +196,6 @@ async function main(argv: string[]): Promise<number> {
 			: resolve(batchDir);
 		const report = await regradeBatch(dir, found, {
 			judge: rejudge,
-			...judging,
 			...(values.out === undefined ? {} : { out: resolve(values.out) }),
 		});
 		console.log(formatReport(report));
@@ -237,7 +215,7 @@ async function main(argv: string[]): Promise<number> {
 				skillHash = (await revisionOf(each.dir)).skillHash;
 				hashes.set(each.dir, skillHash);
 			}
-			const fingerprint = fingerprintOf(each.scenario, skillHash, judgePick);
+			const fingerprint = fingerprintOf(each.scenario, skillHash);
 			console.log(
 				values.json
 					? JSON.stringify({
@@ -261,7 +239,6 @@ async function main(argv: string[]): Promise<number> {
 		for (const each of labelled) {
 			const why = await checkLabel(each.label, each.base, current, {
 				judge: rejudge,
-				...judging,
 			});
 			if (why !== null) {
 				disagree += 1;
@@ -276,7 +253,7 @@ async function main(argv: string[]): Promise<number> {
 		);
 		if (rejudge) {
 			console.log(
-				`judge ${judgeName(judgePick ?? DEFAULT_JUDGE)}: agrees with ${labelled.length - disagree} of ${labelled.length} labelled runs`,
+				`judge: agrees with ${labelled.length - disagree} of ${labelled.length} labelled runs`,
 			);
 		}
 		return wrong.length === 0 ? 0 : 1;
@@ -315,7 +292,6 @@ async function main(argv: string[]): Promise<number> {
 		skill: values.skill.join(", ") || "all",
 		producer: "evals",
 		parallel: Number(values.parallel) || 2,
-		...(judgePick === undefined ? {} : { judge: judgePick }),
 		landed: (result) =>
 			console.log(
 				`${result.status}\t${result.scenario.id}\t${result.agent.agent}${result.error === null ? "" : `\t${result.error}`}`,

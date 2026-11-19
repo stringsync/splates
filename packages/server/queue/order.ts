@@ -46,9 +46,9 @@ export function holdsBack(
 ): { open: TaskRecord[]; lost: number[]; elsewhere: ElsewhereBlocker[] } {
 	return {
 		open: all.filter((other) => task.blockedBy.includes(other.id)),
-		lost: (task.blockersLost ?? []).map((gone) => gone.id),
+		lost: [],
 		elsewhere: (task.blockedElsewhere ?? []).filter(
-			(blocker) => blocker.landed === undefined,
+			(blocker) => blocker.landed === undefined && !blocker.lost,
 		),
 	};
 }
@@ -84,10 +84,8 @@ export function blockage(
 	}
 	return {
 		chain: unqueuedBlockers([task.id], all),
-		lost: (task.blockersLost ?? []).map((gone) => gone.id),
-		deep: waitedOn(task, all).some(
-			(other) => (other.blockersLost ?? []).length > 0,
-		),
+		lost: [],
+		deep: false,
 	};
 }
 
@@ -192,21 +190,19 @@ export function resumesItself(
 }
 
 /**
- * Whether the suspended task `task`, which kept its worktree when it added
- * blockers, wakes its conversation by itself: each blocker has merged, none
- * was lost.
+ * Whether the conversation of started task `task`, which added blockers, is
+ * owed its notice: each blocker has ended, none was lost.
  */
-export function wakesItself(
+export function blockersEnded(
 	task: TaskRecord,
 	all: readonly TaskRecord[],
 ): boolean {
 	const deferred = task.deferred;
 	return (
-		deferred?.suspended === true &&
+		deferred?.notify === true &&
 		deferred.conversation !== undefined &&
 		task.takenBy !== null &&
 		task.blockedBy.length === 0 &&
-		(task.blockersLost ?? []).length === 0 &&
 		deferred.questions.length === 0 &&
 		deferred.outside.length === 0 &&
 		deferralBlockers(task, all).every(cleared)

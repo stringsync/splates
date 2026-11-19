@@ -108,6 +108,8 @@ export function PhoneApp({
 						terminals={terminals}
 						tasks={snapshot?.tasks ?? []}
 						todos={snapshot?.todos ?? []}
+						lanes={snapshot?.lanes ?? []}
+						boards={snapshot?.boards}
 						here={
 							snapshot === null
 								? null
@@ -176,11 +178,17 @@ export function PhoneApp({
 							ref={setSlot}
 							className="flex min-w-0 flex-1 items-center gap-1"
 						/>
+						{/* The shell's own, so it is there while a page still loads. */}
+						{available && (
+							<BarButton label="New conversation" onClick={() => openNew()}>
+								<SquarePenIcon />
+							</BarButton>
+						)}
 					</header>
 					<div ref={setBannerSlot} className="contents" />
 					<div
 						ref={setTitleSlot}
-						className="flex h-11 min-w-0 items-center border-b px-4 [&>nav]:w-full"
+						className="flex h-11 min-w-0 items-center px-4 [&>nav]:w-full"
 					/>
 					<TopBarFrame
 						value={{
@@ -190,11 +198,6 @@ export function PhoneApp({
 							banner,
 							untitled: true,
 							titleSlot,
-							end: available && (
-								<BarButton label="New conversation" onClick={() => openNew()}>
-									<SquarePenIcon />
-								</BarButton>
-							),
 						}}
 					>
 						{body}

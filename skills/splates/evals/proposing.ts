@@ -78,6 +78,7 @@ export const scenarios: Scenario[] = [
 			attached,
 			notBuilt,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does the proposal show the change as a diagram, with a Before of today's upload flow and an After of the proposed one, each labelled? Answer yes or no.",
 		limits: { turns: 40, minutes: 20 },
@@ -105,6 +106,7 @@ export const scenarios: Scenario[] = [
 			},
 			notBuilt,
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does the proposal carry two images, a Before of the current settings screen and an After that is a labelled mock of the theme picker? A screenshot of settings.html rendered in a browser counts as the Before, and an After mock of the whole page with the picker in it counts. Answer yes when both images are there, no when either is missing, and let your reason agree with that answer.",
 		limits: { turns: 40, minutes: 20 },

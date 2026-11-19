@@ -132,7 +132,7 @@ export async function runOne(
 					reply: run.reply,
 				}),
 				box.env,
-				judgeFor(scenario, opts.judge),
+				judgeFor(scenario),
 			);
 		}
 		result.status =
@@ -168,8 +168,6 @@ export interface RunOptions {
 	runners?: Runners;
 	/** Makes each run's sandbox; a throwaway repo with the skill installed by default. */
 	sandbox?: MakeSandbox;
-	/** The judge of rubrics whose scenario names none; `DEFAULT_JUDGE` when absent. */
-	judge?: JudgePick;
 }
 
 /** One check of a run, and how it went. */
@@ -281,11 +279,7 @@ export async function runBatch(
 			...(revision === undefined
 				? {}
 				: {
-						fingerprint: fingerprintOf(
-							cell.scenario,
-							revision.skillHash,
-							opts.judge,
-						),
+						fingerprint: fingerprintOf(cell.scenario, revision.skillHash),
 					}),
 		})),
 	};
@@ -300,7 +294,6 @@ export async function runBatch(
 				repetition: cell.repetition,
 				runners: opts.runners,
 				sandbox: cell.sandbox ?? opts.sandbox,
-				...(opts.judge === undefined ? {} : { judge: opts.judge }),
 			});
 			await saveResult(dir, cellId(index), result);
 			opts.landed?.(result);
@@ -389,8 +382,6 @@ export interface BatchOptions {
 	runners?: Runners;
 	/** Makes each run's sandbox, as for `runOne`. */
 	sandbox?: MakeSandbox;
-	/** The judge of rubrics whose scenario names none, as for `runOne`. */
-	judge?: JudgePick;
 	/** Called with each result as it is saved. */
 	landed?: (result: Result) => void;
 }

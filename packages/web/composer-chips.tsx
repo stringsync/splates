@@ -20,6 +20,7 @@ import {
 	NamedContext,
 	RecChip,
 	reading,
+	SignalChip,
 	untrailed,
 } from "./mentioned";
 
@@ -33,9 +34,14 @@ export function serialize(item: TriggerItem): string {
 		return `[${item.id}]`;
 	}
 	const sign =
-		{ file: "@", project: "#", conversation: "#", rec: "#", command: "/" }[
-			item.type
-		] ?? "";
+		{
+			file: "@",
+			project: "#",
+			conversation: "#",
+			rec: "#",
+			signal: "#",
+			command: "/",
+		}[item.type] ?? "";
 	return `${sign}${item.id}`;
 }
 /**
@@ -66,6 +72,9 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 		const conversation = reading(named, sign, called);
 		if (conversation?.kind === "conversation") {
 			return { as: conversation.as, type: "conversation" };
+		}
+		if (conversation?.kind === "signal") {
+			return { as: conversation.as, type: "signal" };
 		}
 		if (conversation?.kind === "rec") {
 			return { as: conversation.as, type: "rec" };
@@ -160,6 +169,9 @@ function Chip({
 	if (directiveType === "rec") {
 		return <RecChip name={directiveId.replace(/^rec:/, "")} />;
 	}
+	if (directiveType === "signal") {
+		return <SignalChip name={directiveId} />;
+	}
 	if (directiveType === "attachment") {
 		return <AttachedChip name={directiveId} />;
 	}
@@ -192,9 +204,11 @@ function Chip({
 					? { file: target, name: names.get(target) }
 					: kind === "project"
 						? { project: target }
-						: kind === "rec"
-							? { rec: target.replace(/^rec:/, "") }
-							: { conversation: target }
+						: kind === "signal"
+							? { signal: target }
+							: kind === "rec"
+								? { rec: target.replace(/^rec:/, "") }
+								: { conversation: target }
 			}
 		/>
 	);

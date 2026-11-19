@@ -13,12 +13,12 @@ import {
 	RecPage,
 	SetupPage,
 	ShipsPage,
+	SignalsPage,
 	StatsPage,
 	Todos,
 } from "./lazy-pages";
 import type { Page, PageRoute } from "./page-route";
 import type { StatsReport } from "./stats-report";
-import { TagFilterContext } from "./tag-chips";
 import { Tasks } from "./tasks";
 import type { Terminals } from "./terminals";
 import type { TodoView } from "./todo-view";
@@ -93,7 +93,7 @@ export function useAppPages({
 							/>
 						),
 						todos: (
-							<TagFilterContext.Provider value={todoView.taskFilter}>
+							<>
 								<Todos
 									snapshot={snapshot}
 									drafts={drafts}
@@ -102,10 +102,10 @@ export function useAppPages({
 									onLane={openLane}
 									onIndex={() => go("boards")}
 								/>
-							</TagFilterContext.Provider>
+							</>
 						),
 						tasks: (
-							<TagFilterContext.Provider value={todoView.taskFilter}>
+							<>
 								<Tasks
 									filter={todoView.taskFilter}
 									project={snapshot}
@@ -118,10 +118,16 @@ export function useAppPages({
 										todoView.open(id);
 									}}
 								/>
-							</TagFilterContext.Provider>
+							</>
 						),
 						stats: <StatsPage report={report} />,
-						ships: <ShipsPage run={shipRun} />,
+						ships: (
+							<ShipsPage
+								run={shipRun}
+								snapshot={snapshot}
+								talk={available ? talk : null}
+							/>
+						),
 						rec: <RecPage feed={available ? talk : null} />,
 						evals: (
 							<EvalsPage
@@ -137,6 +143,7 @@ export function useAppPages({
 								cred={cred}
 							/>
 						),
+						signals: <SignalsPage onOpen={(id) => openConversation(id)} />,
 						billing: <BillingPage talk={talk} />,
 						automations: (
 							<AutomationsPage
@@ -178,6 +185,7 @@ export function useAppPages({
 									tasks={snapshot.tasks}
 									todos={snapshot.todos}
 									lanes={snapshot.lanes}
+									boards={snapshot.boards}
 									elsewhere={snapshot.elsewhere}
 									trunk={snapshot.trunk}
 									here={{ root: snapshot.root, repo: snapshot.repo }}

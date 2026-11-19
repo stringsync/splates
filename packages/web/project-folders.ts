@@ -206,7 +206,7 @@ function queuedOf(
 				todo.blockedBy.some((id) => todos.some((each) => each.id === id)) ||
 				isBlocked(todo, todos) ||
 				(todo.blockedElsewhere ?? []).some(
-					(blocker) => blocker.landed === undefined,
+					(blocker) => blocker.landed === undefined && !blocker.lost,
 				)
 					? todo.blockedBy.filter((id) => todos.some((each) => each.id === id))
 					: null,

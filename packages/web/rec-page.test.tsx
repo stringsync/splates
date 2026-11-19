@@ -49,6 +49,91 @@ describe("RecPage", () => {
 							})) as unknown as typeof fetch;
 	};
 
+	test("sends the cloud logs ticked, by name, and none unticked", async () => {
+		const opened: unknown[] = [];
+		const answers: Record<string, () => Response> = {
+			creds: () => Response.json({ kept: [] }),
+			"rec/name": () => Response.json({ name: "next-name" }),
+			"rec/sessions": () =>
+				Response.json({ sessions: [], totalSize: 0, limit: 1, policy: "" }),
+			"rec/open": () => new Response(null, { status: 204 }),
+		};
+		globalThis.fetch = (async (url: string, init?: RequestInit) => {
+			const path = Object.keys(answers).find((each) =>
+				String(url).includes(each),
+			);
+			opened.push(
+				...(path === "rec/open" ? [JSON.parse(String(init?.body))] : []),
+			);
+			return (
+				answers[path ?? ""]?.() ??
+				Response.json({
+					available: true,
+					host: "studio",
+					here: true,
+					status: { running: false },
+					sources: [],
+					logs: [
+						{ name: "api", label: "API (staging)", command: "x" },
+						{ name: "db", command: "y" },
+					],
+				})
+			);
+		}) as unknown as typeof fetch;
+		const view = render(<RecPage />);
+		const api = await view.findByRole("switch", {
+			name: "Fetch API (staging)",
+		});
+		expect(api.getAttribute("aria-checked")).toBe("false");
+		await waitFor(() =>
+			expect((view.getByRole("textbox") as HTMLInputElement).value).toBe(
+				"next-name",
+			),
+		);
+		fireEvent.click(api);
+		fireEvent.click(view.getByRole("button", { name: "Rec" }));
+
+		await waitFor(() => expect(opened).toHaveLength(1));
+		expect((opened[0] as { logs: string[] }).logs).toEqual(["api"]);
+	});
+
+	test("shows a log source that was not fetched, with the command that fetches it again", async () => {
+		location.hash = "rec/brave-otter";
+		globalThis.fetch = (async () =>
+			Response.json({
+				name: "brave-otter",
+				startedAt: 0,
+				length: 30,
+				size: 0,
+				video: false,
+				momentList: [],
+				entries: [],
+				stills: [],
+				logs: [],
+				commandLogs: [
+					{ name: "api", status: "ok" },
+					{
+						name: "db",
+						status: "failed",
+						note: "the token expired",
+						retry: "rec logs fetch brave-otter --source db",
+					},
+				],
+			})) as unknown as typeof fetch;
+		const view = render(<RecPage />);
+		const missed = await view.findByRole("list", {
+			name: "Log sources not fetched",
+		});
+
+		expect(missed.textContent).toContain(
+			"db was not fetched: the token expired",
+		);
+		expect(missed.textContent).toContain(
+			"rec logs fetch brave-otter --source db",
+		);
+		expect(missed.textContent).not.toContain("api");
+	});
+
 	test("reviews the recording prompt and model settings before sending", async () => {
 		location.hash = "rec/brave-otter";
 		const requests: string[] = [];

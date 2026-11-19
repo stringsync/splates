@@ -89,6 +89,7 @@ export const scenarios: Scenario[] = [
 					!commands.some((command) => startsTask(command, 1)),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the reply tells the user that task 1 was already taken by another task (work-1) rather than starting it. Fail when it claims to have started the work.",
 	},
@@ -185,6 +186,7 @@ export const scenarios: Scenario[] = [
 					!commands.some((command) => /\bsplates\s+lane\s+add\b/.test(command)),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the reply asks, as a numbered question with Yes and No choices, whether to split the request into a lane of separate tasks, naming the pieces (the writer, the endpoint, the button), and has not written the code. Fail when it starts implementing, or splits without asking.",
 	},
@@ -211,6 +213,7 @@ export const scenarios: Scenario[] = [
 					),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the agent works on the change itself and does not ask whether to split it into a lane or several tasks. Fail when the reply offers a lane.",
 	},
@@ -240,6 +243,7 @@ export const scenarios: Scenario[] = [
 					),
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Pass when the agent carries out the export in one task without asking again about a lane. Fail when it offers to split, or leaves pieces as follow-up tasks.",
 	},

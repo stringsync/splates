@@ -368,8 +368,8 @@ export class Tasks {
 	 * @internal Removes one, moving those below it up to close the gap. What
 	 * came after it no longer waits on it, so no task is left naming one that
 	 * is gone. A merged blocker keeps the commit it landed as; one removed
-	 * without merging is kept as a lost blocker, which holds what came after
-	 * it for the person to let go of.
+	 * without merging is dropped as a link and kept as a note on what came
+	 * after it, which holds nothing.
 	 */
 	async delete(id: number, landed?: string): Promise<boolean> {
 		return this.locked(async () => {
@@ -386,11 +386,12 @@ export class Tasks {
 			for (const state of await this.stored()) {
 				if (state.blockedBy.includes(id)) {
 					const blocker = { id, subject: gone?.subject ?? "" };
+					const removed = { ...blocker, at: new Date().toISOString() };
 					const freed = {
 						...state,
 						blockedBy: state.blockedBy.filter((before) => before !== id),
 						...(landed === undefined
-							? { blockersLost: [...(state.blockersLost ?? []), blocker] }
+							? { blockersLost: [...(state.blockersLost ?? []), removed] }
 							: {
 									blockersLanded: [
 										...(state.blockersLanded ?? []),
@@ -465,7 +466,7 @@ export class Tasks {
 				),
 			});
 			await this.store.removed.remove(removedName(id));
-			// Those its removal held for the person wait on it again.
+			// Those its removal left a note on wait on it again.
 			for (const other of stored) {
 				if (other.blockersLost?.some((gone) => gone.id === id)) {
 					const { blockersLost: lost, ...rest } = other;

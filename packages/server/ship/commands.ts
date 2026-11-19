@@ -1,10 +1,19 @@
 import type { Ps } from "core/system";
 import { Duration } from "core/time";
+import { z } from "zod";
 import { lastLines, quoted } from "./shell";
 import { type Bump, PLANS, type Plan } from "./wire";
 
 /** How long a command has to answer `plan`. */
 const PLAN_TIMEOUT = Duration.secs(30);
+
+/** How long a command has to answer `unshipped`. */
+const UNSHIPPED_TIMEOUT = Duration.mins(1);
+
+/** Each target's unshipped commit count, by name, for those that count them. */
+export type Unshipped = Record<string, number>;
+
+const COUNTS = z.record(z.string(), z.number().int().nonnegative());
 
 /** A target a ship command serves, as its `plan` with no flags describes it. */
 export type Listed = {
@@ -43,10 +52,7 @@ export class ShipCommands {
 
 	/** Every target each command serves, and each command that failed. */
 	async list(): Promise<Listing> {
-		const commands =
-			typeof this.commands === "function"
-				? await this.commands()
-				: this.commands;
+		const commands = await this.registered();
 		const answers = await Promise.all(
 			commands.map(async (command): Promise<Answered | Unanswered> => {
 				try {
@@ -79,14 +85,63 @@ export class ShipCommands {
 		return listing;
 	}
 
-	/** The plan of `target`, served by `command`, at `bump` when given. */
-	async plan(command: string, target: string, bump?: Bump): Promise<Plan> {
-		const flags = ["--target", target, ...(bump ? ["--bump", bump] : [])];
+	/**
+	 * Every target's unshipped count, from each command's `unshipped`. A
+	 * command that fails, or has no such subcommand, gives no counts.
+	 */
+	async unshipped(): Promise<Unshipped> {
+		const commands = await this.registered();
+		const answers = await Promise.all(
+			commands.map((command) => this.counts(command)),
+		);
+		return Object.assign({}, ...answers);
+	}
+
+	/** The plan of `target`, served by `command`, at the `version` or `bump` given. */
+	async plan(
+		command: string,
+		target: string,
+		chosen: { bump?: Bump; version?: string } = {},
+	): Promise<Plan> {
+		const flags = [
+			"--target",
+			target,
+			...(chosen.version !== undefined
+				? ["--version", chosen.version]
+				: chosen.bump
+					? ["--bump", chosen.bump]
+					: []),
+		];
 		const [plan] = await this.plans(command, flags);
 		if (plan === undefined || plan.name !== target) {
 			throw new Error(`"${command} plan" did not answer for "${target}"`);
 		}
 		return plan;
+	}
+
+	private async registered(): Promise<readonly string[]> {
+		return typeof this.commands === "function"
+			? await this.commands()
+			: this.commands;
+	}
+
+	private async counts(command: string): Promise<Unshipped> {
+		const result = await this.ps
+			.spawnCapture(["sh", "-c", `${command} unshipped`], {
+				cwd: this.root,
+				stdin: "",
+				timeoutMs: UNSHIPPED_TIMEOUT.ms,
+			})
+			.catch(() => null);
+		if (result === null || result.exitCode !== 0) {
+			return {};
+		}
+		try {
+			const counts = COUNTS.safeParse(JSON.parse(result.stdout));
+			return counts.success ? counts.data : {};
+		} catch {
+			return {};
+		}
 	}
 
 	private async plans(command: string, flags: string[]): Promise<Plan[]> {

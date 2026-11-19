@@ -4,9 +4,11 @@ import type {
 	Offered,
 	Pick,
 	RunState,
+	Supervise,
+	Unshipped,
 } from "@splates/server/ship";
 import { Dispatcher, type Eventful } from "core/events";
-import type { Picks } from "./ship-pick-list";
+import { firstChoice, type Picks, picksOf } from "./ship-pick-list";
 
 /** Where the Ships page is: picking, choosing what is needed first, or reviewing. */
 export type Stage =
@@ -20,6 +22,8 @@ export type ShipFlowState = {
 	listing: Listing | null;
 	/** Why the targets could not be read. */
 	failed: string | null;
+	/** Each target's unshipped commit count, as far as counted yet. */
+	unshipped: Unshipped;
 	picks: Picks;
 	/** The targets added on the Needed first screen, each with its bump. */
 	added: Picks;
@@ -32,15 +36,24 @@ export type ShipFlowState = {
 	starting: boolean;
 	/** The run under way, or null; while there is one, no other can start. */
 	active: RunState | null;
+	/**
+	 * Whether the ship starts supervised, and how many fixes its supervisor
+	 * may send by itself; the count stays while it is off.
+	 */
+	supervise: { on: boolean; budget: number };
 };
+
+/** The fixes a supervised ship starts with, and the most the Review screen offers. */
+export const SUPERVISE_FIXES = 3;
+export const SUPERVISE_MOST = 10;
 
 export type ShipFlowEvents = { changed: undefined };
 
 /** Composes a plan of picks, as the server's plan route does. */
 export interface Planner {
 	plan(picks: readonly Pick[]): Promise<Composed>;
-	/** Starts a ship of `picks`, as the server's start route does. */
-	start(picks: readonly Pick[]): Promise<RunState>;
+	/** Starts a ship of `picks`, supervised when given, as the server's start route does. */
+	start(picks: readonly Pick[], supervise?: Supervise): Promise<RunState>;
 }
 
 /**
@@ -54,6 +67,7 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 	state: ShipFlowState = {
 		listing: null,
 		failed: null,
+		unshipped: {},
 		picks: new Map(),
 		added: new Map(),
 		stage: { at: "pick" },
@@ -61,6 +75,7 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		refused: null,
 		starting: false,
 		active: null,
+		supervise: { on: true, budget: SUPERVISE_FIXES },
 	};
 
 	constructor(private readonly planner: Planner) {}
@@ -68,6 +83,22 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 	/** The targets as read, or why they could not be. */
 	listed(listing: Listing): void {
 		this.set({ listing });
+	}
+
+	/** Switches supervision of the ship to start on or off. */
+	supervising(on: boolean): void {
+		this.set({ supervise: { ...this.state.supervise, on } });
+	}
+
+	/** Sets the supervisor's fixes, from 1 to {@link SUPERVISE_MOST}. */
+	fixes(budget: number): void {
+		const kept = Math.min(SUPERVISE_MOST, Math.max(1, Math.round(budget)));
+		this.set({ supervise: { ...this.state.supervise, budget: kept } });
+	}
+
+	/** The unshipped counts, once they come back. */
+	counted(unshipped: Unshipped): void {
+		this.set({ unshipped });
 	}
 
 	unlisted(error: unknown): void {
@@ -132,7 +163,7 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 						const target = served.get(offer.name);
 						return target === undefined
 							? []
-							: [[offer.name, target.plan.bump ?? null] as const];
+							: [[offer.name, firstChoice(target)] as const];
 					}),
 				),
 				stage: { at: "needed", offered: plan.offered },
@@ -169,7 +200,11 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		}
 		this.set({ starting: true, refused: null });
 		try {
-			const run = await this.planner.start(stage.picks);
+			const { on, budget } = this.state.supervise;
+			const run = await this.planner.start(
+				reviewed(stage.picks, stage.plan),
+				on ? { budget } : undefined,
+			);
 			this.set({
 				active: run.status === "running" ? run : this.state.active,
 				starting: false,
@@ -214,11 +249,21 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 	}
 }
 
-/** The picks as the plan route takes them, a deploy with no bump. */
-function picksOf(picks: Picks): Pick[] {
-	return [...picks].map(([name, bump]) =>
-		bump === null ? { name } : { name, bump },
+/**
+ * `picks` as reviewed: a target whose plan resolved a version ships at that
+ * exact version, so a bump is not resolved again, perhaps differently, on
+ * starting.
+ */
+function reviewed(picks: readonly Pick[], plan: Composed): Pick[] {
+	const versions = new Map(
+		plan.targets.flatMap((each) =>
+			each.version === undefined ? [] : [[each.name, each.version] as const],
+		),
 	);
+	return picks.map((pick) => {
+		const version = versions.get(pick.name);
+		return version === undefined ? pick : { name: pick.name, version };
+	});
 }
 
 function messageOf(error: unknown): string {

@@ -9,6 +9,9 @@ is cheap, so when in doubt, ask: the `splates server` page shows your
 questions as a card with your pick already chosen, so the user answers with
 a tap, and you carry on with that pick meanwhile rather than wait.
 
+A proposal's calls are its questions: when the reply is a proposal, they sit
+in it and no questions card goes beside it (see [Proposing](proposing.md)).
+
 This holds in every conversation in a splates repository, with a task open
 or not: a design talk in the main tree asks the same way a task does. A task
 adds nothing to it: the reply is the only record of a question (see In a task).

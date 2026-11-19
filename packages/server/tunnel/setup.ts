@@ -338,7 +338,7 @@ export class CloudflareTunnels {
 				"requested",
 				[
 					`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`splates server\`.`,
-					`Run \`splates creds wait ${API_TOKEN}\`, then run this again.`,
+					`Wait on \`splates signal wait <project>/cred.saved/${API_TOKEN}\` until it is saved, then run this again.`,
 				].join("\n"),
 				{ host, name: API_TOKEN },
 			);

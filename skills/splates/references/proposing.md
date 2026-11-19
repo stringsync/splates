@@ -55,7 +55,8 @@ table or flow, and any visible frontend change. A small change needs none.
 - **Backend: a D2 diagram.** Write the D2 source (a sequence, flow, data or
   state diagram, whichever the change is) in a fenced `d2` block in the
   proposal itself, under a short heading for what it shows. The page draws it
-  as an SVG, with no `d2` binary, render script, screenshot or attach; invalid
+  as an SVG only when the fence is tagged exactly `d2`; an untagged one stays
+  plain code. It needs no `d2` binary, render script, screenshot or attach; invalid
   source shows as a code block, so check the syntax. A proposal for such a
   change is not ready until its diagram is in it, so do not send it as text
   alone. Keep the sections beside it in the same order each time (`Flow`,
@@ -97,7 +98,11 @@ diagram of today's flow, drawn from the code (find it with `git grep`, not a tru
 no before, so say so). The after is the intent: the proposed diagram, or the
 lo-fi mock. Label each `Before` and `After`, and label a mock as a mock.
 
-End your turn after it; ask nothing else beside it.
+End your turn after it. A proposal is the whole reply: its calls are its
+numbered questions, so send no separate questions card, run-command card,
+queue card or other card in the same turn. A turn holds a proposal or
+questions, never both; a call you cannot fold into the proposal waits for the
+turn after the user answers.
 
 The `splates server` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is

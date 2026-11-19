@@ -10,39 +10,33 @@ const KEPT = "splates.taskFilter";
 export interface Filtered {
 	/** The project it changes; null for one recorded without. */
 	project: string | null;
-	tags: readonly string[];
 }
 
 /**
- * Which tasks the board and the queue show: those of any project picked and
- * carrying any tag picked. Nothing picked of a kind lets every task through.
- * Kept per person, so the next visit starts where this one left off.
+ * Narrows the tasks the board and the queue show to the projects picked;
+ * nothing picked shows every task. The choice carries over to the next visit.
  */
 export class TaskFilter implements Eventful<TaskFilterEvents> {
 	private readonly dispatcher = new Dispatcher<TaskFilterEvents>();
 	readonly events = this.dispatcher.events;
 
 	projects: string[];
-	tags: string[];
 
-	/** `storage` keeps the choice for the next visit, when given. */
+	/** Pass `storage` to keep the choice for the next visit. */
 	constructor(private readonly storage: Storage = new NoopStorage()) {
 		const kept = keptIn(storage);
 		this.projects = kept.projects;
-		this.tags = kept.tags;
 	}
 
 	/** Whether any choice narrows what is shown. */
 	get active(): boolean {
-		return this.projects.length > 0 || this.tags.length > 0;
+		return this.projects.length > 0;
 	}
 
 	passes(item: Filtered): boolean {
 		return (
-			(this.projects.length === 0 ||
-				(item.project !== null && this.projects.includes(item.project))) &&
-			(this.tags.length === 0 ||
-				item.tags.some((tag) => this.tags.includes(tag)))
+			this.projects.length === 0 ||
+			(item.project !== null && this.projects.includes(item.project))
 		);
 	}
 
@@ -50,25 +44,13 @@ export class TaskFilter implements Eventful<TaskFilterEvents> {
 		this.set({ projects: toggled(this.projects, project) });
 	}
 
-	toggleTag(tag: string): void {
-		this.set({ tags: toggled(this.tags, tag) });
-	}
-
-	/** Narrows to these tags alone, as a click on a tag chip does. */
-	onlyTags(tags: string[]): void {
-		this.set({ tags });
-	}
-
 	clear(): void {
-		this.set({ projects: [], tags: [] });
+		this.set({ projects: [] });
 	}
 
-	private set(next: Partial<Pick<TaskFilter, "projects" | "tags">>): void {
+	private set(next: Partial<Pick<TaskFilter, "projects">>): void {
 		Object.assign(this, next);
-		this.storage.setItem(
-			KEPT,
-			JSON.stringify({ projects: this.projects, tags: this.tags }),
-		);
+		this.storage.setItem(KEPT, JSON.stringify({ projects: this.projects }));
 		this.dispatcher.dispatch("changed");
 	}
 }
@@ -80,7 +62,7 @@ function toggled(list: string[], one: string): string[] {
 }
 
 /** The choice kept on the last visit; none when what was kept will not read. */
-function keptIn(storage: Storage): { projects: string[]; tags: string[] } {
+function keptIn(storage: Storage): { projects: string[] } {
 	try {
 		const kept: unknown = JSON.parse(storage.getItem(KEPT) ?? "{}");
 		const strings = (value: unknown): string[] =>
@@ -88,23 +70,10 @@ function keptIn(storage: Storage): { projects: string[]; tags: string[] } {
 				? value.filter((each): each is string => typeof each === "string")
 				: [];
 		const record = (kept ?? {}) as Record<string, unknown>;
-		return { projects: strings(record.projects), tags: strings(record.tags) };
+		return { projects: strings(record.projects) };
 	} catch {
-		return { projects: [], tags: [] };
+		return { projects: [] };
 	}
-}
-
-/**
- * The tags to offer: those `splates.config.ts` allows when it lists them,
- * else those in use, with any picked that neither has so they can be undone.
- */
-export function tagOptions(
-	allowed: readonly string[] | undefined,
-	items: readonly Filtered[],
-	picked: readonly string[],
-): string[] {
-	const base = allowed ?? items.flatMap((item) => item.tags);
-	return [...new Set([...base, ...picked])].sort();
 }
 
 /** The projects tasks change, with any picked so they can be undone. */

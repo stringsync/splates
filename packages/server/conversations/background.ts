@@ -21,8 +21,14 @@ export class ConversationBackground {
 
 	/** Stops background command `id`, leaving the agent's turn as it is. */
 	async stop(id: string): Promise<void> {
-		if (this.command(id).state !== "running") {
+		const command = this.command(id);
+		if (command.state !== "running") {
 			return;
+		}
+		if (command.canStop === false) {
+			fail("usage", `background command ${id} cannot be stopped from here`, {
+				conversation: this.host.state.id,
+			});
 		}
 		// The agent says it ended as it stops it, which takes it off the list.
 		await this.connection.stopTask(id);

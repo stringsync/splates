@@ -102,6 +102,7 @@ export function AutomationForm({
 					onChange={(change) => draft.set("when", change.target.value as When)}
 				>
 					<NativeSelectOption value="event">On a task event</NativeSelectOption>
+					<NativeSelectOption value="signal">On a signal</NativeSelectOption>
 					<NativeSelectOption value="every">Every so often</NativeSelectOption>
 					<NativeSelectOption value="cron">On a cron line</NativeSelectOption>
 				</NativeSelect>
@@ -170,8 +171,14 @@ export function AutomationForm({
 					<Input
 						aria-label="Schedule"
 						required
-						className="w-48"
-						placeholder={when === "every" ? "30m, 2h or 1d" : "0 9 * * 1-5"}
+						className={when === "signal" ? "w-64" : "w-48"}
+						placeholder={
+							when === "signal"
+								? "project/name, as mdom.released"
+								: when === "every"
+									? "30m, 2h or 1d"
+									: "0 9 * * 1-5"
+						}
 						value={schedule}
 						onChange={(change) => draft.set("schedule", change.target.value)}
 					/>

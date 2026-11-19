@@ -134,9 +134,7 @@ function Holds({ todo }: { todo: TaskRecord }): JSX.Element | null {
 	const words =
 		fix.kind === "queue"
 			? `needs ${fix.chain.map((task) => `#${task.id}`).join(", ")} queued`
-			: fix.kind === "drop"
-				? `waits on ${fix.lost.map((id) => `#${id}`).join(", ")}, removed`
-				: `blocked with #${fix.id}`;
+			: `blocked with #${fix.id}`;
 	return (
 		<span
 			className="text-warning"

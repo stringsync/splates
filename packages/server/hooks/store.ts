@@ -2,6 +2,7 @@ import type { TaskStage } from "../board";
 import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
+import { checkName } from "../signals/book";
 import type { Document, Storage } from "../storage";
 import { TASK_EVENTS, type TaskEventName } from "./events";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
@@ -28,7 +29,8 @@ export interface TaskFilter {
 
 /**
  * What sets an automation off: a task event, narrowed by a filter; or a
- * time, every so often (`30m`, `2h`, `1d`) or on a five-field cron. An
+ * time, every so often (`30m`, `2h`, `1d`) or on a five-field cron; or a
+ * signal an agent raises. An
  * event trigger may run on only every Nth time it matches.
  */
 export type Trigger =
@@ -39,7 +41,9 @@ export type Trigger =
 			invokes?: number;
 	  }
 	| { every: string }
-	| { cron: string };
+	| { cron: string }
+	/** A signal `<project>.<name>`, firing once for each raise. */
+	| { signal: string };
 
 /** One thing that runs on a trigger, as the Automations page lists it. */
 export interface Automation {
@@ -347,7 +351,9 @@ export function lanesNamed(text: string): number[] {
 
 /** Refuses `trigger` when its event is none or its schedule will not read. */
 function checked(trigger: Trigger): void {
-	if ("event" in trigger) {
+	if ("signal" in trigger) {
+		checkName(trigger.signal);
+	} else if ("event" in trigger) {
 		eventNamed(trigger.event);
 		stagesNamed(trigger.filter?.stages ?? []);
 		const { invokes } = trigger;

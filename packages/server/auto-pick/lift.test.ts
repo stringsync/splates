@@ -176,11 +176,53 @@ describe("lifting", () => {
 		expect(on).toEqual(["small", "big"]);
 	});
 
-	it("switches Auto pick off when the person moves the model", async () => {
+	it("keeps Auto pick on, the model kept, when the person moves the model", async () => {
 		const conversation = await start();
 		await conversation.choose("model", "small");
 
-		expect(conversation.state.autoPick?.overridden).toBe(true);
+		expect(conversation.state.autoPick).toMatchObject({
+			overridden: false,
+			keepModel: true,
+		});
+	});
+
+	it("keeps Auto pick on when the person moves the effort", async () => {
+		agent.options.push({
+			id: "effort",
+			name: "Effort",
+			category: "thought_level",
+			type: "select",
+			currentValue: "low",
+			options: [
+				{ value: "low", name: "Low" },
+				{ value: "high", name: "High" },
+			],
+		});
+		const conversation = await own();
+		conversation.switchAutoPick(true);
+		await conversation.choose("effort", "high");
+
+		expect(conversation.state.autoPick?.overridden).toBe(false);
+	});
+
+	it("never moves a model the person picked with Auto pick on, across a restart too", async () => {
+		const conversation = await start();
+		await conversation.choose("model", "small");
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+		await say(conversation, WIDENING);
+
+		expect(on).toEqual(["small", "small", "small"]);
+		await conversations.disposeAsync();
+		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
+			storage: deps.storage.within("conversations"),
+			launch: agent.launch,
+		});
+		const back = await conversations.find(conversation.id);
+		expect(back.state.autoPick).toMatchObject({
+			overridden: false,
+			keepModel: true,
+		});
 	});
 
 	it("leaves a model the person set before their message alone for good", async () => {
@@ -247,7 +289,8 @@ describe("lifting", () => {
 		const back = await conversations.find(conversation.id);
 		expect(back.state.autoPick).toMatchObject({
 			model: "big",
-			overridden: true,
+			overridden: false,
+			keepModel: true,
 		});
 	});
 
@@ -326,11 +369,14 @@ describe("lifting", () => {
 		expect(conversation.state.autoPick?.rejudge).toBe(true);
 	});
 
-	it("switched on, goes off when the person picks a model, across a restart too", async () => {
+	it("switched on, stays on with the model kept when the person picks a model, across a restart too", async () => {
 		const conversation = await own();
 		conversation.switchAutoPick(true);
 		await conversation.choose("model", "big");
-		expect(conversation.state.autoPick?.overridden).toBe(true);
+		expect(conversation.state.autoPick).toMatchObject({
+			overridden: false,
+			keepModel: true,
+		});
 		await conversations.disposeAsync();
 
 		conversations = new Conversations(`${deps.dir}/conversations`, [AGENT], {
@@ -338,7 +384,10 @@ describe("lifting", () => {
 			launch: agent.launch,
 		});
 		const back = await conversations.find(conversation.id);
-		expect(back.state.autoPick?.overridden).toBe(true);
+		expect(back.state.autoPick).toMatchObject({
+			overridden: false,
+			keepModel: true,
+		});
 	});
 
 	it("switches off and on again, judging afresh", async () => {

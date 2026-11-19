@@ -13,14 +13,17 @@ import type { StepPrompt } from "./ship-run-summary";
 const PROMPT_BUTTON = "h-11 w-full";
 
 /**
- * What a waiting step asks, opened in place under its target: Yes or No, a
+ * What a waiting step asks, opened under the ship's progress bar: Yes or No, a
  * sign-in link with its code, or a value to type. `onAnswer` sends the reply.
  */
 export function ShipPromptCard({
+	target,
 	open,
 	answering,
 	onAnswer,
 }: {
+	/** The target whose step asks, named at the card's head. */
+	target: string;
 	open: StepPrompt;
 	answering: boolean;
 	onAnswer: (value: unknown) => void;
@@ -28,19 +31,22 @@ export function ShipPromptCard({
 	const { prompt } = open;
 	return (
 		<section
-			aria-label={`${open.does} needs you`}
-			className="flex flex-col gap-2 rounded-md border-2 border-foreground/70 bg-background p-3"
+			aria-label={`${target}: ${open.does} needs you`}
+			className="flex flex-col gap-2 rounded-lg border bg-card p-3"
 		>
 			<div className="flex items-baseline gap-2">
-				<span className="min-w-0 flex-1 font-semibold text-muted-foreground text-xs uppercase">
-					{prompt.kind === "link"
-						? `Sign in at ${hostOf(prompt.url)}`
-						: open.does}
+				<span className="min-w-0 flex-1 truncate font-semibold text-sm">
+					{target}
 				</span>
 				<span className="shrink-0 rounded border border-foreground/50 px-1.5 text-[11px]">
 					needs you
 				</span>
 			</div>
+			<span className="-mt-1.5 font-semibold text-muted-foreground text-xs uppercase">
+				{prompt.kind === "link"
+					? `Sign in at ${hostOf(prompt.url)}`
+					: open.does}
+			</span>
 			{prompt.kind === "confirm" && (
 				<>
 					<p className="break-words text-sm">{prompt.question}</p>
@@ -176,9 +182,8 @@ export function isCode(question: string): boolean {
 }
 
 /**
- * `url` as an anchor should link it: in an installed iOS web app it opens in
- * Safari, where the user is already signed in, rather than in the app's own
- * in-app browser. Elsewhere it is `url` unchanged.
+ * The href to give a link to `url` so it opens in Safari, where the user is
+ * already signed in, even from the installed iOS web app.
  */
 export function outsideApp(url: string): string {
 	const standalone =

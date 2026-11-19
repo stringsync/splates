@@ -186,6 +186,7 @@ describe("conversation render subscriptions", () => {
 								terminals={terminals}
 								tasks={[]}
 								todos={[]}
+								lanes={[]}
 								here={{ root: "/tmp/project", repo: "project", trunk: "main" }}
 								open="two"
 								onOpen={open}

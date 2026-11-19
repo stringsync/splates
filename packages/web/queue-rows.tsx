@@ -11,7 +11,6 @@ import { cn } from "#web/lib/utils.ts";
 import { touchItems } from "./board";
 import { usePendingSnapshot } from "./expecting";
 import { pendingRow, useShowPending } from "./pending";
-import { TagChips } from "./tag-chips";
 
 /** Groups some of a Queue column's cards under a small label. */
 export function QueueSection({
@@ -56,7 +55,6 @@ export interface RowAction {
  */
 export function QueueRow({
 	name,
-	tags,
 	by,
 	age,
 	id,
@@ -68,8 +66,6 @@ export function QueueRow({
 	pendingKey,
 }: {
 	name: ReactNode;
-	/** The task's tags, as chips after its name. */
-	tags?: readonly string[];
 	by?: ReactNode;
 	age?: ReactNode;
 	id?: ReactNode;
@@ -105,7 +101,6 @@ export function QueueRow({
 				{marks}
 			</span>
 			<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-				<TagChips tags={tags} />
 				{meta.map((each, at) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: a fixed few, in order
 					<span key={at} className="min-w-0 truncate tabular-nums">

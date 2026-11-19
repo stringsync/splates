@@ -132,7 +132,7 @@ export async function regradeBatch(
 						reply: detail.reply ?? "",
 					}),
 					{ ...(process.env as Record<string, string>) },
-					judgeFor(found.scenario, opts.judgePick),
+					judgeFor(found.scenario),
 				);
 				verdict = {
 					pass: fresh.pass,
@@ -205,8 +205,6 @@ export interface RegradeOptions {
 	judge?: boolean;
 	/** Writes a new batch here instead of nothing. */
 	out?: string;
-	/** The judge to re-run rubrics whose scenario names none with; `DEFAULT_JUDGE` when absent. */
-	judgePick?: JudgePick;
 	/** Stands in for the real judge in tests. */
 	judgeWith?: (
 		prompt: string,

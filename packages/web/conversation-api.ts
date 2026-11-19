@@ -218,6 +218,19 @@ export async function continueConversation(
 	})) as { project: string; id: string };
 }
 
+/** Stops waiting on signal wait `wait` of conversation `id`; the agent wakes with `stopped`. */
+export async function stopSignalWait(id: string, wait: string): Promise<void> {
+	await send(
+		`/api/conversations/${id}/signal-wait/${encodeURIComponent(wait)}/stop`,
+		{},
+	);
+}
+
+/** Stops the probe on signal `name`; its waits go on waiting. */
+export async function stopSignalProbe(name: string): Promise<void> {
+	await sendJson("/api/signals/probe-stop", "POST", { name });
+}
+
 /** Stops command `background` the agent in conversation `id` left running. */
 export async function stopBackground(
 	id: string,

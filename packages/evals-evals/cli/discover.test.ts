@@ -46,9 +46,9 @@ it("finds scenarios beside each skill, skipping tests and node_modules", async (
 it("reports malformed scenarios", async () => {
 	const root = await project({
 		"p/skills/a/evals/one.ts": `export const scenarios = [
-			{ id: "x/one", aspect: "x", requirement: "r", message: "m", judge: "j" },
+			{ id: "x/one", aspect: "x", requirement: "r", message: "m", judge: "j", judgeWith: "claude:sonnet" },
 			{ id: "x/one", aspect: "x", requirement: " ", message: "m" },
-			{ id: "bad", aspect: "x", requirement: "r", message: "m", judge: "j" },
+			{ id: "bad", aspect: "x", requirement: "r", message: "m", judge: "j", judgeWith: "claude:sonnet" },
 		];`,
 	});
 	const wrong = problems(await discover(root));
@@ -135,4 +135,13 @@ it("fingerprints transitive helpers without invalidating unrelated scenarios", a
 	expect(after[0]).not.toBe(before[0]);
 	expect(after[1]).toBe(before[1]);
 	expect(await hashes()).toEqual(after);
+});
+
+it("reports a rubric scenario that names no judge", async () => {
+	const root = await project({
+		"p/skills/a/evals/one.ts": SCENARIO("x/one"),
+	});
+	expect(problems(await discover(root))).toEqual([
+		expect.stringContaining("x/one: has a rubric but no judgeWith"),
+	]);
 });

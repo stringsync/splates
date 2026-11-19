@@ -504,7 +504,11 @@ const setup = async ({ init = true }: { init?: boolean } = {}) => {
 		const { exitCode, stdout, stderr } = await oneOfFew(() =>
 			env.ps.spawnCapture(["bun", program, ...args], {
 				cwd,
-				env: { PATH: `${bin}:${process.env.PATH}` },
+				// The machine's own TypeSafe key stays unspent.
+				env: {
+					PATH: `${bin}:${process.env.PATH}`,
+					SPLATES_RELATED_JUDGE: "off",
+				},
 			}),
 		);
 		return { exitCode, stdout: color.strip(stdout), stderr };

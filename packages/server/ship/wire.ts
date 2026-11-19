@@ -4,6 +4,22 @@ import { z } from "zod";
 export const BUMP = z.enum(["patch", "minor", "major"]);
 export type Bump = z.infer<typeof BUMP>;
 
+/** An exact artifact version, as core's ship takes one: nonempty, untrimmed. */
+export const VERSION = z
+	.string()
+	.min(1)
+	.refine(
+		(each) => each === each.trim(),
+		"A version has no surrounding spaces",
+	);
+
+/** A target picked to ship, as the plan and start routes take it. */
+export const PICK = z.object({
+	name: z.string().min(1),
+	bump: BUMP.optional(),
+	version: VERSION.optional(),
+});
+
 /** A step as a ship command's `plan` prints it. */
 const STEP = z.object({
 	id: z.string().min(1),
@@ -15,10 +31,12 @@ export type PlannedStep = z.infer<typeof STEP>;
 /** One target's plan as a ship command's `plan` prints it. */
 export const PLAN = z.object({
 	name: z.string().min(1),
+	/** Set when the target takes an artifact version, chosen or bumped to. */
+	versioned: z.boolean().optional(),
+	/** The version it resolved, from the version or bump it was planned with. */
+	version: z.string().optional(),
 	bump: BUMP.optional(),
 	dependencies: z.array(z.string()),
-	/** Commits waiting to ship, when the target counts them. */
-	unshipped: z.number().int().nonnegative().optional(),
 	steps: z.array(STEP),
 });
 export type Plan = z.infer<typeof PLAN>;

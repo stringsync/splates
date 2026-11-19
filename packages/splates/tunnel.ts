@@ -15,7 +15,7 @@ splatesTunnel
 	.command("setup")
 	.use(repository({ needs: "own" }))
 	.description(
-		`make a Cloudflare tunnel to \`splates server\`, the DNS record routing <host> to it, and an Access application letting in only --email, through the API with the token kept as the cred ${API_TOKEN}, then save them for this machine, so a bare \`splates server\` comes up tunneled; run again, it changes only what is not so already. Without that token it requests it on the Creds page of \`splates server\`, with how to make it, and exits \`requested\`: \`splates creds wait ${API_TOKEN}\`, then run it again`,
+		`make a Cloudflare tunnel to \`splates server\`, the DNS record routing <host> to it, and an Access application letting in only --email, through the API with the token kept as the cred ${API_TOKEN}, then save them for this machine, so a bare \`splates server\` comes up tunneled; run again, it changes only what is not so already. Without that token it requests it on the Creds page of \`splates server\`, with how to make it, and exits \`requested\`: \`splates signal wait <project>/cred.saved/${API_TOKEN}\` until it is saved, then run it again`,
 	)
 	.arg("host", z.string(), {
 		description:

@@ -39,6 +39,19 @@ export interface RecState {
 	sources: RecSource[];
 	/** Why Docker's containers could not be listed. */
 	sourcesError?: string;
+	/** The log sources the project's `splates.config.ts` offers, under `rec.logs`. */
+	logs?: RecLogChoice[];
+	/** Why the project's `rec.logs` could not be read. */
+	logsError?: string;
+}
+
+/** A log source a project declares, as the Rec page offers it. */
+export interface RecLogChoice {
+	name: string;
+	/** What the page calls it; the name when absent. */
+	label?: string;
+	/** The shell command rec runs for it at Stop. */
+	command: string;
 }
 
 /** What opening rec asks for. */
@@ -49,6 +62,8 @@ export interface RecOpen {
 	docker: string[];
 	/** Log file paths to follow. */
 	tails: string[];
+	/** Names of the project's declared log sources to fetch at Stop. */
+	logs?: string[];
 }
 
 /** One saved session, as the history lists it. */
@@ -109,6 +124,19 @@ export interface RecSessionDetail extends RecSessionSummary {
 	logs: string[];
 	/** Whether the recording file is there to play. */
 	video: boolean;
+	/** Each command log source, as its last fetch went; absent when it had none. */
+	commandLogs?: RecCommandLog[];
+}
+
+/** A command log source of a session (`rec --logs`), as its manifest records it. */
+export interface RecCommandLog {
+	name: string;
+	/** `cut` when rec's time or line cap stopped it. */
+	status: "pending" | "ok" | "cut" | "failed";
+	/** Why it failed or was cut. */
+	note?: string;
+	/** The command that fetches it again. */
+	retry?: string;
 }
 
 /** A hit of the history's search. */

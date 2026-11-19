@@ -1,4 +1,9 @@
-import { lanesTaken, type TaskRecord } from "@splates/server/board/browser";
+import {
+	type BoardRecord,
+	type LaneRecord,
+	lanesTaken,
+	type TaskRecord,
+} from "@splates/server/board/browser";
 import type { Needing } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
@@ -14,7 +19,7 @@ import {
 	useRef,
 } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { Board } from "./board";
+import { BoardScope } from "./board-chip";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
@@ -49,7 +54,6 @@ import {
 	foldersOf,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
-import { useTaggedBoard } from "./row-status";
 import type { Terminals } from "./terminals";
 
 /** How many rows ⌥⌘ and a digit can open. */
@@ -65,6 +69,8 @@ export const ConversationList = memo(function ConversationList({
 	terminals,
 	tasks,
 	todos,
+	lanes,
+	boards,
 	here,
 	open,
 	onOpen,
@@ -75,6 +81,9 @@ export const ConversationList = memo(function ConversationList({
 	tasks: Details[];
 	/** The page's project's queued tasks, to read which lane each task at work is on. */
 	todos: TaskRecord[];
+	/** The project's lanes and boards, to say which board each task's row is on. */
+	lanes: LaneRecord[];
+	boards?: BoardRecord[];
 	/** The project the page shows, as its snapshot has it. */
 	here: { root: string; repo: string; trunk: string | null };
 	/** The conversation shown, by id, or `ARCHIVED`. */
@@ -254,9 +263,8 @@ export const ConversationList = memo(function ConversationList({
 		);
 	const beneathOf = (folder: Folder, row: Needing) =>
 		folder.here ? beneath(row) : [];
-	const tagged = useTaggedBoard(tasks);
 	return (
-		<Board value={tagged}>
+		<BoardScope todos={todos} lanes={lanes} boards={boards}>
 			<nav
 				aria-label="conversations"
 				className="flex flex-col gap-3"
@@ -329,7 +337,7 @@ export const ConversationList = memo(function ConversationList({
 
 				{closing.confirm}
 			</nav>
-		</Board>
+		</BoardScope>
 	);
 });
 

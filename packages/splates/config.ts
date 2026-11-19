@@ -12,6 +12,8 @@ export type {
 	Config,
 	ConfigFile,
 	EvalsConfig,
+	RecConfig,
+	RecLogSource,
 } from "@splates/server/config";
 export type {
 	TunnelProvider,

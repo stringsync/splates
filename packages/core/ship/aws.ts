@@ -1,3 +1,5 @@
+import { Duration } from "core/time";
+import { explainFailure, recoverStuck, type StackRef } from "./aws-rollback";
 import type { Ctx } from "./ctx";
 import { type Step, step } from "./step";
 
@@ -7,6 +9,141 @@ export interface Stack {
 	readonly name: string;
 	/** The folder holding the app's `cdk.json`, from where the ship runs. */
 	readonly app: string;
+	/**
+	 * The CloudFormation stack name, when the app sets one; by default the
+	 * name with each `/` made `-`, as CDK names a stack inside a stage.
+	 */
+	readonly stackName?: string;
+}
+
+/**
+ * The steps of deploying `stack`: sign in, diff, deploy and verify. The diff
+ * asks the user to confirm a change that widens access or replaces
+ * resources, and the deploy is skipped when the stack already matches this
+ * checkout, so a resumed run deploys nothing twice.
+ */
+export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
+	const { profile, noRollback = false } = opts;
+	const cheap = opts.cheapReplacement ?? (noRollback ? CHEAP : []);
+	const cdk = async (
+		ctx: Pick<Ctx, "sh">,
+		verb: string,
+		args = "",
+	): Promise<string> => {
+		const extra = (await opts.context?.(ctx)) ?? [];
+		return `cd ${quote(stack.app)} && bunx aws-cdk@2 ${verb} ${quote(stack.name)}${args}${extra
+			.map((arg) => ` ${quote(arg)}`)
+			.join(
+				"",
+			)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color 2>&1`;
+	};
+	const diff = async (ctx: Ctx, args = "") =>
+		parseDiff(await ctx.sh(await cdk(ctx, "diff", args)));
+	// CloudFormation refuses `--no-rollback` for a replacement, cheap or a
+	// costly one the diff step already had confirmed.
+	const replaces = (found: Diff) => found.replacedTypes.length > 0;
+	const ref: StackRef = {
+		name: stack.name,
+		cfnName: stack.stackName ?? stack.name.replaceAll("/", "-"),
+		profile,
+	};
+
+	const signIn =
+		profile &&
+		step({
+			id: "sign-in",
+			does: `Sign in to AWS as ${profile}`,
+			dependencies: opts.dependencies,
+			done: async (ctx) =>
+				(
+					await ctx.sh(
+						`aws sts get-caller-identity --profile ${quote(profile)} >/dev/null 2>&1 && echo signed-in || true`,
+					)
+				).includes("signed-in"),
+			run: async (ctx) => {
+				await ctx.sh(
+					`aws sso login --profile ${quote(profile)} --use-device-code --no-browser`,
+					{ prompts: true },
+				);
+				ctx.update(`Signed in as ${profile}`);
+			},
+		});
+
+	return [
+		...(signIn ? [signIn] : []),
+		step({
+			id: "diff",
+			does: `Show what deploying ${stack.name} changes`,
+			dependencies: signIn ? ["sign-in"] : opts.dependencies,
+			run: async (ctx) => {
+				// A stack whose last rollback failed refuses every deploy, so
+				// it is continued, once confirmed, before anything else.
+				await recoverStuck(ctx, ref);
+				const found = await diff(ctx);
+				if (found.same) {
+					ctx.update(`${stack.name} has no changes`);
+					return;
+				}
+				const security = await diff(ctx, " --security-only");
+				const risks = describeRisks(
+					{ ...found, widens: found.widens || security.widens },
+					cheap,
+				);
+				if (
+					risks &&
+					!(await ctx.confirm(`Deploy ${stack.name}? The change ${risks}.`))
+				) {
+					throw new Error(`Not deploying ${stack.name}: the change ${risks}`);
+				}
+				ctx.update(
+					risks ? `${stack.name} ${risks}` : `${stack.name} has changes`,
+				);
+			},
+		}),
+		step({
+			id: "deploy",
+			does: `Deploy ${stack.name}`,
+			dependencies: ["diff"],
+			// A deploy, then a rollback it waits out, can each take most of an hour.
+			timeout: Duration.mins(150),
+			done: async (ctx) => (await diff(ctx)).same,
+			run: async (ctx) => {
+				await recoverStuck(ctx, ref);
+				const keepRollback = !noRollback || replaces(await diff(ctx));
+				// `--yes` lets the CLI roll back a stack a `--no-rollback` deploy
+				// left paused in UPDATE_FAILED before deploying with rollback on,
+				// which it otherwise asks a terminal to confirm; the diff step
+				// already had the change confirmed.
+				const command = await cdk(
+					ctx,
+					"deploy",
+					` --require-approval never --yes${keepRollback ? "" : " --no-rollback"}`,
+				);
+				try {
+					await ctx.sh(command);
+				} catch (error) {
+					// Says what the failure left: a rollback, finished once it
+					// settles and its services with it, a pause, or a failed
+					// rollback that blocks the next deploy.
+					throw await explainFailure(ctx, ref, error);
+				}
+				ctx.update(`Deployed ${stack.name}`);
+			},
+		}),
+		step({
+			id: "verify",
+			does: `Check ${stack.name} matches this checkout`,
+			dependencies: ["deploy"],
+			run: async (ctx) => {
+				if (!(await diff(ctx)).same) {
+					throw new Error(
+						`${stack.name} still differs from this checkout after its deploy`,
+					);
+				}
+				ctx.update(`${stack.name} is at this checkout`);
+			},
+		}),
+	];
 }
 
 export interface DeployOptions {
@@ -48,115 +185,6 @@ export interface Diff {
 	readonly replaces: readonly string[];
 	/** The CloudFormation type of each replaced resource, in the same order. */
 	readonly replacedTypes: readonly string[];
-}
-
-/**
- * The steps of deploying `stack`: sign in, diff, deploy and verify. The diff
- * asks the user to confirm a change that widens access or replaces
- * resources, and the deploy is skipped when the stack already matches this
- * checkout, so a resumed run deploys nothing twice.
- */
-export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
-	const { profile, noRollback = false } = opts;
-	const cheap = opts.cheapReplacement ?? (noRollback ? CHEAP : []);
-	const cdk = async (
-		ctx: Pick<Ctx, "sh">,
-		verb: string,
-		args = "",
-	): Promise<string> => {
-		const extra = (await opts.context?.(ctx)) ?? [];
-		return `cd ${quote(stack.app)} && bunx aws-cdk@2 ${verb} ${quote(stack.name)}${args}${extra
-			.map((arg) => ` ${quote(arg)}`)
-			.join(
-				"",
-			)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color 2>&1`;
-	};
-	const diff = async (ctx: Ctx, args = "") =>
-		parseDiff(await ctx.sh(await cdk(ctx, "diff", args)));
-	// CloudFormation refuses `--no-rollback` for a replacement, cheap or a
-	// costly one the diff step already had confirmed.
-	const replaces = (found: Diff) => found.replacedTypes.length > 0;
-
-	const signIn =
-		profile &&
-		step({
-			id: "sign-in",
-			does: `Sign in to AWS as ${profile}`,
-			dependencies: opts.dependencies,
-			done: async (ctx) =>
-				(
-					await ctx.sh(
-						`aws sts get-caller-identity --profile ${quote(profile)} >/dev/null 2>&1 && echo signed-in || true`,
-					)
-				).includes("signed-in"),
-			run: async (ctx) => {
-				await ctx.sh(
-					`aws sso login --profile ${quote(profile)} --use-device-code --no-browser`,
-					{ prompts: true },
-				);
-				ctx.update(`Signed in as ${profile}`);
-			},
-		});
-
-	return [
-		...(signIn ? [signIn] : []),
-		step({
-			id: "diff",
-			does: `Show what deploying ${stack.name} changes`,
-			dependencies: signIn ? ["sign-in"] : opts.dependencies,
-			run: async (ctx) => {
-				const found = await diff(ctx);
-				if (found.same) {
-					ctx.update(`${stack.name} has no changes`);
-					return;
-				}
-				const security = await diff(ctx, " --security-only");
-				const risks = describeRisks(
-					{ ...found, widens: found.widens || security.widens },
-					cheap,
-				);
-				if (
-					risks &&
-					!(await ctx.confirm(`Deploy ${stack.name}? The change ${risks}.`))
-				) {
-					throw new Error(`Not deploying ${stack.name}: the change ${risks}`);
-				}
-				ctx.update(
-					risks ? `${stack.name} ${risks}` : `${stack.name} has changes`,
-				);
-			},
-		}),
-		step({
-			id: "deploy",
-			does: `Deploy ${stack.name}`,
-			dependencies: ["diff"],
-			done: async (ctx) => (await diff(ctx)).same,
-			run: async (ctx) => {
-				const keepRollback = !noRollback || replaces(await diff(ctx));
-				await ctx.sh(
-					await cdk(
-						ctx,
-						"deploy",
-						` --require-approval never${keepRollback ? "" : " --no-rollback"}`,
-					),
-				);
-				ctx.update(`Deployed ${stack.name}`);
-			},
-		}),
-		step({
-			id: "verify",
-			does: `Check ${stack.name} matches this checkout`,
-			dependencies: ["deploy"],
-			run: async (ctx) => {
-				if (!(await diff(ctx)).same) {
-					throw new Error(
-						`${stack.name} still differs from this checkout after its deploy`,
-					);
-				}
-				ctx.update(`${stack.name} is at this checkout`);
-			},
-		}),
-	];
 }
 
 const CHEAP = ["AWS::ECS::TaskDefinition"];

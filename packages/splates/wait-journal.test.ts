@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Event } from "@splates/server/records";
 import { Testing } from "@splates/server/testing";
-import { Duration, sleep } from "core/time";
 import { splates } from "./splates";
 
 describe("splates's waits in the journal", () => {
@@ -21,43 +19,6 @@ describe("splates's waits in the journal", () => {
 	});
 
 	afterEach(() => env.disposeAsync());
-
-	it("logs a cred wait as it begins, then as it ends, naming the first", async () => {
-		await splates.run(deps, [
-			"creds",
-			"request",
-			"API_TOKEN",
-			"--purpose",
-			"To test.",
-			"--instructions",
-			"Paste it.",
-		]);
-
-		const waiting = splates.run(deps, ["creds", "wait", "API_TOKEN"]);
-		await sleep(Duration.ms(20));
-		await env.creds.save("API_TOKEN", "secret");
-		await waiting;
-
-		const [began, ended] = (await env.journal.tail(2)) as Extract<
-			Event,
-			{ action: "creds wait" }
-		>[];
-		expect(began).toMatchObject({
-			action: "creds wait",
-			reason: null,
-			name: "API_TOKEN",
-			began: null,
-		});
-		expect(ended).toMatchObject({
-			action: "creds wait",
-			reason: null,
-			name: "API_TOKEN",
-			began: began?.id,
-		});
-		expect(Date.parse(ended?.until ?? "")).toBeGreaterThan(
-			Date.now() + Duration.mins(14).ms,
-		);
-	});
 
 	it("logs a queued task wait with its subject, and how it gave up", async () => {
 		await splates.run(deps, [

@@ -27,6 +27,16 @@ describe("HookStore", () => {
 		expect((await hooks.read()).map(({ id }) => id)).toEqual(["3", "4"]);
 	});
 
+	it("takes a signal trigger, and refuses a name that is no <project>.<name>", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		const run = { kind: "run" as const, command: "tidy" };
+		await hooks.add({ signal: "mdom.released" }, run);
+		expect((await hooks.read())[0]?.trigger).toEqual({
+			signal: "mdom.released",
+		});
+		await expect(hooks.add({ signal: "released" }, run)).rejects.toThrow();
+	});
+
 	it("names an automation, trims it, and clears it when edited blank", async () => {
 		const hooks = new HookStore(new MemoryStorage());
 		const run = { kind: "run" as const, command: "tidy" };

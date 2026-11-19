@@ -7,6 +7,7 @@ import {
 	KeyRoundIcon,
 	ListChecksIcon,
 	type LucideIcon,
+	RadioIcon,
 	ShipIcon,
 	VideoIcon,
 	ZapIcon,
@@ -96,7 +97,7 @@ export function usePageRoute(): PageRoute {
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
  * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
- * `#creds`, `#billing` (`#budget` too), `#automations`,
+ * `#creds`, `#signals`, `#billing` (`#budget` too), `#automations`,
  * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
  * `#setup`, or the board.
  */
@@ -110,6 +111,7 @@ export type Page =
 	| "rec"
 	| "evals"
 	| "creds"
+	| "signals"
 	| "billing"
 	| "automations"
 	| "auto-pick"
@@ -150,6 +152,12 @@ export const PAGES: {
 		scope: "everywhere",
 	},
 	{ value: "ships", label: "Ships", Icon: ShipIcon, scope: "everywhere" },
+	{
+		value: "signals",
+		label: "Signals",
+		Icon: RadioIcon,
+		scope: "everywhere",
+	},
 	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{
 		value: "evals",
@@ -186,6 +194,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	rec: "min-w-0 px-4 py-6",
 	evals: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
+	signals: "min-w-0 px-4 py-6",
 	billing: "min-w-0 px-4 py-6",
 	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",

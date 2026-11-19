@@ -68,16 +68,21 @@ export function permissionOf(
 		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
 		const command =
 			at < 0 ? "" : (RUN_COMMAND.exec(rows[at] as string)?.[1] as string);
+		const reasons = rows.flatMap((each) => RUN_REASON.exec(each)?.[1] ?? []);
 		return {
 			action: "run-command",
 			lane: null,
 			tasks: [],
 			title: run[1] || null,
 			body: rows
-				.filter((_, index) => index !== at)
+				.filter((each, index) => index !== at && !RUN_REASON.test(each))
 				.join("\n")
 				.replace(/^\n+|\s+$/g, ""),
 			command,
+			// One reason line only: a second, however it reads, is no promise.
+			...(reasons.length === 1
+				? { reason: (reasons[0] as string).toLowerCase() }
+				: {}),
 		};
 	}
 	if (grant !== null) {
@@ -98,7 +103,6 @@ export function permissionOf(
 		const scenarios: string[] = [];
 		let baseline: string | null = null;
 		let reps: number | undefined;
-		let judge: string | undefined;
 		let agents: string[] | undefined;
 		const prose = body.split("\n").filter((each) => {
 			const scenario = EVAL_PROBE.exec(each);
@@ -119,11 +123,6 @@ export function permissionOf(
 				);
 				return false;
 			}
-			const judged = EVAL_JUDGE.exec(each);
-			if (judged !== null) {
-				judge = judged[1] as string;
-				return false;
-			}
 			const times = EVAL_REPS.exec(each);
 			if (times !== null && Number(times[1]) > 0) {
 				reps = Number(times[1]);
@@ -142,7 +141,6 @@ export function permissionOf(
 				scenarios,
 				baseline,
 				...(reps === undefined ? {} : { reps }),
-				...(judge === undefined ? {} : { judge }),
 				...(agents === undefined ? {} : { agents }),
 			},
 		};
@@ -203,6 +201,8 @@ export interface PermissionProposal {
 	evals?: EvalAsk;
 	/** For `run-command`: the command to run, from the first backticked line. */
 	command?: string;
+	/** For `run-command`: the card's `Reason:` word, `busy` only when the machine's load is the sole reason to ask, else `cost` or `risk`. */
+	reason?: string;
 	/** For `ship`: the targets it asks to ship, each with its bump. */
 	ship?: ShipAsk;
 }
@@ -247,8 +247,6 @@ export interface EvalAsk {
 	baseline: string | null;
 	/** Runs of each cell; the runner's own default when absent. */
 	reps?: number;
-	/** The judge, as `claude:<model>[@<effort>]`; the runner's default when absent. */
-	judge?: string;
 	/** The saved agents to run on, as `agent:model@effort`; every saved agent when absent. */
 	agents?: string[];
 }
@@ -259,7 +257,6 @@ const EVALS_PERMISSION =
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_AGENTS = /^Agents:[ \t]*(`[^`\s]+`(?:,?[ \t]*`[^`\s]+`)*)[ \t]*$/;
-const EVAL_JUDGE = /^Judge:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
 const SHIP_PERMISSION = /^## 🔐 Permission: ship(?::[ \t]*(.*?))?[ \t]*$/;
 /** A ship card's target: a list item that is one code span, then maybe its bump. */
@@ -267,6 +264,8 @@ const SHIP_PICK =
 	/^[-*][ \t]+`([^`\n]+)`(?:[ \t]+(patch|minor|major)\b)?(?:[ \t].*)?$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
+/** A run-command card's `Reason: busy` line: one word, on a line of its own. */
+const RUN_REASON = /^Reason:[ \t]*([A-Za-z-]+)[ \t]*$/;
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
 // `## 🔐 Permission: queue lane <n>: <name>`, `queue #<n>, #<n>: <what>`
 // (`queue <project> #<n>` for another project's tasks) or `remove lane <n>:

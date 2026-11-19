@@ -47,7 +47,7 @@ splatesShips
 splatesShips
 	.command("retry")
 	.description(
-		"carry a ship the user started on: send a failed step round again, from your task's worktree; it runs from the main tree, so it tries what has landed there. It never starts a ship, answers a prompt or stops a run",
+		"carry a ship the user started on: send a failed step round again, from your task's worktree; it runs in the run's own checkout, the commit the ship started on plus the fixes merged for it, not what has landed on the main tree since. It never starts a ship, answers a prompt or stops a run",
 	)
 	.use(repository({ needs: "read" }))
 	.arg("run", z.string(), { description: "the run's id" })

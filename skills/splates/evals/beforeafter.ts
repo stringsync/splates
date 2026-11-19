@@ -102,6 +102,7 @@ export const scenarios: Scenario[] = [
 				},
 			},
 		],
+		judgeWith: "claude:sonnet",
 		judge:
 			"Does SPLATES.md's After contain only one or two short sentences summarizing the outcome, with implementation notes and the passing focused upload test recorded in sections after After rather than packed into the summary?",
 		limits: { turns: 25, minutes: 10 },

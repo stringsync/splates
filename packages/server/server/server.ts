@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 // vet-ignore-file compact-files: the dev server and its route table, each body handed to its own module
 
 import { AsyncDisposer, type AsyncResource } from "core/disposable";
-import { Duration } from "core/time";
+import { Duration, SystemTimer } from "core/time";
 import { AutoPickRulesRoutes } from "../auto-pick";
 import { ConfigFiles } from "../config";
 import { SERVER_TOLD } from "../conversations";
@@ -10,10 +10,12 @@ import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import {
 	EvalAgentsRoutes,
+	EvalAgentsStore,
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
 	projectEvalCommands,
+	targetOf,
 } from "../evals";
 import { fail } from "../exit";
 import { splatesHome } from "../models";
@@ -23,6 +25,14 @@ import { Pushes } from "../push";
 import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
 import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
+import {
+	Probes,
+	pageKillRoute,
+	raiseIn,
+	SignalBook,
+	SignalRoutes,
+	subscriptionsIn,
+} from "../signals";
 import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
@@ -34,9 +44,10 @@ import {
 	Machine,
 	OsSensors,
 	queueListing,
+	strained,
 } from "../workers";
 import { General } from "./general";
-import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
+import { body, HostGate, LOOPBACK, MAX_BODY_BYTES } from "./http";
 import { Migrations } from "./migrations";
 import type { DevOptions } from "./options";
 import { Pages } from "./pages";
@@ -188,9 +199,39 @@ export async function dev(
 			launch: (argv, cwd, env) => workers.local.launch(argv, cwd, env),
 			resume: (handle, held) => workers.local.resume(handle, held),
 		},
+		evalCards: {
+			refs: async (project, cwd) => {
+				const evals = (await configFiles.read(project.service.git.root)).evals;
+				const commands = projectEvalCommands(
+					ps,
+					project.service.git.root,
+					evals ?? null,
+				);
+				if (commands === null) {
+					return null;
+				}
+				return {
+					scenarios:
+						commands.list === null
+							? null
+							: (await evalLaunches.scenarios(commands, cwd)).map(
+									(each) => each.id,
+								),
+					agents: (
+						await new EvalAgentsStore(
+							`${splatesHome(ps)}/eval-agents.json`,
+							fs,
+						).agents()
+					).map(targetOf),
+				};
+			},
+		},
 		onWorkerRoom: (listener) =>
 			workers.placement.scheduler.events.on("changed", listener),
 		paused: () => workers.records.paused,
+		raiseSignal: async (name, by, payload) => {
+			await signals.announce(name, by, payload);
+		},
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
@@ -549,7 +590,14 @@ export async function dev(
 	);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
-	const rec = new Rec(ps);
+	const rec = new Rec(ps, {
+		logSources: {
+			find: async (request) => {
+				const { root } = await projectFor(request);
+				return { root, rec: (await configFiles.read(root)).rec };
+			},
+		},
+	});
 	const pushes = await Pushes.start({
 		storage: FsStorage.ofMachine({ fs, ps, log }),
 		log,
@@ -558,6 +606,19 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
+	// What agents raise and wait on, across every project the server holds.
+	const allConversations = async () => {
+		await everywhere.openAll();
+		const found = [
+			...((await general?.conversations.list().catch(() => [])) ?? []),
+		];
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled" && settled.value.conversations) {
+				found.push(...(await settled.value.conversations.list()));
+			}
+		}
+		return found;
+	};
 	const ledger = new Spend(machineStorage);
 	const billing = new BillingRoutes(
 		machineStorage,
@@ -583,6 +644,103 @@ export async function dev(
 		sensors ??
 			new OsSensors(fs, { ps, supervised: ps.env(SERVING) !== undefined }),
 	);
+	// Signals, and the probes that raise them, across every project.
+	const findConversation = async (id: string) => {
+		let owner = await holding(id);
+		if (owner === null) {
+			await everywhere.openAll();
+			owner = await holding(id);
+		}
+		return owner;
+	};
+	const signalHome = {
+		book: new SignalBook(machineStorage.document("signals.json"), () =>
+			Date.now(),
+		),
+		all: allConversations,
+		fire: async (name: string, by: string, payload: unknown) => {
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					await settled.value
+						.signalRaised(name, by, payload)
+						.catch((error: unknown) => log.error(String(error)));
+				}
+			}
+		},
+	};
+	const probes = new Probes({
+		book: signalHome.book,
+		shell: (script, cwd, timeoutMs) =>
+			ps.spawnCapture(["sh", "-c", script], { cwd, timeoutMs }),
+		busy: async () => strained(await machine.read()),
+		raise: async (name, by, payload) => {
+			await raiseIn(signalHome, name, by, payload);
+		},
+		subscriptions: async (name) => {
+			let count = await subscriptionsIn(signalHome, name);
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					count += await settled.value.signalAutomations(name).catch(() => 0);
+				}
+			}
+			return count;
+		},
+		expire: async (name) => {
+			for (const conversation of await allConversations()) {
+				conversation.expireSignal(name);
+			}
+		},
+		show: async (probe) => {
+			const owner = await findConversation(probe.conversation);
+			(
+				await owner?.conversations?.find(probe.conversation).catch(() => null)
+			)?.showProbe(probe);
+		},
+		now: () => Date.now(),
+		timer: new SystemTimer(),
+		log,
+	});
+	disposer.defer(async () => probes.dispose());
+	void probes
+		.arm()
+		.catch((error: unknown) => log.error(`arming probes: ${String(error)}`));
+	const signals = new SignalRoutes({
+		...signalHome,
+		rootOfProject: async (slug) =>
+			(await projects.list()).find((each) => each.slug === slug)?.root ?? null,
+		shell: (script, cwd, timeoutMs) =>
+			ps.spawnCapture(["sh", "-c", script], { cwd, timeoutMs }),
+		automations: async () => {
+			const slugs = new Map(
+				(await projects.list()).map((each) => [each.root, each.slug]),
+			);
+			const found = [];
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status !== "fulfilled") {
+					continue;
+				}
+				const project = slugs.get(settled.value.root) ?? "";
+				for (const each of await settled.value
+					.signalAutomationList()
+					.catch(() => [])) {
+					found.push({ ...each, project });
+				}
+			}
+			return found;
+		},
+		find: async (id) =>
+			(await (
+				await findConversation(id)
+			)?.conversations
+				?.find(id)
+				.catch(() => null)) ?? null,
+		rootOf: async (id) => {
+			const owner = await findConversation(id);
+			return owner === null || !("root" in owner) ? null : owner.root;
+		},
+		probes,
+		now: () => Date.now(),
+	});
 	// Setup is the machine's, but for the steps that read the repository of
 	// the project the page is on.
 	const setup = new SetupRoutes(async (request) => {
@@ -798,6 +956,9 @@ export async function dev(
 					"/api/ship/targets": {
 						GET: scoped((project) => project.shipTargets),
 					},
+					"/api/ship/unshipped": {
+						GET: scoped((project) => project.shipUnshipped),
+					},
 					"/api/ship/plan": { POST: scoped((project) => project.shipPlan) },
 					"/api/ship/runs": {
 						GET: scoped((project) => project.shipRuns),
@@ -823,6 +984,9 @@ export async function dev(
 					},
 					"/api/ship/runs/:id/send": {
 						POST: scoped((project) => project.shipRunSend),
+					},
+					"/api/ship/runs/:id/supervise": {
+						POST: scoped((project) => project.shipRunSupervise),
 					},
 					"/api/ship/runs/:id/note": {
 						POST: scoped((project) => project.shipRunNote),
@@ -986,6 +1150,21 @@ export async function dev(
 					},
 					"/api/conversations/:id/progress": {
 						POST: talk(owned((project) => project.reportProgress)),
+					},
+					"/api/signals": { GET: talk(signals.list) },
+					"/api/signals/raise": { POST: talk(signals.raise) },
+					// A page the system killed says so, for an agent to look into once
+					// it has repeated.
+					"/api/page-kills": {
+						POST: guarded(pageKillRoute(signalHome, body)),
+					},
+					"/api/conversations/:id/signal-wait": { POST: talk(signals.wait) },
+					"/api/conversations/:id/signal-probe": { POST: talk(signals.probe) },
+					"/api/signals/probe-stop": { POST: talk(signals.stopProbe) },
+					"/api/signals/check": { POST: talk(signals.check) },
+					"/api/signals/check-test": { POST: talk(signals.testCheck) },
+					"/api/conversations/:id/signal-wait/:wait/stop": {
+						POST: talk(signals.stop),
 					},
 					"/api/conversations/:id/artifacts": {
 						POST: talk(owned((project) => project.addArtifact)),

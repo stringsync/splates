@@ -1,0 +1,162 @@
+import { useReactive } from "core/react";
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "lucide-react";
+import type { JSX } from "react";
+import { Button } from "#web/components/ui/button.tsx";
+import { Input } from "#web/components/ui/input.tsx";
+import { type CannedGroup, canned } from "./canned-responses";
+
+function move<T>(list: readonly T[], from: number, to: number): T[] {
+	const next = [...list];
+	const [item] = next.splice(from, 1);
+	next.splice(to, 0, item as T);
+	return next;
+}
+
+/** Edits the canned replies in place: groups and their replies, each added, renamed, reordered and removed. */
+export function CannedEditor(): JSX.Element {
+	const { groups, edited } = useReactive(
+		canned,
+		(store) => ({ groups: store.get(), edited: store.edited }),
+		["changed"],
+	);
+	const save = (next: readonly CannedGroup[]) => canned.set(next);
+	const edit = (index: number, group: CannedGroup) =>
+		save(groups.map((other, i) => (i === index ? group : other)));
+
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-between gap-2">
+				<p className="text-muted-foreground text-xs">
+					Replies the answer box offers with one tap.
+				</p>
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!edited}
+					onClick={() => canned.reset()}
+				>
+					Reset to default
+				</Button>
+			</div>
+			{groups.map((group, g) => (
+				<div key={`${g}`} className="flex flex-col gap-2 rounded-md border p-3">
+					<div className="flex items-center gap-1">
+						<Input
+							aria-label="Group name"
+							value={group.label}
+							onChange={(event) =>
+								edit(g, { ...group, label: event.target.value })
+							}
+							className="font-medium"
+						/>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Move group up"
+							disabled={g === 0}
+							onClick={() => save(move(groups, g, g - 1))}
+						>
+							<ArrowUpIcon />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Move group down"
+							disabled={g === groups.length - 1}
+							onClick={() => save(move(groups, g, g + 1))}
+						>
+							<ArrowDownIcon />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Remove group"
+							onClick={() => save(groups.filter((_, i) => i !== g))}
+						>
+							<XIcon />
+						</Button>
+					</div>
+					{group.replies.map((reply, r) => (
+						<div key={`${r}`} className="flex items-start gap-1">
+							<textarea
+								aria-label="Reply"
+								value={reply}
+								rows={2}
+								onChange={(event) =>
+									edit(g, {
+										...group,
+										replies: group.replies.map((other, i) =>
+											i === r ? event.target.value : other,
+										),
+									})
+								}
+								className="min-h-9 flex-1 resize-y rounded-md border bg-transparent px-2.5 py-1.5 text-sm"
+							/>
+							<div className="flex flex-col">
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="Move reply up"
+									disabled={r === 0}
+									onClick={() =>
+										edit(g, {
+											...group,
+											replies: move(group.replies, r, r - 1),
+										})
+									}
+								>
+									<ArrowUpIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									aria-label="Move reply down"
+									disabled={r === group.replies.length - 1}
+									onClick={() =>
+										edit(g, {
+											...group,
+											replies: move(group.replies, r, r + 1),
+										})
+									}
+								>
+									<ArrowDownIcon />
+								</Button>
+							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								aria-label="Remove reply"
+								onClick={() =>
+									edit(g, {
+										...group,
+										replies: group.replies.filter((_, i) => i !== r),
+									})
+								}
+							>
+								<XIcon />
+							</Button>
+						</div>
+					))}
+					<Button
+						variant="outline"
+						size="sm"
+						className="self-start"
+						onClick={() =>
+							edit(g, { ...group, replies: [...group.replies, ""] })
+						}
+					>
+						<PlusIcon /> Add reply
+					</Button>
+				</div>
+			))}
+			<Button
+				variant="outline"
+				size="sm"
+				className="self-start"
+				onClick={() => save([...groups, { label: "New group", replies: [] }])}
+			>
+				<PlusIcon /> Add group
+			</Button>
+		</div>
+	);
+}

@@ -20,26 +20,17 @@ export function assigned(id: number, assignee: AgentPick | null) {
 }
 
 /**
- * Todo `id` blocked by `blockedBy`. A blocker removed without merging that
- * `blockedBy` leaves out is let go of.
+ * Todo `id` blocked by `blockedBy`.
  */
 // vet-ignore doc-comments-address-users: this comment predates the check and describes what the user sees
 export function linked(id: number, blockedBy: readonly number[]) {
 	return keyed(
 		`todo:${id}`,
 		(snapshot: Snapshot): Snapshot =>
-			changed(snapshot, id, ({ blockersLost, ...todo }) => {
-				const lost = (blockersLost ?? []).filter((gone) =>
-					blockedBy.includes(gone.id),
-				);
-				return {
-					...todo,
-					blockedBy: [...new Set(blockedBy)]
-						.filter((each) => !lost.some((gone) => gone.id === each))
-						.sort((left, right) => left - right),
-					...(lost.length === 0 ? {} : { blockersLost: lost }),
-				};
-			}),
+			changed(snapshot, id, (todo) => ({
+				...todo,
+				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
+			})),
 	);
 }
 
@@ -234,7 +225,7 @@ export function todoRemoved(id: number) {
 								blockedBy: todo.blockedBy.filter((before) => before !== id),
 								blockersLost: [
 									...(todo.blockersLost ?? []),
-									{ id, subject: gone.subject },
+									{ id, subject: gone.subject, at: new Date().toISOString() },
 								],
 							},
 				),

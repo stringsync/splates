@@ -3,6 +3,7 @@ import { SystemTimer } from "core/time";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { scoped } from "./api";
+import { reportPageKill } from "./api/page-kills";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
@@ -13,6 +14,7 @@ import { NoopPageCopy } from "./noop-page-copy";
 import type { Stale } from "./page-cache";
 import { IndexedPageCopies } from "./page-copies";
 import { PageCopy } from "./page-copy";
+import { livePage } from "./page-kill";
 import { ProjectApp } from "./project-app";
 import { Settings } from "./settings";
 import { SHIP_RUN_PREVIEW, ShipRunPreview } from "./ship-run-preview";
@@ -58,6 +60,20 @@ document.addEventListener(
 	},
 	true,
 );
+
+// A page the system killed while it was in front says so to the server, which
+// raises a signal for an agent once it has happened a few times.
+const killed = livePage.start();
+if (killed !== null) {
+	void reportPageKill(killed).catch(() => {});
+}
+document.addEventListener("visibilitychange", () =>
+	livePage.become(
+		document.visibilityState === "visible" ? "visible" : "hidden",
+	),
+);
+addEventListener("pagehide", () => livePage.become("ended"));
+addEventListener("pageshow", () => livePage.become("visible"));
 
 // iOS Safari pinch-zooms whatever the viewport meta says, so the page cancels
 // the pinch itself. gesturestart is WebKit's alone; elsewhere it never fires.

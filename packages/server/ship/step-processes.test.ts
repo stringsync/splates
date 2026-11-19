@@ -20,6 +20,21 @@ describe("ShellStepProcesses", () => {
 		);
 	});
 
+	it("passes a reviewed version in place of a bump", () => {
+		expect(
+			commandLine(
+				{
+					command: "bin/s2s ship",
+					target: "staging",
+					step: "deploy",
+					version: "0.1.4",
+					upstream: {},
+				},
+				"done",
+			),
+		).toBe("bin/s2s ship done deploy --target staging --version 0.1.4");
+	});
+
 	it("quotes a word the shell would split", () => {
 		expect(
 			commandLine(

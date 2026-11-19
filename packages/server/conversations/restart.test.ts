@@ -45,7 +45,12 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		worker = new WorkerSession("worker", { timer, clock });
 		worker.events.on(
 			"channel",
-			(channel) => new WorkerProcessHost(channel, worker, ps),
+			// Only a process, as the daemon does: a call such as `processes` is no agent.
+			(channel) => {
+				if (channel.kind === "process") {
+					new WorkerProcessHost(channel, worker, ps);
+				}
+			},
 		);
 		coordinator = session();
 		conversations = talk(coordinator);

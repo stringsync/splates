@@ -3,6 +3,8 @@ import type {
 	Listing,
 	Pick,
 	RunState,
+	Supervise,
+	Unshipped,
 	Waiting,
 } from "@splates/server/ship";
 import { Duration } from "core/time";
@@ -15,6 +17,25 @@ export async function shipTargets(): Promise<Listing> {
 		throw new ApiError("error", `/api/ship/targets: ${response.status}`);
 	}
 	return (await response.json()) as Listing;
+}
+
+/** Each target's unshipped commit count, by name, for the targets that count them. */
+export async function shipUnshipped(): Promise<Unshipped> {
+	// Its own route, apart from the targets, as counting can be slow.
+	const response = await answered(scoped("/api/ship/unshipped"), {
+		within: Duration.mins(2),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/unshipped: ${response.status}`);
+	}
+	const body: unknown = await response.json();
+	return Object.fromEntries(
+		Object.entries(
+			typeof body === "object" && body !== null ? body : {},
+		).filter(
+			(entry): entry is [string, number] => typeof entry[1] === "number",
+		),
+	);
 }
 
 /** One plan of `picks`: the steps in order, and the dependencies left unpicked. */
@@ -39,12 +60,15 @@ export async function shipPlan(picks: readonly Pick[]): Promise<Composed> {
 }
 
 /** Starts a ship of `picks`: the server composes them again and runs the plan. */
-export async function startShip(picks: readonly Pick[]): Promise<RunState> {
+export async function startShip(
+	picks: readonly Pick[],
+	supervise?: Supervise,
+): Promise<RunState> {
 	const response = await answered(scoped("/api/ship/runs"), {
 		method: "POST",
 		within: Duration.mins(2),
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ picks }),
+		body: JSON.stringify({ picks, ...(supervise && { supervise }) }),
 	});
 	const body = (await response.json().catch(() => ({}))) as {
 		error?: string;
@@ -126,6 +150,26 @@ export async function stopShipRun(id: string): Promise<RunState> {
 }
 
 /** Sends failed step `step` of `target` in run `id` to an agent, as a board task. */
+/** Gives run `id`'s supervisor `fixes` more fixes, switching it on when off. */
+export async function superviseShipRun(
+	id: string,
+	fixes: number,
+): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/supervise`;
+	const response = await answered(scoped(path), {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ fixes }),
+	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
+	}
+	return body as RunState;
+}
+
 export async function sendShipStep(
 	id: string,
 	target: string,

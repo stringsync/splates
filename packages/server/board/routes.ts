@@ -120,7 +120,7 @@ export class BoardRoutes {
 				add: ids.filter(
 					(id) => !found.blockedBy.includes(id) && !lost.includes(id),
 				),
-				drop: [...found.blockedBy, ...lost].filter((id) => !ids.includes(id)),
+				drop: found.blockedBy.filter((id) => !ids.includes(id)),
 			});
 			if (!Array.isArray(blockedElsewhere)) {
 				return linked;

@@ -117,6 +117,9 @@ export function described(automation: Automation): string {
 
 /** `trigger` in a few words, as `task.created in available, lane 3` or `every 1h`. */
 export function triggerLabel(trigger: Trigger): string {
+	if ("signal" in trigger) {
+		return `signal ${trigger.signal}`;
+	}
 	if ("every" in trigger) {
 		return `every ${trigger.every}`;
 	}

@@ -3,19 +3,27 @@ import { logLine } from "./log-lines";
 const STAMP =
 	/^\[?(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:[.,](\d{1,9}))?(Z|[+-]\d{2}:?\d{2})?\]?\s*/;
 
+/** How a stamp is read. */
+export interface StampOptions {
+	/** Read a stamp with no offset as UTC rather than local time. */
+	utc?: boolean;
+}
+
 /**
  * The time a line opens with, when it opens with one that is recognizable
  * (ISO, with a T or a space, a `.` or `,` before the fraction, a zone or none,
- * which is local time), and the line without it.
+ * which is local time unless `utc`), and the line without it.
  */
 export function parseStamp(
 	line: string,
+	opts: StampOptions = {},
 ): { at: number; rest: string } | undefined {
 	const match = STAMP.exec(line);
 	if (!match) {
 		return undefined;
 	}
-	const [whole, date, time, fraction = "", zone = ""] = match;
+	const [whole, date, time, fraction = "", stated = ""] = match;
+	const zone = stated || (opts.utc ? "Z" : "");
 	const at = Date.parse(
 		`${date}T${time}${fraction ? `.${fraction.slice(0, 3).padEnd(3, "0")}` : ""}${zone}`,
 	);

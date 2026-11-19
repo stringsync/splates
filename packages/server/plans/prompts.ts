@@ -36,6 +36,18 @@ export function scheduleReference(automation: string): string {
 }
 
 /**
+ * What opens an agent hook's conversation when signal `name` was raised: the
+ * raiser and the payload follow it.
+ */
+export function signalReference(
+	name: string,
+	by: string,
+	payload: unknown,
+): string {
+	return `[SPLATES EVENT signal ${name}] raised by ${by}; payload: ${JSON.stringify(payload ?? null)}`;
+}
+
+/**
  * What tells the project's groomer to groom ungroomed Backlog task `id`, which
  * `splates server` claimed for it: the splates skill says what it means.
  */
@@ -127,6 +139,12 @@ export function evalsDoneReference(batch: string): string {
 }
 
 /**
+ * What tells an agent the last task its work was blocked on has ended, so its
+ * merge is open again: the splates skill says what it means.
+ */
+export const BLOCKERS_CLEARED = "[SPLATES BLOCKERS CLEARED]";
+
+/**
  * What asks an agent to bring its `SPLATES.md` up to date and stop, as before a
  * restart: the splates skill says what it means.
  */
@@ -157,6 +175,12 @@ export const MERGE = "[SPLATES MERGE]";
  * splates skill says what it means.
  */
 export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
+/**
+ * The words after `RUN_ALLOWED` when the server allowed a command for the
+ * person, because its card asked only for the machine being busy, which it
+ * no longer is. The page shows such a card as auto-allowed.
+ */
+export const AUTO_ALLOWED = "Auto-allowed by splates";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
 
 /**

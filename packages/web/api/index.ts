@@ -86,6 +86,13 @@ export {
 	WAITS,
 } from "./request";
 export {
+	pauseSubscription,
+	type Signals,
+	signals,
+	stopProbe,
+	stopWait,
+} from "./signals";
+export {
 	billing,
 	pullBilling,
 	setCurrency,

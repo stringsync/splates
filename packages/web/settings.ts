@@ -12,6 +12,7 @@ export const CATEGORIES = [
 	"Notifications",
 	"Updates",
 	"Shortcuts",
+	"Canned replies",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];

@@ -10,14 +10,14 @@ import { folderOf, here } from "./flags";
 
 /** `splates blocker`, which the root cli mounts after `splates task`. */
 export const splatesBlocker = cli<SplatesDeps>("blocker").description(
-	"what stops the task you work on: add a task that has to merge first, and the conversation waits, keeping the worktree",
+	"what stops the task you work on: add a task that has to merge first, and `splates merge` waits on it",
 );
 
 splatesBlocker
 	.command("add")
 	.use(repository({ needs: "queue" }))
 	.description(
-		"block this task on another: a task number, or a subject for a new Backlog task. The worktree stays and the conversation suspends until every blocker has merged, or the user writes to it; end your turn after it",
+		"block this task on another: a task number, or a subject for a new Backlog task. The conversation goes on, `splates merge` refuses until every blocker has ended, and a notice comes when the last one does",
 	)
 	.arg("blocker", z.string(), {
 		description: "a task number (`12`, `#12`), or the subject of a new task",

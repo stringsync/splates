@@ -70,14 +70,18 @@ describe("ShipFixes", () => {
 		]);
 	});
 
-	it("retries the step too when its fix is removed, and can send again if it fails", async () => {
+	it("leaves the step for the user when its fix is removed, and can send again once retried", async () => {
 		const { fixes, desk, engine, processes } = await failed();
 		await fixes.send("0", "lib", "publish");
 		desk.endings.set(7, "removed");
 		await fixes.settle();
 		const step = stepOf(await engine.get("0"), "lib/publish");
 		expect(step.fix?.ended).toBe("removed");
-		expect(step.retries).toBe(1);
+		expect(step.status).toBe("failed");
+		expect(step.handedBack).toBe(true);
+		expect(step.retries).toBeUndefined();
+		const retried = await engine.retry("0", "lib", "publish");
+		expect(stepOf(retried, "lib/publish").handedBack).toBeUndefined();
 		await processes.started("lib/publish");
 		expect(processes.runs).toHaveLength(3);
 		(await processes.started("lib/publish")).exit(1);
@@ -100,6 +104,70 @@ describe("ShipFixes", () => {
 		await restarted.settle();
 		(await again.processes.started("lib/publish")).exit(0);
 		await until(async () => (await again.engine.get("0"))?.status === "done");
+	});
+
+	it("sends a supervised run's failed step by itself, spending a fix", async () => {
+		const { desk, engine } = await failed({ budget: 2 });
+		await until(() => desk.started.length === 1);
+		const state = await engine.get("0");
+		expect(state?.supervise).toEqual({ budget: 2, spent: 1 });
+		expect(stepOf(state, "lib/publish").fix).toEqual({ task: 7, at: 1000 });
+		expect(desk.added[0]?.text).toContain(
+			"The ship is supervised, and sent this step here by itself: fix 1 of 2.",
+		);
+	});
+
+	it("sends a supervised step again after a merged fix fails, quoting the fix before, until the budget is spent", async () => {
+		const { desk, engine, fixes, processes } = await failed({ budget: 2 });
+		await until(() => desk.started.length === 1);
+		const failsAgain = async (task: number) => {
+			desk.next = task + 1;
+			desk.endings.set(task, "merged");
+			const runs = processes.runs.length;
+			await fixes.settle();
+			await until(() => processes.runs.length > runs);
+			(await processes.started("lib/publish")).exit(1);
+			await until(async () => {
+				const step = stepOf(await engine.get("0"), "lib/publish");
+				// The supervisor sends the next fix at once, until it has none left.
+				return (
+					step.status === "failed" &&
+					(step.fix?.task !== task || step.fix.ended !== undefined)
+				);
+			});
+		};
+		await failsAgain(7);
+		await failsAgain(8);
+		await Bun.sleep(20);
+		expect(desk.started).toEqual([7, 8]);
+		expect(desk.added[1]?.text).toContain("### Earlier fixes of this step");
+		expect(desk.added[1]?.text).toContain(
+			"- #7: merged, and the step failed again",
+		);
+		const state = await engine.get("0");
+		expect(state?.supervise).toEqual({ budget: 2, spent: 2 });
+		expect(stepOf(state, "lib/publish").status).toBe("failed");
+	});
+
+	it("does not resend a supervised step whose fix was removed", async () => {
+		const { desk, engine, fixes } = await failed({ budget: 3 });
+		await until(() => desk.started.length === 1);
+		desk.endings.set(7, "removed");
+		await fixes.settle();
+		await Bun.sleep(20);
+		expect(desk.started).toEqual([7]);
+		expect(stepOf(await engine.get("0"), "lib/publish").status).toBe("failed");
+	});
+
+	it("sends a failed step at once when the user supervises a run", async () => {
+		const { desk, engine, fixes } = await failed();
+		expect(desk.started).toEqual([]);
+		await engine.supervise("0", 3);
+		await fixes.settle();
+		expect(desk.started).toEqual([7]);
+		expect((await engine.get("0"))?.supervise).toEqual({ budget: 3, spent: 1 });
+		await engine.supervise("0", 1);
+		expect((await engine.get("0"))?.supervise).toEqual({ budget: 4, spent: 1 });
 	});
 
 	it("lets any task retry a failed step, the run naming it", async () => {
@@ -155,11 +223,12 @@ class FakeDesk implements FixDesk {
 	}
 }
 
-/** A run of `lib` whose `publish` failed. */
-async function failed() {
+/** A run of `lib` whose `publish` failed, supervised with `supervise` when given. */
+async function failed(supervise?: { budget: number }) {
 	const made = setup();
+	made.engine.listen((_, state) => made.fixes.changed(state));
 	made.processes.done_.set("lib/skip", true);
-	await made.engine.start([lib]);
+	await made.engine.start([lib], supervise);
 	(await made.processes.started("lib/test")).exit(0);
 	const publish = await made.processes.started("lib/publish");
 	publish.say({ type: "output", text: "+ npm publish\n" });

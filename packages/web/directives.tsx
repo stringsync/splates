@@ -2,6 +2,7 @@ import type { ThreadMessageLike } from "@assistant-ui/react";
 import { SERVER_TOLD } from "@splates/server/conversations/browser";
 import {
 	APPROVE,
+	BLOCKERS_CLEARED,
 	DIRECTIVES,
 	GRANT_DENIED,
 	GRANTED,
@@ -301,7 +302,10 @@ export function DirectiveLine({
 	return words === null ? null : (
 		<SplatesEvent
 			event={{
-				mark: APPROVALS.has(directive) ? "approved" : null,
+				mark:
+					APPROVALS.has(directive) || directive === BLOCKERS_CLEARED
+						? "approved"
+						: null,
 				words,
 				at,
 				title: directive,
@@ -328,6 +332,9 @@ function wordsOf(
 	) {
 		// The run-command or grant card it answers folds to an event line saying it.
 		return null;
+	}
+	if (directive === BLOCKERS_CLEARED) {
+		return ["Blockers cleared: merge is open again"];
 	}
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
 	if (bare !== undefined) {

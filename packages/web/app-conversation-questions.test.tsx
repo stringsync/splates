@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import type { ConversationState } from "@splates/server/conversations";
 import {
 	act,
@@ -22,6 +22,7 @@ describe("App's question cards", () => {
 	});
 
 	afterEach(() => {
+		jest.useRealTimers();
 		cleanup();
 		testing.dispose();
 	});
@@ -274,6 +275,9 @@ describe("App's question cards", () => {
 	});
 
 	it("keeps the answers as a message saying why it was not sent, until sent again, when the server refuses their send", async () => {
+		// Testing Library advances fake timers through the global `jest`, which bun leaves undefined.
+		Object.assign(globalThis, { jest });
+		jest.useFakeTimers();
 		const view = await testing.openConversations([asking()]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
@@ -293,12 +297,14 @@ describe("App's question cards", () => {
 		const unsent = await waitFor(() => view.getByText("Couldn't send"));
 		expect(unsent.title).toBe("cannot resume");
 		// Said past the moment a refusal used to last.
-		await new Promise((done) => setTimeout(done, 4500));
+		await act(async () => {
+			jest.advanceTimersByTime(4500);
+		});
 		expect(view.getByText("Couldn't send")).toBeTruthy();
 		testing.refuseWrites = null;
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Retry" })),
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(2);
-	}, 10000);
+	});
 });

@@ -27,7 +27,7 @@ import { useRefusals } from "./refusal";
 import { RouteTrail } from "./route-trail";
 import { shownLanes } from "./shown-lanes";
 import { Task } from "./task-dialog";
-import { type Filtered, projectOptions, tagOptions } from "./task-filter";
+import { type Filtered, projectOptions } from "./task-filter";
 import { TaskFilterBar } from "./task-filter-menu";
 import { TodoBoard } from "./todo-board";
 import { TodoDialog } from "./todo-dialog";
@@ -81,9 +81,7 @@ export function Todos({
 		["changed"],
 	);
 	const filter = view.taskFilter;
-	useReactive(filter, ({ projects, tags }) => ({ projects, tags }), [
-		"changed",
-	]);
+	useReactive(filter, ({ projects }) => ({ projects }), ["changed"]);
 	const { current, task } = view.show(snapshot);
 	// What was dropped and is pending, until the server's word on it arrives.
 	const moving = board.moving(snapshot.todos);
@@ -207,7 +205,6 @@ export function Todos({
 			openTodos: (ids: readonly number[]) => view.filter(ids),
 			openLane: onLane,
 			tasks: snapshot.tasks.map((each) => each.task),
-			taskTags: new Map(snapshot.tasks.map((each) => [each.task, each.tags])),
 			moveLane: (id: number, position: number) =>
 				void board
 					.moveLane(snapshot.lanes, id, position)
@@ -337,11 +334,6 @@ export function Todos({
 					<TaskFilterBar
 						filter={filter}
 						projects={projectOptions(all.map(filtered), filter.projects)}
-						tags={tagOptions(
-							snapshot.allowedTags,
-							all.map(filtered),
-							filter.tags,
-						)}
 					/>
 				</div>
 				<div
@@ -434,5 +426,5 @@ function TodosBar({
 
 /** What the filter reads of a todo. */
 function filtered(todo: TaskRecord): Filtered {
-	return { project: todo.scope ?? null, tags: todo.labels ?? [] };
+	return { project: todo.scope ?? null };
 }

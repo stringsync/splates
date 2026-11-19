@@ -233,7 +233,7 @@ describe("remove", () => {
 		});
 	});
 
-	it("removes every board task it took and holds tasks that depended on them", async () => {
+	it("removes every board task it took and the tasks that depended on them", async () => {
 		const lane = await deps.tasks.addLane("Fixes");
 		const first = await deps.tasks.add("Retry on 413", null, { lane: lane.id });
 		const second = await deps.tasks.add("Log retries", null, { lane: lane.id });
@@ -246,16 +246,7 @@ describe("remove", () => {
 			released: [],
 		});
 
-		expect((await deps.tasks.all()).map(({ id }) => id)).toEqual([
-			dependent.id,
-		]);
-		expect((await deps.tasks.find(dependent.id)).state).toMatchObject({
-			blockedBy: [],
-		});
-		expect((await deps.tasks.find(dependent.id)).state.blockersLost).toEqual([
-			{ id: first.id, subject: first.subject },
-			{ id: second.id, subject: second.subject },
-		]);
+		expect(await deps.tasks.all()).toEqual([]);
 		expect(await deps.tasks.lanes()).toEqual([
 			{ id: 0, name: "Backlog", board: 1 },
 		]);

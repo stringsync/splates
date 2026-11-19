@@ -1,5 +1,6 @@
 import type { Resource } from "core/disposable";
 import type { Fs } from "core/system";
+import type { CommandLog } from "./command-logs";
 import type { RecorderStats } from "./protocol";
 import { withWebmDuration } from "./webm-duration";
 
@@ -12,6 +13,7 @@ export interface Source {
 		| "network"
 		| "docker"
 		| "tail"
+		| "command"
 		| "pointer";
 	detail: string;
 }
@@ -36,6 +38,8 @@ export interface Manifest {
 	 * are written, `failed` with why. Absent once they are done.
 	 */
 	processing?: Processing;
+	/** Each `--logs` source: its command and window, so `rec logs fetch` can run it again, and how its last run went. */
+	commandLogs?: CommandLog[];
 	/** Each file the session wrote, by what it is. */
 	files: Record<string, string>;
 	video: { mimeType: string; width: number; height: number };

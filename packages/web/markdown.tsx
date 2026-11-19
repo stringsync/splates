@@ -8,7 +8,15 @@ import {
 	type JSX,
 	memo,
 	useContext,
+	useState,
 } from "react";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
 import { DiagramView } from "./diagram-view";
@@ -303,15 +311,7 @@ export function Mention({ id }: { id: number }): JSX.Element {
 		return <span>#{id}</span>;
 	}
 	if (todo === undefined && saved === undefined) {
-		return (
-			<span
-				title={`#${id} is archived: merged or removed`}
-				className="inline-flex items-baseline gap-0.5 text-muted-foreground"
-			>
-				<ArchiveIcon aria-hidden className="size-3 self-center" />
-				<span className="line-through">#{id}</span>
-			</span>
-		);
+		return <GoneMention id={id} />;
 	}
 	return (
 		<button
@@ -330,6 +330,38 @@ export function Mention({ id }: { id: number }): JSX.Element {
 		>
 			#{id}
 		</button>
+	);
+}
+
+/** A mentioned task no record is kept of: a tap says so rather than doing nothing. */
+function GoneMention({ id }: { id: number }): JSX.Element {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<button
+				type="button"
+				{...still}
+				onClick={(event) => {
+					event.stopPropagation();
+					setOpen(true);
+				}}
+				title={`#${id} is archived: merged or removed`}
+				className="inline-flex cursor-pointer items-baseline gap-0.5 text-muted-foreground"
+			>
+				<ArchiveIcon aria-hidden className="size-3 self-center" />
+				<span className="line-through">#{id}</span>
+			</button>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent onClick={(event) => event.stopPropagation()}>
+					<DialogHeader>
+						<DialogTitle>#{id} is archived</DialogTitle>
+						<DialogDescription>
+							This task merged or was removed, and its record is no longer kept.
+						</DialogDescription>
+					</DialogHeader>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
 

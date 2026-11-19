@@ -272,6 +272,28 @@ describe.concurrent("merge, logging and checks", () => {
 		);
 	});
 
+	it("refuses to land while a task it is blocked on is open, and lands once it merged", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		const blocker = await deps.tasks.add("Build the client", null);
+		const held = await deps.tasks.add("Retry on 413", null);
+		await held.take("alpha");
+		await held.block({ blockedBy: [blocker.id], task: "alpha" });
+
+		await expect(merge(deps, worktree)).toBail("blocked", {
+			message: `'alpha' waits on #${blocker.id} Build the client`,
+		});
+
+		await (await deps.tasks.find(blocker.id)).remove("abc123");
+		await merge(deps, worktree);
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
+	});
+
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await Testing.open();
 

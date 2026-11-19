@@ -644,6 +644,8 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		usage: unused(),
 		background: [],
 		progress: [],
+		signals: [],
+		probes: [],
 		artifacts: [],
 		...overrides,
 	};

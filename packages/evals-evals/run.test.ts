@@ -216,24 +216,18 @@ process.exit(${exit});
 		expect(result.judge?.reason).toBe("ran the whole suite");
 	});
 
-	it("judges with the default, the batch's pick, or the scenario's own, and records who judged", async () => {
+	it("judges with the default or the scenario's own, and records who judged", async () => {
 		await agent("true", "Done.");
 
 		const plain = await run();
-		const picked = await run({ judge: { model: "opus", effort: "high" } });
 		const own = await run({
 			scenario: { ...scenario, judgeWith: "claude:haiku" },
-			judge: { model: "opus", effort: "high" },
 		});
 
-		expect(judges).toEqual([
-			"claude:sonnet",
-			"claude:opus@high",
-			"claude:haiku",
-		]);
+		expect(judges).toEqual(["claude:sonnet", "claude:haiku"]);
 		expect(plain.result.judge?.judge).toBe("claude:sonnet");
 		expect(own.result.judge?.judge).toBe("claude:haiku");
-		expect(picked.batch.cells[0]?.fingerprint).not.toBe(
+		expect(own.batch.cells[0]?.fingerprint).not.toBe(
 			plain.batch.cells[0]?.fingerprint,
 		);
 	});

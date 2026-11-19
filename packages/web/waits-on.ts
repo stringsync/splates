@@ -38,22 +38,14 @@ export function waitsOn(
 								: "not queued",
 				}),
 			),
-		...(todo.blockersLost ?? []).map(
-			(gone): Wait => ({
-				id: `#${gone.id}`,
-				label: `#${gone.id}`,
-				subject: gone.subject,
-				state: "removed",
-			}),
-		),
 		...(todo.blockedElsewhere ?? [])
-			.filter((blocker) => blocker.landed === undefined)
+			.filter((blocker) => blocker.landed === undefined && !blocker.lost)
 			.map(
 				(blocker): Wait => ({
 					id: elsewhereName(blocker),
 					label: elsewhereName(blocker),
 					subject: blocker.subject,
-					state: blocker.lost ? "removed" : "another project",
+					state: "another project",
 				}),
 			),
 	];

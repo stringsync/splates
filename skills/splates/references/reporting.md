@@ -239,7 +239,7 @@ Logs and longer evidence, folded on the page.
   the outcome.
 - **`gallery`**: screenshots in a row, one `![caption](/abs/path.png)` a
   line, paths as `splates attach` prints them; a click enlarges one.
-- **`d2`**: a D2 diagram, drawn as SVG on the page with no `d2` binary
+- **`d2`**: a D2 diagram in a fence tagged exactly `d2` (untagged never renders), drawn as SVG on the page with no `d2` binary
   needed; invalid source shows as a code block.
 - **`### Details`**: everything after it is folded; put logs and long
   evidence there, not in the headline.

@@ -1,3 +1,4 @@
+// vet-ignore-file compact-files: every event of a run goes through its one record path here, the user's steering, the supervisor's and the steps' own alike
 import type { Resource } from "core/disposable";
 import type { IdProvider } from "core/id";
 import type { Logger } from "core/log";
@@ -5,7 +6,12 @@ import type { WallClock } from "core/time";
 import type { Log, Storage } from "../storage";
 import { eventOfLine } from "./line-event";
 import { RunError } from "./run-error";
-import { RUN_EVENT, type RunEvent, type RunTarget } from "./run-events";
+import {
+	RUN_EVENT,
+	type RunEvent,
+	type RunTarget,
+	type Supervise,
+} from "./run-events";
 import { keyOf, messageOf, requestOf, stepIn, stepsOf } from "./run-lookup";
 import {
 	applyRunEvent,
@@ -33,9 +39,30 @@ export type ShipEngineOptions = {
 	clock: WallClock;
 	ids: IdProvider;
 	log: Logger;
+	/**
+	 * Pins each run to the commit it started on, in a checkout of its own;
+	 * without it, every step runs in the main tree.
+	 */
+	checkouts?: RunCheckouts;
 	/** Waits `ms`, `setTimeout` by default; tests pass their own. */
 	wait?: (ms: number) => Promise<void>;
 };
+
+/** A checkout of its own for each run, so its steps all run on one commit. */
+export interface RunCheckouts {
+	/** The main tree's commit, which a run starts on. */
+	head(): Promise<string>;
+	/** Run `run`'s checkout, made at `commit` and readied when it is missing. */
+	ready(run: string, commit: string): Promise<string>;
+	/**
+	 * Takes landed commit `landed` into run `run`'s checkout, which stands on
+	 * `commit`, answering the commit it stands on after; throws when it will
+	 * not apply.
+	 */
+	apply(run: string, commit: string, landed: string): Promise<string>;
+	/** Removes run `run`'s checkout, if it has one. */
+	release(run: string): Promise<void>;
+}
 
 type LiveRun = {
 	id: string;
@@ -50,6 +77,10 @@ type LiveRun = {
 	/** Steps a restart cut short, and the process each was. */
 	cutShort: Map<string, number>;
 	listeners: Set<RunListener>;
+	/** Its checkout, once readied; dropped as the checkout is released. */
+	checkout: Promise<string> | null;
+	/** Whether its checkout was released, the run being over. */
+	released: boolean;
 };
 
 /** What a note is about: a step, and a link it points to. */
@@ -88,16 +119,22 @@ export class ShipEngine {
 		return this.#loaded;
 	}
 
-	/** Starts a run of `targets`, in the order they ship. */
-	async start(targets: RunTarget[]): Promise<RunState> {
+	/**
+	 * Starts a run of `targets`, in the order they ship, supervised with a
+	 * budget of fixes when `supervise` is given.
+	 */
+	async start(targets: RunTarget[], supervise?: Supervise): Promise<RunState> {
 		await this.resume();
 		this.#refuseWhileActive();
+		const commit = await this.#o.checkouts?.head();
 		const id = this.#o.ids.next();
 		const run = this.#open(id);
 		const started: RunEvent = {
 			type: "started",
 			at: this.#o.clock.now(),
 			targets,
+			...(supervise !== undefined && { supervise }),
+			...(commit !== undefined && { commit }),
 		};
 		run.state = foldRun(id, [started]);
 		this.#runs.set(id, run);
@@ -221,12 +258,32 @@ export class ShipEngine {
 		return run.state;
 	}
 
-	/** Records that failed step `step` went to an agent as board task `task`. */
+	/**
+	 * Gives run `id`'s supervisor `fixes` more fixes to send by itself,
+	 * switching supervision on when it was off.
+	 */
+	async supervise(id: string, fixes: number): Promise<RunState> {
+		const run = await this.#run(id);
+		if (run.state.status !== "running" && run.state.status !== "failed") {
+			throw new RunError(`The ship ${id} is not under way`);
+		}
+		const supervise = run.state.supervise;
+		// Unsupervised, the budget counts from the fixes spent so far: none.
+		const budget = (supervise?.budget ?? 0) + fixes;
+		this.#record(run, { type: "supervised", at: this.#o.clock.now(), budget });
+		return run.state;
+	}
+
+	/**
+	 * Records that failed step `step` went to an agent as board task `task`,
+	 * by the user or, spending one of its fixes, the supervisor.
+	 */
 	async sent(
 		id: string,
 		target: string,
 		step: string,
 		task: number,
+		by?: "supervisor",
 	): Promise<RunState> {
 		const run = await this.#run(id);
 		const found = stepIn(run.state, target, step);
@@ -244,14 +301,16 @@ export class ShipEngine {
 			target,
 			step,
 			task,
+			...(by !== undefined && { by }),
 		});
 		return run.state;
 	}
 
 	/**
-	 * Records how the fix board task `task` ended. One that ended, merged or
-	 * removed, sends its step round again when the step is still failed; a step another ship
-	 * keeps from going stays failed for the user's Retry.
+	 * Records how the fix board task `task` ended. One that merged sends its
+	 * step round again when the step is still failed; a step another ship
+	 * keeps from going stays failed for the user's Retry. One removed means
+	 * the agent gave up, so the step waits for the user.
 	 */
 	async fixed(
 		id: string,
@@ -259,6 +318,8 @@ export class ShipEngine {
 		step: string,
 		task: number,
 		outcome: "merged" | "removed",
+		/** The commit a merged fix landed as, for the run's checkout to take in. */
+		landed?: string,
 	): Promise<RunState> {
 		const run = await this.#run(id);
 		const found = stepIn(run.state, target, step);
@@ -273,7 +334,14 @@ export class ShipEngine {
 			task,
 			outcome,
 		});
-		if (found.status === "failed") {
+		if (
+			found.status === "failed" &&
+			outcome === "merged" &&
+			!(await this.#advance(run, task, landed, target, step))
+		) {
+			return run.state;
+		}
+		if (outcome === "merged" && found.status === "failed") {
 			try {
 				return await this.retry(id, target, step, "fix");
 			} catch (error) {
@@ -283,6 +351,93 @@ export class ShipEngine {
 			}
 		}
 		return run.state;
+	}
+
+	/**
+	 * Takes the commit fix task `task` landed as into the run's checkout, so
+	 * its retry runs with the fix and nothing else that landed since. Says
+	 * whether the step may go round again; when the fix will not apply, the
+	 * step stays failed, saying why.
+	 */
+	async #advance(
+		run: LiveRun,
+		task: number,
+		landed: string | undefined,
+		target: string,
+		step: string,
+	): Promise<boolean> {
+		const checkouts = this.#o.checkouts;
+		const commit = run.state.commit;
+		if (checkouts === undefined || commit === undefined) {
+			return true;
+		}
+		const fail = (why: string) => {
+			this.#ender(
+				run,
+				target,
+				step,
+			)(
+				"failed",
+				`Fix #${task} merged, but the ship's checkout at ${commit.slice(0, 12)} could not take it in: ${why}. Retry once the fix applies there, or stop this ship and start a new one.`,
+			);
+			return false;
+		};
+		if (landed === undefined) {
+			return fail("splates did not find the commit it landed as");
+		}
+		try {
+			await this.#checkout(run);
+			const next = await checkouts.apply(run.id, commit, landed);
+			this.#record(run, {
+				type: "advanced",
+				at: this.#o.clock.now(),
+				task,
+				commit: next,
+			});
+			return true;
+		} catch (error) {
+			return fail(messageOf(error));
+		}
+	}
+
+	/** The run's checkout, readied once; the main tree's (undefined) for a run without one. */
+	async #checkout(run: LiveRun): Promise<string | undefined> {
+		const checkouts = this.#o.checkouts;
+		const commit = run.state.commit;
+		if (checkouts === undefined || commit === undefined) {
+			return undefined;
+		}
+		run.checkout ??= checkouts.ready(run.id, commit).catch((error: unknown) => {
+			run.checkout = null;
+			throw new Error(
+				`The ship's checkout of ${commit.slice(0, 12)} could not be made: ${messageOf(error)}`,
+			);
+		});
+		return run.checkout;
+	}
+
+	/** Removes the checkout of a run that is over, once nothing runs in it. */
+	#releaseIfOver(run: LiveRun): void {
+		const checkouts = this.#o.checkouts;
+		if (
+			checkouts === undefined ||
+			run.released ||
+			this.#disposed ||
+			run.state.commit === undefined ||
+			(run.state.status !== "done" && run.state.status !== "stopped") ||
+			run.launched.size > 0
+		) {
+			return;
+		}
+		run.released = true;
+		run.checkout = null;
+		void checkouts
+			.release(run.id)
+			.catch((error: unknown) =>
+				this.#o.log.error(
+					`The ship run ${run.id} could not remove its checkout: ${messageOf(error)}`,
+				),
+			);
 	}
 
 	/** Tells `listener` of each event of run `id` until disposed. */
@@ -349,6 +504,7 @@ export class ShipEngine {
 		}
 		for (const run of this.#runs.values()) {
 			if (run.state.status !== "running") {
+				this.#releaseIfOver(run);
 				continue;
 			}
 			for (const { target, step } of stepsOf(run.state)) {
@@ -371,6 +527,8 @@ export class ShipEngine {
 			live: new Map(),
 			cutShort: new Map(),
 			listeners: new Set(),
+			checkout: null,
+			released: false,
 		};
 	}
 
@@ -416,6 +574,7 @@ export class ShipEngine {
 
 	#schedule(run: LiveRun): void {
 		if (this.#disposed || run.state.status === "stopped") {
+			this.#releaseIfOver(run);
 			return;
 		}
 		for (const { target, step } of readySteps(run.state)) {
@@ -434,6 +593,7 @@ export class ShipEngine {
 					});
 			}
 		}
+		this.#releaseIfOver(run);
 	}
 
 	async #launch(run: LiveRun, target: string, step: string): Promise<void> {
@@ -442,11 +602,28 @@ export class ShipEngine {
 		// A step a worker kept through the restart is taken back where it
 		// stood; one it cannot, or that has none, is waited out as it was.
 		const kept = stepIn(run.state, target, step);
+		let cwd: string | undefined;
+		try {
+			cwd = await this.#checkout(run);
+		} catch (error) {
+			if (before !== undefined) {
+				await this.#gone(before);
+			}
+			run.cutShort.delete(key);
+			if (!this.#disposed && !this.#stopped(run)) {
+				this.#ender(run, target, step)("failed", messageOf(error));
+			}
+			return;
+		}
+		const request = () => ({
+			...requestOf(run.state, target, step),
+			...(cwd !== undefined && { cwd }),
+		});
 		let taken: RunningStep | null = null;
 		if (kept.handle !== undefined && this.#o.processes.resume !== undefined) {
 			try {
 				taken = this.#o.processes.resume(
-					requestOf(run.state, target, step),
+					request(),
 					kept.handle,
 					kept.held ?? 0,
 				);
@@ -475,10 +652,10 @@ export class ShipEngine {
 		const at = () => this.#o.clock.now();
 		const ended = this.#ender(run, target, step);
 		this.#record(run, { type: "checking", at: at(), target, step });
-		const request = requestOf(run.state, target, step);
+		const asked = request();
 		let answer: DoneAnswer;
 		try {
-			answer = await this.#o.processes.done(request);
+			answer = await this.#o.processes.done(asked);
 		} catch (error) {
 			ended("failed", messageOf(error));
 			return;
@@ -498,13 +675,7 @@ export class ShipEngine {
 		if (this.#stopped(run)) {
 			return;
 		}
-		await this.#follow(
-			run,
-			target,
-			step,
-			this.#o.processes.run(request),
-			false,
-		);
+		await this.#follow(run, target, step, this.#o.processes.run(asked), false);
 	}
 
 	/**

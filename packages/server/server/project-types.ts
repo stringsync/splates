@@ -16,6 +16,7 @@ import type { ReplicaStatus } from "../replica";
 import type { Waiting } from "../ship";
 import type { Snapshot } from "../tasks";
 import type { Assets } from "./assets";
+import type { EvalCardSource } from "./eval-card-watch";
 import type { Behind, Release } from "./release";
 import type { Replicas } from "./replicas";
 
@@ -84,8 +85,12 @@ export interface DevContext {
 	readonly boards?: ElsewhereBoards;
 	/** What starts a ship's steps on a worker and takes them back after a restart; absent, each is a child of this server. */
 	readonly shipLauncher?: Launcher;
+	/** What a run-evals card may name, for the watch that bounces one that cannot run; absent, as in a test of one project, none is checked. */
+	evalCards?: EvalCardSource;
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
+	/** Raises the signal `name` for every conversation waiting on it; absent, as in a test of one project, none is raised. */
+	raiseSignal?(name: string, by: string, payload: unknown): Promise<void>;
 	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
 	paused(): boolean;
 	/** What `project`'s dictations transcribe with. */
@@ -106,6 +111,14 @@ export interface Served extends AsyncResource {
 	detachShips: () => Promise<boolean>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
+	/** Fires its automations set on signal `name`; how many fired. */
+	signalRaised: (name: string, by: string, payload: unknown) => Promise<number>;
+	/** How many of its automations, not paused, are set on signal `name`: each keeps a probe on it running. */
+	signalAutomations: (name: string) => Promise<number>;
+	/** Every automation set on a signal, paused or not. */
+	signalAutomationList: () => Promise<
+		{ id: string; name: string | null; signal: string; paused: boolean }[]
+	>;
 	snapshot: Handler;
 	/**
 	 * Read the project snapshot to display its current tasks and conversations.
@@ -172,6 +185,8 @@ export interface Served extends AsyncResource {
 	restoreQueued: Handler;
 	/** The targets the `ships` commands serve. */
 	shipTargets: Handler;
+	/** Each target's unshipped commit count, read apart from the targets. */
+	shipUnshipped: Handler;
 	/** Composes picked targets of the `ships` commands into one plan. */
 	shipPlan: Handler;
 	/** Every ship run, or, posted from the page, a new one started. */
@@ -190,6 +205,7 @@ export interface Served extends AsyncResource {
 	shipRunStop: Handler;
 	/** Sends a ship run's failed step to an agent, as a board task. */
 	shipRunSend: Handler;
+	shipRunSupervise: Handler;
 	/** Sends a failed step round again for the started task fixing it. */
 	shipRunFixRetry: Handler;
 	/** Adds an agent's note to a ship run. */

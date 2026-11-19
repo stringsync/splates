@@ -7,7 +7,6 @@ import {
 	type ContractResult,
 	RESULTS_FILE,
 } from "./contract";
-import type { JudgePick } from "./judge";
 import { restoreRun } from "./keep";
 import { type Current, regradeBatch } from "./regrade";
 
@@ -29,8 +28,6 @@ export interface Label {
 export interface CheckLabelOptions {
 	/** Re-run the judge too; it costs tokens, so the person starts it. */
 	judge?: boolean;
-	/** The judge to re-run with, for rubrics whose scenario names none. */
-	judgePick?: JudgePick;
 }
 
 /** Why today's graders disagree with `label` (stored under `base`), or null when they agree. */
@@ -49,7 +46,6 @@ export async function checkLabel(
 	try {
 		report = await regradeBatch(dir, current, {
 			judge: opts.judge === true,
-			...(opts.judgePick === undefined ? {} : { judgePick: opts.judgePick }),
 		});
 	} catch (error) {
 		return `${at}: cannot be regraded: ${error instanceof Error ? error.message : error}`;

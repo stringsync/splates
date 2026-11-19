@@ -5,6 +5,7 @@ import type { Artifact } from "../artifacts";
 import type { OpenCodeUsage } from "../models";
 import { stretches } from "../plans/browser";
 import type { Event } from "../records";
+import type { SignalProbe, SignalWait } from "../signals/types";
 
 /** What a session has used before its agent says anything of it. */
 export function unused(): Usage {
@@ -197,6 +198,10 @@ export interface ConversationState {
 	background: Background[];
 	/** The progress cards its agent reports, in the order first reported. */
 	progress: Progress[];
+	/** The signals its agent waits on or waited on, in the order it began each. */
+	signals: SignalWait[];
+	/** The signal probes its agent started, in the order it started each. */
+	probes: SignalProbe[];
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
 	/**
@@ -259,14 +264,14 @@ export interface AutoPickMark extends AutoPickSet {
 	 * for it, down as well as up, on the agent it runs.
 	 */
 	rejudge?: true;
-	/** The person chose the model when starting: Auto pick moves its effort, never the model. */
+	/** The person chose the model, when starting or since: Auto pick moves its effort, never the model. */
 	keepModel?: true;
 }
 
 /**
  * What Auto pick holds for `state` once the person switches it `on` or off:
  * on, to judge their next message afresh, keeping what it picked before, if
- * anything; off, what it picked, overridden, or nothing for a conversation it
+ * anything, or, already on, as it is, the model kept when `keepModel`; off, what it picked, overridden, or nothing for a conversation it
  * never picked for.
  */
 export function switched(
@@ -279,7 +284,9 @@ export function switched(
 		return autoPick === null ? null : { ...autoPick, overridden: true };
 	}
 	if (autoPick !== null && !autoPick.overridden) {
-		return autoPick;
+		return keepModel && !autoPick.keepModel
+			? { ...autoPick, keepModel: true }
+			: autoPick;
 	}
 	return {
 		...(autoPick ?? {
@@ -293,6 +300,18 @@ export function switched(
 		overridden: false,
 		rejudge: true,
 		...(keepModel ? { keepModel: true as const } : {}),
+	};
+}
+
+/** What Auto pick holds once it moved `before` to `pick`: a model the person kept, still kept. */
+export function lifted(
+	before: AutoPickMark | null,
+	pick: AutoPickSet,
+): AutoPickMark {
+	return {
+		...pick,
+		overridden: false,
+		...(before?.keepModel ? { keepModel: true as const } : {}),
 	};
 }
 
@@ -515,6 +534,13 @@ export interface Background {
 	state: BackgroundState;
 	/** The file the agent writes what it prints to; null until it says. */
 	output: string | null;
+	/** False for one that cannot be stopped from here; absent when it can. */
+	canStop?: false;
+	/**
+	 * The process splates found the agent left running, which no agent
+	 * reported; absent for one the agent reported.
+	 */
+	pid?: number;
 }
 
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
@@ -742,6 +768,8 @@ export function blank(
 		},
 		background: [],
 		progress: [],
+		signals: [],
+		probes: [],
 		artifacts: [],
 	};
 }

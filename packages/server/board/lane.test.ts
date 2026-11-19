@@ -91,11 +91,12 @@ describe.concurrent("task links and lanes", () => {
 		);
 	});
 
-	it("leaves no link to a task once it goes, by merge or by remove", async () => {
+	it("leaves no link to a task once it goes, by merge", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
 
-		await taskRemove(deps, 187);
+		await add(deps, "store", { tasks: [187] });
+		await land(deps, "store");
 		await add(deps, "gate", { tasks: [191] });
 		await land(deps, "gate");
 		await add(deps, "check", { tasks: [177] });
@@ -129,7 +130,8 @@ describe.concurrent("task links and lanes", () => {
 	it("shows what blocks a task, what it blocks, and what it mentions", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.tasks, sound2score());
-		await taskRemove(deps, 187);
+		await add(deps, "store", { tasks: [187] });
+		await land(deps, "store");
 		deps.log.clear();
 
 		await taskShow(deps, 177);

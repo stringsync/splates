@@ -42,6 +42,7 @@ in the splates repository) documents each one, and its defaults are in
 | `postCheckout` | `null`  | In each new worktree `splates add` makes, as `"bun install"`.                                                                                                                                                                              |
 | `postRewrite`  | `null`  | After `merge` rebases, before `preMerge`, since a rebase can bring a dependency the worktree never installed; a ship runs it too, in the main tree before its command, and a landing that changes a lockfile runs it there after it lands.                                                                                                                              |
 | `queueLoad`    | `1.5`   | Load per core that holds starts when CPU is also at least 80%. CPU or memory at 90% also holds starts; they resume after ten seconds below 80% CPU and 85% memory, checked every five seconds. Tasks the user starts by hand are never held. `null` never holds. |
+| `autoAllowBusyRuns` | `false` | Allows a run-command card for the agent once the machine is no longer busy, when the card says its only reason for asking was the machine being busy (`Reason: busy`). The thread shows it as auto-allowed with the reading. A card that gives any other reason, or none, always waits for the user. |
 | `preLock`      | `null`  | After the first rebase, before the merge waits for the premerge lock: a quick check that needs neither the lock nor the cores. A nonzero exit fails the gate. `preMerge` then gets `$SPLATES_CHECKED`, the commit it passed on, to skip what it covered. |
 | `preMerge`     | `null`  | The last gate, after the rebase: a nonzero exit leaves the base untouched. `null` merges on a clean rebase alone. Writing a JUnit report to `$SPLATES_TEST_REPORT` (`bun test --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"`) queues a task for each test over 5 seconds, and from Bun charges an attempt only for failures the task caused. |
 | `ship`         | `null`  | What the ship runner runs from the root to ship the project: publish its packages at their next version and tag the release on trunk, or, for a deploy target, put it out with no version. `null` never ships it. Only the user ships. |
@@ -114,7 +115,7 @@ In code, `new Scopes(config, repoName).of(path)` answers
 | `leaseStalenessMs`             | `90000`        | How long since a task's last heartbeat before its lease is up for grabs.                             |
 | `taskStalenessMs`              | 30 days        | How long a queued task waits before `merge` offers it for removal rather than recommending it.       |
 | `removedCapacity`              | `50`           | Removed task names kept, so `remove` can say "already removed".                                      |
-| `finishedCapacity`             | `500`          | Finished tasks kept, with their `SPLATES.md`, for the Tasks page.                                    |
+| `finishedCapacity`             | `50000`        | Finished tasks kept, with their `SPLATES.md`; the newest 5,000 also keep attachment copies.                                    |
 | `logCapacity`                  | `1000`         | Events the log holds before it is moved aside and a fresh one starts.                                |
 | `attachmentCapacity`           | 100 MiB        | Bytes of `splates attach` files one task may hold.                                                   |
 | `artifactFileCapacity`         | 50 MiB         | Bytes one artifact may be.                                                                           |
@@ -134,4 +135,30 @@ Byte and millisecond options take plain numbers, as `100 * 1024 * 1024`.
 | `projects`       | `null` (the repository is one project) | `{ slug: ["globs/**"] }`: the projects inside the repository, each the paths it owns. See [Projects](#projects). |
 | `shared`         | `[]`                    | Path globs that count against no project, such as the root `package.json`. See [Projects](#projects). |
 | `tags`           | `null` (any tag, none required) | `{ allowed?: [...], required?: boolean, colors?: { <tag>: <color> } }`: free labels that group tasks without making them projects; ships, queues and the merge gate ignore them. Tasks take them with `--tag <name>` (repeatable or a comma list; lowercase with dashes) on `splates add`, `task add`, `task defer` and `task update` (`--remove-tag` drops one), and `list` and `task list` filter by `--tag`. With `allowed`, an unknown tag is refused, naming the allowed ones, and a task added from inside a folder named for an allowed tag gets it by default. With `required: true`, a new task with no tag is refused. Only new and updated tasks are checked; existing tasks stay valid untagged. `colors` tints a tag's chips on the page, one of red, orange, amber, green, teal, blue, indigo, violet, pink or gray; a tag without one gets a neutral chip. |
+| `rec`            | `null` (no log sources)  | `{ logs: [{ name, command, zone?, label? }] }`: logs the Rec page offers to bring to a recording, each a switch beside the containers and files, off until ticked. See [Rec log sources](#rec-log-sources). |
 | `vet`            | `"vet/bin/vet"`         | The command the Budget page runs `budgets` with, from the repo's root.                                                                                                                              |
+
+### Rec log sources
+
+A log that lives where rec cannot follow it (a cloud service, a remote box)
+comes to a recording as a shell command. Rec runs a ticked one once at Stop,
+from the project's root, with `{since}` and `{until}` (ISO, UTC) or
+`{sinceMs}` and `{untilMs}` filled in with the recording's window, a minute
+before it to 30 seconds after, and keeps its lines, stamped and scrubbed, as
+`logs/cmd-<name>.log` for the timeline and moments. A `name` is lowercase
+letters and digits joined by dashes, unique in the list; `zone: "utc"` reads
+the command's stamps without an offset as UTC (local by default); `label` is
+what the page calls it. The page sends only names, and the server runs only
+the commands declared here. A source that fails leaves the session saved, and
+its page shows the `rec logs fetch` command that fetches it again.
+
+```ts
+rec: {
+  logs: [
+    // Any command that prints the window's lines.
+    { name: "worker", label: "Worker (ssh)", command: "ssh box journalctl -u worker --since '{since}' --until '{until}' -o short-iso" },
+    // CloudWatch, whose stamps are UTC.
+    { name: "api-staging", label: "API (staging)", zone: "utc", command: "aws logs filter-log-events --log-group-name /app/api --start-time {sinceMs} --end-time {untilMs} --output text" },
+  ],
+},
+```

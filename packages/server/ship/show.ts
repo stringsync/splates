@@ -84,7 +84,7 @@ export function describeRun(state: RunState): string {
 	];
 	for (const target of state.targets) {
 		const facts = [
-			target.bump,
+			target.version ?? target.bump,
 			target.released === undefined ? undefined : `released ${target.released}`,
 			target.dependencies.length === 0
 				? undefined

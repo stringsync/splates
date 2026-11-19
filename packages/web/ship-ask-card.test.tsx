@@ -217,6 +217,7 @@ function fakeServer() {
 		answer: async () => run(),
 		send: async () => ({ state: run(), task: 1 }),
 		stop: async () => run(),
+		supervise: async () => run(),
 		events: (id) => `/api/ship/runs/${id}/events`,
 		get: async () => null,
 		retry: async () => run(),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
+	BLOCKERS_CLEARED,
 	CHECKPOINT,
 	GRANT_DENIED,
 	GRANTED,
@@ -30,6 +31,7 @@ describe("the splates skill's Directives table", () => {
 				CHECKPOINT,
 				RESUME,
 				RECONNECT,
+				BLOCKERS_CLEARED,
 				RUN_ALLOWED,
 				RUN_DENIED,
 				RUN_ELSEWHERE,
@@ -40,6 +42,7 @@ describe("the splates skill's Directives table", () => {
 				SHIP_DECLINED,
 				groomReference(0).replace("0", "N"),
 				"[SPLATES LANE N]",
+				"[SPLATES SIGNAL <name>]",
 				"[SPLATES EVAL LOOP <run>]",
 			].toSorted(),
 		);

@@ -36,15 +36,11 @@ export function judgeName(pick: JudgePick): string {
 	return `claude:${pick.model}${pick.effort === undefined ? "" : `@${pick.effort}`}`;
 }
 
-/** The judge a scenario is graded by: its own, else the run's, else the default. */
-export function judgeFor(
-	scenario: { judgeWith?: string },
-	run?: JudgePick,
-): JudgePick {
-	if (scenario.judgeWith !== undefined) {
-		return judgePickOf(scenario.judgeWith);
-	}
-	return run ?? DEFAULT_JUDGE;
+/** The judge a scenario is graded by: its own, else the default. */
+export function judgeFor(scenario: { judgeWith?: string }): JudgePick {
+	return scenario.judgeWith === undefined
+		? DEFAULT_JUDGE
+		: judgePickOf(scenario.judgeWith);
 }
 
 /** Asks the judge, a Claude model with no tools, and reads its verdict. */

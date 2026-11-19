@@ -5,16 +5,17 @@ import { ComposeError } from "./compose-error";
 import type { ShipEngine } from "./engine";
 import type { ShipFixes } from "./fixes";
 import { RunError } from "./run-error";
-import type { RunEvent } from "./run-events";
+import { type RunEvent, SUPERVISE } from "./run-events";
 import { ShipStart } from "./start";
 import { waitingIn } from "./waiting";
-import { BUMP } from "./wire";
+import { PICK } from "./wire";
 
 const PICKS = z.object({
-	picks: z
-		.array(z.object({ name: z.string().min(1), bump: BUMP.optional() }))
-		.min(1),
+	picks: z.array(PICK).min(1),
+	supervise: SUPERVISE.optional(),
 });
+/** How many more fixes the supervisor may send, at most a handful at a time. */
+const SUPERVISE_MORE = z.object({ fixes: z.number().int().min(1).max(20) });
 const STEP = z.object({ target: z.string(), step: z.string() });
 const FIX_RETRY = STEP.extend({ task: z.string().min(1) });
 const NOTE = z.object({
@@ -31,7 +32,8 @@ const encoder = new TextEncoder();
 /**
  * What the Ships page calls to start, watch and steer a ship:
  *
- * - `POST /api/ship/runs` with `{ picks }` composes and starts a ship. Send
+ * - `POST /api/ship/runs` with `{ picks, supervise? }` composes and starts a
+ *   ship, supervised with `supervise.budget` fixes when given. Send
  *   it from the page: only the user starts a ship, so a request a browser
  *   did not send from the page is refused.
  * - `GET /api/ship/runs` every run, newest first, or with `?status=running`
@@ -43,6 +45,9 @@ const encoder = new TextEncoder();
  * - `POST /api/ship/runs/:id/answer` with `{ target, step, prompt, value }`
  *   answers a waiting prompt; `POST /api/ship/runs/:id/retry` with
  *   `{ target, step }` sends a failed step round again.
+ * - `POST /api/ship/runs/:id/supervise` with `{ fixes }` gives the run's
+ *   supervisor that many more fixes, switching it on when it was off; from the
+ *   page only, as the fixes spend the user's agents.
  * - `POST /api/ship/runs/:id/stop` ends the run's steps and records it as
  *   stopped; from the page only, as only the user stops a ship.
  * - `GET /api/ship/waiting` every prompt open in any run, for the nav to
@@ -78,12 +83,15 @@ export class ShipRunRoutes {
 		const body = PICKS.safeParse(await request.json().catch(() => null));
 		if (!body.success) {
 			return Response.json(
-				{ error: "send { picks: [{ name, bump? }] }" },
+				{ error: "send { picks: [{ name, bump? }], supervise?: { budget } }" },
 				{ status: 400 },
 			);
 		}
 		return answered(async () => {
-			const state = await this.starting.picks(body.data.picks);
+			const state = await this.starting.picks(
+				body.data.picks,
+				body.data.supervise,
+			);
 			return Response.json(state, { status: 201 });
 		});
 	};
@@ -178,6 +186,26 @@ export class ShipRunRoutes {
 			}
 			const { target, step } = body.data;
 			return Response.json(await fixes.send(idOf(request), target, step));
+		});
+
+	readonly shipRunSupervise = (request: Request): Promise<Response> =>
+		answered(async () => {
+			if (request.headers.get("sec-fetch-site") !== "same-origin") {
+				throw new RunError(
+					"Only the user supervises a ship, from the Ships page",
+					403,
+				);
+			}
+			const body = SUPERVISE_MORE.safeParse(
+				await request.json().catch(() => null),
+			);
+			if (!body.success) {
+				throw new RunError("send { fixes }, from 1 to 20", 400);
+			}
+			const state = await this.engine.supervise(idOf(request), body.data.fixes);
+			// A failed step waiting on a fix goes to an agent now.
+			void this.fixes?.settle();
+			return Response.json(state);
 		});
 
 	readonly shipRunNote = (request: Request): Promise<Response> =>

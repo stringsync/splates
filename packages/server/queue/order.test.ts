@@ -49,7 +49,7 @@ describe("the queue's order", () => {
 		expect(canStart(all[2] as TaskRecord, all)).toBeTrue();
 	});
 
-	it("names the open tasks it is blocked by, and those removed unmerged", () => {
+	it("names the open tasks it is blocked by, never one removed unmerged", () => {
 		const all = [
 			task({
 				id: 1,
@@ -61,7 +61,7 @@ describe("the queue's order", () => {
 
 		expect(holdsBack(all[0] as TaskRecord, all)).toEqual({
 			open: [all[1] as TaskRecord],
-			lost: [9],
+			lost: [],
 			elsewhere: [],
 		});
 	});
@@ -83,7 +83,7 @@ describe("the queue's order", () => {
 
 		expect(holdsBack(waiting, all).elsewhere).toEqual([open]);
 		expect(canStart(waiting, all)).toBe(false);
-		expect(canStart(lost, all)).toBe(false);
+		expect(canStart(lost, all)).toBe(true);
 		expect(canStart(landed, all)).toBe(true);
 		// The other project's queue starts its task, so this one is not blocked.
 		expect(isBlocked(waiting, all)).toBe(false);
@@ -107,16 +107,16 @@ describe("the queue's order", () => {
 		expect(ids(blockage(all[0] as TaskRecord, all).chain)).toEqual([2]);
 		expect(blockage(all[2] as TaskRecord, all)).toMatchObject({
 			chain: [],
-			lost: [9],
+			lost: [],
 		});
 		expect(blockage(all[3] as TaskRecord, all)).toMatchObject({
 			chain: [],
 			lost: [],
-			deep: true,
+			deep: false,
 		});
 		expect(
 			all.filter((each) => isBlocked(each, all)).map((each) => each.id),
-		).toEqual([1, 3, 4]);
+		).toEqual([1]);
 	});
 	it("finds the whole chain not queued, blockers first, past queued and asked ones", () => {
 		const all = [

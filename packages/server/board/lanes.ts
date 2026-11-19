@@ -147,9 +147,8 @@ export function isReady(task: TaskRecord): boolean {
 	return (
 		task.takenBy === null &&
 		task.blockedBy.length === 0 &&
-		(task.blockersLost ?? []).length === 0 &&
 		(task.blockedElsewhere ?? []).every(
-			(blocker) => blocker.landed !== undefined,
+			(blocker) => blocker.landed !== undefined || blocker.lost === true,
 		)
 	);
 }
@@ -305,10 +304,15 @@ export function elsewhereMention(others: readonly string[]): RegExp | null {
 }
 
 /**
- * Why `task` waits on the person, its blockers removed without merging,
- * and how to let it go on.
+ * The note on `task` that blockers were removed without merging, so
+ * whoever works it knows a prerequisite never landed; they hold nothing.
  */
-export function lostLine(task: TaskRecord): string {
+export function removedLine(task: TaskRecord): string {
 	const lost = task.blockersLost ?? [];
-	return `waits on you: ${lost.map((gone) => `#${gone.id}`).join(", ")} it was blocked by ${lost.length === 1 ? "was" : "were"} removed without merging. If it still makes sense: splates task update ${task.id} ${lost.map((gone) => `--remove-blocked-by ${gone.id}`).join(" ")}`;
+	return lost
+		.map(
+			(gone) =>
+				`#${gone.id}${gone.subject === "" ? "" : ` ${gone.subject}`} was removed without merging${gone.at === undefined ? "" : ` on ${gone.at.slice(0, 10)}`}, so its work is not on the base`,
+		)
+		.join("; ");
 }

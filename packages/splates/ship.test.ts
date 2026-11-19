@@ -33,3 +33,19 @@ test("a skill with no version to stamp is refused", () => {
 		'no "version:" line',
 	);
 });
+
+test("splates counts unshipped commits since its package last changed version", async () => {
+	const commands: string[] = [];
+	const count = await splatesShip.unshipped?.({
+		sh: async (command: string) => {
+			commands.push(command);
+			return "5\n";
+		},
+	});
+	expect(count).toBe(5);
+	expect(commands[0]).toContain("-- 'splates/packages/splates/package.json'");
+	expect(commands[0]).toContain(
+		"'splates/packages/splates' 'splates/packages/server' 'splates/packages/web'",
+	);
+	expect(commands[0]).toContain("'core/packages/core'");
+});

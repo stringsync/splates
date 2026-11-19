@@ -85,6 +85,13 @@ export interface Config {
 	 * Null never holds.
 	 */
 	queueLoad: number | null;
+	/**
+	 * Whether the server answers a run-command card for the agent once the
+	 * machine is no longer busy, when the card says its only reason for asking
+	 * was that the machine was busy (`Reason: busy`). A card with any other
+	 * reason, or none, always waits for the person.
+	 */
+	autoAllowBusyRuns: boolean;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/** Failed `merge` attempts a task gets before only a person's `splates retry` lets it try again. */
@@ -203,6 +210,38 @@ export interface Config {
 	 * merge gate ignore them. Null allows any tag and requires none.
 	 */
 	tags: TagsConfig | null;
+	/**
+	 * What the Rec page offers to record beside the page, as
+	 * `{ logs: [{ name: "api", command: "bin/logs api --since {since} --until {until}" }] }`:
+	 * each a log that lives somewhere rec cannot follow (a cloud service, a
+	 * remote box), ticked on the page and run once at Stop for the
+	 * recording's window. Null offers none.
+	 */
+	rec: RecConfig | null;
+}
+
+/** What the Rec page offers to record (`rec` in `splates.config.ts`). */
+export interface RecConfig {
+	/** Log sources, each a ticked choice on the page; none when absent. */
+	logs?: RecLogSource[];
+}
+
+/**
+ * A log a project can bring to a recording: rec runs `command` once at Stop,
+ * via the shell in the project's root, with `{since}` and `{until}` (ISO, UTC)
+ * or `{sinceMs}` and `{untilMs}` filled in with the recording's window, a
+ * minute before it to 30 seconds after, and keeps what it prints as
+ * `logs/cmd-<name>.log`.
+ */
+export interface RecLogSource {
+	/** Lowercase letters and digits joined by dashes, unique in the list. */
+	name: string;
+	/** The shell command that prints the window's lines. */
+	command: string;
+	/** What a stamp the command prints without an offset means; local when absent. */
+	zone?: "utc" | "local";
+	/** What the page calls it; the name when absent. */
+	label?: string;
 }
 
 /** The tags a project's tasks may carry (`tags` in `splates.config.ts`). */

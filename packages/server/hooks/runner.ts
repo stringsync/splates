@@ -1,10 +1,6 @@
-import type { Resource } from "core/disposable";
 import type { Logger } from "core/log";
-import { Duration, SystemTimer, Throttler, type Timer } from "core/time";
 import type { TaskStage } from "../board";
-import type { Journal } from "../records";
-import type { Document, Storage } from "../storage";
-import { type TaskEvent, taskEventsOf } from "./events";
+import type { TaskEvent } from "./events";
 import { BY_HAND } from "./now";
 import type { AutomationRun, RunStore } from "./runs";
 import type { Automation, Hook, TaskFilter } from "./store";
@@ -13,7 +9,10 @@ import type { Automation, Hook, TaskFilter } from "./store";
  * What set an automation off: a task event, or its schedule coming due, or
  * the person asking it to run now, which runs as its schedule would.
  */
-export type Fired = { event: TaskEvent } | { schedule: string; byHand?: true };
+export type Fired =
+	| { event: TaskEvent }
+	| { schedule: string; byHand?: true }
+	| { signal: string; by: string; payload: unknown };
 
 /** What a hook does, by kind. */
 export interface HookActions {
@@ -37,9 +36,11 @@ export async function fire(
 	const on =
 		"event" in fired
 			? said(fired.event)
-			: fired.byHand === true
-				? BY_HAND
-				: "schedule";
+			: "signal" in fired
+				? `signal ${fired.signal}`
+				: fired.byHand === true
+					? BY_HAND
+					: "schedule";
 	const run: AutomationRun = { at: now(), on, error: null };
 	const { hook } = automation;
 	try {
@@ -77,188 +78,88 @@ function said(event: TaskEvent): string {
 	].join(" ");
 }
 
-/**
- * Runs the hooks set for each task event as the journal takes it, in the
- * order it took them. Where it got to is kept in `seen`, so after a restart
- * it catches up on what it missed; the first time, it starts from now
- * rather than run hooks for the whole past.
- */
-export class HookRunner implements Resource {
-	readonly #throttler: Throttler;
-	#reading = Promise.resolve();
-	#watching: Resource | null = null;
-	readonly #seenAt: Document<Seen>;
-
-	private constructor(
-		private readonly deps: HookRunnerDeps,
-		timer: Timer,
-	) {
-		this.#throttler = new Throttler(timer, BEAT);
-		this.#seenAt = deps.storage.document("hooks-seen.json");
-	}
-
-	/** Runs hooks for each task event from where it got to, then follows the journal for more. */
-	static async follow({
-		timer = new SystemTimer(),
-		...deps
-	}: HookRunnerDeps & { timer?: Timer }): Promise<HookRunner> {
-		const runner = new HookRunner(deps, timer);
-		await runner.#take();
-		try {
-			const watching = deps.storage.watch("");
-			watching.events.on("changed", () => void runner.changed());
-			runner.#watching = watching;
-			// Anything logged between the read above and the watch starting.
-			await runner.changed();
-		} catch (error) {
-			deps.log.error(
-				`splates server cannot watch the project's records, so hooks run only as it starts: ${String(error)}`,
-			);
-		}
-		return runner;
-	}
-
-	/** Runs hooks for what the journal took since the last look; settles once they ran. */
-	changed(): Promise<void> {
-		this.#throttler.call(() => {
-			this.#reading = this.#reading
-				.then(() => this.#take())
-				.catch((error: unknown) => this.deps.log.error(String(error)));
-		});
-		return this.#reading;
-	}
-
-	dispose(): void {
-		this.#watching?.dispose();
-		this.#throttler.dispose();
-	}
-
-	async #take(): Promise<void> {
-		const events = await this.deps.journal.recent();
-		const seen = await this.#seen();
-		const last = events.at(-1);
-		if (seen === null) {
-			await this.#write(last === undefined ? null : last.at, events);
-			return;
-		}
-		const fresh = events.filter(
-			(event) =>
-				seen.at === null ||
-				event.at > seen.at ||
-				(event.at === seen.at && !seen.ids.includes(event.id)),
-		);
-		if (fresh.length === 0) {
-			return;
-		}
-		const automations = await this.deps.automations();
-		for (const event of fresh.flatMap(taskEventsOf)) {
-			for (const automation of automations) {
-				const { trigger } = automation;
-				if (
-					automation.paused === true ||
-					!("event" in trigger) ||
-					trigger.event !== event.name
-				) {
-					continue;
-				}
-				const matching = await this.#matching(event, trigger.filter);
-				if (matching !== null && (await this.#due(automation, trigger))) {
-					await fire(automation, { event: matching }, this.deps);
-				}
-			}
-		}
-		await this.#write(last?.at ?? null, events);
-	}
-
-	/**
-	 * Whether a matching event runs `automation` now: always, or for an
-	 * every-Nth trigger, only on the Nth, counting from its last edit.
-	 */
-	async #due(
-		automation: Automation,
-		trigger: { invokes?: number },
-	): Promise<boolean> {
-		const { invokes } = trigger;
-		if (invokes === undefined || invokes <= 1) {
-			return true;
-		}
-		const kept = (await this.deps.runs.read())[automation.id]?.counted;
-		const was = kept?.since === automation.editedAt ? (kept?.count ?? 0) : 0;
-		const count = was + 1;
-		const due = count >= invokes;
-		await this.deps.runs.counted(
-			automation.id,
-			due ? 0 : count,
-			automation.editedAt,
-		);
-		return due;
-	}
-
-	/**
-	 * `event` narrowed to the tasks `filter` matches, as each stands now, or
-	 * null when it matches none. One about no task left on the list, as a
-	 * finished one, matches no filter.
-	 */
-	async #matching(
-		event: TaskEvent,
-		filter: TaskFilter | undefined,
-	): Promise<TaskEvent | null> {
-		if (
-			filter === undefined ||
-			(filter.stages === undefined && filter.lanes === undefined)
-		) {
-			return event;
-		}
-		const numbers: number[] = [];
-		for (const id of event.numbers) {
-			const task = await this.deps.task(id);
-			if (
-				task !== null &&
-				(filter.stages === undefined || filter.stages.includes(task.stage)) &&
-				(filter.lanes === undefined ||
-					(task.lane !== null && filter.lanes.includes(task.lane)))
-			) {
-				numbers.push(id);
-			}
-		}
-		return numbers.length === 0 ? null : { ...event, numbers };
-	}
-
-	async #seen(): Promise<Seen | null> {
-		return this.#seenAt.read().catch(() => null);
-	}
-
-	/** Keeps that every event up to `at` ran, with the ids at `at`, which share it. */
-	async #write(
-		at: string | null,
-		events: readonly { at: string; id: string }[],
-	): Promise<void> {
-		const ids = events.filter((each) => each.at === at).map(({ id }) => id);
-		await this.#seenAt.write({ at, ids });
-	}
-}
-
-/** What a `HookRunner` works with. */
-export interface HookRunnerDeps extends FireDeps {
-	journal: Journal;
-	/**
-	 * The project's, where the journal writes, watched for more, and where
-	 * `hooks-seen.json` keeps how far it got, past a restart.
-	 */
-	storage: Storage;
-	/** Every automation set now: the person's, and the shell hooks the project checks in. */
-	automations: () => Promise<Automation[]>;
+/** What `fireTaskEvent` works with. */
+export interface TaskEventDeps extends FireDeps {
 	/** Queued task `id`'s stage and lane now, or null for one off the list, for filters. */
 	task: (
 		id: number,
 	) => Promise<{ stage: TaskStage; lane: number | null } | null>;
 }
 
-/** How far the runner got: the time of the last event it took, and the ids at that time. */
-interface Seen {
-	at: string | null;
-	ids: string[];
+/**
+ * Runs the automations, not paused, set on task `event`, with the event
+ * narrowed to the tasks their filter matches; one set to every Nth match runs
+ * on the Nth only.
+ */
+export async function fireTaskEvent(
+	event: TaskEvent,
+	automations: readonly Automation[],
+	deps: TaskEventDeps,
+): Promise<void> {
+	for (const automation of automations) {
+		const { trigger } = automation;
+		if (
+			automation.paused === true ||
+			!("event" in trigger) ||
+			trigger.event !== event.name
+		) {
+			continue;
+		}
+		const matching = await matchingTasks(event, trigger.filter, deps);
+		if (matching !== null && (await due(automation, trigger, deps))) {
+			await fire(automation, { event: matching }, deps);
+		}
+	}
 }
 
-/** How soon after one read the next may run, while an agent's commands come quickly. */
-const BEAT = Duration.ms(50);
+/**
+ * Whether a matching event runs `automation` now: always, or for an
+ * every-Nth trigger, only on the Nth, counting from its last edit.
+ */
+async function due(
+	automation: Automation,
+	trigger: { invokes?: number },
+	{ runs }: FireDeps,
+): Promise<boolean> {
+	const { invokes } = trigger;
+	if (invokes === undefined || invokes <= 1) {
+		return true;
+	}
+	const kept = (await runs.read())[automation.id]?.counted;
+	const was = kept?.since === automation.editedAt ? (kept?.count ?? 0) : 0;
+	const count = was + 1;
+	const isDue = count >= invokes;
+	await runs.counted(automation.id, isDue ? 0 : count, automation.editedAt);
+	return isDue;
+}
+
+/**
+ * `event` narrowed to the tasks `filter` matches, as each stands now, or
+ * null when it matches none. One about no task left on the list, as a
+ * finished one, matches no filter.
+ */
+async function matchingTasks(
+	event: TaskEvent,
+	filter: TaskFilter | undefined,
+	deps: TaskEventDeps,
+): Promise<TaskEvent | null> {
+	if (
+		filter === undefined ||
+		(filter.stages === undefined && filter.lanes === undefined)
+	) {
+		return event;
+	}
+	const numbers: number[] = [];
+	for (const id of event.numbers) {
+		const task = await deps.task(id);
+		if (
+			task !== null &&
+			(filter.stages === undefined || filter.stages.includes(task.stage)) &&
+			(filter.lanes === undefined ||
+				(task.lane !== null && filter.lanes.includes(task.lane)))
+		) {
+			numbers.push(id);
+		}
+	}
+	return numbers.length === 0 ? null : { ...event, numbers };
+}

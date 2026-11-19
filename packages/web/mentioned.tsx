@@ -1,6 +1,6 @@
 import type { ProjectRef } from "@splates/server/conversations";
 import { conversationReference } from "@splates/server/conversations/browser";
-import { MessageCircleIcon, VideoIcon } from "lucide-react";
+import { MessageCircleIcon, RadioIcon, VideoIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -14,6 +14,8 @@ export interface Named {
 	conversations?: readonly { id: string; name: string }[];
 	projects: readonly ProjectRef[];
 	paths: ReadonlySet<string>;
+	/** Names (`<project>.<name>`) of the signals the server knows, for `#`. */
+	signals?: readonly string[];
 	/** The tree's absolute path; null until it is known. */
 	tree: string | null;
 	/** Whether the paths and projects, are still on their way. */
@@ -39,7 +41,7 @@ const RECORDED = /^rec:[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 const TRAILING = /[.,;:!?)\]'"]+$/;
 
 /** Where a link written by `linkNamed` points, read back by `namedIn`. */
-const NAMED_LINK = /^#(project|file)=([^&]+)(?:&name=(.+))?$/;
+const NAMED_LINK = /^#(project|file|signal)=([^&]+)(?:&name=(.+))?$/;
 
 /**
  * `text` with each `#name` naming a project by its slug or a conversation by
@@ -50,7 +52,7 @@ const NAMED_LINK = /^#(project|file)=([^&]+)(?:&name=(.+))?$/;
  */
 export function linkNamed(
 	text: string,
-	named: Pick<Named, "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations" | "signals">,
 ): string {
 	const names = distinctNames(filesIn(text, named));
 	return outsideCode(text, (prose) =>
@@ -76,7 +78,7 @@ export function linkNamed(
 /** The files and directories the `@` mentions in `text` name, outside code. */
 export function filesIn(
 	text: string,
-	named: Pick<Named, "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations" | "signals">,
 ): string[] {
 	const found: string[] = [];
 	outsideCode(text, (prose) => {
@@ -94,14 +96,14 @@ export function filesIn(
 
 /** The longest known project, conversation or path reading of a mention. */
 export function reading(
-	named: Pick<Named, "projects" | "paths" | "conversations">,
+	named: Pick<Named, "projects" | "paths" | "conversations" | "signals">,
 	sign: string,
 	called: string,
 ):
 	| {
 			as: string;
 			target: string;
-			kind: "project" | "file" | "conversation" | "rec";
+			kind: "project" | "file" | "conversation" | "rec" | "signal";
 	  }
 	| undefined {
 	for (const as of new Set([called, untrailed(called)])) {
@@ -121,6 +123,9 @@ export function reading(
 		) {
 			return { as, target: as, kind: "conversation" };
 		}
+		if (named.signals?.includes(as)) {
+			return { as, target: as, kind: "signal" };
+		}
 		if (named.projects.some((each) => each.slug === as)) {
 			return { as, target: as, kind: "project" };
 		}
@@ -137,6 +142,7 @@ export function untrailed(called: string): string {
 export type NamedTarget =
 	| { conversation: string }
 	| { rec: string }
+	| { signal: string }
 	| { project: string }
 	| { file: string; name?: string | undefined };
 
@@ -155,6 +161,9 @@ export function namedIn(href: string | undefined): NamedTarget | null {
 		return null;
 	}
 	const target = decodeURIComponent(link[2] ?? "");
+	if (link[1] === "signal") {
+		return { signal: target };
+	}
 	if (link[1] === "project") {
 		return { project: target };
 	}
@@ -168,6 +177,9 @@ export function NamedChip({ named }: { named: NamedTarget }): JSX.Element {
 	const { projects, tree, conversations } = use(NamedContext);
 	if ("rec" in named) {
 		return <RecChip name={named.rec} />;
+	}
+	if ("signal" in named) {
+		return <SignalChip name={named.signal} />;
 	}
 	if ("conversation" in named) {
 		const name =
@@ -234,6 +246,24 @@ export function RecChip({ name }: { name: string }): JSX.Element {
 			)}
 		>
 			<VideoIcon aria-hidden data-icon="inline-start" />
+			<span className="truncate">{name}</span>
+		</a>
+	);
+}
+
+/** A signal a `#<project>.<name>` reference names, linking to the Signals page. */
+export function SignalChip({ name }: { name: string }): JSX.Element {
+	return (
+		<a
+			href={`#signals/${encodeURIComponent(name)}`}
+			title={`signal ${name}`}
+			onClick={(event) => event.stopPropagation()}
+			className={cn(
+				buttonVariants({ variant: "outline", size: "xs" }),
+				"max-w-80 align-middle font-mono",
+			)}
+		>
+			<RadioIcon aria-hidden data-icon="inline-start" />
 			<span className="truncate">{name}</span>
 		</a>
 	);

@@ -1,16 +1,24 @@
-import type { Listed, Listing, ShipCommands } from "./commands";
+import type { Listed, Listing, ShipCommands, Unshipped } from "./commands";
 import { ComposeError } from "./compose-error";
 import { waves } from "./waves";
 import type { Bump, PlannedStep } from "./wire";
 
-/** A target picked to ship, at a bump or its own default. */
-export type Pick = { name: string; bump?: Bump };
+/**
+ * A target picked to ship, at a bump or its own default, or, for a target
+ * that takes artifact versions, at an exact `version`.
+ */
+export type Pick = { name: string; bump?: Bump; version?: string };
 
 /** A picked target in the composed plan. */
 export type ComposedTarget = {
 	name: string;
 	command: string;
 	bump?: Bump;
+	/**
+	 * The exact version it ships, as its command resolved the pick; the run
+	 * passes it to every step in place of the bump.
+	 */
+	version?: string;
 	dependencies: string[];
 	steps: PlannedStep[];
 	/** The step ids in the order they run, each wave's steps in parallel. */
@@ -43,24 +51,15 @@ export class ShipComposer {
 	constructor(private readonly commands: ShipCommands) {}
 
 	async compose(picks: readonly Pick[]): Promise<Composed> {
-		const listing = await this.commands.list();
-		const listed = new Map(
-			listing.targets.map((each) => [each.plan.name, each]),
+		// Counted alongside, and used only when in by the time the plans are.
+		let counts: Unshipped = {};
+		void this.commands.unshipped().then(
+			(each) => {
+				counts = each;
+			},
+			() => {},
 		);
-		const seen = new Set<string>();
-		for (const pick of picks) {
-			const found = listed.get(pick.name);
-			if (found === undefined) {
-				throw new ComposeError(`No ship command serves "${pick.name}"`);
-			}
-			if (seen.has(pick.name)) {
-				throw new ComposeError(`"${pick.name}" is picked twice`);
-			}
-			seen.add(pick.name);
-			if (pick.bump && !found.plan.bump) {
-				throw new ComposeError(`"${pick.name}" takes no bump`);
-			}
-		}
+		const { listing, listed } = await this.check(picks);
 		let order: string[][];
 		try {
 			order = waves(
@@ -87,17 +86,56 @@ export class ShipComposer {
 		return {
 			waves: order,
 			targets: order.flat().map((name) => planned.get(name) as ComposedTarget),
-			offered: offeredFor(picks, listing),
+			offered: offeredFor(picks, listing, counts),
 			errors: listing.errors,
 		};
 	}
 
-	/** `pick` planned again at its bump, or with why its command could not. */
+	/**
+	 * Refuses picks no ship could start (an unknown or doubled target, a
+	 * version or bump the target does not take), planning nothing: the
+	 * refusal `compose` gives, for a ship card to be held to before Approve.
+	 */
+	async check(picks: readonly Pick[]): Promise<{
+		listing: Awaited<ReturnType<ShipCommands["list"]>>;
+		listed: Map<string, Listed>;
+	}> {
+		const listing = await this.commands.list();
+		const listed = new Map(
+			listing.targets.map((each) => [each.plan.name, each]),
+		);
+		const seen = new Set<string>();
+		for (const pick of picks) {
+			const found = listed.get(pick.name);
+			if (found === undefined) {
+				throw new ComposeError(`No ship command serves "${pick.name}"`);
+			}
+			if (seen.has(pick.name)) {
+				throw new ComposeError(`"${pick.name}" is picked twice`);
+			}
+			seen.add(pick.name);
+			if (pick.version !== undefined && !found.plan.versioned) {
+				throw new ComposeError(`"${pick.name}" takes no version`);
+			}
+			if (pick.version !== undefined && pick.bump) {
+				throw new ComposeError(
+					`"${pick.name}" takes a version or a bump, not both`,
+				);
+			}
+			if (pick.bump && !found.plan.bump && !found.plan.versioned) {
+				throw new ComposeError(`"${pick.name}" takes no bump`);
+			}
+		}
+		return { listing, listed };
+	}
+
+	/** `pick` planned again at its version or bump, or with why its command could not. */
 	private async planned(
 		pick: Pick,
 		{ command, plan }: Listed,
 	): Promise<ComposedTarget> {
-		const bump = pick.bump ?? plan.bump;
+		const bump =
+			pick.version === undefined ? (pick.bump ?? plan.bump) : undefined;
 		const base = {
 			name: pick.name,
 			command,
@@ -105,9 +143,16 @@ export class ShipComposer {
 			dependencies: plan.dependencies,
 		};
 		try {
-			const again = await this.commands.plan(command, pick.name, bump);
+			const again = await this.commands.plan(command, pick.name, {
+				...(bump && { bump }),
+				...(pick.version !== undefined && { version: pick.version }),
+			});
+			if (plan.versioned && again.version === undefined) {
+				throw new Error("Choose a version or a bump");
+			}
 			return {
 				...base,
+				...(again.version !== undefined && { version: again.version }),
 				dependencies: again.dependencies,
 				steps: again.steps,
 				waves: waves(again.steps, "step"),
@@ -118,13 +163,17 @@ export class ShipComposer {
 	}
 }
 
-/** Every target the picks depend on, directly or through another, unpicked and with changes unshipped. */
-function offeredFor(picks: readonly Pick[], listing: Listing): Offered[] {
+/**
+ * Every target the picks depend on, directly or through another, unpicked
+ * and not counted as having nothing unshipped.
+ */
+function offeredFor(
+	picks: readonly Pick[],
+	listing: Listing,
+	unshipped: Unshipped,
+): Offered[] {
 	const dependenciesOf = new Map(
 		listing.targets.map((each) => [each.plan.name, each.plan.dependencies]),
-	);
-	const unshipped = new Map(
-		listing.targets.map((each) => [each.plan.name, each.plan.unshipped]),
 	);
 	const picked = new Set(picks.map((pick) => pick.name));
 	const offered = new Map<string, Offered>();
@@ -134,7 +183,7 @@ function offeredFor(picks: readonly Pick[], listing: Listing): Offered[] {
 				continue;
 			}
 			// Nothing waiting to ship: what is already out serves the dependents.
-			if (unshipped.get(dependency) === 0) {
+			if (unshipped[dependency] === 0) {
 				continue;
 			}
 			const known = offered.get(dependency);

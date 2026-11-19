@@ -26,6 +26,11 @@ export function EvalCardScenarios({
 						<span className="text-muted-foreground text-xs">
 							{scenario.about}
 						</span>
+						{scenario.judgeWith === undefined ? null : (
+							<span className="font-mono text-muted-foreground text-xs">
+								judge: {scenario.judgeWith.replace(/^[^:]*:/, "")}
+							</span>
+						)}
 					</CollapsibleTrigger>
 					<CollapsibleContent className="flex flex-col gap-3 pb-3 text-xs">
 						<div>

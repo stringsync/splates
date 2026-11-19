@@ -43,7 +43,7 @@ splatesHook
 	.command("add")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"run something on a task event, or on a schedule with `--every` or `--cron` in place of the event: `--agent <a> --prompt <words>` starts that agent in the main tree, told the event as `[SPLATES EVENT <event> #N]`, or a schedule as `[SPLATES SCHEDULE <number>]`, then your words; `--run <command>` runs it via `sh -c` in the main tree, with $SPLATES_EVENT (`schedule` for one), $SPLATES_TASKS and $SPLATES_TASK set. A schedule that came due while `splates server` was down runs once as it starts",
+		"run something on a task event, on a schedule with `--every` or `--cron`, or on a signal with `--signal`, in place of the event: `--agent <a> --prompt <words>` starts that agent in the main tree, told the event as `[SPLATES EVENT <event> #N]`, or a schedule as `[SPLATES SCHEDULE <number>]`, then your words; `--run <command>` runs it via `sh -c` in the main tree, with $SPLATES_EVENT (`schedule` for one), $SPLATES_TASKS and $SPLATES_TASK set. A schedule that came due while `splates server` was down runs once as it starts",
 	)
 	.arg("event", z.string().optional(), {
 		description: "the task event, as task.created; none for a schedule",
@@ -70,6 +70,11 @@ splatesHook
 		default: "",
 		description:
 			'run on a five-field cron line, in this machine\'s time, as "0 9 * * 1-5"',
+	})
+	.option("signal", z.string(), {
+		default: "",
+		description:
+			"run once for each raise of a signal, as mdom.released, the payload in the prompt",
 	})
 	.option("agent", z.string(), {
 		default: "",
@@ -261,13 +266,13 @@ splatesHook
 
 /** What sets the automation `splates hook add` adds off, refusing two triggers or none. */
 function triggerOf(opts: TriggerOptions): Trigger {
-	const given = [opts.event, opts.every, opts.cron].filter(
+	const given = [opts.event, opts.every, opts.cron, opts.signal].filter(
 		(each) => each !== undefined && each !== "",
 	);
 	if (given.length !== 1) {
 		fail(
 			"usage",
-			"say what sets it off: a task event, --every or --cron, one of them",
+			"say what sets it off: a task event, --every, --cron or --signal, one of them",
 			{},
 		);
 	}
@@ -278,6 +283,9 @@ function triggerOf(opts: TriggerOptions): Trigger {
 				"--stage, --lane and --invokes narrow a task event, not a schedule",
 				{},
 			);
+		}
+		if (opts.signal !== undefined && opts.signal !== "") {
+			return { signal: opts.signal };
 		}
 		return opts.every !== "" ? { every: opts.every } : { cron: opts.cron };
 	}
@@ -301,6 +309,7 @@ interface TriggerOptions {
 	event?: string;
 	every: string;
 	cron: string;
+	signal?: string;
 	stage: string;
 	lane: string;
 	invokes: string;

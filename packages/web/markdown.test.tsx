@@ -285,11 +285,17 @@ describe("Markdown", () => {
 		// This project's #12, archived since the board has no such todo.
 		expect(page.getByTitle("#12 is archived: merged or removed")).toBeTruthy();
 	});
-});
+	it("opens a notice from a task whose record is gone", () => {
+		const page = render(
+			<Board value={{ ...NO_BOARD, linked: true }}>
+				<Markdown text="See #12." />
+			</Board>,
+		);
 
-const PROJECTS = [{ slug: "wren" }, { slug: "vexml" }];
+		fireEvent.click(page.getByTitle("#12 is archived: merged or removed"));
 
-describe("Markdown fences", () => {
+		expect(page.getByRole("dialog", { name: "#12 is archived" })).toBeTruthy();
+	});
 	it("draws a d2 fence as a diagram and leaves other fences as code", () => {
 		const d2 = render(<Markdown text={"```d2\na -> b\n```"} />);
 		expect(d2.container.querySelector("pre.border")).not.toBeNull();
@@ -298,3 +304,5 @@ describe("Markdown fences", () => {
 		expect(ts.container.querySelector("pre")).not.toBeNull();
 	});
 });
+
+const PROJECTS = [{ slug: "wren" }, { slug: "vexml" }];

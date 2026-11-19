@@ -43,6 +43,104 @@ describe("Rec", () => {
 		]);
 	});
 
+	it("fetches each declared log source picked, with its zone, in the project's root", async () => {
+		const ps = new FakePs();
+		ps.setCaptureOutput(JSON.stringify({ running: false }), "");
+		const rec = new Rec(ps, {
+			logSources: {
+				find: async () => ({
+					root: "/repo",
+					rec: {
+						logs: [
+							{ name: "api", command: "bin/logs api --since {since}" },
+							{ name: "db", command: "bin/logs db", zone: "utc" },
+							{ name: "web", command: "bin/logs web" },
+						],
+					},
+				}),
+			},
+		});
+		const response = await rec.start(
+			new Request("http://x/api/rec/open", {
+				method: "POST",
+				body: JSON.stringify({
+					name: "a",
+					url: "about:blank",
+					docker: [],
+					tails: [],
+					logs: ["db", "api"],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(204);
+		const at = ps.getCalls().findIndex((call) => call.startsWith("rec record"));
+		expect(ps.getCalls()[at]).toBe(
+			"rec record --name a --url about:blank --logs api=bin/logs api --since {since} --logs db@utc=bin/logs db",
+		);
+		expect(ps.getCallDirs()[at]).toBe("/repo");
+	});
+
+	it("refuses a log source the project does not declare, running nothing", async () => {
+		const ps = new FakePs();
+		ps.setCaptureOutput(JSON.stringify({ running: false }), "");
+		const rec = new Rec(ps, {
+			logSources: {
+				find: async () => ({
+					root: "/repo",
+					rec: { logs: [{ name: "api", command: "bin/logs api" }] },
+				}),
+			},
+		});
+		const response = await rec.start(
+			new Request("http://x/api/rec/open", {
+				method: "POST",
+				body: JSON.stringify({
+					name: "a",
+					url: "about:blank",
+					docker: [],
+					tails: [],
+					logs: ["rm -rf ~"],
+				}),
+			}),
+		);
+
+		expect(response.status).toBe(400);
+		expect(await response.text()).toContain("no log source");
+		expect(ps.getChildren()).toEqual([]);
+	});
+
+	it("offers the declared log sources to the page, or why they cannot be read", async () => {
+		const ps = new FakePs();
+		ps.simulate(async () => 127);
+		const page = new Request("http://x/api/rec", {
+			headers: { host: "localhost:4269" },
+		});
+		const offered = await new Rec(ps, {
+			logSources: {
+				find: async () => ({
+					root: "/repo",
+					rec: {
+						logs: [{ name: "api", command: "bin/logs api", label: "API" }],
+					},
+				}),
+			},
+		}).read(page);
+		expect((await offered.json()).logs).toEqual([
+			{ name: "api", command: "bin/logs api", label: "API" },
+		]);
+
+		const broken = await new Rec(ps, {
+			logSources: {
+				find: async () => ({
+					root: "/repo",
+					rec: { logs: [{ name: "API", command: "x" }] },
+				}),
+			},
+		}).read(page);
+		expect((await broken.json()).logsError).toContain("lowercase");
+	});
+
 	it.each([
 		["bun /x/rec record --name a --url about:blank", true],
 		["bun /x/rec --name a --url about:blank", true],

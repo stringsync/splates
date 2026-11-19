@@ -72,6 +72,44 @@ describe("ShipsPage", () => {
 		);
 	});
 
+	test("lists the targets before the unshipped counts come, then shows each", async () => {
+		let count: (counts: unknown) => void = () => {};
+		const counted = new Promise<unknown>((resolve) => {
+			count = resolve;
+		});
+		globalThis.fetch = (async (url: string) =>
+			String(url).includes("/api/ship/unshipped")
+				? Response.json(await counted)
+				: Response.json({
+						targets: [plan("@stringsync/mdom", "patch"), plan("net-staging")],
+						errors: [],
+					})) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
+		expect(view.queryByTitle("Unshipped commits")).toBeNull();
+		fireEvent.click(view.getByRole("checkbox", { name: "net-staging" }));
+		const next = view.getByRole("button", { name: "Next" });
+		await waitFor(() => expect(next.hasAttribute("disabled")).toBe(false));
+
+		count({ "@stringsync/mdom": 3, "net-staging": 1 });
+		expect((await view.findByTitle("Unshipped commits")).textContent).toBe("3");
+	});
+
+	test("a count that fails leaves the targets without badges", async () => {
+		globalThis.fetch = (async (url: string) =>
+			String(url).includes("/api/ship/unshipped")
+				? new Response("boom", { status: 500 })
+				: Response.json({
+						targets: [plan("@stringsync/mdom", "patch")],
+						errors: [],
+					})) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(view.queryByTitle("Unshipped commits")).toBeNull();
+		expect(view.queryByText(/boom/)).toBeNull();
+	});
+
 	test("a command that failed shows its error beside the targets", async () => {
 		serve({
 			targets: [plan("@stringsync/mdom", "patch")],
@@ -178,7 +216,7 @@ describe("ShipsPage", () => {
 		fireEvent.click(view.getByRole("button", { name: "Needed first" }));
 		expect(await view.findByText("Needed first")).toBeTruthy();
 		expect(
-			view.getByText(/unshipped changes that your picks depend on/),
+			view.getByText(/Your picks depend on unshipped changes here/),
 		).toBeTruthy();
 	});
 
@@ -293,14 +331,18 @@ describe("ShipsPage", () => {
 	});
 
 	/** Serves the pick, its plan, and `start` for the start route, recording what that was sent. */
+	/** Every body the start route was sent, as `serveStart` records them. */
+	let startBodies: unknown[] = [];
 	const serveStart = (start: Response) => {
 		const started: unknown[] = [];
+		startBodies = [];
 		const routes: Record<string, (init?: RequestInit) => Response> = {
 			"/api/ship/plan": () => Response.json(composed([["net-staging"]])),
 			"/api/ship/runs": (init) => {
 				if (init?.method !== "POST") {
 					return Response.json({ runs: [] });
 				}
+				startBodies.push(JSON.parse(String(init?.body)));
 				started.push(JSON.parse(String(init?.body)).picks);
 				return start;
 			},
@@ -311,6 +353,106 @@ describe("ShipsPage", () => {
 			)) as unknown as typeof fetch;
 		return started;
 	};
+	test("a versioned target picks a bump or an exact version, and Approve ships the reviewed version", async () => {
+		const versioned = (name: string, version?: string) => ({
+			command: "bin/s2s ship",
+			plan: {
+				name,
+				versioned: true,
+				...(version && { version }),
+				dependencies: [],
+				steps: [],
+			},
+		});
+		const planned: unknown[] = [];
+		const started: unknown[] = [];
+		const bodyOf = (init?: RequestInit) => JSON.parse(String(init?.body)).picks;
+		const start = (init: RequestInit) => {
+			started.push(bodyOf(init));
+			return Response.json(
+				{ id: "run-1", started: 1, status: "running", notes: [], targets: [] },
+				{ status: 201 },
+			);
+		};
+		const routes: Record<string, (init?: RequestInit) => Response> = {
+			"/api/ship/plan": (init) => {
+				planned.push(bodyOf(init));
+				return Response.json({
+					waves: [["staging", "prod"]],
+					targets: [
+						{
+							name: "staging",
+							command: "bin/s2s ship",
+							bump: "minor",
+							version: "0.2.0",
+							dependencies: [],
+							steps: [],
+							waves: [],
+						},
+						{
+							name: "prod",
+							command: "bin/s2s ship",
+							version: "0.1.4",
+							dependencies: [],
+							steps: [],
+							waves: [],
+						},
+					],
+					offered: [],
+					errors: [],
+				});
+			},
+			"/api/ship/runs?status=running": () => Response.json({ runs: [] }),
+			"/api/ship/runs": (init) =>
+				init?.method === "POST" ? start(init) : Response.json({ runs: [] }),
+		};
+		const listing = {
+			targets: [versioned("staging", "0.1.4"), versioned("prod")],
+			errors: [],
+		};
+		globalThis.fetch = (async (url: string, init?: RequestInit) =>
+			(routes[String(url)] ?? (() => Response.json(listing)))(
+				init,
+			)) as unknown as typeof fetch;
+		try {
+			const view = render(<ShipsPage onRun={() => {}} />);
+			fireEvent.click(await view.findByRole("checkbox", { name: "staging" }));
+			fireEvent.click(view.getByRole("checkbox", { name: "prod" }));
+
+			const bump = (await view.findByRole("combobox", {
+				name: "staging's bump",
+			})) as HTMLSelectElement;
+			expect(bump.value).toBe("default");
+			fireEvent.change(bump, { target: { value: "minor" } });
+			// prod resolves no version by itself, so it waits on one typed in.
+			const version = view.getByRole("textbox", { name: "prod's version" });
+			const next = view.getByRole("button", { name: "Next" });
+			expect(next.hasAttribute("disabled")).toBe(true);
+			fireEvent.change(version, { target: { value: "0.1.4" } });
+			await waitFor(() => expect(next.hasAttribute("disabled")).toBe(false));
+
+			fireEvent.click(next);
+			expect(await view.findByText(/0\.2\.0 \(minor\)/)).toBeTruthy();
+			expect(planned).toEqual([
+				[
+					{ name: "staging", bump: "minor" },
+					{ name: "prod", version: "0.1.4" },
+				],
+			]);
+			fireEvent.click(view.getByRole("button", { name: "Approve" }));
+			await waitFor(() =>
+				expect(started).toEqual([
+					[
+						{ name: "staging", version: "0.2.0" },
+						{ name: "prod", version: "0.1.4" },
+					],
+				]),
+			);
+		} finally {
+			history.replaceState(null, "", "#");
+		}
+	});
+
 	const listed = { targets: [plan("net-staging")], errors: [] };
 
 	const reviewed = async (onRun: (id: string) => void = () => {}) => {
@@ -327,6 +469,37 @@ describe("ShipsPage", () => {
 		await reviewed((id) => opened.push(id));
 		await waitFor(() => expect(opened).toEqual(["run-1"]));
 		expect(started).toEqual([[{ name: "net-staging" }]]);
+	});
+
+	test("Review starts the ship supervised with 3 fixes, the count set by − and +, or unsupervised when switched off", async () => {
+		serveStart(Response.json({ id: "run-1" }, { status: 201 }));
+		const bodies = startBodies;
+		const view = render(<ShipsPage />);
+		const review = async () => {
+			fireEvent.click(
+				await view.findByRole("checkbox", { name: "net-staging" }),
+			);
+			fireEvent.click(view.getByRole("button", { name: "Next" }));
+			return view.findByRole("region", { name: "Supervise" });
+		};
+		const card = await review();
+		expect(
+			within(card).getByRole("status", { name: "Fixes" }).textContent,
+		).toBe("3");
+		fireEvent.click(within(card).getByRole("button", { name: "More fixes" }));
+		fireEvent.click(view.getByRole("button", { name: "Approve" }));
+		await waitFor(() => expect(bodies).toHaveLength(1));
+		expect(bodies[0]).toEqual({
+			picks: [{ name: "net-staging" }],
+			supervise: { budget: 4 },
+		});
+
+		fireEvent.click(
+			within(await review()).getByRole("switch", { name: "Supervise" }),
+		);
+		fireEvent.click(view.getByRole("button", { name: "Approve" }));
+		await waitFor(() => expect(bodies).toHaveLength(2));
+		expect(bodies[1]).toEqual({ picks: [{ name: "net-staging" }] });
 	});
 
 	test("a refused start shows its reason under the steps and Ship stays", async () => {
@@ -431,13 +604,13 @@ describe("ShipsPage", () => {
 		serveNewest("done");
 		const opened: string[] = [];
 		const view = render(<ShipsPage onRun={(id) => opened.push(id)} />);
-		await view.findByRole("heading", { name: "Targets" });
+		await view.findByRole("button", { name: "Next" });
 		expect(opened).toEqual([]);
 		cleanup();
 		localStorage.removeItem("splates.ships.recap-seen");
 		serveNewest("stopped");
 		const again = render(<ShipsPage onRun={(id) => opened.push(id)} />);
-		await again.findByRole("heading", { name: "Targets" });
+		await again.findByRole("button", { name: "Next" });
 		expect(opened).toEqual([]);
 		localStorage.removeItem("splates.ships.recap-seen");
 	});
