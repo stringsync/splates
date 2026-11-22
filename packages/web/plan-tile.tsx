@@ -231,11 +231,14 @@ export function PlanLightbox({
 										variant="ghost"
 										size="sm"
 										className={LIGHT}
+										aria-label="Markup"
 										disabled={capturing || active !== null}
 										onClick={() => void capture()}
 									>
 										<PencilIcon />
-										{capturing ? "Capturing…" : "Markup"}
+										<span className="hidden sm:inline">
+											{capturing ? "Capturing…" : "Markup"}
+										</span>
 									</Button>
 									<PlanRecord
 										url={page.url}

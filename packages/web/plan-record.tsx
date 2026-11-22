@@ -95,12 +95,17 @@ export function PlanRecord({
 			className={LIGHT}
 			disabled={phase.at === "starting"}
 			title={phase.at === "failed" ? phase.reason : undefined}
+			aria-label={
+				phase.at === "failed" ? "Record failed, retry" : "Record a review"
+			}
 			onClick={() =>
 				void controller.start(new URL(url, window.location.origin).href)
 			}
 		>
 			<CircleDotIcon data-icon="inline-start" />
-			{phase.at === "failed" ? "Record failed, retry" : "Record a review"}
+			<span className="hidden sm:inline">
+				{phase.at === "failed" ? "Record failed, retry" : "Record a review"}
+			</span>
 		</Button>
 	);
 }

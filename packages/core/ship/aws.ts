@@ -41,11 +41,14 @@ export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
 		}: { args?: string; stdoutOnly?: boolean } = {},
 	): Promise<string> => {
 		const extra = (await opts.context?.(ctx)) ?? [];
-		return `cd ${quote(stack.app)} && bunx aws-cdk@2 ${verb} ${quote(stack.name)}${args}${extra
-			.map((arg) => ` ${quote(arg)}`)
-			.join(
-				"",
-			)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color${stdoutOnly ? "" : " 2>&1"}`;
+		return locked(
+			stack.app,
+			`cd ${quote(stack.app)} && bunx aws-cdk@2 ${verb} ${quote(stack.name)}${args}${extra
+				.map((arg) => ` ${quote(arg)}`)
+				.join(
+					"",
+				)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color${stdoutOnly ? "" : " 2>&1"}`,
+		);
 	};
 	const diff = async (ctx: Ctx, args = "") =>
 		parseDiff(await ctx.sh(await cdk(ctx, "diff", { args })));
@@ -301,6 +304,15 @@ function describeRisks(
 		costly.length > 0 && `replaces ${costly.join(", ")}`,
 	].filter(Boolean);
 	return parts.length > 0 ? parts.join(" and ") : undefined;
+}
+
+// Runs `command` once no other CDK command holds the app's lock, because the
+// CLI refuses to synth while another process reads `cdk.out`. The lock is a
+// directory (`mkdir` is atomic) holding its owner's pid; a waiter clears it
+// when that process is gone, and the owner removes it on exit.
+function locked(app: string, command: string): string {
+	const dir = `"\${TMPDIR:-/tmp}/cdk-lock-$(printf %s ${quote(app)} | cksum | cut -d' ' -f1)"`;
+	return `( l=${dir}; until mkdir "$l" 2>/dev/null; do if ! kill -0 "$(cat "$l/pid" 2>/dev/null)" 2>/dev/null; then sleep 1; kill -0 "$(cat "$l/pid" 2>/dev/null)" 2>/dev/null || rm -rf "$l"; fi; sleep 1; done; echo $$ > "$l/pid"; trap 'rm -rf "$l"' EXIT; ${command} )`;
 }
 
 function quote(word: string): string {
