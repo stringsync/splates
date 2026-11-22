@@ -7,6 +7,7 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import { SystemTimer } from "core/time";
+import { ChevronRightIcon } from "lucide-react";
 import { type FC, useContext, useEffect, useRef, useState } from "react";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
@@ -215,14 +216,15 @@ export const WorkingIndicator: FC = () => {
 	if (labelled || streaming || sending) {
 		return null;
 	}
-	// Laid out as the work row's line: its spacing, its size, and its words
-	// clear of where that row's chevron sits.
+	// Laid out as the work row's line: its spacing, its size, its caret and
+	// its words, so the two read as one. There is nothing to open yet.
 	return (
 		<div
 			data-slot="aui_assistant-message-indicator"
 			role="status"
-			className="my-2 flex items-center pl-5 font-sans text-muted-foreground text-sm"
+			className="mt-1 mb-5 flex items-center gap-x-1.5 text-muted-foreground/70 text-xs tabular-nums"
 		>
+			<ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
 			<span className="min-w-0 truncate shimmer motion-reduce:animate-none">
 				Working
 			</span>

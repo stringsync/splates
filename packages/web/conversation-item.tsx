@@ -26,6 +26,8 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { backgrounded } from "./backgrounded";
+import { useBlockedNeedsYou } from "./blockers-card";
 import { BoardChip } from "./board-chip";
 import { copiedLabel, useCopy } from "./card";
 import {
@@ -40,13 +42,40 @@ import { Trunk, whereRuns } from "./dispatching";
 import { useExpect, usePendingConversation } from "./expecting";
 import { Mark } from "./mark";
 import { pendingRow, useShowPending } from "./pending";
-import { backgrounded } from "./progress";
 import { useEnding } from "./queued-ending";
 import { stopTurn, useQuiet } from "./quiet";
 import { Refusal, type Refuse } from "./refusal";
 import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
-import { boardRef, useRowStatus, waitingSignal } from "./row-status";
+import { automaticWait, boardRef, useRowStatus } from "./row-status";
+
+/** The round mark of a conversation's agent at the left of its row, tinted for an automation or a ship. */
+export function ItemIcon({
+	conversation,
+	agent,
+	nested = false,
+}: {
+	conversation: ConversationState;
+	agent: string;
+	nested?: boolean;
+}): JSX.Element {
+	return (
+		<span
+			className={cn(
+				"flex shrink-0 items-center justify-center rounded-full bg-muted",
+				automated(conversation) && "bg-violet-500/15",
+				shipped(conversation) && "bg-sky-500/15",
+				nested ? "size-6" : "size-7",
+			)}
+		>
+			<RowIcon
+				conversation={conversation}
+				name={agent}
+				className={cn("text-foreground/80", nested ? "size-3.5" : "size-4")}
+			/>
+		</span>
+	);
+}
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
@@ -102,6 +131,7 @@ export function Item({
 	const [renaming, setRenaming] = useState(false);
 	const [moving, setMoving] = useState(false);
 	const places = usePlaces(conversation);
+	const blockedNeedsYou = useBlockedNeedsYou(conversation);
 	const { copied, copy } = useCopy();
 	const trunk = useContext(Trunk);
 	const { id, archived } = conversation;
@@ -156,37 +186,14 @@ export function Item({
 				onClick={onOpen}
 				onDoubleClick={() => setRenaming(true)}
 				title={where ? undefined : status.text}
-				// Room for the buttons only while they show, and for a mark while
-				// there is one.
+				// Reserve the status column even when idle so new marks cannot overlap text.
 				className={cn(
-					// A touch screen has no hover, so its buttons always show.
-					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-20 group-hover/item:pr-20 pointer-coarse:pr-28",
+					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-9 pl-3 text-left group-focus-within/item:pr-20 group-hover/item:pr-20 pointer-coarse:pr-28",
 					renaming && "hidden",
-					menu
-						? "pr-20"
-						: need.kind === "idle" &&
-								!hosting &&
-								reported === null &&
-								!conversation.unread &&
-								hint === null
-							? "pr-3"
-							: "pr-6",
+					menu && "pr-20",
 				)}
 			>
-				<span
-					className={cn(
-						"flex shrink-0 items-center justify-center rounded-full bg-muted",
-						automated(conversation) && "bg-violet-500/15",
-						shipped(conversation) && "bg-sky-500/15",
-						nested ? "size-6" : "size-7",
-					)}
-				>
-					<RowIcon
-						conversation={conversation}
-						name={agent}
-						className={cn("text-foreground/80", nested ? "size-3.5" : "size-4")}
-					/>
-				</span>
+				<ItemIcon conversation={conversation} agent={agent} nested={nested} />
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span className="flex items-center gap-1.5">
 						<span
@@ -206,12 +213,7 @@ export function Item({
 					{preview === undefined && (
 						<span className="flex min-w-0 items-center gap-1.5">
 							<BoardChip {...on} className="shrink overflow-hidden" />
-							<span
-								className={cn(
-									"min-w-0 flex-1 truncate text-[11px] leading-4",
-									status.signal ? "text-warning" : "text-muted-foreground",
-								)}
-							>
+							<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground leading-4">
 								{status.label}
 							</span>
 						</span>
@@ -276,7 +278,7 @@ export function Item({
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
 					<Mark
-						signal={waitingSignal(conversation) !== null}
+						signal={automaticWait(conversation) !== null}
 						queued={conversation?.heldForTask != null}
 						starting={conversation.status === "starting"}
 						picking={conversation.picking}
@@ -286,6 +288,7 @@ export function Item({
 						hosting={hosting}
 						quiet={quiet}
 						background={backgrounded(conversation)}
+						blockedNeedsYou={blockedNeedsYou}
 					/>
 				)}
 			</span>
@@ -403,8 +406,9 @@ export function Item({
 }
 
 /**
- * A box in place of a conversation's name: Enter keeps what is typed (blank
- * goes back to the agent's title), and Escape or leaving it keeps the old.
+ * Renames a conversation in place of its name. Enter keeps what is typed, and
+ * a blank name goes back to the agent's title; Escape or leaving the box keeps
+ * the old name.
  */
 export function Rename({
 	conversation,

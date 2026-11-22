@@ -1,4 +1,4 @@
-import { DEFAULT_AGENTS, KIMI_CLI, Roster } from "../models";
+import { AGY_CLI, DEFAULT_AGENTS, KIMI_CLI, Roster } from "../models";
 import { FsStorage } from "../storage";
 import type { StepField } from "./fields";
 import { probed } from "./probes";
@@ -22,8 +22,8 @@ interface Cli {
 	/** The command, ahead of its arguments: the id itself unless it may be off the PATH. */
 	command?: string[];
 	install: string;
-	/** The arguments that exit 0 once it is signed in, and what they print then, when exiting is not enough. */
-	signedIn: { args: string[]; says?: string };
+	/** The arguments that exit 0 once it is signed in, and what they print then, when exiting is not enough; none when the CLI has no status command, so installed counts as ready. */
+	signedIn?: { args: string[]; says?: string };
 	signIn: string;
 	/** What the person does to sign out, as "run `x`". */
 	signOut: string;
@@ -62,6 +62,16 @@ const CLIS = {
 		signOut: "run `kimi` and type `/logout` in it",
 		uninstall: "rm -f ~/.kimi-code/bin/kimi",
 	},
+	// Gemini CLI's personal sign-in is gone; Antigravity CLI signs in with
+	// the same Google account and runs Gemini in its place.
+	antigravity: {
+		name: "Antigravity",
+		command: AGY_CLI,
+		install: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+		signIn: "agy acp --login",
+		signOut: "run `agy` and type `/logout` in it",
+		uninstall: "rm -f ~/.local/bin/agy",
+	},
 } satisfies Record<string, Cli>;
 
 type AgentId = keyof typeof CLIS;
@@ -75,8 +85,20 @@ export const CODEX_AREA: SetupArea = agentJourney("codex");
 /** Kimi Code, installed, signed in and on the roster. */
 export const KIMI_AREA: SetupArea = agentJourney("kimi");
 
+/** Install the Antigravity CLI, with Google’s help for sign-in and model access. */
+export const ANTIGRAVITY_AREA: SetupArea = agentJourney("antigravity");
+
 function agentJourney(id: AgentId): SetupArea {
-	const { name, install, signIn: login, signOut, uninstall }: Cli = CLIS[id];
+	const {
+		name,
+		install,
+		command,
+		signIn: login,
+		signOut,
+		uninstall,
+	}: Cli = CLIS[id];
+	// What the person types to run it: the id, unless the CLI is named otherwise.
+	const bin = command?.at(-1) ?? id;
 	const installStep: SetupStep = {
 		id: `${id}-install`,
 		title: `Install ${name}`,
@@ -115,20 +137,37 @@ function agentJourney(id: AgentId): SetupArea {
 			run: async () => {},
 		},
 	};
+	if (id === "antigravity") {
+		const help =
+			"Sign in and manage model access in Antigravity. If the models you want are missing, visit [Google’s Antigravity help center](https://antigravity.google/docs/).";
+		return {
+			id,
+			title: name,
+			purpose:
+				"Install the Antigravity CLI. Google handles sign-in and model access.",
+			steps: [
+				{
+					...installStep,
+					why: `${installStep.why} ${help}`,
+					user: "Next installs Antigravity if it is not already on this machine.",
+					found: async () => "Antigravity is installed.",
+				},
+			],
+		};
+	}
 	const signIn: SetupStep = {
 		id: `${id}-signin`,
 		title: `Sign in to ${name}`,
 		why: `${name} has to be signed in on this machine, which only you can do.`,
 		user: `Run \`${login}\` once in a terminal and sign in. This page notices when you have, then press Next.`,
-		agent: `Help set up only ${name}: check \`${id} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${login}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
+		agent: `Help set up only ${name}: check \`${bin} --version\` and its sign-in status, install it with \`${install}\` if needed, and have the user run \`${login}\` once to sign in. Never collect credentials in chat or send a test prompt.`,
 		optional: true,
 		after: [installStep],
-		doing: `Checking that ${id} answers and is signed in…`,
+		doing: `Checking that ${bin} answers and is signed in…`,
 		check: async (machine) => (await probe(machine, id)) === "ready",
 		found: async ({ ps }) => {
-			const { command = [id] }: Cli = CLIS[id];
 			const version = (
-				await ps?.spawnCapture([...command, "--version"], {
+				await ps?.spawnCapture([...(command ?? [id]), "--version"], {
 					timeoutMs: PROBE_MS,
 				})
 			)?.stdout.trim();
@@ -255,6 +294,9 @@ async function probeNow(
 			.catch(() => null);
 	if ((await run(["--version"]))?.exitCode !== 0) {
 		return "missing";
+	}
+	if (signedIn === undefined) {
+		return "ready";
 	}
 	const status = await run(signedIn.args);
 	return status?.exitCode === 0 &&

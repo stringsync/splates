@@ -1,4 +1,4 @@
-import { Maximize2Icon } from "lucide-react";
+import { ChevronRightIcon, ImageIcon, Maximize2Icon } from "lucide-react";
 import { type JSX, type MouseEvent, useState } from "react";
 import { fileUrl } from "./api";
 import { ITEM, type Shown, useLightbox } from "./lightbox";
@@ -68,7 +68,7 @@ export function Media({
 				{...{ [ITEM]: JSON.stringify(shown) }}
 				aria-label={`expand ${alt || "image"}`}
 				onClick={open}
-				className="my-2 block w-fit max-w-full cursor-zoom-in rounded-md max-md:w-full"
+				className="group/image relative my-2 block w-fit max-w-full cursor-zoom-in overflow-hidden rounded-md max-md:w-full"
 			>
 				<img
 					src={url}
@@ -77,6 +77,21 @@ export function Media({
 					onError={() => setFailed(true)}
 					className="block max-h-96 max-w-full rounded-md border max-md:h-36 max-md:w-full max-md:object-cover max-md:object-top"
 				/>
+				{/* On desktop a corner icon on hover says the image opens, as a recording's does. */}
+				<span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/image:opacity-100 group-focus-visible/image:opacity-100 max-md:hidden">
+					<Maximize2Icon className="size-3.5" />
+				</span>
+				{/* On a phone the image is a cropped preview, so a footer names it and says it opens. */}
+				<span className="absolute inset-x-0 bottom-0 hidden items-center gap-2.5 border-border/70 border-t bg-card/95 px-3 py-2 text-card-foreground max-md:flex">
+					<ImageIcon className="size-4 shrink-0 text-muted-foreground" />
+					<span className="min-w-0 flex-1 truncate text-left text-[13px]">
+						{alt || "Image"}
+					</span>
+					<span className="flex shrink-0 items-center gap-0.5 font-medium text-xs">
+						Open image
+						<ChevronRightIcon className="size-3.5" />
+					</span>
+				</span>
 			</button>
 			{lightbox}
 		</>

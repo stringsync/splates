@@ -277,7 +277,7 @@ export function BoardSwitcher({
 			/>
 		);
 	const grid =
-		"grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+		"grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3";
 	const heading = (text: string) => (
 		<h3 className="pb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
 			{text}

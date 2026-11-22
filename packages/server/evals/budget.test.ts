@@ -41,8 +41,11 @@ describe("eval budget", () => {
 
 	it("never refuses a run: each is its own round with its own budget", async () => {
 		await launches.budgets.set("c-1", { usd: 1 });
-		await launches.start(commands, spec("one"));
-		const second = await launches.start(commands, spec("two"));
+		// Runs that outlast the test, so a loaded machine cannot finish one
+		// before its status is read; disposal kills them.
+		const lasting = { ...commands, run: "exec sleep 30" };
+		await launches.start(lasting, spec("one"));
+		const second = await launches.start(lasting, spec("two"));
 		expect(second.status).toBe("running");
 		expect(await launches.budgets.roundsOf("c-1")).toHaveLength(2);
 	});

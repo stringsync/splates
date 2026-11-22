@@ -59,8 +59,8 @@ describe("conversation status precedence", () => {
 
 		const idle = { ...state, task: null, status: "idle" as const };
 		await testing.say(idle);
-		expect(marks()).toEqual(["background commands running"]);
-		expect(sidebar.queryByRole("img", { name: "merged" })).toBeNull();
+		expect(marks()).toEqual([]);
+		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
 
 		const ended = {
 			...idle,
@@ -83,7 +83,7 @@ describe("conversation status precedence", () => {
 		expect(sidebar.queryByRole("img", { name: "merged" })).toBeNull();
 	});
 
-	it("shows running evals over an escalated report", async () => {
+	it("preserves an escalated report while a background command runs", async () => {
 		const state = conversation({
 			id: "c1",
 			messages: [
@@ -97,11 +97,8 @@ describe("conversation status precedence", () => {
 		);
 
 		expect(
-			sidebar.getByRole("status", { name: "background commands running" }),
+			sidebar.getByRole("status", { name: "waiting on you" }),
 		).toBeTruthy();
-		expect(
-			sidebar.queryByRole("status", { name: "waiting on you" }),
-		).toBeNull();
 
 		await testing.say({
 			...state,

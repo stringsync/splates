@@ -55,10 +55,8 @@ const STAR =
 	"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z";
 
 /**
- * Auto pick's mark once it has picked, so the composer says both whom it chose
- * and that it did: for Claude and Codex, its sparkles and the agent's mark split
- * by a slash; for another agent with colors here, its mark with a star badge at the
- * bottom right; sparkles alone for an agent with no colors here.
+ * Shows which agent Auto pick chose, beside a conversation or in its composer.
+ * Use instead of the regular agent mark while Auto pick is on.
  */
 export function AutoAgentMark({
 	agent,

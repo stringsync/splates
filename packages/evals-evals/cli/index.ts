@@ -46,7 +46,7 @@ Selection:
   --agent <agent[:model][@effort]>
                            claude, codex, opencode or kimi, repeatable; claude when none
   --reps <n>               runs of each, 1 by default
-  --parallel <n>           runs at once, 2 by default
+  --parallel <n>           runs at once, 8 by default
   --directory <dir>        where batches go, ~/.splates/evals by default
   --root <dir>             where to look for scenarios, this checkout by default`;
 
@@ -108,7 +108,7 @@ async function main(argv: string[]): Promise<number> {
 			scenario: { type: "string", multiple: true, default: [] },
 			agent: { type: "string", multiple: true, default: [] },
 			reps: { type: "string", default: "1" },
-			parallel: { type: "string", default: "2" },
+			parallel: { type: "string", default: "8" },
 			directory: {
 				type: "string",
 				default: join(homedir(), ".splates", "evals"),
@@ -291,7 +291,7 @@ async function main(argv: string[]): Promise<number> {
 		directory: values.directory,
 		skill: values.skill.join(", ") || "all",
 		producer: "evals",
-		parallel: Number(values.parallel) || 2,
+		parallel: Number(values.parallel) || 8,
 		landed: (result) =>
 			console.log(
 				`${result.status}\t${result.scenario.id}\t${result.agent.agent}${result.error === null ? "" : `\t${result.error}`}`,

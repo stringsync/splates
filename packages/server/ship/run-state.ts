@@ -19,6 +19,8 @@ export type RunState = {
 	notes: RunNote[];
 	/** Present while the server sends failed steps to agents by itself. */
 	supervise?: Supervision;
+	/** Whether confirm prompts are answered Yes by the server; off when absent. */
+	autoApprove?: boolean;
 };
 
 /**
@@ -50,7 +52,8 @@ export type StepStatus =
 	| "waiting"
 	| "done"
 	| "skipped"
-	| "failed";
+	| "failed"
+	| "stopped";
 
 /** A prompt a running step waits on an answer to. */
 export type OpenPrompt = { id: string; prompt: Prompt; at: number };
@@ -74,6 +77,8 @@ export type StepState = {
 	/** The sign-in link it last asked, once the user went through it, until it runs again. */
 	signedIn?: string;
 	error?: string;
+	/** What the step last failed with, still readable once a retry clears `error`. */
+	failure?: string;
 	started?: number;
 	ended?: number;
 	/** The agent's fix it was last sent for, from its sending on. */
@@ -96,7 +101,9 @@ export type StepState = {
 export type StepFix = {
 	task: number;
 	at: number;
-	ended?: "merged" | "removed";
+	ended?: "merged" | "removed" | "abandoned";
+	/** What the agent last said, for a fix it abandoned. */
+	note?: string;
 };
 
 export type TargetState = {
@@ -109,6 +116,8 @@ export type TargetState = {
 	steps: StepState[];
 	/** What it released, once a step of it says. */
 	released?: string;
+	/** The board task its recap was sent to an agent as, once the user sent it. */
+	recap?: { task: number; at: number };
 };
 
 /** How many of a step's last output lines its state shows; the run file has them all. */
@@ -126,6 +135,7 @@ export function foldRun(id: string, events: readonly RunEvent[]): RunState {
 		first.targets,
 		first.supervise,
 		first.commit,
+		first.autoApprove,
 	);
 	for (const event of rest) {
 		state = applyRunEvent(state, event);
@@ -139,9 +149,11 @@ function startedRun(
 	targets: RunTarget[],
 	supervise?: Supervise,
 	commit?: string,
+	autoApprove = false,
 ): RunState {
 	return settle({
 		id,
+		autoApprove,
 		started: at,
 		...(commit !== undefined && { commit }),
 		status: "running",
@@ -176,7 +188,11 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 			event.targets,
 			event.supervise,
 			event.commit,
+			event.autoApprove,
 		);
+	}
+	if (event.type === "auto-approval") {
+		return { ...state, autoApprove: event.on };
 	}
 	if (event.type === "supervised") {
 		return {
@@ -201,6 +217,26 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 			})),
 		};
 	}
+	if (event.type === "target-stopped") {
+		if (state.status === "stopped") {
+			return state;
+		}
+		return settle({
+			...state,
+			targets: state.targets.map((target) =>
+				target.name === event.target
+					? {
+							...target,
+							steps: target.steps.map((step) =>
+								isFinished(step.status)
+									? step
+									: { ...step, status: "stopped", prompts: [] },
+							),
+						}
+					: target,
+			),
+		});
+	}
 	if (event.type === "resumed") {
 		return settle({
 			...state,
@@ -220,38 +256,58 @@ export function applyRunEvent(state: RunState, event: RunEvent): RunState {
 			})),
 		});
 	}
+	if (event.type === "recapped") {
+		return {
+			...state,
+			targets: state.targets.map((target) =>
+				target.name === event.target
+					? { ...target, recap: { task: event.task, at: event.at } }
+					: target,
+			),
+		};
+	}
 	if (event.type === "noted") {
 		const { type: _, ...note } = event;
 		return { ...state, notes: [...state.notes, note] };
 	}
 	if (state.status === "stopped") {
-		return state;
+		// How a fix ended is kept even on a stopped run, so its end is seen once.
+		return event.type === "fixed"
+			? { ...state, targets: targetsAfter(state, event) }
+			: state;
 	}
 	const spent =
 		event.type === "sent" && event.by === "supervisor" && state.supervise
 			? { supervise: { ...state.supervise, spent: state.supervise.spent + 1 } }
 			: {};
-	const next = {
-		...state,
-		...spent,
-		targets: state.targets.map((target) => {
-			if (target.name !== event.target) {
-				return target;
-			}
-			const steps = target.steps.map((step) =>
-				step.id === event.step ? stepAfter(step, event) : step,
-			);
-			return {
-				...target,
-				steps,
-				...(event.type === "released" && { released: event.version }),
-			};
-		}),
-	};
-	return settle(next);
+	return settle({ ...state, ...spent, targets: targetsAfter(state, event) });
+}
+
+/** `state`'s targets with `event` applied to the step it names. */
+function targetsAfter(
+	state: RunState,
+	event: Extract<RunEvent, { target: string; step: string }>,
+): TargetState[] {
+	return state.targets.map((target) => {
+		if (target.name !== event.target) {
+			return target;
+		}
+		const steps = target.steps.map((step) =>
+			step.id === event.step ? stepAfter(step, event) : step,
+		);
+		return {
+			...target,
+			steps,
+			...(event.type === "released" && { released: event.version }),
+		};
+	});
 }
 
 function stepAfter(step: StepState, event: RunEvent): StepState {
+	if (step.status === "stopped") {
+		// What a stopped step's cut-short process still reports changes nothing.
+		return step;
+	}
 	switch (event.type) {
 		case "checking": {
 			const { error: _, signedIn: __, handle: ___, held: ____, ...rest } = step;
@@ -311,14 +367,21 @@ function stepAfter(step: StepState, event: RunEvent): StepState {
 				signedIn: ___,
 				handle: ____,
 				held: _____,
-				handedBack: ______,
+				handedBack,
 				...rest
 			} = step;
 			return {
 				...rest,
+				// The ship's own try after an agent ended without acting is the
+				// one go before the user; if it fails again the step stays handed
+				// back, so no new fix goes out each time it fails.
+				...(event.by === "fix" && handedBack === true && { handedBack }),
 				status: "pending",
 				prompts: [],
 				retries: (step.retries ?? 0) + 1,
+				...((step.error ?? step.failure) !== undefined && {
+					failure: step.error ?? step.failure,
+				}),
 			};
 		}
 		case "sent":
@@ -333,8 +396,12 @@ function stepAfter(step: StepState, event: RunEvent): StepState {
 			return step.fix?.task === event.task
 				? {
 						...step,
-						fix: { ...step.fix, ended: event.outcome },
-						...(event.outcome === "removed" && { handedBack: true }),
+						fix: {
+							...step.fix,
+							ended: event.outcome,
+							...(event.note !== undefined && { note: event.note }),
+						},
+						...(event.outcome !== "merged" && { handedBack: true }),
 					}
 				: step;
 		default:
@@ -384,7 +451,7 @@ function settle(state: RunState): RunState {
 		});
 	for (const target of state.targets) {
 		for (const step of target.steps) {
-			if (step.status === "failed") {
+			if (step.status === "failed" || step.status === "stopped") {
 				failed.add(keyOf(target.name, step.id));
 			}
 		}
@@ -422,7 +489,9 @@ function settle(state: RunState): RunState {
 		? "done"
 		: steps.some((step) => isActive(step.status) || step.status === "pending")
 			? "running"
-			: "failed";
+			: steps.some((step) => step.status === "failed")
+				? "failed"
+				: "done";
 	return { ...state, status, targets };
 }
 

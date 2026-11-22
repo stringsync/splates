@@ -1,29 +1,32 @@
-import type { SignalOverview } from "@splates/server/signals";
 import { PlusIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import type { RunOpens } from "./automation-face";
+import { RouteTrail } from "./route-trail";
 import { checkFormOf, SignalCheckForm } from "./signal-check-form";
 import { SignalDetail } from "./signal-detail";
-import { SignalList } from "./signal-list";
-import { familiesOf } from "./signal-summary";
+import { SignalIndex } from "./signal-list";
+import { SubscriptionsPanel } from "./subscriptions-panel";
 import { TopBar } from "./top-bar";
 import { useSignals } from "./use-signals";
 
 /**
- * The Signals page: a list of every signal across every project, armed ones
- * first and each under its family, showing only how often it was raised this
- * week; beside it, the chosen signal in full. Nothing here says a signal is
- * currently true: a raise is only what happened and when.
+ * The Signals page, at `#signals`: the index of every signal, and at
+ * `#signals/<name>` that signal on its own page.
  */
 export function SignalsPage({
 	onOpen,
+	opens,
 }: {
 	/** Opens conversation `id`. */
 	onOpen: (id: string) => void;
+	/** Opens the task a subscription's run was for. */
+	opens: RunOpens;
 }): JSX.Element {
 	const { signals, read } = useSignals();
 	const at = useSignalsAddress();
+	const [subscriptions, setSubscriptions] = useState<number | null>(null);
 	if (at.check !== null) {
 		const probe = signals.find((each) => each.name === at.check)?.probe ?? null;
 		return (
@@ -39,66 +42,91 @@ export function SignalsPage({
 			/>
 		);
 	}
-	const chosen =
-		signals.find((each) => each.name === at.signal) ??
-		(at.signal === null ? firstOf(signals) : undefined);
+	const chosen = signals.find((each) => each.name === at.signal);
+	const newPollScript = (
+		<Button
+			size="sm"
+			variant="outline"
+			className="h-11 sm:h-9"
+			onClick={() => {
+				location.hash = checkAddress(NEW);
+			}}
+		>
+			<PlusIcon /> New poll script
+		</Button>
+	);
 	return (
 		<section aria-label="signals" className="flex min-w-0 flex-col gap-6">
-			<TopBar title="Signals" />
-			<div>
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={() => {
-						location.hash = checkAddress(NEW);
-					}}
-				>
-					<PlusIcon /> New check
-				</Button>
-			</div>
-			{signals.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					Nothing has been raised, checked or waited on in the last 7 days.
-				</p>
-			) : (
-				<div className="grid items-start gap-4 md:grid-cols-[minmax(14rem,20rem)_1fr]">
-					<SignalList
-						signals={signals}
-						selected={chosen?.name ?? null}
-						picked={at.signal !== null}
-						address={signalAddress}
-						className={cn(at.signal !== null && "max-md:hidden")}
-					/>
-					{chosen === undefined ? (
-						<p
-							className={cn(
-								"text-muted-foreground text-sm",
-								at.signal === null && "max-md:hidden",
-							)}
-						>
-							No signal {at.signal} in the last 7 days.
-						</p>
+			<TopBar
+				title={
+					at.signal === null ? (
+						"Signals"
 					) : (
-						<SignalDetail
-							key={chosen.name}
-							signal={chosen}
-							checkHref={checkAddress(chosen.name)}
-							onOpen={onOpen}
-							onChanged={read}
-							className={cn(at.signal === null && "max-md:hidden")}
+						<RouteTrail
+							items={[
+								{
+									label: "Signals",
+									onClick: () => {
+										location.hash = "#signals";
+									},
+								},
+								{ label: at.signal },
+							]}
 						/>
+					)
+				}
+			/>
+			<nav
+				aria-label="signals views"
+				className={cn(
+					"flex gap-4 border-b text-sm",
+					at.signal !== null && "hidden",
+				)}
+			>
+				<TabLink href="#signals" current={!at.subscriptions}>
+					Signals
+				</TabLink>
+				<TabLink href={SUBSCRIPTIONS} current={at.subscriptions}>
+					Subscriptions
+					{subscriptions !== null && (
+						<span className="ml-1.5 text-muted-foreground tabular-nums">
+							{subscriptions}
+						</span>
 					)}
+				</TabLink>
+			</nav>
+			{at.subscriptions && (
+				<SubscriptionsPanel onCount={setSubscriptions} opens={opens} />
+			)}
+			{at.subscriptions ? null : at.signal !== null ? (
+				chosen === undefined ? (
+					<p className="text-muted-foreground text-sm">
+						No signal {at.signal} in the last 7 days.
+					</p>
+				) : (
+					<SignalDetail
+						key={chosen.name}
+						signal={chosen}
+						checkHref={checkAddress(chosen.name)}
+						onOpen={onOpen}
+						onChanged={read}
+					/>
+				)
+			) : signals.length === 0 ? (
+				<div className="flex flex-col items-start gap-3">
+					{newPollScript}
+					<p className="text-muted-foreground text-sm">
+						Nothing has been raised, checked or waited on in the last 7 days.
+					</p>
 				</div>
+			) : (
+				<SignalIndex
+					signals={signals}
+					address={signalAddress}
+					actions={newPollScript}
+				/>
 			)}
 		</section>
-	);
-}
-
-/** The signal shown when none is chosen: the first armed, else the latest raised. */
-function firstOf(signals: SignalOverview[]): SignalOverview | undefined {
-	return (
-		familiesOf(signals.filter((each) => each.armed))[0]?.signals[0] ??
-		familiesOf(signals)[0]?.signals[0]
 	);
 }
 
@@ -119,20 +147,28 @@ function checkAddress(name: string): string {
 interface SignalsAt {
 	check: string | null;
 	signal: string | null;
+	/** Whether the Subscriptions tab shows. */
+	subscriptions: boolean;
 }
 
+/** The address of the Subscriptions tab; no signal is named `subscriptions`, every name having a dot. */
+const SUBSCRIPTIONS = "#signals/subscriptions";
+
 export function signalsAt(hash: string): SignalsAt {
+	if (hash === SUBSCRIPTIONS) {
+		return { check: null, signal: null, subscriptions: true };
+	}
 	if (hash === "#signals/new") {
-		return { check: NEW, signal: null };
+		return { check: NEW, signal: null, subscriptions: false };
 	}
 	const [, name, check] = hash.match(/^#signals\/([^/]+)(\/check)?$/) ?? [];
 	if (name === undefined) {
-		return { check: null, signal: null };
+		return { check: null, signal: null, subscriptions: false };
 	}
 	const decoded = decodeURIComponent(name);
 	return check === undefined
-		? { check: null, signal: decoded }
-		: { check: decoded, signal: null };
+		? { check: null, signal: decoded, subscriptions: false }
+		: { check: decoded, signal: null, subscriptions: false };
 }
 
 function useSignalsAddress(): SignalsAt {
@@ -143,4 +179,30 @@ function useSignalsAddress(): SignalsAt {
 		return () => window.removeEventListener("hashchange", changed);
 	}, []);
 	return at;
+}
+
+/** A tab of the page: a link to its address, marked when it is the one shown. */
+function TabLink({
+	href,
+	current,
+	children,
+}: {
+	href: string;
+	current: boolean;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<a
+			href={href}
+			aria-current={current ? "page" : undefined}
+			className={cn(
+				"-mb-px flex h-11 items-center border-b-2 sm:h-9",
+				current
+					? "border-foreground font-medium"
+					: "border-transparent text-muted-foreground",
+			)}
+		>
+			{children}
+		</a>
+	);
 }

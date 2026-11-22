@@ -55,8 +55,12 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 		...AT,
 		targets: z.array(RUN_TARGET),
 		supervise: SUPERVISE.optional(),
+		/** Whether the server answers every confirm prompt Yes by itself. */
+		autoApprove: z.boolean().optional(),
 		commit: z.string().optional(),
 	}),
+	/** The user switched auto-approving of confirm prompts on or off. */
+	z.object({ type: z.literal("auto-approval"), ...AT, on: z.boolean() }),
 	/**
 	 * The user switched supervision on, or gave it more fixes: `budget` is the
 	 * run's whole budget from here, counting the fixes already spent.
@@ -77,6 +81,8 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("resumed"), ...AT }),
 	/** The user stopped the run: every step under way was cut short. */
 	z.object({ type: z.literal("stopped"), ...AT }),
+	/** The user stopped one target: its steps under way were cut short and the rest of the run carries on. */
+	z.object({ type: z.literal("target-stopped"), ...AT, target: z.string() }),
 	/** The step's `done` is being asked. */
 	z.object({ type: z.literal("checking"), ...AT, ...STEP }),
 	/**
@@ -111,6 +117,8 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 		...STEP,
 		id: z.string(),
 		value: z.unknown(),
+		/** `auto` when the run's auto-approving answered it, the user otherwise. */
+		by: z.literal("auto").optional(),
 	}),
 	z.object({ type: z.literal("withdrawn"), ...STEP, id: z.string() }),
 	/** What the step's target released, passed to its dependents as `--upstream`. */
@@ -158,13 +166,23 @@ export const RUN_EVENT = z.discriminatedUnion("type", [
 		task: z.number(),
 		by: z.literal("supervisor").optional(),
 	}),
+	/** The user sent a target's recap, its flagged steps, to an agent as board task `task`. */
+	z.object({
+		type: z.literal("recapped"),
+		...AT,
+		target: z.string(),
+		task: z.number(),
+	}),
 	/** The fix the step was sent for merged, or was removed without merging. */
 	z.object({
 		type: z.literal("fixed"),
 		...AT,
 		...STEP,
 		task: z.number(),
-		outcome: z.enum(["merged", "removed"]),
+		/** `abandoned`: the agent's turn ended and it never took the task. */
+		outcome: z.enum(["merged", "removed", "abandoned"]),
+		/** What the agent last said, kept for an abandoned fix. */
+		note: z.string().optional(),
 	}),
 ]);
 export type RunEvent = z.infer<typeof RUN_EVENT>;

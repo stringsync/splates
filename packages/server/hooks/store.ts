@@ -1,8 +1,15 @@
+// vet-ignore-file doc-comments-address-users: its comments predate the rule
+// vet-ignore-file export-leads-the-file: the store follows the types it keeps
 import type { TaskStage } from "../board";
 import { commaList } from "../comma-list";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { checkName } from "../signals/book";
+import {
+	callOf,
+	parseCall,
+	type SignalFunctions,
+	STANDARD_SIGNAL_FUNCTIONS,
+} from "../signals/call";
 import type { Document, Storage } from "../storage";
 import { TASK_EVENTS, type TaskEventName } from "./events";
 import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
@@ -45,7 +52,7 @@ export type Trigger =
 	/** A signal `<project>.<name>`, firing once for each raise. */
 	| { signal: string };
 
-/** One thing that runs on a trigger, as the Automations page lists it. */
+/** One thing that runs on a trigger, as the Subscriptions tab lists it. */
 export interface Automation {
 	/** Its number among the person's, or a name for one splates or the project sets. */
 	id: string;
@@ -55,6 +62,12 @@ export interface Automation {
 	hook: Hook;
 	/** Set while the person has it paused: it keeps its place and runs nothing. */
 	paused?: boolean;
+	/** Why splates paused it, as when its signal's source was removed; cleared when it resumes. */
+	notice?: string;
+	/** The signal function its signal calls, when one is declared, so a function the project stops declaring can be told. */
+	family?: string;
+	/** When a one-time clock it is set on fired, which ends it: it keeps its place and runs nothing. */
+	finishedAt?: string;
 	/** When it was set, which a schedule counts its first run from. */
 	createdAt: string;
 	/** When its trigger last changed: its schedule counts from then, not from a run before. */
@@ -72,11 +85,15 @@ export interface Automation {
  */
 export class HookStore {
 	readonly #file: Document<unknown>;
+	readonly #functions: () => SignalFunctions;
 
 	constructor(
 		/** The project's, holding `hooks.json`. */
 		storage: Storage,
+		/** The signal functions the project declares, which a subscription may call. */
+		functions: () => SignalFunctions = () => ({}),
 	) {
+		this.#functions = functions;
 		this.#file = storage.document("hooks.json");
 	}
 
@@ -108,8 +125,8 @@ export class HookStore {
 	}
 
 	/** Adds an automation of `hook` on `trigger`, numbered after the others. */
-	async add(trigger: Trigger, hook: Hook, name?: string): Promise<Automation> {
-		checked(trigger);
+	async add(given: Trigger, hook: Hook, name?: string): Promise<Automation> {
+		const trigger = checked(given, this.#functions());
 		const createdAt = new Date().toISOString();
 		let added: Automation | undefined;
 		await this.change((automations) => {
@@ -118,6 +135,7 @@ export class HookStore {
 				id: String(last + 1),
 				...named(name),
 				trigger,
+				...this.#familyOf(trigger),
 				hook,
 				createdAt,
 			};
@@ -181,15 +199,16 @@ export class HookStore {
 	/**
 	 * Sets what sets the person's automation `id` off and what it runs, keeping
 	 * its number, its pause and its runs; refuses one there is none of. A
-	 * changed trigger is stamped, so its schedule counts from now.
+	 * changed trigger is stamped, so its schedule counts from now, and resumes
+	 * one splates paused for a removed source or one a fired clock finished.
 	 */
 	async edit(
 		id: string,
-		trigger: Trigger,
+		given: Trigger,
 		hook: Hook,
 		name?: string,
 	): Promise<Automation> {
-		checked(trigger);
+		const trigger = checked(given, this.#functions());
 		let found: Automation | undefined;
 		await this.change((automations) =>
 			automations.map((each) => {
@@ -198,11 +217,21 @@ export class HookStore {
 				}
 				const retriggered =
 					JSON.stringify(each.trigger) !== JSON.stringify(trigger);
-				const { name: _, ...unnamed } = each;
+				// A new signal lifts what ended the old one: splates's pause for a removed source, or a fired clock.
+				const { name: _, ...kept } = each;
+				const { notice: __, finishedAt: ___, ...revived } = kept;
+				const { paused: ____, ...unpaused } = revived;
+				const unnamed =
+					retriggered &&
+					(each.notice !== undefined || each.finishedAt !== undefined)
+						? unpaused
+						: kept;
+				const { family: _____, ...unfamilied } = unnamed;
 				found = {
-					...unnamed,
+					...unfamilied,
 					...named(name),
 					trigger,
+					...this.#familyOf(trigger),
 					hook,
 					...(retriggered ? { editedAt: new Date().toISOString() } : {}),
 				};
@@ -221,16 +250,71 @@ export class HookStore {
 		return found;
 	}
 
-	/** Pauses the automation numbered `id`, or lets it run again. */
-	async pause(id: string, paused: boolean): Promise<Automation> {
+	/** The signal function `trigger`'s call names, when the project declares or splates ships one. */
+	#familyOf(trigger: Trigger): { family?: string } {
+		if (!("signal" in trigger)) {
+			return {};
+		}
+		const { fn } = parseCall(trigger.signal);
+		return fn in { ...this.#functions(), ...STANDARD_SIGNAL_FUNCTIONS }
+			? { family: fn }
+			: {};
+	}
+
+	/**
+	 * Swaps the trigger of automation `id` for `trigger`, an equivalent in
+	 * another form: unlike an edit it stamps nothing, so its schedule keeps
+	 * counting from where it was.
+	 */
+	async retrigger(id: string, trigger: { signal: string }): Promise<void> {
+		await this.change((automations) =>
+			automations.map((each) =>
+				each.id === id && each.source === undefined
+					? { ...each, trigger, ...this.#familyOf(trigger) }
+					: each,
+			),
+		);
+	}
+
+	/** Ends the automation numbered `id` as finished, as when its one-time clock fired. */
+	async finish(id: string, at: string): Promise<Automation> {
 		let found: Automation | undefined;
 		await this.change((automations) =>
 			automations.map((each) => {
 				if (each.id !== id) {
 					return each;
 				}
-				const { paused: _, ...rest } = each;
-				found = paused ? { ...rest, paused } : rest;
+				found = { ...each, finishedAt: at };
+				return found;
+			}),
+		);
+		if (found === undefined) {
+			fail("usage", `no automation ${id}: \`splates hook list\` numbers them`, {
+				id,
+			});
+		}
+		return found;
+	}
+
+	/**
+	 * Pauses the automation numbered `id`, or lets it run again. A `notice`
+	 * says why splates paused it; resuming clears it.
+	 */
+	async pause(
+		id: string,
+		paused: boolean,
+		notice?: string,
+	): Promise<Automation> {
+		let found: Automation | undefined;
+		await this.change((automations) =>
+			automations.map((each) => {
+				if (each.id !== id) {
+					return each;
+				}
+				const { paused: _, notice: __, ...rest } = each;
+				found = paused
+					? { ...rest, paused, ...(notice === undefined ? {} : { notice }) }
+					: rest;
 				return found;
 			}),
 		);
@@ -350,10 +434,17 @@ export function lanesNamed(text: string): number[] {
 }
 
 /** Refuses `trigger` when its event is none or its schedule will not read. */
-function checked(trigger: Trigger): void {
+function checked(trigger: Trigger, functions: SignalFunctions): Trigger {
 	if ("signal" in trigger) {
-		checkName(trigger.signal);
-	} else if ("event" in trigger) {
+		// A call such as `clock.in("2 days")` is kept in its canonical spelling, which is what a raise names.
+		return {
+			signal: callOf(trigger.signal, {
+				...functions,
+				...STANDARD_SIGNAL_FUNCTIONS,
+			}).canonical,
+		};
+	}
+	if ("event" in trigger) {
 		eventNamed(trigger.event);
 		stagesNamed(trigger.filter?.stages ?? []);
 		const { invokes } = trigger;
@@ -369,4 +460,5 @@ function checked(trigger: Trigger): void {
 	} else {
 		scheduleOf(trigger);
 	}
+	return trigger;
 }

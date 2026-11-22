@@ -1,7 +1,8 @@
 import type { TaskRecord } from "@splates/server/board";
+import { cleared, deferralBlockers } from "@splates/server/board/browser";
 import { isBlocked } from "@splates/server/queue/browser";
 import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
-import { type JSX, useContext } from "react";
+import { type JSX, type ReactNode, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { queueTodo } from "./api";
 import { upNext } from "./blocked-fix";
@@ -10,28 +11,62 @@ import { queued } from "./board-expectations";
 import { Dispatching } from "./dispatching";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { PendingSpinner, useShowPending } from "./pending";
-import { TONES, type Tone } from "./task-sections";
+import { TONE_CHIPS, type Tone } from "./task-sections";
 
 /** The stages a todo shows, in the order a lane's header counts them. */
-const STAGES = ["running", "queued", "blocked", "available"] as const;
+const STAGES = [
+	"running",
+	"queued",
+	"blocked",
+	"stalled",
+	"available",
+] as const;
 
 type Stage = (typeof STAGES)[number];
 
 /** Where `todo` stands: running once an agent has taken it, whatever it was queued as. */
-export function stageOf(todo: TaskRecord): Exclude<Stage, "blocked"> {
+export function stageOf(
+	todo: TaskRecord,
+): Exclude<Stage, "blocked" | "stalled"> {
 	return todo.takenBy !== null ? "running" : todo.stage;
+}
+
+/** Whether `todo`'s agent deferred it and something it waits on is still open. */
+export function deferredOpen(
+	todo: TaskRecord,
+	todos: readonly TaskRecord[],
+): boolean {
+	return (
+		todo.deferred !== undefined &&
+		deferralBlockers(todo, todos).some((each) => !cleared(each))
+	);
 }
 
 /**
  * Where `todo` stands as the page shows it, among `todos`: as `stageOf`,
  * but blocked for a queued one that cannot start until the person queues
- * what it waits on or drops a link.
+ * what it waits on or drops a link, and for a taken one whose agent deferred
+ * it. Given `live`, the tasks that exist, a taken one whose task is gone is
+ * stalled, so finished work is not mistaken for work in progress.
  */
 export function shownStage(
 	todo: TaskRecord,
 	todos: readonly TaskRecord[],
+	live?: readonly string[],
 ): Stage {
 	const stage = stageOf(todo);
+	if (stage === "running") {
+		if (deferredOpen(todo, todos)) {
+			return "blocked";
+		}
+		if (
+			live !== undefined &&
+			todo.takenBy !== null &&
+			!live.includes(todo.takenBy)
+		) {
+			return "stalled";
+		}
+	}
 	return stage === "queued" && isBlocked(todo, todos) ? "blocked" : stage;
 }
 
@@ -39,8 +74,9 @@ export function shownStage(
 export function stageLabel(
 	todo: TaskRecord,
 	todos: readonly TaskRecord[],
+	live?: readonly string[],
 ): string {
-	const stage = shownStage(todo, todos);
+	const stage = shownStage(todo, todos, live);
 	const queue = stage === "queued" ? upNext(todos) : [];
 	const word = `${stage[0]?.toUpperCase()}${stage.slice(1)}`;
 	const place = queue.findIndex((each) => each.id === todo.id);
@@ -52,21 +88,39 @@ export const STAGE_TONES: Record<Stage, Tone> = {
 	running: "working",
 	queued: "working",
 	blocked: "waiting",
+	stalled: "failed",
 	available: "quiet",
 };
 
-/** Where a todo stands, in a badge on its card toned as in its task dialog. */
-export function StageBadge({ todo }: { todo: TaskRecord }): JSX.Element {
-	const { todos } = useContext(Board);
+/** A stage as a chip: its tone's tint behind plain text, a dot in the tone's color first. */
+export function StageChip({
+	stage,
+	children,
+}: {
+	stage: Stage;
+	children: ReactNode;
+}): JSX.Element {
+	const { chip, dot } = TONE_CHIPS[STAGE_TONES[stage]];
 	return (
 		<span
 			className={cn(
-				"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
-				TONES[STAGE_TONES[shownStage(todo, todos)]],
+				"inline-flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-px font-medium text-foreground text-xs",
+				chip,
 			)}
 		>
-			{stageLabel(todo, todos)}
+			<span aria-hidden className={cn("size-1.5 rounded-full", dot)} />
+			{children}
 		</span>
+	);
+}
+
+/** Where a todo stands, in a chip on its card. */
+export function StageBadge({ todo }: { todo: TaskRecord }): JSX.Element {
+	const { todos, tasks } = useContext(Board);
+	return (
+		<StageChip stage={shownStage(todo, todos, tasks)}>
+			{stageLabel(todo, todos, tasks)}
+		</StageChip>
 	);
 }
 
@@ -125,7 +179,8 @@ export function StageCounts({
 		(stage) =>
 			[
 				stage,
-				todos.filter((todo) => shownStage(todo, all) === stage).length,
+				todos.filter((todo) => shownStage(todo, all, board.tasks) === stage)
+					.length,
 			] as const,
 	).filter(([, count]) => count > 0);
 	return (
@@ -144,6 +199,7 @@ const BAR_COLORS: Record<Stage, string> = {
 	running: "bg-success",
 	queued: "bg-primary/50",
 	blocked: "bg-warning",
+	stalled: "bg-destructive",
 	available: "bg-border",
 };
 
@@ -171,7 +227,7 @@ export function StageBar({
 		>
 			{STAGES.flatMap((stage) =>
 				todos
-					.filter((todo) => shownStage(todo, all) === stage)
+					.filter((todo) => shownStage(todo, all, board.tasks) === stage)
 					.map((todo) => (
 						<span
 							key={todo.id}

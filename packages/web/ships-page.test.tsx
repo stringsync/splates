@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { SHIP_BUS } from "./ship-run-bus";
 import { ShipsPage } from "./ships-page";
 import { cleanup, fireEvent, render, waitFor, within } from "./testing-library";
 
@@ -10,6 +11,11 @@ const plan = (name: string, bump?: "patch" | "minor" | "major") => ({
 });
 
 describe("ShipsPage", () => {
+	beforeEach(() => {
+		// A run URL from an earlier test tells the history listener to ignore Back.
+		history.replaceState(null, "", "#ships");
+	});
+
 	afterEach(() => {
 		cleanup();
 		globalThis.fetch = realFetch;
@@ -86,16 +92,16 @@ describe("ShipsPage", () => {
 					})) as unknown as typeof fetch;
 		const view = render(<ShipsPage />);
 		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
-		expect(view.queryByTitle("Unshipped commits")).toBeNull();
+		expect(view.queryByText(/since last ship/)).toBeNull();
 		fireEvent.click(view.getByRole("checkbox", { name: "net-staging" }));
 		const next = view.getByRole("button", { name: "Next" });
 		await waitFor(() => expect(next.hasAttribute("disabled")).toBe(false));
 
 		count({ "@stringsync/mdom": 3, "net-staging": 1 });
-		expect((await view.findByTitle("Unshipped commits")).textContent).toBe("3");
+		expect(await view.findByText(/3 commits since last ship/)).toBeTruthy();
 	});
 
-	test("a count that fails leaves the targets without badges", async () => {
+	test("a count that fails leaves the targets without counts", async () => {
 		globalThis.fetch = (async (url: string) =>
 			String(url).includes("/api/ship/unshipped")
 				? new Response("boom", { status: 500 })
@@ -106,7 +112,45 @@ describe("ShipsPage", () => {
 		const view = render(<ShipsPage />);
 		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
 		await new Promise((resolve) => setTimeout(resolve, 10));
-		expect(view.queryByTitle("Unshipped commits")).toBeNull();
+		expect(view.queryByText(/since last ship/)).toBeNull();
+		expect(view.queryByText(/boom/)).toBeNull();
+	});
+
+	test("shows each target's current version once read, without holding the targets", async () => {
+		let read: (versions: unknown) => void = () => {};
+		const versions = new Promise<unknown>((resolve) => {
+			read = resolve;
+		});
+		globalThis.fetch = (async (url: string) =>
+			String(url).includes("/api/ship/current")
+				? Response.json(await versions)
+				: Response.json({
+						targets: [plan("@stringsync/mdom", "patch"), plan("net-staging")],
+						errors: [],
+					})) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
+		expect(view.queryByText(/current /)).toBeNull();
+		fireEvent.click(view.getByRole("checkbox", { name: "net-staging" }));
+		const next = view.getByRole("button", { name: "Next" });
+		await waitFor(() => expect(next.hasAttribute("disabled")).toBe(false));
+
+		read({ "@stringsync/mdom": "1.4.2" });
+		expect(await view.findByText(/current 1\.4\.2/)).toBeTruthy();
+	});
+
+	test("a current version that fails to read leaves the targets without one", async () => {
+		globalThis.fetch = (async (url: string) =>
+			String(url).includes("/api/ship/current")
+				? new Response("boom", { status: 500 })
+				: Response.json({
+						targets: [plan("@stringsync/mdom", "patch")],
+						errors: [],
+					})) as unknown as typeof fetch;
+		const view = render(<ShipsPage />);
+		expect(await view.findByText("@stringsync/mdom")).toBeTruthy();
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(view.queryByText(/current /)).toBeNull();
 		expect(view.queryByText(/boom/)).toBeNull();
 	});
 
@@ -240,9 +284,13 @@ describe("ShipsPage", () => {
 
 		fireEvent.click(view.getByRole("button", { name: "Ships" }));
 		expect(
-			await view.findByRole("checkbox", { name: "net-staging" }),
+			await view.findByRole(
+				"checkbox",
+				{ name: "net-staging" },
+				{ timeout: 25_000 },
+			),
 		).toBeTruthy();
-	});
+	}, 60_000);
 
 	test("the browser's Back moves one screen at a time", async () => {
 		serveFlow({ targets: [plan("net-staging")], errors: [] }, () =>
@@ -257,7 +305,7 @@ describe("ShipsPage", () => {
 		expect(
 			await view.findByRole("checkbox", { name: "net-staging" }),
 		).toBeTruthy();
-	});
+	}, 30_000);
 
 	test("Approve stays on the run it opened when the browser reports the move before its state", async () => {
 		const running = {
@@ -270,6 +318,7 @@ describe("ShipsPage", () => {
 		const routes: Record<string, (init?: RequestInit) => Response> = {
 			"/api/ship/plan": () => Response.json(composed([["net-staging"]])),
 			"/api/ship/runs?status=running": () => Response.json({ runs: [] }),
+			"/api/ship/runs?limit=1": () => Response.json({ runs: [] }),
 			"/api/ship/runs": (init) =>
 				init?.method === "POST"
 					? Response.json(running, { status: 201 })
@@ -338,6 +387,7 @@ describe("ShipsPage", () => {
 		startBodies = [];
 		const routes: Record<string, (init?: RequestInit) => Response> = {
 			"/api/ship/plan": () => Response.json(composed([["net-staging"]])),
+			"/api/ship/runs?limit=1": () => Response.json({ runs: [] }),
 			"/api/ship/runs": (init) => {
 				if (init?.method !== "POST") {
 					return Response.json({ runs: [] });
@@ -403,6 +453,7 @@ describe("ShipsPage", () => {
 				});
 			},
 			"/api/ship/runs?status=running": () => Response.json({ runs: [] }),
+			"/api/ship/runs?limit=1": () => Response.json({ runs: [] }),
 			"/api/ship/runs": (init) =>
 				init?.method === "POST" ? start(init) : Response.json({ runs: [] }),
 		};
@@ -471,7 +522,7 @@ describe("ShipsPage", () => {
 		expect(started).toEqual([[{ name: "net-staging" }]]);
 	});
 
-	test("Review starts the ship supervised with 3 fixes, the count set by − and +, or unsupervised when switched off", async () => {
+	test("Review starts the ship supervised with 5 fixes, the count set by − and +, or unsupervised when switched off", async () => {
 		serveStart(Response.json({ id: "run-1" }, { status: 201 }));
 		const bodies = startBodies;
 		const view = render(<ShipsPage />);
@@ -485,21 +536,26 @@ describe("ShipsPage", () => {
 		const card = await review();
 		expect(
 			within(card).getByRole("status", { name: "Fixes" }).textContent,
-		).toBe("3");
+		).toBe("5");
 		fireEvent.click(within(card).getByRole("button", { name: "More fixes" }));
 		fireEvent.click(view.getByRole("button", { name: "Approve" }));
 		await waitFor(() => expect(bodies).toHaveLength(1));
 		expect(bodies[0]).toEqual({
 			picks: [{ name: "net-staging" }],
-			supervise: { budget: 4 },
+			supervise: { budget: 6 },
+			autoApprove: true,
 		});
 
 		fireEvent.click(
 			within(await review()).getByRole("switch", { name: "Supervise" }),
 		);
+		fireEvent.click(view.getByRole("switch", { name: "Auto-approve" }));
 		fireEvent.click(view.getByRole("button", { name: "Approve" }));
 		await waitFor(() => expect(bodies).toHaveLength(2));
-		expect(bodies[1]).toEqual({ picks: [{ name: "net-staging" }] });
+		expect(bodies[1]).toEqual({
+			picks: [{ name: "net-staging" }],
+			autoApprove: false,
+		});
 	});
 
 	test("a refused start shows its reason under the steps and Ship stays", async () => {
@@ -571,8 +627,40 @@ describe("ShipsPage", () => {
 			view.getByRole("button", { name: "Next" }).hasAttribute("disabled"),
 		).toBe(true);
 		expect(view.getByText(/One ship runs at a time/)).toBeTruthy();
-		expect(asked).not.toContain("/api/ship/runs");
+		expect(asked).not.toContain("/api/ship/runs?limit=1");
 	});
+
+	test("a ship that ended while the stream was down stops holding Next once it is back", async () => {
+		const run = {
+			id: "run-3",
+			started: Date.UTC(2026, 10, 16, 12),
+			status: "running",
+			notes: [],
+			targets: [{ name: "net-staging", steps: [] }],
+		};
+		let runs = [run];
+		globalThis.fetch = (async (url: string) =>
+			String(url) === "/api/ship/runs?status=running"
+				? Response.json({ runs })
+				: String(url) === "/api/ship/runs?limit=1"
+					? Response.json({ runs: [{ ...run, status: "done" }] })
+					: Response.json(listed)) as unknown as typeof fetch;
+		const view = render(<ShipsPage onRun={() => {}} />);
+		await view.findByRole("region", { name: "Shipping now" });
+		fireEvent.click(view.getByRole("checkbox", { name: "net-staging" }));
+		expect(view.getByText(/One ship runs at a time/)).toBeTruthy();
+		// The run's last push went unsaid while the stream was down.
+		runs = [];
+		SHIP_BUS.dispatch("open", true);
+		await waitFor(() =>
+			expect(view.queryByRole("region", { name: "Shipping now" })).toBeNull(),
+		);
+		expect(view.queryByText(/One ship runs at a time/)).toBeNull();
+		expect(
+			view.getByRole("button", { name: "Next" }).hasAttribute("disabled"),
+		).toBe(false);
+	});
+
 	const serveNewest = (status: string) => {
 		globalThis.fetch = (async (url: string) => {
 			const run = {
@@ -585,7 +673,7 @@ describe("ShipsPage", () => {
 			if (String(url) === "/api/ship/runs?status=running") {
 				return Response.json({ runs: [] });
 			}
-			return String(url) === "/api/ship/runs"
+			return String(url) === "/api/ship/runs?limit=1"
 				? Response.json({ runs: [run] })
 				: Response.json(listed);
 		}) as unknown as typeof fetch;
@@ -643,6 +731,7 @@ describe("ShipsPage", () => {
 		const routes: Record<string, (init?: RequestInit) => Response> = {
 			"/api/ship/plan": () => Response.json(composed([["net-staging"]])),
 			"/api/ship/runs?status=running": () => Response.json({ runs: [] }),
+			"/api/ship/runs?limit=1": () => Response.json({ runs: [failed] }),
 			"/api/ship/runs": (init) => {
 				started.push(init?.method ?? "GET");
 				return init?.method === "POST"

@@ -1,10 +1,4 @@
-import type {
-	Demo,
-	Proposal,
-	Question,
-	Review,
-	TaskReport,
-} from "@splates/server/plans";
+import type { Demo, Review, TaskReport } from "@splates/server/plans";
 import type { Escalated } from "@splates/server/records";
 import type { JSX } from "react";
 import { InMessage } from "./card-reply";
@@ -15,16 +9,12 @@ import { MessageReview } from "./review-panel";
 /**
  * What the agent wrote of its escalation in the turn it escalated, which its
  * card takes in rather than drawing a second card: its report, the demo its
- * questions ask about, its review, or the proposal it waits on with the
- * calls it rests on, which the card asks in place of the task's open
- * questions.
+ * questions ask about, or its review.
  */
 export interface Written {
 	report: TaskReport | null;
 	demo: Demo | null;
 	review: Review | null;
-	proposal: Proposal | null;
-	questions: Question[];
 }
 
 /**
@@ -69,23 +59,17 @@ export function EscalationCard({
 		body: report?.body ?? "",
 		source: report?.source ?? `## ⚠️ Escalated ${task}: ${event.about}`,
 	};
-	const proposal = written?.proposal ?? null;
-	if (proposal === null && event.questions.length === 0) {
+	if (event.questions.length === 0) {
 		return <ReportCard report={escalation} />;
 	}
 	return (
 		<InMessage>
 			<MessageQuestions
-				questions={
-					proposal === null
-						? event.questions.map((asked, at) => ({
-								...asked,
-								number: String(at + 1),
-							}))
-						: (written?.questions ?? [])
-				}
+				questions={event.questions.map((asked, at) => ({
+					...asked,
+					number: String(at + 1),
+				}))}
 				escalation={escalation}
-				proposal={proposal}
 				demo={written?.demo ?? null}
 				task={task}
 			/>

@@ -20,6 +20,7 @@ const RUN: RunState = {
 	id: "preview",
 	started: Date.now() - 14 * 60_000,
 	status: "running",
+	supervise: { budget: 3, spent: 1 },
 	notes: [
 		{
 			at: Date.now() - 9 * 60_000,
@@ -119,8 +120,11 @@ const SERVER: ShipRunServer = {
 	get: async () => RUN,
 	retry: async () => RUN,
 	stop: async () => ({ ...RUN, status: "stopped" }),
+	stopTarget: async () => RUN,
 	send: async () => ({ state: RUN, task: 0 }),
+	sendTarget: async () => ({ state: RUN, task: 0 }),
 	supervise: async () => RUN,
+	autoApprove: async () => RUN,
 	connect: (_, handlers) => {
 		const timer = setTimeout(() => {
 			handlers.named?.state?.({

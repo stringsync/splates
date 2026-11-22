@@ -3,6 +3,7 @@ import type { Fs, Lock } from "core/system";
 import type { Timer, WallClock } from "core/time";
 import type { Agent, Launch, Launcher, Watch } from "../agents";
 import type { ArtifactLimits } from "../artifacts";
+import type { Health } from "../auto-pick/health";
 import type { Limits, Offered } from "../models";
 import type { Prices } from "../prices";
 import type { Spend } from "../spend";
@@ -26,6 +27,8 @@ export interface ConversationsOptions {
 	launch?: Launch;
 	/** What starts agents and takes them back after a restart, over `launch`: a worker. */
 	launcher?: Launcher;
+	/** What an agent's process is given in its env beyond splates's own, such as the API key its CLI reads. */
+	env?: (agent: Agent) => Promise<Record<string, string>>;
 	/**
 	 * Where each agent waits for a place on a worker, which it then starts
 	 * on: one another agent started for a free one, one the person started
@@ -50,6 +53,8 @@ export interface ConversationsOptions {
 	offered?: Offered | null;
 	/** Where each agent's plan limits are kept across projects; nowhere by default. */
 	limits?: Limits | null;
+	/** Where the provider errors runs hit are kept across projects, for Auto pick to avoid a failing model; nowhere by default. */
+	health?: Health | null;
 	/**
 	 * Where how each conversation followed the splates skill is kept across
 	 * projects, judged as each turn ends; nowhere by default.

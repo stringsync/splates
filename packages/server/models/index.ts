@@ -1,3 +1,5 @@
+export { AGY_CLI, agyInstalled } from "./antigravity";
+export { antigravityLimits, isAntigravity } from "./antigravity-limits";
 export { codexLimits, isCodex } from "./codex-limits";
 export {
 	effortSettings,

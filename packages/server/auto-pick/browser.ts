@@ -10,6 +10,17 @@
 // carries none of it.
 
 export {
+	cellLabel,
+	DEFAULT_PACE,
+	depthLabel,
+	kindLabel,
+	LINEUP_COLORS,
+	ROUTE_DEPTHS,
+	ROUTE_KINDS,
+	RULES_FORMAT,
+	UNSURE,
+} from "./cells";
+export {
 	CLARITIES,
 	CLARITY_IDS,
 	DEPTH_IDS,
@@ -17,5 +28,5 @@ export {
 	KIND_IDS,
 	KINDS,
 } from "./classes";
+export { DEFAULT_LINEUPS } from "./default-lineups";
 export { DEFAULT_RULES } from "./defaults";
-export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";

@@ -57,11 +57,7 @@ export async function toThread(view: ConversationsView): Promise<void> {
 	});
 }
 
-/**
- * Clicks what `find` returns once the page shows it. Use it rather than a
- * `waitFor` inside `act`, which waits out its whole timeout for anything yet
- * to render.
- */
+/** Click an element once it appears on the page. */
 export async function clickShown(find: () => HTMLElement): Promise<void> {
 	// waited for before `act`, never inside it: React holds every render until
 	// `act` returns, so what has yet to render, as a page loaded lazily on its
@@ -170,7 +166,7 @@ function editorOf(box: HTMLElement) {
 	return editor;
 }
 
-/** Picks an option of a Select: Base UI picks on the pointer let go. */
+/** Choose a Select option with a pointer click. */
 export function pick(option: HTMLElement): Promise<void> {
 	return act(async () => {
 		fireEvent.pointerDown(option, { pointerType: "mouse" });
@@ -219,46 +215,47 @@ export function resize(width: number, height: number): void {
 	).happyDOM.setViewport({ width, height });
 }
 
-/** Opens or folds `details` as a click on its summary would. */
-export function toggle(details: HTMLDetailsElement, open: boolean): void {
+/** Expand or collapse a disclosure. */
+export function toggle(details: HTMLElement, open: boolean): void {
 	act(() => {
-		details.open = open;
-		details.dispatchEvent(new Event("toggle"));
+		if (details instanceof HTMLDetailsElement) {
+			details.open = open;
+			details.dispatchEvent(new Event("toggle"));
+		} else {
+			const trigger = details.querySelector<HTMLButtonElement>(
+				":scope > [data-slot=collapsible-trigger]",
+			);
+			if (trigger?.getAttribute("aria-expanded") !== String(open)) {
+				trigger?.click();
+			}
+		}
 	});
 }
 
-/**
- * Builds every folded work row's timeline, which mounts only once its row has
- * been opened, and leaves the rows folded as they were.
- */
+/** Open work groups so their timelines can be inspected. */
 export function unfold(thread: HTMLElement): void {
-	for (const row of thread.querySelectorAll<HTMLDetailsElement>(
-		"[data-slot=work] > details",
+	for (const trigger of thread.querySelectorAll<HTMLButtonElement>(
+		"[data-slot=work] > [data-slot=collapsible] > [data-slot=collapsible-trigger]",
 	)) {
-		if (!row.open) {
-			toggle(row, true);
-			toggle(row, false);
+		if (trigger.getAttribute("aria-expanded") === "false") {
+			act(() => trigger.click());
 		}
 	}
 }
 
-/**
- * Builds the body of every folded card in `timeline`, which mounts only once
- * the card has been opened, and leaves the cards folded as they were. Only the
- * cards there now: a card's body holds no cards of its own to build.
- */
+/** Mount timeline card bodies without leaving the cards expanded. */
 export function unfoldCards(timeline: HTMLElement): void {
 	for (const card of [
-		...timeline.querySelectorAll<HTMLDetailsElement>("details"),
+		...timeline.querySelectorAll<HTMLElement>("[data-slot=collapsible]"),
 	]) {
-		if (!card.open) {
+		if (!card.hasAttribute("data-open")) {
 			toggle(card, true);
 			toggle(card, false);
 		}
 	}
 }
 
-/** The thread's work timelines, built if still folded, in order. */
+/** Get all work timelines in thread order. */
 export function workTimelines(thread: HTMLElement): HTMLElement[] {
 	unfold(thread);
 	return within(thread).getAllByRole("list", { name: "timeline" });

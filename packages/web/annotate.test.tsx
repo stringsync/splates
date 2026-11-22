@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Position } from "core/geometry";
 import { Annotate } from "./annotate-dialog";
 import { Annotation } from "./annotation";
-import { Note } from "./mark-notes";
+import { MarkList } from "./mark-notes";
 import { fireEvent, render, within } from "./testing-library";
 
 describe("Annotate", () => {
@@ -54,20 +54,27 @@ describe("Annotate", () => {
 		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("false");
 	});
 
+	it("leaves keys typed in a note field to the field", () => {
+		const { done, board } = opened();
+		const tool = (name: string) => within(board).getByRole("button", { name });
+		const note = document.createElement("textarea");
+		board.append(note);
+
+		fireEvent.keyDown(note, { key: "b" });
+		fireEvent.keyDown(note, { key: "Backspace" });
+		fireEvent.keyDown(note, { key: "Enter" });
+
+		expect(tool("Arrow").getAttribute("aria-pressed")).toBe("true");
+		expect(done()).toBe(0);
+	});
+
 	it("undoes a mark just drawn on Ctrl+Z from its empty note", () => {
 		const marks = annotation();
 		marks.press(new Position(100, 100));
 		marks.move(new Position(300, 200));
 		marks.release();
 		expect(marks.marks).toHaveLength(1);
-		const page = render(
-			<Note
-				annotation={marks}
-				at={0}
-				grip={{}}
-				bounds={{ current: document.body }}
-			/>,
-		);
+		const page = render(<MarkList annotation={marks} />);
 
 		fireEvent.keyDown(page.getByLabelText("note on mark 1"), {
 			key: "z",

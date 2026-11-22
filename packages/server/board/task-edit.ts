@@ -14,7 +14,7 @@ import {
 } from "./elsewhere";
 import { NoopElsewhereBoards } from "./noop-elsewhere-boards";
 import { similarTasks, similarWarning } from "./similar-warning";
-import type { Task, TaskOrigin } from "./task";
+import type { ClosesOn, Task, TaskOrigin } from "./task";
 import type { Tasks } from "./tasks";
 
 export interface TaskFileOptions {
@@ -45,8 +45,8 @@ export interface TaskAddOptions extends TaskFileOptions {
 	boards?: Pick<ElsewhereBoards, "slug">;
 	/** The project of `splates.config.ts` the task changes. */
 	scope?: string;
-	/** The tags grouping the task; none by default. */
-	tags?: string[];
+	/** The signal it closes on: the queue never starts it, and it ends when the signal fires. */
+	closesOn?: ClosesOn;
 }
 
 export async function taskAdd(
@@ -66,7 +66,7 @@ export async function taskAdd(
 		project,
 		boards = new NoopElsewhereBoards(),
 		scope,
-		tags,
+		closesOn,
 	}: TaskAddOptions = {},
 ): Promise<Task> {
 	const open = await deps.tasks.all();
@@ -81,7 +81,7 @@ export async function taskAdd(
 		assignee,
 		origin,
 		scope,
-		tags,
+		closesOn,
 	});
 	const named =
 		project === undefined ? `task ${task.id}` : `${project} #${task.id}`;
@@ -94,9 +94,11 @@ export async function taskAdd(
 			// there from the card the agent's reply ends with.
 			project !== undefined
 				? `  offer it to the user to queue there: end your reply with \`## 🔐 Permission: queue ${project} #${task.id}: ${task.subject}\``
-				: blockers === ""
-					? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
-					: `  blocked by: ${blockers}, which merge first`,
+				: closesOn !== undefined
+					? `  closes when ${closesOn.signal} is fired after ${closesOn.since}; the queue never starts it`
+					: blockers === ""
+						? `  start it: splates add ${task.state.slug ?? "<slug>"} --task ${task.id}`
+						: `  blocked by: ${blockers}, which merge first`,
 			...similarWarning(task, similarTasks(subject, open)),
 		].join("\n"),
 	);
@@ -138,10 +140,8 @@ export interface TaskUpdateOptions extends TaskFileOptions {
 	assignee?: AgentPick | null;
 	/** Names the projects of its blockers elsewhere by their slugs; by their directories without. */
 	boards?: Pick<ElsewhereBoards, "slug">;
-	/** Tags it has from now on, besides those it already has. */
-	tags?: string[];
-	/** Tags it no longer has. */
-	removeTags?: string[];
+	/** The signal it closes on, null for none; it stays when absent. */
+	closesOn?: ClosesOn | null;
 }
 
 export async function taskUpdate(
@@ -161,8 +161,7 @@ export async function taskUpdate(
 		lane,
 		assignee,
 		boards = new NoopElsewhereBoards(),
-		tags = [],
-		removeTags = [],
+		closesOn,
 	}: TaskUpdateOptions = {},
 ): Promise<Task> {
 	const task = await deps.tasks.find(id);
@@ -203,14 +202,6 @@ export async function taskUpdate(
 			{ number: id, file: unknown },
 		);
 	}
-	const missing = removeTags.find((each) => !task.tags.includes(each));
-	if (missing !== undefined) {
-		fail(
-			"not_found",
-			`task ${id} has no tag '${missing}': nothing was changed`,
-			{ number: id, tag: missing },
-		);
-	}
 	const dropped = task.files.filter((path) =>
 		removeFiles.some((named) => matches(path, named)),
 	);
@@ -240,12 +231,7 @@ export async function taskUpdate(
 					),
 		lane,
 		assignee,
-		tags:
-			tags.length === 0 && removeTags.length === 0
-				? undefined
-				: [...new Set([...task.tags, ...tags])].filter(
-						(each) => !removeTags.includes(each),
-					),
+		closesOn,
 	});
 	const blockers = await blockersSaid(updated, boards);
 	deps.log.info(
@@ -253,6 +239,11 @@ export async function taskUpdate(
 			`${color.green("updated")} task ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}, ${updated.state.stage}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
 			...(blockers === "" ? [] : [`  blocked by: ${blockers}`]),
+			...(updated.state.closesOn === undefined
+				? []
+				: [
+						`  closes when ${updated.state.closesOn.signal} is fired after ${updated.state.closesOn.since}`,
+					]),
 		].join("\n"),
 	);
 	return updated;

@@ -26,13 +26,17 @@ export interface AutomationOn {
 	name: string | null;
 	signal: string;
 	paused: boolean;
+	/** Set once a one-time clock it is on fired. */
+	finished?: boolean;
+	/** The number of the board task that closes on the signal, when this is one rather than an automation. */
+	task?: number;
 }
 
 /**
- * Every signal that has a raise, a probe or a subscriber, armed ones first
- * and then the latest activity first. A signal is armed while a wait on it
- * is still waiting (in a conversation not archived, its task not ended) or
- * an automation on it is not paused.
+ * Lists every signal that has a raise, a probe or a subscriber, the latest
+ * activity first, for the Signals page. A subscriber is live while a wait on
+ * it is still waiting (in a conversation not archived, its task not ended),
+ * an automation on it is not paused, or a board task that closes on it is open.
  */
 export function overview(input: {
 	raises: Record<string, SignalRaise[]>;
@@ -50,7 +54,6 @@ export function overview(input: {
 			found = {
 				name,
 				project: projectOf(name),
-				armed: false,
 				probe: null,
 				subscribers: [],
 				raises: [],
@@ -67,13 +70,13 @@ export function overview(input: {
 	}
 	for (const each of input.waits) {
 		for (const wait of each.waits) {
-			const armed =
+			const live =
 				wait.state === "waiting" &&
 				!each.archived &&
 				(wait.task === undefined ||
 					wait.task === null ||
 					wait.task === each.task);
-			if (!armed && (wait.endedAt ?? wait.startedAt) < floor) {
+			if (!live && (wait.endedAt ?? wait.startedAt) < floor) {
 				continue;
 			}
 			const subscriber: SignalSubscriber = {
@@ -81,7 +84,9 @@ export function overview(input: {
 				id: wait.id,
 				label: wait.description,
 				state: wait.state,
-				armed,
+				...(wait.endedAt === undefined ? {} : { endedAt: wait.endedAt }),
+				...(wait.reason === undefined ? {} : { reason: wait.reason }),
+				live,
 				conversation: each.conversation,
 				title: each.title,
 				deadline: wait.deadline,
@@ -90,14 +95,46 @@ export function overview(input: {
 		}
 	}
 	for (const each of input.automations) {
+		if (each.task !== undefined) {
+			row(each.signal).subscribers.push({
+				kind: "task",
+				id: String(each.task),
+				label: each.name ?? `Task ${each.task}`,
+				state: "open",
+				live: true,
+				project: each.project,
+			});
+			continue;
+		}
 		row(each.signal).subscribers.push({
 			kind: "automation",
 			id: each.id,
 			label: each.name ?? `Automation ${each.id}`,
-			state: each.paused ? "paused" : "armed",
-			armed: !each.paused,
+			state: each.finished ? "finished" : each.paused ? "paused" : "active",
+			live: !each.paused && !each.finished,
 			project: each.project,
 		});
+	}
+	const newestWait = new Map<string, SignalWait>();
+	for (const each of input.waits) {
+		for (const wait of each.waits) {
+			const name = dotted(wait.name);
+			const known = newestWait.get(name);
+			if (
+				wait.description.trim() !== "" &&
+				(known === undefined || wait.startedAt > known.startedAt)
+			) {
+				newestWait.set(name, wait);
+			}
+		}
+	}
+	for (const one of byName.values()) {
+		const description =
+			one.probe?.description.trim() ||
+			newestWait.get(one.name)?.description.trim();
+		if (description) {
+			one.description = description;
+		}
 	}
 	const latest = (one: SignalOverview): string =>
 		[
@@ -106,12 +143,7 @@ export function overview(input: {
 			...one.subscribers.map((each) => each.deadline ?? ""),
 		].reduce((most, each) => (most > each ? most : each), "");
 	const rows = [...byName.values()];
-	for (const one of rows) {
-		one.armed = one.subscribers.some((each) => each.armed);
-	}
-	return rows.sort(
-		(first, second) =>
-			Number(second.armed) - Number(first.armed) ||
-			latest(second).localeCompare(latest(first)),
+	return rows.sort((first, second) =>
+		latest(second).localeCompare(latest(first)),
 	);
 }

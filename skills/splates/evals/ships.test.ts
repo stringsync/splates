@@ -1,25 +1,5 @@
 import { expect, it } from "bun:test";
-import { asksToShip, shipsItself } from "./ships";
-
-it("finds a ship card naming the target", () => {
-	const reply = [
-		"The fix is on main, unreleased.",
-		"",
-		"## 🔐 Permission: ship: release the timezone fix",
-		"",
-		"- `@acme/dates` patch",
-		"",
-		"People keep hitting the crash.",
-	].join("\n");
-	expect(asksToShip(reply, "@acme/dates")).toBe(true);
-	expect(asksToShip(reply, "@acme/other")).toBe(false);
-	expect(
-		asksToShip(
-			"## 🔐 Permission: run command: ship\n\n`splates ship`\n",
-			"@acme/dates",
-		),
-	).toBe(false);
-});
+import { shipsItself } from "./ships";
 
 it("tells a release the agent runs itself from looking", () => {
 	expect(

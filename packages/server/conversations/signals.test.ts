@@ -75,6 +75,25 @@ describe("ConversationSignals", () => {
 		]);
 	});
 
+	it("removes every matching wait once, preserving the reason and cancelling deadlines", () => {
+		signals.begin(ask, "w1");
+		signals.begin(ask, "w2");
+		signals.begin({ ...ask, name: "other.signal" }, "w3");
+		expect(signals.remove(ask.name, "probe stopped")).toBe(2);
+		expect(signals.remove(ask.name, "probe replaced")).toBe(0);
+		expect(said).toEqual(
+			Array(2).fill("[SPLATES SIGNAL mdom.released] removed: probe stopped"),
+		);
+		expect(state.signals[0]).toMatchObject({
+			state: "removed",
+			reason: "probe stopped",
+		});
+		now += 6 * HOUR;
+		timer.fireTimeouts();
+		expect(said).toHaveLength(3);
+		expect(state.signals[0]?.state).toBe("removed");
+	});
+
 	it("times out with a wake saying so", () => {
 		signals.begin(ask, "w1");
 		now += 5 * HOUR;
@@ -119,6 +138,27 @@ describe("ConversationSignals", () => {
 		).toThrow();
 	});
 
+	it("allows year-long clock waits without overflowing the timer", () => {
+		const wait = signals.begin(
+			{
+				...ask,
+				name: 'clock.in({ after: "31536000s", tz: "UTC" })',
+				timeoutMs: 365 * 24 * HOUR,
+			},
+			"long",
+		);
+		timer.fireTimeouts();
+		expect(state.signals[0]?.state).toBe("waiting");
+		now = Date.parse(wait.deadline);
+		timer.fireTimeouts();
+		expect(state.signals[0]?.state).toBe("timed out");
+		expect(() =>
+			signals.begin(
+				{ ...ask, name: "clock.in", timeoutMs: 366 * 24 * HOUR },
+				"too-long",
+			),
+		).toThrow();
+	});
 	it("words a wake", () => {
 		expect(
 			wakeOf({

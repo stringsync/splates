@@ -3,9 +3,9 @@ import type { ConversationState } from "@splates/server/conversations";
 import type { TaskReport } from "@splates/server/plans/browser";
 import { stretches } from "@splates/server/plans/browser";
 import { type JSX, useContext } from "react";
+import { BlockersCard } from "./blockers-card";
 import { Board } from "./board";
-import { CardShell, ENDINGS } from "./card-shell";
-import { DeferredBody, deferredTask } from "./deferred-body";
+import { deferredTask } from "./deferred-body";
 
 /**
  * The Blocked report of `conversation` that the person wrote past while its
@@ -46,7 +46,7 @@ export function blockedReport(
 }
 
 /**
- * Pinned above the composer: the live Blocked card of a conversation that
+ * Under the last message: the live Blocked card of a conversation that
  * went on past its report while a task it waits on is still open.
  */
 export function BlockedPanel({
@@ -68,18 +68,11 @@ export function BlockedPanel({
 	if (open.length === 0) {
 		return null;
 	}
-	const { Icon, tone, title } = ENDINGS.deferred;
 	return (
-		<div className="px-2">
-			<CardShell
-				label={`blocked ${report.task}`}
-				Icon={Icon}
-				title={title}
-				tone={tone}
-				task={report.task}
-			>
-				<DeferredBody task={task} />
-			</CardShell>
-		</div>
+		<BlockersCard
+			task={task}
+			label={`blocked ${report.task}`}
+			chip={report.task}
+		/>
 	);
 }

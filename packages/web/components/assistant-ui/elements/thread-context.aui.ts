@@ -51,6 +51,8 @@ export type ThreadProps = {
 	starting?: boolean | undefined;
 	/** Shown just above the composer, such as what the agent is asking. */
 	above?: ReactNode | undefined;
+	/** Shown under the last message, in the scroll, such as a card that tracks live state. */
+	after?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
 	welcome?: ReactNode | undefined;
 	/**
@@ -90,6 +92,7 @@ export const ThreadExtrasContext = createContext<
 	Pick<
 		ThreadProps,
 		| "above"
+		| "after"
 		| "welcome"
 		| "below"
 		| "controls"

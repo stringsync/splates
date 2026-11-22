@@ -1,7 +1,7 @@
 import type { Ending, Need } from "@splates/server/plans";
 import {
+	BanIcon,
 	CircleCheckIcon,
-	CirclePauseIcon,
 	CircleSlashIcon,
 	GitMergeIcon,
 	HourglassIcon,
@@ -30,6 +30,7 @@ export function Mark({
 	quiet = null,
 	background = false,
 	signal = false,
+	blockedNeedsYou = false,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
@@ -50,19 +51,9 @@ export function Mark({
 	background?: boolean;
 	/** Whether its agent waits on a signal. */
 	signal?: boolean;
+	/** Whether its blocked task waits on a blocker nobody has queued. */
+	blockedNeedsYou?: boolean;
 }): JSX.Element {
-	if (signal) {
-		return (
-			<span
-				role="status"
-				aria-label="waiting on a signal"
-				title="Waiting on a signal"
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<HourglassIcon className="size-3.5 text-warning" />
-			</span>
-		);
-	}
 	if (need.kind === "working" && need.merge === "running") {
 		return (
 			<span
@@ -138,23 +129,30 @@ export function Mark({
 			/>
 		);
 	}
-	// Over the blue dot, since the agent wakes to answer again once its
-	// command ends, so the mark holds when you open the row.
-	if (need.kind === "idle" && !hosting && background) {
+	if (need.kind === "waiting") {
+		return (
+			<Glyph
+				icon={TriangleAlertIcon}
+				role="status"
+				aria-label="waiting on you"
+				title={need.subject}
+				color="text-warning"
+			/>
+		);
+	}
+	if (signal) {
 		return (
 			<span
 				role="status"
-				aria-label="background commands running"
-				title="Background commands running"
+				aria-label="working"
+				title="Waiting to continue automatically"
 				className="flex size-3.5 shrink-0 items-center justify-center"
 			>
 				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
 			</span>
 		);
 	}
-	const shows =
-		need.kind === "idle" ||
-		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
+	const shows = need.kind === "idle";
 	if ((reported === "merged" || reported === "done") && shows) {
 		return (
 			<Glyph
@@ -175,31 +173,49 @@ export function Mark({
 			/>
 		);
 	}
+	// Blocked: the triangle while a blocker needs queuing, else Ban, for a
+	// task that starts automatically once its blockers are done.
 	if (reported === "deferred" && shows && !hosting) {
 		return (
 			<Glyph
-				icon={CirclePauseIcon}
+				icon={blockedNeedsYou ? TriangleAlertIcon : BanIcon}
 				role="img"
 				aria-label="deferred"
-				color="text-warning"
+				color={blockedNeedsYou ? "text-warning" : "text-muted-foreground"}
 			/>
 		);
 	}
-	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
+	if (
+		unread &&
+		need.kind === "idle" &&
+		!hosting &&
+		!signal &&
+		!waitsOn(reported)
+	) {
 		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}
-	if (need.kind === "waiting" || (waitsOn(reported) && shows)) {
+	if (waitsOn(reported) && shows) {
 		return (
 			<Glyph
 				icon={TriangleAlertIcon}
 				role="status"
 				aria-label="waiting on you"
-				title={need.kind === "waiting" ? need.subject : undefined}
 				color="text-warning"
 			/>
 		);
 	}
 	if (need.kind === "idle" && !hosting) {
+		if (background) {
+			return (
+				<Glyph
+					icon={HourglassIcon}
+					role="status"
+					aria-label="agent idle with background commands"
+					title="Agent idle · background commands running"
+					color="text-muted-foreground"
+				/>
+			);
+		}
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
 	}

@@ -36,9 +36,7 @@ changes, a few words such as `upload-413`, never the subject cut short. The
 task that takes it starts under that name, and its branch, worktree and
 conversation carry it.
 
-Give each task its tag with `--tag <name>` when the config lists tags
-(`splates task update <id> --tag <name>` adds one later), and leave the
-project's name out of the subject and the slug: the tag says it.
+Leave the project's name out of the subject and the slug.
 
 Write a task's subject short enough to scan. Write its detail as a goal, then
 details, as markdown the `splates server` page renders. The first paragraph is
@@ -174,7 +172,7 @@ Under its title, give the command that queues it, on a line of its own in
 backticks, so a user reading in a terminal can run it themselves.
 The `splates server` page lists the work on the card as the board has it,
 with that command to copy, and Queue now for the user to press; the choice is theirs and
-reaches only the board, never you. Work you added for several lanes or tasks (an approved proposal that
+reaches only the board, never you. Work you added for several lanes or tasks (an approved plan that
 created two lanes, say) still ends with exactly one queue card, naming every
 task you added with `splates queue add <ids>`, never one card per lane, and
 never a reply that stops at a Done report or a plain summary: the card, as

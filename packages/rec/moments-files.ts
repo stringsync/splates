@@ -70,6 +70,9 @@ export function renderMoments(
 				`- ${video(signal.at)} ${signal.source}: ${describeSignal(signal)}`,
 			);
 		}
+		if (moment.structure) {
+			lines.push(`- page structure: [snapshot](${moment.structure})`);
+		}
 		if (moment.still) {
 			lines.push("", `![${moment.rank}](${moment.still})`);
 		}

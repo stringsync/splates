@@ -116,6 +116,17 @@ export function usePendingSnapshot(key?: string): boolean {
 	return useSyncExternalStore(expecter.subscribe.bind(expecter), read, read);
 }
 
+/** Whether a write is pending under any of `keys`, ignoring writes to anything else. */
+export function usePendingAny(keys: readonly string[]): boolean {
+	const expecter = use(SnapshotExpecting);
+	const joined = keys.join("\n");
+	const read = useCallback(
+		() => joined.split("\n").some((key) => key !== "" && expecter.pending(key)),
+		[expecter, joined],
+	);
+	return useSyncExternalStore(expecter.subscribe.bind(expecter), read, read);
+}
+
 /** Whether a write to conversation `id` is pending: the server has yet to show it. */
 export function usePendingConversation(id: string): boolean {
 	const expecter = use(Expecting);

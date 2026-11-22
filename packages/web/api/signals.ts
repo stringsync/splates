@@ -2,10 +2,10 @@ import type { SignalOverview } from "@splates/server/signals";
 import { Duration } from "core/time";
 import { ApiError, answered, scoped, send, sendJson } from "./request";
 
-/** Every signal on the server, across projects, and how many are armed. */
+/** Every signal on the server, across projects, and how many live subscribers they have. */
 export interface Signals {
 	signals: SignalOverview[];
-	armed: number;
+	subscribers: number;
 }
 
 /** Reads every signal with a raise, a probe or a subscriber. */
@@ -21,12 +21,20 @@ export async function signals(): Promise<Signals> {
 			body.message ?? `/api/signals: ${response.status}`,
 		);
 	}
-	return { signals: body.signals, armed: body.armed ?? 0 };
+	return { signals: body.signals, subscribers: body.subscribers ?? 0 };
 }
 
 /** Stops the probe on signal `name`. */
 export async function stopProbe(name: string): Promise<void> {
 	await send("/api/signals/probe-stop", {
+		body: JSON.stringify({ name }),
+		headers: { "Content-Type": "application/json" },
+	});
+}
+
+/** Runs the poll script on signal `name` now; resolves once the run is done. */
+export async function pollNow(name: string): Promise<void> {
+	await send("/api/signals/poll-now", {
 		body: JSON.stringify({ name }),
 		headers: { "Content-Type": "application/json" },
 	});
@@ -90,4 +98,12 @@ export async function testCheck(
 		{ name, script },
 		Duration.mins(3),
 	)) as CheckTest;
+}
+
+/** Sets a duration/date deadline, or clears it with null. */
+export async function saveExpiration(
+	name: string,
+	expires: string | null,
+): Promise<void> {
+	await sendJson("/api/signals/expiration", "POST", { name, expires });
 }

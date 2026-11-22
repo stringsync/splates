@@ -148,7 +148,9 @@ export function useThreadActions(
 			detail:
 				archived || (archiveKey === null && onBoard === null) ? undefined : (
 					<span className="flex items-center gap-1.5">
-						{onBoard !== null && <span className="text-xs">task stays</span>}
+						{onBoard !== null && (
+							<span className="text-xs">task stays on the board</span>
+						)}
 						{archiveKey !== null && <Kbd>{archiveKey}</Kbd>}
 					</span>
 				),

@@ -76,7 +76,7 @@ export function SectionTab({
 	);
 }
 
-/** What a `SectionTab` shows, scrolling on its own under the header. */
+/** The body of a `SectionTab`: put its content inside; it scrolls on its own under the header. */
 export function Section({
 	value,
 	keepMounted = false,
@@ -108,6 +108,15 @@ export const TONES: Record<Tone, string> = {
 	working: "bg-primary/10 text-primary",
 	failed: "bg-destructive/10 text-destructive",
 	quiet: "bg-muted text-muted-foreground",
+};
+
+/** A chip's tint and the dot before its plain text, for each tone. */
+export const TONE_CHIPS: Record<Tone, { chip: string; dot: string }> = {
+	waiting: { chip: "bg-warning/15", dot: "bg-warning" },
+	ready: { chip: "bg-success/15", dot: "bg-success" },
+	working: { chip: "bg-primary/10", dot: "bg-primary" },
+	failed: { chip: "bg-destructive/10", dot: "bg-destructive" },
+	quiet: { chip: "bg-muted", dot: "bg-muted-foreground" },
 };
 
 /** What splates knows of a task beside its SPLATES.md, a row each, its Details tab. */

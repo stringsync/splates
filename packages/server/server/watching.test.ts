@@ -49,16 +49,34 @@ describe("dev", () => {
 				}
 				expect(await heard).toBe(true);
 
+				// The handshake's later writes may still be telling of themselves,
+				// so each step reads changes until the one it made shows. The
+				// snapshot is kept until a watch says the repo moved, so its
+				// showing the change means a watch heard it.
+				const hears = async (shows: (now: Snapshot) => boolean) => {
+					while (await within(reader, "data: changed", 5_000)) {
+						if (shows(await snapshot())) {
+							return true;
+						}
+					}
+					return false;
+				};
+
 				await deps.fs.write(
 					`${tree}/SPLATES.md`,
 					"# alpha\n\n## Goal\n\nmoved\n",
 				);
-				expect(await within(reader, "data: changed", 5_000)).toBe(true);
-				expect((await snapshot()).tasks[0]?.plan).toContain("moved");
+				expect(
+					await hears((now) => now.tasks[0]?.plan?.includes("moved") ?? false),
+				).toBe(true);
 				await deps.commit(tree, "a.txt", "a\n", "add a");
-				expect(await within(reader, "data: changed", 5_000)).toBe(true);
+				expect(await hears((now) => (now.tasks[0]?.ahead ?? 0) > 0)).toBe(true);
 				await deps.tasks.add("later", null);
-				expect(await within(reader, "data: changed", 5_000)).toBe(true);
+				expect(
+					await hears((now) =>
+						now.todos.some((each) => each.subject === "later"),
+					),
+				).toBe(true);
 				await reader.cancel();
 			});
 		}, 15_000);

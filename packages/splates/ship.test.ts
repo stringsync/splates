@@ -9,11 +9,11 @@ test("splates ships to npm through its mirror, at the bump asked for", () => {
 	expect(plan.bump).toBe("minor");
 	expect(plan.dependencies).toEqual([]);
 	expect(plan.steps.map((each) => each.id)).toEqual([
+		"login",
 		"test",
 		"version",
 		"workflow",
 		"mirror",
-		"login",
 		"first-publish",
 		"trust",
 		"publish",

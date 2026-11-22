@@ -252,7 +252,7 @@ function Journey({
 	if (step === undefined) {
 		const End = JOURNEY_ENDS[area.id];
 		return (
-			<JourneyDone title={area.title} onLeave={onLeave} onUndo={onUndo}>
+			<JourneyDone title={area.title} steps={journey.steps} onLeave={onLeave}>
 				{End !== undefined && (
 					<End feed={feed} onOpen={onOpen} onLeave={onLeave} />
 				)}

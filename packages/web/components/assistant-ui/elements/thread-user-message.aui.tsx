@@ -9,11 +9,7 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import { SERVER_TOLD } from "@splates/server/conversations/browser";
-import {
-	APPROVE,
-	leadingDirectives,
-	MERGE,
-} from "@splates/server/plans/browser";
+import { leadingDirectives, MERGE } from "@splates/server/plans/browser";
 import {
 	CheckIcon,
 	CopyIcon,
@@ -30,7 +26,7 @@ import {
 } from "react";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { Board } from "#web/board.ts";
-import { repliesToProposal, repliesToReview } from "#web/card-reply.tsx";
+import { repliesToReview } from "#web/card-reply.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
@@ -62,6 +58,7 @@ import {
 import { handOffLines, serverToldLines } from "#web/server-messages.ts";
 import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
+import { QueueGoal } from "#web/task-goal-message.tsx";
 import { SendingLine, UnsentLine } from "#web/unsent.tsx";
 
 /**
@@ -165,13 +162,10 @@ export const UserMessage: FC = () => {
 			.flatMap((part) => (part.type === "text" ? [part.text] : []))
 			.join("\n"),
 	);
-	// A review's Merge or a proposal's Approve, which the card's own line
-	// says was approved.
+	// A review's Merge, which the card's own line says was approved.
 	const approved = useAuiState(
 		(s) =>
-			(sole === MERGE && repliesToReview(s.thread.messages, s.message.index)) ||
-			(sole === APPROVE &&
-				repliesToProposal(s.thread.messages, s.message.index)),
+			sole === MERGE && repliesToReview(s.thread.messages, s.message.index),
 	);
 	const sent = sentOf(attachments);
 	const lines =
@@ -190,6 +184,7 @@ export const UserMessage: FC = () => {
 				className="px-2"
 				data-role="user"
 			>
+				{told === SERVER_TOLD && <QueueGoal text={text} />}
 				{lines.map((line) => (
 					<SplatesEvent key={JSON.stringify(line.words)} event={line} />
 				))}

@@ -168,7 +168,7 @@ async function checkReach(
 			"not_granted",
 			[
 				`${called(git.root)} lets ${called(from)} ${reach === "read" ? "only read" : "only queue tasks"} here, and this needs ${needs}.`,
-				`Ask the user with a \`## 🔐 Permission: grant ${called(git.root)} ${needs} to ${called(from)}\` card, whose Allow grants it.`,
+				`Ask the user to run \`splates projects grant ${called(from)} ${needs}\` in ${called(git.root)}.`,
 			].join("\n"),
 			{ from: called(from), to: called(git.root), reach, needs },
 		);

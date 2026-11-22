@@ -1,4 +1,4 @@
-import type { AreaProgress } from "@splates/server/setup";
+import type { AreaProgress, StepProgress } from "@splates/server/setup";
 import { type JSX, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "../components/ui/button";
@@ -126,7 +126,7 @@ const SCREENS: Record<string, () => JSX.Element> = {
 		/>
 	),
 	done: () => (
-		<JourneyDone title="Codex" onLeave={leave} onUndo={leave}>
+		<JourneyDone title="Codex" steps={DONE_STEPS} onLeave={leave}>
 			<Button>Start a Codex conversation</Button>
 		</JourneyDone>
 	),
@@ -134,6 +134,21 @@ const SCREENS: Record<string, () => JSX.Element> = {
 	undo: () => <UndoScreen area="dictation" />,
 	"undo-refused": () => <UndoScreen area="remote-access" />,
 };
+
+const DONE_STEPS = [
+	{
+		id: "install",
+		title: "Installed the Codex CLI",
+		status: "done",
+		found: null,
+	},
+	{
+		id: "signin",
+		title: "Signed in",
+		status: "done",
+		found: "as you@example.com",
+	},
+] as unknown as StepProgress[];
 
 /** The index with the undo dialog open on `area`, reopened by its row's Undo. */
 function UndoScreen({ area }: { area: string }): JSX.Element {

@@ -8,17 +8,18 @@ import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutoIcon } from "./auto-brand";
+import { cellKeyLabel, pickedCell } from "./auto-pick-rules";
 import { type AutoPickRun, autoPickRuns } from "./auto-pick-runs";
-import { ruleAddress } from "./page-address";
+import { cellAddress } from "./page-address";
 import { ReferenceChip } from "./reference-chip";
 import { TaskIcon } from "./task-icon";
 
 /**
  * Auto pick's log, on the Auto pick page: a line per pick,
- * newest first, with what started it, what it decided and the rule that
- * matched. A line opens to how sure the judge was and why, and to "Edit
- * rule", which sets the page on that rule. `only` lists the picks of one
- * rule, by its place from 0.
+ * newest first, with what started it, what it decided and the cell of the
+ * routes it fell in. A line opens to how sure the judge was and why, and to
+ * "Edit route", which sets the page on that cell. `only` lists the picks of
+ * one cell, `bugfix.deep`.
  */
 export function AutoPickLog({
 	tasks,
@@ -30,10 +31,10 @@ export function AutoPickLog({
 	todos: readonly TaskRecord[];
 	/** Opens a task a pick was for: by its number while queued, or by its name. */
 	opens: { todo: (id: number) => void; task: (task: string) => void };
-	only?: number | null;
+	only?: string | null;
 }): JSX.Element {
 	const runs = autoPickRuns(tasks, todos).filter(
-		(run) => only === null || run.picked.rule === only,
+		(run) => only === null || pickedCell(run.picked) === only,
 	);
 	const [shown, setShown] = useState<string | null>(null);
 	if (runs.length === 0) {
@@ -41,7 +42,7 @@ export function AutoPickLog({
 			<p className="text-muted-foreground text-sm">
 				{only === null
 					? "Nothing yet: the next task you start on Auto pick shows here."
-					: `No task has been picked by rule ${only + 1} yet.`}
+					: `No task has been picked for ${cellKeyLabel(only)} yet.`}
 			</p>
 		);
 	}
@@ -116,7 +117,7 @@ function Line({
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span className="truncate font-medium">{run.name}</span>
 					<span className="truncate text-muted-foreground">
-						{headline} · rule {picked.rule + 1}
+						{headline} · {cellKeyLabel(pickedCell(picked))}
 					</span>
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs">
@@ -159,14 +160,14 @@ function Line({
 							type="button"
 							variant="outline"
 							onClick={() => {
-								location.hash = ruleAddress(picked.rule);
+								location.hash = cellAddress(picked.kind, picked.depth);
 							}}
 						>
 							<PencilIcon data-icon="inline-start" />
-							Edit rule {picked.rule + 1}
+							Edit route
 						</Button>
 						<span className="text-muted-foreground">
-							Opens the routing rules below, set on it.
+							Opens the routes below, set on {cellKeyLabel(pickedCell(picked))}.
 						</span>
 					</div>
 				</div>

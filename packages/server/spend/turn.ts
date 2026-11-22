@@ -31,6 +31,7 @@ export const KINDS: Record<string, SpendKind> = {
 	claude: "equivalent",
 	codex: "equivalent",
 	kimi: "equivalent",
+	antigravity: "equivalent",
 	opencode: "billed",
 };
 

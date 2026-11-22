@@ -1,6 +1,11 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Snapshot } from "@splates/server/tasks";
-import { ArchiveIcon, FolderPlusIcon, InboxIcon } from "lucide-react";
+import {
+	ArchiveIcon,
+	FolderPlusIcon,
+	InboxIcon,
+	LoaderCircleIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ARCHIVED } from "./conversation-address";
@@ -11,8 +16,8 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
-import { useShipsWaiting } from "./use-ships-waiting";
-import { useArmedSignals } from "./use-signals";
+import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
+import { useSignalSubscribers } from "./use-signals";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -68,13 +73,18 @@ export function Drawer({
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	const [adding, setAdding] = useState(false);
 	const asking = useShipsWaiting().length;
-	const armedSignals = useArmedSignals();
+	const shipsRunning = useShipsRunning();
+	const signalSubscribers = useSignalSubscribers();
 	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}
 			current={navPage(page) === value}
-			{...(value === "ships" && { count: asking, urgent: true })}
-			{...(value === "signals" && { count: armedSignals })}
+			{...(value === "ships" && {
+				count: asking,
+				urgent: true,
+				running: shipsRunning,
+			})}
+			{...(value === "signals" && { count: signalSubscribers })}
 			onClick={() => go(value)}
 			icon={
 				<span className="relative flex">
@@ -152,6 +162,7 @@ function Entry({
 	label,
 	count = 0,
 	urgent = false,
+	running = false,
 }: {
 	current: boolean;
 	onClick: () => void;
@@ -160,6 +171,8 @@ function Entry({
 	count?: number;
 	/** Whether its count waits on you, and so stands out. */
 	urgent?: boolean;
+	/** Whether work under it runs, shown as a gray spinner. */
+	running?: boolean;
 }): JSX.Element {
 	return (
 		<button
@@ -173,6 +186,13 @@ function Entry({
 		>
 			{icon}
 			<span className="flex-1">{label}</span>
+			{running && (
+				<LoaderCircleIcon
+					role="status"
+					aria-label="a ship runs"
+					className="animate-spin"
+				/>
+			)}
 			{count > 0 && (
 				<span
 					className={cn(

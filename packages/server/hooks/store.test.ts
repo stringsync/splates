@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { callOf, STANDARD_SIGNAL_FUNCTIONS } from "../signals/call";
 import { MemoryStorage } from "../storage/testing";
 import { HookStore } from "./store";
 
@@ -34,7 +35,17 @@ describe("HookStore", () => {
 		expect((await hooks.read())[0]?.trigger).toEqual({
 			signal: "mdom.released",
 		});
-		await expect(hooks.add({ signal: "released" }, run)).rejects.toThrow();
+		expect(hooks.add({ signal: "released" }, run)).rejects.toThrow();
+	});
+
+	it("keeps a call on a signal function in its canonical spelling", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		const run = { kind: "run" as const, command: "x" };
+		await hooks.add({ signal: "clock.in( '2 days' )" }, run);
+		const [added] = await hooks.read();
+		expect(added?.trigger).toEqual({
+			signal: callOf('clock.in("2 days")', STANDARD_SIGNAL_FUNCTIONS).canonical,
+		});
 	});
 
 	it("names an automation, trims it, and clears it when edited blank", async () => {
@@ -150,6 +161,60 @@ describe("HookStore", () => {
 		expect((await hooks.read())[0]?.paused).toBe(true);
 		await hooks.pause("1", false);
 		expect((await hooks.read())[0]).not.toHaveProperty("paused");
+	});
+
+	it("records the signal function a call is on, and drops it when the trigger is no call of one", async () => {
+		const hooks = new HookStore(new MemoryStorage(), () => ({
+			"aws.ready": { args: {}, main: undefined } as never,
+		}));
+		await hooks.add({ signal: "aws.ready" }, { kind: "run", command: "x" });
+		await hooks.add({ signal: "mdom.released" }, { kind: "run", command: "x" });
+		await hooks.add(
+			{ signal: 'clock.in("2 days")' },
+			{ kind: "run", command: "x" },
+		);
+		expect((await hooks.read()).map(({ family }) => family)).toEqual([
+			"aws.ready",
+			undefined,
+			"clock.in",
+		]);
+		await hooks.edit(
+			"1",
+			{ signal: "mdom.released" },
+			{ kind: "run", command: "x" },
+		);
+		expect((await hooks.read())[0]).not.toHaveProperty("family");
+	});
+
+	it("pauses with a notice that resuming clears, and finishes one for good", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		await hooks.add({ signal: "mdom.released" }, { kind: "run", command: "x" });
+		await hooks.pause("1", true, "Source removed: signal expired");
+		expect((await hooks.read())[0]?.notice).toBe(
+			"Source removed: signal expired",
+		);
+		await hooks.pause("1", false);
+		expect((await hooks.read())[0]).not.toHaveProperty("notice");
+		await hooks.finish("1", "2026-11-19T09:00:00.000Z");
+		expect((await hooks.read())[0]?.finishedAt).toBe(
+			"2026-11-19T09:00:00.000Z",
+		);
+	});
+
+	it("resumes a paused-with-notice or finished one when its signal changes", async () => {
+		const hooks = new HookStore(new MemoryStorage());
+		const run = { kind: "run" as const, command: "x" };
+		await hooks.add({ signal: "mdom.released" }, run);
+		await hooks.pause("1", true, "Source removed: signal expired");
+		await hooks.edit("1", { signal: "mdom.released" }, run);
+		expect((await hooks.read())[0]?.paused).toBe(true);
+		await hooks.edit("1", { signal: "vexml.released" }, run);
+		const [each] = await hooks.read();
+		expect(each).not.toHaveProperty("paused");
+		expect(each).not.toHaveProperty("notice");
+		await hooks.finish("1", "2026-11-19T09:00:00.000Z");
+		await hooks.edit("1", { signal: 'clock.in("1 day")' }, run);
+		expect((await hooks.read())[0]).not.toHaveProperty("finishedAt");
 	});
 
 	it("edits one in place, keeping its number and pause, and stamps a changed trigger", async () => {

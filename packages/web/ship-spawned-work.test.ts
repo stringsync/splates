@@ -35,6 +35,18 @@ describe("spawnedWork", () => {
 		expect(work?.subject).toBe("The test step passes");
 	});
 
+	test("a fix's conversation is found even when it is archived", () => {
+		const [work] = spawnedWork({
+			run: run([step("test", { task: 7, at: 2_000 })]),
+			todos: [todo({ id: 7, takenBy: "fix-test" })],
+			conversations: [
+				conversation({ id: "c7", task: "fix-test", archived: true }),
+			],
+			needing: [],
+		});
+		expect(work?.conversation).toBe("c7");
+	});
+
 	test("a ship's own task whose agent asks shows its question and conversation", () => {
 		const talk = conversation({
 			id: "c9",

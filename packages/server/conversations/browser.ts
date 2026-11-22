@@ -7,6 +7,7 @@
 // The index brings in the server, agent processes and `bun:` modules with it,
 // so these are re-exported from the files that bring in none.
 
+export { eventWaitOf } from "./event-wait";
 export { paused, textOf } from "./messages";
 export {
 	grooms,

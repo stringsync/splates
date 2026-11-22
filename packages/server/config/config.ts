@@ -1,5 +1,6 @@
 import type { TaskEventName } from "../hooks";
 import type { ReplicaPlace } from "../replica";
+import type { SignalFunction } from "../signals/call";
 import type { TunnelProvider } from "../tunnel";
 
 export interface Config {
@@ -202,15 +203,6 @@ export interface Config {
 	 */
 	shared: string[];
 	/**
-	 * How tasks are grouped by free labels, as
-	 * `{ allowed: ["web", "infra"], required: true }`. With `allowed`, a task
-	 * may carry only those, and one added from a folder named for an allowed
-	 * tag gets it by default; with `required`, a new task needs at least one.
-	 * Tags group tasks without making them projects: ships, queues and the
-	 * merge gate ignore them. Null allows any tag and requires none.
-	 */
-	tags: TagsConfig | null;
-	/**
 	 * What the Rec page offers to record beside the page, as
 	 * `{ logs: [{ name: "api", command: "bin/logs api --since {since} --until {until}" }] }`:
 	 * each a log that lives somewhere rec cannot follow (a cloud service, a
@@ -218,6 +210,14 @@ export interface Config {
 	 * recording's window. Null offers none.
 	 */
 	rec: RecConfig | null;
+	/**
+	 * Signal functions this project declares, each as `{ description, args, main,
+	 * examples, poll }`: `args` are fields as `{ type, description, optional }`,
+	 * `main` the field a plain value maps to, `poll` a `{ interval, script }` run
+	 * with the arguments as JSON in `$SPLATES_ARGS` while something waits. The
+	 * prefixes clock., task. and machine. are reserved.
+	 */
+	signals: Record<string, SignalFunction>;
 }
 
 /** What the Rec page offers to record (`rec` in `splates.config.ts`). */
@@ -242,20 +242,6 @@ export interface RecLogSource {
 	zone?: "utc" | "local";
 	/** What the page calls it; the name when absent. */
 	label?: string;
-}
-
-/** The tags a project's tasks may carry (`tags` in `splates.config.ts`). */
-export interface TagsConfig {
-	/** The only tags a task may carry, lowercase with dashes; any tag when absent. */
-	allowed?: string[];
-	/** Whether a new task needs a tag; false when absent. */
-	required?: boolean;
-	/**
-	 * A color for a tag's chips, by tag, as `{ splates: "indigo" }`: one of
-	 * red, orange, amber, green, teal, blue, indigo, violet, pink or gray. A
-	 * tag with none, or one this does not know, gets a neutral chip.
-	 */
-	colors?: Record<string, string>;
 }
 
 /** A project inside a repository: its paths, and the ship settings it overrides. */

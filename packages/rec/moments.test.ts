@@ -258,3 +258,29 @@ function fakeJev(
 }
 
 const noul = (value: number): Answer => ({ type: "noul", noul: value });
+
+test("a ranked moment links a nearby structural capture without replacing its screenshot", async () => {
+	const result = await buildMoments({
+		transcript: transcript([]),
+		signals: [signal(10, "mark", "events")],
+		events: [
+			{
+				at: T0 + 10_000,
+				type: "mark",
+				label: "broken",
+				still: "frames/mark.jpg",
+			},
+			{
+				at: T0 + 10_020,
+				type: "snapshot",
+				structure: "snapshots/0001.json",
+				still: "frames/snapshot.jpg",
+			},
+		],
+	});
+	expect(result.moments[0]?.structure).toBe("snapshots/0001.json");
+	expect(result.moments[0]?.still).toBe("frames/mark.jpg");
+	const report = renderMoments(result, T0);
+	expect(report).toContain("snapshots/0001.json");
+	expect(report).toContain("frames/mark.jpg");
+});

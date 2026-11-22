@@ -12,6 +12,7 @@ import { MicChoice } from "./mic-choice";
 import { MIC_PAGE } from "./mic-page";
 import { OPEN_PAGE } from "./open-page";
 import { openSidePanel } from "./open-panel";
+import { SNAPSHOTS_DIR } from "./page-snapshot";
 import { EVENTS_FILE, FRAMES_DIR, PointerEvents } from "./pointer";
 import {
 	packFrame,
@@ -400,6 +401,7 @@ export class RecorderServer {
 				events: EVENTS_FILE,
 				moments: MOMENTS_JSONL,
 				frames: FRAMES_DIR,
+				structure: SNAPSHOTS_DIR,
 				...run.extra?.files,
 			},
 		);

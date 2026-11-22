@@ -323,21 +323,6 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.state.reminders).toHaveLength(3);
 	});
 
-	it("reminds again after a progress card appears", async () => {
-		const conversation = await started();
-		await conversation.visit(CARD);
-		clock.advance(Duration.hrs(1));
-		await conversation.visit(CARD);
-		clock.advance(Duration.mins(1));
-		conversation.reportProgress({ id: "import", title: "Import", percent: 10 });
-		clock.advance(Duration.hrs(1));
-		await conversation.visit(CARD);
-		expect(conversation.state.reminders).toHaveLength(2);
-		clock.advance(Duration.hrs(1));
-		await conversation.visit(CARD);
-		expect(conversation.state.reminders).toHaveLength(2);
-	});
-
 	it("does not remind one who stayed, past when the log last kept a visit", async () => {
 		const conversation = await started();
 		await conversation.visit(CARD);

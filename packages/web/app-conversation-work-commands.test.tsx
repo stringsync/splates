@@ -31,7 +31,9 @@ describe("App's work row commands", () => {
 	/** Each row's line, as it reads folded. */
 	const lines = (list: Element) =>
 		[...list.children].map(
-			(row) => (row.querySelector("summary") ?? row).textContent,
+			(row) =>
+				(row.querySelector("[data-slot=collapsible-trigger]") ?? row)
+					.textContent,
 		);
 
 	it("says what each call does while it runs, and what it did once done", async () => {
@@ -93,13 +95,17 @@ describe("App's work row commands", () => {
 			);
 		const thread = await opened(command("Starting\n"));
 		const timeline = await waitFor(() => workTimeline(thread));
-		const details = timeline.querySelector("details") as HTMLDetailsElement;
+		const details = timeline.querySelector(
+			"[data-slot=collapsible]",
+		) as HTMLElement;
 		toggle(details, true);
 		const output = within(details).getByRole("region", { name: "output" });
 		expect(thread.textContent).not.toContain("Exit code:");
 		await testing.say(command("Starting\n1 pass\n"));
 		await waitFor(() => expect(output.textContent).toContain("1 pass"));
-		expect(details.open).toBe(true);
+		expect(details.querySelector("button")?.getAttribute("aria-expanded")).toBe(
+			"true",
+		);
 		await testing.say(command("Starting\n1 pass\n", 0));
 		await waitFor(() => expect(thread.textContent).toContain("Exit code: 0"));
 		expect(output.textContent).toContain("1 pass");
@@ -192,10 +198,12 @@ describe("App's work row commands", () => {
 
 		const timeline = await waitFor(() => workTimeline(thread));
 		const [read, command] = within(timeline).getAllByRole("listitem");
-		expect(read?.querySelector("details")).toBeNull();
+		expect(read?.querySelector("[data-slot=collapsible]")).toBeNull();
 		expect(read?.querySelector(".lucide-chevron-right")).toBeNull();
 		expect(
-			command?.querySelector("summary .lucide-chevron-right"),
+			command?.querySelector(
+				"[data-slot=collapsible-trigger] .lucide-chevron-right",
+			),
 		).not.toBeNull();
 	});
 
@@ -221,6 +229,10 @@ describe("App's work row commands", () => {
 		expect(within(warnings).getAllByRole("listitem")[0]?.textContent).toContain(
 			"Stashed changes and left them there · Changed 1 file in the main tree",
 		);
+		const flag = warnings.querySelector<HTMLElement>(
+			"[data-slot=collapsible]",
+		) as HTMLElement;
+		toggle(flag, true);
 		expect(warnings.textContent).toContain(
 			"$ git stash && cd /repo && touch stray.txt",
 		);
@@ -277,9 +289,9 @@ describe("App's work row commands", () => {
 			"Deniedgit push",
 			"Dismisseddeploy",
 		]);
-		expect(decisions.every((row) => row.closest("details") === null)).toBe(
-			true,
-		);
+		expect(
+			decisions.every((row) => row.closest("[data-slot=collapsible]") === null),
+		).toBe(true);
 	});
 
 	it("marks a command the agent never finished as stopped once its turn is over", async () => {
@@ -317,7 +329,7 @@ describe("App's work row commands", () => {
 		const row = await waitFor(() =>
 			within(workTimeline(thread)).getByText("×3"),
 		);
-		const command = row.closest("details") as HTMLDetailsElement;
+		const command = row.closest("[data-slot=collapsible]") as HTMLElement;
 		// A folded card builds its output only once opened, and keeps it after.
 		expect(within(command).queryByLabelText("output")).toBeNull();
 		toggle(command, true);
@@ -375,7 +387,7 @@ describe("App's work row commands", () => {
 			["/tmp/c.ts", "c.ts"],
 		]);
 		const first = within(timeline).getAllByRole("listitem")[0] as HTMLElement;
-		toggle(first.querySelector("details") as HTMLDetailsElement, true);
+		toggle(first.querySelector("[data-slot=collapsible]") as HTMLElement, true);
 		expect(
 			within(first)
 				.getAllByLabelText("edit to /repo/src/a.ts")

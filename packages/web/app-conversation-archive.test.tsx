@@ -138,6 +138,46 @@ describe("App's archiving conversations", () => {
 		]);
 	});
 
+	it("asks before archiving a conversation waiting on a signal", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					status: "idle",
+					signals: [
+						{
+							id: "w",
+							name: "mdom.released",
+							description: "mdom",
+							state: "waiting",
+							startedAt: new Date().toISOString(),
+							deadline: new Date(Date.now() + 3_600_000).toISOString(),
+							since: null,
+						},
+					],
+				}),
+			],
+			null,
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /^Archive / }),
+			),
+		);
+		const dialog = view.getByRole("dialog", { name: /^Archive .*\?$/ });
+		expect(dialog.textContent).toContain("waiting on mdom.released");
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+		);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
 	it("asks before archiving the conversation that last took a task with unmerged changes, and removes the task before archiving it", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", status: "stopped" })],

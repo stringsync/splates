@@ -1,27 +1,29 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
-import type { SignalWait } from "@splates/server/signals";
+import type { SignalProbe, SignalWait } from "@splates/server/signals";
 import {
-	BanIcon,
-	CheckIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
+	type LucideIcon,
 	RadioIcon,
 	TimerOffIcon,
+	TriangleAlertIcon,
 } from "lucide-react";
-import { createContext, type JSX, useContext, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { CardBody, CardShell, type Tone } from "./card-shell";
-import { stopSignalWait } from "./conversation-api";
+import { type JSX, useContext, useEffect, useState } from "react";
+import { buttonVariants } from "#web/components/ui/button.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { useNow } from "./hooks/use-now";
-import { PendingSpinner, useShowPending } from "./pending";
-import { Refusal, useRefusal } from "./refusal";
-import { timeLeft, waitOf } from "./signal-of";
+import { probeBroken, probeOn } from "./probe-checks";
+import {
+	IN_VIEW,
+	ProbeCards,
+	SignalSight,
+	SignalWaits,
+} from "./signal-contexts";
+import { countdown, lasted, probeFor, waitOf } from "./signal-of";
+import { namespaceOf } from "./signal-summary";
+import { SplatesEvent } from "./splates-event";
 
-/** The conversation's id and signal waits, so `SignalUI` can draw each in the thread. */
-export const SignalWaits = createContext<{
-	conversation: string | null;
-	waits: readonly SignalWait[];
-}>({ conversation: null, waits: [] });
+export { SignalWaits } from "./signal-contexts";
 
 /** Renders a `data-signal` part: the one card of a wait, which follows it to its end. */
 export const SignalUI = makeAssistantDataUI<{ id: string }>({
@@ -29,137 +31,214 @@ export const SignalUI = makeAssistantDataUI<{ id: string }>({
 	render: ({ data }) => <SignalLine id={data.id} />,
 });
 
-const LOOK: Record<
-	SignalWait["state"],
-	{ Icon: typeof RadioIcon; tone: Tone; header: (name: string) => string }
-> = {
-	waiting: {
-		Icon: RadioIcon,
-		tone: "info",
-		header: (name) => `Waiting on ${name}`,
-	},
-	raised: {
-		Icon: CircleCheckIcon,
-		tone: "success",
-		header: (name) => `${name} raised`,
-	},
-	"timed out": {
-		Icon: TimerOffIcon,
-		tone: "warning",
-		header: (name) => `${name} timed out`,
-	},
-	stopped: {
-		Icon: CircleSlashIcon,
-		tone: "neutral",
-		header: (name) => `Stopped waiting on ${name}`,
-	},
-};
-
 /**
- * One signal wait as one card, which follows it to its end. The header says
- * its state, the body says what the agent waits for, and the foot offers Stop
- * waiting while it waits, then says how it ended.
+ * One signal wait as an event line, like the thread's other events: the
+ * signal's chip between two hairlines, saying the agent waits for it, with
+ * how many times it has polled and its time left. A broken check marks it failed; once it ends it
+ * says how and after how long.
  */
 export function SignalCard({
 	wait,
-	conversation,
+	probe = null,
 }: {
 	wait: SignalWait;
-	conversation: string | null;
+	probe?: SignalProbe | null;
 }): JSX.Element {
-	const { Icon, tone, header } = LOOK[wait.state];
+	const [line, setLine] = useState<HTMLElement | null>(null);
+	useLineInSight(line, wait.id);
 	const waiting = wait.state === "waiting";
 	const now = useNow(waiting);
-	const { refusal, attempt } = useRefusal();
-	const [busy, setBusy] = useState(false);
-	const showBusy = useShowPending(busy);
-	const stop = (): void => {
-		if (conversation === null) {
-			return;
-		}
-		setBusy(true);
-		void attempt(
-			stopSignalWait(conversation, wait.id).finally(() => setBusy(false)),
-			"Not stopped",
-		);
-	};
-	const meta = waiting
-		? wait.since === null
-			? null
-			: `Accepts raises since ${new Date(wait.since).toLocaleString()}`
-		: wait.state === "raised" && wait.raise !== undefined
-			? `Raised by ${wait.raise.by}, ${new Date(wait.raise.at).toLocaleTimeString()}`
-			: wait.state === "timed out"
-				? "Nothing was raised before its timeout"
-				: "Stopped before anything was raised";
-	const payload = wait.raise?.payload ?? null;
+	const broken = waiting && probe !== null && probeBroken(probe);
+	const count = waiting && probe !== null ? polls(probe) : null;
+	const detail = waiting
+		? [
+				count === null ? null : `${count} ${count === 1 ? "poll" : "polls"}`,
+				`${countdown(wait.deadline, now)} left`,
+			]
+				.filter((part) => part !== null)
+				.join(" · ")
+		: ended(wait);
+	const named = { kind: "signal", name: wait.name } as const;
 	return (
-		<CardShell
-			label={`signal ${wait.name}`}
-			Icon={Icon}
-			title={header(wait.name)}
-			tone={tone}
-			ringed={false}
-			aside={
-				waiting ? (
-					<span className="text-muted-foreground text-xs">
-						times out in {timeLeft(wait.deadline, now)}
-					</span>
-				) : undefined
-			}
-		>
-			<CardBody text={wait.description} />
-			{meta !== null && (
-				<p className="px-4 pb-3 text-muted-foreground text-xs">{meta}</p>
-			)}
-			{payload !== null && (
-				<pre className="mx-4 mb-3 overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs">
-					{JSON.stringify(payload, null, 2)}
-				</pre>
-			)}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
-				{waiting ? (
-					<Button
-						size="sm"
-						variant="outline"
-						disabled={conversation === null || busy}
-						onClick={stop}
-						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-					>
-						{busy && showBusy ? (
-							<PendingSpinner shown />
-						) : (
-							<BanIcon data-icon="inline-start" />
-						)}
-						Stop waiting
-					</Button>
-				) : (
-					<span className="flex items-center gap-1 text-xs">
-						{wait.state === "raised" ? (
-							<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
-						) : wait.state === "timed out" ? (
-							<TimerOffIcon className="size-3.5" />
-						) : (
-							<BanIcon className="size-3.5" />
-						)}
-						{wait.state === "raised"
-							? "Raised"
-							: wait.state === "timed out"
-								? "Timed out"
-								: "Stopped"}
-					</span>
-				)}
-			</div>
-			<Refusal refusal={refusal} />
-		</CardShell>
+		<div ref={setLine} data-card>
+			<SplatesEvent
+				event={{
+					mark:
+						broken || wait.state === "timed out"
+							? "failed"
+							: wait.state === "raised"
+								? "landed"
+								: null,
+					words: broken
+						? ["Check failing for", named, detail]
+						: waiting
+							? ["Waiting for", named, detail]
+							: ["Signal", named, detail],
+					title: wait.reason,
+				}}
+			/>
+		</div>
 	);
 }
 
+/**
+ * One signal wait as a bar to put above the composer, in the look of the
+ * thread's other bars: it names the signal, says the agent waits for it, and
+ * counts the polls so far and the time left, ending in a View button to the signal on the Signals
+ * page. `more` counts the other live waits it stands in for.
+ */
+export function SignalBar({
+	wait,
+	probe = null,
+	more = 0,
+}: {
+	wait: SignalWait;
+	probe?: SignalProbe | null;
+	more?: number;
+}): JSX.Element {
+	const waiting = wait.state === "waiting";
+	const now = useNow(waiting);
+	const broken = waiting && probe !== null && probeBroken(probe);
+	const { Icon, tone } = broken ? BROKEN : LOOK[wait.state];
+	const { namespace, leaf } = namespaceOf(wait.name);
+	return (
+		<section
+			data-card
+			className="@container relative flex items-center gap-3 overflow-hidden rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
+		>
+			<Icon className={cn("size-4 shrink-0", tone)} />
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="flex items-center gap-2">
+					<span
+						title={`signal ${wait.name}`}
+						className="flex min-w-0 items-baseline font-mono text-sm"
+					>
+						{namespace !== leaf && (
+							<span className="min-w-0 truncate text-muted-foreground">
+								{namespace}.
+							</span>
+						)}
+						<span className="shrink-0">{leaf}</span>
+					</span>
+					{more > 0 && (
+						<span className="shrink-0 text-muted-foreground text-xs">
+							+{more}
+						</span>
+					)}
+					{waiting && (
+						<span
+							className={cn(
+								"shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-[11px]",
+								broken ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
+							)}
+						>
+							{broken ? "Check failing" : "Waiting"}
+						</span>
+					)}
+				</span>
+				{wait.description !== "" && (
+					<span className="truncate text-muted-foreground text-xs">
+						{wait.description}
+					</span>
+				)}
+			</span>
+			<span
+				className={cn(
+					"hidden shrink-0 text-xs tabular-nums @min-[32rem]:block",
+					broken ? "text-warning" : "text-muted-foreground",
+				)}
+				title={wait.reason}
+			>
+				{waiting ? left(wait, probe, now) : ended(wait)}
+			</span>
+			<a
+				href={`#signals/${encodeURIComponent(wait.name)}`}
+				aria-label={`View signal ${wait.name}`}
+				className={cn(
+					buttonVariants({ size: "sm", variant: "outline" }),
+					"bg-background",
+				)}
+			>
+				View
+			</a>
+		</section>
+	);
+}
+
+/** Tells the thread's `SignalSight` whether `line`, a wait's line, shows enough of itself to stand in for the bar. */
+function useLineInSight(line: HTMLElement | null, id: string): void {
+	const sight = useContext(SignalSight)?.sight;
+	useEffect(() => {
+		if (line === null || sight === undefined) {
+			return;
+		}
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const latest = entries.at(-1);
+				if (latest !== undefined) {
+					sight(id, latest.intersectionRatio >= IN_VIEW);
+				}
+			},
+			{ threshold: IN_VIEW },
+		);
+		observer.observe(line);
+		return () => {
+			observer.disconnect();
+			sight(id, false);
+		};
+	}, [line, id, sight]);
+}
+
+const LOOK: Record<SignalWait["state"], { Icon: LucideIcon; tone: string }> = {
+	waiting: { Icon: RadioIcon, tone: "text-info" },
+	raised: { Icon: CircleCheckIcon, tone: "text-success" },
+	"timed out": { Icon: TimerOffIcon, tone: "text-warning" },
+	stopped: { Icon: CircleSlashIcon, tone: "text-muted-foreground" },
+	removed: { Icon: CircleSlashIcon, tone: "text-muted-foreground" },
+};
+
+const BROKEN = { Icon: TriangleAlertIcon, tone: "text-warning" };
+
+/** What a waiting wait has left: its probe's polls so far, when one checks for it, and its time. */
+function left(
+	wait: SignalWait,
+	probe: SignalProbe | null,
+	now: number,
+): string {
+	if (wait.deadline === "") {
+		return "no deadline";
+	}
+	const time = `${countdown(wait.deadline, now)} left`;
+	const count = probe === null ? null : polls(probe);
+	return count === null
+		? time
+		: `${count} ${count === 1 ? "poll" : "polls"} · ${time}`;
+}
+
+/** How many times a probe has polled so far; null once it has stopped. */
+export function polls(probe: SignalProbe): number | null {
+	return probeOn(probe) ? probe.count : null;
+}
+
+/** How an ended wait ended, and after how long. */
+function ended(wait: SignalWait): string {
+	const end = wait.raise?.at ?? wait.endedAt ?? wait.deadline;
+	const took = lasted(wait.startedAt, end);
+	return wait.state === "raised"
+		? `fired after ${took}`
+		: wait.state === "timed out"
+			? `timed out after ${took}`
+			: wait.state === "removed"
+				? "signal removed"
+				: "stopped";
+}
+
 function SignalLine({ id }: { id: string }): JSX.Element | null {
-	const { conversation, waits } = useContext(SignalWaits);
+	const { waits } = useContext(SignalWaits);
+	const probes = useContext(ProbeCards);
 	const wait = waits.find((each) => each.id === waitOf(id));
 	if (wait === undefined) {
 		return null;
 	}
-	return <SignalCard wait={wait} conversation={conversation} />;
+	return <SignalCard wait={wait} probe={probeFor(wait, probes)} />;
 }

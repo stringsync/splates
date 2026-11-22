@@ -22,7 +22,7 @@ import { ElsewhereMention } from "./markdown";
 import { Refusal } from "./refusal";
 
 /** What a task blocker's stage says to the person, once not cleared. */
-const TASK_STATUS: Record<string, string> = {
+export const TASK_STATUS: Record<string, string> = {
 	available: "available",
 	queued: "queued",
 	working: "being worked on",
@@ -55,191 +55,6 @@ export function blockersLeft(
 	return deferralBlockers(task, board, elsewhere?.blockers[task.id]).filter(
 		(each) => !cleared(each),
 	).length;
-}
-
-/**
- * The body of a Blocked card, built from the board record of the blocked
- * task: why it stopped, a row for each task it waits on with where it stands
- * and a button to queue or unqueue it, a row to add another, and Queue all.
- * Blockers are named by task number, so what the board shows of one, its
- * name, lane or stage, is read live. Each action shows at once and is
- * undone, with the refusal said, if the server refuses it. The questions
- * and outside to-dos an older deferral recorded are listed apart, read-only.
- */
-export function DeferredBody({
-	task,
-}: {
-	task: TaskRecord;
-}): JSX.Element | null {
-	const board = useContext(Board);
-	const { refusal, attempt, pending, act } = useActs();
-	const expect = useExpectSnapshot();
-	const deferred = task.deferred;
-	if (deferred === undefined) {
-		return null;
-	}
-	const all = deferralBlockers(
-		task,
-		board.todos,
-		board.elsewhere?.blockers[task.id],
-	);
-	const blockers = all.filter((each) => each.kind === "task");
-	const legacy = all.filter((each) => each.kind !== "task" && !cleared(each));
-	const left = blockers.filter((each) => !cleared(each)).length;
-	const unqueued = blockers.filter(
-		(each) => each.project === undefined && each.status === "available",
-	);
-	const held = [...task.blockedBy];
-	return (
-		<div className="flex flex-col text-sm">
-			<div className="flex flex-col gap-1 px-4 py-3 @max-md:px-3 @max-md:py-2.5">
-				<p className="leading-relaxed">{deferred.why}</p>
-				<p className="text-muted-foreground text-xs">
-					{task.takenBy !== null ? (
-						<>
-							Started in{" "}
-							<button
-								type="button"
-								className="underline"
-								onClick={() => board.openTask(task.takenBy as string)}
-							>
-								{task.takenBy}
-							</button>
-						</>
-					) : left > 0 ? (
-						`${left} of ${blockers.length} left · wakes on its own when every blocker merges`
-					) : (
-						"Every blocker is done"
-					)}
-				</p>
-			</div>
-			<ol aria-label="blockers" className="flex flex-col">
-				{blockers.map((blocker) => {
-					const key = `task:${blocker.id}`;
-					const done = cleared(blocker);
-					const status = blocker.status;
-					return (
-						<li
-							key={key}
-							className={cn(
-								"flex items-center gap-3 border-foreground/10 border-t px-4 py-2.5 @max-md:px-3",
-								done && "opacity-60",
-							)}
-						>
-							<div className="flex min-w-0 flex-1 flex-col">
-								{blocker.project !== undefined ? (
-									<span className="flex flex-wrap items-center gap-2">
-										<ElsewhereMention
-											project={
-												blocker.slug ??
-												blocker.project.split("/").filter(Boolean).at(-1) ??
-												blocker.project
-											}
-											id={blocker.id}
-										/>
-										<span>{blocker.subject}</span>
-									</span>
-								) : (
-									<button
-										type="button"
-										onClick={() => board.open(blocker.id)}
-										className="cursor-pointer text-left hover:underline"
-									>
-										<span className="font-medium tabular-nums">
-											#{blocker.id}
-										</span>{" "}
-										{board.todos.find((each) => each.id === blocker.id)
-											?.subject ?? blocker.subject}
-									</button>
-								)}
-								<span className="flex items-center gap-1 text-muted-foreground text-xs">
-									{done && (
-										<CheckIcon
-											aria-label="cleared"
-											className="size-3 text-success"
-											strokeWidth={3}
-										/>
-									)}
-									{TASK_STATUS[status] ?? status}
-								</span>
-							</div>
-							{blocker.project === undefined &&
-								(status === "available" || status === "queued") && (
-									<Button
-										size="sm"
-										variant={status === "available" ? "default" : "outline"}
-										disabled={pending.has(key)}
-										onClick={() =>
-											void act(key, () =>
-												queueTodo(blocker.id, status === "available"),
-											)
-										}
-									>
-										{status === "available" ? "Queue" : "Unqueue"}
-									</Button>
-								)}
-						</li>
-					);
-				})}
-			</ol>
-			{legacy.length > 0 && (
-				<ul
-					aria-label="older notes"
-					className="flex flex-col gap-1 border-foreground/10 border-t px-4 py-2.5 text-muted-foreground text-xs @max-md:px-3"
-				>
-					{legacy.map((blocker) => (
-						<li
-							key={`${blocker.kind}:${blocker.kind === "question" ? blocker.text : blocker.kind === "outside" ? blocker.what : ""}`}
-						>
-							{blocker.kind === "question"
-								? blocker.text.split("\n")[0]
-								: blocker.kind === "outside"
-									? blocker.what
-									: ""}
-						</li>
-					))}
-				</ul>
-			)}
-			<div className="flex flex-wrap items-center gap-2 border-foreground/10 border-t bg-muted/40 px-4 py-2 @max-md:px-3">
-				{task.takenBy === null && (
-					<TodoPicker
-						label="Add blocker"
-						exclude={[task.id, ...task.blockedBy]}
-						loops={(other) => cycle(board.todos, task.id, other.id)}
-						onPick={(other) =>
-							void attempt(
-								expect(
-									linked(task.id, [...held, other.id]),
-									linkTodo(task.id, [...held, other.id]),
-								),
-								"Not linked",
-							)
-						}
-					>
-						<LinkIcon />
-						Add blocker
-					</TodoPicker>
-				)}
-				{unqueued.length > 0 && (
-					<Button
-						size="sm"
-						className="ms-auto"
-						disabled={pending.has("all")}
-						onClick={() =>
-							void act("all", async () => {
-								for (const each of unqueued) {
-									await queueTodo(each.id, true);
-								}
-							})
-						}
-					>
-						Queue all ({unqueued.length})
-					</Button>
-				)}
-			</div>
-			<Refusal refusal={refusal} className="px-4 pb-2" />
-		</div>
-	);
 }
 
 /**
@@ -335,7 +150,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
  * The tasks `task` waits on, linked by hand rather than named by a
  * deferral, with where each stands: those still open, then those landed.
  */
-function linkedBlockers(
+export function linkedBlockers(
 	task: TaskRecord,
 	board: readonly TaskRecord[],
 ): Extract<DeferralBlocker, { kind: "task" }>[] {
@@ -346,7 +161,10 @@ function linkedBlockers(
 				? "removed"
 				: other.takenBy !== null || other.stage === "running"
 					? "working"
-					: other.stage;
+					: // A task closing on a signal waits on it, never on a queue press.
+						other.closesOn !== undefined
+						? "queued"
+						: other.stage;
 		return {
 			kind: "task" as const,
 			id,

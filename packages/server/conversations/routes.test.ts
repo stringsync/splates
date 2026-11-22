@@ -332,6 +332,23 @@ describe("dev conversations", () => {
 		},
 	);
 
+	it("serves a page with a selection report only when asked with ?select", async () => {
+		const { id, conversation } = await opened();
+		await conversation.artifacts.add({
+			name: "plan.html",
+			mimeType: "text/html",
+			bytes: new TextEncoder().encode("<body><p>plan</p></body>"),
+		});
+		const base = `/api/conversations/${id}/artifacts/plan.html/1`;
+		const plain = await (await get(port, base)).text();
+		const asked = await (await get(port, `${base}?select`)).text();
+
+		expect(plain).toBe("<body><p>plan</p></body>");
+		expect(asked).toContain("<p>plan</p><script>");
+		expect(asked).toContain('splates:"selection"');
+		expect(asked.endsWith("</body>")).toBe(true);
+	});
+
 	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {
 		const { id, conversation } = await opened();
 		const encoder = new TextEncoder();

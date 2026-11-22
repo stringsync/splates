@@ -183,6 +183,12 @@ export interface Question {
 	 * Null without choices.
 	 */
 	pick: "one" | "any" | "order" | null;
+	/**
+	 * An approval question's plan page: the name of the HTML artifact its
+	 * `Plan: <name>` line names, kept out of `body`, or null for an approval
+	 * question with none. Absent from any other question.
+	 */
+	plan?: string | null;
 }
 
 /** One answer a question offers: `- (b) Migrate on next login`. */

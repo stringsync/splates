@@ -41,6 +41,44 @@ describe("ShipFixes", () => {
 		expect(desk.added).toHaveLength(1);
 	});
 
+	it("sends a target's recap to an agent once, with its flagged steps and slow ones against their usual time", async () => {
+		const { fixes, desk } = await failed();
+		const { task, state } = await fixes.sendTarget("0", "lib", {
+			test: 500,
+		});
+		expect(task).toBe(7);
+		expect(desk.started).toEqual([7]);
+		expect(state.targets[0]?.recap).toEqual({ task: 7, at: 1000 });
+		const [added] = desk.added;
+		expect(added?.subject).toContain("lib");
+		expect(added?.text).toContain("npm said 403");
+		expect(added?.text).toContain("still failing");
+		expect(added?.text).toContain("against the usual");
+		expect(added?.text).toContain(
+			"splates ships show 0 --target lib --step publish",
+		);
+		expect(fixes.sendTarget("0", "lib", {})).rejects.toThrow(
+			"already with an agent, as task #7",
+		);
+		expect(desk.added).toHaveLength(1);
+	});
+
+	it("refuses a recap target with nothing flagged", async () => {
+		const { fixes, desk } = await failed();
+		await fixes.send("0", "lib", "publish");
+		desk.added.length = 0;
+		const clean = setup();
+		clean.processes.done_.set("lib/skip", true);
+		await clean.engine.start([lib]);
+		(await clean.processes.started("lib/test")).exit(0);
+		(await clean.processes.started("lib/publish")).exit(0);
+		await until(async () => (await clean.engine.get("0"))?.status === "done");
+		expect(clean.fixes.sendTarget("0", "lib", {})).rejects.toThrow(
+			"nothing flagged",
+		);
+		expect(clean.desk.added).toHaveLength(0);
+	});
+
 	it("retries the step by itself once its fix merges, and the ship carries on", async () => {
 		const { fixes, desk, engine, processes, storage } = await failed();
 		await fixes.send("0", "lib", "publish");
@@ -53,6 +91,8 @@ describe("ShipFixes", () => {
 		const step = stepOf(await engine.get("0"), "lib/publish");
 		expect(step.fix).toEqual({ task: 7, at: 1000, ended: "merged" });
 		expect(step.retries).toBe(1);
+		expect(step.error).toBeUndefined();
+		expect(step.failure).toEqual(expect.any(String));
 		expect(
 			(await events(storage)).filter(
 				(each) => each.type === "fixed" || each.type === "retried",
@@ -91,6 +131,56 @@ describe("ShipFixes", () => {
 		);
 		desk.next = 8;
 		expect((await fixes.send("0", "lib", "publish")).task).toBe(8);
+	});
+
+	it("tries the step once itself when its agent ends without taking the task, keeping what it said", async () => {
+		const { fixes, engine, processes } = await failed();
+		await fixes.send("0", "lib", "publish");
+		await fixes.abandoned(7, "Nothing to fix: ship it to staging first.");
+		const step = stepOf(await engine.get("0"), "lib/publish");
+		expect(step.fix).toEqual({
+			task: 7,
+			at: 1000,
+			ended: "abandoned",
+			note: "Nothing to fix: ship it to staging first.",
+		});
+		expect(step.retries).toBe(1);
+		await processes.started("lib/publish");
+		(await processes.started("lib/publish")).exit(0);
+		await until(async () => (await engine.get("0"))?.status === "done");
+	});
+
+	it("sends no new fix when the step fails again after its abandoned fix was tried once", async () => {
+		const { fixes, engine, processes, desk } = await failed();
+		await fixes.send("0", "lib", "publish");
+		await fixes.abandoned(7, "Nothing to fix.");
+		desk.next = 8;
+		(await processes.started("lib/publish")).exit(1);
+		await until(
+			async () =>
+				stepOf(await engine.get("0"), "lib/publish").status === "failed",
+		);
+		await fixes.settle();
+		const step = stepOf(await engine.get("0"), "lib/publish");
+		expect(step.fix?.task).toBe(7);
+		expect(step.handedBack).toBe(true);
+	});
+
+	it("keeps a fix that merged on a stopped run once, retrying nothing", async () => {
+		const { fixes, desk, engine, storage } = await failed();
+		await fixes.send("0", "lib", "publish");
+		await engine.stop("0");
+		desk.endings.set(7, "merged");
+		await fixes.settle();
+		await fixes.settle();
+		const state = await engine.get("0");
+		expect(state?.status).toBe("stopped");
+		expect(stepOf(state, "lib/publish").fix?.ended).toBe("merged");
+		expect(
+			(await events(storage)).filter(
+				(each) => each.type === "fixed" || each.type === "retried",
+			),
+		).toHaveLength(1);
 	});
 
 	it("retries a fix that merged while the server was down", async () => {
@@ -157,6 +247,31 @@ describe("ShipFixes", () => {
 		await Bun.sleep(20);
 		expect(desk.started).toEqual([7]);
 		expect(stepOf(await engine.get("0"), "lib/publish").status).toBe("failed");
+	});
+
+	it("sends one fix at a time when several steps fail together", async () => {
+		const made = setup();
+		made.engine.listen((_, state) => made.fixes.changed(state));
+		const wide: RunTarget = {
+			name: "wide",
+			command: "bin/wide ship",
+			bump: "patch",
+			dependencies: [],
+			steps: [
+				{ id: "a", does: "A" },
+				{ id: "b", does: "B" },
+				{ id: "c", does: "C" },
+			],
+		};
+		await made.engine.start([wide], { budget: 5 });
+		(await made.processes.started("wide/a")).exit(1);
+		(await made.processes.started("wide/b")).exit(1);
+		(await made.processes.started("wide/c")).exit(1);
+		await until(async () => (await made.engine.get("0"))?.status === "failed");
+		await until(() => made.desk.started.length >= 1);
+		await Bun.sleep(30);
+		expect(made.desk.started).toEqual([7]);
+		expect((await made.engine.get("0"))?.supervise?.spent).toBe(1);
 	});
 
 	it("sends a failed step at once when the user supervises a run", async () => {

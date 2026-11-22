@@ -7,6 +7,7 @@ import type { Log, Storage } from "../storage";
 import { eventOfLine } from "./line-event";
 import { RunError } from "./run-error";
 import {
+	type Prompt,
 	RUN_EVENT,
 	type RunEvent,
 	type RunTarget,
@@ -24,67 +25,6 @@ import type { DoneAnswer, RunningStep, StepProcesses } from "./step-processes";
 
 /** Read a ship run's file at `${RUNS}/<id>.jsonl` in the project's storage, one event a line. */
 export const RUNS = "ship-runs";
-
-/** How often a run cut short checks whether its old process is gone. */
-const GONE_POLL_MS = 1000;
-/** How long a resumed step waits on its old process before it goes on. */
-const GONE_CAP_MS = 10 * 60 * 1000;
-
-/** What hears of a run as it changes: each event and where it leaves the run. */
-export type RunListener = (event: RunEvent, state: RunState) => void;
-
-export type ShipEngineOptions = {
-	storage: Storage;
-	processes: StepProcesses;
-	clock: WallClock;
-	ids: IdProvider;
-	log: Logger;
-	/**
-	 * Pins each run to the commit it started on, in a checkout of its own;
-	 * without it, every step runs in the main tree.
-	 */
-	checkouts?: RunCheckouts;
-	/** Waits `ms`, `setTimeout` by default; tests pass their own. */
-	wait?: (ms: number) => Promise<void>;
-};
-
-/** A checkout of its own for each run, so its steps all run on one commit. */
-export interface RunCheckouts {
-	/** The main tree's commit, which a run starts on. */
-	head(): Promise<string>;
-	/** Run `run`'s checkout, made at `commit` and readied when it is missing. */
-	ready(run: string, commit: string): Promise<string>;
-	/**
-	 * Takes landed commit `landed` into run `run`'s checkout, which stands on
-	 * `commit`, answering the commit it stands on after; throws when it will
-	 * not apply.
-	 */
-	apply(run: string, commit: string, landed: string): Promise<string>;
-	/** Removes run `run`'s checkout, if it has one. */
-	release(run: string): Promise<void>;
-}
-
-type LiveRun = {
-	id: string;
-	log: Log<RunEvent>;
-	state: RunState;
-	/** The appends to its file, in order. */
-	writes: Promise<void>;
-	/** Each step this server has a process at work on, by key. */
-	launched: Set<string>;
-	/** Each running step's `run`, to answer its prompts. */
-	live: Map<string, RunningStep>;
-	/** Steps a restart cut short, and the process each was. */
-	cutShort: Map<string, number>;
-	listeners: Set<RunListener>;
-	/** Its checkout, once readied; dropped as the checkout is released. */
-	checkout: Promise<string> | null;
-	/** Whether its checkout was released, the run being over. */
-	released: boolean;
-};
-
-/** What a note is about: a step, and a link it points to. */
-type NoteAbout = { target: string; step: string; link: string };
 
 /**
  * Runs the ships the user starts: `start` one of composed targets, show it
@@ -111,10 +51,11 @@ export class ShipEngine {
 	}
 
 	/**
-	 * Reads every run file and carries on each run left under way: a step
-	 * that was mid-flight waits for its old process to go, then asks `done`.
+	 * Call once as the server starts, so every ship a restart cut short
+	 * carries on where it stood; later calls wait on the same load.
 	 */
 	resume(): Promise<void> {
+		// A step that was mid-flight waits for its old process to go, then asks `done`.
 		this.#loaded ??= this.#load();
 		return this.#loaded;
 	}
@@ -123,7 +64,11 @@ export class ShipEngine {
 	 * Starts a run of `targets`, in the order they ship, supervised with a
 	 * budget of fixes when `supervise` is given.
 	 */
-	async start(targets: RunTarget[], supervise?: Supervise): Promise<RunState> {
+	async start(
+		targets: RunTarget[],
+		supervise?: Supervise,
+		autoApprove?: boolean,
+	): Promise<RunState> {
 		await this.resume();
 		this.#refuseWhileActive();
 		const commit = await this.#o.checkouts?.head();
@@ -134,6 +79,7 @@ export class ShipEngine {
 			at: this.#o.clock.now(),
 			targets,
 			...(supervise !== undefined && { supervise }),
+			...(autoApprove !== undefined && { autoApprove }),
 			...(commit !== undefined && { commit }),
 		};
 		run.state = foldRun(id, [started]);
@@ -242,6 +188,42 @@ export class ShipEngine {
 		return run.state;
 	}
 
+	/**
+	 * Stops `target` of run `id` alone: ends its steps' processes and records
+	 * its unfinished steps stopped, holding back the targets that depend on it,
+	 * while every other target carries on.
+	 */
+	async stopTarget(id: string, target: string): Promise<RunState> {
+		const run = await this.#run(id);
+		if (run.state.status !== "running" && run.state.status !== "failed") {
+			throw new RunError(`The ship ${id} is not under way`);
+		}
+		const found = run.state.targets.find((each) => each.name === target);
+		if (found === undefined) {
+			throw new RunError(`The ship ${id} has no target ${target}`, 404);
+		}
+		if (
+			found.steps.every(
+				(step) =>
+					step.status === "done" ||
+					step.status === "skipped" ||
+					step.status === "stopped",
+			)
+		) {
+			throw new RunError(`${target} has nothing left to stop`);
+		}
+		this.#record(run, {
+			type: "target-stopped",
+			at: this.#o.clock.now(),
+			target,
+		});
+		for (const step of found.steps) {
+			run.live.get(keyOf(target, step.id))?.dispose();
+		}
+		this.#schedule(run);
+		return run.state;
+	}
+
 	/** Adds to run `id` a note from started task `task`, about a step or the run. */
 	async note(
 		id: string,
@@ -260,7 +242,8 @@ export class ShipEngine {
 
 	/**
 	 * Gives run `id`'s supervisor `fixes` more fixes to send by itself,
-	 * switching supervision on when it was off.
+	 * switching supervision on when it was off. A negative `fixes` takes
+	 * unspent ones back, never below the fixes already spent.
 	 */
 	async supervise(id: string, fixes: number): Promise<RunState> {
 		const run = await this.#run(id);
@@ -269,9 +252,64 @@ export class ShipEngine {
 		}
 		const supervise = run.state.supervise;
 		// Unsupervised, the budget counts from the fixes spent so far: none.
-		const budget = (supervise?.budget ?? 0) + fixes;
+		const budget = Math.max(
+			supervise?.spent ?? 0,
+			(supervise?.budget ?? 0) + fixes,
+		);
 		this.#record(run, { type: "supervised", at: this.#o.clock.now(), budget });
 		return run.state;
+	}
+
+	/**
+	 * Switches run `id`'s auto-approving on or off. Switched on, it answers the
+	 * confirm prompts already waiting too.
+	 */
+	async autoApprove(id: string, on: boolean): Promise<RunState> {
+		const run = await this.#run(id);
+		if (run.state.status !== "running" && run.state.status !== "failed") {
+			throw new RunError(`The ship ${id} is not under way`);
+		}
+		this.#record(run, { type: "auto-approval", at: this.#o.clock.now(), on });
+		if (on) {
+			for (const target of run.state.targets) {
+				for (const step of target.steps) {
+					for (const open of step.prompts) {
+						this.#approve(run, target.name, step.id, open.id, open.prompt);
+					}
+				}
+			}
+		}
+		return run.state;
+	}
+
+	/** Answers a confirm prompt Yes for the run, recording it as automatic. */
+	#approve(
+		run: LiveRun,
+		target: string,
+		step: string,
+		id: string,
+		prompt: Prompt,
+	): void {
+		const running = run.live.get(keyOf(target, step));
+		if (prompt.kind !== "confirm" || running === undefined) {
+			return;
+		}
+		void running.answer(id, true).then(
+			() =>
+				this.#record(run, {
+					type: "answered",
+					at: this.#o.clock.now(),
+					target,
+					step,
+					id,
+					value: true,
+					by: "auto",
+				}),
+			(error: unknown) =>
+				this.#o.log.error(
+					`The ship run ${run.id} could not auto-approve "${step}" of ${target}: ${String(error)}`,
+				),
+		);
 	}
 
 	/**
@@ -306,20 +344,37 @@ export class ShipEngine {
 		return run.state;
 	}
 
+	/** Records that `target`'s recap went to an agent as board task `task`. */
+	async recapped(id: string, target: string, task: number): Promise<RunState> {
+		const run = await this.#run(id);
+		this.#record(run, {
+			type: "recapped",
+			at: this.#o.clock.now(),
+			target,
+			task,
+		});
+		return run.state;
+	}
+
 	/**
 	 * Records how the fix board task `task` ended. One that merged sends its
 	 * step round again when the step is still failed; a step another ship
 	 * keeps from going stays failed for the user's Retry. One removed means
-	 * the agent gave up, so the step waits for the user.
+	 * the agent gave up, so the step waits for the user. One abandoned, its
+	 * agent ending without taking it, sends the step round once and then waits
+	 * for the user if it fails again. On a stopped run the
+	 * end is only kept: nothing goes round until the user resumes it.
 	 */
 	async fixed(
 		id: string,
 		target: string,
 		step: string,
 		task: number,
-		outcome: "merged" | "removed",
+		outcome: "merged" | "removed" | "abandoned",
 		/** The commit a merged fix landed as, for the run's checkout to take in. */
 		landed?: string,
+		/** What an agent that abandoned the fix last said. */
+		note?: string,
 	): Promise<RunState> {
 		const run = await this.#run(id);
 		const found = stepIn(run.state, target, step);
@@ -333,7 +388,22 @@ export class ShipEngine {
 			step,
 			task,
 			outcome,
+			...(note !== undefined && { note }),
 		});
+		if (run.state.status === "stopped") {
+			return run.state;
+		}
+		// An agent that ended without acting may have found the step passes
+		// now, so the ship tries it once itself rather than wait on the user.
+		if (outcome === "abandoned" && found.status === "failed") {
+			try {
+				return await this.retry(id, target, step, "fix");
+			} catch (error) {
+				this.#o.log.error(
+					`The ship run ${id} could not retry "${step}" of ${target} after its agent ended: ${messageOf(error)}`,
+				);
+			}
+		}
 		if (
 			found.status === "failed" &&
 			outcome === "merged" &&
@@ -521,7 +591,14 @@ export class ShipEngine {
 		return {
 			id,
 			log: this.#o.storage.log(`${RUNS}/${id}.jsonl`, { schema: RUN_EVENT }),
-			state: { id, started: 0, status: "running", targets: [], notes: [] },
+			state: {
+				id,
+				started: 0,
+				status: "running",
+				targets: [],
+				notes: [],
+				autoApprove: false,
+			},
 			writes: Promise.resolve(),
 			launched: new Set(),
 			live: new Map(),
@@ -637,7 +714,7 @@ export class ShipEngine {
 			await this.#gone(before);
 		}
 		run.cutShort.delete(key);
-		if (this.#disposed || run.state.status === "stopped") {
+		if (this.#disposed || this.#cut(run, target, step)) {
 			taken?.dispose();
 			return;
 		}
@@ -645,7 +722,7 @@ export class ShipEngine {
 			if (await this.#follow(run, target, step, taken, true)) {
 				return;
 			}
-			if (this.#disposed || this.#stopped(run)) {
+			if (this.#disposed || this.#cut(run, target, step)) {
 				return;
 			}
 		}
@@ -672,7 +749,7 @@ export class ShipEngine {
 			ended("skipped");
 			return;
 		}
-		if (this.#stopped(run)) {
+		if (this.#cut(run, target, step)) {
 			return;
 		}
 		await this.#follow(run, target, step, this.#o.processes.run(asked), false);
@@ -713,6 +790,9 @@ export class ShipEngine {
 					failure = read.failure;
 				} else {
 					this.#record(run, read);
+					if (read.type === "prompt" && run.state.autoApprove) {
+						this.#approve(run, target, step, read.id, read.prompt);
+					}
 				}
 				const seq = running.held;
 				if (seq != null && seq !== acked) {
@@ -742,6 +822,13 @@ export class ShipEngine {
 		return run.state.status === "stopped";
 	}
 
+	/** Whether run `run` or the target of `step` was stopped, read afresh. */
+	#cut(run: LiveRun, target: string, step: string): boolean {
+		return (
+			this.#stopped(run) || stepIn(run.state, target, step).status === "stopped"
+		);
+	}
+
 	/** Records how `step` of `target` ended. */
 	#ender(run: LiveRun, target: string, step: string) {
 		return (outcome: "done" | "skipped" | "failed", error?: string) =>
@@ -766,3 +853,64 @@ export class ShipEngine {
 		}
 	}
 }
+
+/** How often a run cut short checks whether its old process is gone. */
+const GONE_POLL_MS = 1000;
+/** How long a resumed step waits on its old process before it goes on. */
+const GONE_CAP_MS = 10 * 60 * 1000;
+
+/** What hears of a run as it changes: each event and where it leaves the run. */
+export type RunListener = (event: RunEvent, state: RunState) => void;
+
+export type ShipEngineOptions = {
+	storage: Storage;
+	processes: StepProcesses;
+	clock: WallClock;
+	ids: IdProvider;
+	log: Logger;
+	/**
+	 * Pins each run to the commit it started on, in a checkout of its own;
+	 * without it, every step runs in the main tree.
+	 */
+	checkouts?: RunCheckouts;
+	/** Waits `ms` milliseconds; defaults to `setTimeout`. */
+	wait?: (ms: number) => Promise<void>;
+};
+
+/** A checkout of its own for each run, so its steps all run on one commit. */
+export interface RunCheckouts {
+	/** The main tree's commit, which a run starts on. */
+	head(): Promise<string>;
+	/** Run `run`'s checkout, made at `commit` and readied when it is missing. */
+	ready(run: string, commit: string): Promise<string>;
+	/**
+	 * Takes landed commit `landed` into run `run`'s checkout, which stands on
+	 * `commit`, answering the commit it stands on after; throws when it will
+	 * not apply.
+	 */
+	apply(run: string, commit: string, landed: string): Promise<string>;
+	/** Removes run `run`'s checkout, if it has one. */
+	release(run: string): Promise<void>;
+}
+
+type LiveRun = {
+	id: string;
+	log: Log<RunEvent>;
+	state: RunState;
+	/** The appends to its file, in order. */
+	writes: Promise<void>;
+	/** Each step this server has a process at work on, by key. */
+	launched: Set<string>;
+	/** Each running step's `run`, to answer its prompts. */
+	live: Map<string, RunningStep>;
+	/** Steps a restart cut short, and the process each was. */
+	cutShort: Map<string, number>;
+	listeners: Set<RunListener>;
+	/** Its checkout, once readied; dropped as the checkout is released. */
+	checkout: Promise<string> | null;
+	/** Whether its checkout was released, the run being over. */
+	released: boolean;
+};
+
+/** What a note is about: a step, and a link it points to. */
+type NoteAbout = { target: string; step: string; link: string };

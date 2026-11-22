@@ -48,7 +48,10 @@ export class Rec {
 		this.#pollMs = opts.pollMs ?? 3000;
 		this.#graceMs = opts.graceMs ?? 5000;
 		this.#logs = new RecLogSources(opts.logSources ?? NO_PROJECT_LOGS);
+		this.#localOrigin = opts.localOrigin ?? (() => null);
 	}
+
+	readonly #localOrigin: () => string | null;
 
 	readonly #logs: RecLogSources;
 
@@ -456,7 +459,11 @@ export class Rec {
 		if ((await this.suggestName()) === null) {
 			return new Response("rec is not available", { status: 503 });
 		}
-		this.open(what, picked.logs, picked.root);
+		this.open(
+			{ ...what, url: onThisMachine(what.url, request, this.#localOrigin()) },
+			picked.logs,
+			picked.root,
+		);
 		return new Response(null, { status: 204 });
 	};
 
@@ -482,6 +489,39 @@ export interface RecOptions {
 	graceMs?: number;
 	/** The asking page's project, whose `rec.logs` the page offers; none when absent. */
 	logSources?: ProjectLogs;
+	/** This server's own address, `http://localhost:<port>`, or null before it listens. */
+	localOrigin?: () => string | null;
+}
+
+/**
+ * The URL to hand rec for `url`, asked for by `request`: on `local`, this
+ * server's own address, when it names this server through a tunnel; as given
+ * otherwise.
+ */
+export function onThisMachine(
+	url: string,
+	request: Request,
+	local: string | null,
+): string {
+	// The tunnel's sign-in refuses rec's one-off Chrome, so it opens this server
+	// on its own machine, where no sign-in is asked.
+	const host = request.headers.get("host") ?? "";
+	if (local === null || host === "" || isLocal(host)) {
+		return url;
+	}
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return url;
+	}
+	if (parsed.host !== host) {
+		return url;
+	}
+	const origin = new URL(local);
+	parsed.protocol = origin.protocol;
+	parsed.host = origin.host;
+	return parsed.href;
 }
 
 const STATUS = z.object({

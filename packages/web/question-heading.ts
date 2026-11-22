@@ -1,4 +1,4 @@
-import type { Proposal, TaskReport } from "@splates/server/plans";
+import type { TaskReport } from "@splates/server/plans";
 import type { LucideIcon } from "lucide-react";
 import { TriangleAlertIcon } from "lucide-react";
 import { ENDINGS, type Tone } from "./card-shell";
@@ -10,23 +10,17 @@ export interface QuestionHeading {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
-	/**
-	 * The task it escalated, from before escalating was retired, shown as a
-	 * pill; undefined for the rest.
-	 */
+	/** The task an old escalation names, shown as a pill; unset for the rest. */
 	task?: string;
 }
 
 /**
- * How a questions card is headed: as the escalation it ends, in a
- * conversation from before escalating was retired, whatever else it holds,
- * since every escalation card reads the same; else as the proposal
- * it rests under; else as the questions for the person, `count` saying how many on a phone's sheet.
+ * The heading for a questions card: the escalation's when it ends one,
+ * otherwise "questions for you", with `count` saying how many on a phone's sheet.
  */
 export function questionHeading(
 	questions: number,
 	escalation: TaskReport | null,
-	proposal: Proposal | null,
 	count?: string,
 ): QuestionHeading {
 	if (escalation !== null) {
@@ -35,14 +29,6 @@ export function questionHeading(
 			...ENDINGS.escalated,
 			...(count === undefined ? {} : { title: `${count} for you` }),
 			task: escalation.task,
-		};
-	}
-	if (proposal !== null) {
-		return {
-			label: `proposal ${proposal.subject}`,
-			Icon: TriangleAlertIcon,
-			title: `Questions: ${proposal.subject}`,
-			tone: "warning",
 		};
 	}
 	return {

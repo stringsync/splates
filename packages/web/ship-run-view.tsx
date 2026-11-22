@@ -1,6 +1,9 @@
 import type { RunState } from "@splates/server/ship";
+import { Scroll } from "core/browser";
 import { useDisposerEffect, useReactive } from "core/react";
 import {
+	ChevronDownIcon,
+	ChevronRightIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleDashedIcon,
@@ -8,28 +11,22 @@ import {
 	SquareIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { type JSX, useState } from "react";
+import { type JSX, useId, useRef, useState } from "react";
 import {
 	answerShipPrompt,
+	autoApproveShipRun,
 	retryShipStep,
 	sendShipStep,
+	sendShipTarget,
 	shipRun,
 	shipRunEvents,
 	stopShipRun,
+	stopShipTarget,
 	superviseShipRun,
 } from "./api/ship";
-import { Button } from "./components/ui/button";
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "./components/ui/dialog";
 import { cn } from "./lib/utils";
 import { todoAddress } from "./page-address";
+import { ShipAutoApprove } from "./ship-auto-approve";
 import { FixLine, ShipFailureCard } from "./ship-failure-card";
 import { ShipHeading } from "./ship-heading";
 import { ShipPromptCard, ShipSignedIn } from "./ship-prompt-card";
@@ -38,9 +35,12 @@ import { markRecapSeen } from "./ship-recap-seen";
 import { type ShipRunServer, ShipRunView } from "./ship-run";
 import { ShipRunProgress } from "./ship-run-progress";
 import { summarize, type TargetSummary } from "./ship-run-summary";
+import { ShipRunSupervise } from "./ship-run-supervise";
 import { RunNotes, SpawnedStrip } from "./ship-spawned";
 import type { SpawnedWork } from "./ship-spawned-work";
 import { StepRail } from "./ship-step-rail";
+import { StopRun, StopTarget } from "./ship-stop";
+import { targetPreview } from "./ship-target-preview";
 import { TargetTime } from "./ship-target-time";
 
 /** The server's ship routes, as every view of a run reads them. */
@@ -49,9 +49,12 @@ export const SHIP_RUN_SERVER: ShipRunServer = {
 	get: shipRun,
 	retry: retryShipStep,
 	send: sendShipStep,
+	sendTarget: sendShipTarget,
 	stop: stopShipRun,
+	stopTarget: stopShipTarget,
 	answer: answerShipPrompt,
 	supervise: superviseShipRun,
+	autoApprove: autoApproveShipRun,
 };
 
 /**
@@ -82,7 +85,9 @@ export function ShipRunScreen({
 		sending,
 		answering,
 		stopping,
+		stoppingTargets,
 		supervising,
+		approving,
 		refused,
 	} = useReactive(view, (view) => view.state, ["changed"]);
 	if (missing) {
@@ -98,6 +103,9 @@ export function ShipRunScreen({
 		return (
 			<ShipRecap
 				run={run}
+				sending={sending}
+				refused={refused}
+				onSend={(target, slow) => void view.sendTarget(target, slow)}
 				onDone={() => {
 					location.hash = "#ships";
 				}}
@@ -139,6 +147,16 @@ export function ShipRunScreen({
 						<StopRun stopping={stopping} onStop={() => void view.stop()} />
 					)
 				}
+			/>
+			<ShipRunSupervise
+				supervise={run.supervise}
+				disabled={supervising}
+				onFixes={(fixes) => void view.supervise(fixes)}
+			/>
+			<ShipAutoApprove
+				on={run.autoApprove === true}
+				disabled={approving}
+				onOn={(on) => void view.autoApprove(on)}
 			/>
 			{broken.map((target) => (
 				<ShipFailureCard
@@ -199,7 +217,17 @@ export function ShipRunScreen({
 						</h3>
 					)}
 					{step.map((target) => (
-						<TargetCard key={target.name} runId={run.id} target={target} />
+						<TargetCard
+							key={target.name}
+							runId={run.id}
+							target={target}
+							stopping={stoppingTargets.has(target.name)}
+							onStop={
+								run.status === "running" || run.status === "failed"
+									? () => void view.stopTarget(target.name)
+									: undefined
+							}
+						/>
 					))}
 				</section>
 			))}
@@ -209,55 +237,6 @@ export function ShipRunScreen({
 				<p className="text-destructive text-sm">{refused}</p>
 			)}
 		</div>
-	);
-}
-
-/** Stop, which asks to confirm first: it ends every step under way. */
-function StopRun({
-	stopping,
-	onStop,
-}: {
-	stopping: boolean;
-	onStop: () => void;
-}): JSX.Element {
-	const [open, setOpen] = useState(false);
-	return (
-		<>
-			<Button
-				variant="outline"
-				size="sm"
-				className="shrink-0 rounded-full text-destructive"
-				disabled={stopping}
-				onClick={() => setOpen(true)}
-			>
-				<SquareIcon aria-hidden className="size-2.5 fill-current" />
-				{stopping ? "Stopping…" : "Stop"}
-			</Button>
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent showCloseButton={false}>
-					<DialogHeader>
-						<DialogTitle>Stop this ship?</DialogTitle>
-						<DialogDescription>
-							Every step under way is ended. What already shipped stays out.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<DialogClose render={<Button variant="outline" />}>
-							Keep going
-						</DialogClose>
-						<Button
-							variant="destructive"
-							onClick={() => {
-								setOpen(false);
-								onStop();
-							}}
-						>
-							Stop ship
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
 	);
 }
 
@@ -288,7 +267,7 @@ function agentOf(
 
 const ICONS = {
 	done: (
-		<CircleCheckIcon aria-hidden className="size-5 shrink-0 text-green-600" />
+		<CircleCheckIcon aria-hidden className="size-5 shrink-0 text-success" />
 	),
 	failed: (
 		<CircleAlertIcon aria-hidden className="size-5 shrink-0 text-destructive" />
@@ -298,6 +277,9 @@ const ICONS = {
 			aria-hidden
 			className="size-5 shrink-0 animate-spin text-muted-foreground"
 		/>
+	),
+	stopped: (
+		<SquareIcon aria-hidden className="size-5 shrink-0 text-muted-foreground" />
 	),
 	waiting: (
 		<CircleDashedIcon
@@ -314,55 +296,151 @@ const ICONS = {
 function TargetCard({
 	runId,
 	target,
+	stopping = false,
+	onStop,
 }: {
 	runId: string;
 	target: TargetSummary;
+	stopping?: boolean;
+	/** Stops this target alone; absent once the run is over. */
+	onStop?: () => void;
 }): JSX.Element {
+	const done = target.status === "done";
+	const [disclosure, setDisclosure] = useState({ done, expanded: false });
+	// A target completing folds once; reopening it after that is the user's choice.
+	if (disclosure.done !== done) {
+		setDisclosure({ done, expanded: false });
+	}
+	const expanded = disclosure.done === done && disclosure.expanded;
+	const preview = targetPreview(target.steps);
+	const shown = expanded ? target.steps : preview.steps;
+	const details = useId();
+	const card = useRef<HTMLElement>(null);
+	const toggle = () => {
+		setDisclosure({ done, expanded: !expanded });
+		Scroll.reveal(
+			() =>
+				expanded
+					? card.current
+					: (card.current?.querySelector<HTMLElement>(
+							'[data-status="running"], [data-status="checking"], [data-status="waiting"], [data-status="failed"]',
+						) ?? card.current),
+			{ block: "start" },
+		);
+	};
 	return (
 		<article
+			ref={card}
 			aria-label={target.name}
 			data-status={target.status}
 			className={cn(
 				"flex gap-2.5 rounded-lg border bg-card px-3.5 py-3",
+				!expanded && "max-h-[min(360px,50dvh)] overflow-hidden",
 				target.asking ? "border-foreground/70" : "border-border",
 			)}
 		>
 			{ICONS[target.status]}
-			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<div className="flex items-baseline gap-2">
-					<span className="min-w-0 flex-1 truncate font-semibold text-sm">
-						{target.name}
-					</span>
+			<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+				<div className="flex shrink-0 items-baseline gap-2">
+					<button
+						type="button"
+						aria-expanded={expanded}
+						aria-controls={details}
+						onClick={toggle}
+						className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-semibold text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						<span className="min-w-0 flex-1 truncate">{target.name}</span>
+						{expanded ? (
+							<ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+						) : (
+							<ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+						)}
+					</button>
 					<TargetTime target={target} />
+					{onStop !== undefined &&
+						target.status !== "done" &&
+						target.status !== "stopped" && (
+							<StopTarget
+								name={target.name}
+								stopping={stopping}
+								onStop={onStop}
+							/>
+						)}
 				</div>
 				{target.status !== "running" ||
 				target.steps.length < 2 ||
 				target.asking ? (
 					<p
 						className={cn(
-							"break-words text-xs",
+							"shrink-0 break-words text-xs",
+							!expanded && "line-clamp-2",
 							target.asking ? "text-foreground" : "text-muted-foreground",
 						)}
 					>
 						{target.line}
 					</p>
 				) : null}
-				{target.steps.length > 1 && (
-					<div className="-ml-7.5">
-						<StepRail run={runId} target={target.name} steps={target.steps} />
-					</div>
+				{!expanded && target.steps.length > 1 && preview.completed > 0 && (
+					<button
+						type="button"
+						onClick={toggle}
+						aria-controls={details}
+						aria-expanded={false}
+						className="-ml-7.5 my-2 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+					>
+						<ChevronRightIcon className="size-3" />
+						{preview.completed} completed steps
+					</button>
 				)}
-				{target.signedIn.map((each) => (
-					<ShipSignedIn key={each.step} url={each.url} />
-				))}
-				{target.status !== "failed" &&
-					target.fixes.map((fix) => (
-						<FixLine
-							key={`${fix.step}\n${fix.task}`}
-							fix={fix}
-							failed={false}
-						/>
+				<div
+					id={details}
+					className={cn(
+						"-ml-7.5 min-h-0 pl-7.5",
+						!expanded && "overflow-hidden",
+					)}
+					hidden={done && !expanded}
+				>
+					{(target.steps.length > 1 || expanded) && (
+						<div className="-ml-7.5">
+							<StepRail run={runId} target={target.name} steps={shown} />
+						</div>
+					)}
+					{target.signedIn.map((each) => (
+						<ShipSignedIn key={each.step} url={each.url} />
 					))}
+					{target.status !== "failed" &&
+						target.fixes.map((fix) => (
+							<FixLine
+								key={`${fix.step}\n${fix.task}`}
+								fix={fix}
+								failed={false}
+							/>
+						))}
+				</div>
+				{!expanded && !done && preview.later > 0 && (
+					<button
+						type="button"
+						onClick={toggle}
+						aria-controls={details}
+						aria-expanded={false}
+						className="-ml-7.5 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+					>
+						<ChevronRightIcon className="size-3" />
+						{preview.later} more steps
+					</button>
+				)}
+				{expanded && (
+					<button
+						type="button"
+						onClick={toggle}
+						aria-controls={details}
+						aria-expanded
+						className="-ml-7.5 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+					>
+						<ChevronDownIcon className="size-3" />
+						Collapse entry
+					</button>
+				)}
 			</div>
 		</article>
 	);

@@ -45,8 +45,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	todo = todoIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
-	/** The rule the Auto pick page is set on, by its place from 0, or null. */
-	rule = ruleIn(location.hash);
+	/** The cell of the routes the Auto pick page is set on, `bugfix.deep`, or null. */
+	cell = cellIn(location.hash);
 	/** The batch and run the Evals page has open, each null for none. */
 	evals = evalsIn(location.hash);
 	/** The ship run the Ships page shows, by id, or null. */
@@ -99,7 +99,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.lane = null;
 		this.todo = null;
 		this.cred = null;
-		this.rule = null;
+		this.cell = null;
 		this.evals = NO_EVALS;
 		this.shipRun = null;
 		this.setup = next === "setup" && this.leftSetup ? this.leftSetup : NO_SETUP;
@@ -110,9 +110,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 					? "#todos"
 					: next === "conversations" && conversation !== null
 						? `#conversations/${conversation}`
-						: next === "auto-pick"
-							? AUTO_PICK
-							: `#${next}`,
+						: `#${next}`,
 			how,
 		);
 	}
@@ -232,7 +230,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			this.lane = laneIn(location.hash);
 			this.todo = todoIn(location.hash);
 			this.cred = credIn(location.hash);
-			this.rule = ruleIn(location.hash);
+			this.cell = cellIn(location.hash);
 			this.evals = evalsIn(location.hash);
 			this.shipRun = shipRunIn(location.hash);
 			this.setup = setupIn(location.hash);
@@ -342,10 +340,13 @@ function pageIn(hash: string): Page {
 	if (hash === "#billing" || hash === "#budget") {
 		return "billing";
 	}
-	if (hash === "#automations") {
-		return "automations";
-	}
-	if (hash === AUTO_PICK || hash === "#auto-pick" || ruleIn(hash) !== null) {
+	// Auto pick was a page under Automations, which is gone: its old addresses open it.
+	if (
+		hash === "#automations" ||
+		hash === "#automations/auto-pick" ||
+		hash === "#auto-pick" ||
+		/^#(?:automations\/)?auto-pick\/[\w.]+$/.test(hash)
+	) {
 		return "auto-pick";
 	}
 	if (hash === "#welcome") {
@@ -428,22 +429,19 @@ export function credAddress(name: string): string {
 	return `#creds/${encodeURIComponent(name)}`;
 }
 
-/** The Auto pick page's address, under Automations, where its card opens it. */
-const AUTO_PICK = "#automations/auto-pick";
-
 /**
- * The rule `#automations/auto-pick/<n>` sets the Auto pick page on, from 0,
- * or null. So does `#auto-pick/<n>`, where a link from when Auto pick was a
- * page of the nav opens one.
+ * The cell `#auto-pick/<kind>.<depth>` sets the Auto pick page on, as
+ * `<kind>.<depth>`, or null. An address from before lineups, set on a rule by
+ * its number, opens the page on no cell.
  */
-function ruleIn(hash: string): number | null {
-	const [, rule] = hash.match(/^#(?:automations\/)?auto-pick\/(\d+)$/) ?? [];
-	return rule === undefined ? null : Number(rule) - 1;
+function cellIn(hash: string): string | null {
+	const [, cell] = hash.match(/^#auto-pick\/([a-z]+\.[a-z]+)$/) ?? [];
+	return cell ?? null;
 }
 
-/** The address of the Auto pick page set on rule `index`, from 0. */
-export function ruleAddress(index: number): string {
-	return `${AUTO_PICK}/${index + 1}`;
+/** The address of the Auto pick page set on a kind at a depth, either null for unsure. */
+export function cellAddress(kind: string | null, depth: string | null): string {
+	return `#auto-pick/${kind ?? "unsure"}.${depth ?? "unsure"}`;
 }
 
 /** What the Setup page is on: a journey, and a step of it, each null for none. */

@@ -13,10 +13,24 @@ import { PICK } from "./wire";
 const PICKS = z.object({
 	picks: z.array(PICK).min(1),
 	supervise: SUPERVISE.optional(),
+	autoApprove: z.boolean().optional(),
 });
-/** How many more fixes the supervisor may send, at most a handful at a time. */
-const SUPERVISE_MORE = z.object({ fixes: z.number().int().min(1).max(20) });
+/** How many fixes to add to the supervisor's budget, or, negative, take back. */
+const SUPERVISE_MORE = z.object({
+	fixes: z
+		.number()
+		.int()
+		.min(-20)
+		.max(20)
+		.refine((fixes) => fixes !== 0),
+});
+const AUTO_APPROVE = z.object({ on: z.boolean() });
 const STEP = z.object({ target: z.string(), step: z.string() });
+const SEND_TARGET = z.object({
+	target: z.string(),
+	/** The usual time in milliseconds of each slow step, by step id. */
+	slow: z.record(z.string(), z.number().positive()).default({}),
+});
 const FIX_RETRY = STEP.extend({ task: z.string().min(1) });
 const NOTE = z.object({
 	task: z.string().min(1),
@@ -37,7 +51,7 @@ const encoder = new TextEncoder();
  *   it from the page: only the user starts a ship, so a request a browser
  *   did not send from the page is refused.
  * - `GET /api/ship/runs` every run, newest first, or with `?status=running`
- *   only the one under way; `GET /api/ship/runs/:id`
+ *   only the one under way, `?limit=n` the newest n; `GET /api/ship/runs/:id`
  *   one.
  * - `GET /api/ship/runs/:id/events` the run as it goes: a `state` event
  *   first, then a `run` event for each event of its file, which
@@ -50,6 +64,10 @@ const encoder = new TextEncoder();
  *   page only, as the fixes spend the user's agents.
  * - `POST /api/ship/runs/:id/stop` ends the run's steps and records it as
  *   stopped; from the page only, as only the user stops a ship.
+ * - `POST /api/ship/runs/:id/targets/:target/stop` stops that target alone,
+ *   the rest of the run carrying on; from the page only.
+ * - `POST /api/ship/runs/:id/auto-approve` with `{ on }` switches the run's
+ *   auto-approving of confirm prompts on or off; from the page only.
  * - `GET /api/ship/waiting` every prompt open in any run, for the nav to
  *   count, asked now and then.
  */
@@ -66,9 +84,13 @@ export class ShipRunRoutes {
 
 	readonly shipRuns = async (request: Request): Promise<Response> => {
 		if (request.method !== "POST") {
-			const status = new URL(request.url).searchParams.get("status");
+			const query = new URL(request.url).searchParams;
+			const status = query.get("status");
+			const limit = Number(query.get("limit"));
+			const runs = await this.engine.list(status ?? undefined);
 			return Response.json({
-				runs: await this.engine.list(status ?? undefined),
+				runs:
+					Number.isInteger(limit) && limit > 0 ? runs.slice(0, limit) : runs,
 			});
 		}
 		if (request.headers.get("sec-fetch-site") !== "same-origin") {
@@ -83,7 +105,10 @@ export class ShipRunRoutes {
 		const body = PICKS.safeParse(await request.json().catch(() => null));
 		if (!body.success) {
 			return Response.json(
-				{ error: "send { picks: [{ name, bump? }], supervise?: { budget } }" },
+				{
+					error:
+						"send { picks: [{ name, bump? }], supervise?: { budget }, autoApprove? }",
+				},
 				{ status: 400 },
 			);
 		}
@@ -91,6 +116,7 @@ export class ShipRunRoutes {
 			const state = await this.starting.picks(
 				body.data.picks,
 				body.data.supervise,
+				body.data.autoApprove,
 			);
 			return Response.json(state, { status: 201 });
 		});
@@ -168,6 +194,20 @@ export class ShipRunRoutes {
 			return Response.json(await this.engine.stop(idOf(request)));
 		});
 
+	readonly shipRunTargetStop = (request: Request): Promise<Response> =>
+		answered(async () => {
+			if (request.headers.get("sec-fetch-site") !== "same-origin") {
+				throw new RunError(
+					"Only the user stops a ship's target, from the Ships page",
+					403,
+				);
+			}
+			const target = decodeURIComponent(
+				new URL(request.url).pathname.split("/")[6] ?? "",
+			);
+			return Response.json(await this.engine.stopTarget(idOf(request), target));
+		});
+
 	readonly shipRunSend = (request: Request): Promise<Response> =>
 		answered(async () => {
 			if (request.headers.get("sec-fetch-site") !== "same-origin") {
@@ -188,6 +228,29 @@ export class ShipRunRoutes {
 			return Response.json(await fixes.send(idOf(request), target, step));
 		});
 
+	readonly shipRunSendTarget = (request: Request): Promise<Response> =>
+		answered(async () => {
+			if (request.headers.get("sec-fetch-site") !== "same-origin") {
+				throw new RunError(
+					"Only the user sends a ship's recap to an agent, from the Ships page",
+					403,
+				);
+			}
+			const fixes = this.fixes;
+			if (fixes === null) {
+				throw new RunError("Agents are off on this server", 404);
+			}
+			const body = SEND_TARGET.safeParse(
+				await request.json().catch(() => null),
+			);
+			if (!body.success) {
+				throw new RunError("send { target, slow? }", 400);
+			}
+			return Response.json(
+				await fixes.sendTarget(idOf(request), body.data.target, body.data.slow),
+			);
+		});
+
 	readonly shipRunSupervise = (request: Request): Promise<Response> =>
 		answered(async () => {
 			if (request.headers.get("sec-fetch-site") !== "same-origin") {
@@ -200,12 +263,31 @@ export class ShipRunRoutes {
 				await request.json().catch(() => null),
 			);
 			if (!body.success) {
-				throw new RunError("send { fixes }, from 1 to 20", 400);
+				throw new RunError("send { fixes }, from -20 to 20 and not 0", 400);
 			}
 			const state = await this.engine.supervise(idOf(request), body.data.fixes);
 			// A failed step waiting on a fix goes to an agent now.
 			void this.fixes?.settle();
 			return Response.json(state);
+		});
+
+	readonly shipRunAutoApprove = (request: Request): Promise<Response> =>
+		answered(async () => {
+			if (request.headers.get("sec-fetch-site") !== "same-origin") {
+				throw new RunError(
+					"Only the user switches auto-approving, from the Ships page",
+					403,
+				);
+			}
+			const body = AUTO_APPROVE.safeParse(
+				await request.json().catch(() => null),
+			);
+			if (!body.success) {
+				throw new RunError("send { on }", 400);
+			}
+			return Response.json(
+				await this.engine.autoApprove(idOf(request), body.data.on),
+			);
 		});
 
 	readonly shipRunNote = (request: Request): Promise<Response> =>

@@ -35,6 +35,11 @@ export const WAITS = {
 	answer: Duration.secs(30),
 	/** For one that sends files, which a slow connection takes a while to carry. */
 	upload: Duration.mins(5),
+	/**
+	 * For a page's code loaded when first opened. Apart from `answer`, so a test
+	 * that gives reads a moment still gives the page's own code time to load.
+	 */
+	load: Duration.secs(30),
 };
 
 /** What `answered` takes beyond `fetch`'s own: how long to wait. */

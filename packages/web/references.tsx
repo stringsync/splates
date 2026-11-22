@@ -5,15 +5,12 @@ import {
 	APPROVE,
 	CHECKPOINT,
 	DEFER,
-	GRANT_DENIED,
-	GRANTED,
 	MERGE,
 	RECONNECT,
 	RESUME,
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
-	RUN_ELSEWHERE,
 	taskNumberReference,
 	taskReference,
 } from "@splates/server/plans/browser";
@@ -25,12 +22,10 @@ import {
 	ClockIcon,
 	FolderGit2Icon,
 	GitMergeIcon,
-	KeyRoundIcon,
 	LightbulbIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleIcon,
-	MonitorOffIcon,
 	PlayIcon,
 	PlugIcon,
 	RadioIcon,
@@ -46,6 +41,7 @@ import type { Tone } from "./card-shell";
 import { Lanes } from "./conversation-names";
 import { FinishedReferences } from "./finished-references";
 import { useHeldConversations } from "./handed-out";
+import { liveCount, subscribersText } from "./signal-summary";
 import { TaskIcon } from "./task-icon";
 import { useSignals } from "./use-signals";
 
@@ -163,7 +159,7 @@ export function useReferences(
 				id: signal.name,
 				type: "signal",
 				label: signal.name,
-				description: signal.armed ? "armed" : signal.project,
+				description: subscribersText(liveCount(signal)) ?? signal.project,
 				metadata: { signal: signal.name },
 			})),
 			// Its age, length and moments as the description.
@@ -300,7 +296,7 @@ export const BARE_DIRECTIVES = [
 	{
 		directive: APPROVE,
 		label: "Approve",
-		about: "go ahead with the proposal it made",
+		about: "go ahead, as a Yes to the approval question",
 		icon: LightbulbIcon,
 		tone: "success",
 	},
@@ -312,33 +308,11 @@ export const BARE_DIRECTIVES = [
 		tone: "success",
 	},
 	{
-		directive: GRANTED,
-		label: "Reach granted",
-		about: "carry on with the reach the person granted its grant card",
-		icon: KeyRoundIcon,
-		tone: "success",
-	},
-	{
-		directive: GRANT_DENIED,
-		label: "Reach denied",
-		about: "carry on without the reach the person denied its grant card",
-		icon: BanIcon,
-		tone: "warning",
-	},
-	{
 		directive: RUN_ALLOWED,
 		label: "Run allowed",
 		about: "run the command the last run-command card asked to",
 		icon: TerminalIcon,
 		tone: "success",
-	},
-	{
-		directive: RUN_ELSEWHERE,
-		label: "Not on this device",
-		about:
-			"carry on without rec: the person is not at the machine that can run it",
-		icon: MonitorOffIcon,
-		tone: "neutral",
 	},
 	{
 		directive: RUN_DENIED,

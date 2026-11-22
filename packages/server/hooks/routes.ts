@@ -14,7 +14,7 @@ import {
 	type Trigger,
 } from "./store";
 
-/** One automation as the Automations page lists it. */
+/** One automation as the Subscriptions tab lists it. */
 export interface AutomationRow extends Automation {
 	/** Its trigger in a few words, as `task.created in available`. */
 	when: string;
@@ -25,7 +25,7 @@ export interface AutomationRow extends Automation {
 }
 
 /**
- * The routes the Automations page reads and changes the person's
+ * The routes the Subscriptions tab reads and changes the person's
  * automations through, each answering with every automation as it now
  * stands. Spread one into a project's routes.
  */

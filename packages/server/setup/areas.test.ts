@@ -32,6 +32,7 @@ describe("SETUP_AREAS", () => {
 			"claude",
 			"codex",
 			"kimi",
+			"antigravity",
 			"remote-access",
 			"replica",
 			"dictation",

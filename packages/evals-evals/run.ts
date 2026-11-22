@@ -250,7 +250,7 @@ export interface Cell {
 }
 
 /**
- * Runs `cells`, `parallel` at a time, into a new `batch-*` directory under
+ * Runs `cells`, `parallel` (8 by default) at a time, into a new `batch-*` directory under
  * `directory`, in the `splates-evals/1` format (`CONTRACT.md`):
  * `batch.json` first, then as each run lands its `run-<n>.json` detail and a
  * line in `results.jsonl`. Returns the batch's directory.
@@ -300,7 +300,7 @@ export async function runBatch(
 		}
 	};
 	await Promise.all(
-		Array.from({ length: Math.max(1, opts.parallel ?? 2) }, work),
+		Array.from({ length: Math.max(1, opts.parallel ?? 8) }, work),
 	);
 	return dir;
 }

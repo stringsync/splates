@@ -33,6 +33,7 @@ import { useFolded } from "./folded";
 import { InboxLoading } from "./freshness";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
+import { NextWaiting } from "./next-waiting";
 import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import {
@@ -48,9 +49,11 @@ import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
 
 /**
- * Lists every agent by what it asks of you, to open, rename, mark unread or
- * archive. Render it as the phone's home with `onMenu` opening the drawer,
- * or with `onMenu` null as the page the sidebar's Inbox opens.
+ * The inbox: every agent listed by what it asks of you, to open, rename, mark
+ * unread or archive. A line atop says how many wait on you, and offers to
+ * archive the finished conversations when none do. Pass `onMenu` to show it
+ * as the phone's home, opening the drawer; pass null for the page the
+ * sidebar's Inbox opens.
  */
 export function Inbox({
 	feed,
@@ -220,6 +223,20 @@ export function Inbox({
 				/>
 				{!wide && chips}
 				<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
+					{available && here !== null && (
+						// The group heading below brings its own top padding and a tall
+						// tap target, so pull it up to leave the line even room both sides.
+						<div className="-mb-3 px-3 pt-5">
+							<NextWaiting
+								feed={feed}
+								tasks={tasks}
+								todos={todos}
+								here={here}
+								open={null}
+								onOpen={(id) => id !== null && onOpen(id)}
+							/>
+						</div>
+					)}
 					<UnstartedGroup
 						unstarted={unstarted}
 						agents={agents}

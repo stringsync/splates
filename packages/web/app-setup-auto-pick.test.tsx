@@ -4,6 +4,7 @@ import type {
 	AutoPickRulesView,
 	AutoPickTrial,
 } from "@splates/server/auto-pick";
+import { routedTo } from "@splates/server/auto-pick/testing";
 import type { SetupProgress, StepProgress } from "@splates/server/setup";
 import type { Snapshot } from "@splates/server/tasks";
 import {
@@ -43,9 +44,18 @@ describe("App's Auto pick setup", () => {
 		return view;
 	};
 
-	/** The rules editor, once it has read the rules. */
+	/** The routes, once the editor has read the rules. */
 	const editor = async (view: Awaited<ReturnType<typeof openAutoPick>>) =>
-		waitFor(() => view.getByRole("list", { name: "Auto pick rules" }));
+		waitFor(() => view.getByRole("group", { name: "Routes" }));
+
+	/** Opens the editor for the lineup named `name`. */
+	const lineup = async (
+		view: Awaited<ReturnType<typeof openAutoPick>>,
+		name: string,
+	) => {
+		await press(view.getByRole("button", { name: `Edit ${name}` }));
+		return view.getByRole("region", { name: `Lineup ${name}` });
+	};
 
 	const choose = (select: HTMLElement, value: string) =>
 		act(async () => fireEvent.change(select, { target: { value } }));
@@ -58,109 +68,90 @@ describe("App's Auto pick setup", () => {
 			.posted("/api/auto-pick/rules")
 			.map((post) => [post.method, post.body]);
 
-	it("opens on the rules once a judge is kept, reading them into the editor", async () => {
+	it("opens on the routes once a judge is kept, reading them into the editor", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();
 
 		const form = await waitFor(() =>
 			view.getByRole("form", { name: "Map tasks to models" }),
 		);
-		const rules = await editor(view);
+		const routes = await editor(view);
 		expect(form.textContent).toContain("~/.splates/auto-pick.json");
-		expect(
-			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
-		).toBe("open");
-		expect(within(rules).getByLabelText("rule 1 pick 1").textContent).toContain(
-			"1ClaudeHaiku · low",
+		within(routes).getByRole("button", { name: "Open-ended · Shallow: Open" });
+		within(routes).getByRole("button", { name: "Bugfix · Deep: All" });
+		expect(view.queryByRole("button", { name: "Saved" })).toBeNull();
+		const open = await lineup(view, "Open");
+		expect(within(open).getByLabelText("Open pick 1").textContent).toContain(
+			"ClaudeHaiku",
 		);
 		expect(
-			view
-				.getByRole("button", { name: /^(Saved|Save rules)$/ })
-				.textContent?.trim(),
-		).toBe("Saved");
+			(within(open).getByLabelText("Open pick 1 effort") as HTMLSelectElement)
+				.value,
+		).toBe("low");
 	});
 
 	it("saves what was edited, shown saved at once", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();
-		const rules = await editor(view);
-
-		await choose(within(rules).getByLabelText("rule 1 kind"), "bugfix");
-		await choose(within(rules).getByLabelText("rule 1 depth"), "deep");
-		await choose(within(rules).getByLabelText("rule 1 certainty"), "settled");
-		await press(
-			within(rules).getByRole("button", { name: "Edit rule 1 pick 1" }),
-		);
-		await choose(await view.findByLabelText("rule 1 pick 1 model"), "opus");
-		await choose(view.getByLabelText("rule 1 pick 1 thinking"), "max");
-		await press(
-			within(rules).getByRole("button", { name: "Add an agent to rule 1" }),
-		);
-		await press(await view.findByRole("menuitem", { name: "Astra" }));
-		await press(
-			within(rules).getByRole("button", { name: "Edit rule 1 pick 2" }),
-		);
-		await choose(
-			await view.findByLabelText("rule 1 pick 2 thinking"),
-			"medium",
-		);
+		await editor(view);
 		await act(async () =>
 			fireEvent.change(view.getByLabelText(/How sure the judge/), {
 				target: { value: "70" },
 			}),
 		);
-		expect(
-			view
-				.getByRole("button", { name: /^(Saved|Save rules)$/ })
-				.textContent?.trim(),
-		).toBe("Save rules");
+		const open = await lineup(view, "Open");
+
+		await press(
+			within(open).getByRole("button", { name: "Open pick 1 model" }),
+		);
+		await press(await view.findByRole("menuitem", { name: "Opus" }));
+		await choose(within(open).getByLabelText("Open pick 1 effort"), "max");
+		await press(
+			within(open).getByRole("button", { name: "Add a fallback to Open" }),
+		);
+		await press(await view.findByRole("menuitem", { name: "Astra" }));
+		await choose(within(open).getByLabelText("Open pick 2 effort"), "medium");
+		expect(view.getByRole("button", { name: "Apply" })).toBeDefined();
 		const edited: AutoPickRules = {
-			format: 2,
-			threshold: 0.7,
-			rules: [
+			...RULES,
+			threshold: RULES.threshold,
+			lineups: [
+				RULES.lineups[0] as AutoPickRules["lineups"][number],
 				{
-					kind: "bugfix",
-					depth: "deep",
-					clarity: "settled",
+					...(RULES.lineups[1] as AutoPickRules["lineups"][number]),
 					picks: [
 						{ agent: "claude", model: "opus", effort: "max" },
 						{ agent: "codex", model: "gpt-6-astra", effort: "medium" },
 					],
 				},
-				RULES.rules[1] as AutoPickRules["rules"][number],
 			],
 		};
 		testing.reply = { ...VIEW, rules: edited };
 
-		await press(view.getByRole("button", { name: "Save rules" }));
+		await press(view.getByRole("button", { name: "Apply" }));
 
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
-		expect(
-			view
-				.getByRole("button", { name: /^(Saved|Save rules)$/ })
-				.textContent?.trim(),
-		).toBe("Saved");
+		expect(view.queryByRole("button", { name: "Saved" })).toBeNull();
 	});
 
-	it("reorders agents down a rule with a grip", async () => {
+	it("reorders a lineup's picks with a grip", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();
-		const rules = await editor(view);
+		await editor(view);
+		const open = await lineup(view, "Open");
 		await press(
-			within(rules).getByRole("button", { name: "Add an agent to rule 1" }),
+			within(open).getByRole("button", { name: "Add a fallback to Open" }),
 		);
 		await press(await view.findByRole("menuitem", { name: "Astra" }));
-		const picks = within(rules).getByRole("list", { name: "rule 1 picks" });
+		const picks = within(open).getByRole("list", { name: "Open picks" });
 		const rows = () =>
 			within(picks).getAllByRole("listitem", {
-				name: /^rule 1 pick \d+$/,
+				name: /^Open pick \d+$/,
 			}) as HTMLElement[];
 		const [one, two] = rows() as [HTMLElement, HTMLElement];
 		one.getBoundingClientRect = () => new DOMRect(0, 0, 600, 44);
 		two.getBoundingClientRect = () => new DOMRect(0, 44, 600, 44);
-		const grip = within(one).getByRole("button", {
-			name: "Drag rule 1 pick 1",
-		});
+		const grip = within(one).getByRole("button", { name: "Drag Open pick 1" });
 		grip.focus();
 		await act(async () => fireEvent.keyDown(grip, { code: "Space" }));
 		await act(async () => fireEvent.keyDown(grip, { code: "ArrowDown" }));
@@ -168,7 +159,7 @@ describe("App's Auto pick setup", () => {
 
 		expect(rows()[0]?.textContent).toContain("Codex");
 		expect(rows()[1]?.textContent).toContain("Claude");
-		expect(rules.textContent).toContain("Tried top to bottom");
+		expect(open.textContent).toContain("passed over for the next one");
 	});
 
 	it("turns pacing off, which stops its slack being edited, and saves it", async () => {
@@ -179,7 +170,10 @@ describe("App's Auto pick setup", () => {
 		const slack = view.getByLabelText(/How far ahead of its window/);
 		expect(slack).toHaveProperty("disabled", false);
 		await press(
-			view.getByRole("switch", { name: /^Pass over a pick whose plan/ }),
+			view.getByRole("switch", {
+				name: /^Pass over a pick whose plan/,
+				hidden: true,
+			}),
 		);
 		expect(slack).toHaveProperty("disabled", true);
 		await act(async () =>
@@ -196,64 +190,36 @@ describe("App's Auto pick setup", () => {
 		};
 		testing.reply = { ...VIEW, rules: edited };
 
-		await press(view.getByRole("button", { name: "Save rules" }));
+		await press(
+			view.getByRole("button", { name: "Apply settings", hidden: true }),
+		);
 
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
-	});
-
-	it("keeps the last rule as any kind and any depth, in place", async () => {
-		testing.setup = progress({ judge: "done" });
-		const view = await openAutoPick();
-		const rules = await editor(view);
-
-		await press(view.getByRole("button", { name: "Add rule" }));
-
-		const last = within(rules).getByRole("listitem", { name: "rule 3" });
-		expect(last.textContent).toContain("Any kind, any depth");
-		expect(within(last).queryByLabelText("rule 3 kind")).toBeNull();
-		expect(
-			within(last).queryByRole("button", { name: "Remove rule 3" }),
-		).toBeNull();
-		expect(
-			within(rules).getByRole("button", { name: "Move rule 2 down" }),
-		).toHaveProperty("disabled", true);
-
-		await choose(within(rules).getByLabelText("rule 2 kind"), "bugfix");
-		await press(within(rules).getByRole("button", { name: "Move rule 2 up" }));
-		await press(within(rules).getByRole("button", { name: "Remove rule 2" }));
-		expect(
-			within(rules).getAllByRole("listitem", { name: /^rule \d+$/ }),
-		).toHaveLength(2);
-		expect(
-			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
-		).toBe("bugfix");
 	});
 
 	it("says a refused save beside it, the edit kept unsaved", async () => {
 		testing.setup = progress({ judge: "done" });
 		const view = await openAutoPick();
-		const rules = await editor(view);
-		await choose(within(rules).getByLabelText("rule 1 kind"), "design");
+		const routes = await editor(view);
+		await press(
+			within(routes).getByRole("button", { name: "Bugfix · Deep: All" }),
+		);
+		await press(view.getByRole("button", { name: "Choose lineup" }));
+		await press(view.getByRole("radio", { name: /Open/ }));
 		testing.refuseWrites = {
 			reason: "usage",
 			message: "not Auto pick rules: the file moved",
 		};
 
-		await press(view.getByRole("button", { name: "Save rules" }));
+		await press(view.getByRole("button", { name: "Apply" }));
 
 		await waitFor(() =>
 			expect(view.getByRole("alert").textContent).toBe(
-				"Not saved: not Auto pick rules: the file moved",
+				"Routes not applied: not Auto pick rules: the file moved",
 			),
 		);
-		expect(
-			view
-				.getByRole("button", { name: /^(Saved|Save rules)$/ })
-				.textContent?.trim(),
-		).toBe("Save rules");
-		expect(
-			(within(rules).getByLabelText("rule 1 kind") as HTMLSelectElement).value,
-		).toBe("design");
+		expect(view.getByRole("button", { name: "Apply" })).toBeDefined();
+		within(routes).getByRole("button", { name: "Bugfix · Deep: All" });
 	});
 
 	it("tries the rules on a task without starting it", async () => {
@@ -278,14 +244,14 @@ describe("App's Auto pick setup", () => {
 			},
 			decision: {
 				pick: { agent: "claude", model: "haiku", effort: "low" },
-				rule: 0,
+				lineup: "open",
 				kind: "bugfix",
 				depth: "shallow",
 				clarity: "settled",
 				reasons: [
 					"Haiku, low effort",
 					"judged: Bugfix 90%, Shallow 80%",
-					"rule 1: Bugfix, any depth",
+					"route: Bugfix · Shallow → Open",
 				],
 			},
 		};
@@ -300,8 +266,8 @@ describe("App's Auto pick setup", () => {
 			view.getByRole("region", { name: "Auto pick would start" }),
 		);
 		expect(result.textContent).toContain("Haiku, low effort");
-		expect(result.textContent).toContain("Rule 1");
-		expect(result.textContent).toContain("rule 1: Bugfix, any depth");
+		expect(result.textContent).toContain("Bugfix · Shallow → Open");
+		expect(result.textContent).toContain("route: Bugfix · Shallow → Open");
 		expect(within(result).getByLabelText("Kind").textContent).toContain(
 			"Bugfix90%",
 		);
@@ -360,8 +326,8 @@ function progress({
 			...base,
 			id: "auto-pick-rules",
 			title: "Map tasks to models",
-			why: "The first rule that matches picks.",
-			user: "Edit the rules. They are kept in `~/.splates/auto-pick.json`.",
+			why: "Each kind at each depth goes to a lineup.",
+			user: "Edit the routes and lineups. They are kept in `~/.splates/auto-pick.json`.",
 			after: [],
 			status: rules,
 		},
@@ -397,17 +363,24 @@ function progress({
 	};
 }
 
+const ALL = routedTo([{ agent: "claude" }]);
+
+/** Open-ended work at every depth goes to Open, the rest to All. */
 const RULES: AutoPickRules = {
-	format: 2,
-	threshold: 0.5,
-	rules: [
+	...ALL,
+	lineups: [
+		...ALL.lineups,
 		{
-			kind: "open",
-			depth: "*",
+			id: "open",
+			name: "Open",
+			color: "violet",
 			picks: [{ agent: "claude", model: "haiku", effort: "low" }],
 		},
-		{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
 	],
+	routes: {
+		...ALL.routes,
+		open: { unsure: "open", shallow: "open", moderate: "open", deep: "open" },
+	},
 };
 
 const VIEW: AutoPickRulesView = {

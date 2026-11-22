@@ -299,37 +299,54 @@ export function CredField({
 	);
 }
 
-/** Past a journey's last page: it is set up, and what to do with it. */
+/** Past a journey's last page: it is set up, what was done, and what to do next. */
 export function JourneyDone({
 	title,
+	steps,
 	onLeave,
-	onUndo,
 	children,
 }: {
 	title: string;
+	/** The journey's steps, of which the done ones are listed. */
+	steps: readonly StepProgress[];
 	onLeave: () => void;
-	/** Asks to undo it. */
-	onUndo: () => void;
 	/** What to do next, as "Start an OpenCode conversation". */
 	children?: ReactNode;
 }): JSX.Element {
+	const did = steps.filter((step) => step.status === "done");
 	return (
-		<div className="flex w-full flex-col gap-6">
-			<h2 className="flex items-center gap-3 font-medium text-2xl">
-				<CheckIcon className="size-6 text-success" aria-hidden />
-				{title} is set up
-			</h2>
-			<div className="flex flex-wrap items-center gap-3">
+		<div className="mx-auto flex w-full max-w-lg flex-col items-center gap-2 rounded-2xl border bg-card p-8 text-center">
+			<div className="grid size-14 place-items-center rounded-full bg-success/15 text-success">
+				<CheckIcon className="size-7" aria-hidden />
+			</div>
+			<h2 className="mt-2 font-medium text-2xl">{title} is set up</h2>
+			{did.length > 0 && (
+				<ul className="mt-4 flex w-full flex-col text-left">
+					{did.map((step) => (
+						<li
+							key={step.id}
+							className="flex items-start gap-2 border-t py-2 text-sm"
+						>
+							<CheckIcon
+								className="mt-0.5 size-4 shrink-0 text-success"
+								aria-hidden
+							/>
+							<span>
+								{step.title}
+								{step.found !== null && (
+									<span className="block text-muted-foreground">
+										<Markdown text={step.found} inline />
+									</span>
+								)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+			<div className="mt-4 flex flex-wrap items-center justify-center gap-3">
 				{children}
 				<Button variant="outline" onClick={onLeave}>
 					Back to setup
-				</Button>
-				<Button
-					variant="ghost"
-					className="text-muted-foreground"
-					onClick={onUndo}
-				>
-					<Undo2Icon data-icon="inline-start" /> Undo {title}
 				</Button>
 			</div>
 		</div>

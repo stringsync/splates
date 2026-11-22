@@ -2,6 +2,56 @@ import { describe, expect, it } from "bun:test";
 import { stretches } from "./asked";
 
 describe("stretches, numbered lists as questions", () => {
+	it("puts the approval question last, keeping each number", () => {
+		const found = stretches(
+			[
+				"1. Do you approve a new flag?",
+				"   - (a) Yes",
+				"   - (b) No",
+				"2. Which name should it take?",
+				"   - (a) quiet",
+				"   - (b) silent",
+			].join("\n"),
+		);
+		const card = found[0];
+		expect(
+			card?.type === "questions" && card.questions.map((each) => each.number),
+		).toEqual(["2", "1"]);
+	});
+
+	it("takes an approval question's Plan line out of its body as its plan", () => {
+		const [card] = stretches(
+			[
+				"1. Do you approve the plan-page sheet?",
+				"   Built in splates web only.",
+				"   Plan: plan.html",
+				"   - (a) Yes, approve it (chosen)",
+				"   - (b) No",
+			].join("\n"),
+		);
+		const asked = card?.type === "questions" ? card.questions[0] : undefined;
+		expect(asked?.plan).toBe("plan.html");
+		expect(asked?.body).toBe("Built in splates web only.");
+		expect(asked?.choices.map((each) => each.key)).toEqual(["a", "b"]);
+	});
+
+	it("offers to request a full plan on an approval question with none", () => {
+		const [card] = stretches(
+			[
+				"1. Do you approve a new flag?",
+				"   - (a) Yes, approve it (chosen)",
+				"   - (b) No",
+			].join("\n"),
+		);
+		const asked = card?.type === "questions" ? card.questions[0] : undefined;
+		expect(asked?.plan).toBeNull();
+		expect(asked?.choices.map((each) => [each.key, each.text])).toEqual([
+			["a", "Yes, approve it"],
+			["b", "No"],
+			["c", "Request a full plan"],
+		]);
+	});
+
 	it("leaves a numbered list that is not all questions, and one in a code block, as text", () => {
 		const text = [
 			"Steps:",

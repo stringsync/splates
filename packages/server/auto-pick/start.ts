@@ -31,7 +31,7 @@ const JUDGE_KEY = JUDGE_CREDS.jev[0];
 
 /** What {@link JUDGE_KEY} is for, as the Creds page shows it. */
 const PURPOSE =
-	"Auto pick asks TypeSafe's Jev what kind of work a task is and how deeply it needs to reason, to start it on the agent, model and thinking level your Auto pick rules give that; without a key every Auto pick takes the rule for any kind and depth.";
+	"Auto pick asks TypeSafe's Jev what kind of work a task is and how deeply it needs to reason, to start it on the agent, model and thinking level your Auto pick rules give that; without a key every task is unsure of both and takes the lineup routed for that.";
 
 /** How to get {@link JUDGE_KEY}, as the Creds page shows it. */
 const INSTRUCTIONS = `1. Open [TypeSafe](https://typesafe.ai) and sign in.
@@ -59,7 +59,7 @@ export type AutoPickStart = (
 /**
  * Starts a conversation on what Auto pick decides for a task, through
  * `start`, which knows the tree it runs in. It answers before the judge does,
- * on what the rules give a task of no sure kind, so the page opens the
+ * on the lineup for a task of no sure kind, so the page opens the
  * thread at once; the agent opens on the decision, which a prompt said
  * meanwhile waits on. A task whose words the judge read before is decided on
  * what it said then. Keeps the decision on the task's record, logs it in the
@@ -170,6 +170,7 @@ export async function contextOf(
 		agents: await Roster.in(new FsStorage(home, project.fs)).agents(),
 		runnable: conversations.agents.map((each) => each.id),
 		limits: await conversations.limits(),
+		avoided: (await conversations.health?.avoided(now)) ?? [],
 		offered: await conversations.settings(),
 		now,
 	};
@@ -298,13 +299,13 @@ async function logPick(
 /** What a conversation keeps of `decision`. */
 export function setOf({
 	pick,
-	rule,
+	lineup,
 	kind,
 	depth,
 	clarity,
 }: AutoPickDecision): AutoPickSet {
 	return {
-		rule,
+		lineup: lineup ?? null,
 		kind,
 		depth,
 		...(clarity === undefined ? {} : { clarity }),

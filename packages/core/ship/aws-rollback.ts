@@ -29,6 +29,43 @@ export async function stackStatus(
 }
 
 /**
+ * The statuses a stack's resources match its template in: a create or
+ * update that finished, or an update rolled back to its previous template.
+ * Any other (`UPDATE_FAILED` left by `--no-rollback`, a failed rollback, a
+ * create rolled back, anything in progress) can store a template its
+ * resources never reached, so an empty diff there proves nothing.
+ */
+const SETTLED = new Set([
+	"CREATE_COMPLETE",
+	"UPDATE_COMPLETE",
+	"UPDATE_ROLLBACK_COMPLETE",
+	"IMPORT_COMPLETE",
+]);
+
+/**
+ * Why the stack's resources may not match its stored template, naming its
+ * status and the resources that failed, or `undefined` when it settled.
+ */
+export async function unsettled(
+	ctx: Pick<Ctx, "sh">,
+	ref: StackRef,
+): Promise<string | undefined> {
+	const status = await stackStatus(ctx, ref);
+	if (status && SETTLED.has(status)) {
+		return undefined;
+	}
+	if (!status) {
+		return `${ref.name} has no stack status.`;
+	}
+	const failed = await failedResources(ctx, ref);
+	return `${ref.name} is ${status}. ${
+		failed.length === 0
+			? "CloudFormation names no failed resource."
+			: `Failed: ${failed.map((one) => (one.reason ? `${one.id} (${one.reason})` : one.id)).join("; ")}.`
+	}`;
+}
+
+/**
  * Explains a deploy that failed by what it left the stack in, waiting out a
  * rollback still running and the ECS services it rolled back. Returns the
  * error the step fails with.

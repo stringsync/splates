@@ -125,7 +125,7 @@ describe("App's queued rows in the sidebar", () => {
 			view.getByRole("list", { name: /queue$/ }),
 		);
 		fireEvent.click(within(queue).getByText("Waits for an agent"));
-		await waitFor(() => view.getByText("Queued · 1"));
+		await waitFor(() => view.getByRole("article", { name: "Task #2" }));
 		fireEvent.click(view.getByRole("button", { name: "Unqueue: Unqueue" }));
 		await waitFor(() =>
 			expect(testing.posted("/api/todos/2/queued")).toEqual([

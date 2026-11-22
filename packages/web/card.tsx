@@ -1,15 +1,17 @@
 import { age } from "@splates/server/age";
 import type { TaskRecord } from "@splates/server/board";
-import { blockerLabel } from "@splates/server/board/browser";
+import {
+	blockerLabel,
+	cleared,
+	deferralBlockers,
+} from "@splates/server/board/browser";
 import { taskNumberReference } from "@splates/server/plans/browser";
 import { isBlocked } from "@splates/server/queue/browser";
 import {
 	CircleAlertIcon,
-	ClockIcon,
 	HourglassIcon,
 	InfoIcon,
 	type LucideIcon,
-	PaperclipIcon,
 } from "lucide-react";
 import {
 	type HTMLAttributes,
@@ -25,7 +27,7 @@ import {
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { AUTO_PICK_NAME } from "./auto-brand";
 import { Elsewhere, heldElsewhere } from "./blocked-elsewhere";
 import { BlockedFixButton } from "./blocked-fix";
 import { Board, still, touchArea } from "./board";
@@ -35,7 +37,7 @@ import { LaneChip } from "./lane-chip";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 import { StartAssigned } from "./start-menu";
-import { QueuedMark, QueueToggle, StageBadge } from "./todo-queue";
+import { QueuedMark, QueueToggle, StageBadge, shownStage } from "./todo-queue";
 import { waitLines, waitsOn, waitsShort } from "./waits-on";
 
 export interface CardProps {
@@ -104,13 +106,52 @@ export function Card({
 	// What stands in its way, most pressing first; the card shows the first and
 	// counts the rest, so a card with several kinds of trouble stays one line.
 	const notes: Note[] = [];
+	const shown = shownStage(todo, board.todos, board.tasks);
+	if (shown === "stalled") {
+		notes.push({
+			key: "stalled",
+			text: "Stalled: its agent is gone, and what it did may be on its branch",
+			short: "Stalled: agent gone",
+			Icon: CircleAlertIcon,
+			tone: "danger",
+			lead: "Stalled",
+		});
+	}
+	const deferredOn =
+		todo.takenBy !== null && todo.deferred !== undefined
+			? deferralBlockers(todo, board.todos).filter(
+					(each) => each.kind === "task" && !cleared(each),
+				)
+			: [];
+	if (shown === "blocked" && deferredOn.length > 0) {
+		const text = `Blocked by ${deferredOn.map((each) => (each.kind === "task" ? `#${each.id}` : "")).join(", ")}`;
+		notes.push({
+			key: "deferred",
+			text,
+			Icon: HourglassIcon,
+			tone: "warning",
+			lead: "Blocked",
+		});
+	}
 	if (leftFor.length > 0) {
 		const text = `left the queue: queue ${leftFor.map((id) => `#${id}`).join(", ")} first`;
-		notes.push({ key: "left", text, Icon: CircleAlertIcon });
+		notes.push({
+			key: "left",
+			text,
+			Icon: CircleAlertIcon,
+			tone: "warning",
+			lead: "left the queue",
+		});
 	}
 	for (const gone of todo.blockersLost ?? []) {
 		const text = `#${gone.id}${gone.subject === "" ? "" : ` ${gone.subject}`} was removed without merging`;
-		notes.push({ key: `lost-${gone.id}`, text, short: text, Icon: InfoIcon });
+		notes.push({
+			key: `lost-${gone.id}`,
+			text,
+			short: text,
+			Icon: InfoIcon,
+			tone: "warning",
+		});
 	}
 	if (!blocked && waits.length > 0) {
 		notes.push({
@@ -118,18 +159,28 @@ export function Card({
 			text: waitLines(waits),
 			short: waitsShort(waits),
 			Icon: HourglassIcon,
+			tone: "warning",
 		});
 	} else if (!blocked && blockers.length > 0) {
 		const text = `Blocked by ${blockers.map((other) => blockerLabel(other, board.lanes)).join(", ")}`;
-		notes.push({ key: "blocked", text, short: text, Icon: HourglassIcon });
+		notes.push({
+			key: "blocked",
+			text,
+			short: text,
+			Icon: HourglassIcon,
+			tone: "warning",
+			lead: "Blocked",
+		});
 	}
 	if (blockers.length === 0 && awaited.length > 0) {
 		const text = `Waiting on ${awaited.map((each) => (each.kind === "question" ? `your answer: ${each.text.split("\n")[0]}` : each.kind === "outside" ? each.what : "")).join("; ")}`;
 		notes.push({
 			key: "awaited",
 			text,
-			short: "waiting on you",
+			short: "Waiting on you",
 			Icon: HourglassIcon,
+			tone: "warning",
+			lead: "Waiting",
 		});
 	}
 	return (
@@ -190,14 +241,14 @@ export function Card({
 					<CopyLink id={todo.id} />
 					{listed && <LaneChip lane={todo.lane} />}
 					{todo.slug !== undefined && (
-						<span className="min-w-0 truncate" title="Its slug">
+						<Chip className="min-w-0 truncate" title="Its slug">
 							{todo.slug}
-						</span>
+						</Chip>
 					)}
 					{mixed && todo.scope !== undefined && (
-						<span className="min-w-0 truncate" title="The project it changes">
+						<Chip className="min-w-0 truncate" title="The project it changes">
 							{todo.scope}
-						</span>
+						</Chip>
 					)}
 					{/* A list's column already says where it stands. */}
 					{!listed && <StageBadge todo={todo} />}
@@ -205,10 +256,7 @@ export function Card({
 					{todo.takenBy === null &&
 						todo.stage === "available" &&
 						todo.assignee === undefined && (
-							<span className="inline-flex items-center gap-1">
-								<AutoIcon className="size-3" />
-								{AUTO_PICK_NAME}
-							</span>
+							<Chip dot="bg-primary">{AUTO_PICK_NAME}</Chip>
 						)}
 					{/* Kept while queued, so its Undo outlives the block it cleared. */}
 					{held && <BlockedFixButton todo={todo} onFixed={onFixed} />}
@@ -216,9 +264,9 @@ export function Card({
 					{detail}
 					<Notes notes={notes} />
 					{todo.files.length > 0 && (
-						<Badge Icon={PaperclipIcon} label="files">
-							{todo.files.length}
-						</Badge>
+						<Chip title="files">
+							{todo.files.length} {todo.files.length === 1 ? "file" : "files"}
+						</Chip>
 					)}
 					{/* Its assigned agent starts it in one tap; one blocked waits. */}
 					{todo.takenBy === null &&
@@ -233,9 +281,9 @@ export function Card({
 						)}
 					<QueueToggle todo={todo} />
 					{stale && (
-						<Badge Icon={ClockIcon} label="stale">
+						<Chip dot="bg-warning" title="stale">
 							stale, {age(todo.createdAt)}
-						</Badge>
+						</Chip>
 					)}
 				</span>
 				<Refusal refusal={board.refusedTodos.get(todo.id)} />
@@ -269,6 +317,10 @@ interface Note {
 	/** What the card says of it, when `text` is too long for a line. */
 	short?: string;
 	Icon: LucideIcon;
+	/** How pressing: its icon and first word take the color, the rest stays plain. */
+	tone?: "warning" | "danger";
+	/** The first word of what the card says, shown in the tone's color. */
+	lead?: string;
 }
 
 /**
@@ -281,16 +333,25 @@ function Notes({ notes }: { notes: Note[] }): JSX.Element | null {
 		return null;
 	}
 	const label = notes.map((note) => note.text).join("\n");
+	const said = first.short ?? first.text;
+	const color = first.tone === "danger" ? "text-destructive" : "text-warning";
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				render={<span {...still} />}
 				aria-label={label}
-				className="relative inline-flex min-w-0 cursor-default items-center gap-1 rounded text-warning outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative inline-flex min-w-0 cursor-default items-center gap-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
-				<first.Icon aria-hidden className="size-3 shrink-0" />
+				<first.Icon aria-hidden className={cn("size-3 shrink-0", color)} />
 				<span className="truncate" title={first.text}>
-					{first.short ?? first.text}
+					{first.lead !== undefined && said.startsWith(first.lead) ? (
+						<>
+							<span className={cn("font-semibold", color)}>{first.lead}</span>
+							{said.slice(first.lead.length)}
+						</>
+					) : (
+						said
+					)}
 				</span>
 				{rest.length > 0 && (
 					<span className="shrink-0 tabular-nums">+{rest.length}</span>
@@ -324,19 +385,29 @@ export function CopyLink({ id }: { id: number }): JSX.Element {
 	);
 }
 
-/** One fact about a card, after an icon that says what kind. */
-export function Badge({
-	Icon,
-	label,
+/** One fact about a card: an outlined chip of plain text, with a dot colored only where the fact means something. */
+export function Chip({
+	dot,
+	title,
+	className,
 	children,
 }: {
-	Icon: LucideIcon;
-	label: string;
+	dot?: string;
+	title?: string;
+	className?: string;
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<span className="inline-flex items-center gap-1" title={label}>
-			<Icon aria-label={label} role="img" className="size-3" />
+		<span
+			title={title}
+			className={cn(
+				"inline-flex shrink-0 items-center gap-1.5 rounded-md border px-1.5 py-px text-foreground text-xs",
+				className,
+			)}
+		>
+			{dot !== undefined && (
+				<span aria-hidden className={cn("size-1.5 rounded-full", dot)} />
+			)}
 			{children}
 		</span>
 	);

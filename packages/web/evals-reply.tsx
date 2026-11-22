@@ -7,7 +7,6 @@ import {
 import { type JSX, useMemo } from "react";
 import { ThreadMessage } from "#web/components/assistant-ui/elements/thread-message.aui.tsx";
 import { DemoUI } from "./demo-cards";
-import { FindingsUI } from "./findings-card";
 import { QuestionsUI } from "./message-questions";
 import { ReportUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
@@ -40,7 +39,6 @@ export function EvalReply({ text }: { text: string }): JSX.Element {
 			<QuestionsUI />
 			<ReviewUI />
 			<ReportUI />
-			<FindingsUI />
 			<DemoUI />
 			<MessageByIndexProvider index={0}>
 				<ThreadMessage />

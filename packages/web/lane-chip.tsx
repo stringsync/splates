@@ -19,7 +19,7 @@ export function LaneChip({
 			aria-label={`Open lane ${found.name}`}
 			title={found.name}
 			onClick={() => openLane(found.id)}
-			className={`relative max-w-40 cursor-pointer truncate rounded-full border px-2 text-muted-foreground text-xs outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${touchArea}`}
+			className={`relative max-w-40 cursor-pointer truncate rounded-md border px-1.5 py-px text-foreground text-xs outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${touchArea}`}
 		>
 			{found.name}
 		</button>

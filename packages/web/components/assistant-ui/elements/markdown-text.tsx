@@ -29,6 +29,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import { DiagramView } from "#web/diagram-view.tsx";
 import { DirectiveChip, directiveIn } from "#web/directives.tsx";
 import { useCopyToClipboard } from "#web/hooks/use-copy-to-clipboard.ts";
+import { useWaitTail } from "#web/hooks/use-wait-tail.ts";
 import { cn } from "#web/lib/utils.ts";
 import { GROUP } from "#web/lightbox.tsx";
 import {
@@ -51,6 +52,7 @@ import {
 import { TaskChip } from "#web/reference-chip.tsx";
 import { SentAttachmentChip } from "#web/sent-attachments.tsx";
 import { RunInTerminal } from "#web/terminal.tsx";
+import { WaitEvent } from "#web/wait-event.tsx";
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
@@ -102,12 +104,13 @@ function MarkdownTextImpl({
 	const part = useMessagePartText();
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => setMounted(true), []);
+	const waiting = useWaitTail(part.text, typed === undefined);
 
 	// The lightbox steps through the screenshots of one message.
 	return (
 		<div {...{ [GROUP]: "" }}>
 			<TextMessagePartProvider
-				text={part.text}
+				text={waiting === null ? part.text : waiting.body}
 				isRunning={mounted && part.status.type === "running"}
 			>
 				<MarkdownTextPrimitive
@@ -134,6 +137,14 @@ function MarkdownTextImpl({
 					defer
 				/>
 			</TextMessagePartProvider>
+			{waiting !== null && (
+				<WaitEvent
+					directive={waiting.directive}
+					wait={waiting.wait}
+					at={waiting.at}
+					outcome={waiting.outcome}
+				/>
+			)}
 		</div>
 	);
 }

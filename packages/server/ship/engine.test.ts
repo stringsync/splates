@@ -36,6 +36,33 @@ describe("ShipEngine", () => {
 		await engine.start([lib]);
 	});
 
+	it("stops one target alone: its steps end, what depends on it never runs, the rest carries on", async () => {
+		const { processes, engine } = setup();
+		const solo: RunTarget = {
+			name: "solo",
+			command: "bin/solo ship",
+			dependencies: [],
+			steps: [{ id: "go", does: "Go" }],
+		};
+		await engine.start([lib, app, solo]);
+		const test = await processes.started("lib/test");
+		const go = await processes.started("solo/go");
+		const stopped = await engine.stopTarget("0", "lib");
+		expect(test.stopped).toBe(true);
+		expect(go.stopped).toBe(false);
+		expect(stopped.status).toBe("running");
+		expect(status(stopped, "lib/test")).toBe("stopped");
+		expect(status(stopped, "app/pin")).toBe("blocked");
+		test.exit(1);
+		go.exit(0);
+		await until(async () => (await engine.get("0"))?.status === "done");
+		const after = await engine.get("0");
+		expect(status(after, "lib/test")).toBe("stopped");
+		expect(processes.names()).not.toContain("app/pin");
+		expect(engine.stopTarget("0", "nope")).rejects.toBeInstanceOf(RunError);
+		expect(engine.stopTarget("0", "solo")).rejects.toBeInstanceOf(RunError);
+	});
+
 	it("stops a run that stopped on a failure, which frees the next ship", async () => {
 		const { processes, engine } = setup();
 		await engine.start([lib]);
@@ -208,6 +235,39 @@ describe("ShipEngine", () => {
 		expect(status(state, "app/pin")).toBe("running");
 		expect(engine.answer("0", "app", "pin", "p1", true)).rejects.toThrow(
 			"is not asking",
+		);
+	});
+
+	it("answers a confirm Yes by itself when the run auto-approves, and leaves a link and an ask", async () => {
+		const { processes, engine } = setup();
+		await engine.start([app], undefined, true);
+		const pin = await processes.started("app/pin");
+		pin.say({ type: "prompt", id: "p1", kind: "confirm", question: "Pin?" });
+		pin.say({ type: "prompt", id: "p2", kind: "link", url: "https://x.test" });
+		pin.say({ type: "prompt", id: "p3", kind: "ask", question: "Code?" });
+		await until(() => pin.answers.length === 1);
+		expect(pin.answers).toEqual([{ id: "p1", value: true }]);
+		await until(
+			async () =>
+				(await engine.get("0"))?.targets[0]?.steps[0]?.prompts.length === 2,
+		);
+	});
+
+	it("answers the confirms already waiting when auto-approving is switched on", async () => {
+		const { processes, engine } = setup();
+		await engine.start([app]);
+		const pin = await processes.started("app/pin");
+		pin.say({ type: "prompt", id: "p1", kind: "confirm", question: "Pin?" });
+		await until(
+			async () => status(await engine.get("0"), "app/pin") === "waiting",
+		);
+		expect((await engine.get("0"))?.autoApprove).toBe(false);
+		const state = await engine.autoApprove("0", true);
+		expect(state.autoApprove).toBe(true);
+		await until(() => pin.answers.length === 1);
+		expect(pin.answers).toEqual([{ id: "p1", value: true }]);
+		await until(
+			async () => status(await engine.get("0"), "app/pin") === "running",
 		);
 	});
 

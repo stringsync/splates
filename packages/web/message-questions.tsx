@@ -1,10 +1,5 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type {
-	Demo,
-	Proposal,
-	Question,
-	TaskReport,
-} from "@splates/server/plans";
+import type { Demo, Question, TaskReport } from "@splates/server/plans";
 import { isUpdate } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
@@ -16,14 +11,12 @@ import { questionHeading } from "./question-heading";
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
- * order, the escalation they end or the proposal they rest under, when they
- * do, the demo they follow, which is what they ask about, and the task
+ * order, the escalation they end, when they do, the demo they follow, which is what they ask about, and the task
  * they are asked in.
  */
 export interface QuestionsData {
 	questions: Question[];
 	escalation: TaskReport | null;
-	proposal: Proposal | null;
 	demo: Demo | null;
 	task: string | null;
 }
@@ -47,7 +40,6 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 export function MessageQuestions({
 	questions,
 	escalation,
-	proposal,
 	demo,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
@@ -81,13 +73,10 @@ export function MessageQuestions({
 	const sheeted = useSheeted();
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
-		<Sheeted
-			{...questionHeading(questions.length, escalation, proposal, count)}
-		>
+		<Sheeted {...questionHeading(questions.length, escalation, count)}>
 			<QuestionCards
 				questions={questions}
 				escalation={escalation}
-				proposal={proposal}
 				demo={demo}
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
@@ -102,7 +91,7 @@ export function MessageQuestions({
  * question too, as a message can ask more than one list.
  */
 function draftName(message: string, questions: Question[]): string {
-	return `questions:${message}:${questions[0]?.text ?? "proposal"}`;
+	return `questions:${message}:${questions[0]?.text ?? "questions"}`;
 }
 
 /** The questions an escalation it records asks; null for any other event. */

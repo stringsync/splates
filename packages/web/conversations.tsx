@@ -5,14 +5,10 @@ import {
 	lanesTaken,
 	named,
 } from "@splates/server/board/browser";
-import type {
-	ConversationState,
-	ReminderCard,
-} from "@splates/server/conversations";
+import type { ConversationState } from "@splates/server/conversations";
 import type { Details } from "@splates/server/tasks";
 import { WindowBackgroundObserver } from "core/browser";
 import { useReactive } from "core/react";
-import { Duration } from "core/time";
 import { ChevronLeftIcon } from "lucide-react";
 import {
 	type JSX,
@@ -38,7 +34,7 @@ import {
 	terminalOf,
 	withDraft,
 } from "./conversation-address";
-import { markUnread, visitConversation } from "./conversation-api";
+import { markUnread } from "./conversation-api";
 import { Archived } from "./conversation-archived";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Home } from "./conversation-home";
@@ -47,12 +43,10 @@ import { goOn, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useExpect } from "./expecting";
 import { FinishedByName } from "./finished-tasks";
-import { useNow } from "./hooks/use-now";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { QueuedTask } from "./queued-task";
 import { useRefusals } from "./refusal";
-import { reminderCardFor } from "./reminder-of";
 import { Task } from "./task-dialog";
 import {
 	ConversationTerminal,
@@ -202,7 +196,6 @@ export const Conversations = memo(function Conversations({
 	const opened = useRef(open);
 	opened.current = open;
 	useRead(shown);
-	useVisit(shown, shownTask);
 	// What a new conversation starts with. Its picks are for one agent's
 	// settings, and its draft for one tree, so it starts over for another.
 	const starting = {
@@ -363,9 +356,6 @@ export const Conversations = memo(function Conversations({
 	);
 });
 
-/** How often the page tells the server it shows a conversation. */
-const VISIT_EVERY = Duration.mins(1);
-
 /** Whether the page is in front, rather than behind another window or tab. */
 function useInFront(): boolean {
 	const [inFront, setInFront] = useState(true);
@@ -377,30 +367,6 @@ function useInFront(): boolean {
 		return () => observer.dispose();
 	}, []);
 	return inFront;
-}
-
-/**
- * Tells the server each minute that the page shows `conversation`, with what
- * would remind the person of `task`. Waits for the task's record to come, so
- * the visit that finds them back has the card to show.
- */
-function useVisit(
-	conversation: ConversationState | null,
-	task: Details | null,
-): void {
-	const inFront = useInFront();
-	const id = conversation?.id ?? null;
-	const showing = id !== null && inFront && task !== null;
-	const minute = useNow(showing, VISIT_EVERY);
-	const card = useRef<ReminderCard | null>(null);
-	card.current = task === null ? null : reminderCardFor(task.task, task.plan);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `minute` is what sends it again
-	useEffect(() => {
-		if (showing) {
-			// Nothing to tell anyone: the next minute tries again.
-			void visitConversation(id, card.current).catch(() => {});
-		}
-	}, [id, showing, minute]);
 }
 
 /**

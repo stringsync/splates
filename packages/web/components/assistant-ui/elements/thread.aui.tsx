@@ -46,6 +46,7 @@ export const Thread: FC<ThreadProps> = ({
 	components = EMPTY_COMPONENTS,
 	autoFocus = true,
 	above,
+	after,
 	welcome,
 	below,
 	controls,
@@ -69,6 +70,7 @@ export const Thread: FC<ThreadProps> = ({
 			<ThreadExtrasContext.Provider
 				value={{
 					above,
+					after,
 					welcome,
 					below,
 					controls,
@@ -115,7 +117,7 @@ const ThreadRoot: FC<{
 	const isNew = (s: AssistantState) => !occupied && isNewChatView(s);
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const historyReady = useAuiState((s) => !s.thread.isLoading);
-	const { welcome, below, composer } = useContext(ThreadExtrasContext);
+	const { welcome, below, composer, after } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
 	// keyboard over half the page.
@@ -213,6 +215,7 @@ const ThreadRoot: FC<{
 						)}
 					>
 						<ThreadTurns />
+						{after !== undefined && <div className="empty:hidden">{after}</div>}
 					</div>
 
 					<ThreadPrimitive.ViewportFooter

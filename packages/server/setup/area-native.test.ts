@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { FakeSecretStore } from "core/creds/testing";
 import type { SpawnOptions } from "core/system";
 import { FakeFs, FakePs } from "core/system/testing";
-import { CLAUDE_AREA, CODEX_AREA, KIMI_AREA } from "./area-native";
+import {
+	ANTIGRAVITY_AREA,
+	CLAUDE_AREA,
+	CODEX_AREA,
+	KIMI_AREA,
+} from "./area-native";
 import { Setup, type SetupMachine } from "./setup";
 
 const HOME = "/home/.splates";
@@ -92,6 +97,21 @@ describe("CLAUDE_AREA and CODEX_AREA", () => {
 		expect(
 			new Setup(machine({}), [KIMI_AREA]).submit("kimi-install", {}),
 		).rejects.toThrow("Could not install Kimi from here.");
+	});
+
+	it("finishes Antigravity setup when installed without requiring sign-in or model access", async () => {
+		const missing = await new Setup(machine({}), [ANTIGRAVITY_AREA]).read();
+		expect(missing.areas[0]?.steps[0]?.status).not.toBe("done");
+		const installed = await new Setup(machine({ "agy --version": 0 }), [
+			ANTIGRAVITY_AREA,
+		]).read();
+		expect(
+			installed.areas[0]?.steps.map((step) => [step.id, step.status]),
+		).toEqual([["antigravity-install", "done"]]);
+		expect(installed.areas[0]?.steps[0]?.why).toContain(
+			"https://antigravity.google/docs/",
+		);
+		expect(await fs.exists(`${HOME}/agents.json`)).toBe(false);
 	});
 
 	it("creates the roster with just this agent, and refuses no model ticked", async () => {

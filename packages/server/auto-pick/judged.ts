@@ -22,7 +22,7 @@ export interface Judged {
 /**
  * Decides for a task's words: on `cached`, what the judge said of the same
  * words before, with no judge asked; else on what `judge` says now; else, the
- * judge missing, failing or slow, on the rule for any task, saying why.
+ * judge missing, failing or slow, on the lineup for an unsure kind and depth, saying why.
  */
 export async function decideFor({
 	subject,

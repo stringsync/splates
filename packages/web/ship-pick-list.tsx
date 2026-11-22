@@ -1,4 +1,10 @@
-import type { Bump, Listed, Pick, Unshipped } from "@splates/server/ship";
+import type {
+	Bump,
+	Currents,
+	Listed,
+	Pick,
+	Unshipped,
+} from "@splates/server/ship";
 import type { JSX } from "react";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
@@ -54,17 +60,22 @@ export function picksOf(picks: Picks): Pick[] {
  * bump. A picked versioned target switches between a bump and an exact
  * version, its control wrapping under the name on a narrow screen. Each
  * change comes back through `onPicks` as the whole pick. An unpicked target
- * shows its unshipped count once `unshipped` has it.
+ * shows its unshipped count once `unshipped` has it, and a target
+ * shows its current version under its name once `current` has it.
  */
 export function ShipPickList({
 	targets,
 	unshipped = {},
+	current = {},
+	loadingDetails = false,
 	picks,
 	onPicks,
 	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: {
 	targets: readonly Listed[];
 	unshipped?: Unshipped;
+	current?: Currents;
+	loadingDetails?: boolean;
 	picks: Picks;
 	onPicks: (picks: Picks) => void;
 }): JSX.Element {
@@ -80,69 +91,110 @@ export function ShipPickList({
 	const choose = (name: string, to: Choice) => {
 		onPicks(new Map(picks).set(name, to));
 	};
+	const groups = new Map<string, Listed[]>();
+	for (const target of targets) {
+		const group = groupOf(target);
+		groups.set(group, [...(groups.get(group) ?? []), target]);
+	}
 	return (
-		<ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-			{targets.map((target) => {
-				const { name } = target.plan;
-				const picked = picks.has(name);
-				const choice = picks.get(name) ?? null;
-				const versioned = target.plan.versioned === true;
-				const deploy = target.plan.bump === undefined && !versioned;
-				const count = unshipped[name];
-				return (
-					<li
-						key={name}
-						className="flex min-h-14 transition-colors hover:bg-muted/50 flex-wrap items-center gap-x-3 px-3.5"
-					>
-						<Checkbox
-							checked={picked}
-							onCheckedChange={() => toggle(target)}
-							aria-label={name}
-						/>
-						{/* The name is the line's wide tap target; the checkbox is what a keyboard or reader uses. */}
-						<span
-							aria-hidden="true"
-							onClick={() => toggle(target)}
-							className={cn(
-								"flex min-w-0 flex-1 cursor-pointer select-none items-center self-stretch py-3 text-sm",
-								picked ? "font-semibold" : "font-medium",
-							)}
-						>
-							<span className="truncate">{name}</span>
+		<div className="flex flex-col gap-5">
+			{[...groups].map(([group, members]) => (
+				<section key={group} aria-label={group}>
+					<h3 className="mb-1.5 px-0.5 font-semibold text-sm">
+						{group}
+						<span className="ml-2 font-normal text-muted-foreground text-xs">
+							{members.length} {members.length === 1 ? "target" : "targets"}
 						</span>
-						{!picked && count !== undefined && (
-							<span
-								className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs tabular-nums"
-								title="Unshipped commits"
-							>
-								{count}
-							</span>
-						)}
-						{deploy ? (
-							<span className="text-muted-foreground text-xs">deploy</span>
-						) : versioned ? (
-							picked && (
-								<VersionChoice
-									target={target}
-									choice={choice}
-									onChoice={(to) => choose(name, to)}
-								/>
-							)
-						) : (
-							picked &&
-							typeof choice === "string" && (
-								<BumpToggle
-									name={name}
-									bump={choice}
-									onBump={(to) => choose(name, to)}
-								/>
-							)
-						)}
-					</li>
-				);
-			})}
-		</ul>
+					</h3>
+					<ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+						{members.map((target) => {
+							const { name } = target.plan;
+							const picked = picks.has(name);
+							const choice = picks.get(name) ?? null;
+							const versioned = target.plan.versioned === true;
+							const deploy = target.plan.bump === undefined && !versioned;
+							const count = unshipped[name];
+							const now = current[name];
+							const notes = [
+								deploy ? "deploy" : undefined,
+								now !== undefined ? `current ${now}` : undefined,
+								count === undefined ? undefined : sinceLastShip(count),
+								loadingDetails ? "loading" : undefined,
+							].filter((note) => note !== undefined);
+							return (
+								<li
+									key={name}
+									className="flex min-h-14 transition-colors hover:bg-muted/50 flex-wrap items-center gap-x-3 px-3.5"
+								>
+									<Checkbox
+										checked={picked}
+										onCheckedChange={() => toggle(target)}
+										aria-label={name}
+									/>
+									{/* The name is the line's wide tap target; the checkbox is what a keyboard or reader uses. */}
+									<span
+										aria-hidden="true"
+										onClick={() => toggle(target)}
+										className={cn(
+											"flex min-w-0 flex-1 cursor-pointer select-none items-center self-stretch py-3 text-sm",
+											picked ? "font-semibold" : "font-medium",
+										)}
+									>
+										<span className="flex min-w-0 flex-col">
+											<span className="truncate">{name}</span>
+											<span
+												className={cn(
+													"min-h-4 truncate font-normal text-xs",
+													count !== undefined && count > 100
+														? "text-warning"
+														: "text-muted-foreground",
+												)}
+											>
+												{notes.join(" · ")}
+											</span>
+										</span>
+									</span>
+									{versioned
+										? picked && (
+												<VersionChoice
+													target={target}
+													choice={choice}
+													onChoice={(to) => choose(name, to)}
+												/>
+											)
+										: !deploy &&
+											picked &&
+											typeof choice === "string" && (
+												<BumpToggle
+													name={name}
+													bump={choice}
+													onBump={(to) => choose(name, to)}
+												/>
+											)}
+								</li>
+							);
+						})}
+					</ul>
+				</section>
+			))}
+		</div>
 	);
+}
+
+/** The count as a line: "717 commits since last ship". */
+function sinceLastShip(count: number): string {
+	return count === 0
+		? "up to date"
+		: `${count} ${count === 1 ? "commit" : "commits"} since last ship`;
+}
+
+/**
+ * The group a target sits under: the program of the command that serves it,
+ * so every target one project's commands list shares a heading.
+ */
+function groupOf({ command }: Listed): string {
+	const program = command.split(/\s+/)[0] ?? command;
+	return program.split("/").at(-1) ?? program;
 }
 
 const DEFAULT = "default";

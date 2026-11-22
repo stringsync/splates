@@ -6,11 +6,11 @@ import { cleanup, render } from "./testing-library";
 
 afterEach(cleanup);
 
-test("finds approval references and exact agent links, including archived conversations", () => {
+test("finds exact agent links, including archived conversations", () => {
 	const origin = conversation({
 		id: "origin",
 		archived: true,
-		messages: [message("user", "[SPLATES SHIP STARTED run-1]")],
+		messages: [message("agent", "#ships/run-1")],
 	});
 	const mentioned = conversation({
 		id: "mention",
@@ -40,7 +40,7 @@ test("shows a conversation link and hides the row when no agent is known", () =>
 		conversation({
 			id: "c1",
 			name: "Release check",
-			messages: [message("user", "[SPLATES SHIP STARTED run-1]")],
+			messages: [message("agent", "#ships/run-1")],
 		}),
 	];
 	const view = render(<ShipAgents id="run-1" talk={talk} />);

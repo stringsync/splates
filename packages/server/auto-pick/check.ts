@@ -3,4 +3,5 @@
  * zod: import it from `@splates/server/auto-pick/check` in a page
  * that edits them.
  */
-export { checkRules } from "./rules";
+export { idFor } from "./cells";
+export { checkRules, lineupFor } from "./rules";

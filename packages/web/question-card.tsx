@@ -1,6 +1,6 @@
 import type { Answer, Question } from "@splates/server/plans";
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
-import { type JSX, type KeyboardEvent, useState } from "react";
+import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
 import {
 	Tooltip,
 	TooltipContent,
@@ -23,6 +23,8 @@ export function QuestionCard({
 	onNext,
 	roomy = false,
 	files = null,
+	plan = null,
+	headed = true,
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -39,6 +41,10 @@ export function QuestionCard({
 	roomy?: boolean;
 	/** Where what is attached to its answer goes; null where a reply carries none. */
 	files?: Files | null;
+	/** The plan it asks to approve, shown under its words; null for none. */
+	plan?: ReactNode;
+	/** Whether to show its heading; false where the panel around it does. */
+	headed?: boolean;
 }): JSX.Element {
 	const { number, text, size, body, pick } = asked;
 	// The agent's recommendation first, each keeping its letter.
@@ -125,7 +131,7 @@ export function QuestionCard({
 					: "px-4 py-4 transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
 			)}
 		>
-			{!roomy && (
+			{!roomy && headed && (
 				<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
 					{number}
 					{answer !== null && <span className="sr-only"> answered</span>}
@@ -137,28 +143,35 @@ export function QuestionCard({
 					roomy ? "gap-4" : "gap-3",
 				)}
 			>
-				<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
-					<div className="flex items-start gap-2">
-						<p
-							className={cn(
-								"flex-1 leading-snug",
-								roomy ? "font-semibold text-lg" : "font-medium text-sm",
-							)}
-						>
-							<Markdown text={text} inline />
-						</p>
-						{size !== null && <Size size={size} />}
+				{(headed || body !== "" || plan !== null) && (
+					<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
+						{headed && (
+							<div className="flex items-start gap-2">
+								<p
+									className={cn(
+										"flex-1 leading-snug",
+										roomy ? "font-semibold text-lg" : "font-medium text-sm",
+									)}
+								>
+									<Markdown text={text} inline />
+								</p>
+								{size !== null && <Size size={size} />}
+							</div>
+						)}
+						{body !== "" && (
+							<Markdown
+								text={body}
+								className={cn(
+									"text-muted-foreground leading-relaxed [&_p]:my-0",
+									roomy ? "text-[15px]" : "text-[13px]",
+								)}
+							/>
+						)}
+						{plan !== null && (
+							<div className={roomy ? "pt-2 pb-1" : "pt-1.5"}>{plan}</div>
+						)}
 					</div>
-					{body !== "" && (
-						<Markdown
-							text={body}
-							className={cn(
-								"text-muted-foreground leading-relaxed [&_p]:my-0",
-								roomy ? "text-[15px]" : "text-[13px]",
-							)}
-						/>
-					)}
-				</div>
+				)}
 				{pick === "order" ? (
 					<Ranking
 						asked={asked}

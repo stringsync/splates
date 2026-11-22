@@ -2,17 +2,40 @@ import type {
 	AutoPickRules,
 	AutoPickRulesView,
 	AutoPickTrial,
+	Avoided,
 } from "@splates/server/auto-pick";
-import type { RuleOverrides } from "@splates/server/stats/browser";
+import type { CellOverrides } from "@splates/server/stats/browser";
 import { ApiError, answered, sendJson } from "./api";
 
 /** How often the person overrode each rule's pick, across this machine's projects. */
-export async function autoPickOverrides(): Promise<RuleOverrides[]> {
-	const response = await answered("/api/auto-pick/overrides");
+export async function autoPickOverrides(): Promise<{
+	rows: CellOverrides[];
+	cursor: number;
+}> {
+	const response = await answered("/api/auto-pick/overrides?view=notice");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/auto-pick/overrides: ${response.status}`);
 	}
-	return (await response.json()) as RuleOverrides[];
+	return {
+		rows: (await response.json()) as CellOverrides[],
+		cursor: Number(response.headers.get("X-Override-Cursor")),
+	};
+}
+
+export async function dismissAutoPickOverrides(cursor: number): Promise<void> {
+	await sendJson("/api/auto-pick/overrides/dismiss", "POST", { cursor });
+}
+
+/** Sends the overrides to an agent as one board task, answering its number. */
+export async function sendAutoPickOverrides(): Promise<number> {
+	const body = (await sendJson(
+		"/api/auto-pick/overrides/send",
+		"POST",
+		{},
+	)) as {
+		task: number;
+	};
+	return body.task;
 }
 
 /** This machine's Auto pick rules, and the agents a pick can name. */
@@ -58,4 +81,24 @@ export async function tryAutoPick(
 		"POST",
 		target,
 	)) as AutoPickTrial;
+}
+
+/** The models Auto pick is passing over now, and why. */
+export async function autoPickAvoided(): Promise<Avoided[]> {
+	const response = await answered("/api/auto-pick/avoided");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/auto-pick/avoided: ${response.status}`);
+	}
+	return (await response.json()) as Avoided[];
+}
+
+/** Tries `model` of `agent` at once ("Use anyway"), answering what is still avoided. */
+export async function clearAvoided(
+	agent: string,
+	model: string | null,
+): Promise<Avoided[]> {
+	return (await sendJson("/api/auto-pick/avoided/clear", "POST", {
+		agent,
+		model,
+	})) as Avoided[];
 }

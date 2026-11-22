@@ -142,11 +142,21 @@ export function release(opts: ReleaseOptions): Step[] {
 			`npm view --prefer-online ${quote(opts.package)} _npmUser | grep -q npm-oidc-no-reply`,
 		);
 
+	// First, so the one step that needs the user comes while they are still
+	// at the screen, not after the tests and the mirror have run.
 	return [
+		step({
+			id: "login",
+			does: "Sign in to npm, unless this machine already is",
+			dependencies: opts.dependencies,
+			done: async (ctx) =>
+				(await publishedByWorkflow(ctx)) || ok(ctx, "npm whoami"),
+			run: (ctx) => ctx.sh(tty("npm login --auth-type=web"), { prompts: true }),
+		}),
 		step({
 			id: "test",
 			does: `Test ${opts.package}`,
-			dependencies: opts.dependencies,
+			dependencies: ["login"],
 			run: (ctx) => ctx.sh(opts.test),
 		}),
 		step({
@@ -232,14 +242,6 @@ export function release(opts: ReleaseOptions): Step[] {
 				await write({ ...state, sha });
 				ctx.update(`Mirror at ${sha.slice(0, 7)}`);
 			},
-		}),
-		step({
-			id: "login",
-			does: "Sign in to npm, unless this machine already is",
-			dependencies: ["mirror"],
-			done: async (ctx) =>
-				(await publishedByWorkflow(ctx)) || ok(ctx, "npm whoami"),
-			run: (ctx) => ctx.sh(tty("npm login --auth-type=web"), { prompts: true }),
 		}),
 		step({
 			id: "first-publish",

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { FakePs } from "core/system/testing";
-import { Rec } from "./rec";
+import { onThisMachine, Rec } from "./rec";
+
+const LOCAL = "http://localhost:4410";
+const over = (host: string) =>
+	new Request("http://x/api/rec/open", { headers: { host } });
 
 describe("Rec", () => {
 	it("is unavailable when the rec command fails", async () => {
@@ -227,5 +231,33 @@ describe("Rec", () => {
 		child?.exit(0);
 		await stopping;
 		expect(child?.signals).toEqual(["SIGINT"]);
+	});
+
+	it("onThisMachine opens a page of this server reached over a tunnel on localhost", () => {
+		expect(
+			onThisMachine(
+				"https://splates.example.dev/plans/a.html?x=1#top",
+				over("splates.example.dev"),
+				LOCAL,
+			),
+		).toBe("http://localhost:4410/plans/a.html?x=1#top");
+	});
+
+	it("onThisMachine leaves a page already on this machine, or another site, as it is", () => {
+		expect(
+			onThisMachine("http://localhost:4410/a", over("localhost:4410"), LOCAL),
+		).toBe("http://localhost:4410/a");
+		expect(
+			onThisMachine("https://other.dev/a", over("splates.example.dev"), LOCAL),
+		).toBe("https://other.dev/a");
+		expect(
+			onThisMachine("about:blank", over("splates.example.dev"), LOCAL),
+		).toBe("about:blank");
+	});
+
+	it("onThisMachine leaves the URL when the server is not yet listening", () => {
+		expect(onThisMachine("https://s.dev/a", over("s.dev"), null)).toBe(
+			"https://s.dev/a",
+		);
 	});
 });

@@ -13,6 +13,14 @@ const UNSHIPPED_TIMEOUT = Duration.mins(1);
 /** Each target's unshipped commit count, by name, for those that count them. */
 export type Unshipped = Record<string, number>;
 
+/** Each target's current version, by name, for those that can say. */
+export type Currents = Record<string, string>;
+
+const VERSIONS = z.record(z.string(), z.string().min(1));
+
+/** How long a command has to answer `current`. */
+const CURRENT_TIMEOUT = Duration.secs(30);
+
 const COUNTS = z.record(z.string(), z.number().int().nonnegative());
 
 /** A target a ship command serves, as its `plan` with no flags describes it. */
@@ -34,6 +42,8 @@ type Answered = { command: string; plans: Plan[] };
 export type Listing = {
 	targets: Listed[];
 	errors: Unanswered[];
+	/** Set when this is the last listing read, a fresh one being read behind it. */
+	stale?: true;
 };
 
 /**
@@ -85,14 +95,20 @@ export class ShipCommands {
 		return listing;
 	}
 
-	/**
-	 * Every target's unshipped count, from each command's `unshipped`. A
-	 * command that fails, or has no such subcommand, gives no counts.
-	 */
+	/** Each target's unshipped commit count, by name, for those that count. */
 	async unshipped(): Promise<Unshipped> {
 		const commands = await this.registered();
 		const answers = await Promise.all(
 			commands.map((command) => this.counts(command)),
+		);
+		return Object.assign({}, ...answers);
+	}
+
+	/** Each target's current version, by name, for those that can say. */
+	async current(): Promise<Currents> {
+		const commands = await this.registered();
+		const answers = await Promise.all(
+			commands.map((command) => this.versions(command)),
 		);
 		return Object.assign({}, ...answers);
 	}
@@ -139,6 +155,25 @@ export class ShipCommands {
 		try {
 			const counts = COUNTS.safeParse(JSON.parse(result.stdout));
 			return counts.success ? counts.data : {};
+		} catch {
+			return {};
+		}
+	}
+
+	private async versions(command: string): Promise<Currents> {
+		const result = await this.ps
+			.spawnCapture(["sh", "-c", `${command} current`], {
+				cwd: this.root,
+				stdin: "",
+				timeoutMs: CURRENT_TIMEOUT.ms,
+			})
+			.catch(() => null);
+		if (result === null || result.exitCode !== 0) {
+			return {};
+		}
+		try {
+			const versions = VERSIONS.safeParse(JSON.parse(result.stdout));
+			return versions.success ? versions.data : {};
 		} catch {
 			return {};
 		}

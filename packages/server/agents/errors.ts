@@ -20,7 +20,10 @@ export function agentError(message: string): string {
 const AUTH_REQUIRED = -32000;
 
 /** How the person signs in to an agent that refuses until they do, by its id. */
-const SIGN_IN: Record<string, string> = { kimi: "kimi login" };
+const SIGN_IN: Record<string, string> = {
+	kimi: "kimi login",
+	antigravity: "agy acp --login",
+};
 
 /**
  * What an agent's failed request says, redacted: its message, and the detail

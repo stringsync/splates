@@ -1,7 +1,7 @@
 import type { TaskRecord } from "@splates/server/board";
 import { lanesTaken } from "@splates/server/board/browser";
-import { needs } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
+import { useReactive } from "core/react";
 import {
 	type JSX,
 	useCallback,
@@ -10,11 +10,18 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { ArchiveFinished } from "./archive-finished";
 import { arriveAt } from "./arrivals";
 import { openedBy } from "./conversation-address";
-import type { ConversationFeed } from "./conversation-feed";
+import { agentName, type ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
-import { flatten, nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
+import {
+	finished,
+	flatten,
+	nextWaiting,
+	rowsOf,
+	waitsOnYou,
+} from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
@@ -35,12 +42,14 @@ type Waiting = {
  * A line atop the sidebar's agents saying how many wait on you, counting
  * only agents the sidebar lists, here or in another project. Click it, or
  * press ⌥⌘M (Ctrl+Shift+M off a Mac), to open the next one waiting, then the
- * next merged, then unread; it lights when there is none.
+ * next merged, then unread; it lights when there is none. With none waiting
+ * and finished conversations about, it offers to archive them in one sweep.
  */
 export function NextWaiting({
 	open,
 	onOpen,
 	todos,
+	feed,
 	...given
 	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 }: Waiting & {
@@ -50,7 +59,7 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
-	const everywhere = useWaitingEverywhere({ ...given, todos });
+	const everywhere = useWaitingEverywhere({ ...given, feed, todos });
 	const { rows, others, waiting } = everywhere;
 	const navigation = useContext(NavigationContext);
 	const held = useHeld();
@@ -77,13 +86,32 @@ export function NextWaiting({
 	};
 	useShortcut("shortcuts.waiting", () => next.current());
 
+	const [sweeping, setSweeping] = useState(false);
+	const over = finished(rows);
+	const { agents } = useReactive(feed, (each) => ({ agents: each.agents }), [
+		"changed",
+	]);
 	return (
-		<WaitingLine
-			waiting={waiting}
-			nudges={nudges}
-			hint={held ? waitingKey : null}
-			onNext={() => next.current()}
-		/>
+		<>
+			<WaitingLine
+				waiting={waiting}
+				nudges={nudges}
+				hint={held ? waitingKey : null}
+				finished={over.length}
+				onNext={() => next.current()}
+				onSweep={() => setSweeping(true)}
+			/>
+			{sweeping && over.length > 0 && (
+				<ArchiveFinished
+					// Reset the ticks each time it opens.
+					key={over.map(openedBy).join()}
+					rows={over}
+					agentOf={(each) => agentName(agents, each.agent)}
+					open
+					onClose={() => setSweeping(false)}
+				/>
+			)}
+		</>
 	);
 }
 
@@ -138,11 +166,7 @@ export function useWaiting(
 		[feed],
 	);
 	const read = useCallback(
-		() =>
-			needs({ tasks, conversations: feed.conversations, todos }).filter(
-				({ conversation, need }) =>
-					conversation !== null && need.kind === "waiting",
-			).length,
+		() => rowsOf(tasks, feed.conversations, todos).filter(waitsOnYou).length,
 		[feed, tasks, todos],
 	);
 	return useSyncExternalStore(subscribe, read, read);

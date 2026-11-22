@@ -538,7 +538,7 @@ describe("App's conversation header", () => {
 		expect(failed.queryByText("bun test")).toBeNull();
 	});
 
-	it("marks a conversation with a spinner in the sidebar while it has a command running, without listing the command", async () => {
+	it("marks an idle conversation with a static icon while it has a command running, without listing the command", async () => {
 		const running = {
 			id: "b1",
 			name: "Start the dev server",
@@ -557,7 +557,7 @@ describe("App's conversation header", () => {
 		const sidebar = view.getByRole("navigation", { name: "conversations" });
 		expect(
 			within(sidebar).getByRole("status", {
-				name: "background commands running",
+				name: "agent idle with background commands",
 			}),
 		).toBeTruthy();
 		expect(
@@ -573,12 +573,12 @@ describe("App's conversation header", () => {
 		);
 		expect(
 			within(sidebar).queryByRole("status", {
-				name: "background commands running",
+				name: "agent idle with background commands",
 			}),
 		).toBeNull();
 	});
 
-	it("marks an unread conversation with its spinner rather than the dot while it has a command running", async () => {
+	it("preserves an unread reply while a background command runs", async () => {
 		const running = {
 			id: "b1",
 			name: "Run the build",
@@ -597,13 +597,9 @@ describe("App's conversation header", () => {
 			}),
 		]);
 		const sidebar = view.getByRole("navigation", { name: "conversations" });
-		const spinner = within(sidebar).getByRole("status", {
-			name: "background commands running",
-		});
-		expect(spinner.title).toBe("Background commands running");
 		expect(
-			within(sidebar).queryByRole("status", { name: "unread" }),
-		).toBeNull();
+			within(sidebar).getByRole("status", { name: "unread" }),
+		).toBeTruthy();
 
 		await testing.say(
 			conversation({

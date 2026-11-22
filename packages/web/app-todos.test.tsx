@@ -47,10 +47,8 @@ describe("App's todos", () => {
 			.map((card) => card.textContent);
 		expect(cards[0]).toContain("more to say");
 		expect(cards[0]).toContain("#1");
-		expect(
-			view.getByRole("img", { name: "files" }).parentElement?.textContent,
-		).toBe("2");
-		expect(view.getAllByRole("img", { name: "stale" })).toHaveLength(1);
+		expect(view.getByTitle("files").textContent).toBe("2 files");
+		expect(view.getAllByTitle("stale")).toHaveLength(1);
 	});
 
 	it("says a Backlog one is in Backlog in its dialog, not a step of a sequence", async () => {

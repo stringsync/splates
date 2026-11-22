@@ -20,6 +20,7 @@ import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import { useAged } from "./aged";
+import { FailedUI } from "./agent-failed";
 import {
 	ArchiveBar,
 	ArchiveConversation,
@@ -48,11 +49,9 @@ import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
-import { ErrorBanner } from "./error-banner";
 import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
 import { tierOf } from "./event-tier";
-import { FindingsUI } from "./findings-card";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
@@ -64,19 +63,18 @@ import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
 import { ProbeCards, ProbeUI } from "./probe-card";
-import { ProgressCard, ProgressCards, ProgressUI } from "./progress";
 import { useArchiveAfterPutBack, usePutBack } from "./put-back";
 import { QueueSummaryFor } from "./queue-summary-card";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
-import { Reminders, ReminderUI } from "./reminder-card";
 import { ReportUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { heldAfter, queuesNow } from "./sending";
 import { SignalUI, SignalWaits } from "./signal-card";
 import { QueueBanner } from "./start-queue";
+import { StepsUI } from "./steps-card";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadControls } from "./thread-controls";
@@ -86,6 +84,7 @@ import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
 import { PendingRow, UnsentActionsContext } from "./unsent";
+import { WaitBar, WaitSight } from "./wait-bar";
 import {
 	CompactionUI,
 	InterruptedUI,
@@ -95,11 +94,7 @@ import {
 	WorkUI,
 } from "./work-row";
 
-/**
- * A conversation and its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace off a Mac)
- * archives it; only Unarchive brings it back. Open an artifact from the card
- * beside the conversation or a line in it.
- */
+/** A conversation's page: its messages and the composer to reply in. ⌥⌘⌫ archives it. */
 export const Thread = memo(function Thread(
 	props: Parameters<typeof Conversation>[0],
 ): JSX.Element {
@@ -286,11 +281,13 @@ function Conversation({
 	const fileAway = () => archive.file(onLeft);
 	const swipeAway = (_then?: () => void, failed?: () => void) =>
 		archive.file(onLeft, failed);
+	const last = archivable ? ended(conversation) : null;
+	// A blocked task is no ending to offer archiving at: the menu does that.
 	const { offer, barred } = useArchiveOffer(
-		archivable ? ended(conversation) : null,
+		last?.ending === "deferred" ? null : last,
 		fileAway,
 	);
-	useArchiveAfterPutBack(awaiting, offer?.report ?? null, fileAway);
+	useArchiveAfterPutBack(awaiting, last, fileAway);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	return (
@@ -337,13 +334,6 @@ function Conversation({
 						{details && <Task task={task} />}
 					</Dialog>
 				)}
-				{conversation.queue === null && conversation.error !== null && (
-					<ErrorBanner
-						conversation={conversation}
-						error={conversation.error}
-						phone={onBack !== null}
-					/>
-				)}
 				{!archived &&
 					conversation.queue === null &&
 					conversation.status === "stopped" &&
@@ -371,115 +361,114 @@ function Conversation({
 						}}
 					>
 						<MergeCardContext value={mergeCard}>
-							<ProgressCards value={conversation.progress}>
-								<Reminders value={conversation.reminders}>
-									<SignalWaits
-										value={{ conversation: id, waits: conversation.signals }}
-									>
-										<ProbeCards value={conversation.probes ?? []}>
-											<AssistantRuntimeProvider runtime={runtime}>
-												<Composing.Provider value={runtime.thread.composer}>
-													<QueueSummaryFor value={conversation}>
-														<QuestionsUI />
-														<ReviewUI />
-														<ReportUI />
-														<FindingsUI />
-														<PermissionUI />
-														<DemoUI />
-														<WorkUI />
-														<EventUI />
-														<StoppedUI />
-														<CompactionUI />
-														<BackgroundUI />
-														<ProgressUI />
-														<ReminderUI />
-														<SignalUI />
-														<ProbeUI />
-														<RestedUI />
-														<InterruptedUI />
-														<EvalsConversation value={id}>
-															<ArchiveConversation
-																value={archivable ? fileAway : null}
-															>
-																<ArchiveOfferProvider value={offer}>
-																	<UnsentActionsContext value={unsentActions}>
-																		<ReplyContext value={reply}>
-																			<NamedContext value={named}>
-																				<ThreadView
-																					docked
-																					occupied={
-																						(sending?.length ?? 0) > 0 ||
-																						queued.length > 0
-																					}
-																					historyFailure={historyFailure}
-																					onRead={onRead}
-																					autoFocus={
-																						summary !== true &&
-																						(!asking || typed)
-																					}
-																					stopping={stopping}
-																					mentions={mentions ?? undefined}
-																					references={references}
-																					commands={commands ?? undefined}
-																					placeholder={
-																						archived
-																							? "Send a message to unarchive and continue"
-																							: undefined
-																					}
-																					controls={
-																						<ThreadControls
-																							conversation={conversation}
-																							refused={refused}
+							<SignalWaits
+								value={{ conversation: id, waits: conversation.signals }}
+							>
+								<ProbeCards value={conversation.probes ?? []}>
+									<WaitSight>
+										<AssistantRuntimeProvider runtime={runtime}>
+											<Composing.Provider value={runtime.thread.composer}>
+												<QueueSummaryFor value={conversation}>
+													<QuestionsUI />
+													<ReviewUI />
+													<ReportUI />
+													<PermissionUI />
+													<DemoUI />
+													<StepsUI />
+													<WorkUI />
+													<EventUI />
+													<StoppedUI />
+													<CompactionUI />
+													<BackgroundUI />
+													<SignalUI />
+													<ProbeUI />
+													<RestedUI />
+													<InterruptedUI />
+													<FailedUI />
+													<EvalsConversation value={id}>
+														<ArchiveConversation
+															value={archivable ? fileAway : null}
+														>
+															<ArchiveOfferProvider value={offer}>
+																<UnsentActionsContext value={unsentActions}>
+																	<ReplyContext value={reply}>
+																		<NamedContext value={named}>
+																			<ThreadView
+																				docked
+																				occupied={
+																					(sending?.length ?? 0) > 0 ||
+																					queued.length > 0
+																				}
+																				historyFailure={historyFailure}
+																				onRead={onRead}
+																				autoFocus={
+																					summary !== true && (!asking || typed)
+																				}
+																				stopping={stopping}
+																				mentions={mentions ?? undefined}
+																				references={references}
+																				commands={commands ?? undefined}
+																				placeholder={
+																					archived
+																						? "Send a message to unarchive and continue"
+																						: undefined
+																				}
+																				controls={
+																					<ThreadControls
+																						conversation={conversation}
+																						refused={refused}
+																					/>
+																				}
+																				after={
+																					<BlockedPanel
+																						conversation={conversation}
+																					/>
+																				}
+																				above={
+																					<>
+																						<NeedsYouBar />
+																						<WaitBar />
+																						<Refusal
+																							refusal={refusal}
+																							className="px-2"
 																						/>
-																					}
-																					above={
-																						<>
-																							<NeedsYouBar />
-																							<Refusal
-																								refusal={refusal}
-																								className="px-2"
-																							/>
-																							{offer !== null && barred && (
-																								<ArchiveBar offer={offer} />
-																							)}
-																							<PendingRow
-																								messages={agedSending}
-																								held={queued}
-																								edits={heldEdits(conversation, {
-																									sendNow,
-																									edit,
-																									discard,
-																									busy: queueBusy,
-																								})}
-																							/>
-																							<BlockedPanel
+																						{offer !== null && barred && (
+																							<ArchiveBar offer={offer} />
+																						)}
+																						<PendingRow
+																							messages={agedSending}
+																							held={queued}
+																							edits={heldEdits(conversation, {
+																								sendNow,
+																								edit,
+																								discard,
+																								busy: queueBusy,
+																							})}
+																						/>
+																						{conversation.ask !== null && (
+																							<AskPanel
+																								key={conversation.ask.id}
+																								drafts={drafts}
 																								conversation={conversation}
+																								agent={agent}
+																								ask={conversation.ask}
 																							/>
-																							{conversation.ask !== null && (
-																								<AskPanel
-																									key={conversation.ask.id}
-																									drafts={drafts}
-																									conversation={conversation}
-																									agent={agent}
-																									ask={conversation.ask}
-																								/>
-																							)}
-																						</>
-																					}
-																				/>
-																			</NamedContext>
-																		</ReplyContext>
-																	</UnsentActionsContext>
-																</ArchiveOfferProvider>
-															</ArchiveConversation>
-														</EvalsConversation>
-													</QueueSummaryFor>
-												</Composing.Provider>
-											</AssistantRuntimeProvider>
-										</ProbeCards>
-									</SignalWaits>
-								</Reminders>
-							</ProgressCards>
+																						)}
+																					</>
+																				}
+																			/>
+																		</NamedContext>
+																	</ReplyContext>
+																</UnsentActionsContext>
+															</ArchiveOfferProvider>
+														</ArchiveConversation>
+													</EvalsConversation>
+												</QueueSummaryFor>
+											</Composing.Provider>
+										</AssistantRuntimeProvider>
+									</WaitSight>
+								</ProbeCards>
+							</SignalWaits>
 						</MergeCardContext>
 						<Widgets
 							phone={onBack !== null}
@@ -492,7 +481,6 @@ function Conversation({
 								conversation={id}
 								background={conversation.background}
 							/>
-							<ProgressCard progress={conversation.progress} />
 							<ArtifactsCard
 								conversation={id}
 								artifacts={conversation.artifacts}

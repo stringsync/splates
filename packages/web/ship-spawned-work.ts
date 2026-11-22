@@ -79,7 +79,11 @@ export function spawnedWork({
 			});
 		}
 	}
-	const live = conversations.filter((each) => !each.archived);
+	// Archived conversations count too, so a fix's link reaches its conversation
+	// however it was put away; a live one is preferred when two took the task.
+	const live = [...conversations].sort(
+		(first, second) => Number(first.archived) - Number(second.archived),
+	);
 	const claimed = new Set<string>();
 	const rows = found.map((each) => {
 		const record = todos.find((todo) => todo.id === each.todo);
@@ -95,7 +99,11 @@ export function spawnedWork({
 		return rowOf(each, record, conversation, needing);
 	});
 	for (const conversation of live) {
-		if (conversation.ship === run.id && !claimed.has(conversation.id)) {
+		if (
+			!conversation.archived &&
+			conversation.ship === run.id &&
+			!claimed.has(conversation.id)
+		) {
 			rows.push(rowOf({ kind: "agent" }, undefined, conversation, needing));
 		}
 	}
@@ -109,7 +117,7 @@ interface Found {
 	target?: string;
 	step?: string;
 	/** How a fix ended, as the run recorded it. */
-	ended?: "merged" | "removed" | undefined;
+	ended?: "merged" | "removed" | "abandoned" | undefined;
 }
 
 function rowOf(
@@ -143,7 +151,8 @@ function standing(
 	needing: readonly Needing[],
 ): { status: SpawnedStatus; line?: string } {
 	if (found.ended !== undefined) {
-		return { status: found.ended };
+		// An agent that ended without taking its task gave the fix up.
+		return { status: found.ended === "abandoned" ? "removed" : found.ended };
 	}
 	const ending =
 		conversation === undefined ? null : lastReport(conversation)?.ending;

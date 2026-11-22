@@ -7,7 +7,7 @@ import { useCopy } from "./card";
 import type { SetupJourney } from "./setup-journey";
 import type { StepBodies } from "./setup-steps";
 
-/** The Claude, Codex and Kimi model pages: a checklist, every model ticked to start. */
+/** The sign-in and model pages of the agent journeys. */
 export const NATIVE_STEPS: StepBodies = {
 	"claude-signin": ({ step, journey }) => (
 		<SignIn step={step} journey={journey} command="claude" />
@@ -18,6 +18,10 @@ export const NATIVE_STEPS: StepBodies = {
 	"kimi-signin": ({ step, journey }) => (
 		<SignIn step={step} journey={journey} command="kimi login" />
 	),
+	"antigravity-signin": ({ step, journey }) => (
+		<SignIn step={step} journey={journey} command="agy acp --login" />
+	),
+	"antigravity-models": ({ step }) => <ModelChecklist step={step} />,
 	"claude-models": ({ step }) => <ModelChecklist step={step} />,
 	"codex-models": ({ step }) => <ModelChecklist step={step} />,
 	"kimi-models": ({ step }) => <ModelChecklist step={step} />,

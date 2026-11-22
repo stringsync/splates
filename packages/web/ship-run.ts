@@ -21,8 +21,12 @@ export type ShipRunViewState = {
 	answering: ReadonlySet<string>;
 	/** Whether Stop was pressed and the server has yet to answer. */
 	stopping: boolean;
+	/** The targets being stopped alone, each by name. */
+	stoppingTargets: ReadonlySet<string>;
 	/** Whether the supervisor is being given fixes and the server has yet to answer. */
 	supervising: boolean;
+	/** Whether the auto-approve switch is being pressed and the server has yet to answer. */
+	approving: boolean;
 	/** The reason the server gave for refusing the last action, shown under the run. */
 	refused: string | null;
 };
@@ -45,7 +49,9 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		sending: new Set(),
 		answering: new Set(),
 		stopping: false,
+		stoppingTargets: new Set(),
 		supervising: false,
+		approving: false,
 		refused: null,
 	};
 	/** Asking whether the run is there, after the stream failed. */
@@ -143,6 +149,26 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		this.set({ stopping: false, refused });
 	}
 
+	/** Stops `target` alone; the rest of the run carries on. */
+	async stopTarget(target: string): Promise<void> {
+		if (this.state.stoppingTargets.has(target)) {
+			return;
+		}
+		this.set({
+			stoppingTargets: new Set([...this.state.stoppingTargets, target]),
+			refused: null,
+		});
+		let refused: string | null = null;
+		try {
+			await this.server.stopTarget(this.id, target);
+		} catch (error) {
+			refused = error instanceof Error ? error.message : String(error);
+		}
+		const left = new Set(this.state.stoppingTargets);
+		left.delete(target);
+		this.set({ stoppingTargets: left, refused });
+	}
+
 	/** Sends failed step `step` of `target` round again. */
 	async retry(target: string, step: string): Promise<void> {
 		const key = `${target}\n${step}`;
@@ -182,6 +208,21 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		this.set({ supervising: false, refused });
 	}
 
+	/** Switches the run's auto-approving of Yes/No prompts on or off. */
+	async autoApprove(on: boolean): Promise<void> {
+		if (this.state.approving) {
+			return;
+		}
+		this.set({ approving: true, refused: null });
+		let refused: string | null = null;
+		try {
+			await this.server.autoApprove(this.id, on);
+		} catch (error) {
+			refused = error instanceof Error ? error.message : String(error);
+		}
+		this.set({ approving: false, refused });
+	}
+
 	/** Retries every failed step of `target`, as its Retry does. */
 	retryFailed(target: { name: string; failed: { id: string }[] }): void {
 		for (const step of target.failed) {
@@ -194,6 +235,31 @@ export class ShipRunView implements Eventful<ShipRunViewEvents> {
 		for (const step of target.failed) {
 			void this.send(target.name, step.id);
 		}
+	}
+
+	/**
+	 * Sends `target`'s recap to an agent as one board task, once; the run it
+	 * answers with shows the target sent.
+	 */
+	async sendTarget(
+		target: string,
+		slow: Record<string, number>,
+	): Promise<void> {
+		const key = `${target}\n`;
+		if (this.state.sending.has(key)) {
+			return;
+		}
+		this.set({ sending: new Set([...this.state.sending, key]), refused: null });
+		let refused: string | null = null;
+		let sent: RunState | undefined;
+		try {
+			sent = (await this.server.sendTarget(this.id, target, slow)).state;
+		} catch (error) {
+			refused = error instanceof Error ? error.message : String(error);
+		}
+		const sending = new Set(this.state.sending);
+		sending.delete(key);
+		this.set({ sending, refused, ...(sent !== undefined && { run: sent }) });
 	}
 
 	/**
@@ -283,13 +349,23 @@ export interface ShipRunServer {
 	retry(id: string, target: string, step: string): Promise<RunState>;
 	/** Stops run `id`. */
 	stop(id: string): Promise<RunState>;
+	/** Stops `target` of run `id` alone. */
+	stopTarget(id: string, target: string): Promise<RunState>;
 	/** Gives the run's supervisor `fixes` more fixes, switching it on when off. */
 	supervise(id: string, fixes: number): Promise<RunState>;
+	/** Switches the run's auto-approving of Yes/No prompts on or off. */
+	autoApprove(id: string, on: boolean): Promise<RunState>;
 	/** Sends failed step `step` to an agent, answering its fix task's number. */
 	send(
 		id: string,
 		target: string,
 		step: string,
+	): Promise<{ state: RunState; task: number }>;
+	/** Sends `target`'s recap to an agent, with the usual time of each slow step by id. */
+	sendTarget(
+		id: string,
+		target: string,
+		slow: Record<string, number>,
 	): Promise<{ state: RunState; task: number }>;
 	answer(
 		id: string,

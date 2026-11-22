@@ -1,5 +1,6 @@
 import type { AgentConnection } from "../agents";
 import { fail } from "../exit";
+import type { Pairing } from "./entry";
 import type { ConversationHost } from "./host";
 import { type Setting, switched } from "./state";
 
@@ -32,12 +33,17 @@ export async function choose(
 		host.personChose = true;
 	}
 	if (host.state.assigned && aspect !== null && !byAutoPick) {
+		const from = pairingOf(host.state.settings);
+		const named =
+			setting.options.find((option) => option.value === value)?.name ?? value;
 		host.log.write({
 			kind: "override",
 			setting: id,
 			aspect,
 			value,
 			at: new Date().toISOString(),
+			from,
+			result: { ...from, [aspect]: named },
 		});
 	}
 	// A model the person picks leaves Auto pick on, moving only the effort
@@ -58,6 +64,18 @@ export async function choose(
 	const settings = await connection.choose(setting, value);
 	host.log.write({ kind: "settings", settings });
 	host.set({ settings });
+}
+
+/** The model and effort `settings` hold now, by their names. */
+function pairingOf(settings: Setting[]): Pairing {
+	const nameOf = (aspect: "model" | "effort"): string | null => {
+		const setting = settings.find((each) => overridden(each) === aspect);
+		return (
+			setting?.options.find((option) => option.value === setting.current)
+				?.name ?? null
+		);
+	};
+	return { model: nameOf("model"), effort: nameOf("effort") };
 }
 
 /** Whether `setting` is the model or the effort, the two Auto pick chooses. */

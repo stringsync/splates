@@ -61,7 +61,7 @@ import { useTouch } from "./hooks/use-touch";
 import { Orphaned } from "./list-rows";
 import { NamedContext } from "./mentioned";
 import type { Move } from "./page-address";
-import { limitsOf, PlanLimits } from "./plan-limits";
+import { antigravityModelLimits, limitsOf, PlanLimits } from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
 import { useReferences } from "./references";
@@ -100,8 +100,7 @@ export interface Starting {
 	/** Opens `id`, in place of what is open for `replace`. */
 	onOpen: (id: string, how?: Move) => void;
 	/**
-	 * Why a start under each draft was refused, kept by the page, since the
-	 * conversation is open by the time the server says.
+	 * Shows the reason a draft could not start a conversation.
 	 */
 	refusals: ReadonlyMap<string, string>;
 	/** Goes back to `address` from conversation `id`, its start refused, if it is still open. */
@@ -356,6 +355,8 @@ export function useNewConversation({
 		/>
 	);
 	return {
+		quotaModel:
+			modelSetting === undefined ? (requested ?? "") : current(modelSetting),
 		runtime,
 		refusal: refusals.get(draft) ?? null,
 		project,
@@ -394,6 +395,7 @@ export function Home({
 		references,
 		named,
 		starting: busy,
+		quotaModel,
 	} = useNewConversation(starting);
 	// Only tasks no agent is left on: a conversation, or a task an agent is
 	// on, is in the sidebar already, to open from there.
@@ -453,7 +455,14 @@ export function Home({
 								<>
 									{!auto && (
 										<PlanLimits
-											limits={limitsOf(agents, conversations, agent)}
+											limits={
+												agent === "antigravity"
+													? antigravityModelLimits(
+															limitsOf(agents, conversations, agent),
+															quotaModel,
+														)
+													: limitsOf(agents, conversations, agent)
+											}
 										/>
 									)}
 									{orphans.length > 0 && (

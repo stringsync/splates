@@ -24,9 +24,9 @@ request. The page's Creds item gets a yellow dot while any request is open, and 
 Creds page lists them too, with every cred kept, so a user outside the
 conversation finds it there. Then wait by suspending, as the
 splates skill says under waiting on an outside condition: `splates signal wait
-<project>/cred.saved/<NAME> --timeout 1d --description "<NAME> saved"`, and end
-your turn. Saving raises it, with the name and scope as payload and never the
-value; dismissing raises `<project>/cred.dismissed/<NAME>` instead, so wait on
+<project>/cred.saved/<NAME> --timeout 1d --description "The user saved <NAME>, so the work that needs it can go on."`, and end
+your turn. Saving fires it, with the name and scope as payload and never the
+value; dismissing fires `<project>/cred.dismissed/<NAME>` instead, so wait on
 both when you can carry on without it. Add `--since` when it may be saved
 already. On `timeout`, carry on without it or ask why.
 

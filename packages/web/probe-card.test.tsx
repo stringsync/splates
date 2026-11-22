@@ -7,7 +7,7 @@ import { cleanup, render } from "./testing-library";
 describe("probe card", () => {
 	afterEach(cleanup);
 
-	it("shows a running probe's runs, its last output and Stop probe", () => {
+	it("shows a running probe's runs, its last output and Stop polling", () => {
 		const view = render(<ProbeCard probe={probe()} />);
 		expect(view.getByText("Probing aws/stack-ready")).toBeTruthy();
 		expect(
@@ -15,16 +15,16 @@ describe("probe card", () => {
 		).toBeTruthy();
 		expect(view.getAllByRole("listitem")).toHaveLength(2);
 		expect(view.getByText("UPDATE_IN_PROGRESS")).toBeTruthy();
-		expect(view.getByRole("button", { name: "Stop probe" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Stop polling" })).toBeTruthy();
 	});
 
-	it("says how it ended, with no Stop probe", () => {
+	it("says how it ended, with no Stop polling", () => {
 		const view = render(
 			<ProbeCard probe={probe({ state: "raised", passed: true })} />,
 		);
-		expect(view.getByText("Probe raised aws/stack-ready")).toBeTruthy();
-		expect(view.getByText("Raised, probe stopped")).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Stop probe" })).toBeNull();
+		expect(view.getByText("Poll script fired aws/stack-ready")).toBeTruthy();
+		expect(view.getByText("Fired, poll script stopped")).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Stop polling" })).toBeNull();
 	});
 
 	it("says intervals and ages shortly", () => {

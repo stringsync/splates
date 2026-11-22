@@ -40,6 +40,12 @@ Read in this order, stopping when you know enough:
    error counts, not copies).
 3. `frames/`: stills cut at each click, highlight and mark. Open the ones a
    moment or timeline line names.
+   Structural captures are linked from `timeline.md` and ranked moments under
+   `snapshots/`. Read the nearby JSON for DOM hierarchy, text, layout bounds and
+   selected computed styles; parent indexes are local to each document, and an
+   iframe node’s `document` points to another document in the capture. Capture
+   times can differ from trigger and screenshot times. Keep looking at the still
+   as well: structure does not preserve canvas pixels or the running app.
 4. The `logs/` windows the timeline points at (`console.log`, `network.log`,
    and any `docker-*.log`, `tail-*.log` or `cmd-*.log`). Read only the named line ranges.
    A `--logs` source that failed (an expired sign-in, a missing CLI) is in
@@ -96,9 +102,8 @@ panel). There is no command that starts or stops one.
 **An agent never launches rec without the person's approval.** Ask with a
 run-command permission card (`## 🔐 Permission: run command: <why>`) naming
 the exact command, whether or not the machine is busy, end the turn, and run
-it only on `[SPLATES RUN ALLOWED]`. If the answer is that they are not at that
-machine (`[SPLATES RUN ELSEWHERE]`) or they decline, carry on without rec and
-do not offer it again in that conversation. This is a rule agents follow, not
+it only on `[SPLATES RUN ALLOWED]`. If the run is denied (`[SPLATES RUN DENIED]`),
+carry on without rec and do not offer it again in that conversation. This is a rule agents follow, not
 a lock: nothing stops an agent running the command itself, so keep to it.
 
 1. Once approved, run `bin/rec` in the background (it stays up until Ctrl-C), from the folder

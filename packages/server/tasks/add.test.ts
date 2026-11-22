@@ -152,58 +152,6 @@ describe("add", () => {
 		});
 	});
 
-	describe("tags", () => {
-		it("are named by the flag, repeated or as a comma list, and shown", async () => {
-			await add(deps, "alpha", { tag: ["web,infra", "web"] });
-
-			expect((await deps.service.find("alpha")).tags).toEqual(["web", "infra"]);
-			expect(deps.out()).toContain("tags:     web, infra");
-		});
-
-		it("are refused when not lowercase with dashes", async () => {
-			expect(add(deps, "alpha", { tag: ["Web App"] })).rejects.toThrow(
-				"lowercase",
-			);
-		});
-
-		it("are refused when the config allows others, naming the allowed", async () => {
-			deps.config.tags = { allowed: ["web", "infra"] };
-
-			expect(add(deps, "alpha", { tag: ["db"] })).rejects.toThrow(
-				"no tag 'db' in splates.config.ts: web, infra",
-			);
-			expect((await deps.service.find("alpha")).gone).toBe(true);
-		});
-
-		it("default to the allowed tag of the folder it is added from", async () => {
-			deps.config.tags = { allowed: ["web", "infra"] };
-			await add(deps, "alpha", { folder: "web/packages/a" });
-			await add(deps, "beta", { folder: "web", tag: ["infra"] });
-
-			expect((await deps.service.find("alpha")).tags).toEqual(["web"]);
-			expect((await deps.service.find("beta")).tags).toEqual(["infra"]);
-		});
-
-		it("are required of a new task when the config says so, not of a queued one", async () => {
-			deps.config.tags = { required: true };
-			const queued = await deps.tasks.add("Old", null);
-
-			expect(add(deps, "alpha")).rejects.toThrow("say which tag");
-			await add(deps, "beta", { tasks: [queued.id] });
-			await add(deps, "gamma", { tag: ["x"] });
-
-			expect((await deps.service.find("beta")).tags).toEqual([]);
-			expect((await deps.service.find("gamma")).tags).toEqual(["x"]);
-		});
-
-		it("are inherited from the queued task it starts", async () => {
-			const queued = await deps.tasks.add("Retry", null, { tags: ["web"] });
-			await add(deps, "alpha", { tasks: [queued.id], tag: ["infra"] });
-
-			expect((await deps.service.find("alpha")).tags).toEqual(["web", "infra"]);
-		});
-	});
-
 	it("excludes the plan from git, once, so no task can commit it", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");

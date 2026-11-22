@@ -170,7 +170,7 @@ function AskForm({
 export function ShipSignedIn({ url }: { url: string }): JSX.Element {
 	return (
 		<p className="flex items-center gap-1.5 text-xs">
-			<CircleCheckIcon aria-hidden className="size-3.5 text-green-600" />
+			<CircleCheckIcon aria-hidden className="size-3.5 text-success" />
 			Signed in at {hostOf(url)}
 		</p>
 	);

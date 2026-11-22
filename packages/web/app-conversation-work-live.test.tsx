@@ -33,15 +33,19 @@ describe("App's work row while working", () => {
 	};
 	// What the work row's line says.
 	const line = (thread: HTMLElement) =>
-		thread.querySelector('[data-slot="work"] summary')?.textContent;
+		thread.querySelector('[data-slot="work"] [data-slot="collapsible-trigger"]')
+			?.textContent;
 	// Each row's own line, not the calls' summaries inside it once opened.
 	const lines = (thread: HTMLElement) =>
 		[...thread.querySelectorAll('[data-slot="work"]')].map(
-			(each) => each.querySelector("summary")?.textContent,
+			(each) =>
+				each.querySelector("[data-slot=collapsible-trigger]")?.textContent,
 		);
 	// The work row's foldable timeline, the first when there are more.
 	const details = (thread: HTMLElement) =>
-		workTimelines(thread)[0]?.closest("details") as HTMLDetailsElement;
+		thread.querySelector(
+			"[data-slot=work] [data-slot=collapsible-trigger]",
+		) as HTMLButtonElement;
 	it("says only Working and how long it has worked while it works, shimmering, with its plan", async () => {
 		const thread = await opened(
 			turn(
@@ -127,7 +131,7 @@ describe("App's work row while working", () => {
 		});
 		const thread = await opened(working);
 		await waitFor(() => within(thread).getByText(/^Working/));
-		expect(details(thread).open).toBe(false);
+		expect(details(thread).getAttribute("aria-expanded")).toBe("false");
 
 		await testing.say(
 			turn([tool({ id: "x1", command: "bun test" }), "Tests pass."], {
@@ -135,7 +139,7 @@ describe("App's work row while working", () => {
 			}),
 		);
 		await waitFor(() => expect(thread.textContent).toContain("Tests pass."));
-		expect(details(thread).open).toBe(false);
+		expect(details(thread).getAttribute("aria-expanded")).toBe("false");
 	});
 
 	it("shows the agent's latest words at once, a Working row under them until a moment passes with nothing after them", async () => {
@@ -224,7 +228,7 @@ describe("App's work row while working", () => {
 			}),
 		);
 		await waitFor(() => expect(thread.textContent).toContain("Checking."));
-		expect(details(thread).open).toBe(false);
+		expect(details(thread).getAttribute("aria-expanded")).toBe("false");
 		expect(workTimelines(thread)[0]?.textContent).not.toContain("Checking.");
 
 		await testing.say(

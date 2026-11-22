@@ -1,20 +1,5 @@
-import type { Rule } from "@splates/server/auto-pick";
-import {
-	ANY,
-	CLARITIES,
-	DEPTHS,
-	KINDS,
-} from "@splates/server/auto-pick/browser";
-import type { AgentPick } from "@splates/server/models";
 import { useReactive } from "core/react";
-import {
-	ArrowDownIcon,
-	ArrowUpIcon,
-	CheckIcon,
-	PlusIcon,
-	RotateCcwIcon,
-	XIcon,
-} from "lucide-react";
+
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -23,125 +8,147 @@ import {
 	FieldLabel,
 } from "#web/components/ui/field.tsx";
 import { Input } from "#web/components/ui/input.tsx";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "#web/components/ui/native-select.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
-import { cn } from "#web/lib/utils.ts";
-import { PickRows } from "./auto-pick-pick-rows";
+import { LineupsTab } from "./auto-pick-lineups";
+import { RoutesTab } from "./auto-pick-routes";
 import type { RulesEditor } from "./auto-pick-rules";
 import { ReadingNow } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
- * The Auto pick rules as a list to edit: each rule's kind and depth and
- * its ordered picks, the last rule fixed as any kind and any depth, the
- * confidence threshold, when a pick's plan is used too fast, and Save and Reset, each shown at once and said
- * beside it when the server refuses.
+ * Lineups, route assignments and settings, each applied independently.
  */
 export function RulesEditorView({
 	editor,
 	mark = null,
-	picks = [],
+	counts = {},
 	onLog,
 }: {
 	editor: RulesEditor;
-	/** How many picks each rule has made, by its place from 0. */
-	picks?: readonly number[];
-	/** Lists the picks rule `rule` made, by its place from 0; without it, no offer. */
-	onLog?: (rule: number) => void;
-	/** The rule to draw the eye to, by its place from 0, scrolled into view; null for none. */
-	mark?: number | null;
+	/** The cell to set the routes on, `bugfix.deep`; null for none. */
+	mark?: string | null;
+	/** How many picks the log holds for each cell, by `cellKey`. */
+	counts?: Readonly<Record<string, number>>;
+	/** Lists the picks made for `cell`; without it, no offer. */
+	onLog?: (cell: string) => void;
 }): JSX.Element {
-	const {
-		draft,
-		dirty,
-		problem,
-		fileProblem,
-		loadProblem,
-		saved,
-		saving,
-		percent,
-		pace,
-	} = useReactive(
+	const { fileProblem, loadProblem, saved, saving } = useReactive(
 		editor,
 		(each) => ({
-			draft: each.draft,
 			dirty: each.dirty,
 			problem: each.problem,
 			fileProblem: each.fileProblem,
 			loadProblem: each.loadProblem,
 			saved: each.saved,
 			saving: each.saving,
-			percent: each.percent,
-			pace: each.pace,
 		}),
 		["changed"],
 	);
 	const { refusal, attempt } = useRefusal();
+
 	useEffect(() => void editor.load(), [editor]);
 	if (loadProblem !== null) {
 		return (
 			<p role="alert" className="text-destructive text-sm">
-				Could not read your rules: {loadProblem}
+				Could not read your Auto pick settings: {loadProblem}
 			</p>
 		);
 	}
 	if (saved === null) {
-		return <ReadingNow label="Reading your rules…" />;
+		return <ReadingNow label="Reading your Auto pick settings…" />;
 	}
 	return (
 		<div className="flex flex-col gap-6">
 			{fileProblem !== null && (
 				<p role="alert" className="text-destructive text-sm">
-					{fileProblem} Saving here replaces it.
+					{fileProblem} Applying replaces it.
 				</p>
 			)}
-			<ol aria-label="Auto pick rules" className="flex flex-col gap-3">
-				{draft.rules.map((rule, index) => (
-					<RuleRow
-						// Rules have no ids: a row is its place in the list.
-						// biome-ignore lint/suspicious/noArrayIndexKey: see above
-						key={index}
-						editor={editor}
-						index={index}
-						kind={rule.kind}
-						depth={rule.depth}
-						clarity={rule.clarity ?? ANY}
-						picks={rule.picks}
-						made={picks[index] ?? 0}
-						onLog={onLog}
-						last={index === draft.rules.length - 1}
-						marked={index === mark}
-					/>
-				))}
-			</ol>
-			<Button
-				type="button"
-				variant="outline"
-				className="self-start"
-				onClick={() => editor.addRule()}
+			<fieldset disabled={saving} className="min-w-0">
+				<LineupsTab editor={editor} />
+			</fieldset>
+			<section
+				aria-label="Route assignments"
+				className="flex min-w-0 flex-col gap-3"
 			>
-				<PlusIcon data-icon="inline-start" /> Add rule
-			</Button>
-			<Field>
-				<FieldLabel htmlFor="auto-pick-threshold">
-					How sure the judge has to be, in percent
-				</FieldLabel>
-				<div>
-					<PercentInput
-						id="auto-pick-threshold"
-						value={percent}
-						onCommit={(value) => editor.setPercent(value)}
-					/>
-				</div>
-				<FieldDescription>
-					Below it, only rules accepting any value for that kind, depth or
-					certainty match. Certainty means how settled the requested behavior
-					is, not how confident the user sounds.
-				</FieldDescription>
-			</Field>
+				<h2 className="font-semibold">Routes</h2>
+				<p className="text-muted-foreground text-sm">
+					Select cells to assign them to a lineup.
+				</p>
+				<RoutesTab
+					key={mark ?? ""}
+					editor={editor}
+					mark={mark}
+					counts={counts}
+					onLog={onLog}
+				/>
+			</section>
+			<details className="rounded-xl border bg-card p-4">
+				<summary className="cursor-pointer font-semibold">
+					Settings{" "}
+					<span className="ml-2 font-normal text-muted-foreground text-sm">
+						Confidence and plan limits
+					</span>
+				</summary>
+				<fieldset
+					disabled={saving}
+					className="mt-4 flex min-w-0 flex-col gap-4"
+				>
+					<Threshold editor={editor} />
+					<Pacing editor={editor} />
+					<Button
+						className="self-end"
+						disabled={
+							saving ||
+							(editor.draft.threshold === saved.threshold &&
+								JSON.stringify(editor.draft.pace) ===
+									JSON.stringify(saved.pace))
+						}
+						onClick={() =>
+							void attempt(editor.apply("settings"), "Settings not applied")
+						}
+					>
+						Apply settings
+					</Button>
+				</fieldset>
+				<Refusal refusal={refusal} className="mt-3" />
+			</details>
+		</div>
+	);
+}
+
+/** How sure the judge has to be before a kind or depth is not unsure. */
+function Threshold({ editor }: { editor: RulesEditor }): JSX.Element {
+	const percent = useReactive(editor, (each) => each.percent, ["changed"]);
+	return (
+		<Field className="rounded-xl border bg-card p-4">
+			<FieldLabel htmlFor="auto-pick-threshold">
+				How sure the judge has to be, in percent
+			</FieldLabel>
+			<div>
+				<PercentInput
+					id="auto-pick-threshold"
+					value={percent}
+					onCommit={(value) => editor.setPercent(value)}
+				/>
+			</div>
+			<FieldDescription>
+				Below it, the task's kind or difficulty counts as Unsure, and it takes
+				that row or column.
+			</FieldDescription>
+		</Field>
+	);
+}
+
+/** When a pick is passed over for the next in its lineup because of its plan. */
+function Pacing({ editor }: { editor: RulesEditor }): JSX.Element {
+	const pace = useReactive(editor, (each) => each.pace, ["changed"]);
+	return (
+		<section
+			aria-label="When a plan runs low"
+			className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+		>
+			<h3 className="font-medium text-sm">When a plan runs low</h3>
 			<Field orientation="horizontal">
 				<Switch
 					id="auto-pick-paced"
@@ -166,8 +173,8 @@ export function RulesEditorView({
 				</div>
 				<FieldDescription>
 					Two hours into a five-hour window, 40% of it has gone by: at 10, a
-					pick is passed over once its plan is past 50% used, while the next on
-					its row has plan left.
+					pick is passed over once its plan is past 50% used, while the next in
+					its lineup has plan left.
 				</FieldDescription>
 			</Field>
 			<Field>
@@ -182,194 +189,11 @@ export function RulesEditorView({
 					/>
 				</div>
 				<FieldDescription>
-					Past it, a pick is passed over for the next on its row, pace or not.
-					When every pick is past it, the least used is picked.
+					Past it, a pick is passed over for the next in its lineup, pace or
+					not. When every pick is past it, the least used is picked.
 				</FieldDescription>
 			</Field>
-			{problem !== null && (
-				<p role="alert" className="text-destructive text-sm">
-					{problem}
-				</p>
-			)}
-			<div className="flex flex-wrap items-center gap-3">
-				<Button
-					type="button"
-					disabled={saving || !dirty || problem !== null}
-					onClick={() => void attempt(editor.save(), "Not saved")}
-				>
-					{saving ? (
-						"Saving..."
-					) : dirty ? (
-						"Save rules"
-					) : (
-						<>
-							<CheckIcon data-icon="inline-start" /> Saved
-						</>
-					)}
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					disabled={saving}
-					onClick={() =>
-						void attempt(editor.reset(), "Not reset to the defaults")
-					}
-				>
-					<RotateCcwIcon data-icon="inline-start" /> Reset to defaults
-				</Button>
-			</div>
-			<Refusal refusal={refusal} className="text-sm" />
-		</div>
-	);
-}
-
-/** One rule: what it matches, or that it matches everything, and its picks. */
-function RuleRow({
-	editor,
-	index,
-	kind,
-	depth,
-	clarity,
-	picks,
-	made,
-	onLog,
-	last,
-	marked,
-}: {
-	editor: RulesEditor;
-	index: number;
-	kind: string;
-	depth: string;
-	clarity: string;
-	picks: readonly AgentPick[];
-	made: number;
-	onLog?: (rule: number) => void;
-	last: boolean;
-	marked: boolean;
-}): JSX.Element {
-	const name = `rule ${index + 1}`;
-	return (
-		<li
-			aria-label={name}
-			ref={
-				marked
-					? (node) => node?.scrollIntoView?.({ block: "center" })
-					: undefined
-			}
-			className={cn(
-				"flex flex-col gap-3 rounded-lg border bg-card p-3",
-				marked && "border-amber-500/60 bg-amber-500/5 ring-2 ring-amber-500/30",
-			)}
-		>
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="w-5 text-right text-muted-foreground text-sm tabular-nums">
-					{index + 1}
-				</span>
-				{last ? (
-					<span className="flex-1 text-sm">
-						Any kind, any depth, any certainty{" "}
-						<span className="text-muted-foreground">
-							· last, so every task maps somewhere
-						</span>
-					</span>
-				) : (
-					<>
-						<NativeSelect
-							size="sm"
-							aria-label={`${name} kind`}
-							value={kind}
-							onChange={(event) =>
-								editor.setKind(index, event.currentTarget.value as Rule["kind"])
-							}
-						>
-							<NativeSelectOption value={ANY}>Any kind</NativeSelectOption>
-							{KINDS.map((each) => (
-								<NativeSelectOption key={each.id} value={each.id}>
-									{each.label}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
-						<NativeSelect
-							size="sm"
-							aria-label={`${name} depth`}
-							value={depth}
-							onChange={(event) =>
-								editor.setDepth(
-									index,
-									event.currentTarget.value as Rule["depth"],
-								)
-							}
-						>
-							<NativeSelectOption value={ANY}>Any depth</NativeSelectOption>
-							{DEPTHS.map((each) => (
-								<NativeSelectOption key={each.id} value={each.id}>
-									{each.label}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
-						<NativeSelect
-							size="sm"
-							aria-label={`${name} certainty`}
-							value={clarity}
-							onChange={(event) =>
-								editor.setClarity(
-									index,
-									event.currentTarget.value as NonNullable<Rule["clarity"]>,
-								)
-							}
-						>
-							<NativeSelectOption value={ANY}>Any certainty</NativeSelectOption>
-							{CLARITIES.map((each) => (
-								<NativeSelectOption key={each.id} value={each.id}>
-									{each.label}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
-						<span className="ml-auto flex">
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label={`Move ${name} up`}
-								disabled={index === 0}
-								onClick={() => editor.moveRule(index, -1)}
-							>
-								<ArrowUpIcon />
-							</Button>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label={`Move ${name} down`}
-								disabled={editor.fixed(index + 1)}
-								onClick={() => editor.moveRule(index, 1)}
-							>
-								<ArrowDownIcon />
-							</Button>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label={`Remove ${name}`}
-								onClick={() => editor.removeRule(index)}
-							>
-								<XIcon />
-							</Button>
-						</span>
-					</>
-				)}
-			</div>
-			<PickRows list={editor.picksOf(index)} picks={picks} />
-			{onLog !== undefined && made > 0 && (
-				<button
-					type="button"
-					className="self-start text-muted-foreground text-xs underline"
-					onClick={() => onLog(index)}
-				>
-					{made === 1 ? "1 pick" : `${made} picks`} by {name} in the log
-				</button>
-			)}
-		</li>
+		</section>
 	);
 }
 

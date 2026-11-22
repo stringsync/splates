@@ -8,8 +8,11 @@ export interface Schedule {
 /** A trigger's schedule, refusing one that will not read. */
 export function scheduleOf(
 	trigger: { every: string } | { cron: string },
+	timeZone?: string,
 ): Schedule {
-	return "every" in trigger ? everyOf(trigger.every) : cronOf(trigger.cron);
+	return "every" in trigger
+		? everyOf(trigger.every)
+		: cronOf(trigger.cron, timeZone);
 }
 
 /** `30m`, `2h`, `1d`: a run that long after the last. */
@@ -44,7 +47,7 @@ const FIELDS = [
  * them. As in cron, a day matches when either day field does, once both are
  * set; Sunday is 0 or 7.
  */
-function cronOf(line: string): Schedule {
+function cronOf(line: string, timeZone?: string): Schedule {
 	const parts = line.trim().split(/\s+/);
 	if (parts.length !== FIELDS.length) {
 		fail(
@@ -71,6 +74,47 @@ function cronOf(line: string): Schedule {
 	};
 	return {
 		nextAfter(at) {
+			if (timeZone !== undefined) {
+				const formatter = new Intl.DateTimeFormat("en-US", {
+					timeZone,
+					year: "numeric",
+					month: "numeric",
+					day: "numeric",
+					hour: "numeric",
+					minute: "numeric",
+					hourCycle: "h23",
+				});
+				let cursor = Math.floor(at / 60000) * 60000 + 60000;
+				const until = at + 5 * 366 * UNIT.d;
+				while (cursor <= until) {
+					const parts = formatter.formatToParts(cursor);
+					const numberOf = (key: string) =>
+						Number(parts.find((part) => part.type === key)?.value);
+					const local = new Date(
+						numberOf("year"),
+						numberOf("month") - 1,
+						numberOf("day"),
+						numberOf("hour"),
+						numberOf("minute"),
+					);
+					if (
+						months.has(numberOf("month")) &&
+						dayMatches(local) &&
+						hours.has(numberOf("hour")) &&
+						minutes.has(numberOf("minute"))
+					) {
+						return cursor;
+					}
+					// Skip whole hours only when no minute in this local hour can match.
+					cursor +=
+						!months.has(numberOf("month")) ||
+						!dayMatches(local) ||
+						!hours.has(numberOf("hour"))
+							? (60 - numberOf("minute")) * 60000
+							: 60000;
+				}
+				return Number.POSITIVE_INFINITY;
+			}
 			const date = new Date(at);
 			date.setSeconds(0, 0);
 			date.setMinutes(date.getMinutes() + 1);

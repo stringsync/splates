@@ -1,6 +1,12 @@
 import type { EvalDetail, EvalStep } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
+import { ChevronRightIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
@@ -173,19 +179,27 @@ function Step({ step }: { step: EvalStep }): JSX.Element {
 	}
 	return (
 		<li>
-			<details className="rounded border px-2 py-1">
-				<summary className="cursor-pointer break-all font-mono">
-					<span className="font-medium">{step.name}</span> {shown(step)}
-				</summary>
-				<pre
-					className={cn(
-						"mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-all",
-						step.output === null && "text-muted-foreground",
-					)}
-				>
-					{step.output ?? "(no result)"}
-				</pre>
-			</details>
+			<Collapsible className="rounded border px-2 py-1">
+				<CollapsibleTrigger className="group flex w-full items-start gap-1 rounded py-1 text-left font-mono hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+					<ChevronRightIcon
+						aria-hidden="true"
+						className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-90 motion-reduce:transition-none"
+					/>
+					<span className="min-w-0 whitespace-pre-wrap break-all">
+						<span className="font-medium">{step.name}</span> {shown(step)}
+					</span>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<pre
+						className={cn(
+							"mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-all",
+							step.output === null && "text-muted-foreground",
+						)}
+					>
+						{step.output ?? "(no result)"}
+					</pre>
+				</CollapsibleContent>
+			</Collapsible>
 		</li>
 	);
 }

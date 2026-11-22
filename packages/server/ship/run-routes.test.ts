@@ -30,6 +30,8 @@ describe("ShipRunRoutes", () => {
 			await routes.shipRuns(request("?status=running"))
 		).json();
 		expect(running.runs.map((each: { id: string }) => each.id)).toEqual(["0"]);
+		const limited = await (await routes.shipRuns(request("?limit=1"))).json();
+		expect(limited.runs.map((each: { id: string }) => each.id)).toEqual(["0"]);
 		const done = await (await routes.shipRuns(request("?status=done"))).json();
 		expect(done.runs).toEqual([]);
 		expect((await routes.shipRun(request("/0"))).status).toBe(200);
@@ -152,6 +154,14 @@ describe("ShipRunRoutes", () => {
 			request("/0/supervise", { fixes: 1 }),
 		);
 		expect((await more.json()).supervise).toEqual({ budget: 4, spent: 0 });
+		const fewer = await routes.shipRunSupervise(
+			request("/0/supervise", { fixes: -2 }),
+		);
+		expect((await fewer.json()).supervise).toEqual({ budget: 2, spent: 0 });
+		const floor = await routes.shipRunSupervise(
+			request("/0/supervise", { fixes: -20 }),
+		);
+		expect((await floor.json()).supervise).toEqual({ budget: 0, spent: 0 });
 	});
 
 	it("takes an agent's note on the run or a step, and refuses one on a step it lacks", async () => {

@@ -1,5 +1,4 @@
 import type { ConversationState } from "@splates/server/conversations";
-import { shipStartedIn } from "@splates/server/plans/browser";
 import { useCallback, useSyncExternalStore } from "react";
 import { RowIcon } from "./agent-icons";
 import type { ConversationFeed } from "./conversation-feed";
@@ -8,7 +7,7 @@ import { shipRunAddress } from "./page-address";
 
 const NONE: ConversationState[] = [];
 
-/** Conversations with an approval reference or an agent's explicit link to this run. */
+/** Conversations with an agent's explicit link to this run. */
 export function shipAgents(
 	id: string,
 	conversations: readonly ConversationState[],
@@ -18,11 +17,10 @@ export function shipAgents(
 			message.parts.some(
 				(part) =>
 					part.type === "text" &&
-					(shipStartedIn(part.text) === id ||
-						(message.role === "agent" &&
-							Array.from(part.text.matchAll(/#ships\/[^\s)\]>"']+/g)).some(
-								(match) => match[0] === shipRunAddress(id),
-							))),
+					message.role === "agent" &&
+					Array.from(part.text.matchAll(/#ships\/[^\s)\]>"']+/g)).some(
+						(match) => match[0] === shipRunAddress(id),
+					),
 			),
 		),
 	);

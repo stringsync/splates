@@ -2,18 +2,18 @@ import { answersTo, type Needing } from "@splates/server/plans/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { backgrounded } from "./backgrounded";
 import { BoardChip } from "./board-chip";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { automated, shipped } from "./conversation-rows";
 import { useHeldConversations } from "./handed-out";
 import { Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
-import { backgrounded } from "./progress";
 import { useEnding } from "./queued-ending";
 import { useQuiet } from "./quiet";
 import { Refusal } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
-import { boardRef, useRowStatus } from "./row-status";
+import { automaticWait, boardRef, useRowStatus } from "./row-status";
 import { TaskIcon } from "./task-icon";
 
 /**
@@ -114,6 +114,7 @@ export function Row({
 						</span>
 					)}
 					<Mark
+						signal={automaticWait(conversation) !== null}
 						starting={conversation?.status === "starting"}
 						picking={conversation?.picking}
 						queued={conversation?.heldForTask != null}

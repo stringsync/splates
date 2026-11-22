@@ -2,7 +2,7 @@ import type { Message } from "../conversations";
 import { stretches } from "./asked";
 import type { Needing } from "./needs";
 import type { Question } from "./plan";
-import { answerIn, isEmpty, quotedIn, takenOf } from "./reply";
+import { answerIn, quotedIn } from "./reply";
 
 /**
  * Of `open`, a task's open questions, returns those the person has not yet
@@ -27,11 +27,7 @@ export function unanswered(open: Question[], messages: Message[]): Question[] {
 		if (before?.role === "agent") {
 			for (const card of asks(before)) {
 				const same = open.find((asked) => alike(asked, card));
-				if (
-					same !== undefined &&
-					(answerIn(text, card) !== null ||
-						(isProposal(before) && approved(text) && !isEmpty(takenOf(card))))
-				) {
+				if (same !== undefined && answerIn(text, card) !== null) {
 					done.add(same);
 				}
 			}
@@ -45,7 +41,6 @@ export function unanswered(open: Question[], messages: Message[]): Question[] {
  * which `splates merge` refuses to leave behind.
  */
 export function openCards(messages: Message[]): Question[] {
-	let proposal: Question[] = [];
 	let cards: Question[] = [];
 	// A reply in the person's own words answers no card: the card it responds
 	// to stays open until the agent's next card replaces it, asking again
@@ -68,10 +63,6 @@ export function openCards(messages: Message[]): Question[] {
 			continue;
 		}
 		const questions = asks(message);
-		if (isProposal(message)) {
-			cards = cards.filter((card) => !proposal.includes(card));
-			proposal = questions;
-		}
 		if (questions.length > 0) {
 			cards = cards.filter((card) => !replied.includes(card));
 			replied = [];
@@ -85,24 +76,6 @@ export function openCards(messages: Message[]): Question[] {
 /** Whether the person said it themselves, not splates or a page's directive. */
 function inOwnWords(message: Message): boolean {
 	return message.told === undefined && !textOf(message).startsWith("[SPLATES ");
-}
-
-/** Whether a reply approves the proposal immediately before it. */
-function approved(text: string): boolean {
-	return (
-		/^\[SPLATES APPROVE\](?:\s|$)/.test(text) || /^approve[.!]?$/i.test(text)
-	);
-}
-
-/** Whether the last words contain a proposal card. */
-function isProposal(message: Message): boolean {
-	const said = message.parts.findLast(
-		(part) => part.type === "text" && part.text.trim() !== "",
-	);
-	return (
-		said?.type === "text" &&
-		stretches(said.text).some((part) => part.type === "proposal")
-	);
 }
 
 /** The questions an agent's message asks as cards, in its last words. */

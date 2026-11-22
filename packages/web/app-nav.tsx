@@ -1,6 +1,12 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import { ChevronDownIcon, ChevronUpIcon, LoaderCircleIcon } from "lucide-react";
+import {
+	CheckCircleIcon,
+	ChevronDownIcon,
+	ChevronUpIcon,
+	CircleAlertIcon,
+	LoaderCircleIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#web/components/ui/tabs.tsx";
@@ -20,8 +26,12 @@ import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
-import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
-import { useArmedSignals } from "./use-signals";
+import {
+	useShipFailed,
+	useShipRecapReady,
+	useShipsRunning,
+	useShipsWaiting,
+} from "./use-ships-waiting";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 export const WIDE = "(min-width: 768px)";
@@ -80,8 +90,9 @@ export function AppNav({
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
 	const asking = useShipsWaiting().length;
-	const armedSignals = useArmedSignals();
 	const shipsRunning = useShipsRunning();
+	const recapReady = useShipRecapReady();
+	const shipFailed = useShipFailed();
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (
 		<TabsTrigger
 			key={value}
@@ -122,14 +133,19 @@ export function AppNav({
 					className="size-4 animate-spin text-muted-foreground"
 				/>
 			)}
-			{value === "signals" && armedSignals > 0 && (
-				<span
+			{value === "ships" && shipFailed && !shipsRunning && (
+				<CircleAlertIcon
 					role="status"
-					aria-label={`${armedSignals} signals armed`}
-					className="rounded-full bg-muted px-1.5 font-medium text-muted-foreground text-xs tabular-nums"
-				>
-					{armedSignals}
-				</span>
+					aria-label="Ship stopped on a failure"
+					className="size-4 !text-destructive"
+				/>
+			)}
+			{value === "ships" && recapReady && (
+				<CheckCircleIcon
+					role="status"
+					aria-label="Ship succeeded, recap unread"
+					className="size-4 !text-green-600"
+				/>
 			)}
 			{value === "ships" && asking > 0 && (
 				<span

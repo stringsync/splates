@@ -14,9 +14,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
 /**
  * `parts` with what the agent wrote of the last escalation splates recorded in
- * them, its report, the questions it ends with and their demo, its review,
- * or the proposal it escalated to wait on, taken into the escalation's card
- * rather than drawn as a second one.
+ * them, its report, the questions it ends with and their demo, and its review,
+ * taken into the escalation's card rather than drawn as a second one.
  */
 export function withEscalation(parts: LikePart[]): LikePart[] {
 	const escalatedIn = (part: LikePart): { event: Event } | null => {
@@ -36,8 +35,6 @@ export function withEscalation(parts: LikePart[]): LikePart[] {
 		report: null,
 		demo: null,
 		review: null,
-		proposal: null,
-		questions: [],
 	};
 	const kept = parts.filter((part, index) => {
 		if (index === at) {
@@ -51,18 +48,9 @@ export function withEscalation(parts: LikePart[]): LikePart[] {
 			}
 		}
 		if (part.type === "data-questions") {
-			const { questions, escalation, proposal, demo, task } =
-				part.data as QuestionsData;
+			const { escalation, demo } = part.data as QuestionsData;
 			if (escalation?.task === event.task) {
 				written.report = escalation;
-				written.demo = demo;
-				return false;
-			}
-			// A proposal names no task of its own: the turn's is the escalation's,
-			// where the log can say it at all.
-			if (proposal !== null && (task === null || task === event.task)) {
-				written.proposal = proposal;
-				written.questions = questions;
 				written.demo = demo;
 				return false;
 			}
@@ -163,6 +151,17 @@ export function beforeList(text: string): string {
 		: lines.slice(0, start).join("\n").trimEnd();
 }
 
+/**
+ * `text` without a closing heading that only titles the questions after it
+ * (`## 🔐 Questions`): their card has its own title, and the heading would
+ * stay behind once the card folds into a line.
+ */
+function withoutQuestionsTitle(text: string): string {
+	return text
+		.replace(/(^|\n)#{1,3}[ \t]+\P{ASCII}\S*[ \t]+Questions?[ \t]*$/u, "")
+		.trimEnd();
+}
+
 /** The reply's turn: the task it ran in, null where the log cannot say. */
 export interface Turn {
 	task: string | null;
@@ -188,11 +187,16 @@ export function replied(
 	return all.flatMap((stretch, at): LikePart[] => {
 		const before = all[at - 1];
 		const after = all[at + 1];
-		// The questions an escalation or proposal ends, past the demo between.
+		// The questions an escalation ends, past the demo between.
 		const asking = all[at + (after?.type === "demo" ? 2 : 1)];
 		switch (stretch.type) {
-			case "text":
-				return [{ type: "text", text: stretch.text }];
+			case "text": {
+				const text =
+					after?.type === "questions"
+						? withoutQuestionsTitle(stretch.text)
+						: stretch.text;
+				return text === "" ? [] : [{ type: "text", text }];
+			}
 			case "questions": {
 				const demo = before?.type === "demo" ? before.demo : null;
 				const heading = all[demo === null ? at - 1 : at - 2];
@@ -202,7 +206,6 @@ export function replied(
 						data: {
 							questions: stretch.questions,
 							escalation: escalatedIn(heading),
-							proposal: heading?.type === "proposal" ? heading.proposal : null,
 							demo,
 							task: turn.task,
 						} satisfies QuestionsData,
@@ -210,36 +213,16 @@ export function replied(
 				];
 			}
 			case "demo":
-				return after?.type === "questions" || before?.type === "proposal"
+				return after?.type === "questions"
 					? []
 					: [{ type: "data-demo", data: { demo: stretch.demo } }];
 			case "review":
 				return [{ type: "data-review", data: { review: stretch.review } }];
-			case "proposal":
-				// Its questions are its card; without any, it is a card of its own.
-				return asking?.type === "questions"
-					? []
-					: [
-							{
-								type: "data-questions",
-								data: {
-									questions: [],
-									escalation: null,
-									proposal: stretch.proposal,
-									demo: after?.type === "demo" ? after.demo : null,
-									task: turn.task,
-								} satisfies QuestionsData,
-							},
-						];
 			case "report":
 				return stretch.report.ending === "escalated" &&
 					asking?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
-			case "findings":
-				return [
-					{ type: "data-findings", data: { findings: stretch.findings } },
-				];
 			case "permission":
 				return [
 					{
@@ -247,6 +230,8 @@ export function replied(
 						data: { permission: stretch.permission },
 					},
 				];
+			case "steps":
+				return [{ type: "data-steps", data: { steps: stretch.steps } }];
 			default:
 				return stretch satisfies never;
 		}

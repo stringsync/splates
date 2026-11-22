@@ -1,115 +1,135 @@
 import { describe, expect, it } from "bun:test";
+import { cellLabel, idFor, ROUTE_DEPTHS, ROUTE_KINDS } from "./cells";
 import { DEFAULT_RULES } from "./defaults";
-import { type AutoPickRules, checkRules, ruleLabel } from "./rules";
+import {
+	type AutoPickRules,
+	checkRules,
+	type Lineup,
+	lineupFor,
+} from "./rules";
+
+const sonnet = { agent: "claude", model: "sonnet", effort: "medium" };
+const sol = { agent: "codex", model: "gpt-6.1-sol", effort: "medium" };
+const opus = { agent: "claude", model: "opus", effort: "medium" };
+
+/** Rules with one lineup, every cell sent to it. */
+function single(lineup: Lineup): AutoPickRules {
+	return {
+		format: 3,
+		threshold: 0.5,
+		lineups: [lineup],
+		routes: Object.fromEntries(
+			ROUTE_KINDS.map((kind) => [
+				kind,
+				Object.fromEntries(ROUTE_DEPTHS.map((depth) => [depth, lineup.id])),
+			]),
+		) as AutoPickRules["routes"],
+	};
+}
+
+const ONE: Lineup = { id: "one", name: "One", color: "sky", picks: [sonnet] };
 
 describe("checkRules", () => {
-	it("accepts certainty conditions without changing rules that omit them", () => {
-		const rules: AutoPickRules = {
-			...DEFAULT_RULES,
-			rules: [
-				{
-					kind: "*",
-					depth: "deep",
-					clarity: "settled",
-					picks: [{ agent: "claude" }],
-				},
-				{ kind: "*", depth: "*", picks: [{ agent: "codex" }] },
-			],
-		};
-		expect(checkRules(rules)).toEqual({ ok: true, rules });
-		expect(ruleLabel({ kind: "*", depth: "deep", clarity: "settled" })).toBe(
-			"any kind, Deep, Calls settled",
-		);
-		expect(
-			checkRules({
-				...rules,
-				rules: [{ ...rules.rules[0], clarity: "confident" }, rules.rules[1]],
-			}),
-		).toMatchObject({ ok: false });
-		expect(
-			checkRules({
-				...rules,
-				rules: [{ ...rules.rules[1], clarity: "settled" }],
-			}),
-		).toMatchObject({ ok: false });
-	});
-
-	it("passes the defaults, which end on any kind and any depth", () => {
+	it("passes the defaults, every cell sent to a lineup they list", () => {
 		expect(checkRules(DEFAULT_RULES)).toEqual({
 			ok: true,
 			rules: DEFAULT_RULES,
 		});
-		expect(DEFAULT_RULES.rules.at(-1)).toMatchObject({
-			kind: "*",
-			depth: "*",
+		const ids = DEFAULT_RULES.lineups.map((each) => each.id);
+		expect(
+			ROUTE_KINDS.flatMap((kind) =>
+				ROUTE_DEPTHS.filter(
+					(depth) => !ids.includes(DEFAULT_RULES.routes[kind][depth]),
+				),
+			),
+		).toEqual([]);
+	});
+
+	it("sends default work where its lineup is meant for", () => {
+		const name = (kind: string | null, depth: string | null) =>
+			lineupFor(DEFAULT_RULES, kind as never, depth as never)?.name;
+		expect(name("devops", "deep")).toBe("Infra");
+		expect(name("bugfix", "shallow")).toBe("Quick");
+		expect(name("design", "moderate")).toBe("Thoughtful");
+		expect(name("bugfix", "moderate")).toBe("Standard");
+		expect(name("open", "deep")).toBe("Careful");
+		expect(name(null, "deep")).toBe("Hardest");
+		expect(name(null, null)).toBe("Standard");
+	});
+
+	it("refuses a cell sent to a lineup it does not list, saying where", () => {
+		const rules = single(ONE);
+		rules.routes.bugfix.deep = "gone";
+		expect(checkRules(rules)).toEqual({
+			ok: false,
+			problem: "routes.bugfix.deep: no lineup has the id 'gone'",
 		});
 	});
 
-	it("puts each default task class on its intended primary pick", () => {
-		expect(DEFAULT_RULES.rules.map((each) => each.picks[0])).toEqual([
-			{ agent: "claude", model: "sonnet", effort: "medium" },
-			{ agent: "claude", model: "sonnet", effort: "low" },
-			{ agent: "claude", model: "sonnet", effort: "high" },
-			{ agent: "claude", model: "sonnet", effort: "high" },
-			{ agent: "claude", model: "sonnet", effort: "medium" },
-			{ agent: "claude", model: "opus", effort: "high" },
-			{ agent: "claude", model: "opus", effort: "high" },
-			{ agent: "claude", model: "opus", effort: "high" },
-			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
-			{ agent: "claude", model: "sonnet", effort: "medium" },
-		]);
+	it("refuses a missing cell", () => {
+		const rules = single(ONE);
+		const { deep: _, ...rest } = rules.routes.open;
+		expect(
+			checkRules({ ...rules, routes: { ...rules.routes, open: rest } }),
+		).toMatchObject({
+			ok: false,
+			problem: expect.stringMatching(/^routes\.open\.deep: /),
+		});
 	});
 
-	it("refuses rules whose last is not * *, saying where", () => {
+	it("refuses a lineup with no picks, or the same model twice", () => {
+		expect(checkRules(single({ ...ONE, picks: [] }))).toEqual({
+			ok: false,
+			problem: "lineups.0.picks: a lineup picks at least one agent",
+		});
 		expect(
-			checkRules({
-				format: 2,
-				threshold: 0.5,
-				rules: [
-					{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
-					{ kind: "bugfix", depth: "*", picks: [{ agent: "claude" }] },
-				],
-			}),
+			checkRules(
+				single({ ...ONE, picks: [sonnet, { ...sonnet, effort: "high" }] }),
+			),
 		).toEqual({
 			ok: false,
 			problem:
-				"rules.1: the last rule must be kind * and depth * with any certainty, so every task maps to a pick",
+				"lineups.0.picks.1: a lineup allows only one pick per agent; choose a different agent for the fallback",
 		});
 	});
 
-	it("refuses a rule with no picks", () => {
+	it.each([opus, { agent: "claude" }])(
+		"refuses another model or default of the same agent: %j",
+		(fallback) => {
+			expect(
+				checkRules(single({ ...ONE, picks: [sonnet, sol, fallback] })),
+			).toEqual({
+				ok: false,
+				problem:
+					"lineups.0.picks.2: a lineup allows only one pick per agent; choose a different agent for the fallback",
+			});
+		},
+	);
+
+	it("refuses two lineups with one name or id", () => {
+		const rules = single(ONE);
 		expect(
 			checkRules({
-				format: 2,
-				threshold: 0.5,
-				rules: [{ kind: "*", depth: "*", picks: [] }],
+				...rules,
+				lineups: [ONE, { ...ONE, id: "two", name: "one " }],
 			}),
 		).toEqual({
 			ok: false,
-			problem: "rules.0.picks: a rule picks at least one agent",
+			problem: "lineups.1.name: two lineups are named 'one'",
+		});
+		expect(
+			checkRules({ ...rules, lineups: [ONE, { ...ONE, name: "Two" }] }),
+		).toEqual({
+			ok: false,
+			problem: "lineups.1.id: two lineups have the id 'one'",
 		});
 	});
 
-	it("refuses a kind it does not know and a threshold past 1", () => {
-		expect(
-			checkRules({
-				format: 2,
-				threshold: 0.5,
-				rules: [{ kind: "chore", depth: "*", picks: [{ agent: "a" }] }],
-			}),
-		).toMatchObject({
-			ok: false,
-			problem: expect.stringMatching(/^rules\.0\.kind: /),
-		});
+	it("refuses a threshold past 1 and a slack past 1, and takes no pace", () => {
 		expect(checkRules({ ...DEFAULT_RULES, threshold: 1.5 })).toMatchObject({
 			ok: false,
 			problem: expect.stringMatching(/^threshold: /),
 		});
-	});
-
-	it("takes a mapping with no pace, and refuses a slack past 1", () => {
-		const { pace: _, ...without } = DEFAULT_RULES;
-		expect(checkRules(without)).toEqual({ ok: true, rules: without });
 		expect(
 			checkRules({
 				...DEFAULT_RULES,
@@ -119,63 +139,147 @@ describe("checkRules", () => {
 			ok: false,
 			problem: expect.stringMatching(/^pace\.slack: /),
 		});
+		const { pace: _, ...without } = DEFAULT_RULES;
+		expect(checkRules(without)).toEqual({ ok: true, rules: without });
 	});
 
-	it("names what a rule matches in words", () => {
-		expect(ruleLabel({ kind: "bugfix", depth: "*" })).toBe("Bugfix, any depth");
-		expect(ruleLabel({ kind: "*", depth: "deep" })).toBe("any kind, Deep");
+	it("names a cell in words", () => {
+		expect(cellLabel("bugfix", "deep")).toBe("Bugfix · Deep");
+		expect(cellLabel(null, "unsure")).toBe("Unsure · Unsure");
 	});
 
-	it("carries difficulty into depth in order, retaining picks, threshold and pace", () => {
-		const picks = [{ agent: "claude", model: "sonnet", effort: "medium" }];
-		const pace = { on: false, slack: 0.2, spent: 0.9 };
-		expect(
-			checkRules({
-				format: 1,
-				threshold: 0.7,
-				pace,
-				rules: [
-					{ kind: "mechanical", difficulty: "easy", picks },
-					{ kind: "bugfix", difficulty: "medium", picks },
-					{ kind: "design", difficulty: "hard", picks },
-					{ kind: "*", difficulty: "*", picks },
-				],
-			}),
-		).toEqual({
+	it("makes ids no lineup has", () => {
+		expect(idFor("Very careful!", [])).toBe("very-careful");
+		expect(idFor("Quick", [{ id: "quick" }, { id: "quick-2" }])).toBe(
+			"quick-3",
+		);
+		expect(idFor("???", [])).toBe("lineup");
+	});
+
+	it("converts format 2, sending each cell where its first matching rule did, sharing lineups", () => {
+		const pace = { on: true, slack: 0.2, spent: 1 };
+		const checked = checkRules({
+			format: 2,
+			threshold: 0.6,
+			pace,
+			rules: [
+				{ kind: "bugfix", depth: "deep", picks: [opus] },
+				{ kind: "*", depth: "deep", clarity: "unresolved", picks: [sol] },
+				{
+					kind: "*",
+					depth: "shallow",
+					picks: [{ ...sonnet, effort: "low" }, sol],
+				},
+				{ kind: "*", depth: "*", picks: [opus, sol] },
+			],
+		});
+		expect(checked.ok).toBe(true);
+		const rules = (checked as { rules: AutoPickRules }).rules;
+		expect(rules.format).toBe(3);
+		expect(rules.threshold).toBe(0.6);
+		expect(rules.pace).toEqual(pace);
+		expect(rules.lineups).toEqual([
+			{
+				id: "bugfix-deep",
+				name: "Bugfix deep",
+				color: "emerald",
+				picks: [opus],
+			},
+			{
+				id: "shallow",
+				name: "Shallow",
+				color: "sky",
+				picks: [{ ...sonnet, effort: "low" }, sol],
+			},
+			{
+				id: "fallback",
+				name: "Fallback",
+				color: "violet",
+				picks: [opus, sol],
+			},
+		]);
+		expect(rules.routes.bugfix).toEqual({
+			unsure: "fallback",
+			shallow: "shallow",
+			moderate: "fallback",
+			deep: "bugfix-deep",
+		});
+		// The rule naming a certainty matches nothing, so deep falls through.
+		expect(rules.routes.design.deep).toBe("fallback");
+		expect(rules.routes.unsure.shallow).toBe("shallow");
+	});
+
+	it("names a lineup two rules share after the broader one", () => {
+		const checked = checkRules({
+			format: 2,
+			threshold: 0.5,
+			rules: [
+				{
+					kind: "bugfix",
+					depth: "shallow",
+					picks: [{ ...sonnet, effort: "low" }, sol],
+				},
+				{
+					kind: "*",
+					depth: "moderate",
+					picks: [{ ...sonnet, effort: "low" }, sol],
+				},
+				{ kind: "*", depth: "*", picks: [opus] },
+			],
+		});
+		expect(checked).toMatchObject({
 			ok: true,
 			rules: {
-				format: 2,
-				threshold: 0.7,
-				pace,
-				rules: [
-					{ kind: "*", depth: "shallow", picks },
-					{ kind: "bugfix", depth: "moderate", picks },
-					{ kind: "design", depth: "deep", picks },
-					{ kind: "*", depth: "*", picks },
+				lineups: [
+					{ id: "moderate", name: "Moderate", color: "emerald" },
+					{ id: "fallback", name: "Fallback", color: "sky" },
 				],
+				routes: { bugfix: { shallow: "moderate", moderate: "moderate" } },
 			},
 		});
 	});
-	it("narrows removed kind-only rows instead of creating an early catch-all", () => {
-		const picks = [{ agent: "claude" }];
+
+	it("names a converted lineup as the defaults do when it has their picks", () => {
+		const standard = DEFAULT_RULES.lineups.find(
+			(each) => each.id === "standard",
+		);
+		const checked = checkRules({
+			format: 2,
+			threshold: 0.5,
+			rules: [
+				{ kind: "*", depth: "moderate", picks: standard?.picks },
+				{ kind: "*", depth: "*", picks: [sol, sonnet] },
+			],
+		});
+		// The catch-all is Standard's picks in another order, so it joins it.
+		expect(checked).toMatchObject({
+			ok: true,
+			rules: { lineups: [{ id: "standard", name: "Standard", color: "sky" }] },
+		});
+	});
+
+	it("carries format 1 through format 2", () => {
 		expect(
 			checkRules({
 				format: 1,
-				threshold: 0.5,
+				threshold: 0.7,
 				rules: [
-					{ kind: "lookup", difficulty: "*", picks },
-					{ kind: "mechanical", difficulty: "*", picks },
-					{ kind: "*", difficulty: "*", picks },
+					{ kind: "mechanical", difficulty: "*", picks: [sol] },
+					{ kind: "bugfix", difficulty: "hard", picks: [opus] },
+					{ kind: "*", difficulty: "*", picks: [sonnet] },
 				],
 			}),
 		).toMatchObject({
 			ok: true,
 			rules: {
-				rules: [
-					{ kind: "*", depth: "shallow" },
-					{ kind: "*", depth: "moderate" },
-					{ kind: "*", depth: "*" },
-				],
+				format: 3,
+				routes: {
+					bugfix: {
+						moderate: "moderate",
+						deep: "bugfix-deep",
+						shallow: "fallback",
+					},
+				},
 			},
 		});
 	});

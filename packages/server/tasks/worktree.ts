@@ -51,11 +51,6 @@ export class Worktree {
 		return this.snapshot.state?.scope ?? null;
 	}
 
-	/** The tags grouping it; none for a task recorded without any. */
-	get tags(): string[] {
-		return this.snapshot.state?.labels ?? [];
-	}
-
 	get path(): string {
 		return this.snapshot.path;
 	}
@@ -519,8 +514,6 @@ export interface TaskState {
 	base?: string;
 	/** The project of `splates.config.ts` it changes. Absent in old records. */
 	scope?: string;
-	/** The tags grouping it, as the queue records them. Absent for none. */
-	labels?: string[];
 	status: RecordStatus;
 	lease: LeaseState | null;
 	mergeAttempts: number;

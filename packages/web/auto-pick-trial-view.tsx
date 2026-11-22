@@ -13,6 +13,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
+import { cellKeyLabel, pickedCell } from "./auto-pick-rules";
 import type { TrialRun } from "./auto-pick-trial";
 import { StillWaiting } from "./countdown";
 import { Refusal, useRefusal } from "./refusal";
@@ -89,6 +90,11 @@ export function TrialView({
 function TrialResult({ trial }: { trial: AutoPickTrial }): JSX.Element {
 	const { decision, classification } = trial;
 	const [headline, ...why] = decision.reasons;
+	// The route line names the lineup: `route: Bugfix · Deep → Careful`.
+	const lineupName = why
+		.find((each) => each.startsWith("route: "))
+		?.split(" → ")
+		.at(-1);
 	return (
 		<section
 			aria-label="Auto pick would start"
@@ -99,7 +105,8 @@ function TrialResult({ trial }: { trial: AutoPickTrial }): JSX.Element {
 				<span className="font-medium">{headline}</span>
 			</p>
 			<p className="text-muted-foreground">
-				Rule {decision.rule + 1}
+				{cellKeyLabel(pickedCell(decision))}
+				{lineupName === undefined ? "" : ` → ${lineupName}`}
 				{trial.cached ? " · from what the judge said before" : ""}
 			</p>
 			{classification !== null && (

@@ -3,6 +3,7 @@ import type { Resource } from "core/disposable";
 import { Duration, SystemTimer } from "core/time";
 import { useSyncExternalStore } from "react";
 import { shipRuns, shipWaiting } from "./api/ship";
+import { recapSeen, subscribeRecapSeen } from "./ship-recap-seen";
 
 /** How often the nav asks what ship prompts are open. */
 const EVERY = Duration.secs(5);
@@ -20,6 +21,25 @@ export function useShipsRunning(): boolean {
 	return useSyncExternalStore(SHARED.subscribe, SHARED.isRunning, () => false);
 }
 
+/** Whether the newest ship run stopped on a failure, still the active ship. */
+export function useShipFailed(): boolean {
+	return useSyncExternalStore(SHARED.subscribe, SHARED.isFailed, () => false);
+}
+
+/** Whether opening Ships will show the newest successful run's unread recap. */
+export function useShipRecapReady(): boolean {
+	return useSyncExternalStore(subscribeRecap, SHARED.recapReady, () => false);
+}
+
+function subscribeRecap(listener: () => void): () => void {
+	const stopRuns = SHARED.subscribe(listener);
+	const stopSeen = subscribeRecapSeen(listener);
+	return () => {
+		stopRuns();
+		stopSeen();
+	};
+}
+
 /** The ship prompts open, asked every few seconds while anything listens. */
 class ShipsWaiting {
 	// A poll, not a stream: the page's streams already take most of the few
@@ -28,6 +48,8 @@ class ShipsWaiting {
 	private waiting = NONE;
 	private said = "[]";
 	private running = false;
+	private recap: string | null = null;
+	private failed = false;
 	private readonly listeners = new Set<() => void>();
 	private tick: Resource | null = null;
 
@@ -50,18 +72,35 @@ class ShipsWaiting {
 
 	readonly isRunning = (): boolean => this.running;
 
+	readonly isFailed = (): boolean => this.failed;
+
+	readonly recapReady = (): boolean =>
+		!this.running && this.recap !== null && this.recap !== recapSeen();
+
 	private async read(): Promise<void> {
 		if (globalThis.document?.visibilityState === "hidden") {
 			return;
 		}
 		const [fresh, runs] = await Promise.all([
 			shipWaiting().catch(() => null),
-			shipRuns({ running: true }).catch(() => null),
+			shipRuns().catch(() => null),
 		]);
 		const said = JSON.stringify(fresh);
-		const running = runs === null ? this.running : runs.length > 0;
+		const running =
+			runs === null
+				? this.running
+				: runs.some((run) => run.status === "running");
+		const latest = runs?.at(0);
+		const recap =
+			runs === null ? this.recap : latest?.status === "done" ? latest.id : null;
+		const failed = runs === null ? this.failed : latest?.status === "failed";
 		const waitingChanged = fresh !== null && said !== this.said;
-		if (!waitingChanged && running === this.running) {
+		if (
+			!waitingChanged &&
+			running === this.running &&
+			recap === this.recap &&
+			failed === this.failed
+		) {
 			return;
 		}
 		if (fresh !== null) {
@@ -69,6 +108,8 @@ class ShipsWaiting {
 			this.said = said;
 		}
 		this.running = running;
+		this.recap = recap;
+		this.failed = failed;
 		for (const listener of this.listeners) {
 			listener();
 		}

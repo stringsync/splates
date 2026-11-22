@@ -203,7 +203,7 @@ interface Params {
 	picked: string;
 	/** Kind, depth, then breadth, clarity, stakes and verification, as the judge found them. */
 	signals: Signal[];
-	/** The rule it took: `rule 2: Design, Moderate`; null when none is said. */
+	/** Where it was routed: `route: Design · Moderate → Thoughtful`, or an older `rule 2: Design, Moderate`; null when none is said. */
 	rule: string | null;
 	/** Anything else, such as an agent passed over, or why no judge answered. */
 	notes: string[];
@@ -211,7 +211,7 @@ interface Params {
 
 const SIGNAL = /^(judged|breadth|clarity|stakes|verification): (.*)$/;
 
-/** `event`'s reasons, sorted into what the judge found, the rule and the rest. */
+/** `event`'s reasons, sorted into what the judge found, the route and the rest. */
 function paramsOf(event: AutoEvent): Params {
 	const [picked = event.agent, ...rest] = event.reasons;
 	const signals: Signal[] = [];
@@ -219,7 +219,7 @@ function paramsOf(event: AutoEvent): Params {
 	let rule: string | null = null;
 	for (const reason of rest) {
 		const signal = SIGNAL.exec(reason);
-		if (reason.startsWith("rule ")) {
+		if (reason.startsWith("route: ") || reason.startsWith("rule ")) {
 			rule = reason;
 		} else if (signal === null) {
 			notes.push(reason);

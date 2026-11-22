@@ -270,11 +270,32 @@ describe("App's budget", () => {
 					],
 				},
 				{ id: "codex", name: "Codex", settings: [], limits: [] },
+				{
+					id: "antigravity",
+					name: "Antigravity",
+					settings: [],
+					limits: [
+						{
+							window: "Gemini Models · Weekly",
+							used: 0.25,
+							resets: new Date(Date.now() + 86_400_000).toISOString(),
+							at: new Date().toISOString(),
+						},
+					],
+				},
 			],
 			conversations: [],
 		};
 		const view = await openBudget();
 
+		const antigravity = await waitFor(() =>
+			view.getByRole("region", { name: "Antigravity plan limits" }),
+		);
+		expect(
+			within(antigravity).getByRole("listitem", {
+				name: "Gemini Models · Weekly",
+			}).textContent,
+		).toContain("25%");
 		const claude = await waitFor(() =>
 			view.getByRole("region", { name: "Claude plan limits" }),
 		);

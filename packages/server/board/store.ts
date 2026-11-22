@@ -54,7 +54,7 @@ export function queuedOf(record: StoredTask): TaskRecord & { tags?: string[] } {
 	return Object.fromEntries(
 		Object.entries(record).filter(
 			([key]) =>
-				(!(key in STARTED) || key === "scope" || key === "labels") &&
+				(!(key in STARTED) || key === "scope") &&
 				key !== "status" &&
 				key !== "listed",
 		),
@@ -202,7 +202,6 @@ const STARTED = {
 	startedAt: true,
 	startedFrom: true,
 	scope: true,
-	labels: true,
 	updatedAt: true,
 	escalations: true,
 	dispatch: true,

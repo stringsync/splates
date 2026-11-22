@@ -1,7 +1,7 @@
 import { age } from "@splates/server/age";
 import { answersTo, type Need, need } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
-import { GitBranchIcon } from "lucide-react";
+import { ChevronRightIcon, GitBranchIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useMemo, useRef } from "react";
 import {
 	DialogContent,
@@ -14,13 +14,18 @@ import { cn } from "#web/lib/utils.ts";
 import { AreaChips } from "./area-chips";
 import { BoardChip } from "./board-chip";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
+import { Button } from "./components/ui/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "./components/ui/collapsible";
 import { Dispatching } from "./dispatching";
 import {
 	SubagentComposer,
 	useHeldConversation,
 	useHeldConversations,
 } from "./handed-out";
-import { HEADING } from "./markdown";
 import { ActionBar, useRetry } from "./task-actions";
 import { AutoPickFact } from "./task-auto-pick";
 import { useDemo } from "./task-demo";
@@ -76,22 +81,33 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					none="No SPLATES.md: whoever picks this up starts from the diff."
 					ports
 				/>
-				<details className="text-sm">
-					<summary className={cn(HEADING, "cursor-pointer")}>Details</summary>
-					<div className="mt-2 flex min-w-0 flex-col gap-4">
-						<Facts task={task} external={external !== null} />
-						{external !== null && caller === null && context !== null && (
-							<Sessions
-								task={task.task}
-								agents={context.dispatch.agents}
-								onBrought={(conversation) => {
-									context.dispatch.brought(conversation);
-									context.open(conversation.id);
-								}}
-							/>
-						)}
-					</div>
-				</details>
+				<Collapsible className="text-sm">
+					<CollapsibleTrigger
+						render={<Button variant="ghost" className="group" />}
+					>
+						<ChevronRightIcon
+							aria-hidden
+							data-icon="inline-start"
+							className="transition-transform group-aria-expanded:rotate-90"
+						/>
+						Details
+					</CollapsibleTrigger>
+					<CollapsibleContent>
+						<div className="mt-2 flex min-w-0 flex-col gap-4">
+							<Facts task={task} external={external !== null} />
+							{external !== null && caller === null && context !== null && (
+								<Sessions
+									task={task.task}
+									agents={context.dispatch.agents}
+									onBrought={(conversation) => {
+										context.dispatch.brought(conversation);
+										context.open(conversation.id);
+									}}
+								/>
+							)}
+						</div>
+					</CollapsibleContent>
+				</Collapsible>
 			</div>
 			<DialogFooter className="sm:justify-between">
 				<ActionBar task={task} retry={retry.action} demo={demo} />

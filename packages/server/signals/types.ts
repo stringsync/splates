@@ -1,3 +1,4 @@
+import type { SignalClock } from "./clock-schedule";
 /** One raise of a signal: a fact announced by an agent, with an optional payload. */
 export interface SignalRaise {
 	/** When it was raised, as an ISO time. */
@@ -9,13 +10,19 @@ export interface SignalRaise {
 }
 
 /** How a wait stands: it ends once, as raised, timed out or stopped. */
-export type SignalState = "waiting" | "raised" | "timed out" | "stopped";
+export type SignalState =
+	| "waiting"
+	| "raised"
+	| "timed out"
+	| "stopped"
+	| "removed";
 
 /**
  * A conversation's subscription to a signal, shown as one card that follows
  * it. A wait is delivered once; the next raise of the name starts nothing.
  */
 export interface SignalWait {
+	clock?: SignalClock;
 	/** Its own id, unique in its conversation. */
 	id: string;
 	/** The signal's name, `<project>.<name>`. */
@@ -23,6 +30,10 @@ export interface SignalWait {
 	/** What the agent waits for, in its words, shown on the card in every state. */
 	description: string;
 	state: SignalState;
+	/** Why the source was removed. */
+	reason?: string;
+	/** A declared signal function supplied this wait, so undeclaring it ends the wait. */
+	family?: string; // stored key; names the signal function
 	/** When it began, as an ISO time. */
 	startedAt: string;
 	/** When it times out, as an ISO time. */
@@ -50,7 +61,14 @@ export const PROBE_FLOOR_MS = 30_000;
 export const PROBE_RUN_MS = 2 * 60_000;
 
 /** How many of its latest runs a probe keeps, for its card. */
-export const PROBE_RUNS_KEPT = 20;
+export const PROBE_RUNS_KEPT = 50;
+
+/** How much of each stream a run keeps: its last lines, at most this many characters. */
+export const PROBE_STREAM_LINES = 50;
+export const PROBE_STREAM_CHARS = 4000;
+
+/** What started a run: its interval, a wait beginning, or the person's Poll now. */
+export type ProbeStart = "scheduled" | "wait" | "poll now";
 
 /** One run of a probe's script: passed when it exited 0. */
 export interface ProbeRun {
@@ -60,6 +78,16 @@ export interface ProbeRun {
 	exit: number;
 	/** The last lines it printed, stdout then stderr, trimmed. */
 	output: string;
+	/** How long it ran, in ms; absent on runs from before it was kept. */
+	ms?: number;
+	/** What started it; absent on older runs. */
+	startedBy?: ProbeStart;
+	/** Whether it fired the signal; absent on older runs. */
+	fired?: boolean;
+	/** The last of what it printed to stdout, trimmed; absent on older runs. */
+	stdout?: string;
+	/** The last of what it printed to stderr, trimmed; absent on older runs. */
+	stderr?: string;
 }
 
 /**
@@ -94,6 +122,8 @@ export interface SignalProbe {
 	cwd: string;
 	/** The conversation that started it, which shows its card. */
 	conversation: string;
+	/** The call's arguments as JSON, given to the script in `$SPLATES_ARGS`; absent for none. */
+	args?: string;
 	state: ProbeState;
 	/** When it was started, as an ISO time. */
 	startedAt: string;
@@ -115,15 +145,17 @@ export interface SignalProbe {
 
 /** One thing subscribed to a signal: a conversation's wait, or an automation set on it. */
 export interface SignalSubscriber {
-	kind: "wait" | "automation";
+	kind: "wait" | "automation" | "task";
 	/** The wait's id in its conversation, or the automation's id. */
 	id: string;
 	/** What it waits for, or the automation's name. */
 	label: string;
-	/** How it stands: a wait's state, or an automation's `armed` or `paused`. */
-	state: SignalState | "armed" | "paused";
-	/** Whether it still waits for a raise, so the signal counts as armed. */
-	armed: boolean;
+	/** How it stands: a wait's state, a task's `open`, or an automation's `active`, `paused` or `finished`. */
+	state: SignalState | "active" | "paused" | "finished" | "open";
+	endedAt?: string;
+	reason?: string;
+	/** Whether it still waits for a raise, or an automation is not paused. */
+	live: boolean;
 	/** The conversation that waits, for a wait. */
 	conversation?: string;
 	/** That conversation's name, for a wait. */
@@ -136,12 +168,15 @@ export interface SignalSubscriber {
 
 /** One signal as the Signals page shows it, across every project. */
 export interface SignalOverview {
+	clock?: SignalClock;
+	/** Optional automatic removal time. */
+	expiresAt?: string;
+	/** What it means when it fires, in an agent's words: its probe's description, else its newest wait's; absent when neither gave one. */
+	description?: string;
 	/** `<project>.<name>`. */
 	name: string;
-	/** The part before the slash. */
+	/** The namespace: the part before the first dot. */
 	project: string;
-	/** Whether anything still waits on it to be raised. */
-	armed: boolean;
 	/** The probe on it, kept for a week, or null for none. */
 	probe: SignalProbe | null;
 	subscribers: SignalSubscriber[];

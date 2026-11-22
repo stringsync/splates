@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Resource } from "core/disposable";
 import { showAddress } from "./navigation";
 import {
+	cellAddress,
 	PageAddress,
-	ruleAddress,
 	shipRunAddress,
 	todoAddress,
 } from "./page-address";
@@ -216,25 +216,28 @@ describe("PageAddress", () => {
 		expect(read.open).toBeNull();
 	});
 
-	it("sets the Auto pick page on a rule under Automations, from its old place in the nav too", () => {
-		history.replaceState(null, "", ruleAddress(1));
+	it("sets the Auto pick page on a cell, and opens an old rule's address on none", () => {
+		history.replaceState(null, "", cellAddress("bugfix", null));
 		const read = new PageAddress();
-		history.replaceState(null, "", "#auto-pick/3");
+		history.replaceState(null, "", "#automations/auto-pick/3");
 		const old = new PageAddress();
 
-		expect(ruleAddress(1)).toBe("#automations/auto-pick/2");
-		expect([read.page, read.rule]).toEqual(["auto-pick", 1]);
-		expect([old.page, old.rule]).toEqual(["auto-pick", 2]);
+		expect(cellAddress("bugfix", null)).toBe("#auto-pick/bugfix.unsure");
+		expect([read.page, read.cell]).toEqual(["auto-pick", "bugfix.unsure"]);
+		expect([old.page, old.cell]).toEqual(["auto-pick", null]);
 	});
 
-	it("puts the Auto pick page under Automations", () => {
+	it("opens the Auto pick page from the old Automations addresses", () => {
 		history.replaceState(null, "", "#automations");
 		const address = new PageAddress();
+		history.replaceState(null, "", "#automations/auto-pick");
+		const old = new PageAddress();
 
 		address.go("auto-pick");
 
-		expect(location.hash).toBe("#automations/auto-pick");
-		expect(new PageAddress().page).toBe("auto-pick");
+		expect(address.page).toBe("auto-pick");
+		expect(old.page).toBe("auto-pick");
+		expect(location.hash).toBe("#auto-pick");
 	});
 
 	it("puts back how far the page was scrolled when it left an entry", async () => {

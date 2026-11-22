@@ -454,7 +454,11 @@ export class WorktreeService {
 							aspect: each.aspect,
 							to: each.value,
 							at: each.at,
-							rule: state.autoPick?.rule ?? 0,
+							...(each.from === undefined ? {} : { from: each.from }),
+							...(each.result === undefined ? {} : { result: each.result }),
+							...(state.autoPick?.lineup == null
+								? {}
+								: { lineup: state.autoPick.lineup }),
 							kind: state.autoPick?.kind ?? null,
 							depth: state.autoPick?.depth ?? null,
 						})),

@@ -1,7 +1,8 @@
 import type { Fs } from "core/system";
 import { fail } from "../exit";
+import { RULES_FORMAT } from "./cells";
 import { DEFAULT_RULES } from "./defaults";
-import { type AutoPickRules, checkRules, RULES_FORMAT } from "./rules";
+import { type AutoPickRules, checkRules } from "./rules";
 
 /**
  * The person's Auto pick rules, kept in one file under their home rather than

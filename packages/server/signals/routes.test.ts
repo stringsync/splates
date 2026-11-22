@@ -2,15 +2,17 @@ import { describe, expect, it } from "bun:test";
 import type { Conversation } from "../conversations";
 import { MemoryStorage } from "../storage/testing";
 import { SignalBook } from "./book";
+import type { SignalFunctions } from "./call";
 import { SignalRoutes } from "./routes";
 import type { SignalRaise, SignalWait } from "./types";
 
 describe("SignalRoutes", () => {
-	const make = () => {
+	const make = (signalFunctions: SignalFunctions = {}) => {
 		const conversation = fake();
 		const now = Date.parse("2026-11-18T12:00:00Z");
 		const probed: string[] = [];
 		const started: unknown[] = [];
+		const retired: string[][] = [];
 		const routes = new SignalRoutes({
 			book: new SignalBook(
 				new MemoryStorage().document("signals.json"),
@@ -19,6 +21,10 @@ describe("SignalRoutes", () => {
 			all: async () => [conversation],
 			find: async (id) => (id === "c1" ? conversation : null),
 			rootOf: async (id) => (id === "c1" ? "/repo" : null),
+			signalFunctions: async () => signalFunctions,
+			retireFamilies: async (known) => {
+				retired.push(Object.keys(known));
+			},
 			probes: {
 				start: async (ask) => {
 					started.push(ask);
@@ -33,6 +39,10 @@ describe("SignalRoutes", () => {
 				stop: async (name) => {
 					probed.push(`stop ${name}`);
 				},
+				pollNow: async (name) => {
+					probed.push(`poll now ${name}`);
+					return { name, state: "running" } as never;
+				},
 			},
 			rootOfProject: async (slug) => (slug === "aws" ? "/aws-repo" : null),
 			shell: async (script) =>
@@ -41,8 +51,100 @@ describe("SignalRoutes", () => {
 					: { exitCode: 3, stdout: "", stderr: "still building" },
 			now: () => now,
 		});
-		return { conversation, routes, probed, started };
+		return { conversation, routes, probed, started, retired };
 	};
+
+	it("polls a signal now when the person asks, answering with its probe", async () => {
+		const { routes, probed } = make();
+		const answer = await routes.pollNow(
+			post("/api/signals/poll-now", { name: "aws.stack-ready" }),
+		);
+		expect(probed).toEqual(["poll now aws.stack-ready"]);
+		expect(await answer.json()).toMatchObject({ name: "aws.stack-ready" });
+	});
+
+	it("delivers a slash-spelled announcement to waits on the dotted name", async () => {
+		const { conversation, routes } = make();
+		const sent = await routes.announce("mono/cred.saved/API_TOKEN", "creds", {
+			name: "API_TOKEN",
+		});
+		expect(sent.name).toBe("mono.cred.saved.API_TOKEN");
+		expect(conversation.raised).toEqual(["mono.cred.saved.API_TOKEN"]);
+	});
+
+	it("sets and clears optional expiration without raising the signal", async () => {
+		const { routes } = make();
+		await routes.raise(
+			post("/api/signals/raise", { name: "mdom.released", by: "test" }),
+		);
+		const deadline = await (
+			await routes.expiration(
+				post("/api/signals/expiration", {
+					name: "mdom.released",
+					expires: "2h",
+				}),
+			)
+		).json();
+		expect(deadline.expiresAt).toBe("2026-11-18T14:00:00.000Z");
+		const listed = await (await routes.list()).json();
+		expect(
+			listed.signals.find(
+				(each: { name: string }) => each.name === "mdom.released",
+			).expiresAt,
+		).toBe(deadline.expiresAt);
+		await routes.expiration(
+			post("/api/signals/expiration", { name: "mdom.released", expires: null }),
+		);
+		const cleared = await (await routes.list()).json();
+		expect(
+			cleared.signals.find(
+				(each: { name: string }) => each.name === "mdom.released",
+			).expiresAt,
+		).toBeUndefined();
+		expect(
+			cleared.signals.find(
+				(each: { name: string }) => each.name === "mdom.released",
+			).raises,
+		).toHaveLength(1);
+		expect(
+			routes.expiration(
+				post("/api/signals/expiration", {
+					name: "mdom.released",
+					expires: "0s",
+				}),
+			),
+		).rejects.toThrow("expiration");
+	});
+
+	it("expires a one-off signal once it is fired, and --clear unmarks it", async () => {
+		const { routes } = make();
+		await routes.expiration(
+			post("/api/signals/expiration", { name: "mdom.released", onFire: true }),
+		);
+		await routes.raise(
+			post("/api/signals/raise", { name: "mdom.released", by: "test" }),
+		);
+		await new Promise((done) => setTimeout(done, 0));
+		const listed = await (await routes.list()).json();
+		const signal = listed.signals.find(
+			(each: { name: string }) => each.name === "mdom.released",
+		);
+		expect(signal.expiresAt).toBe("2026-11-18T12:00:00.000Z");
+
+		await routes.expiration(
+			post("/api/signals/expiration", { name: "aws.up", onFire: true }),
+		);
+		await routes.expiration(
+			post("/api/signals/expiration", { name: "aws.up", expires: null }),
+		);
+		await routes.raise(post("/api/signals/raise", { name: "aws.up", by: "t" }));
+		await new Promise((done) => setTimeout(done, 0));
+		const after = await (await routes.list()).json();
+		expect(
+			after.signals.find((each: { name: string }) => each.name === "aws.up")
+				.expiresAt,
+		).toBeUndefined();
+	});
 
 	it("delivers a raise to every conversation and says how many woke", async () => {
 		const { conversation, routes } = make();
@@ -96,8 +198,38 @@ describe("SignalRoutes", () => {
 		expect(wait({ description: "x" })).rejects.toThrow("--timeout");
 	});
 
+	it("refuses a wait nothing can raise, saying how to declare it", async () => {
+		const { routes } = make();
+		const wait = routes.wait(
+			post("/api/conversations/c1/signal-wait", {
+				name: "aws.stack-ready",
+				description: "stack up",
+				timeout: "1h",
+			}),
+		);
+
+		expect(wait).rejects.toThrow("signals");
+	});
+
+	it("names a signal by its canonical call, and takes a standard signal function", async () => {
+		const { conversation, routes } = make();
+		await routes.wait(
+			post("/api/conversations/c1/signal-wait", {
+				name: 'clock.in("2  Days")',
+				description: "later",
+				timeout: "1d",
+			}),
+		);
+
+		expect(conversation.asked[0]).toMatchObject({
+			name: `clock.in({ after: "172800s", tz: "${Intl.DateTimeFormat().resolvedOptions().timeZone}" })`,
+		});
+	});
+
 	it("runs a signal's probe when a wait begins on it", async () => {
-		const { routes, probed } = make();
+		const { routes, probed } = make({
+			"aws.stack-ready": { description: "stack up" },
+		});
 		await routes.wait(
 			post("/api/conversations/c1/signal-wait", {
 				name: "aws.stack-ready",
@@ -206,6 +338,40 @@ describe("SignalRoutes", () => {
 
 		expect(probe({ timeout: "1h" })).rejects.toThrow("--every");
 		expect(probe({ every: "1m" })).rejects.toThrow("--timeout");
+	});
+
+	it("ends waits from undeclared signal functions after loading configuration", async () => {
+		const signalFunctions: SignalFunctions = {
+			"aws.ready": { description: "ready", args: {} },
+		};
+		const { routes, conversation, retired } = make(signalFunctions);
+		const ended: string[] = [];
+		conversation.state.signals = [
+			{
+				id: "w",
+				name: "aws.ready",
+				family: "aws.ready",
+				state: "waiting",
+			} as SignalWait,
+		];
+		conversation.removeSignal = (name, reason) => {
+			ended.push(`${name}: ${reason}`);
+			return 1;
+		};
+		await routes.wait(
+			post("/api/conversations/c1/signal-wait", {
+				name: "aws.ready",
+				description: "ready",
+				timeout: "1h",
+			}),
+		);
+		await routes.reconcileSignalFunctions();
+		expect(ended).toEqual([]);
+		delete signalFunctions["aws.ready"];
+		await routes.reconcileSignalFunctions();
+		expect(ended).toEqual(["aws.ready: signal function aws.ready undeclared"]);
+		expect(retired.at(-1)).not.toContain("aws.ready");
+		expect(retired[0]).toContain("aws.ready");
 	});
 
 	it("checks the probe once a wait is stopped", async () => {

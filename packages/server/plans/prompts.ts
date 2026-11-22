@@ -3,9 +3,13 @@ export function taskNumberReference(id: number): string {
 	return `[SPLATES TASK #${id}]`;
 }
 
-/** What a chat with an agent takes to mean lane `id`. */
-export function laneReference(id: number): string {
-	return `[SPLATES LANE ${id}]`;
+/**
+ * What opens a conversation the person started by writing on blocked queued
+ * task `id`: the agent talks about the task with them and does not take it,
+ * and the splates skill says what it means.
+ */
+export function talkReference(id: number): string {
+	return `[SPLATES TALK #${id}]`;
 }
 
 /** Read as the Backlog lane where an old saved conversation says `[SPLATES LANE untriaged]`. */
@@ -169,11 +173,7 @@ export const RECONNECT = "[SPLATES RECONNECT]";
  */
 export const MERGE = "[SPLATES MERGE]";
 
-/**
- * What tells an agent the person allowed the command its run-command card
- * asked to run, or turned it down, as that card's Allow and Deny send: the
- * splates skill says what it means.
- */
+/** What an agent hears when the person allows the command its run-command card asked to run. */
 export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
 /**
  * The words after `RUN_ALLOWED` when the server allowed a command for the
@@ -184,13 +184,6 @@ export const AUTO_ALLOWED = "Auto-allowed by splates";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
 
 /**
- * What tells an agent the person is not at the machine that can run the
- * command its run-command card asked for (rec), as that card's Not on this
- * device sends: the splates skill says what it means.
- */
-export const RUN_ELSEWHERE = "[SPLATES RUN ELSEWHERE]";
-
-/**
  * What tells an agent the person granted its task another round of merge
  * attempts, as `splates retry` does, from its retry card or the refused
  * merge's Grant: the page has granted them already, so the agent merges
@@ -198,50 +191,7 @@ export const RUN_ELSEWHERE = "[SPLATES RUN ELSEWHERE]";
  */
 export const RETRIED = "[SPLATES RETRIED]";
 
-/**
- * What tells an agent the person gave the reach its grant card asked for,
- * from the card's Allow: the page has granted it already, so the agent
- * carries on with the work it was for. The splates skill says what it means.
- */
-export const GRANTED = "[SPLATES GRANTED]";
-
-/**
- * What tells an agent the person turned down the reach its grant card
- * asked for, from the card's Deny, any note after it: nothing was granted,
- * so the agent carries on without the reach. The splates skill says what it
- * means.
- */
-export const GRANT_DENIED = "[SPLATES GRANT DENIED]";
-
-/**
- * What tells an agent the person approved its ship card and the ship it
- * named is under way as run `run`, which the page started itself, as only
- * the person may: the splates skill says what it means.
- */
-export function shipStartedReference(run: string): string {
-	return `${SHIP_STARTED} ${run}]`;
-}
-
-/** What {@link shipStartedReference} starts with, before the run's id. */
-export const SHIP_STARTED = "[SPLATES SHIP STARTED";
-
-/** The run a {@link shipStartedReference} in `text` names, or null. */
-export function shipStartedIn(text: string): string | null {
-	return /\[SPLATES SHIP STARTED ([^\]\s]+)\]/.exec(text)?.[1] ?? null;
-}
-
-/**
- * What tells an agent the person declined the ship its card asked for, from
- * the card's Decline, any note after it: the splates skill says what it
- * means.
- */
-export const SHIP_DECLINED = "[SPLATES SHIP DECLINED]";
-
-/**
- * What approves an agent's proposal as it stands and asks it to go ahead,
- * the answers to any calls it chose nothing for after it, as the Proposed
- * card's Approve button sends: the splates skill says what it means.
- */
+/** Tells an agent the person answered Yes to its approval question. */
 export const APPROVE = "[SPLATES APPROVE]";
 
 /**
@@ -252,10 +202,7 @@ export const APPROVE = "[SPLATES APPROVE]";
  */
 export const DEFER = "[SPLATES DEFER]";
 
-/**
- * What the agent alone is told of a message the person dictated: the page
- * marks it with a mic, and never shows these words.
- */
+/** Appended to a dictated message for the agent alone, warning it of misheard words. */
 export const DICTATED =
 	"(Dictated by voice: words that sound alike may be swapped, and names in this project misspelled. Read a near miss as the closest name in the project, and ask before acting on a reading that changes what you do.)";
 

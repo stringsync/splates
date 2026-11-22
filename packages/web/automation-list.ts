@@ -52,7 +52,7 @@ const API: AutomationsApi = {
 };
 
 /**
- * The automations the Automations page lists, as the server has them. A
+ * The automations the Subscriptions tab lists, as the server has them. A
  * change you make shows as pending until the server answers; a refusal is
  * said, and the list shows what stands.
  */

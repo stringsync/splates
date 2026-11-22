@@ -4,6 +4,7 @@ import { CompositeLogger } from "core/log";
 import { SystemTimer } from "core/time";
 import { StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
+import { Health, statusPage } from "../auto-pick";
 import {
 	type Config,
 	LEGACY_DIR,
@@ -16,7 +17,9 @@ import { cannotReach, SYSTEM_STORES } from "../creds";
 import { fail } from "../exit";
 import { Git } from "../git";
 import {
+	antigravityLimits,
 	codexLimits,
+	isAntigravity,
 	isCodex,
 	isKimi,
 	kimiLimits,
@@ -225,6 +228,10 @@ async function start(
 	// Read once: a roster edited while it serves applies from the restart.
 	const roster = await seeded(rosterOf(ctx), offered, ctx);
 	const limits = new Limits(settingsStorage.document("limits.json"));
+	const health = new Health(
+		settingsStorage.document("health.json"),
+		statusPage(),
+	);
 	// Judged as each turn ends, for the Stats page, across projects.
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
@@ -339,25 +346,32 @@ async function start(
 		starting,
 		offered,
 		limits,
+		health,
 		readLimits: async (agent) =>
-			isCodex(agent)
-				? codexLimits({
-						launch: worker.launch,
-						timer: new SystemTimer(),
+			isAntigravity(agent)
+				? antigravityLimits({
+						ps: ctx.ps,
 						now: () => Date.now(),
 						cwd: generalRoot,
-						codex: ctx.ps.env("CODEX_PATH"),
 					})
-				: isKimi(agent)
-					? kimiLimits({
-							fs: ctx.fs,
+				: isCodex(agent)
+					? codexLimits({
+							launch: worker.launch,
+							timer: new SystemTimer(),
 							now: () => Date.now(),
-							home:
-								ctx.ps.env("KIMI_CODE_HOME") ??
-								`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
-							baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+							cwd: generalRoot,
+							codex: ctx.ps.env("CODEX_PATH"),
 						})
-					: [],
+					: isKimi(agent)
+						? kimiLimits({
+								fs: ctx.fs,
+								now: () => Date.now(),
+								home:
+									ctx.ps.env("KIMI_CODE_HOME") ??
+									`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
+								baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+							})
+						: [],
 	});
 	const server = await dev(
 		{ ...ctx, projects },
@@ -389,28 +403,35 @@ async function start(
 					starting,
 					offered,
 					limits,
+					health,
 					adherence,
 					outcomes,
 					spend: { ledger: spend, prices: outcomes.prices },
 					readLimits: async (agent) =>
-						isCodex(agent)
-							? codexLimits({
-									launch: worker.launch,
-									timer: new SystemTimer(),
+						isAntigravity(agent)
+							? antigravityLimits({
+									ps: ctx.ps,
 									now: () => Date.now(),
 									cwd: git.root,
-									codex: ctx.ps.env("CODEX_PATH"),
 								})
-							: isKimi(agent)
-								? kimiLimits({
-										fs: ctx.fs,
+							: isCodex(agent)
+								? codexLimits({
+										launch: worker.launch,
+										timer: new SystemTimer(),
 										now: () => Date.now(),
-										home:
-											ctx.ps.env("KIMI_CODE_HOME") ??
-											`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
-										baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+										cwd: git.root,
+										codex: ctx.ps.env("CODEX_PATH"),
 									})
-								: [],
+								: isKimi(agent)
+									? kimiLimits({
+											fs: ctx.fs,
+											now: () => Date.now(),
+											home:
+												ctx.ps.env("KIMI_CODE_HOME") ??
+												`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
+											baseUrl: ctx.ps.env("KIMI_CODE_BASE_URL"),
+										})
+									: [],
 					watch: new Watch(workerGit(git.root, worker)),
 					root: git.root,
 					projects,

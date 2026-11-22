@@ -30,7 +30,7 @@ export interface DraftFields {
 }
 
 /**
- * The automation the Automations page's form is putting together, anew or
+ * The automation the Subscriptions tab's form is putting together, anew or
  * from one it edits: what sets it off, then what it runs, made into the
  * trigger and hook the server takes.
  */

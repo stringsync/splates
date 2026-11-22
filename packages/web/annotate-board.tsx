@@ -16,7 +16,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { Annotation, Tool } from "./annotation";
-import { type Grip, Label, Note } from "./mark-notes";
+import { MarkList } from "./mark-notes";
 
 /** A control on the dark around the image, in either theme. */
 const LIGHT = "text-white hover:bg-white/15 hover:text-white";
@@ -94,21 +94,14 @@ export function AnnotateBoard({
 	};
 	/** How far off a mark a press may land and still pick it: 10px on screen. */
 	const slop = (): number => (view === null ? 0 : SLOP / view.scale);
-	/** What drags mark `each`'s note card, leaving its number by the mark. */
-	const grip = (each: number): Grip => ({
-		onPointerDown: (event) => {
-			if (event.button !== 0) {
-				return;
-			}
-			event.currentTarget.setPointerCapture(event.pointerId);
-			annotation.hold(each, at(event));
-		},
-		onPointerMove: (event) => annotation.move(at(event)),
-		onPointerUp: () => annotation.release(),
-		onPointerCancel: () => annotation.release(),
-	});
 	const onKeyDown = (event: KeyboardEvent) => {
-		if (event.target instanceof HTMLInputElement) {
+		// A field's keys are its own: typing a note never picks a tool, undoes or
+		// deletes a mark, or finishes (the note field handles its own Enter).
+		if (
+			event.target instanceof HTMLElement &&
+			event.target.closest("input, textarea, select, [contenteditable]") !==
+				null
+		) {
 			return;
 		}
 		const picked = TOOLS.find((each) => each.key === event.key.toLowerCase());
@@ -238,78 +231,52 @@ export function AnnotateBoard({
 					</Button>
 				</div>
 			</div>
-			<div
-				ref={stage}
-				// A click past the frame falls through to the popup, which closes.
-				className="pointer-events-none relative min-h-0 w-full flex-1"
-			>
-				<canvas
-					ref={canvas}
-					width={Math.round((view?.area.w ?? 0) * (view?.pixels ?? 1))}
-					height={Math.round((view?.area.h ?? 0) * (view?.pixels ?? 1))}
-					aria-label={`${annotation.original.name}, with ${marks.length} ${marks.length === 1 ? "mark" : "marks"}`}
-					// The frame shows how far past the image marks may go.
-					className="pointer-events-auto absolute cursor-crosshair touch-none rounded-lg bg-white/5 outline-1 outline-white/25 outline-dashed"
-					style={
-						view === null
-							? { inset: 0 }
-							: {
-									left: view.area.left,
-									top: view.area.top,
-									width: view.area.w,
-									height: view.area.h,
-								}
-					}
-					onPointerDown={(event) => {
-						if (event.button !== 0) {
-							return;
+			<div className="flex min-h-0 w-full flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+				<div
+					ref={stage}
+					// A click past the frame falls through to the popup, which closes.
+					className="pointer-events-none relative min-h-0 min-w-0 flex-1"
+				>
+					<canvas
+						ref={canvas}
+						width={Math.round((view?.area.w ?? 0) * (view?.pixels ?? 1))}
+						height={Math.round((view?.area.h ?? 0) * (view?.pixels ?? 1))}
+						aria-label={`${annotation.original.name}, with ${marks.length} ${marks.length === 1 ? "mark" : "marks"}`}
+						// The frame shows how far past the image marks may go.
+						className="pointer-events-auto absolute cursor-crosshair touch-none rounded-lg bg-white/5 outline-1 outline-white/25 outline-dashed"
+						style={
+							view === null
+								? { inset: 0 }
+								: {
+										left: view.area.left,
+										top: view.area.top,
+										width: view.area.w,
+										height: view.area.h,
+									}
 						}
-						event.currentTarget.setPointerCapture(event.pointerId);
-						annotation.press(at(event), slop());
-					}}
-					onPointerMove={(event) => {
-						annotation.move(at(event));
-						// Over a number or a line, a press picks its mark.
-						event.currentTarget.style.cursor =
-							draft === null && annotation.markAt(at(event), slop()) !== null
-								? "pointer"
-								: "";
-					}}
-					onPointerUp={() => annotation.release()}
-					onPointerCancel={() => annotation.release()}
-				/>
-				{view !== null && (
-					// Where the image shows, so each note sits by its mark.
-					<div
-						className="pointer-events-none absolute"
-						style={{
-							left: view.image.left,
-							top: view.image.top,
-							width: view.image.w,
-							height: view.image.h,
+						onPointerDown={(event) => {
+							if (event.button !== 0) {
+								return;
+							}
+							event.currentTarget.setPointerCapture(event.pointerId);
+							annotation.press(at(event), slop());
 						}}
-					>
-						{marks.map((mark, each) =>
-							each === selected ? (
-								<Note
-									key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
-									annotation={annotation}
-									at={each}
-									grip={grip(each)}
-									bounds={stage}
-								/>
-							) : mark.note.trim() !== "" ? (
-								<Label
-									key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
-									annotation={annotation}
-									at={each}
-									grip={grip(each)}
-									bounds={stage}
-								/>
-							) : null,
-						)}
-					</div>
-				)}
+						onPointerMove={(event) => {
+							annotation.move(at(event));
+							// Over a number or a line, a press picks its mark.
+							event.currentTarget.style.cursor =
+								draft === null && annotation.markAt(at(event), slop()) !== null
+									? "pointer"
+									: "";
+						}}
+						onPointerUp={() => annotation.release()}
+						onPointerCancel={() => annotation.release()}
+					/>
+				</div>
+				<MarkList
+					annotation={annotation}
+					className="max-sm:max-h-[34%] sm:w-72"
+				/>
 			</div>
 		</DialogPrimitive.Popup>
 	);

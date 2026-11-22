@@ -27,7 +27,6 @@ import { LeftRunning } from "./left-running";
 import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
 import { NoopHold } from "./noop-hold";
-import { ConversationProgress, type ProgressUpdate } from "./progress";
 import { AWAY, VISIT_KEPT } from "./reminder";
 import { ConversationSignals, type SignalAsk } from "./signals";
 import {
@@ -42,7 +41,6 @@ import {
 	IDLE_STOP,
 	type Limit,
 	lifted,
-	type Progress,
 	type QueueSpot,
 	type ReminderCard,
 	runOn,
@@ -77,7 +75,6 @@ export class Conversation
 	private readonly connection: AgentConnection;
 	private readonly turns: ConversationTurns;
 	private readonly background: ConversationBackground;
-	private readonly progress: ConversationProgress;
 	/** The signals its agent waits on. */
 	private readonly signals: ConversationSignals;
 	/** What the agent left running past a turn, from its process tree. */
@@ -167,7 +164,6 @@ export class Conversation
 		});
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
-		this.progress = new ConversationProgress(this, deps);
 		this.signals = new ConversationSignals(this, deps, (text) =>
 			this.prompt(text, [], undefined, { told: SERVER_TOLD }),
 		);
@@ -346,7 +342,6 @@ export class Conversation
 			task,
 			base = null,
 			caller = null,
-			tags = null,
 			cwd,
 			scratch = false,
 			assigned = false,
@@ -377,7 +372,6 @@ export class Conversation
 			assigned,
 			startedBy,
 			scratch,
-			tags,
 		);
 		state.skill = skill;
 		state.automatic = automatic;
@@ -402,7 +396,6 @@ export class Conversation
 			...(scratch ? { scratch: true as const } : {}),
 			base,
 			caller,
-			...(tags === null ? {} : { tags }),
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(startedBy === null ? {} : { startedBy }),
@@ -601,7 +594,12 @@ export class Conversation
 		return this.signals.subscriptions(name);
 	}
 
-	/** The probe of signal `name` timed out: ends each wait on it as timed out; how many it ended. */
+	/** Ends all waits on a removed source and wakes the agent with its reason. */
+	removeSignal(name: string, reason: string): number {
+		return this.signals.remove(name, reason);
+	}
+
+	/** Ends waits on a source that timed out. */
 	expireSignal(name: string): number {
 		return this.signals.expire(name);
 	}
@@ -609,11 +607,6 @@ export class Conversation
 	/** Shows a probe this conversation started on its card. */
 	showProbe(probe: SignalProbe): void {
 		this.signals.showProbe(probe);
-	}
-
-	/** Takes the agent's `splates progress` update; the card as it stands. */
-	reportProgress(update: ProgressUpdate): Progress {
-		return this.progress.report(update);
 	}
 
 	/** Stops background command `id`, leaving the agent's turn as it is. */
@@ -715,7 +708,6 @@ export class Conversation
 		cwd: string,
 		base: string | null = null,
 		caller: string | null = null,
-		tags: string[] | null = null,
 	): void {
 		// A running session keeps the directory it opened in, which a merge
 		// deletes under it. At the turn's end it stops, so the next prompt
@@ -729,14 +721,12 @@ export class Conversation
 			cwd,
 			base,
 			caller,
-			...(tags === null ? {} : { tags }),
 		});
 		this.set({
 			task,
 			lastTask: task ?? this.state.lastTask,
 			lastBase: task === null ? this.state.lastBase : base,
 			lastCaller: callerAfter(this.state, task, caller),
-			lastTags: task === null ? this.state.lastTags : tags,
 		});
 	}
 
@@ -788,9 +778,8 @@ export class Conversation
 		cwd: string,
 		base: string | null = null,
 		caller: string | null = null,
-		tags: string[] | null = null,
 	): void {
-		this.move(task, cwd, base, caller, tags);
+		this.move(task, cwd, base, caller);
 		this.log.write({ kind: "held-for-task", heldForTask: null });
 		this.set({ heldForTask: null, queue: null });
 		this.letGo(true);
@@ -1029,7 +1018,6 @@ export class Conversation
 		if (this.state.task !== null && this.dir !== null) {
 			await this.deps.machine.stopUnder(this.dir).catch(() => {});
 		}
-		this.progress.clear();
 		await put(this, { archived: true, with: withConversation, rest });
 		await this.artifacts.archive();
 	}
@@ -1103,8 +1091,8 @@ export class Conversation
 	}
 
 	/**
-	 * Keeps that the person has it open now, adding `card` to the thread when
-	 * they were gone for `AWAY`. Call it each minute it shows.
+	 * Records that the person has this conversation open, showing a reminder
+	 * after a long absence. Call each minute while the conversation is visible.
 	 */
 	async visit(card: ReminderCard | null): Promise<void> {
 		// The log and the page hear of a visit only every `VISIT_KEPT`, so a
@@ -1119,9 +1107,6 @@ export class Conversation
 			previous.line === card?.line &&
 			!this.state.messages.some(
 				(message) => (message.until ?? message.at ?? "") >= previous.at,
-			) &&
-			!this.state.progress.some(
-				(progress) => progress.updatedAt >= previous.at,
 			);
 		if (
 			last !== null &&
@@ -1151,7 +1136,6 @@ export class Conversation
 	}
 
 	dispose(): void {
-		this.progress.dispose();
 		this.signals.dispose();
 		this.leftRunning.dispose();
 		this.resting?.dispose();
@@ -1221,7 +1205,6 @@ export class Conversation
 		});
 		await this.log.flush();
 		endBackground(this.state, this.now());
-		this.progress.end();
 		this.set({
 			status: error === null ? "stopped" : "failed",
 			error,
@@ -1300,7 +1283,6 @@ export class Conversation
 	}
 
 	changed(): void {
-		this.progress.settle();
 		this.state.taking = this.turns.taking();
 		this.rest();
 		this.dispatcher.dispatch("changed");
@@ -1484,8 +1466,6 @@ interface Opening {
 	base?: string | null;
 	/** The conversation whose agent added `task`. */
 	caller?: string | null;
-	/** The tags of `task`. */
-	tags?: string[] | null;
 	cwd: string;
 	/** Runs projectless in its own scratch workspace. */
 	scratch?: boolean;

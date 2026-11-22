@@ -23,6 +23,21 @@ export type OpenArtifact = (
 
 const Opening = createContext<OpenArtifact | null>(null);
 
+/** The page an approval question's plan names, by its artifact's name. */
+type PlanOf = (name: string) => Shown | null;
+
+const Plans = createContext<PlanOf>(() => null);
+
+/**
+ * The current version of the conversation's page artifact `name`, as a plan
+ * opens it; null with no name, outside a conversation, or when it is not a
+ * page the conversation still holds.
+ */
+export function usePlanPage(name: string | null): Shown | null {
+	const of = useContext(Plans);
+	return name === null ? null : of(name);
+}
+
 /**
  * What opens an artifact from its row beside the thread or its chip in a
  * line: the viewer of the conversation it sits in, or, outside one, a
@@ -33,12 +48,10 @@ export function useOpenArtifact(): OpenArtifact {
 }
 
 /**
- * Opens the artifacts of the conversation `conversation`, for `children`, by
- * what they are: an image or a recording in the lightbox, among the others
- * of the shelf it sits on beside the thread; a page in a sandboxed frame;
- * anything else as a download. A version whose bytes are gone opens nothing.
- * An artifact of another conversation, or one the page has yet to hear of,
- * downloads.
+ * Wrap a conversation's thread in it so its artifacts open where they are
+ * clicked: images and recordings in the lightbox, pages in a sandboxed
+ * frame, the rest as downloads. An approval question finds its plan page
+ * through it.
  */
 export function ArtifactViewer({
 	conversation,
@@ -85,11 +98,29 @@ export function ArtifactViewer({
 			media.findIndex((each) => each.version === kept),
 		);
 	};
+	const planOf: PlanOf = (name) => {
+		const artifact = artifacts.find(
+			(each) => each.name === name && each.removedAt === null,
+		);
+		const version = artifact?.versions.find(
+			(each) => each.version === artifact.current,
+		);
+		if (
+			version === undefined ||
+			version.gone !== null ||
+			viewerOf(version.mimeType) !== "page"
+		) {
+			return null;
+		}
+		return shown(conversation, { name, version }, false);
+	};
 	return (
 		<Opening.Provider value={open}>
-			{children}
-			{lightbox}
-			<PageViewer page={page} onClose={() => setPage(null)} />
+			<Plans.Provider value={planOf}>
+				{children}
+				{lightbox}
+				<PageViewer page={page} onClose={() => setPage(null)} />
+			</Plans.Provider>
 		</Opening.Provider>
 	);
 }

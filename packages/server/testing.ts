@@ -152,8 +152,8 @@ export class Testing implements AsyncDisposable {
 			evals: null,
 			projects: null,
 			shared: [],
-			tags: null,
 			rec: null,
+			signals: {},
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.splatesHome = alongside?.splatesHome ?? join(base, "home", ".splates");

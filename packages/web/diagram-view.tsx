@@ -1,4 +1,5 @@
 import { type JSX, useEffect, useId, useMemo, useState } from "react";
+import { D2_DRAW } from "./d2-draw";
 import { ITEM, type Shown, useLightbox } from "./lightbox";
 
 /** A D2 diagram drawn as SVG in the browser; its source shows as code while it loads or when it fails to compile. */
@@ -8,19 +9,13 @@ export function DiagramView({ source }: { source: string }): JSX.Element {
 	useEffect(() => {
 		let live = true;
 		setSvg(null);
-		(async () => {
-			const { D2 } = await import("@terrastruct/d2");
-			const d2 = new D2();
-			const result = await d2.compile(source);
-			const out = await d2.render(result.diagram, {
-				...result.renderOptions,
-				salt,
-				noXMLTag: true,
-			});
-			if (live) {
-				setSvg(out);
-			}
-		})().catch(() => {});
+		D2_DRAW.draw(source, salt)
+			.then((out) => {
+				if (live) {
+					setSvg(out);
+				}
+			})
+			.catch(() => {});
 		return () => {
 			live = false;
 		};

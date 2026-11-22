@@ -45,7 +45,7 @@ export async function listReaches(
 /**
  * `splates projects grant`: lets agents of the project `slug` names do as much
  * as `reach` in the one `git` is in. The person's call alone, so an agent is
- * refused: it asks with a grant card, whose Allow grants it.
+ * refused: it asks the user to run it.
  */
 export async function grantReach(
 	{
@@ -64,7 +64,7 @@ export async function grantReach(
 			git.root;
 		fail(
 			"not_granted",
-			`a grant is the user's to give: ask for it with a \`## 🔐 Permission: grant ${here} ${reach} to ${slug}\` card, whose Allow grants it`,
+			`a grant is the user's to give: ask the user to run \`splates projects grant ${slug} ${reach}\` in ${here}`,
 			{ project: slug, reach },
 		);
 	}

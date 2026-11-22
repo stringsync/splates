@@ -62,12 +62,6 @@ export async function snapshot({
 		root: service.git.root,
 		worktreeRoot: resolve(service.config.worktreeRoot),
 		taskStalenessMs: service.config.taskStalenessMs,
-		...(service.config.tags?.allowed === undefined
-			? {}
-			: { allowedTags: service.config.tags.allowed }),
-		...(service.config.tags?.colors === undefined
-			? {}
-			: { tagColors: service.config.tags.colors }),
 		todos: (await queue.all()).map((each) => each.state),
 		boards: await queue.boards(),
 		lanes: await queue.lanes(),
@@ -100,10 +94,6 @@ export interface Snapshot {
 	worktreeRoot: string;
 	/** Past this age a queued task is offered for removal rather than recommended. */
 	taskStalenessMs: number;
-	/** The only tags a task may carry, from `splates.config.ts`; absent when any is allowed. */
-	allowedTags?: string[];
-	/** The color of each tag's chips, by tag, from `splates.config.ts`; absent when none is set. */
-	tagColors?: Record<string, string>;
 	todos: Board.TaskRecord[];
 	/** Its tasks' blockers in other projects, and theirs it blocks; absent unread. */
 	elsewhere?: Board.ElsewhereOnBoard;

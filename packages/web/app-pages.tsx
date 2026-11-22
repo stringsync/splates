@@ -6,7 +6,6 @@ import { Conversations } from "./conversations";
 import { CredsPage } from "./creds";
 import type { Drafts } from "./drafts";
 import {
-	AutomationsPage,
 	AutoPickPage,
 	BillingPage,
 	EvalsPage,
@@ -39,7 +38,7 @@ export function useAppPages({
 	cred,
 	talk,
 	opens,
-	rule,
+	cell,
 	evals,
 	openEval,
 	shipRun,
@@ -58,7 +57,7 @@ export function useAppPages({
 	| "openTask"
 	| "go"
 	| "cred"
-	| "rule"
+	| "cell"
 	| "open"
 	| "evals"
 	| "openEval"
@@ -143,21 +142,19 @@ export function useAppPages({
 								cred={cred}
 							/>
 						),
-						signals: <SignalsPage onOpen={(id) => openConversation(id)} />,
-						billing: <BillingPage talk={talk} />,
-						automations: (
-							<AutomationsPage
+						signals: (
+							<SignalsPage
+								onOpen={(id) => openConversation(id)}
 								opens={opens}
-								onAutoPick={() => go("auto-pick")}
 							/>
 						),
+						billing: <BillingPage talk={talk} />,
 						"auto-pick": (
 							<AutoPickPage
-								mark={rule}
+								mark={cell}
 								tasks={snapshot.tasks}
 								todos={snapshot.todos}
 								opens={opens}
-								onBack={() => go("automations")}
 							/>
 						),
 						setup: (
@@ -216,7 +213,7 @@ export function useAppPages({
 			cred,
 			talk,
 			opens,
-			rule,
+			cell,
 			evals,
 			openEval,
 			shipRun,

@@ -7,6 +7,11 @@ import {
 	field,
 	paper,
 } from "#web/components/assistant-ui/elements/surfaces.tsx";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
@@ -290,7 +295,7 @@ function Line({
 			{opens && (
 				<ChevronRightIcon
 					aria-hidden
-					className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/row:rotate-90 motion-reduce:transition-none"
+					className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-panel-open/row:rotate-90 motion-reduce:transition-none"
 				/>
 			)}
 			{after}
@@ -304,26 +309,27 @@ function Line({
 		return <div className={line}>{head}</div>;
 	}
 	return (
-		<details
-			className="group/row"
-			onToggle={(event) => {
-				if (event.currentTarget.open) {
+		<Collapsible
+			onOpenChange={(open) => {
+				if (open) {
 					setOpened(true);
 				}
 			}}
 		>
-			<summary
+			<CollapsibleTrigger
 				className={cn(
 					line,
-					"cursor-pointer list-none hover:text-foreground [&::-webkit-details-marker]:hidden",
+					"group/row w-full cursor-pointer rounded-sm text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 				)}
 			>
 				{head}
-			</summary>
+			</CollapsibleTrigger>
 			{opened && (
-				<div className="mt-1 mb-2 flex flex-col gap-1.5">{children}</div>
+				<CollapsibleContent keepMounted>
+					<div className="mt-1 mb-2 flex flex-col gap-1.5">{children}</div>
+				</CollapsibleContent>
 			)}
-		</details>
+		</Collapsible>
 	);
 }
 

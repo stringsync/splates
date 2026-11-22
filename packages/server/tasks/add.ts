@@ -6,7 +6,7 @@ import { Duration, sleep } from "core/time";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
-import { Scopes, Tags } from "../config";
+import { Scopes } from "../config";
 import { fail } from "../exit";
 import { pickAgent, type RosterAgent } from "../models";
 import { PLAN_FILE, Plans } from "../plans";
@@ -55,13 +55,6 @@ export interface AddOptions {
 	 * says. Empty at the root.
 	 */
 	folder?: string;
-	/**
-	 * The tags grouping the task, as `--tag` names them (a comma list is
-	 * one): refused when the config allows others, or, for a task no queued
-	 * task starts, requires one and none is given; the folder's, if an
-	 * allowed tag, when none is named. The queued tasks' tags are kept.
-	 */
-	tag?: string[];
 	/** Added from another project, as `splates --project` does, which is refused. */
 	away?: boolean;
 }
@@ -93,7 +86,6 @@ export async function add(
 		away = false,
 		project,
 		folder = "",
-		tag = [],
 	}: AddOptions = {},
 ): Promise<void> {
 	if (away) {
@@ -114,9 +106,6 @@ export async function add(
 	const scopes = new Scopes(config, basename(service.git.root));
 	// Checked before anything is created, so a project the config lacks refuses early.
 	scopes.pick(project, folder);
-	const tagging = new Tags(config);
-	const named = tagging.parse(tag);
-	tagging.check(named);
 	// Agents start no agents, so they never multiply: work goes to the queue,
 	// whose worker starts it. The server starts its tasks with neither set.
 	const asking =
@@ -202,20 +191,6 @@ export async function add(
 		throw error;
 	}
 
-	let tags: string[];
-	try {
-		// A queued task starts as it was queued: only a fresh one needs a tag.
-		tags = [
-			...new Set([
-				...taken.flatMap((each) => each.tags),
-				...tagging.forNew(named, folder, taken.length === 0),
-			]),
-		];
-	} catch (error) {
-		await letGo(tookNow);
-		throw error;
-	}
-
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
 		await letGo(tookNow);
@@ -244,7 +219,6 @@ export async function add(
 	const worktree = await (await service.find(task)).take({
 		base,
 		scope,
-		...(tags.length === 0 ? {} : { labels: tags }),
 		...(caller === undefined ? {} : { caller }),
 		...(handOff === undefined
 			? {}
@@ -315,7 +289,6 @@ export async function add(
 			`  branch:   ${worktree.branch}`,
 			`  base:     ${base}`,
 			`  project:  ${scope}`,
-			...(tags.length === 0 ? [] : [`  tags:     ${tags.join(", ")}`]),
 			...(handOff === undefined
 				? []
 				: [

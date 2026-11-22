@@ -89,6 +89,8 @@ export interface ConversationDeps {
 	clock: WallClock;
 	/** What starts each agent, and takes one back after a restart. */
 	launcher: Launcher;
+	/** What an agent's process is given in its env beyond splates's own, such as the API key its CLI reads. */
+	env?: (agent: Agent) => Promise<Record<string, string>>;
 	/**
 	 * Where each agent waits for a place on a worker before it starts, and
 	 * starts there: one another agent started for a free one, one the person

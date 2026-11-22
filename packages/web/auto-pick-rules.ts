@@ -2,19 +2,21 @@ import type {
 	AutoPickAgent,
 	AutoPickRules,
 	AutoPickRulesView,
-	ClarityId,
-	DepthId,
-	KindId,
+	Lineup,
+	LineupColor,
 	Pace,
-	Rule,
+	RouteDepth,
+	RouteKind,
 } from "@splates/server/auto-pick";
 import {
-	ANY,
+	cellLabel,
 	DEFAULT_PACE,
 	DEFAULT_RULES,
-	KIND_IDS,
+	LINEUP_COLORS,
+	ROUTE_DEPTHS,
+	ROUTE_KINDS,
 } from "@splates/server/auto-pick/browser";
-import { checkRules } from "@splates/server/auto-pick/check";
+import { checkRules, idFor } from "@splates/server/auto-pick/check";
 import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 import {
@@ -22,7 +24,6 @@ import {
 	resetAutoPickRules,
 	saveAutoPickRules,
 } from "./auto-pick-api";
-import type { PickList } from "./auto-pick-pick-chips";
 
 /** Where the editor reads and writes the machine's rules. */
 export interface RulesStore {
@@ -36,10 +37,41 @@ export type RulesEditorEvents = { changed: undefined };
 /** The thinking levels offered for an agent that has not said which it takes. */
 export const EFFORTS = ["low", "medium", "high"];
 
+/** One cell of the routes: a kind at a depth, either of them unsure. */
+export interface Cell {
+	kind: RouteKind;
+	depth: RouteDepth;
+}
+
+/** Every cell, row by row. */
+export const CELLS: readonly Cell[] = ROUTE_KINDS.flatMap((kind) =>
+	ROUTE_DEPTHS.map((depth) => ({ kind, depth })),
+);
+
+/** A cell as one string, for keys and sets: `bugfix.deep`. */
+export function cellKey({ kind, depth }: Cell): string {
+	return `${kind}.${depth}`;
+}
+
+/** The cell a pick was made for, as `cellKey` writes it; unsure where null. */
+export function pickedCell(picked: {
+	kind: string | null;
+	depth: string | null;
+}): string {
+	return `${picked.kind ?? "unsure"}.${picked.depth ?? "unsure"}`;
+}
+
+/** A cell key in words: `Bugfix · Deep`. */
+export function cellKeyLabel(key: string): string {
+	const [kind = "unsure", depth = "unsure"] = key.split(".");
+	return cellLabel(kind as RouteKind, depth as RouteDepth);
+}
+
 /**
- * Use this to edit Auto pick rules through `draft` and its setters. Call
- * `load` first, subscribe to `events` for changes, and call `save` or `reset`
- * to write. The last rule stays `* *`, so every task maps somewhere.
+ * Use this to edit Auto pick's lineups and routes through `draft` and its
+ * setters. Call `load` first, subscribe to `events` for changes, and call
+ * `save` or `reset` to write. Every cell keeps a lineup, so a lineup in use
+ * is not deleted, and a lineup keeps at least one pick.
  */
 export class RulesEditor implements Eventful<RulesEditorEvents> {
 	private readonly dispatcher = new Dispatcher<RulesEditorEvents>();
@@ -98,11 +130,6 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.changed();
 	}
 
-	/** Whether rule `index` is the last, fixed `* *` rule. */
-	fixed(index: number): boolean {
-		return index === this.draft.rules.length - 1;
-	}
-
 	setPercent(percent: number): void {
 		if (Number.isFinite(percent)) {
 			const clamped = Math.min(100, Math.max(0, Math.round(percent)));
@@ -124,79 +151,115 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.editPace("spent", percent);
 	}
 
-	setKind(index: number, kind: KindId | typeof ANY): void {
-		this.editRule(index, (rule) => ({ ...rule, kind }));
+	/** The lineup with `id`, if the draft has it. */
+	lineup(id: string): Lineup | undefined {
+		return this.draft.lineups.find((each) => each.id === id);
 	}
 
-	setClarity(index: number, clarity: ClarityId | typeof ANY): void {
-		this.editRule(index, (rule) => ({ ...rule, clarity }));
+	/** The lineup `cell` sends its tasks to. */
+	lineupOf(cell: Cell): Lineup | undefined {
+		return this.lineup(this.draft.routes[cell.kind][cell.depth]);
 	}
 
-	setDepth(index: number, depth: DepthId | typeof ANY): void {
-		this.editRule(index, (rule) => ({ ...rule, depth }));
+	/** The cells sending their tasks to lineup `id`. */
+	uses(id: string): Cell[] {
+		return CELLS.filter(
+			(cell) => this.draft.routes[cell.kind][cell.depth] === id,
+		);
 	}
 
-	/** Adds a rule just above the last, where a specific rule has to sit to win. */
-	addRule(): void {
-		const agent =
-			this.agents[0]?.id ?? this.draft.rules.at(-1)?.picks[0]?.agent;
-		const rule: Rule = {
-			kind: KIND_IDS[0],
-			depth: ANY,
-			picks: agent === undefined ? [] : [{ agent }],
-		};
+	/** Sends `cells` to lineup `id`. */
+	send(cells: readonly Cell[], id: string): void {
+		if (this.lineup(id) === undefined || cells.length === 0) {
+			return;
+		}
+		this.edit((rules) => {
+			const routes = structuredClone(rules.routes);
+			for (const cell of cells) {
+				routes[cell.kind][cell.depth] = id;
+			}
+			return { ...rules, routes };
+		});
+	}
+
+	/**
+	 * Adds a lineup, named `New lineup` (or `New lineup 2` and on), in the
+	 * first color no lineup takes, picking the roster's first agent; returns
+	 * its id.
+	 */
+	addLineup(): string {
+		const taken = (name: string) =>
+			this.draft.lineups.some(
+				(each) => each.name.toLowerCase() === name.toLowerCase(),
+			);
+		let name = "New lineup";
+		for (let at = 2; taken(name); at += 1) {
+			name = `New lineup ${at}`;
+		}
+		const id = idFor(name, this.draft.lineups);
+		const color =
+			LINEUP_COLORS.find(
+				(each) => !this.draft.lineups.some((lineup) => lineup.color === each),
+			) ??
+			LINEUP_COLORS[this.draft.lineups.length % LINEUP_COLORS.length] ??
+			"slate";
+		const agent = this.agents[0];
+		const pick: AgentPick =
+			agent === undefined ? { agent: "claude" } : { agent: agent.id };
+		const model = agent?.models[0]?.id;
+		if (model !== undefined) {
+			pick.model = model;
+		}
 		this.edit((rules) => ({
 			...rules,
-			rules: [...rules.rules.slice(0, -1), rule, ...rules.rules.slice(-1)],
+			lineups: [...rules.lineups, { id, name, color, picks: [pick] }],
 		}));
+		return id;
 	}
 
-	removeRule(index: number): void {
-		if (this.fixed(index)) {
+	/** Deletes lineup `id`, unless a cell still sends tasks to it. */
+	removeLineup(id: string): void {
+		if (this.uses(id).length > 0) {
 			return;
 		}
 		this.edit((rules) => ({
 			...rules,
-			rules: rules.rules.filter((_, at) => at !== index),
+			lineups: rules.lineups.filter((each) => each.id !== id),
 		}));
 	}
 
-	/** Moves rule `index` up (-1) or down (1), never past the last. */
-	moveRule(index: number, by: -1 | 1): void {
-		const to = index + by;
-		if (this.fixed(index) || to < 0 || this.fixed(to)) {
-			return;
-		}
-		this.edit((rules) => ({
-			...rules,
-			rules: swapped(rules.rules, index, to),
-		}));
+	/** Renames lineup `id`; its id, which the routes name it by, stays. */
+	rename(id: string, name: string): void {
+		this.editLineup(id, (lineup) => ({ ...lineup, name }));
 	}
 
-	/** Whether rule `index` already names `agent` on `model`, apart from its pick `except`. */
+	recolor(id: string, color: LineupColor): void {
+		this.editLineup(id, (lineup) => ({ ...lineup, color }));
+	}
+
+	/** Whether lineup `id` already names `agent`, apart from its pick `except`. */
 	has(
-		index: number,
+		id: string,
 		agent: string,
-		model: string | undefined,
+		_model: string | undefined,
 		except?: number,
 	): boolean {
-		return (this.draft.rules[index]?.picks ?? []).some(
-			(each, at) =>
-				at !== except && each.agent === agent && each.model === model,
+		return (this.lineup(id)?.picks ?? []).some(
+			(each, at) => at !== except && each.agent === agent,
 		);
 	}
 
 	/**
-	 * Adds `agent` on `model`, or its default model, at the end of rule
-	 * `index`'s picks, at the thinking level the rule's others take where the
-	 * agent offers it. Does nothing when the rule names it already.
+	 * Adds `agent` on `model`, or its default model, at the end of lineup
+	 * `id`'s picks, at the thinking level its others take where the agent
+	 * offers it. Does nothing when the lineup names it already.
 	 */
-	addPick(index: number, agent: string, model: string | undefined): void {
-		if (this.has(index, agent, model)) {
+	addPick(id: string, agent: string, model: string | undefined): void {
+		if (this.has(id, agent, model)) {
 			return;
 		}
 		const offered = this.efforts(agent);
-		const effort = this.draft.rules[index]?.picks.find(
+		const effort = this.lineup(id)?.picks.find(
 			(each) => each.effort !== undefined && offered.includes(each.effort),
 		)?.effort;
 		const pick: AgentPick = { agent };
@@ -206,83 +269,68 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		if (effort !== undefined) {
 			pick.effort = effort;
 		}
-		this.editRule(
-			index,
-			(rule) => ({ ...rule, picks: [...rule.picks, pick] }),
-			true,
+		this.editLineup(id, (lineup) => ({
+			...lineup,
+			picks: [...lineup.picks, pick],
+		}));
+	}
+
+	/** Removes pick `pick` of lineup `id`, never its last. */
+	removePick(id: string, pick: number): void {
+		this.editLineup(id, (lineup) =>
+			lineup.picks.length < 2
+				? lineup
+				: { ...lineup, picks: lineup.picks.filter((_, at) => at !== pick) },
 		);
 	}
 
-	/** Removes pick `pick` of rule `index`, never its last. */
-	removePick(index: number, pick: number): void {
-		this.editRule(
-			index,
-			(rule) =>
-				rule.picks.length < 2
-					? rule
-					: { ...rule, picks: rule.picks.filter((_, at) => at !== pick) },
-			true,
-		);
+	/** Moves pick `from` of lineup `id` to place `to`. */
+	movePick(id: string, from: number, to: number): void {
+		this.editLineup(id, (lineup) => {
+			const moved = lineup.picks[from];
+			if (moved === undefined || from === to || to < 0) {
+				return lineup;
+			}
+			const picks = lineup.picks.filter((_, at) => at !== from);
+			picks.splice(to, 0, moved);
+			return { ...lineup, picks };
+		});
 	}
 
-	/** Moves pick `from` of rule `index` to place `to`. */
-	movePick(index: number, from: number, to: number): void {
-		this.editRule(
-			index,
-			(rule) => {
-				const moved = rule.picks[from];
-				if (moved === undefined || from === to || to < 0) {
-					return rule;
-				}
-				const picks = rule.picks.filter((_, at) => at !== from);
-				picks.splice(to, 0, moved);
-				return { ...rule, picks };
-			},
-			true,
-		);
-	}
-
-	/** Sets a pick's model; undefined for the agent's default. */
-	setModel(index: number, pick: number, model: string | undefined): void {
-		const agent = this.draft.rules[index]?.picks[pick]?.agent;
-		if (agent === undefined || this.has(index, agent, model, pick)) {
+	/**
+	 * Sets pick `pick` of lineup `id` to `agent` on `model` (undefined for its
+	 * default), keeping its thinking level where the agent offers it. Does
+	 * nothing when another pick of the lineup names it already.
+	 */
+	setModel(
+		id: string,
+		pick: number,
+		agent: string,
+		model: string | undefined,
+	): void {
+		if (this.has(id, agent, model, pick)) {
 			return;
 		}
-		this.editPick(index, pick, ({ model: _, ...rest }) =>
-			model === undefined ? rest : { ...rest, model },
-		);
+		const efforts = this.efforts(agent);
+		this.editPick(id, pick, (each) => {
+			const next: AgentPick = { agent };
+			if (model !== undefined) {
+				next.model = model;
+			}
+			if (
+				each.effort !== undefined &&
+				(each.agent === agent || efforts.includes(each.effort))
+			) {
+				next.effort = each.effort;
+			}
+			return next;
+		});
 	}
 
 	/** Sets a pick's thinking level; undefined for the agent's default. */
-	setEffort(index: number, pick: number, effort: string | undefined): void {
-		this.editPick(index, pick, ({ effort: _, ...rest }) =>
+	setEffort(id: string, pick: number, effort: string | undefined): void {
+		this.editPick(id, pick, ({ effort: _, ...rest }) =>
 			effort === undefined ? rest : { ...rest, effort },
-		);
-	}
-
-	/** Rule `index`'s picks as a list the rows edit. */
-	picksOf(index: number): PickList {
-		return {
-			label: `rule ${index + 1}`,
-			agents: this.agents,
-			note: "Tried top to bottom; the next is used once a plan is nearly spent.",
-			least: 1,
-			efforts: (agent) => this.efforts(agent),
-			has: (agent, model, except) => this.has(index, agent, model, except),
-			add: (agent, model) => this.addPick(index, agent, model),
-			remove: (pick) => this.removePick(index, pick),
-			move: (from, to) => this.movePick(index, from, to),
-			setModel: (pick, model) => this.setModel(index, pick, model),
-			setEffort: (pick, effort) => this.setEffort(index, pick, effort),
-		};
-	}
-
-	/** The model ids a pick of `agent` can name: the roster's for it. */
-	models(agent: string): string[] {
-		return (
-			this.agents
-				.find((each) => each.id === agent)
-				?.models.map((each) => each.id) ?? []
 		);
 	}
 
@@ -311,10 +359,96 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		}
 	}
 
+	/** Saves only one section, retaining unrelated edits and drafts on failure. */
+	async apply(
+		section:
+			| "routes"
+			| "settings"
+			| { lineup: string; cells?: readonly Cell[] },
+	): Promise<void> {
+		if (this.saved === null || this.saving) {
+			throw new Error("Wait for the current save to finish");
+		}
+		const before = this.draft;
+		const select = (
+			base: AutoPickRules,
+			source: AutoPickRules,
+		): AutoPickRules => {
+			if (section === "routes") {
+				return { ...base, routes: source.routes };
+			}
+			if (section === "settings") {
+				return { ...base, threshold: source.threshold, pace: source.pace };
+			}
+			if (section.cells !== undefined) {
+				const routes = structuredClone(base.routes);
+				for (const cell of section.cells) {
+					routes[cell.kind][cell.depth] = section.lineup;
+				}
+				return { ...base, routes };
+			}
+			const lineup = source.lineups.find((each) => each.id === section.lineup);
+			const lineups = base.lineups.filter((each) => each.id !== section.lineup);
+			if (lineup !== undefined) {
+				const at = base.lineups.findIndex((each) => each.id === section.lineup);
+				lineups.splice(at < 0 ? lineups.length : at, 0, lineup);
+			}
+			return { ...base, lineups };
+		};
+		const sent = select(this.saved, before);
+		const checked = checkRules(sent);
+		if (!checked.ok) {
+			throw new Error(checked.problem);
+		}
+		this.saving = true;
+		this.changed();
+		try {
+			const view = await this.store.save(sent);
+			const pending = this.draft;
+			this.take(view);
+			this.draft = select(pending, view.rules);
+		} finally {
+			this.saving = false;
+			this.changed();
+		}
+	}
+
+	/** Deletes one unused lineup, retaining drafts when the server refuses. */
+	async deleteLineup(id: string): Promise<void> {
+		const before = this.draft;
+		this.removeLineup(id);
+		try {
+			await this.apply({ lineup: id });
+		} catch (error) {
+			this.draft = { ...this.draft, lineups: before.lineups };
+			this.changed();
+			throw error;
+		}
+	}
+
+	/** Cancels just one lineup's edits, including an unapplied new lineup. */
+	discardLineup(id: string): void {
+		const saved = this.saved?.lineups.find((each) => each.id === id);
+		this.edit((rules) => ({
+			...rules,
+			lineups: rules.lineups.flatMap((each) =>
+				each.id !== id ? [each] : saved === undefined ? [] : [saved],
+			),
+		}));
+	}
+
 	/** Saves the draft when it differs from what the server holds, as Next does. */
 	async saveIfDirty(): Promise<void> {
 		if (this.dirty) {
 			await this.save();
+		}
+	}
+
+	/** Puts the saved rules back in the draft, dropping every edit. */
+	discard(): void {
+		if (this.saved !== null) {
+			this.draft = this.saved;
+			this.changed();
 		}
 	}
 
@@ -361,33 +495,27 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		}
 	}
 
-	private editRule(
-		index: number,
-		edit: (rule: Rule) => Rule,
-		picksOnly = false,
-	): void {
-		if (!picksOnly && this.fixed(index)) {
+	private editLineup(id: string, edit: (lineup: Lineup) => Lineup): void {
+		if (this.lineup(id) === undefined) {
 			return;
 		}
 		this.edit((rules) => ({
 			...rules,
-			rules: rules.rules.map((rule, at) => (at === index ? edit(rule) : rule)),
+			lineups: rules.lineups.map((each) =>
+				each.id === id ? edit(each) : each,
+			),
 		}));
 	}
 
 	private editPick(
-		index: number,
+		id: string,
 		pick: number,
 		edit: (pick: AgentPick) => AgentPick,
 	): void {
-		this.editRule(
-			index,
-			(rule) => ({
-				...rule,
-				picks: rule.picks.map((each, at) => (at === pick ? edit(each) : each)),
-			}),
-			true,
-		);
+		this.editLineup(id, (lineup) => ({
+			...lineup,
+			picks: lineup.picks.map((each, at) => (at === pick ? edit(each) : each)),
+		}));
 	}
 
 	private edit(change: (rules: AutoPickRules) => AutoPickRules): void {
@@ -406,12 +534,3 @@ const HTTP_RULES: RulesStore = {
 	save: saveAutoPickRules,
 	reset: resetAutoPickRules,
 };
-
-/** `items` with those at `from` and `to` swapped. */
-function swapped<T>(items: readonly T[], from: number, to: number): T[] {
-	const next = [...items];
-	const moved = next[from] as T;
-	next[from] = next[to] as T;
-	next[to] = moved;
-	return next;
-}

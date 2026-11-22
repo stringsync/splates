@@ -42,6 +42,8 @@ const bump = z.enum(["patch", "minor", "major"]).optional();
  *   command serves several targets and `--target` names none.
  * - `unshipped` prints each target's unshipped commit count as JSON, an
  *   object keyed by target name, leaving out targets that cannot tell.
+ * - `current` prints each target's current version as JSON, an object keyed
+ *   by target name, leaving out targets that cannot tell.
  * - `done <step>` prints `true` or `false`: whether the step already happened.
  * - `run <step>` runs one step, writing JSON lines as it goes, and on failure
  *   an error line last and exit 1.
@@ -125,6 +127,42 @@ export async function serve(
 			log.info(
 				JSON.stringify(
 					Object.fromEntries(counts.filter((each) => each !== undefined)),
+				),
+			);
+		});
+
+	ship
+		.command("current")
+		.description("print each target's current version as JSON")
+		.option("target", z.string().optional())
+		.action(async (opts, { log }) => {
+			const ctx = ctxs.stream(
+				{ send: (line) => log.error(JSON.stringify(line)) },
+				noPrompts,
+			);
+			const chosen = opts.target ? [pick(list, opts.target)] : list;
+			const versions = await Promise.all(
+				chosen.map(async (each): Promise<[string, string] | undefined> => {
+					if (!each.current) {
+						return undefined;
+					}
+					try {
+						return [each.name, await each.current(ctx)];
+					} catch (error) {
+						log.error(
+							JSON.stringify({
+								type: "error",
+								target: each.name,
+								message: error instanceof Error ? error.message : String(error),
+							}),
+						);
+						return undefined;
+					}
+				}),
+			);
+			log.info(
+				JSON.stringify(
+					Object.fromEntries(versions.filter((each) => each !== undefined)),
 				),
 			);
 		});

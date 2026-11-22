@@ -60,13 +60,7 @@ async function startOne(
 	const offered = (await conversations.settings())[dispatch.agent] ?? [];
 	const held = await heldFor(conversations, dispatch.held);
 	if (held !== null) {
-		held.release(
-			worktree.task,
-			worktree.path,
-			worktree.base,
-			worktree.caller,
-			worktree.tags,
-		);
+		held.release(worktree.task, worktree.path, worktree.base, worktree.caller);
 	}
 	const conversation =
 		held ??
@@ -74,7 +68,6 @@ async function startOne(
 			task: worktree.task,
 			base: worktree.base,
 			caller: worktree.caller,
-			tags: worktree.tags,
 			cwd: worktree.path,
 			model: dispatch.model,
 			settings: effortSettings(dispatch.effort, offered),

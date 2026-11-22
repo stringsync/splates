@@ -164,7 +164,9 @@ function Box({
 				{taking && box !== null && (
 					<div
 						className={cn(
-							"absolute inset-x-0 bottom-0 flex min-w-0 items-center",
+							"absolute inset-x-0 flex min-w-0 items-center",
+							// Centered in a one-line box, as the buttons it covers are.
+							below ? "bottom-0" : "inset-y-0",
 							roomy ? "p-1.5" : "p-1",
 						)}
 					>
@@ -286,7 +288,7 @@ function Suffix({
 				"flex items-center opacity-0 transition-opacity duration-150 group-focus-within/box:opacity-100 group-hover/box:opacity-100 pointer-coarse:opacity-100",
 				below
 					? "col-start-1 row-start-2 justify-end"
-					: "absolute right-0 bottom-0",
+					: "absolute inset-y-0 right-0",
 				roomy ? "p-1.5" : "p-1",
 			)}
 		>

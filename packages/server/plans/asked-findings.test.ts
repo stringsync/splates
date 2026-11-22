@@ -20,33 +20,16 @@ describe("stretches' findings reports", () => {
 			"",
 			"## ✅ Done: checked",
 		].join("\n");
-		const [said, report, done] = stretches(text);
-		expect(said?.type).toBe("text");
-		expect(report).toEqual({
-			type: "findings",
-			findings: {
-				subject: "test health",
-				body: [
-					"One test fails.",
-					"",
-					"```stats",
-					"Failing: 1",
-					"```",
-					"",
-					"### Details",
-					"",
-					"1. render.test.ts",
-				].join("\n"),
-			},
+		const [said, done] = stretches(text);
+		expect(said).toEqual({
+			type: "text",
+			text: text.slice(0, text.indexOf("\n## ✅ Done:")).trim(),
 		});
 		expect(done?.type).toBe("report");
 	});
 
 	it("reads a report with no subject", () => {
 		const [report] = stretches("## 📊 Report\n\nAll good.");
-		expect(report).toEqual({
-			type: "findings",
-			findings: { subject: "", body: "All good." },
-		});
+		expect(report).toEqual({ type: "text", text: "## 📊 Report\n\nAll good." });
 	});
 });

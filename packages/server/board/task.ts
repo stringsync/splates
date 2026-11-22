@@ -45,11 +45,6 @@ export class Task {
 		return this.state.scope ?? null;
 	}
 
-	/** The tags grouping it, none for a task recorded without any. */
-	get tags(): string[] {
-		return this.state.labels ?? [];
-	}
-
 	get takenBy(): string | null {
 		return this.state.takenBy;
 	}
@@ -166,7 +161,7 @@ export class Task {
 		blockedElsewhere,
 		lane,
 		assignee,
-		tags,
+		closesOn,
 	}: TaskChange): Promise<Task> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -192,7 +187,7 @@ export class Task {
 					...words,
 					...(slug === undefined ? {} : { slug }),
 					files: [...kept, ...added],
-					...(tags === undefined ? {} : { labels: tags }),
+					...(closesOn === undefined ? {} : closesOnOf(closesOn)),
 				},
 				assignee === undefined ? state.assignee : assignee,
 			),
@@ -379,12 +374,12 @@ export class Task {
 	}
 
 	/**
-	 * Removes it for good. `landed` is the commit it merged as, written on
-	 * each task it blocked; without one, it was dropped unmerged, so every
+	 * Removes it for good. `landed` is the commit it merged as, or the firing
+	 * it closed on, written on each task it blocked; without one, it was dropped unmerged, so every
 	 * task that declared it a blocker goes too, and the tasks blocked by those
 	 * in turn.
 	 */
-	async remove(landed?: string): Promise<void> {
+	async remove(landed?: Landed): Promise<void> {
 		if (landed === undefined) {
 			const dependents = (await this.tasks.all()).filter((other) =>
 				other.blockedBy.includes(this.id),
@@ -462,15 +457,17 @@ export interface TaskRecord {
 	 */
 	scope?: string;
 	/**
-	 * The tags that group it, passed on to the task that takes it; absent for
-	 * none.
-	 */
-	labels?: string[];
-	/**
-	 * Tasks it was blocked by that merged, and the commit each landed as, so
-	 * whoever starts it can read what it builds on; absent for none.
+	 * Tasks it was blocked by that merged, and the commit each landed as (or,
+	 * for one that closed on a signal, the firing), so whoever starts it can
+	 * read what it builds on; absent for none.
 	 */
 	blockersLanded?: LandedBlocker[];
+	/**
+	 * The signal it closes on, for a task nobody works: the queue never starts
+	 * it, and it ends as if merged when the signal fires after `since`;
+	 * absent for any other task.
+	 */
+	closesOn?: ClosesOn;
 	/**
 	 * Tasks it was blocked by that were removed without merging. Each holds
 	 * nothing: the link is gone and the task is free to start, so this is
@@ -557,6 +554,11 @@ export function staged(state: TaskRecord, running: boolean): TaskRecord {
 	};
 }
 
+/** What sets or, for null, clears the signal a record closes on. */
+function closesOnOf(closesOn: ClosesOn | null): Partial<TaskRecord> {
+	return { closesOn: closesOn ?? undefined };
+}
+
 /** A task's words, place or files changed: new ones added, some of the old kept. */
 export interface TaskChange {
 	/** A new line; the old one stays when this is absent. */
@@ -579,8 +581,8 @@ export interface TaskChange {
 	lane?: number | "new" | null;
 	/** The agent that should work it, null for none; it stays when absent. */
 	assignee?: AgentPick | null;
-	/** Every tag it has from now on, none for none; the old stay when this is absent. */
-	tags?: string[];
+	/** The signal it closes on, null for none; it stays when absent. */
+	closesOn?: ClosesOn | null;
 }
 
 /**
@@ -629,8 +631,8 @@ export interface TaskNew {
 	origin?: TaskOrigin;
 	/** The project of `splates.config.ts` it changes; none by default. */
 	scope?: string;
-	/** The tags grouping it; none by default. */
-	tags?: string[];
+	/** The signal it closes on; none by default, an ordinary task. */
+	closesOn?: ClosesOn;
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */
@@ -688,9 +690,29 @@ export interface GoneBlocker {
 	project?: string;
 }
 
-/** A blocker that merged, as the commit it landed as. */
+/** The signal a task closes on, and the time from which a firing counts. */
+export interface ClosesOn {
+	/** The signal's name, `<project>.<name>`. */
+	signal: string;
+	/** A firing after this time, as an ISO time, closes the task. */
+	since: string;
+}
+
+/** One firing of a signal, as it closed a task. */
+export interface Firing {
+	signal: string;
+	/** When it was fired, as an ISO time. */
+	at: string;
+	payload: unknown;
+}
+
+/** How a task ended as merged: as a commit, or as the firing it closed on. */
+export type Landed = string | Firing;
+
+/** A blocker that merged, as the commit it landed as, or the firing it closed on. */
 export interface LandedBlocker extends GoneBlocker {
-	commit: string;
+	commit?: string;
+	fired?: Firing;
 }
 
 /**

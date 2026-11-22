@@ -10,8 +10,8 @@ import {
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 
-/** The ids of the agents' areas, which the setup index lists first. */
-export const AGENT_JOURNEYS = ["claude", "codex", "kimi"];
+/** Ids of the agent setup areas, to show first, in this order. */
+export const AGENT_JOURNEYS = ["claude", "codex", "kimi", "antigravity"];
 
 /**
  * The setup index: a plain row per area, "Set up Claude" and the like,

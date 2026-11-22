@@ -122,6 +122,9 @@ Cap upload retries
 		).toBeNull();
 		await openQueueRow(view, "beta");
 		const dialog = await openDialog(view);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Details" })),
+		);
 		expect(dialog.textContent).toContain(
 			"Outside the page, running a splates command now",
 		);
@@ -141,6 +144,9 @@ Cap upload retries
 		});
 		await go("#tasks/beta");
 		const dialog = await openDialog(view);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Details" })),
+		);
 		const sessions = within(dialog).getByRole("region", { name: "sessions" });
 		await waitFor(() =>
 			expect(sessions.textContent).toContain("Fix the upload"),
@@ -180,6 +186,9 @@ Cap upload retries
 		});
 		await go("#tasks/beta");
 		const dialog = await openDialog(view);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Details" })),
+		);
 
 		await waitFor(() =>
 			expect(

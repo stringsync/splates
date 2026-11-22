@@ -18,7 +18,6 @@ import type { Log } from "../storage";
 import { compacted } from "./compact";
 import type { Entry } from "./entry";
 import { delivered, said, sent, takeBack } from "./messages";
-import { applyProgress, endProgress } from "./progress";
 import {
 	type Ask,
 	blank,
@@ -139,7 +138,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			start.assigned,
 			start.startedBy ?? null,
 			start.scratch === true,
-			start.tags ?? null,
 		);
 		state.skill = start.skill ?? null;
 		state.automatic = start.automatic ?? start.capped ?? false;
@@ -249,8 +247,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.lastTask = entry.task ?? state.lastTask;
 				state.lastBase =
 					entry.task === null ? state.lastBase : (entry.base ?? null);
-				state.lastTags =
-					entry.task === null ? state.lastTags : (entry.tags ?? null);
 				replayed.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
@@ -260,9 +256,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
 				state.resting = entry.archived && entry.rest === true;
-				if (entry.archived) {
-					state.progress.length = 0;
-				}
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "pin") {
@@ -342,8 +335,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "ask") {
 				ask = entry.ask === null ? null : { rpc: entry.rpc, ask: entry.ask };
 				state.ask = entry.ask;
-			} else if (entry.kind === "progress") {
-				applyProgress(state.progress, entry.progress);
 			} else if (entry.kind === "background") {
 				foldBackground(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "end") {
@@ -443,7 +434,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		state.ask = null;
 		// Its commands ended with its process, though a crash said nothing.
 		endBackground(state, replayed.last ?? null);
-		endProgress(state.progress, replayed.last ?? null);
 		// Its process ended before the agent answered.
 		if (state.checkpoint === "asked") {
 			state.checkpoint = "unanswered";

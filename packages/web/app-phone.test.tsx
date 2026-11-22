@@ -668,8 +668,8 @@ describe("App on a phone", () => {
 		await openPage("Boards");
 		await openPage("Creds");
 		expect(location.hash).toBe("#creds");
-		await openPage("Automations");
-		expect(location.hash).toBe("#automations");
+		await openPage("Auto pick");
+		expect(location.hash).toBe("#auto-pick");
 
 		expect(history.length).toBe(length + 1);
 
@@ -1551,7 +1551,7 @@ describe("App on a phone", () => {
 		expect(recent.textContent).not.toContain("Old build");
 		expect(
 			within(recent).getByRole("status", {
-				name: "background commands running",
+				name: "agent idle with background commands",
 			}),
 		).toBeTruthy();
 

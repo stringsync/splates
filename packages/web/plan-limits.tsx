@@ -81,7 +81,13 @@ export function PlanLimits({
 								aligned ? "max-md:gap-y-2" : "px-3",
 							)}
 						>
-							<span className="whitespace-nowrap">{name}</span>
+							<span
+								className={
+									aligned ? "min-w-0 break-words" : "whitespace-nowrap"
+								}
+							>
+								{name}
+							</span>
 							<Meter
 								used={used}
 								className={
@@ -228,4 +234,30 @@ function until(at: number, now: number): string {
 		return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 	}
 	return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
+}
+
+/** Shows the selected Antigravity model's most-used allowance as one row. */
+export function antigravityModelLimits(
+	limits: Limit[],
+	model: string,
+): Limit[] {
+	const key = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+	const matching = limits.filter(
+		(limit) =>
+			key(
+				limit.window.replace(/^All Models · /, "").replace(/ \([^)]*\)$/, ""),
+			) === key(model),
+	);
+	const most = matching.reduce<Limit | null>(
+		(best, limit) => (best === null || limit.used > best.used ? limit : best),
+		null,
+	);
+	return most === null
+		? []
+		: [
+				{
+					...most,
+					window: "Antigravity quota",
+				},
+			];
 }

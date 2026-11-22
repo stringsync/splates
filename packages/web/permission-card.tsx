@@ -28,14 +28,12 @@ import { EvalsCard } from "./evals-card";
 import {
 	type SnapshotExpecter,
 	useExpectSnapshot,
-	usePendingSnapshot,
+	usePendingAny,
 } from "./expecting";
-import { GrantCard } from "./grant-card";
 import { NavigationContext, useShownProject } from "./navigation";
 import { placeKey } from "./project-places";
 import { QueueWork } from "./queue-work";
 import { RunCommandCard } from "./run-command-card";
-import { ShipAskCard } from "./ship-ask-card";
 import { SplatesEvent } from "./splates-event";
 import { QueueToggle, stageOf } from "./todo-queue";
 
@@ -73,10 +71,6 @@ export function PermissionCard({
 			return <RunCommandCard proposal={proposal} />;
 		case "queue":
 			return <QueueCard proposal={proposal} />;
-		case "grant":
-			return <GrantCard proposal={proposal} />;
-		case "ship":
-			return <ShipAskCard proposal={proposal} />;
 	}
 }
 
@@ -267,8 +261,8 @@ export function OwnQueueCard({
 }): JSX.Element {
 	const board = useContext(Board);
 	const expect = useExpectSnapshot();
-	const settling = usePendingSnapshot();
 	const work = new QueueWork(proposal, board);
+	const settling = usePendingAny(work.keys);
 	const { name, todos } = work;
 	const whole = proposal.lane !== null;
 	const what = whole ? `lane ${name}` : name;

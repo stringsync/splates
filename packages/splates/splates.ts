@@ -57,10 +57,8 @@ import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
 import { printMachine } from "./machine";
-import { runProgress } from "./progress";
 import { splatesProjects } from "./projects";
 import { splatesQueue } from "./queue";
-import { printRelated } from "./related";
 import { splatesReplica } from "./replica";
 import { splatesServer } from "./server";
 import { setup } from "./setup";
@@ -174,10 +172,6 @@ splates
 		description:
 			"the project of splates.config.ts the task changes (default: the queued task's, else the one whose folder you run it in, else the only project)",
 	})
-	.repeated("tag", z.string(), {
-		description:
-			"a tag grouping the task, comma separated or the flag repeated; splates.config.ts may allow only some, or require one (default: the allowed tag whose folder you run it in)",
-	})
 	.option("task", z.string(), {
 		default: "",
 		description:
@@ -187,11 +181,6 @@ splates
 		default: "",
 		description:
 			"one or two lines on what done means, written under `## Goal` in the task's SPLATES.md; required unless --task seeds the Goal",
-	})
-	.option("related", z.coerce.number().int().min(0), {
-		default: 3,
-		description:
-			"how many related tasks to name under the add, in any state (queued, started, or merged or removed in the last 30 days), most related first; 0 looks none up",
 	})
 	.option("agent", z.string(), {
 		default: "",
@@ -266,7 +255,6 @@ splates
 					goal: opts.goal.trim() || undefined,
 					project: opts.project || undefined,
 					folder,
-					tag: opts.tag,
 					dispatch,
 					agents,
 					away: ctx.elsewhere !== null,
@@ -287,14 +275,6 @@ splates
 				model: dispatch?.model ?? null,
 			},
 		);
-		// A task handed to another agent is read by that agent, not this one.
-		if (dispatch === undefined && ctx.elsewhere === null && opts.related > 0) {
-			await printRelated(ctx, opts.slug, {
-				goal: opts.goal.trim() || undefined,
-				taking: taskIds(opts.task),
-				shown: opts.related,
-			});
-		}
 		if (ctx.elsewhere !== null) {
 			await serveProject(ctx);
 		}
@@ -520,15 +500,10 @@ splates
 		description:
 			"add each task's Goal and changed files (committed or not), to check for overlap before starting",
 	})
-	.option("tag", z.string(), {
-		default: "",
-		description: "only the tasks with this tag",
-	})
 	.action((opts, ctx) =>
 		list(ctx, {
 			json: opts.json,
 			files: opts.files,
-			tag: opts.tag || undefined,
 		}),
 	);
 
@@ -722,38 +697,6 @@ splates
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) => recordRetry(ctx, opts.task));
-
-splates
-	.command("progress")
-	.use(repository({ needs: "own" }))
-	.description(
-		"show how a long task is going as a card on the conversation's page that updates in place, instead of a chat line per step. Name the card with <id> (a background command's id closes it when the command ends). Give the update as text, or pipe a command's output in and give `-` as the text to stream it: each line becomes the note, and a `NN%` in it sets the percent. The server publishes a card at most every two seconds and keeps only the newest of a burst, so report as often as is natural. Without `splates server` it only prints the card. The conversation is $SPLATES_CONVERSATION, or --conversation <id> from an agent outside `splates server`",
-	)
-	.arg("id", z.string(), { description: "the card's name" })
-	.arg("text", z.string().optional(), {
-		description: "the note; `-` reads lines from stdin as notes",
-	})
-	.option("title", z.string(), {
-		default: "",
-		description: "what the card is called; the id by default",
-	})
-	.option("percent", z.coerce.number().optional(), {
-		description: "how far along, 0 to 100",
-	})
-	.option("done", z.boolean(), {
-		default: false,
-		description: "the task finished well",
-	})
-	.option("failed", z.boolean(), {
-		default: false,
-		description: "the task failed",
-	})
-	.option("conversation", z.string(), {
-		default: "",
-		description:
-			"conversation id, when not run by an agent `splates server` started",
-	})
-	.action((opts, ctx) => runProgress(ctx, opts));
 
 splates
 	.mount("artifact", splatesArtifact)

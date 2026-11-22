@@ -1,10 +1,8 @@
 import type { LaneState } from "@splates/server/board";
 import { BACKLOG_LANE } from "@splates/server/board/browser";
-import { laneReference } from "@splates/server/plans/browser";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
-	CopyIcon,
 	KanbanIcon,
 	ListPlusIcon,
 	ListXIcon,
@@ -38,7 +36,6 @@ import { cn } from "#web/lib/utils.ts";
 import { addBoard, dropLane, moveLaneToBoard, queueLane } from "./api";
 import { Board, still, touchItems } from "./board";
 import { laneDropped, laneOnBoard, laneQueued } from "./board-expectations";
-import { copiedLabel, useCopy } from "./card";
 import { useExpectSnapshot } from "./expecting";
 
 /**
@@ -60,7 +57,6 @@ export function LaneMenu({
 	const { waiting, queued } = laneQueue(lane);
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
-	const { copied, copy } = useCopy();
 	const [asking, setAsking] = useState(false);
 	const remove = () =>
 		void expect(laneDropped(lane.id), dropLane(lane.id)).catch(
@@ -90,13 +86,6 @@ export function LaneMenu({
 							Rename
 						</DropdownMenuItem>
 					)}
-					<DropdownMenuItem
-						closeOnClick={false}
-						onClick={() => copy(laneReference(lane.id))}
-					>
-						<CopyIcon />
-						{copiedLabel(copied, "Copy reference")}
-					</DropdownMenuItem>
 					<DropdownMenuItem
 						disabled={waiting === 0}
 						onClick={() => queue(true)}

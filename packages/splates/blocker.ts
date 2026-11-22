@@ -1,6 +1,10 @@
 import { basename } from "node:path";
-import { blockerAdd } from "@splates/server/board";
-import { pickScope, Tags } from "@splates/server/config";
+import {
+	blockerAdd,
+	closesOnFrom,
+	sinceNeedsSignal,
+} from "@splates/server/board";
+import { pickScope } from "@splates/server/config";
 import { refuseGroomer } from "@splates/server/conversations";
 import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
@@ -22,14 +26,20 @@ splatesBlocker
 	.arg("blocker", z.string(), {
 		description: "a task number (`12`, `#12`), or the subject of a new task",
 	})
-	.repeated("tag", z.string(), {
+	.option("closes-on", z.string(), {
+		default: "",
 		description:
-			"a tag for the new task a subject makes, comma separated or the flag repeated; a task number takes none",
+			"with a subject: make the new task close on this signal (`<project>.<name>`) instead of being worked: nobody starts it, and it ends as if merged when the signal fires, which clears this task's blocker. Use it to wait on an outside fact before work can start",
+	})
+	.option("since", z.string(), {
+		default: "",
+		description:
+			"with --closes-on: also take a firing from before now: how long ago (30m, 2h, 1d) or an ISO time",
 	})
 	.action(async (opts, ctx) => {
 		await refuseGroomer(ctx.service, "blocker add");
+		sinceNeedsSignal(opts["closes-on"], opts.since);
 		const from = await here(ctx);
-		const tagging = new Tags(ctx.config);
 		const folder = await folderOf(ctx);
 		const scope = pickScope({
 			config: ctx.config,
@@ -41,10 +51,10 @@ splatesBlocker
 			task: from,
 			conversation: await ctx.service.conversation(),
 			...(scope === null ? {} : { scope }),
-			tags: tagging.forNew(
-				tagging.parse(opts.tag),
-				folder,
-				!/^#?\d+$/.test(opts.blocker.trim()),
-			),
+			...(opts["closes-on"] === ""
+				? {}
+				: {
+						closesOn: closesOnFrom(opts["closes-on"], opts.since, Date.now()),
+					}),
 		});
 	});

@@ -158,6 +158,10 @@ export class LeftRunning implements Resource {
  * works.
  */
 function ignored(command: string): boolean {
+	// `ps` prints an exited process nobody has reaped yet as `(name)`.
+	if (/^\([^()\s]+\)$/.test(command.trim())) {
+		return true;
+	}
 	return /\bmcp\b|mcp-server|[/-]mcp\b|\bcaffeinate\b/i.test(command);
 }
 

@@ -6,7 +6,7 @@ import type { RosterAgent } from "../models";
 import { Testing } from "../testing";
 import { startAutoPick } from "./index";
 import { lifting } from "./lift";
-import { FakeJudge } from "./testing";
+import { FakeJudge, routedTo, withCell } from "./testing";
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
@@ -107,22 +107,15 @@ describe("lifting", () => {
 		);
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
-			JSON.stringify({
-				format: 2,
-				threshold: 0.5,
-				rules: [
-					{
-						kind: "bugfix",
-						depth: "shallow",
-						picks: [{ agent: "fake", model: "small" }],
-					},
-					{
-						kind: "*",
-						depth: "*",
-						picks: [{ agent: "fake", model: "big" }],
-					},
-				],
-			}),
+			JSON.stringify(
+				withCell(
+					routedTo([{ agent: "fake", model: "big" }]),
+					"bugfix",
+					"shallow",
+					"Mine",
+					[{ agent: "fake", model: "small" }],
+				),
+			),
 		);
 	});
 
@@ -144,7 +137,7 @@ describe("lifting", () => {
 			detail: `In src only.\n\n${WIDENING}`,
 		});
 		expect(conversation.state.autoPick).toMatchObject({
-			rule: 1,
+			lineup: "all",
 			model: "big",
 			kind: "open",
 			depth: "deep",
@@ -310,7 +303,7 @@ describe("lifting", () => {
 			subject: "Look at the failing build.",
 		});
 		expect(conversation.state.autoPick).toMatchObject({
-			rule: 0,
+			lineup: "mine",
 			model: "small",
 			overridden: false,
 		});

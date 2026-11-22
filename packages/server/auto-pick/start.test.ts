@@ -6,7 +6,7 @@ import { eventually, until } from "../conversations/testing";
 import { add } from "../tasks";
 import { Testing } from "../testing";
 import { type AutoPickWords, startAutoPick } from "./index";
-import { FakeJudge } from "./testing";
+import { FakeJudge, routedTo, withCell } from "./testing";
 
 /** A second agent for Auto pick to choose over the one the rules fall back on. */
 const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
@@ -76,22 +76,15 @@ describe("startAutoPick", () => {
 		);
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
-			JSON.stringify({
-				format: 2,
-				threshold: 0.5,
-				rules: [
-					{
-						kind: "bugfix",
-						depth: "shallow",
-						picks: [{ agent: "other", model: "small" }],
-					},
-					{
-						kind: "*",
-						depth: "*",
-						picks: [{ agent: "fake", model: "big" }],
-					},
-				],
-			}),
+			JSON.stringify(
+				withCell(
+					routedTo([{ agent: "fake", model: "big" }]),
+					"bugfix",
+					"shallow",
+					"Mine",
+					[{ agent: "other", model: "small" }],
+				),
+			),
 		);
 		({ id } = await deps.tasks.add("Rename `foo` to `bar`", null, {
 			text: "In src/names.ts only.",
@@ -119,7 +112,7 @@ describe("startAutoPick", () => {
 		expect(agent.launched.map((each) => each.argv)).toEqual([["other-acp"]]);
 		expect(await record()).toMatchObject({
 			pick: { agent: "other", model: "small" },
-			rule: 0,
+			lineup: "mine",
 			kind: "bugfix",
 			depth: "shallow",
 			classified: {
@@ -210,11 +203,7 @@ describe("startAutoPick", () => {
 		);
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
-			JSON.stringify({
-				format: 2,
-				threshold: 0.5,
-				rules: [{ kind: "*", depth: "*", picks: [{ agent: "third" }] }],
-			}),
+			JSON.stringify(routedTo([{ agent: "third" }])),
 		);
 
 		const conversation = await start();

@@ -36,9 +36,9 @@ import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 import { planParts } from "./task-plan-parts";
-import { Section, SectionTab, SectionTabs, TONES } from "./task-sections";
+import { Section, SectionTab, SectionTabs } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
-import { STAGE_TONES, shownStage, stageLabel } from "./todo-queue";
+import { StageChip, shownStage, stageLabel } from "./todo-queue";
 
 /** The dialog for one todo: reword it, edit its detail, agent and links, then save, start or drop it. */
 export function Edit({
@@ -92,7 +92,7 @@ export function Edit({
 		onDone();
 		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
-	const stage = shownStage(todo, board.todos);
+	const stage = shownStage(todo, board.todos, board.tasks);
 	// Those that wait on it, which removing it holds for the person.
 	const heldBack = board.todos.filter((other) =>
 		other.blockedBy.includes(todo.id),
@@ -120,14 +120,9 @@ export function Edit({
 					</span>
 				</DialogTitle>
 				<div className="flex min-w-0 items-baseline gap-2">
-					<span
-						className={cn(
-							"shrink-0 rounded-md px-1.5 py-px font-medium text-xs",
-							TONES[STAGE_TONES[stage]],
-						)}
-					>
-						{stageLabel(todo, board.todos)}
-					</span>
+					<StageChip stage={stage}>
+						{stageLabel(todo, board.todos, board.tasks)}
+					</StageChip>
 					<DialogDescription className="min-w-0 text-foreground text-sm">
 						{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
 					</DialogDescription>

@@ -4,6 +4,7 @@ import { type Fs, NodeFs } from "core/system";
 import type { ArtifactLimits } from "../artifacts";
 import { Git } from "../git";
 import { QUEUE_LOAD_DEFAULT } from "../queue/load";
+import { checkSignalFunctions } from "../signals/call";
 import type { Config } from "./config";
 import { legacyFile, legacyWarnings } from "./legacy-names";
 import { recLogSources } from "./rec-logs";
@@ -58,6 +59,7 @@ function renamedSettings(
 ): Partial<Config> {
 	const { todoStalenessMs, ...rest } = found;
 	checkShips(rest.ships);
+	checkSignalFunctions(rest.signals);
 	recLogSources(rest.rec);
 	return todoStalenessMs === undefined || rest.taskStalenessMs !== undefined
 		? rest
@@ -122,8 +124,8 @@ function defaults(root: string, trunk: string): Config {
 		projects: null,
 		ships: [],
 		shared: [],
-		tags: null,
 		rec: null,
+		signals: {},
 	};
 }
 

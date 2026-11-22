@@ -183,6 +183,9 @@ interface TimelineEvent extends EventTarget {
 	type: string;
 	url?: string;
 	still?: string;
+	structure?: string;
+	trigger?: string;
+	sourceAt?: number;
 	area?: number[];
 	elements?: EventTarget[];
 	label?: string;
@@ -209,6 +212,13 @@ export function eventPointers(text: string, startedAt: number): Pointer[] {
 		const at = (event.at - startedAt) / 1000;
 		const still = event.still ? ` -> ${event.still}` : "";
 		switch (event.type) {
+			case "snapshot":
+				out.push({
+					at,
+					label: "see",
+					text: `page structure (${event.trigger ?? "capture"}) -> ${event.structure}${still}${event.sourceAt === undefined ? "" : `; triggered at ${clock((event.sourceAt - startedAt) / 1000)}`}`,
+				});
+				break;
 			case "click":
 				out.push({
 					at,

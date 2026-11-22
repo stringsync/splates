@@ -1,3 +1,16 @@
+export type { LineupColor, RouteDepth, RouteKind } from "./cells";
+export {
+	cellLabel,
+	DEFAULT_PACE,
+	depthLabel,
+	idFor,
+	kindLabel,
+	LINEUP_COLORS,
+	ROUTE_DEPTHS,
+	ROUTE_KINDS,
+	RULES_FORMAT,
+	UNSURE,
+} from "./cells";
 export type { ClarityId, DepthId, KindId, TaskClass } from "./classes";
 export {
 	CLARITIES,
@@ -22,7 +35,11 @@ export type {
 	DecideWithoutInput,
 } from "./decide";
 export { decide, decideWithout } from "./decide";
+export { DEFAULT_LINEUPS } from "./default-lineups";
 export { DEFAULT_RULES } from "./defaults";
+export type { Avoided, Incidents, ProviderError } from "./health";
+export { Health, providerFault, statusPage } from "./health";
+export { HealthRoutes } from "./health-routes";
 export { type Attribution, Jev } from "./jev";
 export {
 	JUDGE_CREDS,
@@ -35,15 +52,14 @@ export { lifting } from "./lift";
 export { QueueAutoPick } from "./queue";
 export type { AutoPicked } from "./record";
 export { AutoPickRoutes } from "./routes";
-export type { AutoPickRules, CheckedRules, Pace, Rule } from "./rules";
-export {
-	ANY,
-	AUTO_PICK_RULES,
-	checkRules,
-	DEFAULT_PACE,
-	RULES_FORMAT,
-	ruleLabel,
+export type {
+	AutoPickRules,
+	CheckedRules,
+	Lineup,
+	Pace,
+	Routes,
 } from "./rules";
+export { AUTO_PICK_RULES, checkRules, lineupFor } from "./rules";
 export type { AutoPickAgent, AutoPickRulesView } from "./rules-routes";
 export { AutoPickRulesRoutes, pickableAgents } from "./rules-routes";
 export type { AutoPickStart, AutoPickTarget, AutoPickWords } from "./start";

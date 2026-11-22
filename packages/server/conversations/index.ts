@@ -14,6 +14,8 @@ export type {
 export type { Picked } from "./conversation";
 export { Conversation } from "./conversation";
 export { ARCHIVED_KEPT, Conversations } from "./conversations";
+export type { Pairing } from "./entry";
+export { eventWaitOf } from "./event-wait";
 export { JournalEvents } from "./events";
 export { conversationOf, refuseGroomer } from "./given";
 export type {
@@ -42,7 +44,6 @@ export {
 export type { ConversationList } from "./noop-conversations";
 export { NoopConversations } from "./noop-conversations";
 export type { ConversationsOptions } from "./options";
-export type { ProgressUpdate } from "./progress";
 export { conversationReference } from "./reference";
 export { ConversationRoutes } from "./routes";
 export type { Said } from "./search";
@@ -69,8 +70,6 @@ export type {
 	Limit,
 	Message,
 	Part,
-	Progress,
-	ProgressState,
 	QueueSpot,
 	Reminder,
 	ReminderCard,

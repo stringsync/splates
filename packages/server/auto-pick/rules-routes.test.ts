@@ -7,18 +7,17 @@ import { Testing } from "../testing";
 import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
 import type { AutoPickRulesView } from "./rules-routes";
+import { routedTo, withCell } from "./testing";
 
 const MINE: AutoPickRules = {
-	format: 2,
+	...withCell(
+		routedTo([{ agent: "fake", effort: "high" }]),
+		"open",
+		"deep",
+		"Open",
+		[{ agent: "fake", model: "small" }],
+	),
 	threshold: 0.6,
-	rules: [
-		{
-			kind: "open",
-			depth: "*",
-			picks: [{ agent: "fake", model: "small" }],
-		},
-		{ kind: "*", depth: "*", picks: [{ agent: "fake", effort: "high" }] },
-	],
 };
 
 describe("dev's Auto pick rules", () => {
@@ -87,19 +86,19 @@ describe("dev's Auto pick rules", () => {
 		}
 	}, 15_000);
 
-	it("refuses rules whose last is not * *, leaving the file as it was", async () => {
+	it("refuses a cell sent to no lineup, leaving the file as it was", async () => {
 		await deps.fs.write(path, JSON.stringify(MINE));
 		const server = await dev(deps, { ports: OpenPortProvider.any() });
 		try {
 			const refused = await json(server.port, "/api/auto-pick/rules", "PUT", {
-				rules: { ...MINE, rules: MINE.rules.slice(0, 1) },
+				rules: { ...MINE, lineups: MINE.lineups.slice(0, 1) },
 			});
 
 			expect(refused.status).toBe(400);
 			expect(await refused.json()).toEqual({
 				reason: "usage",
 				message:
-					"not Auto pick rules: rules.0: the last rule must be kind * and depth * with any certainty, so every task maps to a pick",
+					"not Auto pick rules: routes.open.deep: no lineup has the id 'open'",
 			});
 			expect(JSON.parse(await deps.fs.read(path))).toEqual(MINE);
 		} finally {

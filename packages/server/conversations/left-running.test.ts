@@ -131,6 +131,13 @@ describe("What an agent left running", () => {
 		expect(conversation.state.background).toEqual([]);
 	});
 
+	it("leaves out an exited process ps still shows as (name)", async () => {
+		const conversation = await turnLeaving(entry(600, PID, "(git)"));
+		await Bun.sleep(5);
+
+		expect(conversation.state.background).toEqual([]);
+	});
+
 	it("leaves out a command the agent already said it left in the background", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",

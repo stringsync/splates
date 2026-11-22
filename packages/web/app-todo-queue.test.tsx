@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	details,
 	fireEvent,
 	snapshot,
 	Testing,
@@ -96,6 +97,7 @@ describe("App's queue", () => {
 				todo({ id: 6, position: 6, lane: 1 }),
 			],
 			lanes: [{ id: 1, name: "Licensing" }],
+			tasks: [details({ task: "beta" })],
 		});
 
 		const header = view

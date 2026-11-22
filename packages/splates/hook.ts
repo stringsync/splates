@@ -74,7 +74,7 @@ splatesHook
 	.option("signal", z.string(), {
 		default: "",
 		description:
-			"run once for each raise of a signal, as mdom.released, the payload in the prompt",
+			"run once for each firing of a signal, as mdom.released, the payload in the prompt",
 	})
 	.option("agent", z.string(), {
 		default: "",
@@ -221,7 +221,7 @@ splatesHook
 	.command("run")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"run an automation now, as the Automations page's Run now does, its schedule left as it was: one on a schedule or the groomer, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
+		"run an automation now, as the Subscriptions tab's Run now does, its schedule left as it was: one on a schedule or the groomer, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
 	)
 	.arg("id", z.string(), {
 		description: "its number in `splates hook list`, or `groomer`",
@@ -234,7 +234,7 @@ splatesHook
 	.command("groomer")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Automations page does: on each ungroomed task in Backlog, and ungroomed Backlog tasks as `splates server` starts, a conversation of its own per run, archived as the run ends, organizes each task in order and places it in a lane, never doing it. `--off` turns it off, retiring its conversations",
+		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Subscriptions tab does: on each ungroomed task in Backlog, and ungroomed Backlog tasks as `splates server` starts, a conversation of its own per run, archived as the run ends, organizes each task in order and places it in a lane, never doing it. `--off` turns it off, retiring its conversations",
 	)
 	.option("agent", z.string(), {
 		default: "",

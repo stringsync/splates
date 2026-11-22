@@ -1,5 +1,10 @@
 import { Duration } from "core/time";
-import { explainFailure, recoverStuck, type StackRef } from "./aws-rollback";
+import {
+	explainFailure,
+	recoverStuck,
+	type StackRef,
+	unsettled,
+} from "./aws-rollback";
 import type { Ctx } from "./ctx";
 import { type Step, step } from "./step";
 
@@ -10,8 +15,9 @@ export interface Stack {
 	/** The folder holding the app's `cdk.json`, from where the ship runs. */
 	readonly app: string;
 	/**
-	 * The CloudFormation stack name, when the app sets one; by default the
-	 * name with each `/` made `-`, as CDK names a stack inside a stage.
+	 * The CloudFormation stack name, to override the one the app gives the
+	 * stack. Leave it out: the deploy asks the app, which names a stack
+	 * inside a stage from the stage's `stageName` (`prod-App` for `Prod/App`).
 	 */
 	readonly stackName?: string;
 }
@@ -28,32 +34,47 @@ export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
 	const cdk = async (
 		ctx: Pick<Ctx, "sh">,
 		verb: string,
-		args = "",
+		// `stdoutOnly` keeps the CLI's notices, on stderr, out of what is parsed.
+		{
+			args = "",
+			stdoutOnly = false,
+		}: { args?: string; stdoutOnly?: boolean } = {},
 	): Promise<string> => {
 		const extra = (await opts.context?.(ctx)) ?? [];
 		return `cd ${quote(stack.app)} && bunx aws-cdk@2 ${verb} ${quote(stack.name)}${args}${extra
 			.map((arg) => ` ${quote(arg)}`)
 			.join(
 				"",
-			)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color 2>&1`;
+			)}${profile ? ` --profile ${quote(profile)}` : ""} --no-color${stdoutOnly ? "" : " 2>&1"}`;
 	};
 	const diff = async (ctx: Ctx, args = "") =>
-		parseDiff(await ctx.sh(await cdk(ctx, "diff", args)));
+		parseDiff(await ctx.sh(await cdk(ctx, "diff", { args })));
 	// CloudFormation refuses `--no-rollback` for a replacement, cheap or a
 	// costly one the diff step already had confirmed.
 	const replaces = (found: Diff) => found.replacedTypes.length > 0;
-	const ref: StackRef = {
-		name: stack.name,
-		cfnName: stack.stackName ?? stack.name.replaceAll("/", "-"),
-		profile,
+	// The name is read once, when a step first needs it, with the same
+	// context the diff synthesizes with.
+	let named = stack.stackName;
+	const cfnName = async (ctx: Pick<Ctx, "sh">): Promise<string> => {
+		named ??= parseList(
+			await ctx.sh(
+				await cdk(ctx, "list", { args: " --long --json", stdoutOnly: true }),
+			),
+			stack.name,
+		);
+		return named;
 	};
+	const refFor = async (ctx: Pick<Ctx, "sh">): Promise<StackRef> => ({
+		name: stack.name,
+		cfnName: await cfnName(ctx),
+		profile,
+	});
 
 	const signIn =
 		profile &&
 		step({
 			id: "sign-in",
 			does: `Sign in to AWS as ${profile}`,
-			dependencies: opts.dependencies,
 			done: async (ctx) =>
 				(
 					await ctx.sh(
@@ -74,11 +95,13 @@ export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
 		step({
 			id: "diff",
 			does: `Show what deploying ${stack.name} changes`,
-			dependencies: signIn ? ["sign-in"] : opts.dependencies,
+			dependencies: signIn
+				? ["sign-in", ...(opts.dependencies ?? [])]
+				: opts.dependencies,
 			run: async (ctx) => {
 				// A stack whose last rollback failed refuses every deploy, so
 				// it is continued, once confirmed, before anything else.
-				await recoverStuck(ctx, ref);
+				await recoverStuck(ctx, await refFor(ctx));
 				const found = await diff(ctx);
 				if (found.same) {
 					ctx.update(`${stack.name} has no changes`);
@@ -106,19 +129,21 @@ export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
 			dependencies: ["diff"],
 			// A deploy, then a rollback it waits out, can each take most of an hour.
 			timeout: Duration.mins(150),
-			done: async (ctx) => (await diff(ctx)).same,
+			// A `--no-rollback` update that failed leaves its new template
+			// stored, so the diff is empty while resources were never made.
+			done: async (ctx) =>
+				(await diff(ctx)).same && !(await unsettled(ctx, await refFor(ctx))),
 			run: async (ctx) => {
+				const ref = await refFor(ctx);
 				await recoverStuck(ctx, ref);
 				const keepRollback = !noRollback || replaces(await diff(ctx));
 				// `--yes` lets the CLI roll back a stack a `--no-rollback` deploy
 				// left paused in UPDATE_FAILED before deploying with rollback on,
 				// which it otherwise asks a terminal to confirm; the diff step
 				// already had the change confirmed.
-				const command = await cdk(
-					ctx,
-					"deploy",
-					` --require-approval never --yes${keepRollback ? "" : " --no-rollback"}`,
-				);
+				const command = await cdk(ctx, "deploy", {
+					args: ` --require-approval never --yes${keepRollback ? "" : " --no-rollback"}`,
+				});
 				try {
 					await ctx.sh(command);
 				} catch (error) {
@@ -138,6 +163,12 @@ export function deploy(stack: Stack, opts: DeployOptions = {}): Step[] {
 				if (!(await diff(ctx)).same) {
 					throw new Error(
 						`${stack.name} still differs from this checkout after its deploy`,
+					);
+				}
+				const why = await unsettled(ctx, await refFor(ctx));
+				if (why) {
+					throw new Error(
+						`${stack.name} matches this checkout's template, but its deploy did not finish: ${why}`,
 					);
 				}
 				ctx.update(`${stack.name} is at this checkout`);
@@ -173,6 +204,43 @@ export interface DeployOptions {
 	 * `AWS::ECS::TaskDefinition` when `noRollback` is set, else none.
 	 */
 	readonly cheapReplacement?: readonly string[];
+}
+
+/**
+ * The CloudFormation name `cdk list --long --json` gives the stack whose id
+ * is `id` (`Prod/App`, named `prod-App` from its stage's `stageName`). The
+ * list shows a stack inside a stage with its name after the id, as
+ * `Prod/App (prod-App)`.
+ */
+export function parseList(output: string, id: string): string {
+	const start = output.indexOf("[");
+	const end = output.lastIndexOf("]");
+	let stacks: unknown;
+	try {
+		stacks = JSON.parse(output.slice(start, end + 1));
+	} catch {
+		stacks = undefined;
+	}
+	if (start < 0 || !Array.isArray(stacks)) {
+		throw new Error(
+			`cdk list printed no stacks to read ${id}'s CloudFormation name from: ${output.trim().slice(0, 200)}`,
+		);
+	}
+	const found = stacks.find(
+		(one): one is { name: string } =>
+			typeof one === "object" &&
+			one !== null &&
+			[id, `${id} (${(one as { name?: unknown }).name})`].includes(
+				(one as { id?: unknown }).id as string,
+			) &&
+			typeof (one as { name?: unknown }).name === "string",
+	);
+	if (!found) {
+		throw new Error(
+			`cdk list names no stack ${id}, so its CloudFormation name is unknown; set stackName to name it`,
+		);
+	}
+	return found.name;
 }
 
 /** What `cdk diff` said about a stack. */

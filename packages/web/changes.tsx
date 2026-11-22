@@ -1,5 +1,6 @@
 import type { FileDiff } from "@splates/server/tasks";
 import {
+	ChevronRightIcon,
 	ChevronsDownUpIcon,
 	ChevronsUpDownIcon,
 	RotateCwIcon,
@@ -8,6 +9,11 @@ import {
 import { createContext, type JSX, useEffect, useState } from "react";
 import { CodeDiff } from "#web/components/assistant-ui/elements/code-diff.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { taskDiff } from "./api";
 
@@ -188,17 +194,12 @@ function File({
 }): JSX.Element {
 	const status = STATUS[file.status];
 	return (
-		<details
-			open={open}
-			onToggle={(event) => {
-				// Fires for the pane's own Expand all too, which is already in step.
-				if (event.currentTarget.open !== open) {
-					onOpen(event.currentTarget.open);
-				}
-			}}
-			className="group/file"
-		>
-			<summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-1 font-mono text-xs hover:bg-muted focus-visible:bg-muted focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+		<Collapsible open={open} onOpenChange={onOpen} className="group/file">
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left font-mono text-xs hover:bg-muted focus-visible:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
+				<ChevronRightIcon
+					aria-hidden="true"
+					className="size-3 shrink-0 transition-transform group-data-open/file:rotate-90"
+				/>
 				<span className="min-w-0 flex-1 truncate" title={file.path}>
 					{file.from === null ? file.path : `${file.from} → ${file.path}`}
 				</span>
@@ -217,30 +218,32 @@ function File({
 					<span className="text-success">+{file.added}</span>{" "}
 					<span className="text-destructive">−{file.removed}</span>
 				</span>
-			</summary>
-			<div className="mt-1 mb-3 flex flex-col gap-2">
-				{file.binary ? (
-					<p className="px-2 text-muted-foreground text-xs">
-						A binary file: no lines to show.
-					</p>
-				) : (
-					file.hunks.map((hunk) => (
-						<CodeDiff
-							key={hunk.range}
-							aria-label={`${file.path} ${hunk.range}`}
-							filename={hunk.range}
-							additions={
-								hunk.lines.filter((line) => line.kind === "added").length
-							}
-							deletions={
-								hunk.lines.filter((line) => line.kind === "removed").length
-							}
-							lines={hunk.lines}
-							className="max-w-none rounded-md [tab-size:2]"
-						/>
-					))
-				)}
-			</div>
-		</details>
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<div className="mt-1 mb-3 flex flex-col gap-2">
+					{file.binary ? (
+						<p className="px-2 text-muted-foreground text-xs">
+							A binary file: no lines to show.
+						</p>
+					) : (
+						file.hunks.map((hunk) => (
+							<CodeDiff
+								key={hunk.range}
+								aria-label={`${file.path} ${hunk.range}`}
+								filename={hunk.range}
+								additions={
+									hunk.lines.filter((line) => line.kind === "added").length
+								}
+								deletions={
+									hunk.lines.filter((line) => line.kind === "removed").length
+								}
+								lines={hunk.lines}
+								className="max-w-none rounded-md [tab-size:2]"
+							/>
+						))
+					)}
+				</div>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }

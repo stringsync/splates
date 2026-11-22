@@ -30,6 +30,110 @@ describe("ShipRunScreen", () => {
 		cleanup();
 	});
 
+	test("follows the current step, folds completed targets and allows reopening", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		const state = run();
+		const target: RunState["targets"][number] = {
+			name: "@stringsync/mdom",
+			command: "bin/mdom ship",
+			dependencies: [],
+			steps: [],
+		};
+		state.targets[0] = target;
+		target.steps = ["build", "test", "publish", "tag", "finish"].map(
+			(id, i) => ({
+				...step(id),
+				status: i < 2 ? "done" : i === 2 ? "running" : "pending",
+			}),
+		);
+		await fake.open(state);
+		const card = within(
+			view.getByRole("article", { name: "@stringsync/mdom" }),
+		);
+		expect(card.queryByRole("listitem", { name: "Do build, done" })).toBeNull();
+		expect(
+			card.getByRole("listitem", { name: "Do publish, under way" }),
+		).toBeTruthy();
+		fireEvent.click(card.getByRole("button", { name: "2 completed steps" }));
+		expect(card.getByRole("listitem", { name: "Do build, done" })).toBeTruthy();
+		await fake.send({
+			type: "update",
+			...at,
+			step: "publish",
+			line: "Uploading package",
+		});
+		expect(
+			card
+				.getByRole("button", { name: "@stringsync/mdom" })
+				.getAttribute("aria-expanded"),
+		).toBe("true");
+		await fake.send(
+			...target.steps.slice(2).map(
+				(each): RunEvent => ({
+					type: "ended",
+					at: 8000,
+					...at,
+					step: each.id,
+					outcome: "done",
+				}),
+			),
+		);
+		expect(
+			card
+				.getByRole("button", { name: "@stringsync/mdom" })
+				.getAttribute("aria-expanded"),
+		).toBe("false");
+		expect(card.queryByRole("list", { name: "Steps" })).toBeNull();
+		fireEvent.click(card.getByRole("button", { name: "5 completed steps" }));
+		expect(card.getAllByRole("listitem")).toHaveLength(5);
+		await fake.open({
+			...state,
+			targets: state.targets.map((eachTarget, i) =>
+				i === 0
+					? {
+							...eachTarget,
+							steps: eachTarget.steps.map((eachStep) => ({
+								...eachStep,
+								status: "done" as const,
+							})),
+						}
+					: eachTarget,
+			),
+		});
+		expect(
+			card
+				.getByRole("button", { name: "@stringsync/mdom" })
+				.getAttribute("aria-expanded"),
+		).toBe("true");
+		fireEvent.click(card.getByRole("button", { name: "Collapse entry" }));
+		expect(card.queryByRole("list", { name: "Steps" })).toBeNull();
+	});
+
+	test("collapsed preview advances to the next live step", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		await fake.open(run());
+		await fake.send({
+			type: "running",
+			at: 2000,
+			...at,
+			step: "build",
+			pid: 7,
+		});
+		await fake.send(
+			{ type: "ended", at: 3000, ...at, step: "build", outcome: "done" },
+			{ type: "running", at: 3000, ...at, step: "publish", pid: 8 },
+		);
+		const card = within(
+			view.getByRole("article", { name: "@stringsync/mdom" }),
+		);
+		expect(card.queryByRole("listitem", { name: "Do build, done" })).toBeNull();
+		expect(
+			card.getByRole("listitem", { name: "Do publish, under way" }),
+		).toBeTruthy();
+	});
+
 	test("lists what the run spawned under the groups, and its notes newest first", async () => {
 		const fake = fakeServer();
 		const view = render(
@@ -289,7 +393,7 @@ describe("ShipRunScreen", () => {
 		).toBe("#todos/42");
 		expect(
 			within(failure)
-				.getByRole("link", { name: "View agent" })
+				.getByRole("link", { name: "View conversation" })
 				.getAttribute("href"),
 		).toBe("#conversations/c43");
 		expect(
@@ -325,7 +429,7 @@ describe("ShipRunScreen", () => {
 		).toBeNull();
 	});
 
-	test("an unsupervised failure offers Supervise, giving the run three fixes", async () => {
+	test("an unsupervised failure offers Supervise, giving the run five fixes", async () => {
 		const fake = fakeServer();
 		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
 		await fake.open(run());
@@ -336,9 +440,25 @@ describe("ShipRunScreen", () => {
 		);
 		const failure = view.getByRole("region", { name: "net-staging failed" });
 		fireEvent.click(
-			within(failure).getByRole("button", { name: "Supervise · 3 fixes" }),
+			within(failure).getByRole("button", { name: "Supervise · 5 fixes" }),
 		);
-		expect(fake.supervised).toEqual([3]);
+		expect(fake.supervised).toEqual([5]);
+	});
+
+	test("the Supervise card shows the fixes left above Auto-approve, and takes one back or gives one", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		await fake.open({ ...run(), supervise: { budget: 3, spent: 1 } });
+		const card = view.getByRole("region", { name: "Supervise" });
+		expect(within(card).getByLabelText("Fixes left").textContent).toBe("2");
+		const approve = view.getByRole("region", { name: "Auto-approve" });
+		expect(
+			card.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		fireEvent.click(within(card).getByRole("button", { name: "Fewer fixes" }));
+		await waitFor(() => expect(fake.supervised).toEqual([-1]));
+		fireEvent.click(within(card).getByRole("button", { name: "More fixes" }));
+		await waitFor(() => expect(fake.supervised).toEqual([-1, 1]));
 	});
 
 	test("every failed target and every waiting prompt open up top at once, each named by its target", async () => {
@@ -618,6 +738,9 @@ describe("ShipRunScreen", () => {
 		}));
 		await fake.open(done);
 		expect(view.getByText(/Shipped 3 targets in 11s/)).toBeTruthy();
+		expect(view.getByText(/steps fine/)).toBeTruthy();
+		expect(view.queryByLabelText("Worth a look")).toBeNull();
+		fireEvent.click(view.getByRole("button", { name: /Show all \d+ steps/ }));
 		expect(view.getByText("@stringsync/mdom 1.2.3")).toBeTruthy();
 		expect(view.queryByText(/of 3 done/)).toBeNull();
 		expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
@@ -641,6 +764,7 @@ describe("ShipRunScreen", () => {
 			})),
 		}));
 		await fake.open(done);
+		fireEvent.click(view.getByRole("button", { name: /Show all \d+ steps/ }));
 		const shows = view.getAllByTitle("Show what it printed");
 		const first = done.targets[0];
 		expect(shows.length).toBe(first?.steps.length ?? 0);
@@ -648,6 +772,32 @@ describe("ShipRunScreen", () => {
 		expect(
 			opened.map((each) => `${each.run} ${each.target} ${each.step}`),
 		).toEqual([`run-1 ${first?.name} ${first?.steps[0]?.id}`]);
+	});
+
+	test("a recap target with a flagged step has Send to agent, and one already sent says its task", async () => {
+		const fake = fakeServer();
+		const view = render(<ShipRunScreen id="run-1" server={fake.server} />);
+		const done = run();
+		done.status = "done";
+		done.targets = done.targets.map((target, index) => ({
+			...target,
+			...(index === 1 && { recap: { task: 7, at: 5_000 } }),
+			steps: target.steps.map((each) => ({
+				...each,
+				status: "done" as const,
+				started: 2_000,
+				ended: 12_000,
+				...(index <= 1 && { retries: 1, failure: "npm 403" }),
+			})),
+		}));
+		await fake.open(done);
+		const buttons = view.getAllByRole("button", { name: "Send to agent" });
+		expect(buttons.length).toBe(1);
+		expect(view.getByText("Sent as task #7")).toBeTruthy();
+		fireEvent.click(buttons[0] as HTMLElement);
+		await waitFor(() =>
+			expect(fake.sent).toEqual([`recap ${done.targets[0]?.name}`]),
+		);
 	});
 
 	test("a stopped run opens on a recap showing it stopped beside what shipped", async () => {
@@ -668,6 +818,7 @@ describe("ShipRunScreen", () => {
 		expect(
 			view.getByText(/Stopped by you.*1 of 3 targets shipped/),
 		).toBeTruthy();
+		fireEvent.click(view.getByRole("button", { name: /Show all \d+ steps/ }));
 		expect(view.getAllByText(/\(stopped\)/).length).toBe(2);
 		expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
 	});
@@ -687,8 +838,11 @@ describe("ShipRunScreen", () => {
 			get: async () => found,
 			retry: async () => found,
 			send: async () => ({ state: found, task: 1 }),
+			sendTarget: async () => ({ state: found, task: 1 }),
 			stop: async () => found,
+			stopTarget: async () => found,
 			supervise: async () => found,
+			autoApprove: async () => found,
 		};
 		const view = render(<ShipRunScreen id="run-1" server={server} />);
 		await waitFor(() => expect(view.getByText(/0 of 3 done/)).toBeTruthy());
@@ -779,13 +933,19 @@ function fakeServer(found: RunState | null = null) {
 			return run();
 		},
 		stop: async () => run(),
+		stopTarget: async () => run(),
 		supervise: async (_, fixes) => {
 			supervised.push(fixes);
 			return run();
 		},
+		autoApprove: async () => run(),
 		send: async (_, target, step) => {
 			sent.push(`${target} ${step}`);
 			return { state: run(), task: 42 };
+		},
+		sendTarget: async (_, target) => {
+			sent.push(`recap ${target}`);
+			return { state: run(), task: 43 };
 		},
 		connect: (_, handlers) => {
 			streams.push(handlers);

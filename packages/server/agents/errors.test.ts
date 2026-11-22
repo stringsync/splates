@@ -11,4 +11,11 @@ describe("requestError", () => {
 			"Internal error",
 		);
 	});
+
+	it("tells a signed-out Antigravity to run agy acp --login", () => {
+		const error = acp.RequestError.authRequired();
+		expect(requestError(error, "antigravity")).toContain(
+			"Run `agy acp --login`",
+		);
+	});
 });

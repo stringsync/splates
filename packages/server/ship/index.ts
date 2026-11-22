@@ -1,5 +1,6 @@
 export { GitRunCheckouts } from "./checkouts";
 export {
+	type Currents,
 	type Listed,
 	type Listing,
 	ShipCommands,

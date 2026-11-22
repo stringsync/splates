@@ -43,7 +43,18 @@ async function records(repo: Repo): Promise<string[]> {
 	return notes;
 }
 
-const proposed = (reply: string) => /^## 💡 Proposed\b/m.test(reply);
+/** The reply ends in one questions card whose last question is the approval question. */
+const proposed = (reply: string) => {
+	const cards = stretches(reply).filter((each) => each.type === "questions");
+	const first = cards[0];
+	return (
+		cards.length === 1 &&
+		first?.type === "questions" &&
+		/^Do you approve (?!this proposal\?).+\?/.test(
+			first.questions.at(-1)?.text ?? "",
+		)
+	);
+};
 
 const notMerged: Check = {
 	id: "not-merged",
@@ -113,7 +124,7 @@ export const scenarios: Scenario[] = [
 		aspect,
 		initialized: true,
 		requirement:
-			"A task's `## Before` and `## After` are filled in after the first look at the code, and a non-trivial change is proposed as a card, with no code, before anything is built.",
+			"A task's `## Before` and `## After` are filled in after the first look at the code, and a non-trivial change is planned with an approval question, with no code, before anything is built.",
 		seed: async (repo) => {
 			await repo.write("src/upload.ts", upload);
 		},
@@ -140,14 +151,9 @@ export const scenarios: Scenario[] = [
 			},
 			{
 				id: "proposed",
-				about: "the reply is a `## 💡 Proposed` block",
+				about:
+					"the reply ends in one questions card that ends in an approval question that names the change (not `this proposal`)",
 				test: ({ reply }) => proposed(reply),
-			},
-			{
-				id: "asked-as-cards",
-				about: "the proposal's calls are numbered question cards",
-				test: ({ reply }) =>
-					stretches(reply).some((each) => each.type === "questions"),
 			},
 			sourceUntouched,
 			notMerged,
@@ -169,7 +175,7 @@ export const scenarios: Scenario[] = [
 		checks: [
 			{
 				id: "no-proposal",
-				about: "the reply is no `## 💡 Proposed` block",
+				about: "the reply asks no `Do you approve ...?` approval question",
 				test: ({ reply }) => !proposed(reply),
 			},
 			{

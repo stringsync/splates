@@ -4,7 +4,6 @@ import {
 	CircleCheckIcon,
 	CircleSlashIcon,
 	type LucideIcon,
-	PauseIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
@@ -114,7 +113,7 @@ export type Tone =
 	| "destructive"
 	| "info"
 	| "eval"
-	| "ship";
+	| "steps";
 
 export const TONES: Record<
 	Tone,
@@ -152,11 +151,11 @@ export const TONES: Record<
 		icon: "text-orange-600 dark:text-orange-400",
 		focus: "focus-within:border-orange-500/50 focus-within:ring-orange-500/15",
 	},
-	// Ships are teal.
-	ship: {
-		header: "bg-teal-500/15",
-		icon: "text-teal-600 dark:text-teal-400",
-		focus: "focus-within:border-teal-500/50 focus-within:ring-teal-500/15",
+	// Steps are purple: the work is the user's, by hand.
+	steps: {
+		header: "bg-purple-500/15",
+		icon: "text-purple-400 dark:text-purple-300",
+		focus: "focus-within:border-purple-500/50 focus-within:ring-purple-500/15",
 	},
 };
 
@@ -170,7 +169,7 @@ export const ENDINGS: Record<
 	merged: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	done: { title: "Done", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "neutral" },
-	deferred: { title: "Blocked", Icon: PauseIcon, tone: "warning" },
+	deferred: { title: "Blocked", Icon: TriangleAlertIcon, tone: "warning" },
 	// From before escalating was retired.
 	escalated: {
 		title: "Escalated",
@@ -235,7 +234,7 @@ function Header({
 			{folded && (
 				<ChevronRightIcon className="size-4 text-muted-foreground transition-transform duration-150 group-data-[open]/card:rotate-90" />
 			)}
-			<Icon className={cn("size-4", TONES[tone].icon)} />
+			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="font-medium text-[13px]">{title}</span>
 			{/* In a narrow thread the chips take a row of their own beneath, so
 			    the aside stays beside the title rather than wrapping alone. */}
@@ -246,7 +245,7 @@ function Header({
 					className="@max-md:order-last @max-md:basis-full"
 				/>
 			)}
-			{aside !== undefined && <span className="ml-auto">{aside}</span>}
+			{aside !== undefined && <span className="ml-auto shrink-0">{aside}</span>}
 		</div>
 	);
 }

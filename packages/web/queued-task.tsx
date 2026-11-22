@@ -3,7 +3,9 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import type { TaskRecord } from "@splates/server/board";
+import type { ClosesOn, TaskRecord } from "@splates/server/board";
+import { isReady } from "@splates/server/board/browser";
+import type { SignalWait } from "@splates/server/signals";
 import { SystemWallClock } from "core/time";
 import { ChevronLeftIcon, ListXIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -12,16 +14,17 @@ import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
 import { assignTodo, queueTodo, updateTodo } from "./api";
-import { blockedFix } from "./blocked-fix";
+import { BlockersCard } from "./blockers-card";
 import { Board } from "./board";
 import { assigned, queued } from "./board-expectations";
 import { filesOf, said } from "./composer-drafts";
-import { AssigneeMenu } from "./dispatching";
+import { AssigneeMenu, Dispatching } from "./dispatching";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { TaskCard } from "./queued-card";
 import { addedWhileQueued } from "./queued-note";
-import { BlockedPanel, WaitingPanel } from "./queued-status";
+import { WaitingPanel } from "./queued-status";
 import { Refusal, useRefusal } from "./refusal";
+import { SignalBar } from "./signal-card";
 import { shownStage } from "./todo-queue";
 import { BarButton, BELOW_BAR, TopBar } from "./top-bar";
 
@@ -94,38 +97,34 @@ export function QueuedTask({
 				]}
 			/>
 			<div className="relative min-h-0 flex-1">
-				<QueuedThread
-					todo={todo}
-					changing={pending}
-					refusal={refusal}
-					refuse={refuse}
-				/>
+				<QueuedThread todo={todo} refusal={refusal} refuse={refuse} />
 			</div>
 		</section>
 	);
 }
 
 /**
- * The thread's own composer under the task: a message sent there is added to
+ * The thread's own composer under the task: a message sent there starts a
+ * conversation about the task while it is blocked, and otherwise is added to
  * the task's words, for the agent that takes it to read, and its picker
  * chooses the agent, which the task's card then shows.
  */
 function QueuedThread({
 	todo,
-	changing,
 	refusal,
 	refuse,
 }: {
 	todo: TaskRecord;
-	/** A new assignee is on its way to the server. */
-	changing: boolean;
 	refusal: string | null;
 	refuse: (title: string, error: unknown) => void;
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const expect = useExpectSnapshot();
 	const adapters = useAdapters();
+	const blockedNow = shownStage(todo, todos) === "blocked";
+	const waitingOnBlocker = !isReady(todo);
 	const [adding, setAdding] = useState(false);
+	const dispatching = useContext(Dispatching);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
 		convertMessage: (message: ThreadMessageLike) => message,
@@ -137,6 +136,19 @@ function QueuedThread({
 				return;
 			}
 			setAdding(true);
+			if (waitingOnBlocker && dispatching !== null && files.length === 0) {
+				// A blocked task has nothing to build yet: the words start a talk
+				// about it, which takes none of it, in place of a note.
+				await dispatching.dispatch
+					.talk(todo.id, words, todo.assignee ?? undefined)
+					.then(dispatching.open)
+					.catch((error: unknown) => {
+						runtime.thread.composer.setText(words);
+						refuse("Not started", error);
+					})
+					.finally(() => setAdding(false));
+				return;
+			}
 			await updateTodo(todo.id, {
 				subject: todo.subject,
 				text: addedWhileQueued(todo.text, words, new SystemWallClock().now()),
@@ -154,8 +166,7 @@ function QueuedThread({
 				.finally(() => setAdding(false));
 		},
 	});
-	const fix = blockedFix(todo, todos);
-	const blocked = shownStage(todo, todos) === "blocked";
+	const blocked = blockedNow;
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
 			<Composing.Provider value={runtime.thread.composer}>
@@ -164,15 +175,22 @@ function QueuedThread({
 					welcomeAtTop
 					welcome={
 						<div className="flex flex-col gap-3">
-							<TaskCard todo={todo} changing={changing} />
-							{blocked ? (
-								<BlockedPanel todo={todo} fix={fix} />
+							<TaskCard todo={todo} />
+							{todo.closesOn !== undefined ? null : blocked ? (
+								<BlockersCard task={todo} label="Blocked" />
 							) : (
 								<WaitingPanel todo={todo} />
 							)}
 						</div>
 					}
-					above={<Refusal refusal={refusal} className="px-2" />}
+					above={
+						<>
+							{todo.closesOn !== undefined && (
+								<SignalBar wait={closingWait(todo.closesOn)} />
+							)}
+							<Refusal refusal={refusal} className="px-2" />
+						</>
+					}
 					controls={
 						<AssigneeMenu
 							assignee={todo.assignee ?? null}
@@ -184,10 +202,27 @@ function QueuedThread({
 							}
 						/>
 					}
-					placeholder="Add to this task before an agent takes it"
+					placeholder={
+						waitingOnBlocker
+							? "Talk about this task while it waits"
+							: "Add to this task before an agent takes it"
+					}
 					starting={adding}
 				/>
 			</Composing.Provider>
 		</AssistantRuntimeProvider>
 	);
+}
+
+/** The wait a task that closes on a signal stands for, for the bar: it has no deadline. */
+function closingWait(closesOn: ClosesOn): SignalWait {
+	return {
+		id: `closes-on ${closesOn.signal}`,
+		name: closesOn.signal,
+		description: "Closes this task when fired",
+		state: "waiting",
+		startedAt: closesOn.since,
+		deadline: "",
+		since: closesOn.since,
+	};
 }

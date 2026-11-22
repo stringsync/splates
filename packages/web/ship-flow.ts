@@ -1,5 +1,6 @@
 import type {
 	Composed,
+	Currents,
 	Listing,
 	Offered,
 	Pick,
@@ -24,6 +25,10 @@ export type ShipFlowState = {
 	failed: string | null;
 	/** Each target's unshipped commit count, as far as counted yet. */
 	unshipped: Unshipped;
+	counting: boolean;
+	readingVersion: boolean;
+	/** Each target's current version, as far as read yet. */
+	current: Currents;
 	picks: Picks;
 	/** The targets added on the Needed first screen, each with its bump. */
 	added: Picks;
@@ -37,24 +42,16 @@ export type ShipFlowState = {
 	/** The run under way, or null; while there is one, no other can start. */
 	active: RunState | null;
 	/**
-	 * Whether the ship starts supervised, and how many fixes its supervisor
-	 * may send by itself; the count stays while it is off.
+	 * Supervision of the ship to start: whether it is on, and how many fixes
+	 * the supervisor may send by itself (kept while off).
 	 */
 	supervise: { on: boolean; budget: number };
+	autoApprove: boolean;
 };
 
 /** The fixes a supervised ship starts with, and the most the Review screen offers. */
-export const SUPERVISE_FIXES = 3;
+export const SUPERVISE_FIXES = 5;
 export const SUPERVISE_MOST = 10;
-
-export type ShipFlowEvents = { changed: undefined };
-
-/** Composes a plan of picks, as the server's plan route does. */
-export interface Planner {
-	plan(picks: readonly Pick[]): Promise<Composed>;
-	/** Starts a ship of `picks`, supervised when given, as the server's start route does. */
-	start(picks: readonly Pick[], supervise?: Supervise): Promise<RunState>;
-}
 
 /**
  * Takes the Ships page from a pick, through the targets the pick needs
@@ -68,6 +65,9 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		listing: null,
 		failed: null,
 		unshipped: {},
+		counting: true,
+		readingVersion: true,
+		current: {},
 		picks: new Map(),
 		added: new Map(),
 		stage: { at: "pick" },
@@ -76,7 +76,11 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		starting: false,
 		active: null,
 		supervise: { on: true, budget: SUPERVISE_FIXES },
+		autoApprove: true,
 	};
+
+	/** Bumped by every run the stream pushes, so a read begun before it is stale. */
+	private pushed = 0;
 
 	constructor(private readonly planner: Planner) {}
 
@@ -90,6 +94,11 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		this.set({ supervise: { ...this.state.supervise, on } });
 	}
 
+	/** Switches auto-approving of the ship to start on or off. */
+	autoApproving(on: boolean): void {
+		this.set({ autoApprove: on });
+	}
+
 	/** Sets the supervisor's fixes, from 1 to {@link SUPERVISE_MOST}. */
 	fixes(budget: number): void {
 		const kept = Math.min(SUPERVISE_MOST, Math.max(1, Math.round(budget)));
@@ -98,29 +107,55 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 
 	/** The unshipped counts, once they come back. */
 	counted(unshipped: Unshipped): void {
-		this.set({ unshipped });
+		this.set({ unshipped, counting: false });
+	}
+
+	/** The current versions, once they come back. */
+	versioned(current: Currents): void {
+		this.set({ current, readingVersion: false });
 	}
 
 	unlisted(error: unknown): void {
 		this.set({ failed: messageOf(error) });
 	}
 
-	/** The runs under way as read on opening the page; the first is the one. */
-	underWay(runs: readonly RunState[]): void {
+	/**
+	 * Call before reading the runs, and pass what it returns to
+	 * {@link underWay} and {@link newest}, which then drop the read if the
+	 * stream pushed a run meanwhile.
+	 */
+	reading(): number {
+		// A pushed run is newer than any read begun before it.
+		return this.pushed;
+	}
+
+	/**
+	 * The runs under way, read at `stamp` (from {@link reading}) on opening
+	 * the page or once its stream is back; the first is the one.
+	 */
+	underWay(runs: readonly RunState[], stamp = this.pushed): void {
+		if (stamp !== this.pushed) {
+			return;
+		}
 		this.set({
 			active: runs.find((run) => run.status === "running") ?? null,
 		});
 	}
 
 	/** The newest run, read when none runs: one that failed is still the active ship. */
-	newest(run: RunState | undefined): void {
-		if (this.state.active === null && run?.status === "failed") {
+	newest(run: RunState | undefined, stamp = this.pushed): void {
+		if (
+			stamp === this.pushed &&
+			this.state.active === null &&
+			run?.status === "failed"
+		) {
 			this.set({ active: run });
 		}
 	}
 
 	/** Run `run` moved, as the page's stream says: under way, or over. */
 	moved(run: RunState): void {
+		this.pushed++;
 		const { active } = this.state;
 		if (
 			run.status === "running" ||
@@ -204,6 +239,7 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 			const run = await this.planner.start(
 				reviewed(stage.picks, stage.plan),
 				on ? { budget } : undefined,
+				this.state.autoApprove,
 			);
 			this.set({
 				active: run.status === "running" ? run : this.state.active,
@@ -268,4 +304,17 @@ function reviewed(picks: readonly Pick[], plan: Composed): Pick[] {
 
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+export type ShipFlowEvents = { changed: undefined };
+
+/** Composes a plan of picks, as the server's plan route does. */
+export interface Planner {
+	plan(picks: readonly Pick[]): Promise<Composed>;
+	/** Starts a ship of `picks`, supervised when given, as the server's start route does. */
+	start(
+		picks: readonly Pick[],
+		supervise?: Supervise,
+		autoApprove?: boolean,
+	): Promise<RunState>;
 }

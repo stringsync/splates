@@ -1,4 +1,5 @@
 import {
+	ChevronRightIcon,
 	CircleCheckIcon,
 	CircleXIcon,
 	InfoIcon,
@@ -8,6 +9,12 @@ import {
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { fileUrl } from "./api";
+import { Button } from "./components/ui/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "./components/ui/collapsible";
 import { DiagramView } from "./diagram-view";
 import {
 	type Block,
@@ -32,7 +39,10 @@ export function BlockView({
 			return (
 				<Markdown
 					text={block.text}
-					className={cn("text-sm", lead && "text-[0.95rem] font-medium")}
+					className={cn(
+						"text-sm [&_:is(h1,h2,h3,h4,h5,h6)]:text-sm",
+						lead && "font-medium",
+					)}
 				/>
 			);
 		case "stats":
@@ -41,7 +51,7 @@ export function BlockView({
 					{block.items.map((item) => (
 						<div key={item.label} className="rounded-lg border px-3 py-2">
 							<div className="text-muted-foreground text-xs">{item.label}</div>
-							<div className="font-semibold text-2xl tracking-tight">
+							<div className="font-semibold text-sm tracking-tight">
 								{item.value}
 							</div>
 							{item.change !== null && (
@@ -173,12 +183,26 @@ export function BlockView({
 			return <ChartView chart={block.chart} />;
 		case "details":
 			return (
-				<details>
-					<summary className="cursor-pointer text-muted-foreground text-sm">
+				<Collapsible>
+					<CollapsibleTrigger
+						render={
+							<Button
+								variant="ghost"
+								className="group text-muted-foreground text-sm"
+							/>
+						}
+					>
+						<ChevronRightIcon
+							aria-hidden
+							data-icon="inline-start"
+							className="transition-transform group-aria-expanded:rotate-90"
+						/>
 						{block.title}
-					</summary>
-					<Markdown text={block.text} className="mt-2 text-sm" />
-				</details>
+					</CollapsibleTrigger>
+					<CollapsibleContent>
+						<Markdown text={block.text} className="mt-2 text-sm" />
+					</CollapsibleContent>
+				</Collapsible>
 			);
 		default:
 			return block satisfies never;

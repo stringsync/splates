@@ -4,16 +4,15 @@ import {
 	type PermissionProposal,
 	permissionOf,
 } from "./permission";
-import { offers, type Question, settled, sized } from "./plan";
+import { dedent, offers, type Question, settled, sized } from "./plan";
+import { isStepsTitle, type Steps, stepsOf } from "./steps";
 
 /**
- * `text` cut where it asks questions: a list numbered from 1 at the margin,
- * outside code blocks, every item a question, the lines indented under each
- * its body and its `- (a)` or `- [a]` choices, read as `## Blocked` reads
- * them. An item is a question when its line ends in `?`, or in `?` and an
- * aside in parentheses: `(all that apply)`; when it goes on past a `?`, which
- * leaves the rest to its body; or when it offers choices. Any other list is
- * only text.
+ * Cuts `text` into the stretches an agent's message holds: prose, questions,
+ * reports, reviews and the rest. Questions are a list numbered from 1 at the
+ * margin, outside code blocks, each item a line ending in `?` (or `?` and a
+ * parenthesised aside), going on past a `?`, or offering `- (a)` or `- [a]`
+ * choices. Any other list is only text.
  */
 export function stretches(text: string): Stretch[] {
 	const held = CUT.get(text);
@@ -66,42 +65,20 @@ function cut(text: string): Stretch[] {
 			i = end;
 			continue;
 		}
-		const proposed = PROPOSED.exec(line);
-		if (proposed !== null) {
-			const end = endAt(lines, i + 1);
-			found.push(...prose(lines.slice(from, i)));
-			found.push({
-				type: "proposal",
-				proposal: {
-					subject: proposed[1] as string,
-					body: trimmed(lines.slice(i + 1, end)),
-				},
-			});
-			from = end;
-			i = end - 1;
-			continue;
-		}
-		const reported = FINDINGS.exec(line);
-		if (reported !== null) {
-			const end = findingsEnd(lines, i + 1);
-			found.push(...prose(lines.slice(from, i)));
-			found.push({
-				type: "findings",
-				findings: {
-					subject: reported[1] ?? "",
-					body: trimmed(lines.slice(i + 1, end)),
-				},
-			});
-			from = end;
-			i = end - 1;
-			continue;
-		}
 		const demo = demoHere(lines, i);
 		if (demo !== null) {
 			found.push(...prose(lines.slice(from, i)));
 			found.push({ type: "demo", demo: demo.demo });
 			from = demo.end;
 			i = demo.end - 1;
+			continue;
+		}
+		const steps = stepsHere(lines, i);
+		if (steps !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push({ type: "steps", steps: steps.steps });
+			from = steps.end;
+			i = steps.end - 1;
 			continue;
 		}
 		const kept = keptAt(lines, i);
@@ -131,19 +108,18 @@ function cut(text: string): Stretch[] {
 /**
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the splates skill's format, its report asking them to
- * review a task before it merges, a design it proposes, its report of how a
+ * review a task before it merges, its report of how a
  * task ended or what it waits on, a permission it asks the person
- * to give, or a demo for the person to try.
+ * to give, a demo for the person to try, or steps for them to follow.
  */
 export type Stretch =
 	| { type: "text"; text: string }
 	| { type: "questions"; questions: Question[] }
 	| { type: "review"; review: Review }
-	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: TaskReport }
-	| { type: "findings"; findings: Findings }
 	| { type: "permission"; permission: PermissionProposal }
-	| { type: "demo"; demo: Demo };
+	| { type: "demo"; demo: Demo }
+	| { type: "steps"; steps: Steps };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -159,29 +135,6 @@ export interface Review {
 	failed: string[];
 	/** Whatever else it says, past the summary, as markdown. */
 	details: string;
-}
-
-/**
- * What the agent proposes to do, as the skill's `## 💡 Proposed` report puts
- * it, for the person to approve before it starts. The questions after it are
- * the calls it rests on, those with a `(chosen)` choice already answered.
- */
-export interface Proposal {
-	/** What it proposes, as its title says. */
-	subject: string;
-	/** What it recommends, and the `####` sections saying why, as markdown. */
-	body: string;
-}
-
-/**
- * What an agent reports on anything, as its `## 📊 Report: <subject>` puts it:
- * plain markdown first, with readouts (fenced `stats`, `chart`, `progress`
- * and `steps` blocks and the like) a page may draw. It runs to the next `#`
- * or `##` heading, so its own `###` sections stay inside it.
- */
-export interface Findings {
-	subject: string;
-	body: string;
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title them. */
@@ -227,10 +180,6 @@ const HEADING = /^#{1,3}[ \t]/;
 /** A review report's title, and the line every one ends with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
-/** A proposal's title. */
-const PROPOSED = /^## 💡 Proposed (.+?)[ \t]*$/;
-/** A findings report's title. */
-const FINDINGS = /^## 📊 Report(?::[ \t]*(.*?))?[ \t]*$/;
 /** A review's line naming the checks that passed, each in a code span. */
 const CHECKS = /^Checks:[ \t]*(.*)$/;
 /** A review's line naming the checks that failed, the same way. */
@@ -371,6 +320,48 @@ function demoHere(
 		: null;
 }
 
+/**
+ * The Steps card titled at `start`, up to the next heading or a list of
+ * questions after its own list, and the line after it; null for any other
+ * line, or a title with no steps under it.
+ */
+function stepsHere(
+	lines: string[],
+	start: number,
+): { steps: Steps; end: number } | null {
+	if (!isStepsTitle(lines[start] as string)) {
+		return null;
+	}
+	let end = lines.length;
+	let fenced = false;
+	let listed = false;
+	for (let i = start + 1; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (fenced) {
+			continue;
+		}
+		if (HEADING.test(line)) {
+			end = i;
+			break;
+		}
+		// Its own list may read as questions, as a step that ends in `?`;
+		// only a list after it is the questions that follow the card.
+		if (ITEM.exec(line)?.[1] === "1") {
+			if (listed && listAt(lines, i) !== null) {
+				end = i;
+				break;
+			}
+			listed = true;
+		}
+	}
+	const steps = stepsOf(lines.slice(start, end));
+	return steps === null ? null : { steps, end };
+}
+
 /** `lines` as one text, without blank lines at either end. */
 function trimmed(lines: string[]): string {
 	return lines.join("\n").replace(/^\n+|\s+$/g, "");
@@ -391,29 +382,6 @@ function endAt(lines: string[], start: number): number {
 		if (
 			!fenced &&
 			(HEADING.test(line) ||
-				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
-		) {
-			return i;
-		}
-	}
-	return lines.length;
-}
-
-/**
- * Where the findings report starting at `start` ends: at the next heading of
- * `##` or above, or the questions that follow it, outside code blocks.
- */
-function findingsEnd(lines: string[], start: number): number {
-	let fenced = false;
-	for (let i = start; i < lines.length; i += 1) {
-		const line = lines[i] as string;
-		if (FENCE.test(line)) {
-			fenced = !fenced;
-			continue;
-		}
-		if (
-			!fenced &&
-			(/^#{1,2}[ \t]/.test(line) ||
 				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
 		) {
 			return i;
@@ -455,11 +423,62 @@ function listAt(
 	if (!items.every(asks)) {
 		return null;
 	}
+	const questions = items.map(({ asked, body }) =>
+		APPROVAL.test(asked.text)
+			? approving(settled(asked, body))
+			: settled(asked, body),
+	);
+	// The approval question is the one that blocks, so it reads last,
+	// whatever order it was written in. Numbers stay: a reply goes by them.
+	const approval = questions.filter((each) => APPROVAL.test(each.text));
 	return {
-		questions: items.map(({ asked, body }) => settled(asked, body)),
+		questions: [
+			...questions.filter((each) => !APPROVAL.test(each.text)),
+			...approval,
+		],
 		end,
 	};
 }
+
+/** An approval question: `Do you approve <the change, named>?`. */
+const APPROVAL = /^Do you approve\b/;
+
+/**
+ * An approval question with its `Plan: <name>` line taken out of its body as
+ * its `plan`. One with no plan offers, after its own choices, to ask for one,
+ * unless it already does.
+ */
+function approving(asked: Question): Question {
+	const lines = asked.body.split("\n");
+	const at = lines.findIndex((line) => PLAN.test(line));
+	if (at !== -1) {
+		asked.plan = (PLAN.exec(lines[at] as string)?.[1] ?? "").trim();
+		asked.body = dedent(lines.filter((_, index) => index !== at));
+		return asked;
+	}
+	asked.plan = null;
+	if (
+		asked.pick === "one" &&
+		!asked.choices.some((choice) => FULL_PLAN.test(choice.text))
+	) {
+		const last = asked.choices.at(-1)?.key ?? "`";
+		asked.choices.push({
+			key: String.fromCharCode(last.charCodeAt(0) + 1),
+			text: REQUEST_PLAN,
+			body: "",
+			why: "",
+			chosen: false,
+		});
+	}
+	return asked;
+}
+
+/** The line naming an approval question's plan page: `Plan: plan.html`. */
+const PLAN = /^plan:[ \t]*`?([^`\s]+\.html?)`?[ \t]*$/i;
+const FULL_PLAN = /\bfull plan\b/i;
+
+/** The choice an approval question with no plan adds, asking for one. */
+export const REQUEST_PLAN = "Request a full plan";
 
 /**
  * Whether an item asks, moving what its line says past its question to the

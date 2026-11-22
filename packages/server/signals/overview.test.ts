@@ -37,14 +37,16 @@ describe("overview", () => {
 			automations: [],
 			now: NOW,
 		});
-		expect(rows.map((row) => [row.name, row.armed])).toEqual([
+		expect(
+			rows.map((row) => [row.name, row.subscribers.some((each) => each.live)]),
+		).toEqual([
 			["mdom.released", true],
 			["core.done", false],
 		]);
 		expect(rows[0]?.project).toBe("mdom");
 	});
 
-	it("does not arm for an archived conversation or a paused automation", () => {
+	it("does not stay live for an archived conversation or a paused automation", () => {
 		const rows = overview({
 			raises: {},
 			probes: [],
@@ -68,7 +70,7 @@ describe("overview", () => {
 			],
 			now: NOW,
 		});
-		expect(rows[0]?.armed).toBe(false);
+		expect(rows[0]?.subscribers.some((each) => each.live)).toBe(false);
 		expect(rows[0]?.subscribers.map((each) => each.state)).toEqual([
 			"waiting",
 			"paused",
@@ -90,5 +92,50 @@ describe("overview", () => {
 			now: NOW,
 		});
 		expect(rows[0]?.raises.map((raise) => raise.by)).toEqual(["y", "x"]);
+	});
+	it("describes a signal by its probe, else its newest wait", () => {
+		const rows = overview({
+			raises: {},
+			probes: [
+				{
+					name: "s2s.up",
+					description: "the stack answers",
+					script: "true",
+					everyMs: 60_000,
+					cwd: "/repo",
+					conversation: "c1",
+					state: "running",
+					startedAt: "2026-11-19T11:00:00Z",
+					deadline: "2026-11-19T17:00:00Z",
+					passed: null,
+					subscribed: true,
+					count: 0,
+					runs: [],
+				},
+			],
+			waits: [
+				{
+					conversation: "c1",
+					title: null,
+					archived: false,
+					task: null,
+					waits: [
+						wait({ id: "w1", name: "s2s.up", description: "older words" }),
+						wait({ id: "w2", description: "mdom 2.4.0 on npm" }),
+						wait({
+							id: "w3",
+							description: "mdom 2.5.0 on npm",
+							startedAt: "2026-11-19T11:30:00Z",
+						}),
+					],
+				},
+			],
+			automations: [],
+			now: NOW,
+		});
+		const of = (name: string) =>
+			rows.find((row) => row.name === name)?.description;
+		expect(of("s2s.up")).toBe("the stack answers");
+		expect(of("mdom.released")).toBe("mdom 2.5.0 on npm");
 	});
 });

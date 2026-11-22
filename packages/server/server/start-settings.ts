@@ -1,5 +1,6 @@
 import { SYSTEM_STORES } from "../creds";
 import {
+	agyInstalled,
 	kimiInstalled,
 	type Offered,
 	RETIRED_AGENTS,
@@ -36,9 +37,9 @@ export function savedTunnelOf({
 }
 
 /**
- * The roster's agents, seeded with the defaults when there is none, with Kimi
- * added once when it is installed here, and with the default models agents
- * offer that the roster lacks.
+ * The roster's agents to pick from: the defaults when there is no roster,
+ * plus Kimi and Antigravity once each when installed here, and the default
+ * models agents offer that the roster lacks.
  */
 export async function seeded(
 	roster: Roster,
@@ -48,6 +49,9 @@ export async function seeded(
 	await roster.seed();
 	if (machine !== undefined && (await kimiInstalled(machine))) {
 		await roster.gain("kimi");
+	}
+	if (machine !== undefined && (await agyInstalled(machine))) {
+		await roster.gain("antigravity");
 	}
 	if (offered !== undefined) {
 		await roster.adopt(await offered.all());

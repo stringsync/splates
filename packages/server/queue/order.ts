@@ -14,6 +14,7 @@ export function queueOrder(all: readonly TaskRecord[]): TaskRecord[] {
 		.filter(
 			(task) =>
 				task.ship === undefined &&
+				task.closesOn === undefined &&
 				task.stage === "queued" &&
 				task.takenBy === null,
 		)
@@ -61,6 +62,7 @@ export function canStart(
 	const { open, lost, elsewhere } = holdsBack(task, all);
 	return (
 		task.ship === undefined &&
+		task.closesOn === undefined &&
 		task.takenBy === null &&
 		open.length === 0 &&
 		lost.length === 0 &&
@@ -144,7 +146,13 @@ export function unqueuedBlockers(
 			const blocker = all.find((other) => other.id === id);
 			// One under way needs nothing queued; links refuse a loop, and
 			// `seen` stops one all the same.
-			if (blocker === undefined || seen.has(id) || blocker.takenBy !== null) {
+			// One that closes on a signal is never queued: nothing for the person to do.
+			if (
+				blocker === undefined ||
+				seen.has(id) ||
+				blocker.takenBy !== null ||
+				blocker.closesOn !== undefined
+			) {
 				continue;
 			}
 			seen.add(id);
@@ -179,6 +187,7 @@ export function resumesItself(
 		deferred !== undefined &&
 		deferred.conversation !== undefined &&
 		task.ship === undefined &&
+		task.closesOn === undefined &&
 		task.takenBy === null &&
 		task.stage !== "running" &&
 		deferred.tasks.length > 0 &&

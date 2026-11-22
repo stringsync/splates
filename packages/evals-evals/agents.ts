@@ -36,7 +36,7 @@ export interface AgentRun {
 export const AGENTS = ["claude", "codex", "opencode", "kimi"];
 
 const TURNS = 30;
-const MINUTES = 10;
+const MINUTES = 5;
 const USD = 1;
 
 /**
@@ -261,7 +261,7 @@ async function runTurn(
 export interface AgentOptions {
 	cwd: string;
 	env: Record<string, string>;
-	/** How long each turn may run, 10 minutes by default. */
+	/** How long each turn may run, 5 minutes by default. */
 	minutes?: number;
 	/** Off by default: the agent runs once. */
 	followUp?: FollowUp;

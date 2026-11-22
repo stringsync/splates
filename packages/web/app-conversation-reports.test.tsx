@@ -59,7 +59,15 @@ describe("App's report cards", () => {
 		);
 		// The agent's own words sit above the card, not in it.
 		expect(merged.textContent).not.toContain("The header wraps now.");
-		expect(within(view).getByText("The header wraps now.")).not.toBeNull();
+		// At the thread's own size, as every other message is, not shrunk.
+		// Its size comes from the thread around it, as for every other message,
+		// never from a smaller one set on the words alone.
+		expect(
+			within(view)
+				.getByText("The header wraps now.")
+				.closest(".text-sm")
+				?.contains(merged),
+		).toBe(true);
 		const removed = within(view).getByRole("region", {
 			name: "removed footer",
 		});

@@ -1,7 +1,7 @@
 ---
 name: splates
-description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a proposal has a fixed `## 💡 Proposed` shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.15
+description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a plan with its approval question has a shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
+version: 2.0.16
 ---
 
 # Using splates
@@ -22,18 +22,43 @@ its moments say (error text included) when you answer. Never open rec.
 the composer, which offers every signal on the server) names a signal. Take it
 as the fact the user means you to act on or wait for, and see Waiting on an
 outside condition below: when they ask you to wait for it, `splates signal
-wait` on that exact name with a `--timeout` and a `--description`, adding
-`--since` when the fact may have been raised already; when they say it
-happened, `splates signal raise` it; when they ask about its state, the Signals page holds it, and a payload
-is the state when it was raised, so re-check before acting on it. A name no
-signal has yet is one nobody has raised or probed, which you may still wait on
-or raise. Never turn it into a polling loop.
+wait` on that exact name with a `--timeout` and a `--description` (a full sentence naming the fact and why it is awaited), adding
+`--since` when the fact may have been fired already; when they say it
+happened, `splates signal fire` it; when they ask about its state, the Signals page holds it, and a payload
+is the state when it was fired, so re-check before acting on it. A name no
+signal has yet is one nobody has fired or probed, which you may still wait on
+or fire. Never turn it into a polling loop.
+
+## Waiting for a server message
+
+To pause until a task finishes or the local machine stays idle, end the final
+agent reply with one directive on its own line:
+
+- `[SPLATES WAIT task <slug>]` waits for a started task in this project to
+  merge or be removed. An already finished task answers immediately; an
+  unknown task answers that the wait stopped.
+- `[SPLATES WAIT machine idle <duration>]` waits for a continuous period
+  below the existing machine Busy thresholds. Durations are positive whole
+  numbers followed by `ms`, `s`, `m` or `h`, for example `2m`.
+
+The server replies with `[SPLATES WAIT COMPLETE]` and what happened, resuming
+this conversation. A task removal is reported as removal, not success: check
+what it left before continuing. This notification grants no permission to run
+an expensive command or ship. Existing permission rules still apply.
+
+These are one-time message requests, independent of signals and subscriptions.
+Only the last agent message's final line registers a wait; a newer message
+replaces it, and archived conversations are ignored. No page or harness tool
+is required. The server checks every five seconds. Pending requests survive a
+server restart through conversation history; machine idle time starts over
+because the server cannot observe load while stopped. Use blockers for work
+that must wait on another task before merging.
 
 ## Principles
 
 The rules below follow from these. When a case is not covered, reason from them.
 
-1. **Get approval for work that is costly or hard to undo.** A wrong idea costs a few lines in a proposal and a rewrite once built, so a large task needs approval even if it is easy to revert.
+1. **Get approval for work that is costly or hard to undo.** A wrong idea costs a few lines in a plan and a rewrite once built, so a large task needs approval even if it is easy to revert.
 2. **Build so the work is easy to undo.** This applies to every task, approved or not: small commits, nothing that cannot be reverted.
 3. **Ask only what the answer would change.** Every other call is yours; the user's attention is the scarce thing.
 4. **Keep each task to one goal.** Finish what that goal needs in the task, and queue only what really needs to be separate.
@@ -48,22 +73,29 @@ Most of what follows fills in these steps. Hold to them even when you skip
 the rest:
 
 1. **Add a task before you look.** When a request may end in a code change,
-   run `splates add <task> --goal "<what done means>"` first (with `--tag
-   <project>` when the repository's config lists tags, and the project's name
+   run `splates add <task> --goal "<what done means>"` first (the project's name
    left out of the task name), then read and
    edit only in the worktree path it prints.
-2. **Propose while it is cheap (principle 1).** After your first look, a task's first reply is
-   a proposal card (Before | After, the one line, the calls it rests on as
-   numbered questions), and code waits for Approve unless the task is easy
-   to reverse and takes little effort to execute. For those tasks, start and
-   build without asking permission or waiting for proposal approval; say so
-   in a line. See [proposing.md](references/proposing.md).
+2. **Plan while it is cheap (principle 1).** When the user asks for a plan, or the
+   change touches UI, spans several services or tables, or will take several
+   commits, write a plan page (one HTML artifact) in place of the text plan:
+   the reply is one line and the approval question with a `Plan: <name>.html` line
+   (see [proposing.md](references/proposing.md), Plan page or text plan).
+   Otherwise, after your first look, a task's first reply is
+   a short plan (what changes, a picture when it needs one) ending in one
+   questions card whose last question is `Do you approve <the change, named>?` with Yes
+   and No, neither marked `(chosen)` so the user decides (short, at most one plain sentence under it, no bullets; the question itself names what is approved; see [proposing.md](references/proposing.md)), and code waits for the answer Yes unless the task is easy to
+   reverse and takes little effort to execute. For those tasks, start and
+   build without asking permission; say so in a line. Mockups are gold to the user, the quickest route to an
+   approval and an answer, and cost the machine almost nothing: make them
+   for any UI change or design question, hi-fi when that is trivial, polished
+   lo-fi in between, plain lo-fi at the least. See
+   [proposing.md](references/proposing.md).
 3. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-   **A proposal is the only card in its reply.** Its calls are its numbered
-   questions, so never send a separate questions card, run-command card, queue
-   card or any other card in the same turn: a turn holds a proposal or
-   questions, not both. Put every call in the proposal and end the turn.
+   **One questions card a reply.** Put every question in it, and end the turn
+   when it holds the approval question, since that is the only question you
+   wait on before writing code; for any other question carry on with your pick.
 4. **Go easy on a busy machine.** The user works on it beside other agents.
    What is heavy depends on the project and the hardware, and nothing enforces
    this, so it is your best effort:
@@ -103,6 +135,13 @@ the rest:
 8. **End with the report**, its title copied from Formats below, one line on
    what changed for the user, and nothing after it: the task is over, so the
    report asks nothing and offers nothing.
+   Before it, stop background commands you no longer need. A background
+   process alone does not mark the conversation as working. When work must
+   continue after a command or outside condition completes, stay in the turn
+   and await its result, or register an explicit signal/task/machine wait.
+   Say what you are waiting for and what you will do next before waiting.
+   Use a signal probe and wait for a condition that can be checked. A preview
+   server or watcher left available is not a continuation.
 9. **Work you added to the board ends its reply with the queue card**, in any
    conversation, task or not: once, last, naming every task you added
    (`splates queue add <ids>`), after any report and never in place of one's
@@ -126,24 +165,6 @@ When the user asks for a review, your reply is the Ready to merge card itself, c
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
 
-**Show a long task's progress on a card, not in chat.** For a background task
-that takes minutes (an import, a build, a long test run), report with
-`splates progress <id> "<what it is doing now>" --title "<name>" --percent <n>`
-instead of a chat line per step. It updates one card beside the thread, and
-the conversation's row spins while it runs. Pipe a command's output in with
-`-` as the text (`long-command | splates progress build -`) to stream it: each
-line becomes the note, and a `NN%` in it sets the percent. The server shows a
-card at most every two seconds and keeps only the newest of a burst, so report
-as often as is natural. Finish it with `--done` or `--failed`; use a background
-command's id as `<id>` and it closes when the command ends. Archiving the
-conversation clears its cards.
-
-A subagent you leave running in the background shows nothing on the page, since
-it runs inside your process and has no command to watch. Open a card for it
-when you start it (`splates progress <subagent> "<what it is doing>" --title
-"<name>"`), update it as it reports, and close it with `--done` or `--failed`
-when it reports back.
-
 ## Formats
 
 The `splates server` page turns these shapes, and only these, into cards the
@@ -160,6 +181,22 @@ order, your pick first by default:
    It is still called by the mobile app's last version.
    - (a) Keep it for one release, logging each call (chosen)
    - (b) Remove it now
+```
+
+**Choices that differ in how they look carry their image.** For mockup
+variants, or any choice the user would pick by seeing it, capture each one,
+`splates attach` it, and indent its `![what](/abs/path.png)` under its own
+choice, one image each, so the card shows every variant. A choice described
+only in words is unfinished; build the mock and capture it. This holds in
+every round (lo-fi, hi-fi, a design gate of a queued task, a talk with no
+task):
+
+```markdown
+1. Which style should the action list take?
+   - (a) A rail beside the thread (chosen)
+     ![rail](/abs/path/rail.png)
+   - (b) A bordered panel
+     ![panel](/abs/path/panel.png)
 ```
 
 When more than one choice can apply (which of several items to do, fix or
@@ -202,7 +239,14 @@ When the work is blocked and only set aside for later, remove it with
 `--reason blocked`, which asks why it stopped and what it waits on (a task
 in another project as `--blocked-by wren#404`), and report it
 blocked, the blockers in short after the colon, not removed. Ask any
-question the work waits on as a numbered question, never as a blocker. When
+question the work waits on as a numbered question, never as a blocker.
+No blocker, `--waiting-on` included, clears by itself unless it is a task that
+merges, so a fact a script can check (a tag exists, a deploy finished, a release
+is on npm) is no `--waiting-on`: attach a probe, `splates signal poll
+<project>.<name> --interval 5m --timeout 7d --description "<the fact that holds, and why it is awaited>" -- <script>`,
+and `splates signal wait` on it (Waiting on an outside condition below), as for
+a staging tag a ship has yet to create. Keep `--waiting-on` for what no
+script can check, such as a key only the user can get. When
 the tasks it waits on can be queued, end the reply with their queue card,
 the deferred task last, so the user queues them all in one press:
 
@@ -247,8 +291,42 @@ the readouts that help. It is plain markdown, so it reads as it is outside the
 page. [references/reporting.md](references/reporting.md), Reports, has the
 readouts (`stats`, `chart`, `progress`, `steps`, `gallery`, `d2`, callouts, a status table, a
 folded `### Details`) and their shapes; copy one from there. Any card's prose
-body (Merged, Done, Proposed and the rest, not Review or Questions) may use them too. A report asks
+body (Merged, Done and the rest, not Review or Questions) may use them too. A report asks
 nothing; when it ends an automation's run, send it before the Done report.
+
+Whenever the agent asks the user to carry out a sequence of manual actions,
+use a Steps conversation card. This includes click-by-click instructions in
+any app or console, fetching a key, and changing settings, even for a short
+sequence. Never put these instructions only in prose or a bare numbered list.
+Write the card in this exact format:
+`## 📋 Steps: <what it gets done>`, a line on why if it helps, then one
+numbered step a line, its detail and any command indented under it. Keep the
+list flat: never nest steps or sub-steps (`a.`, `-` or `1.` under a step). Each
+action is its own numbered step, so the user can check it off, keep their place
+and see it change when you resend the card. Steps
+end in no `?`; ask a question after the card, as its own numbered list. The
+page lets the user keep their place in it and pop it out beside another
+tab, so give every step in one card. A message from that pop-out opens with
+`(From the steps pop-out, on step <n> of <m> of "<title>": <the step>)`:
+answer about that step, briefly, and it shows in the pop-out. When a step is
+wrong or missing, send the whole card again under the same title with it
+fixed; the page swaps it in, marks the changed steps and keeps their place.
+Keep every step in the resend, the ones the user has checked included, and
+leave those word for word: a reworded or dropped step reads as changed, and
+sends the user back over what they already did:
+
+````markdown
+## 📋 Steps: Rotate the Stripe webhook secret
+
+The secret is rolled in Stripe's dashboard, which only you can reach.
+
+1. Open Stripe → Developers → Webhooks.
+2. Pick the `net-prod` endpoint and press **Roll secret**.
+3. Store the new secret as a cred:
+   ```
+   splates creds set STRIPE_WEBHOOK_SECRET
+   ```
+````
 
 Asking for a review is `## 🔍 Ready to merge <task> onto <base>`, with what
 changed, any screenshots, a `Checks:` line and the last line `Reply "merge",
@@ -275,7 +353,7 @@ of its own (`Reason: cost` or `Reason: risk` for any other reason, never
 `busy` when the command is also irreversible, costly or invasive), and under
 it why you ask and what it adds. End your turn after it. The user's Allow sends
 `[SPLATES RUN ALLOWED]`, and only then do you run it. The card is text: outside
-the page the user can type that directive, or `[SPLATES RUN DENIED]`, or `[SPLATES RUN ELSEWHERE]` (a `rec` card only: not at that machine), or answer
+the page the user can type that directive, or `[SPLATES RUN DENIED]`, or answer
 in plain words, and it means the same.
 
 ```markdown
@@ -362,10 +440,9 @@ page does. Running agents finish, and the user can still start their own.
 Both take `--dev <url>` (otherwise `SPLATES_DEV`) to reach the server.
 
 Only the user ships, and a ship starts from the user, never from you: from
-the Ships page, or by approving your ship card. Being told to ship, even
-"ship it yourself" from a user stepping away, is no leave to start one:
-run no target's ship command beyond `plan` and `done`, and answer with the
-ship card. A ship is what releases or
+the Ships page. Being told to ship, even "ship it yourself" from a user
+stepping away, is no leave to start one: run no target's ship command beyond
+`plan` and `done`, and say the ship starts from the Ships page. A ship is what releases or
 deploys a project (an npm release, a stack deploy); a merge is never a
 release, and you never run what a ship would (`npm publish`, a deploy, a
 target's `ship run`).
@@ -377,28 +454,16 @@ Never run `npm login` or `npm publish`: only the user starts a publish, and a sh
 A fix is out only once a release after it is: a fix committed after the
 last release tag is unreleased, and `<command> done <step>` of a target's
 release step (`publish`, `deploy`) prints `false` while the next release has
-yet to happen. When a release is due (a fix on the base that users are
-waiting on), even when the user tells you to ship it yourself, end your reply
-with a ship card: one `` - `<target>` <bump> `` line a
-target by the `name` its plan prints (`<command> plan` for each command
-under `ships` in `splates.config.ts`, which runs nothing), never the
-command, its bump `patch`, `minor` or
-`major` only when its plan prints a `bump` (a deploy target's prints none, so its
-line names the target alone; the server refuses a card that gives it one and tells
-you to resend), and the why under them saying what the release carries. Name a
-target's dependency too when it must release first. The user's Approve on
-the card starts the ship and sends `[SPLATES SHIP STARTED <run>]`; the card
-then follows the run, so carry on without waiting. A typed "approve" starts
-nothing: say the ship starts from the card's Approve or the Ships page.
-
-```markdown
-## 🔐 Permission: ship: release the slur fix
-
-- `@stringsync/mdom` minor
-- `@stringsync/vexml` patch
-
-mdom's slur fix is unreleased; vexml takes it.
-```
+yet to happen. When the user asks whether a fix is out, or a release is due,
+check what each target has already released: its plan, its
+release step's `done`, and its newest release or deploy tag
+(`git tag -l --sort=-creatordate`), asking `git merge-base --is-ancestor
+<fix> <tag>` whether the fix is in it. The user may have shipped from the
+Ships page since you last looked. A target that already carries the fix is
+not due: say which release carries it, and check the change works there.
+When a release is due (a fix on the base that users are waiting on), say
+which targets are due, in what order (a target's dependency first), and what
+each release carries; the user ships them from the Ships page.
 
 Agents may add empty lanes and remove empty lanes. Removing a lane containing
 tasks needs the user's remove-lane permission card (see
@@ -420,39 +485,65 @@ A board task sent from a failed step on the Ships page is that step's fix: take 
 ## Waiting on an outside condition
 
 Do not poll in a background loop for a fact outside your own process: a
-site, a cloud deploy, another agent's work. Raise and wait on a named signal,
+site, a cloud deploy, another agent's work. Fire and wait on a named signal,
 `<project>.<name>`, which shows the user a card in the conversation and on
 the Signals page, where a hidden loop shows nothing. Your own long command (a
 build or test run in the background) stays a background command: your harness
 wakes you when it exits, so nothing polls.
 
-- `splates signal raise mdom.released --data '{"version":"2.4.0"}'` announces
+- `splates signal fire mdom.released --data '{"version":"2.4.0"}'` announces
   it, with no approval. Every conversation waiting on the name at that moment
-  wakes with the payload; nothing is stored as current truth, so raise it
+  wakes with the payload; nothing is stored as current truth, so fire it
   when the fact holds.
-- `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 on npm"`
+- `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 is published on npm, so vexml can adopt it."`
   puts one card in the conversation, then end your turn. `--description` is
-  required: one short line on what you wait for, which the card shows in
-  every state. `--timeout` is required too (7d at most). `--since 5h` (or an
-  ISO time) also accepts a raise from after then, for a fact raised before
+  required: one or two plain sentences a stranger understands, naming the fact
+  that holds when it fires and why it is awaited (never a label like "stack up";
+  under 5 words is refused), which the card shows in every state. `--timeout` is required too (7d at most, or 1 year for clock calls). `--since 5h` (or an
+  ISO time) also accepts a firing from after then, for a fact fired before
   you began to wait; further back than 7 days is refused. After a push two
-  hours ago, `--since 2h` catches a raise that came before the wait.
+  hours ago, `--since 2h` catches a firing that came before the wait.
 - The conversation wakes with `[SPLATES SIGNAL <name>]` and the payload when
-  it is raised, or the same directive ending in `timeout` or `stopped` (the
+  it is fired, or the same directive ending in `timeout` or `stopped` (the
   person pressed Stop waiting). On `timeout`, decide what to do without the
   fact, or ask the user.
 - For a fact only a check can see (a stack finishing, a page changing),
   attach a probe before waiting, with no approval:
-  `splates signal probe aws.stack-ready --every 5m --timeout 6h --description "stack up" -- <script>`.
+  `splates signal poll aws.stack-ready --interval 5m --timeout 6h --description "The aws stack is up, so the deploy can verify it." -- <script>`.
   The server runs the script in the project's main tree, once at once when a
-  wait begins and then every `--every` (30s at the most often), and raises
-  the signal with its stdout when it exits 0 after failing. It stops once
+  wait begins and then every `--every` (30s at the most often), and fires
+  the signal with its stdout when it exits 0 after failing. Exit 1 for not
+  yet: any other failing exit shows the check as broken on the card. It stops once
   nothing waits on it, at its timeout, or when the user stops it; probing the
   name again replaces it. Then `splates signal wait` on the name as above.
-- A payload is the state when it was raised, not now: re-check before
+- A payload is the state when it was fired, not now: re-check before
   anything hard to undo (a purchase, a cutover, a deploy).
-- Between agents, one raises and another waits on the same name: the task
-  that releases runs `splates signal raise mdom.released --data ...`, and a
+- A signal may be a call, a signal function called with JSON5 arguments:
+  `clock.in("2 days")`, `aws.stack-ready({ stack: "x" })`. A plain value
+  maps to the signal function's main field; two spellings of one call are one
+  signal. A project declares its signal functions under `signals:` in
+  `splates.config.ts`, and a wait on a signal nothing can fire (no standard
+  or declared signal function, no probe, no firing in 7 days) is refused.
+- Clock signal functions fire automatically while subscribed: `clock.in("2 days")`,
+  `clock.at("next monday 9am")`, `clock.interval({ interval: "2 days", at: "9am", tz: "America/New_York" })`,
+  and `clock.cron({ expr: "0 9 * * 1", tz: "UTC" })`. The machine time zone is
+  the default, resolved on the card. Durations and local times are parsed or
+  refused; use `signal wait` with a timeout long enough to reach the firing.
+  Recurring clocks catch up once after downtime.
+- When work cannot start until an outside fact holds, do not start it and
+  wait: make the fact a task that closes on its signal and block on it.
+  `splates blocker add --closes-on mdom.released "mdom 2.4.0 on npm"` (from
+  the task's worktree) adds a task nobody works and the queue never starts,
+  blocks this task on it, and ends it as merged when the signal is fired,
+  clearing the blocker as any merged blocker does. `splates task add
+  --closes-on <signal>` and `splates task update <n> --closes-on <signal>`
+  (or `none`) do the same on the board. Only firings after the task was
+  attached count; `--since 2h` also takes an earlier one. The board keeps a
+  probe on that signal running while the task is open, which a probe timeout,
+  a broken check or the signal expiring never closes: remove the task to give
+  up.
+- Between agents, one fires and another waits on the same name: the task
+  that releases runs `splates signal fire mdom.released --data ...`, and a
   task needing it runs `splates signal wait mdom.released ...`.
 
 ## Seeing a bug in a browser
@@ -465,7 +556,7 @@ not the machine is busy, naming the exact command with a name and the URL to
 open: `rec --name <name> --url <url>`, adding `--docker` or `--tail` when the
 app's container or log file should be followed. End your turn after the card
 and never run `rec` without `[SPLATES RUN ALLOWED]`; this is a rule you
-keep, not a lock. On `[SPLATES RUN ELSEWHERE]` or `[SPLATES RUN DENIED]`, carry
+keep, not a lock. On `[SPLATES RUN DENIED]`, carry
 on without rec and do not offer it again in that conversation.
 
 ```markdown
@@ -496,24 +587,19 @@ the file when one arrives.
 | Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[SPLATES TASK #N]`                 | Take queued task N                                                                                                                                | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; then [queue.md](references/queue.md), Taking a queued task |
+| `[SPLATES TALK #N]` | The user wrote on queued task N while it is blocked, to talk about it | `splates task show N` and read what it is blocked by, then talk with the user as they wrote: answer, plan, refine its words with `splates task update`. Never `splates add` it, take it, change code or merge: it is not yours, and `splates merge` refuses while a blocker is open anyway. End with the answer, or a questions card; a Done report when the talk is over |
 | `[SPLATES TASK <task>]`             | Resume a task                                                                                                                                     | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands                                                                                                                                                                                                                                                                                                                                                                               |
 | `[SPLATES MERGE]`                   | The user approved your review, from the Ready to merge card                                                                                       | As for a reply of "merge": [merge.md](references/merge.md), Merge or review                                                                                                                                                                                                                                                                                                                                                                                    |
-| `[SPLATES APPROVE]`                 | The user approved your proposal, from its card, with any answers after it                                                                         | As for a reply of "approve": [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
+| `[SPLATES APPROVE]`                 | Legacy: an old proposal card was approved, with any answers after it                                                                         | Take it as Yes to the approval question: [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
 | `[SPLATES GROOM #N]` | You are the project's groomer: organize ungroomed Backlog task N and place it in a lane, never doing it | [groom.md](references/groom.md) |
-| `[SPLATES LANE N]` | Work down lane N (`backlog` or 0 is the Backlog lane) | `splates lane show N` prints the steps and whether the next is blocked; [queue.md](references/queue.md) |
-| `[SPLATES SHIP STARTED <run>]`      | The user approved your ship card, and the page started the ship as run `<run>` | Carry on: the card follows the run on the page, so wait on nothing |
-| `[SPLATES SHIP DECLINED]`           | The user declined your ship card, with any note after it | Nothing ships: carry on without it, and offer it again only when the user asks |
 | `[SPLATES RUN ALLOWED]`             | The user, or the server for a `Reason: busy` card once the machine is idle, allowed the command your run-command card asked to run | Run that command now, as the card asked, then carry on |
-| `[SPLATES RUN ELSEWHERE]`           | The user is not at the machine that can run the `rec` command your run-command card asked to run | Do not run it, and do not offer rec again in this conversation: carry on without it |
 | `[SPLATES RUN DENIED]`              | The user turned down the command your run-command card asked to run | Do not run it: carry on without it, or ask what to do instead |
 | `[SPLATES EVAL LOOP <run>]` | Improve the eval scenario the Evals page run `<run>` did not pass, or, as `[SPLATES EVAL LOOP scenario <id>]`, a scenario that may have no run, or passes | Add a task, then read [evals.md](references/evals.md), Starting from a run or a scenario, and work the loop there |
 | `[SPLATES RETRIED]`                 | The user granted your task another round of merge attempts, which the page has run `splates retry` for | Merge again, as [merge.md](references/merge.md) says under When a merge fails |
-| `[SPLATES GRANTED]`                 | The user gave the reach your grant card asked for, which the page has granted | Carry on with the work in the other project it was for, as [projects.md](references/projects.md) says |
-| `[SPLATES GRANT DENIED]`            | The user turned down the reach your grant card asked for | Nothing was granted: carry on without that reach, or ask what to do instead |
 | `[SPLATES CHECKPOINT]`              | Bring `SPLATES.md` up to date and stop, as before a restart                                                                                       | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `[SPLATES RESUME]`                  | Carry on from where `SPLATES.md` says you stopped                                                                                                 | [checkpoint.md](references/checkpoint.md)                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `[SPLATES BLOCKERS CLEARED]`        | The last task your work was blocked on has ended, so `splates merge` is open again | Carry on: finish what the blocker held back, then merge as usual |
-| `[SPLATES SIGNAL <name>]` | A signal you waited on was raised, with its payload, or ended with `timeout` or `stopped` | Carry on with the work the wait was for; see Waiting on an outside condition |
+| `[SPLATES SIGNAL <name>]` | A signal you waited on was fired, with its payload, or ended with `timeout`, `stopped`, or `removed: <why>` when its source disappeared | Carry on with the work the wait was for; see Waiting on an outside condition |
 | `[SPLATES RECONNECT]`               | A lost connection cut your last turn short, and splates, once it is back, or the user asks you to carry on                                        | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop                                                                                                                                                              |
 
 ## Reference files
@@ -547,7 +633,7 @@ show` says is `groomed: no`, and as the project's groomer:
   unasked):
   [references/demos.md](references/demos.md), demos, hosting and artifacts.
 - After your first look at any task, when the user asks what you think, and
-  when they approve a proposal:
+  and when they answer the approval question:
   [references/proposing.md](references/proposing.md).
 
 These only when their moment comes:
@@ -562,8 +648,8 @@ These only when their moment comes:
 - When your work needs a secret only the user can get, such as an API token:
   [references/creds.md](references/creds.md).
 - When work here needs another splates project, or you run `splates
---project`, or `[SPLATES GRANTED]` comes: [references/projects.md](references/projects.md),
-queuing work there and asking for a grant.
+--project`: [references/projects.md](references/projects.md),
+queuing work there and what a grant allows.
 - When `splates artifact add` stops on `too_large`, or the user asks about
   artifact space: [references/artifacts.md](references/artifacts.md).
 - When an eval scenario is not passing, in the splates repository, or
@@ -595,12 +681,12 @@ queuing work there and asking for a grant.
    queue).
 2. **Plan and propose.** After your first look at the code, fill in `## Before` and
    `## After` in `SPLATES.md` before touching code (see SPLATES.md below), and when the work will take several commits, list
-   them under `## Next` (see SPLATES.md below). Then send the proposal card
-   from them and end your turn; touch no code until Approve, unless the task
+   them under `## Next` (see SPLATES.md below). Then send the plan with its
+   approval question and end your turn; touch no code until it is answered Yes, unless the task
    is easy to reverse and takes little effort to execute: then start
    building without asking and say so in a line (see
    [proposing.md](references/proposing.md)). A queue-started task does the
-   same, waiting on its card with no one present when it needs one.
+   same, waiting on its question with no one present when it needs one.
 3. **Check for overlap.** Read `splates list --files`: each task's After line and
    the files it has changed so far. Overlap is normal: work alongside, and
    resolve any conflict as the rebase brings it, without waiting on the
@@ -608,14 +694,6 @@ queuing work there and asking for a grant.
    were asked, ask the user instead (see [Questions](references/questions.md)).
    `splates add` warns when file paths in the After or the first changes overlap
    open tasks. Coordinate those files or queue dependent work with `--blocked-by`.
-   It also prints up to three `related` tasks, in any state (queued, started,
-   or merged or removed in the last 30 days), as the board's most related to
-   your goal (`--related <k>` names more or fewer). Read each before building (`splates task show <id>`, `splates
-   show <task>`, `git show <commit>`). One that already does the work makes
-   yours moot: check trunk, then `splates remove --reason superseded`. One
-   that works against it is a question for the user. One you must wait on is
-   a `splates blocker add`. Otherwise carry on; a related task alone is no
-   reason to stop.
    While the server runs, `splates list` and `show` name coming conflicts at
    committed branch tips, and a working agent hears a notice when one appears.
    These checks never rebase a worktree; commit in steps so they can see the work.
@@ -790,3 +868,16 @@ more than 5 commits means the task wants splitting.
 `splates merge --message "<message>"` squashes the task to one commit before
 it lands: describe the net change, what the base gains, not the path you
 took.
+
+
+## Optional signal expiration
+
+Set automatic removal with `splates signal expire <name> --after 2h` or
+`--at 2026-12-01T17:00:00-05:00` (date-only means midnight UTC).
+`--clear` cancels expiration. `splates signal expire <name> --on-fire` makes a one-off
+signal: it is removed as soon as it fires, once its automations have run. Omitted expiration leaves a signal unchanged.
+The Signals page also edits the deadline. Expiration removes the whole signal,
+ends waiting conversations as removed, stops its probe, and pauses automations
+on it. It is independent of wait/probe timeouts and firing retention. Deadlines
+survive restarts; overdue signals are removed on startup. Raising the name again
+creates new activity without reviving its old deadline or paused automations.

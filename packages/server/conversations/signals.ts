@@ -1,6 +1,7 @@
 import type { Resource } from "core/disposable";
 import { Duration } from "core/time";
 import { fail } from "../exit";
+import type { SignalClock } from "../signals/clock-schedule";
 import {
 	LONGEST_WAIT_MS,
 	type SignalProbe,
@@ -12,6 +13,8 @@ import type { ConversationDeps, ConversationHost } from "./host";
 /** What `splates signal wait` asks for. */
 export interface SignalAsk {
 	name: string;
+	clock?: SignalClock;
+	family?: string;
 	description: string;
 	/** How long it may wait, in milliseconds. */
 	timeoutMs: number;
@@ -27,6 +30,9 @@ export function wakeOf(wait: SignalWait): string {
 	if (wait.state === "raised" && wait.raise !== undefined) {
 		const { by, at, payload } = wait.raise;
 		return `${head}\n\nraised by ${by} at ${at}, payload:\n\n${JSON.stringify(payload)}`;
+	}
+	if (wait.state === "removed") {
+		return `${head} removed: ${wait.reason ?? "source removed"}`;
 	}
 	return `${head} ${wait.state === "stopped" ? "stopped" : "timeout"}`;
 }
@@ -62,19 +68,30 @@ export class ConversationSignals {
 		if (!Number.isFinite(ask.timeoutMs) || ask.timeoutMs < 1000) {
 			fail("usage", "a wait needs a timeout of at least a second", {});
 		}
-		if (ask.timeoutMs > LONGEST_WAIT_MS) {
-			fail("usage", "a wait may last 7 days at most", {});
+		if (
+			ask.timeoutMs >
+			(ask.name.startsWith("clock.") ? 365 * 86400000 : LONGEST_WAIT_MS)
+		) {
+			fail(
+				"usage",
+				ask.name.startsWith("clock.")
+					? "a clock wait may last 1 year at most"
+					: "a wait may last 7 days at most",
+				{},
+			);
 		}
 		const now = this.host.now();
 		const wait: SignalWait = {
 			id,
 			name: ask.name,
+			clock: ask.clock,
 			description: ask.description,
 			state: "waiting",
 			startedAt: now,
 			deadline: new Date(this.deps.clock.now() + ask.timeoutMs).toISOString(),
 			since: ask.since,
 			task: this.host.state.task,
+			...(ask.family === undefined ? {} : { family: ask.family }),
 		};
 		this.keep(wait);
 		if (ask.already !== undefined && ask.already !== null) {
@@ -125,6 +142,17 @@ export class ConversationSignals {
 		return hit.length;
 	}
 
+	/** Ends every active wait on a source that can no longer fire. */
+	remove(name: string, reason: string): number {
+		const hit = this.host.state.signals.filter(
+			(each) => each.state === "waiting" && each.name === name,
+		);
+		for (const wait of hit) {
+			this.end({ ...wait, reason }, "removed", undefined, true);
+		}
+		return hit.length;
+	}
+
 	/** Shows `probe` as it stands on its card here, replacing the card of an earlier probe it replaced. */
 	showProbe(probe: SignalProbe): void {
 		this.host.log.write({ kind: "probe", probe });
@@ -164,20 +192,27 @@ export class ConversationSignals {
 		const left = Math.max(0, Date.parse(wait.deadline) - this.deps.clock.now());
 		this.timers.set(
 			wait.id,
-			this.deps.timer.setTimeout(() => {
-				const live = this.host.state.signals.find(
-					(each) => each.id === wait.id,
-				);
-				if (live?.state === "waiting") {
-					this.end(live, "timed out", undefined, true);
-				}
-			}, Duration.ms(left)),
+			this.deps.timer.setTimeout(
+				() => {
+					const live = this.host.state.signals.find(
+						(each) => each.id === wait.id,
+					);
+					if (live?.state === "waiting") {
+						if (Date.parse(live.deadline) > this.deps.clock.now()) {
+							this.schedule(live);
+						} else {
+							this.end(live, "timed out", undefined, true);
+						}
+					}
+				},
+				Duration.ms(Math.min(left, 2_147_483_647)),
+			),
 		);
 	}
 
 	private end(
 		wait: SignalWait,
-		state: "raised" | "timed out" | "stopped",
+		state: "raised" | "timed out" | "stopped" | "removed",
 		raise: SignalRaise | undefined,
 		wake: boolean,
 	): SignalWait {

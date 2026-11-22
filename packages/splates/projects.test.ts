@@ -118,9 +118,7 @@ describe("splates across projects", () => {
 		);
 		await onThere("task", "remove", "1");
 		expect(here.out()).toContain('"reason":"not_granted"');
-		expect(here.out()).toContain(
-			`## 🔐 Permission: grant ${thereSlug} tasks to ${hereSlug}`,
-		);
+		expect(here.out()).toContain(`splates projects grant ${hereSlug} tasks`);
 		expect(await there.tasks.all()).toHaveLength(1);
 
 		// The person, in the other project's main tree.
@@ -158,9 +156,7 @@ describe("splates across projects", () => {
 		await splates.run(deps, ["projects", "grant", thereSlug, "tasks"]);
 
 		expect(here.out()).toContain('"reason":"not_granted"');
-		expect(here.out()).toContain(
-			`## 🔐 Permission: grant ${hereSlug} tasks to ${thereSlug}`,
-		);
+		expect(here.out()).toContain(`splates projects grant ${thereSlug} tasks`);
 		expect(await here.projects.reach(there.root, here.root)).toBe("queue");
 	});
 

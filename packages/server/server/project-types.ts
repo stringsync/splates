@@ -8,12 +8,14 @@ import type { ElsewhereBoards, LaneRecord } from "../board";
 import type { Conversations, ConversationsHeard } from "../conversations";
 import type { SecretStores } from "../creds";
 import type { TranscriberFor } from "../dictate";
+import type { ClockShelf } from "../hooks";
 import type { Needing } from "../plans";
 import type { PortOwners, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import type { Format, Journal, Repository } from "../records";
 import type { ReplicaStatus } from "../replica";
 import type { Waiting } from "../ship";
+import type { SignalFunction, SignalRaise } from "../signals";
 import type { Snapshot } from "../tasks";
 import type { Assets } from "./assets";
 import type { EvalCardSource } from "./eval-card-watch";
@@ -87,10 +89,17 @@ export interface DevContext {
 	readonly shipLauncher?: Launcher;
 	/** What a run-evals card may name, for the watch that bounces one that cannot run; absent, as in a test of one project, none is checked. */
 	evalCards?: EvalCardSource;
+	/** What tasks that close on a signal read of it: its raises, and a probe to run on subscribing; absent, as in a test of one project, none close. */
+	signalTasks?: {
+		raises(): Promise<Record<string, SignalRaise[]>>;
+		subscribed(name: string): Promise<void>;
+	};
 	/** Calls `listener` whenever the workers' slots change, until the call it gives back. */
 	onWorkerRoom(listener: () => void): () => void;
 	/** Raises the signal `name` for every conversation waiting on it; absent, as in a test of one project, none is raised. */
 	raiseSignal?(name: string, by: string, payload: unknown): Promise<void>;
+	/** Where clock schedules are kept, for moving saved schedules onto clocks; absent, as in a test of one project, none move. */
+	clockShelf?(): ClockShelf;
 	/** Whether everything splates starts on its own waits, the person's own agents alone starting. */
 	paused(): boolean;
 	/** What `project`'s dictations transcribe with. */
@@ -111,13 +120,26 @@ export interface Served extends AsyncResource {
 	detachShips: () => Promise<boolean>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
+	/** The signal functions its `splates.config.ts` declares. */
+	signalFunctions: () => Record<string, SignalFunction>;
 	/** Fires its automations set on signal `name`; how many fired. */
+	/** Pauses automations whose source has expired. */
+	expireSignal: (name: string, why?: string) => Promise<void>;
+	/** Pauses its automations on a signal function not in `known`. */
+	retireFamilies: (known: Record<string, unknown>) => Promise<void>;
 	signalRaised: (name: string, by: string, payload: unknown) => Promise<number>;
 	/** How many of its automations, not paused, are set on signal `name`: each keeps a probe on it running. */
 	signalAutomations: (name: string) => Promise<number>;
 	/** Every automation set on a signal, paused or not. */
 	signalAutomationList: () => Promise<
-		{ id: string; name: string | null; signal: string; paused: boolean }[]
+		{
+			id: string;
+			name: string | null;
+			signal: string;
+			paused: boolean;
+			/** Set for a board task that closes on the signal. */
+			task?: number;
+		}[]
 	>;
 	snapshot: Handler;
 	/**
@@ -187,6 +209,8 @@ export interface Served extends AsyncResource {
 	shipTargets: Handler;
 	/** Each target's unshipped commit count, read apart from the targets. */
 	shipUnshipped: Handler;
+	/** Each target's current version, read apart from the targets. */
+	shipCurrent: Handler;
 	/** Composes picked targets of the `ships` commands into one plan. */
 	shipPlan: Handler;
 	/** Every ship run, or, posted from the page, a new one started. */
@@ -203,9 +227,14 @@ export interface Served extends AsyncResource {
 	shipRunRetry: Handler;
 	/** Stops a ship run, for the user only. */
 	shipRunStop: Handler;
+	shipRunTargetStop: Handler;
 	/** Sends a ship run's failed step to an agent, as a board task. */
 	shipRunSend: Handler;
+	shipRunSendTarget: Handler;
+	/** Adds a board task for an agent and starts one on it, answering its number. */
+	sendToAgent: (subject: string, text: string) => Promise<number>;
 	shipRunSupervise: Handler;
+	shipRunAutoApprove: Handler;
 	/** Sends a failed step round again for the started task fixing it. */
 	shipRunFixRetry: Handler;
 	/** Adds an agent's note to a ship run. */
@@ -253,7 +282,6 @@ export interface Served extends AsyncResource {
 	) => Promise<Promise<void>[]>;
 	moveConversation: Handler;
 	promptConversation: Handler;
-	reportProgress: Handler;
 	addArtifact: Handler;
 	removeArtifact: Handler;
 	deleteArtifactVersion: Handler;

@@ -77,13 +77,16 @@ export function SignalCheckForm({
 			});
 	};
 	return (
-		<section aria-label="signal check" className="flex min-w-0 flex-col gap-6">
+		<section
+			aria-label="signal poll script"
+			className="flex min-w-0 flex-col gap-6"
+		>
 			<TopBar
 				title={
 					<RouteTrail
 						items={[
 							{ label: "Signals", onClick: onBack },
-							{ label: isNew ? "New check" : form.name },
+							{ label: isNew ? "New poll script" : form.name },
 						]}
 					/>
 				}
@@ -139,7 +142,7 @@ export function SignalCheckForm({
 					</Field>
 					<div className="grid gap-6 sm:grid-cols-2">
 						<Field>
-							<FieldLabel htmlFor="check-every">Check every</FieldLabel>
+							<FieldLabel htmlFor="check-every">Poll every</FieldLabel>
 							<Input
 								id="check-every"
 								required
@@ -168,7 +171,7 @@ export function SignalCheckForm({
 				</FieldGroup>
 				<p className="text-muted-foreground text-sm">
 					It checks only while an agent or an automation waits on the signal,
-					and raises it the first time a run passes.
+					and fires it the first time a run passes.
 				</p>
 				<div className="flex flex-col gap-3">
 					<div className="flex flex-wrap items-center gap-2">

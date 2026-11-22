@@ -2,14 +2,7 @@ import { useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import { ReadingPlace } from "#web/components/assistant-ui/elements/thread-place.aui.ts";
 
-/**
- * Keeps `viewport`'s scroll padding at the bottom as tall as `footer`, which
- * sticks over the foot of the thread, so what is scrolled into view, as by
- * focusing it, lands above the composer rather than behind it. None while
- * the focus is in the footer: it sits in that padding itself, so the browser,
- * keeping the composer's caret in view, would scroll the thread at each key
- * while the footer stuck along with it.
- */
+/** Keep focused thread content clear of the sticky composer. */
 export function useClearOf(
 	viewport: RefObject<HTMLDivElement | null>,
 	footer: RefObject<HTMLDivElement | null>,
@@ -47,13 +40,9 @@ export function useClearOf(
 	}, [viewport, footer]);
 }
 /** The timeline of work still going on, opened by the person. */
-const FOLLOWED = '[data-slot="work"] details[open][data-working]';
-/**
- * Keeps `viewport` at its bottom as it grows while the person has the
- * timeline of work still going on open and was at the bottom, so they watch
- * it come. assistant-ui would stop following once a disclosure in a message opened.
- * Scrolling up lets go; scrolling back to the bottom takes hold again.
- */
+const FOLLOWED =
+	'[data-slot="work"] [data-slot="collapsible"][data-open][data-working]';
+/** Follow an expanded live work timeline until the reader scrolls up. */
 export function useFollowWork(
 	viewport: RefObject<HTMLDivElement | null>,
 ): void {
@@ -91,19 +80,7 @@ export function useFollowWork(
 		};
 	}, [viewport]);
 }
-/**
- * Keeps what the person is reading where it is when the thread changes above
- * it, as earlier messages load, an image above comes in or a card above
- * grows, which the browser's own scroll anchoring does not hold here. The
- * place is a `ReadingPlace`: when the thread resizes without scrolling, the
- * thread scrolls by as much as the place drifted. A scroll, by anyone, only
- * takes a new place, so the person's own scroll or a jump to a question or to
- * the latest is never undone. Each message is watched as well as the whole,
- * since the room kept below a turn anchored to the top shrinks by what grows
- * above, and the whole keeps its height. Earlier messages put above are held
- * in the commit that adds them, after assistant-ui's own hold, which puts
- * back the first message and so misses by however far it was stuck.
- */
+/** Preserve the reader's position when earlier thread content changes height. */
 export function useHoldPlace(viewport: RefObject<HTMLDivElement | null>): void {
 	const count = useAuiState((s) => s.thread.messages.length);
 	const first = useAuiState((s) => s.thread.messages[0]?.id);

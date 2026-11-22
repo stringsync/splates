@@ -78,6 +78,10 @@ see the header
 		expect(dialog.textContent).toContain("ship the thing");
 		expect(dialog.textContent).not.toContain("see the header");
 		expect(within(dialog).queryAllByRole("tab")).toEqual([]);
+		const disclosure = within(dialog).getByRole("button", { name: "Details" });
+		expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+		await act(async () => fireEvent.click(disclosure));
+		expect(disclosure.getAttribute("aria-expanded")).toBe("true");
 		expect(within(dialog).getByText("Merges tried")).toBeTruthy();
 	});
 

@@ -5,7 +5,6 @@ export type {
 	ProjectConfig,
 	RecConfig,
 	RecLogSource,
-	TagsConfig,
 } from "./config";
 export { defineConfig } from "./config";
 export {
@@ -32,4 +31,3 @@ export { recLogSources } from "./rec-logs";
 export type { PathScope, ShipSettings } from "./scopes";
 export { pickScope, Scopes, shipSettings } from "./scopes";
 export { typedConfig } from "./source";
-export { Tags } from "./tags";

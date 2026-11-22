@@ -130,9 +130,7 @@ describe("App's todo edits", () => {
 				}),
 			],
 		});
-		expect(
-			view.getByRole("img", { name: "files" }).parentElement?.textContent,
-		).toBe("2");
+		expect(view.getByTitle("files").textContent).toBe("2 files");
 
 		await act(async () => fireEvent.click(view.getByText("fix the chart")));
 		const save = await waitFor(() =>

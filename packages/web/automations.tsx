@@ -2,14 +2,13 @@ import type { AutomationRow, Hook, Trigger } from "@splates/server/hooks";
 import { GROOMER_AUTOMATION, runsNow } from "@splates/server/hooks/browser";
 import { useReactive } from "core/react";
 import {
-	ChevronRightIcon,
 	CirclePlayIcon,
 	PauseIcon,
 	PencilIcon,
 	PlayIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
@@ -21,137 +20,99 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutoPickMark } from "./auto-pick-log";
 import { AutomationDraft } from "./automation-draft";
 import { AutomationFace, type RunOpens } from "./automation-face";
 import { AddForm, AutomationForm } from "./automation-form";
-import { AutomationList } from "./automation-list";
-import { ReadFailed, ReadingNow } from "./countdown";
+import type { AutomationList } from "./automation-list";
 import {
 	type Groom,
 	GroomerForm,
 	GroomerOff,
 	groomerPick,
 } from "./groomer-card";
-import { useReading } from "./page-readings";
 import { PHONE_HEADING } from "./phone-rows";
-import { Refusal } from "./refusal";
-import { TopBar } from "./top-bar";
 
 /**
- * The Automations page: lists what runs on a task event or a schedule, with
- * when each last ran. Edit, pause or remove one (removing asks first), or add
- * one with the form. Pass `opens` to open a run's task or conversation.
+ * What runs on a task event or a schedule, under the Subscriptions tab's
+ * signals: yours, the checked-in `on` commands and the built-in groomer, each
+ * with when it last ran. Edit, pause or remove one (removing asks first), or
+ * add one with the form. Pass `opens` to open a run's task or conversation.
  */
-export function AutomationsPage({
+export function ScheduledAutomations({
+	list,
 	opens,
-	onAutoPick,
 }: {
+	list: AutomationList;
 	opens: RunOpens;
-	/** Opens the Auto pick page, from its card. */
-	onAutoPick: () => void;
-}): JSX.Element {
-	const list = useReading("automations", () => new AutomationList());
-	useEffect(() => void list.read(), [list]);
-	const { rows, refusal, own, checkedIn, builtIn, groomer, saving } =
-		useReactive(
-			list,
-			(list) => ({
-				saving: new Set(
-					(list.rows ?? [])
-						.filter((each) => list.isPending(each.id))
-						.map((each) => each.id),
-				),
-				rows: list.rows,
-				refusal: list.refusal,
-				own: list.own,
-				checkedIn: list.checkedIn,
-				builtIn: list.builtIn,
-				groomer: list.groomer,
-			}),
-			["changed"],
-		);
+}): JSX.Element | null {
+	const { rows, own, checkedIn, builtIn, groomer, saving } = useReactive(
+		list,
+		(list) => ({
+			saving: new Set(
+				(list.rows ?? [])
+					.filter((each) => list.isPending(each.id))
+					.map((each) => each.id),
+			),
+			rows: list.rows,
+			own: list.own.filter((each) => !("signal" in each.trigger)),
+			checkedIn: list.checkedIn,
+			builtIn: list.builtIn,
+			groomer: list.groomer,
+		}),
+		["changed"],
+	);
+	if (rows === null) {
+		return null;
+	}
 	return (
-		<section aria-label="automations" className="flex min-w-0 flex-col gap-8">
-			<TopBar title="Automations" />
+		<section
+			aria-label="task events and schedules"
+			className="flex min-w-0 flex-col gap-8"
+		>
 			<p className="text-muted-foreground text-sm">
 				What runs on a task event or a schedule, while splates server runs. A
 				schedule that came due while it was down runs once as it starts.
 			</p>
-			{/* Apart from the list, so it opens however reading that goes. */}
-			<AutoPickCard onOpen={onAutoPick} />
-			{rows === null ? (
-				refusal === null ? (
-					<ReadingNow label="Reading automations…" />
-				) : (
-					<ReadFailed error={refusal} onRetry={() => void list.read()} />
-				)
-			) : (
-				<>
-					<Refusal refusal={refusal} />
-					<Group
-						title="Yours"
-						detail="Kept on this machine, never checked in, since an agent spends your tokens."
-						empty="None yet: add one below."
-						rows={own}
-						saving={saving}
-						opens={opens}
-						onEdit={(row, trigger, hook, name) =>
-							list.edit(row, trigger, hook, name)
-						}
-						onPause={(row, paused) => void list.pause(row, paused)}
-						onRun={(row) => void list.run(row)}
-						onRemove={(row) => void list.remove(row)}
-					/>
-					{checkedIn.length > 0 && (
-						<Group
-							title="Checked in"
-							detail="The `on` commands in splates.config.ts, which run for everyone on this project."
-							rows={checkedIn}
-							saving={saving}
-							opens={opens}
-						/>
-					)}
-					<Group
-						title="Built in"
-						detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation."
-						rows={builtIn}
-						saving={saving}
-						opens={opens}
-						onGroom={(pick) => list.groom(pick)}
-						onPause={(row, paused) => void list.pause(row, paused)}
-						onRun={(row) => void list.run(row)}
-						onRemove={(row) => void list.remove(row)}
-					>
-						{groomer === null && (
-							<GroomerOff onGroom={(pick) => list.groom(pick)} />
-						)}
-					</Group>
-				</>
+			<Group
+				title="Yours"
+				detail="Kept on this machine, never checked in, since an agent spends your tokens."
+				empty="None yet: add one below."
+				rows={own}
+				saving={saving}
+				opens={opens}
+				onEdit={(row, trigger, hook, name) =>
+					list.edit(row, trigger, hook, name)
+				}
+				onPause={(row, paused) => void list.pause(row, paused)}
+				onRun={(row) => void list.run(row)}
+				onRemove={(row) => void list.remove(row)}
+			/>
+			{checkedIn.length > 0 && (
+				<Group
+					title="Checked in"
+					detail="The `on` commands in splates.config.ts, which run for everyone on this project."
+					rows={checkedIn}
+					saving={saving}
+					opens={opens}
+				/>
 			)}
+			<Group
+				title="Built in"
+				detail="Set by splates, which keeps what each is told. Removing the groomer turns it off, retiring its conversation."
+				rows={builtIn}
+				saving={saving}
+				opens={opens}
+				onGroom={(pick) => list.groom(pick)}
+				onPause={(row, paused) => void list.pause(row, paused)}
+				onRun={(row) => void list.run(row)}
+				onRemove={(row) => void list.remove(row)}
+			>
+				{groomer === null && (
+					<GroomerOff onGroom={(pick) => list.groom(pick)} />
+				)}
+			</Group>
 			<AddForm onAdd={(trigger, hook, name) => list.add(trigger, hook, name)} />
 		</section>
-	);
-}
-
-/** Auto pick, as a card that opens its page of rules and log of picks. */
-function AutoPickCard({ onOpen }: { onOpen: () => void }): JSX.Element {
-	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left shadow-xs hover:bg-accent active:bg-accent"
-		>
-			<AutoPickMark className="size-8" />
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="font-medium text-sm">Auto pick</span>
-				<span className="text-muted-foreground text-xs">
-					Picks the agent, model and effort for a task started with none named,
-					by the rules you set.
-				</span>
-			</span>
-			<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-		</button>
 	);
 }
 

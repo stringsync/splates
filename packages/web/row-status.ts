@@ -1,4 +1,5 @@
 import { deferralBlockers } from "@splates/server/board/browser";
+import { eventWaitOf } from "@splates/server/conversations/browser";
 import { type Needing, unanswered } from "@splates/server/plans/browser";
 import type { SignalWait } from "@splates/server/signals";
 import { useContext } from "react";
@@ -81,9 +82,9 @@ export function statusOf(
 	queued = false,
 	blockers: { left: number; total: number } | null = null,
 ): RowStatus {
-	const waiting = waitingSignal(row.conversation);
-	if (waiting !== null) {
-		const text = `Waiting on ${waiting.name} · ${timeLeft(waiting.deadline, Date.now())} left`;
+	const waiting = automaticWait(row.conversation);
+	if (waiting !== null && row.need.kind !== "waiting") {
+		const text = waiting;
 		return { text, label: text, urgent: false, signal: true };
 	}
 	const { text, urgent } = fullStatus(
@@ -98,7 +99,9 @@ export function statusOf(
 	const label =
 		row.need.kind === "working" && text === row.need.subject
 			? "Working"
-			: shorten(text);
+			: text.startsWith("Agent idle ·")
+				? text
+				: shorten(text);
 	return { text, label, urgent };
 }
 
@@ -109,6 +112,33 @@ export function waitingSignal(
 	return (
 		conversation?.signals?.find((wait) => wait.state === "waiting") ?? null
 	);
+}
+
+/** The continuation the server will resume without another user message. */
+export function automaticWait(
+	conversation: Needing["conversation"],
+): string | null {
+	if (
+		conversation === null ||
+		conversation.archived ||
+		!["idle", "running"].includes(conversation.status)
+	) {
+		return null;
+	}
+	const signal = waitingSignal(conversation);
+	if (signal !== null) {
+		return `Waiting on ${signal.name} · ${timeLeft(signal.deadline, Date.now())} left`;
+	}
+	if (conversation.status !== "idle") {
+		return null;
+	}
+	const wait = eventWaitOf(conversation.messages.at(-1));
+	if (wait === null) {
+		return null;
+	}
+	return wait.type === "task"
+		? `Waiting for ${wait.task}`
+		: "Waiting for machine idle";
 }
 
 function fullStatus(
@@ -191,8 +221,8 @@ function fullStatus(
 			removed: "Removed",
 			deferred:
 				blockers !== null && blockers.left > 0
-					? `Deferred · ${blockers.left} of ${blockers.total} left`
-					: "Deferred",
+					? `Blocked · ${blockers.left} of ${blockers.total} left`
+					: "Blocked",
 			// From before escalating was retired.
 			escalated: "Escalated",
 			working: "Working",
@@ -204,6 +234,9 @@ function fullStatus(
 	}
 	if (conversation?.unread === true) {
 		return { text: "New reply", urgent: false };
+	}
+	if (conversation?.background.some((command) => command.state === "running")) {
+		return { text: "Agent idle · background commands running", urgent: false };
 	}
 	// What the agent called it, under the task it goes by.
 	if (conversation?.title != null && conversation.title !== name) {

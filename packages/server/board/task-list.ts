@@ -34,26 +34,16 @@ export interface TaskListOptions {
 	ready?: boolean;
 	/** This project's slug, when listed from another: ids are then written `slug #N`. */
 	project?: string;
-	/** Only the tasks with this tag. */
-	tag?: string;
 }
 
 export async function taskList(
 	{ tasks, log }: { tasks: Tasks; log: Logger },
-	{
-		json = false,
-		open = false,
-		ready = false,
-		project,
-		tag,
-	}: TaskListOptions = {},
+	{ json = false, open = false, ready = false, project }: TaskListOptions = {},
 ): Promise<void> {
 	const every = await tasks.all();
 	const listed = every.filter(
 		(task) =>
-			(!open || task.takenBy === null) &&
-			(!ready || isReady(task.state)) &&
-			(tag === undefined || task.tags.includes(tag)),
+			(!open || task.takenBy === null) && (!ready || isReady(task.state)),
 	);
 	if (json) {
 		log.info(
@@ -83,7 +73,6 @@ export async function taskList(
 				"POS",
 				"ID",
 				"PROJECT",
-				"TAGS",
 				"SUBJECT",
 				"STAGE",
 				"BLOCKED BY",
@@ -97,7 +86,6 @@ export async function taskList(
 				String(task.position),
 				project === undefined ? String(task.id) : `${project} #${task.id}`,
 				task.scope ?? "",
-				task.tags.join(","),
 				task.subject,
 				task.state.stage,
 				[
@@ -197,7 +185,6 @@ export async function taskShow(
 			? []
 			: [`  slug:      ${task.state.slug}`]),
 		...(task.scope === null ? [] : [`  project:   ${task.scope}`]),
-		...(task.tags.length === 0 ? [] : [`  tags:      ${task.tags.join(", ")}`]),
 		`  position:  ${task.position}`,
 		`  stage:     ${task.state.stage}`,
 		// So whoever starts it knows whether grooming is still to do.
@@ -219,9 +206,10 @@ export async function taskShow(
 			(wait) =>
 				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TaskRecord)}`,
 		),
-		...(task.state.blockersLanded ?? []).map(
-			(landed) =>
-				`  landed:    #${landed.id} ${landed.subject}, as ${landed.commit}`,
+		...(task.state.blockersLanded ?? []).map((landed) =>
+			landed.fired === undefined
+				? `  landed:    #${landed.id} ${landed.subject}, as ${landed.commit}`
+				: `  landed:    #${landed.id} ${landed.subject}, closed when ${landed.fired.signal} was fired at ${landed.fired.at}`,
 		),
 		...((task.state.blockersLost ?? []).length === 0
 			? []

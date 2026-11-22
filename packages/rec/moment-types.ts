@@ -47,6 +47,7 @@ export interface MomentEvent {
 	selector?: string;
 	text?: string;
 	still?: string;
+	structure?: string;
 	label?: string;
 	elements?: { component?: string; selector?: string; text?: string }[];
 }
@@ -71,6 +72,7 @@ export interface Moment {
 	said?: string;
 	pointed?: string;
 	still?: string;
+	structure?: string;
 	signals: Signal[];
 	judgment?: Judgment;
 }

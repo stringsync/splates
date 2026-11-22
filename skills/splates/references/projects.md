@@ -47,24 +47,11 @@ The report page here needs it to show prices by locale.
 Several tasks for the same project go on one card (`queue wren #404,
 #405: ...`). The card is an offer: the work is the user's to start.
 
-## Asking for a grant
+## When a grant is missing
 
-Whenever work here needs more of another project than it grants, ask for it
-with the grant card, rather than work around it: the project that grants
-first, then the reach, then this project, and under it what you would do
-with it. End your turn after it.
-
-```markdown
-## 🔐 Permission: grant wren queue to splates: queue the locale change
-
-The report page here needs `format()` to take a locale; once allowed, this
-queues that in wren for its own agent.
-```
-
-Its Allow grants the reach from the page and sends `[SPLATES GRANTED]`:
-carry on with the work it was for, ending with the queue card above when
-it queued a task. `splates projects grant` is the user's alone, refused an
-agent, so never run it. Its Deny sends `[SPLATES GRANT DENIED]`, with
-any note after it: carry on without the reach. For a repository that is not a splates project
-yet, ask before you `splates init` it, which makes it one any agent can
-reach.
+Whenever work here needs more of another project than it grants, say which
+reach it needs, in which project, and what you would do with it, and carry on
+without it, rather than work around it. `splates projects grant` is the
+user's alone, refused an agent, so never run it. For a repository that is not
+a splates project yet, ask before you `splates init` it, which makes it one
+any agent can reach.

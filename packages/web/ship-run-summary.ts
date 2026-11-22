@@ -7,7 +7,12 @@ import type {
 import { waves } from "@splates/server/ship/browser";
 
 /** Where a target stands, from its steps, as its card shows it. */
-export type TargetStatus = "waiting" | "running" | "done" | "failed";
+export type TargetStatus =
+	| "waiting"
+	| "running"
+	| "done"
+	| "failed"
+	| "stopped";
 
 export type TargetSummary = {
 	name: string;
@@ -23,19 +28,11 @@ export type TargetSummary = {
 	failed: StepState[];
 	/** Waits on the user to answer a prompt. */
 	asking: boolean;
-	/** The prompts its steps have open, in step order. */
 	prompts: StepPrompt[];
 	/** The sign-in links its running steps went through. */
 	signedIn: { step: string; url: string }[];
 	/** Each step's agent fix, at work or ended, in step order. */
 	fixes: StepFix[];
-};
-
-/** A step sent to an agent: its board task, and how it ended, absent while at work. */
-export type StepFix = {
-	step: string;
-	task: number;
-	ended?: "merged" | "removed";
 };
 
 /** A prompt open on one of a target's steps. */
@@ -50,9 +47,6 @@ export type RunSummary = {
 	finished: number;
 	count: number;
 };
-
-const ACTIVE = new Set(["checking", "running", "waiting"]);
-const FINISHED = new Set(["done", "skipped"]);
 
 /** `run` as the run view shows it: its targets in steps, each summed up. */
 export function summarize(run: RunState): RunSummary {
@@ -90,8 +84,9 @@ function summarizeTarget(target: TargetState, step: number): TargetSummary {
 	const ended = steps
 		.map((each) => each.ended)
 		.filter((at): at is number => at !== undefined);
-	const status: TargetStatus =
-		failed.length > 0
+	const status: TargetStatus = steps.some((each) => each.status === "stopped")
+		? "stopped"
+		: failed.length > 0
 			? "failed"
 			: steps.every((each) => FINISHED.has(each.status))
 				? "done"
@@ -125,6 +120,7 @@ function summarizeTarget(target: TargetState, step: number): TargetSummary {
 							step: each.id,
 							task: each.fix.task,
 							...(each.fix.ended !== undefined && { ended: each.fix.ended }),
+							...(each.fix.note !== undefined && { note: each.fix.note }),
 						},
 					],
 		),
@@ -142,6 +138,9 @@ function lineOf(
 	step: number,
 ): string {
 	const { steps } = target;
+	if (status === "stopped") {
+		return "Stopped by you";
+	}
 	if (status === "failed") {
 		const failed = steps.find((each) => each.status === "failed");
 		return (
@@ -150,7 +149,7 @@ function lineOf(
 	}
 	if (status === "waiting") {
 		if (steps.some((each) => each.status === "blocked")) {
-			return "Held back by a failed step";
+			return "Held back by a failed or stopped step";
 		}
 		return step === 0 ? "Starting" : `Starts when group ${step} is done`;
 	}
@@ -182,3 +181,15 @@ function firstLine(text: string | undefined): string | undefined {
 		.filter((line) => line !== "")
 		.at(0);
 }
+
+const ACTIVE = new Set(["checking", "running", "waiting"]);
+const FINISHED = new Set(["done", "skipped"]);
+
+/** A step sent to an agent: its board task, and how it ended, absent while at work. */
+export type StepFix = {
+	step: string;
+	task: number;
+	ended?: "merged" | "removed" | "abandoned";
+	/** What the agent last said, for a fix it abandoned. */
+	note?: string;
+};

@@ -4,17 +4,10 @@ import {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
-	RUN_ELSEWHERE,
 	recOf,
 	retryOf,
 } from "@splates/server/plans/browser";
-import {
-	BanIcon,
-	CheckIcon,
-	MonitorOffIcon,
-	RotateCcwIcon,
-	TerminalIcon,
-} from "lucide-react";
+import { BanIcon, CheckIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
 import { type JSX, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
@@ -67,9 +60,7 @@ export function RunCommandCard({
 			? RUN_ALLOWED
 			: sent?.includes(RUN_DENIED)
 				? RUN_DENIED
-				: sent?.includes(RUN_ELSEWHERE)
-					? RUN_ELSEWHERE
-					: chosen;
+				: chosen;
 	const auto = choice === RUN_ALLOWED && sent?.includes(AUTO_ALLOWED) === true;
 	const live = useLiveMachine(choice === null && retry === null && !rec);
 	const now = useNow(choice === null && retry === null);
@@ -130,9 +121,7 @@ export function RunCommandCard({
 											? auto
 												? "Auto-allowed, machine no longer busy:"
 												: "Allowed"
-											: choice === RUN_ELSEWHERE
-												? "Not on this device for"
-												: "Denied",
+											: "Denied",
 										{ kind: "command", command: proposal.command ?? "" },
 									],
 						title: choice,
@@ -150,7 +139,7 @@ export function RunCommandCard({
 			title={proposal.title ?? "Run a command"}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
-			<pre className="mx-4 mt-3 mb-2 overflow-x-auto rounded bg-muted px-3 py-2 text-sm">
+			<pre className="mx-4 mt-3 mb-2 whitespace-pre-wrap break-words rounded bg-muted px-3 py-2 text-sm">
 				<code>{proposal.command}</code>
 			</pre>
 			{proposal.body !== "" && <CardBody text={proposal.body} />}
@@ -200,9 +189,7 @@ export function RunCommandCard({
 								: auto
 									? "Auto-allowed: the machine was no longer busy"
 									: "Allowed"
-							: choice === RUN_ELSEWHERE
-								? "Not on this device"
-								: "Denied"}
+							: "Denied"}
 					</span>
 				) : (
 					<>
@@ -220,24 +207,6 @@ export function RunCommandCard({
 							)}
 							Deny
 						</Button>
-						{rec && (
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={send === null || busy !== null}
-								onClick={() =>
-									turn(() => answer(RUN_ELSEWHERE, "Not answered"))
-								}
-								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-							>
-								{busy === RUN_ELSEWHERE && showBusy ? (
-									<PendingSpinner shown />
-								) : (
-									<MonitorOffIcon data-icon="inline-start" />
-								)}
-								Not on this device
-							</Button>
-						)}
 						<Button
 							size="sm"
 							disabled={send === null || busy !== null}

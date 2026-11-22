@@ -8,7 +8,7 @@ describe("onDemand's page chunk", () => {
 
 	beforeEach(() => {
 		testing = new Testing();
-		testing.answerWithin(Duration.ms(300));
+		testing.loadWithin(Duration.ms(300));
 	});
 
 	afterEach(() => {

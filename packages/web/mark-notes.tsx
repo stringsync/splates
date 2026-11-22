@@ -1,55 +1,120 @@
 import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
-import {
-	type DOMAttributes,
-	type JSX,
-	type ReactNode,
-	type RefObject,
-	useLayoutEffect,
-	useRef,
-} from "react";
+import { type JSX, useEffect, useRef } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import type { Annotation } from "./annotation";
 
-/** The pointer handlers that drag a note card. */
-export type Grip = Pick<
-	DOMAttributes<HTMLElement>,
-	"onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel"
->;
+/**
+ * The notes on the marks as a list, one row a mark led by its number: the
+ * text the marks become. A picked mark's row is the one being written.
+ */
+export function MarkList({
+	annotation,
+	className,
+}: {
+	annotation: Annotation;
+	className?: string;
+}): JSX.Element {
+	const { marks, selected } = useReactive(
+		annotation,
+		(each) => ({ marks: each.marks, selected: each.selected }),
+		["changed"],
+	);
+	return (
+		<section
+			aria-label="marks"
+			className={cn("flex min-h-0 flex-col gap-1.5", className)}
+		>
+			<h2 className="px-0.5 font-medium text-white/60 text-xs uppercase tracking-wide">
+				Marks · {marks.length}
+			</h2>
+			{marks.length === 0 && (
+				// The list's room is held from the start, so drawing the first mark
+				// does not resize the board.
+				<p className="px-0.5 text-sm text-white/50">
+					Notes on what you draw go here.
+				</p>
+			)}
+			<ul className="flex min-h-0 flex-col gap-2 overflow-y-auto empty:hidden">
+				{marks.map((mark, at) => (
+					<MarkRow
+						// A mark is told apart by where it was drawn.
+						key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
+						annotation={annotation}
+						at={at}
+						picked={at === selected}
+					/>
+				))}
+			</ul>
+		</section>
+	);
+}
 
-/** Mark `at`'s note being written, led by its number, which drags it. */
-export function Note({
+/** Mark `at`'s note being written, led by its number. */
+function MarkRow({
 	annotation,
 	at,
-	grip,
-	bounds,
+	picked,
 }: {
 	annotation: Annotation;
 	at: number;
-	grip: Grip;
-	/** What the card must show whole within. */
-	bounds: RefObject<HTMLElement | null>;
+	picked: boolean;
 }): JSX.Element {
 	const touch = useTouch();
+	const row = useRef<HTMLLIElement>(null);
+	const field = useRef<HTMLTextAreaElement>(null);
 	const note = useReactive(annotation, (each) => each.marks[at]?.note ?? "", [
 		"changed",
 	]);
+	// A mark just drawn or picked on the image is there to be written about,
+	// though a finger taps to, keeping the keyboard down until then.
+	useEffect(() => {
+		if (!picked) {
+			return;
+		}
+		row.current?.scrollIntoView?.({ block: "nearest" });
+		if (!touch) {
+			field.current?.focus();
+		}
+	}, [picked, touch]);
 	return (
-		<Beside
-			annotation={annotation}
-			at={at}
-			bounds={bounds}
-			className="w-72 ring-2"
-			numberProps={grip}
+		<li
+			ref={row}
+			className={cn(
+				"flex shrink-0 cursor-text items-start gap-2 rounded-2xl border bg-[#1c1c1f] p-2 shadow-xl transition-[border-color,background-color]",
+				picked
+					? "border-[#ff1f8f]/60"
+					: "border-white/10 focus-within:border-white/25",
+			)}
+			onPointerDown={(event) => {
+				// Padding around the text is the box too: a press there writes.
+				if (event.target === event.currentTarget) {
+					event.preventDefault();
+					field.current?.focus();
+				}
+			}}
 		>
-			<input
-				// biome-ignore lint/a11y/noAutofocus: a mark just drawn is there to be written about, though a finger taps to, keeping the keyboard down until then
-				autoFocus={!touch}
+			<span
+				className={cn(
+					"mt-1 flex size-6 shrink-0 items-center justify-center rounded-full font-bold text-white text-xs",
+					picked ? "bg-[#ff1f8f]" : "bg-white/15",
+				)}
+			>
+				{at + 1}
+			</span>
+			<textarea
+				ref={field}
+				rows={1}
 				aria-label={`note on mark ${at + 1}`}
 				placeholder="What about it?"
 				value={note}
+				onFocus={() => {
+					if (!picked) {
+						annotation.select(at);
+					}
+				}}
 				onChange={(event) => annotation.write(at, event.target.value)}
 				onKeyDown={(event) => {
 					if (
@@ -61,7 +126,7 @@ export function Note({
 						// shortcut takes back the mark itself.
 						event.preventDefault();
 						annotation.undo();
-					} else if (event.key === "Enter") {
+					} else if (event.key === "Enter" && !event.shiftKey) {
 						event.preventDefault();
 						// Back to the board, where Undo and Delete work again.
 						event.currentTarget
@@ -70,154 +135,17 @@ export function Note({
 						annotation.select(null);
 					}
 				}}
-				className="min-w-0 flex-1 bg-transparent px-1 pointer-coarse:h-10 text-black text-sm pointer-coarse:text-base outline-none placeholder:text-black/40"
+				className="field-sizing-content max-h-48 min-h-8 min-w-0 flex-1 resize-none bg-transparent px-1 py-1 text-base text-white leading-6 caret-[#ff1f8f] outline-none placeholder:text-white/40"
 			/>
 			<Button
 				variant="ghost"
 				size="icon-xs"
 				aria-label={`remove mark ${at + 1}`}
 				onClick={() => annotation.remove(at)}
-				className="text-black/60 hover:bg-black/10 hover:text-black"
+				className="mt-0.5 text-white/60 hover:bg-white/10 hover:text-white"
 			>
 				<Trash2Icon />
 			</Button>
-		</Beside>
+		</li>
 	);
-}
-
-/**
- * Mark `at`'s note as written, led by its number: a drag moves it, a click
- * opens it again.
- */
-export function Label({
-	annotation,
-	at,
-	grip,
-	bounds,
-}: {
-	annotation: Annotation;
-	at: number;
-	grip: Grip;
-	/** What the card must show whole within. */
-	bounds: RefObject<HTMLElement | null>;
-}): JSX.Element {
-	const note = annotation.marks[at]?.note.trim() ?? "";
-	return (
-		<Beside
-			annotation={annotation}
-			at={at}
-			bounds={bounds}
-			className="w-max max-w-60 cursor-grab touch-none ring-1"
-			{...grip}
-		>
-			<button
-				type="button"
-				aria-label={`edit note on mark ${at + 1}: ${note}`}
-				// The pointer opens it on letting go of a press that never
-				// moved; this is the keyboard's click, which has no press.
-				onClick={(event) => {
-					if (event.detail === 0) {
-						annotation.select(at);
-					}
-				}}
-				className="line-clamp-3 min-w-0 cursor-grab px-1 text-left text-black text-sm"
-			>
-				{note}
-			</button>
-		</Beside>
-	);
-}
-
-/**
- * A card led by mark `at`'s number, beside where its note was dragged, or
- * else beside the number on the image, on the side away from the mark, moved
- * where it would run past `bounds` so its number stays there to drag.
- */
-function Beside({
-	annotation,
-	at,
-	bounds,
-	className,
-	numberProps,
-	children,
-	...grip
-}: Grip & {
-	annotation: Annotation;
-	at: number;
-	bounds: RefObject<HTMLElement | null>;
-	className: string;
-	/** What the number leading the card does, such as drag it. */
-	numberProps?: Grip;
-	children: ReactNode;
-}): JSX.Element {
-	const card = useRef<HTMLDivElement>(null);
-	const label = annotation.label(at);
-	const left = label.x / annotation.width;
-	const share = (annotation.badge * 1.4) / annotation.width;
-	const side = annotation.side(at);
-	// Laid out where it belongs first, then moved before it paints.
-	useLayoutEffect(() => {
-		const element = card.current;
-		const area = bounds.current?.getBoundingClientRect();
-		const image = element?.parentElement?.getBoundingClientRect();
-		if (!element || !area || !image) {
-			return;
-		}
-		element.style.transform = "";
-		const box = element.getBoundingClientRect();
-		// The board opens zooming in: screen pixels to layout ones.
-		const zoom = box.width / element.offsetWidth || 1;
-		const shift = fit(box, area, side, (share * image.width + 8 * zoom) * 2);
-		element.style.transform = `translate(${shift.x / zoom}px, ${shift.y / zoom}px)`;
-	});
-	return (
-		<div
-			ref={card}
-			className={cn(
-				"pointer-events-auto absolute z-10 flex -translate-y-1/2 items-center gap-1 rounded-lg bg-white p-1 shadow-xl ring-[#ff1f8f]",
-				className,
-			)}
-			style={{
-				top: `${(label.y / annotation.height) * 100}%`,
-				...(side === "right"
-					? { left: `calc(${left * 100}% + ${share * 100}% + 0.5rem)` }
-					: { right: `calc(${(1 - left) * 100}% + ${share * 100}% + 0.5rem)` }),
-			}}
-			{...grip}
-		>
-			<span
-				{...numberProps}
-				className={cn(
-					"flex size-6 shrink-0 items-center justify-center self-start rounded-full bg-[#ff1f8f] font-bold text-white text-xs",
-					numberProps !== undefined && "cursor-grab touch-none",
-				)}
-			>
-				{at + 1}
-			</span>
-			{children}
-		</div>
-	);
-}
-
-/**
- * How far to move a card at `box` so it shows whole within `area`: across its
- * point to the other `side`, `across` further, when it fits better there, then
- * in from each edge it still runs past, its number's edge winning.
- */
-function fit(
-	box: DOMRect,
-	area: DOMRect,
-	side: "left" | "right",
-	across: number,
-): { x: number; y: number } {
-	const flipped =
-		side === "right" ? box.left - across - box.width : box.right + across;
-	const past = (left: number) =>
-		Math.max(0, area.left - left) + Math.max(0, left + box.width - area.right);
-	const left = past(flipped) < past(box.left) ? flipped : box.left;
-	return {
-		x: Math.max(area.left, Math.min(left, area.right - box.width)) - box.left,
-		y:
-			Math.max(area.top, Math.min(box.top, area.bottom - box.height)) - box.top,
-	};
 }

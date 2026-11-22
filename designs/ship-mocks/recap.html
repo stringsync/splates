@@ -1,0 +1,175 @@
+<!doctype html><meta charset="utf-8"><title>Ship recap</title><style>
+:root{--radius:.625rem;--background:oklch(.968 .004 264);--foreground:oklch(.255 .014 264);
+--card:oklch(.993 .002 264);--muted:oklch(.928 .006 264);--muted-foreground:oklch(.52 .014 264);
+--brand:oklch(.32 .014 264);--brand-foreground:oklch(.97 .004 264);
+--destructive:oklch(.577 .215 27.3);--success:oklch(.6 .15 152);--warning:oklch(.666 .157 58.3);--info:oklch(.588 .158 241.966);
+--border:oklch(.885 .007 264);--input:oklch(.86 .008 264)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:#d9dbe0;color:var(--foreground);
+ display:flex;gap:28px;padding:28px;align-items:flex-start;-webkit-font-smoothing:antialiased;font-size:14px}
+.col{display:flex;flex-direction:column;gap:10px;align-items:center}
+.cap{font-weight:600;font-size:15px;color:oklch(.35 .01 264)}
+.phone{width:390px;background:var(--background);border-radius:28px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0/.12);padding:18px 16px 20px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.pad{padding:12px 14px}
+.h1{font-weight:700;font-size:18px;line-height:1.25}
+.sub{color:var(--muted-foreground);font-size:12.5px;margin-top:2px;line-height:1.4}
+.sec{font-size:11.5px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between;padding:2px 2px 0}
+.mono{font-family:"JetBrains Mono Variable",ui-monospace,Menlo,monospace;font-size:11.5px}
+.t{font-variant-numeric:tabular-nums}
+.row{display:flex;gap:10px;align-items:flex-start}
+.ic{width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.ic.ok{background:var(--success)}.ic.bad{background:var(--destructive)}.ic.warn{background:var(--warning)}
+.ic.ok::after{content:"✓"}.ic.bad::after{content:"!"}.ic.warn::after{content:"⏱";font-size:10px}
+.pill{display:inline-flex;align-items:center;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;white-space:nowrap;background:var(--muted);color:var(--muted-foreground)}
+.pill.ok{background:color-mix(in oklab,var(--success) 16%,var(--card));color:oklch(.45 .12 152)}
+.pill.warn{background:color-mix(in oklab,var(--warning) 20%,var(--card));color:oklch(.48 .13 58)}
+.pill.bad{background:color-mix(in oklab,var(--destructive) 14%,var(--card));color:var(--destructive)}
+.bar{height:6px;border-radius:3px;background:var(--muted);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:oklch(.55 .01 264)}
+.bar.w i{background:var(--warning)}
+.mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--foreground);opacity:.7}
+.err{background:oklch(.97 .012 27);border:1px solid color-mix(in oklab,var(--destructive) 25%,var(--border));border-radius:8px;padding:6px 9px;color:oklch(.45 .15 27);margin-top:8px;line-height:1.4}
+.flow{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;flex-wrap:wrap}
+.flow b{font-weight:600}
+.arrow{color:var(--muted-foreground)}
+.fold{display:flex;align-items:center;gap:10px;padding:11px 14px;color:var(--muted-foreground);font-size:13px}
+.fold .chev{margin-left:auto;font-size:15px}
+.tg{display:flex;justify-content:space-between;align-items:baseline;padding:10px 14px 0}
+.tg .n{font-weight:600}
+.btn{height:44px;border-radius:var(--radius);background:var(--brand);color:var(--brand-foreground);font-weight:600;display:flex;align-items:center;justify-content:center;font-size:15px}
+.hero{display:flex;gap:12px;align-items:center}
+.hero .big{width:40px;height:40px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.hero .big.y{background:var(--warning)}
+.chips{display:flex;gap:8px}
+.chip{flex:1;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--card)}
+.chip .v{font-size:20px;font-weight:700;line-height:1.1}.chip .l{font-size:11.5px;color:var(--muted-foreground);margin-top:2px}
+.chip.bad{border-color:color-mix(in oklab,var(--destructive) 30%,var(--border))}.chip.bad .v{color:var(--destructive)}
+.chip.warn{border-color:color-mix(in oklab,var(--warning) 40%,var(--border))}.chip.warn .v{color:oklch(.5 .13 58)}
+.chip.ok .v{color:oklch(.45 .12 152)}
+.sep{border-top:1px solid var(--border)}
+.wf{position:relative;height:14px;margin:3px 0}
+.wf span{position:absolute;top:3px;height:8px;border-radius:2px;background:color-mix(in oklab,var(--muted-foreground) 45%,var(--card))}
+.wf span.bad{background:var(--destructive)}.wf span.warn{background:var(--warning)}
+.wfrow{display:grid;grid-template-columns:78px 1fr 44px;gap:8px;align-items:center;font-size:12px}
+.wfrow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wfrow.dim{color:var(--muted-foreground)}
+.tab{display:flex;border:1px solid var(--input);border-radius:8px;overflow:hidden;font-size:12.5px}
+.tab span{flex:1;text-align:center;padding:6px 0;color:var(--muted-foreground);border-left:1px solid var(--input)}
+.tab span:first-child{border-left:0}.tab span.on{background:var(--brand);color:var(--brand-foreground);font-weight:600}
+</style>
+<body>
+
+<!-- A: Triage -->
+<div class="col"><div class="cap">A · Triage list</div>
+<div class="phone" id="a">
+ <div class="hero"><div class="big y">!</div><div><div class="h1">Shipped 4 targets in 14m 20s</div><div class="sub">2 steps failed and were fixed · 2 ran slow · 27 went fine</div></div></div>
+
+ <div class="sec"><span>Had problems</span><span>2</span></div>
+ <div class="card pad">
+  <div class="row"><span class="ic bad"></span><div style="flex:1;min-width:0">
+   <div style="display:flex;justify-content:space-between"><b>vexml · publish</b><span class="t" style="font-size:12px;color:var(--muted-foreground)">lost 1m 12s</span></div>
+   <div class="err mono">npm error 403 Forbidden: token expired</div>
+   <div class="flow"><span class="pill bad">failed</span><span class="arrow">→</span><span class="pill ok">Retried once, passed</span></div>
+  </div></div>
+  <div class="sep" style="margin:12px 0"></div>
+  <div class="row"><span class="ic bad"></span><div style="flex:1;min-width:0">
+   <div style="display:flex;justify-content:space-between"><b>net · deploy</b><span class="t" style="font-size:12px;color:var(--muted-foreground)">lost 6m 40s</span></div>
+   <div class="err mono">Stack net-web: UPDATE_ROLLBACK_COMPLETE</div>
+   <div class="flow"><span class="pill bad">failed</span><span class="arrow">→</span><span class="pill ok">Agent fix #812 merged</span><span class="arrow">→</span><span class="pill ok">passed</span></div>
+  </div></div>
+ </div>
+
+ <div class="sec"><span>Slow</span><span>vs. the usual</span></div>
+ <div class="card pad">
+  <div class="row"><span class="ic warn"></span><div style="flex:1">
+   <div style="display:flex;justify-content:space-between"><b>sound2score · build image</b><span class="t"><b>4m 12s</b> <span style="color:var(--muted-foreground);font-size:12px">usually 1m 50s</span></span></div>
+   <div class="bar w" style="margin-top:8px"><i style="width:100%"></i><div class="mark" style="left:44%"></div></div>
+  </div></div>
+  <div class="sep" style="margin:12px 0"></div>
+  <div class="row"><span class="ic warn"></span><div style="flex:1">
+   <div style="display:flex;justify-content:space-between"><b>vexml · check</b><span class="t"><b>3m 05s</b> <span style="color:var(--muted-foreground);font-size:12px">usually 1m 40s</span></span></div>
+   <div class="bar w" style="margin-top:8px"><i style="width:73%"></i><div class="mark" style="left:40%"></div></div>
+  </div></div>
+ </div>
+
+ <div class="sec"><span>Targets</span></div>
+ <div class="card" style="overflow:hidden">
+  <div class="fold"><span class="ic ok"></span><span style="color:var(--foreground);font-weight:600">mdom 2.4.0</span><span>8 steps fine</span><span class="t" style="margin-left:auto">2m 31s</span><span class="chev" style="margin-left:6px">›</span></div>
+  <div class="sep"></div>
+  <div class="fold"><span class="ic bad"></span><span style="color:var(--foreground);font-weight:600">vexml 5.1.0</span><span>7 fine · 1 retried</span><span class="t" style="margin-left:auto">6m 02s</span><span class="chev" style="margin-left:6px">›</span></div>
+  <div class="sep"></div>
+  <div class="fold"><span class="ic bad"></span><span style="color:var(--foreground);font-weight:600">net</span><span>6 fine · 1 fixed</span><span class="t" style="margin-left:auto">9m 18s</span><span class="chev" style="margin-left:6px">›</span></div>
+  <div class="sep"></div>
+  <div class="fold"><span class="ic warn"></span><span style="color:var(--foreground);font-weight:600">sound2score</span><span>6 fine · 1 slow</span><span class="t" style="margin-left:auto">7m 40s</span><span class="chev" style="margin-left:6px">›</span></div>
+ </div>
+ <div class="btn">Done</div>
+</div></div>
+
+<!-- B: Waterfall -->
+<div class="col"><div class="cap">B · Waterfall, fine steps folded</div>
+<div class="phone" id="b">
+ <div class="hero"><div class="big y">!</div><div><div class="h1">Shipped 4 targets in 14m 20s</div><div class="sub">Slowest: build image of sound2score, 4m 12s</div></div></div>
+ <div class="chips">
+  <div class="chip bad"><div class="v">2</div><div class="l">failed, fixed</div></div>
+  <div class="chip warn"><div class="v">2</div><div class="l">slow</div></div>
+  <div class="chip ok"><div class="v">27</div><div class="l">fine</div></div>
+ </div>
+ <div class="tab"><span class="on">Flagged</span><span>All 31 steps</span></div>
+
+ <div class="card" style="padding-bottom:12px">
+  <div class="tg"><span class="n">vexml 5.1.0</span><span class="t" style="color:var(--muted-foreground);font-size:12px">6m 02s</span></div>
+  <div style="padding:8px 14px 0;display:flex;flex-direction:column;gap:4px">
+   <div class="wfrow dim"><span class="nm">7 steps fine</span><div class="wf"><span style="left:0;width:36%"></span><span style="left:72%;width:28%"></span></div><span class="t" style="text-align:right">2m 20s</span></div>
+   <div class="wfrow"><span class="nm"><b>check</b></span><div class="wf"><span class="warn" style="left:2%;width:52%"></span></div><span class="t" style="text-align:right">3m 05s</span></div>
+   <div class="wfrow"><span class="nm"><b>publish</b></span><div class="wf"><span class="bad" style="left:56%;width:6%"></span><span style="left:66%;width:10%"></span></div><span class="t" style="text-align:right">1m 12s</span></div>
+  </div>
+  <div class="flow" style="padding:0 14px"><span class="pill bad">403 token expired</span><span class="arrow">→</span><span class="pill ok">retried, passed</span></div>
+ </div>
+ <div class="card" style="padding-bottom:12px">
+  <div class="tg"><span class="n">net</span><span class="t" style="color:var(--muted-foreground);font-size:12px">9m 18s</span></div>
+  <div style="padding:8px 14px 0;display:flex;flex-direction:column;gap:4px">
+   <div class="wfrow dim"><span class="nm">6 steps fine</span><div class="wf"><span style="left:0;width:22%"></span></div><span class="t" style="text-align:right">2m 38s</span></div>
+   <div class="wfrow"><span class="nm"><b>deploy</b></span><div class="wf"><span class="bad" style="left:24%;width:30%"></span><span style="left:58%;width:40%"></span></div><span class="t" style="text-align:right">6m 40s</span></div>
+  </div>
+  <div class="flow" style="padding:0 14px"><span class="pill bad">rolled back</span><span class="arrow">→</span><span class="pill ok">fix #812 merged</span><span class="arrow">→</span><span class="pill ok">passed</span></div>
+ </div>
+ <div class="card" style="padding-bottom:12px">
+  <div class="tg"><span class="n">sound2score</span><span class="t" style="color:var(--muted-foreground);font-size:12px">7m 40s</span></div>
+  <div style="padding:8px 14px 0;display:flex;flex-direction:column;gap:4px">
+   <div class="wfrow dim"><span class="nm">6 steps fine</span><div class="wf"><span style="left:0;width:20%"></span><span style="left:76%;width:24%"></span></div><span class="t" style="text-align:right">3m 28s</span></div>
+   <div class="wfrow"><span class="nm"><b>build image</b></span><div class="wf"><span class="warn" style="left:22%;width:52%"></span></div><span class="t" style="text-align:right">4m 12s</span></div>
+  </div>
+ </div>
+ <div class="fold card"><span class="ic ok"></span><span>mdom 2.4.0 · 8 steps, all fine</span><span class="t" style="margin-left:auto">2m 31s</span></div>
+ <div class="btn">Done</div>
+</div></div>
+
+<!-- C: Verdict only -->
+<div class="col"><div class="cap">C · Verdict, then one line each</div>
+<div class="phone" id="c">
+ <div class="hero"><div class="big y">!</div><div><div class="h1">Shipped, with 2 hiccups</div><div class="sub">4 targets · 31 steps · 14m 20s</div></div></div>
+ <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+  <div class="row"><span class="ic bad"></span><div style="flex:1"><b>2 failures</b><div class="sub" style="margin-top:1px">Both fixed. Neither needs you.</div></div></div>
+  <div class="row"><span class="ic warn"></span><div style="flex:1"><b>2 slow steps</b><div class="sub" style="margin-top:1px">Together 2m 27s over the usual.</div></div></div>
+  <div class="row"><span class="ic ok"></span><div style="flex:1"><b>27 steps fine</b><div class="sub" style="margin-top:1px">On time, first try.</div></div></div>
+ </div>
+
+ <div class="sec"><span>Worth a look</span></div>
+ <div class="card" style="overflow:hidden">
+  <div class="pad" style="display:flex;gap:10px;align-items:center">
+   <span class="ic bad"></span><div style="flex:1;min-width:0"><b>net · deploy</b><div class="sub">Rolled back, agent fix #812 merged, then passed</div></div><span class="t" style="font-size:12px;color:var(--muted-foreground)">6m 40s</span><span style="color:var(--muted-foreground)">›</span></div>
+  <div class="sep"></div>
+  <div class="pad" style="display:flex;gap:10px;align-items:center">
+   <span class="ic bad"></span><div style="flex:1;min-width:0"><b>vexml · publish</b><div class="sub">npm 403, retried once, passed</div></div><span class="t" style="font-size:12px;color:var(--muted-foreground)">1m 12s</span><span style="color:var(--muted-foreground)">›</span></div>
+  <div class="sep"></div>
+  <div class="pad" style="display:flex;gap:10px;align-items:center">
+   <span class="ic warn"></span><div style="flex:1;min-width:0"><b>sound2score · build image</b><div class="sub">2.3× the usual · 4m 12s vs 1m 50s</div></div><span style="color:var(--muted-foreground)">›</span></div>
+  <div class="sep"></div>
+  <div class="pad" style="display:flex;gap:10px;align-items:center">
+   <span class="ic warn"></span><div style="flex:1;min-width:0"><b>vexml · check</b><div class="sub">1.8× the usual · 3m 05s vs 1m 40s</div></div><span style="color:var(--muted-foreground)">›</span></div>
+ </div>
+ <div class="card fold"><span>Show all 31 steps by target</span><span class="chev">⌄</span></div>
+ <div class="btn">Done</div>
+</div></div>
+</body>

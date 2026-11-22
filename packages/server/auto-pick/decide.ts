@@ -1,7 +1,8 @@
 import { CAP_PREFIX } from "../agents";
 import type { Limit, Setting } from "../conversations";
-import type { AgentPick, RosterAgent } from "../models";
+import { type AgentPick, modelOption, type RosterAgent } from "../models";
 import { type Catalog, inputKey } from "../prices";
+import { cellLabel, DEFAULT_PACE } from "./cells";
 import {
 	CLARITIES,
 	type ClarityId,
@@ -13,13 +14,13 @@ import {
 	type TaskClass,
 } from "./classes";
 import type { Classification } from "./classify";
-import { ANY, type AutoPickRules, DEFAULT_PACE, ruleLabel } from "./rules";
+import { type Avoided, avoidedBy } from "./health";
+import { type AutoPickRules, type Lineup, lineupFor } from "./rules";
 
 /**
- * Turns a classification into a pick: kind, depth and certainty each
- * when the judge is sure enough, find the first rule matching all three,
- * and the first of its picks whose agent has plan left, used no faster than
- * its windows go by, wins.
+ * Picks the agent for a task from how the judge classified it: the first
+ * pick with plan left, not ahead of its pace and not failing, of the lineup
+ * its kind and depth route to, each unsure unless the judge is sure enough.
  */
 export function decide(input: DecideInput): AutoPickDecision {
 	const { threshold } = input.rules;
@@ -53,8 +54,10 @@ export function decide(input: DecideInput): AutoPickDecision {
 /** Whom Auto pick starts on a task, and why. */
 export interface AutoPickDecision {
 	pick: AgentPick;
-	/** The index in the rules of the rule that matched. */
-	rule: number;
+	/** The id of the lineup the task was routed to; absent on older decisions. */
+	lineup?: string;
+	/** The rule that matched, by its place from 0, on decisions made before lineups. */
+	rule?: number;
 	/** The kind the task was taken for; null when the judge was not sure of any. */
 	kind: KindId | null;
 	/** The depth the task was taken for; null when the judge was not sure of any. */
@@ -87,6 +90,8 @@ export interface DecideContext {
 	catalog?: Catalog | null;
 	/** Whether each agent last said it takes images, `Offered.sights()`. */
 	sights?: Record<string, boolean>;
+	/** The models failing for now, `Health.avoided()`: a pick of one is passed over. */
+	avoided?: readonly Avoided[];
 }
 
 /** What `decide` reads. */
@@ -102,8 +107,8 @@ export interface DecideWithoutInput extends DecideContext {
 }
 
 /**
- * A pick for a task the judge could not classify: the first rule that takes
- * any kind and any depth, saying why the judge was not asked.
+ * A pick for a task the judge could not classify: the lineup of an unsure
+ * kind at an unsure depth, saying why the judge was not asked.
  */
 export function decideWithout(input: DecideWithoutInput): AutoPickDecision {
 	return choose(input, null, null, input.reason);
@@ -111,8 +116,8 @@ export function decideWithout(input: DecideWithoutInput): AutoPickDecision {
 
 /**
  * A pick for the work of `set` taken one depth deeper, as when its first
- * answer showed it was more than judged: the first rule matching its kind and
- * that depth, saying `why`. A depth the judge was unsure of counts as
+ * answer showed it was more than judged: the lineup of its kind at that
+ * depth, saying `why`. A depth the judge was unsure of counts as
  * shallow; null when it is deep already.
  */
 export function decideDeeper(
@@ -137,32 +142,37 @@ export function decideDeeper(
 	);
 }
 
-/** The first rule matching `kind` and `depth`, and the first of its picks with plan left. */
+/**
+ * The lineup of `kind` at `depth`, or `lineup` when given, and the first of
+ * its picks with plan left.
+ */
 function choose(
 	input: DecideContext,
 	kind: KindId | null,
 	depth: DepthId | null,
 	judged: string,
 	clarity?: ClarityId | null,
+	lineup?: Lineup,
+	carried: string[] = [],
 ): AutoPickDecision {
-	const index = input.rules.rules.findIndex(
-		(each) =>
-			(each.kind === ANY || each.kind === kind) &&
-			(each.depth === ANY || each.depth === depth) &&
-			(each.clarity === undefined ||
-				each.clarity === ANY ||
-				each.clarity === clarity),
-	);
-	const matched = input.rules.rules[index];
+	const matched = lineup ?? lineupFor(input.rules, kind, depth);
 	if (matched === undefined) {
-		// Checked rules end on `* *`, so only rules no check saw land here.
-		throw new Error("no Auto pick rule matches: the last must be * *");
+		// Checked rules route every cell to a lineup, so only rules no check saw land here.
+		throw new Error(
+			`no Auto pick lineup for ${cellLabel(kind, depth)}: every cell names one`,
+		);
 	}
-	const reasons = [judged, `rule ${index + 1}: ${ruleLabel(matched)}`];
+	const reasons = [
+		judged,
+		...carried,
+		`route: ${cellLabel(kind, depth)} → ${matched.name}`,
+	];
 
 	const pace = input.rules.pace ?? DEFAULT_PACE;
 	// Picks that cannot see the task's images, kept for when no other pick is left.
 	const blind: Candidate[] = [];
+	// Picks of a model failing for now, kept for when no other pick is left.
+	const failing: Candidate[] = [];
 	const picks = matched.picks.flatMap((pick): Candidate[] => {
 		const agent = input.agents.find((each) => each.id === pick.agent);
 		if (agent === undefined) {
@@ -180,6 +190,20 @@ function choose(
 			);
 			return [];
 		}
+		const offered = input.offered[agent.id];
+		// Without a model selector, the account has not told us its model list.
+		if (
+			model !== undefined &&
+			offered?.some(
+				(each) => each.category === "model" || each.id === "model",
+			) &&
+			modelOption(offered, model) === null
+		) {
+			reasons.push(
+				`passed over ${agent.name}: model '${model}' is not offered by this account`,
+			);
+			return [];
+		}
 		const { model: _, ...rest } = pick;
 		const limits = (input.limits[agent.id] ?? []).filter(
 			(each) =>
@@ -192,6 +216,14 @@ function choose(
 			pressure: pressed(limits, input.now),
 			fast: pace.on ? fastest(limits, input.now, pace.slack) : undefined,
 		};
+		const failed = avoidedBy(input.avoided ?? [], agent.id, model);
+		if (failed !== undefined) {
+			reasons.push(
+				`passed over ${agent.name}: failing, ${failed.errors} provider ${failed.errors === 1 ? "error" : "errors"}${failed.incident === null ? "" : ` and a status page incident`}, avoided until ${failed.until}`,
+			);
+			failing.push(candidate);
+			return [];
+		}
 		if (input.images === true) {
 			const sees = seesImages(input, agent, model);
 			if (sees === false) {
@@ -206,9 +238,27 @@ function choose(
 		return [candidate];
 	});
 	let usable = picks;
+	if (picks.length === 0 && blind[0] === undefined && failing.length > 0) {
+		const fallback = lineupFor(input.rules, null, null);
+		if (
+			lineup === undefined &&
+			fallback !== undefined &&
+			fallback.id !== matched.id
+		) {
+			return choose(input, kind, depth, judged, clarity, fallback, [
+				...carried,
+				...reasons.slice(carried.length + 2),
+				`every pick of ${matched.name} is failing, so ${fallback.name}, the unsure lineup`,
+			]);
+		}
+		reasons.push(
+			`every pick of ${matched.name} is failing, so the first: ${failing[0]?.agent.name ?? ""}`,
+		);
+		usable = failing.slice(0, 1);
+	}
 	if (picks.length === 0 && blind[0] !== undefined) {
 		reasons.push(
-			`none of rule ${index + 1}'s picks can see images, so the first: ${blind[0].agent.name}`,
+			`none of ${matched.name}'s picks can see images, so the first: ${blind[0].agent.name}`,
 		);
 		usable = [blind[0]];
 	}
@@ -249,7 +299,7 @@ function choose(
 			throw new Error("the roster lists no agent splates can run here");
 		}
 		reasons.push(
-			`no pick of rule ${index + 1} can run here, so ${first.name} on its default`,
+			`no pick of ${matched.name} can run here, so ${first.name} on its default`,
 		);
 		chosen = {
 			pick: { agent: first.id },
@@ -268,7 +318,7 @@ function choose(
 	reasons.unshift(headline(pick, chosen.agent));
 	return {
 		pick,
-		rule: index,
+		lineup: matched.id,
 		kind,
 		depth,
 		...(clarity === undefined ? {} : { clarity }),
@@ -276,7 +326,7 @@ function choose(
 	};
 }
 
-/** A pick of a rule with the agent it names and how far into its plan that is. */
+/** A pick of a lineup with the agent it names and how far into its plan that is. */
 interface Candidate {
 	pick: AgentPick;
 	agent: RosterAgent;

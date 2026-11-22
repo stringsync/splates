@@ -56,11 +56,6 @@ export interface ConversationState {
 	 * the page still nests it under that one; null for none.
 	 */
 	lastCaller: string | null;
-	/**
-	 * The tags of `lastTask`, kept once it merges or goes so the page still
-	 * shows them on the row; null when none were recorded.
-	 */
-	lastTags: string[] | null;
 	/** What the agent calls it, once it says. */
 	title: string | null;
 	/** What the person renamed it to, over the agent's title. */
@@ -134,7 +129,7 @@ export interface ConversationState {
 	 */
 	picking: boolean;
 	/**
-	 * What Auto pick set it to, and on what rule, once it has; null for one
+	 * What Auto pick set it to, and from what lineup, once it has; null for one
 	 * it did not start, or before it decided.
 	 */
 	autoPick: AutoPickMark | null;
@@ -196,8 +191,6 @@ export interface ConversationState {
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
-	/** The progress cards its agent reports, in the order first reported. */
-	progress: Progress[];
 	/** The signals its agent waits on or waited on, in the order it began each. */
 	signals: SignalWait[];
 	/** The signal probes its agent started, in the order it started each. */
@@ -241,8 +234,10 @@ export interface ConversationState {
  */
 /** What Auto pick set a conversation to, and why, as its log keeps it. */
 export interface AutoPickSet {
-	/** The index in the rules of the rule it took; null before it took one, as for a conversation switched on that it has yet to look at. */
-	rule: number | null;
+	/** The id of the lineup its cell sent it to; null before it took one, as for a conversation switched on that it has yet to look at. */
+	lineup?: string | null;
+	/** On picks before lineups, the index of the rule it took. */
+	rule?: number | null;
 	/** The kind and depth it was taken for; null when the judge was unsure. */
 	kind: string | null;
 	depth: string | null;
@@ -290,7 +285,7 @@ export function switched(
 	}
 	return {
 		...(autoPick ?? {
-			rule: null,
+			lineup: null,
 			kind: null,
 			depth: null,
 			model: null,
@@ -545,9 +540,6 @@ export interface Background {
 
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
-/** How a progress card stands; "stopped" is the server's, when the agent's process ended with the task running. */
-export type ProgressState = "running" | "done" | "failed" | "stopped";
-
 /** What a task is for, as its record said it when the person came back to its conversation. */
 export interface ReminderCard {
 	task: string;
@@ -564,26 +556,6 @@ export interface Reminder extends ReminderCard {
 	at: string;
 	/** When the person last had the conversation open. */
 	since: string;
-}
-
-/**
- * A card the agent keeps current to show how a long task is going, as
- * `splates progress` reports it. The server publishes only what
- * `progress.ts` lets through, so a burst of updates shows as a few.
- */
-export interface Progress {
-	/** The agent's name for the task, which its updates name; a background command's id closes it with the command. */
-	id: string;
-	title: string;
-	state: ProgressState;
-	/** How far along, 0 to 100; null when the agent cannot say. */
-	percent: number | null;
-	/** The latest line of text. */
-	note: string;
-	startedAt: string;
-	updatedAt: string;
-	/** The notes published before the latest, oldest first, capped. */
-	history: { at: string; note: string }[];
 }
 
 /** How the person answered an agent asking permission for a tool call. */
@@ -716,7 +688,6 @@ export function blank(
 	assigned = false,
 	startedBy: string | null = null,
 	scratch = false,
-	tags: string[] | null = null,
 ): ConversationState {
 	return {
 		id,
@@ -726,7 +697,6 @@ export function blank(
 		lastTask: task,
 		lastBase: task === null ? null : base,
 		lastCaller: task === null ? null : caller,
-		lastTags: task === null ? null : tags,
 		title: null,
 		name: null,
 		status: "starting",
@@ -767,7 +737,6 @@ export function blank(
 				: {}),
 		},
 		background: [],
-		progress: [],
 		signals: [],
 		probes: [],
 		artifacts: [],

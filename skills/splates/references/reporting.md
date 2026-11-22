@@ -37,7 +37,7 @@ A task blocked on other work is deferred, not discarded: `splates remove
 as lost. It keeps `## 🧹 Removed` for work that really ended. The remove
 takes `--why`, what you found that stops the work, and at least one
 blocker: `--blocked-by <n>` for a task that has to merge first, or
-`--waiting-on "<what>"` for something outside splates. A call that is the
+`--waiting-on "<what>"` for something outside splates. Use it only for what no script can check (a key only the user can get); a fact a script can check is waited on with a probe and `splates signal wait`, never `--waiting-on`, which nothing clears. A call that is the
 user's to make is a numbered question in your reply, as in
 [questions.md](questions.md), not a blocker. Add `--detail` to rewrite the task's detail for whoever
 takes it next, as Deferring in [queue.md](queue.md) says. The board task
@@ -167,7 +167,7 @@ heading, so `###` sections stay inside it. Everything in it is markdown, so
 it reads the same in a terminal, GitHub or a paste; the `splates server`
 page draws the readouts below as a card. A readout is read-only: it displays data and takes no action. Use none, some or all of them: the
 headline sentence is the only part a report needs. Any card whose body is
-prose (Merged, Done, Removed, Blocked, Proposed, Permission) draws the same
+prose (Merged, Done, Removed, Blocked, Permission) draws the same
 read-only readouts, so a Merged card may carry a `stats` row; Review and
 Questions cards do not.
 

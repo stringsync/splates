@@ -55,8 +55,8 @@ describe("WorktreeService", () => {
 			evals: null,
 			projects: null,
 			shared: [],
-			tags: null,
 			rec: null,
+			signals: {},
 		};
 	});
 

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { DEFAULT_AGENTS } from "../models";
 import type { Classification } from "./classify";
-import { decide, decideDeeper, decideWithout } from "./decide";
+import { decide, decideDeeper } from "./decide";
 import { DEFAULT_RULES } from "./defaults";
-import type { AutoPickRules } from "./rules";
 import { setOf } from "./start";
 
 const DESIGN: Classification = {
@@ -30,7 +29,7 @@ describe("Auto pick certainty", () => {
 			depth: "deep",
 			clarity: "settled",
 		});
-		expect(result.reasons).toContain("rule 7: Design, Deep");
+		expect(result.reasons).toContain("route: Design · Deep → Careful");
 		expect(setOf(result)).toMatchObject({ clarity: "settled", depth: "deep" });
 	});
 
@@ -50,40 +49,18 @@ describe("Auto pick certainty", () => {
 		},
 	);
 
-	it("matches unresolved certainty and respects the judge threshold independently", () => {
-		const rules: AutoPickRules = {
-			...DEFAULT_RULES,
-			threshold: 0.95,
-			rules: [
-				{
-					kind: "*",
-					depth: "*",
-					clarity: "unresolved",
-					picks: [{ agent: "codex" }],
-				},
-				{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
-			],
-		};
-		expect(
-			decide({
-				...BASE,
-				rules,
-				classification: {
-					...DESIGN,
-					clarity: { settled: 0.1, unresolved: 0.9 },
-				},
-			}),
-		).toMatchObject({ pick: { agent: "claude" }, clarity: null });
-		expect(
-			decide({
-				...BASE,
-				rules: { ...rules, threshold: 0.8 },
-				classification: {
-					...DESIGN,
-					clarity: { settled: 0.1, unresolved: 0.9 },
-				},
-			}),
-		).toMatchObject({ pick: { agent: "codex" }, clarity: "unresolved" });
+	it("records clarity without routing on it", () => {
+		const settled = decide({
+			...BASE,
+			classification: { ...DESIGN, clarity: { settled: 0.9, unresolved: 0.1 } },
+		});
+		const unresolved = decide({
+			...BASE,
+			classification: { ...DESIGN, clarity: { settled: 0.1, unresolved: 0.9 } },
+		});
+		expect(unresolved).toMatchObject({ clarity: "unresolved" });
+		expect(unresolved.pick).toEqual(settled.pick);
+		expect(unresolved.lineup).toBe(settled.lineup);
 	});
 
 	it("preserves settled choices when taking a conversation one depth deeper", () => {
@@ -98,22 +75,5 @@ describe("Auto pick certainty", () => {
 			depth: "deep",
 			clarity: "settled",
 		});
-	});
-	it("skips certainty-specific rules without a judge", () => {
-		const rules: AutoPickRules = {
-			...DEFAULT_RULES,
-			rules: [
-				{
-					kind: "*",
-					depth: "*",
-					clarity: "settled",
-					picks: [{ agent: "codex" }],
-				},
-				{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
-			],
-		};
-		expect(decideWithout({ ...BASE, rules, reason: "no judge" })).toMatchObject(
-			{ pick: { agent: "claude" }, rule: 1 },
-		);
 	});
 });

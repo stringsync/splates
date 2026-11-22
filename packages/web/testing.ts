@@ -4,7 +4,7 @@ import type { BillingView, SpendReport } from "@splates/server/spend";
 // before anything below loads react-dom.
 import "./testing-dom";
 import { expect } from "bun:test";
-import type { AutoPickRulesView } from "@splates/server/auto-pick";
+import type { AutoPickRulesView, Avoided } from "@splates/server/auto-pick";
 import { BACKLOG_LANE } from "@splates/server/board/browser";
 import type {
 	ConversationState,
@@ -16,7 +16,7 @@ import type { PortLink } from "@splates/server/ports";
 import type { EverywhereProject } from "@splates/server/projects";
 import type { ServerChoice } from "@splates/server/server";
 import type { SetupProgress, UndoPlan } from "@splates/server/setup";
-import type { Landed, RuleOverrides } from "@splates/server/stats/browser";
+import type { CellOverrides, Landed } from "@splates/server/stats/browser";
 import type { FileDiff, FinishedPlan, Snapshot } from "@splates/server/tasks";
 import type { Held } from "@splates/server/terminal";
 import type { WorkerPool } from "@splates/server/workers";
@@ -53,6 +53,7 @@ import {
 	waitFor,
 	within,
 } from "./testing-dom";
+import { forgetSignals } from "./use-signals";
 
 export * from "./drivers";
 export type { Stream } from "./fake-stream";
@@ -249,7 +250,9 @@ export class Testing implements Resource {
 	/** What `/api/auto-pick/rules` reads, or null for it to fail. */
 	autoPickRules: AutoPickRulesView | null = null;
 	/** What `/api/auto-pick/overrides` reads. */
-	autoPickOverrides: RuleOverrides[] = [];
+	autoPickOverrides: CellOverrides[] = [];
+	/** What `/api/auto-pick/avoided` reads, and what `Use anyway` leaves. */
+	autoPickAvoided: Avoided[] = [];
 	/** The ports `/api/ports` says tasks serve. */
 	ports: PortLink[] = [];
 	/**
@@ -268,6 +271,7 @@ export class Testing implements Resource {
 	#refusal: { reason: string; message: string } | null = null;
 	#hung: string[] = [];
 	readonly #answer = WAITS.answer;
+	readonly #load = WAITS.load;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
 	readonly #webSocket = globalThis.WebSocket;
@@ -293,6 +297,10 @@ export class Testing implements Resource {
 			}
 			if (path === "/api/billing/pull") {
 				return Response.json(this.billingView);
+			}
+			if (path.split("?")[0] === "/api/auto-pick/avoided/clear") {
+				this.autoPickAvoided = [];
+				return Response.json(this.autoPickAvoided);
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({
@@ -358,7 +366,10 @@ export class Testing implements Resource {
 					? new Response(null, { status: 500 })
 					: Response.json(this.undoPlan);
 			}
-			if (route === "/api/auto-pick/overrides") {
+			if (route === "/api/auto-pick/avoided") {
+				return Response.json(this.autoPickAvoided);
+			}
+			if (route?.split("?")[0] === "/api/auto-pick/overrides") {
 				return Response.json(this.autoPickOverrides);
 			}
 			if (route === "/api/auto-pick/rules") {
@@ -569,6 +580,14 @@ export class Testing implements Resource {
 		WAITS.answer = within;
 	}
 
+	/**
+	 * Gives a page's lazily loaded code `within` instead of its thirty seconds,
+	 * so a test of a chunk that never comes runs in a moment.
+	 */
+	loadWithin(within: Duration): void {
+		WAITS.load = within;
+	}
+
 	/** Fails every fetch from now on, standing in for a server that went away. */
 	goAway(status?: number): void {
 		this.#down = status ?? true;
@@ -747,10 +766,12 @@ export class Testing implements Resource {
 	 */
 	dispose(): void {
 		forgetShownEvals();
+		forgetSignals();
 		localStorage.clear();
 		sessionStorage.clear();
 		globalThis.fetch = this.#fetch;
 		WAITS.answer = this.#answer;
+		WAITS.load = this.#load;
 		globalThis.EventSource = this.#eventSource;
 		globalThis.WebSocket = this.#webSocket;
 	}

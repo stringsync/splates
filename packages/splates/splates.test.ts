@@ -77,6 +77,7 @@ describe("splates cli", () => {
 			"claude",
 			"codex",
 			"kimi",
+			"antigravity",
 		]);
 		expect(await env.fs.exists(join(env.splatesHome, "agents.json"))).toBe(
 			true,

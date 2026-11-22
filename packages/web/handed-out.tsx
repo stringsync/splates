@@ -3,10 +3,10 @@ import { GitBranchIcon, LockIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { bleed } from "./bleed";
 import { ConversationFeed } from "./conversation-feed";
 import { useConversation, useConversationIndex } from "./conversation-index";
 import { useNameOf } from "./conversation-names";
-import { bleed } from "./error-banner";
 
 /**
  * Every conversation the page holds, archived ones too: which agents a

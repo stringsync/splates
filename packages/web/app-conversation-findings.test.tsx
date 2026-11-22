@@ -20,7 +20,7 @@ describe("App's report card", () => {
 		testing.dispose();
 	});
 
-	it("draws a report's readouts in a card", async () => {
+	it("renders a report as ordinary markdown", async () => {
 		await testing.openConversations([
 			conversation({
 				title: "Health",
@@ -52,16 +52,20 @@ describe("App's report card", () => {
 				],
 			}),
 		]);
-		const card = await waitFor(() =>
-			within(document.body).getByRole("region", { name: "report test health" }),
+		await waitFor(() =>
+			expect(
+				within(document.body).getByRole("heading", {
+					name: "📊 Report: test health",
+				}),
+			).toBeTruthy(),
 		);
-		expect(within(card).getByText("One test fails.")).toBeTruthy();
-		expect(within(card).getByText("Failing")).toBeTruthy();
-		expect(within(card).getByRole("note").textContent).toContain(
-			"render.test.ts",
-		);
-		expect(within(card).getByText("vexml")).toBeTruthy();
-		expect(within(card).getByText("Details")).toBeTruthy();
+		expect(
+			within(document.body).queryByRole("region", {
+				name: "report test health",
+			}),
+		).toBeNull();
+		expect(within(document.body).getByText("One test fails.")).toBeTruthy();
+		expect(within(document.body).getByText("Logs.")).toBeTruthy();
 	});
 
 	it("draws readouts in a Done card's body", async () => {

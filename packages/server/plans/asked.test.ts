@@ -70,38 +70,6 @@ describe("stretches", () => {
 		).toEqual([]);
 	});
 
-	it("reads the skill's proposal, and the calls it rests on as its questions", async () => {
-		const proposal = await skillExample("## 💡 Proposed");
-
-		expect(stretches(proposal)).toEqual([
-			{
-				type: "proposal",
-				proposal: {
-					subject: "a card for proposals",
-					body: "Fold proposals into the questions card, each call a question with a pick:\nthat card already tags a `(chosen)` choice, so one card asks everything.",
-				},
-			},
-			{
-				type: "questions",
-				questions: [
-					expect.objectContaining({
-						number: "1",
-						text: "Where should a proposal's calls come from?",
-						choices: [
-							expect.objectContaining({ key: "a", chosen: true }),
-							expect.objectContaining({ key: "b", chosen: false }),
-						],
-					}),
-					expect.objectContaining({
-						number: "2",
-						text: "What should its button say?",
-						choices: [],
-					}),
-				],
-			},
-		]);
-	});
-
 	it("reads the skill's Done report, an automation run's, with no task", async () => {
 		const done = await skillExample("## ✅ Done");
 
@@ -302,7 +270,7 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads another project's queue card and a grant card", () => {
+	it("reads another project's queue card", () => {
 		const found = stretches(
 			[
 				"## 🔐 Permission: queue wren #404: A locale for format()",
@@ -310,10 +278,6 @@ describe("stretches", () => {
 				"`splates --project wren queue add 404`",
 				"",
 				"The report page needs it.",
-				"",
-				"## 🔐 Permission: grant wren tasks to splates: reorder its lane",
-				"",
-				"Other should come before Base.",
 			].join("\n"),
 		);
 
@@ -329,56 +293,7 @@ describe("stretches", () => {
 					body: "The report page needs it.",
 				},
 			},
-			{
-				type: "permission",
-				permission: {
-					action: "grant",
-					lane: null,
-					tasks: [],
-					title: "reorder its lane",
-					body: "Other should come before Base.",
-					grant: { in: "wren", reach: "tasks", from: "splates" },
-				},
-			},
 		]);
-	});
-
-	it("reads a ship permission with its targets, bumps and why", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: ship: release the slur fix",
-				"",
-				"- `@stringsync/mdom` minor",
-				"- `@stringsync/vexml`",
-				"",
-				"mdom's slur fix is unreleased; vexml takes it.",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "permission",
-				permission: {
-					action: "ship",
-					lane: null,
-					tasks: [],
-					title: "release the slur fix",
-					body: "mdom's slur fix is unreleased; vexml takes it.",
-					ship: {
-						picks: [
-							{ name: "@stringsync/mdom", bump: "minor" },
-							{ name: "@stringsync/vexml" },
-						],
-					},
-				},
-			},
-		]);
-	});
-
-	it("reads `ship wren` as no ship card", () => {
-		const found = stretches("## 🔐 Permission: ship wren\n\nNow.");
-
-		expect(found.some((each) => each.type === "permission")).toBe(false);
 	});
 
 	it("reads a run evals permission with its scenarios and baseline", () => {
@@ -506,29 +421,16 @@ describe("stretches", () => {
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
-	it("reads a proposal that rests on no calls, up to the next heading", () => {
+	it("reads an old proposal's heading as text above ordinary questions", () => {
 		expect(
 			stretches(
-				[
-					"Here is what I would do.",
-					"",
-					"## 💡 Proposed a wider header",
-					"",
-					"Let the header wrap at 390px.",
-					"",
-					"#### It overflows today.",
-					"",
-					"- The menu runs off the edge.",
-				].join("\n"),
+				"## 💡 Proposed a wider header\n\nLet it wrap.\n\n1. Wrap at 390px?\n   - (a) Yes (chosen)",
 			),
 		).toEqual([
-			{ type: "text", text: "Here is what I would do." },
+			{ type: "text", text: "## 💡 Proposed a wider header\n\nLet it wrap." },
 			{
-				type: "proposal",
-				proposal: {
-					subject: "a wider header",
-					body: "Let the header wrap at 390px.\n\n#### It overflows today.\n\n- The menu runs off the edge.",
-				},
+				type: "questions",
+				questions: [expect.objectContaining({ text: "Wrap at 390px?" })],
 			},
 		]);
 	});

@@ -3,6 +3,7 @@ import { agents } from "../agents";
 import { FsStorage } from "../storage";
 import { MemoryStorage } from "../storage/testing";
 import { Testing } from "../testing";
+import { AGY_ARGV, LEGACY_AGY_ARGV } from "./antigravity";
 import {
 	DEFAULT_AGENTS,
 	pickAgent,
@@ -18,6 +19,75 @@ async function setup() {
 }
 
 describe("Roster", () => {
+	it.each(["personal", "enterprise"])(
+		"adopts only Gemini models offered to %s accounts",
+		async (account) => {
+			const agy = DEFAULT_AGENTS.find(
+				(each) => each.id === "antigravity",
+			) as RosterAgent;
+			const newer = agy.models.filter((each) =>
+				each.id.startsWith("gemini-4-"),
+			);
+			expect(newer.map((each) => each.id)).toEqual([
+				"gemini-4-carbon",
+				"gemini-4-neon",
+				"gemini-4-hydrogen",
+				"gemini-4-argon",
+			]);
+			const ids =
+				account === "personal"
+					? ["gemini-3.8-flash"]
+					: agy.models.map((each) => each.id);
+			const storage = new MemoryStorage();
+			const roster = Roster.in(storage);
+			await storage.document("agents.json").write({
+				agents: [
+					{
+						...agy,
+						models: agy.models.filter((each) => each.id === "gemini-3.8-flash"),
+					},
+				],
+			});
+			const offered = {
+				antigravity: [
+					{
+						id: "model",
+						category: "model",
+						options: ids.map((value) => ({ value, name: value })),
+					},
+				],
+			} as never;
+			expect(await roster.adopt(offered)).toBe(ids.length > 1);
+			expect(
+				(await roster.agents())[0]?.models.map((each) => each.id).sort(),
+			).toEqual([...ids].sort());
+			expect(await roster.adopt(offered)).toBe(false);
+		},
+	);
+	it.each([
+		[LEGACY_AGY_ARGV, AGY_ARGV],
+		[
+			["agy", "acp", "--sandbox"],
+			["agy", "acp", "--sandbox"],
+		],
+	])(
+		"normalizes only the legacy Antigravity command: %j",
+		async (argv, expected) => {
+			const storage = new MemoryStorage();
+			const roster = Roster.in(storage);
+			const base = DEFAULT_AGENTS.find((agent) => agent.id === "antigravity");
+			await storage
+				.document("agents.json")
+				.write({ format: 1, agents: [{ ...base, argv }] });
+			expect((await roster.agents()).map((agent) => agent.argv)).toEqual([
+				expected,
+			]);
+			expect((await roster.read())?.agents.map((agent) => agent.argv)).toEqual([
+				argv,
+			]);
+		},
+	);
+
 	it("adopts a default model an agent offers that an older roster lacks, once", async () => {
 		const storage = new MemoryStorage();
 		const roster = Roster.in(storage);
@@ -190,10 +260,12 @@ describe("Roster", () => {
 		expect((await deps.roster.agents()).map((agent) => agent.id)).toEqual([
 			"codex",
 			"kimi",
+			"antigravity",
 		]);
 		expect(await deps.fs.read(deps.roster.path)).toBe(left);
 		await deps.roster.remove("codex");
 		await deps.roster.remove("kimi");
+		await deps.roster.remove("antigravity");
 		expect(await deps.roster.agents()).toEqual([]);
 	});
 
@@ -236,6 +308,7 @@ describe("Roster", () => {
 			"claude",
 			"codex",
 			"kimi",
+			"antigravity",
 		]);
 	});
 

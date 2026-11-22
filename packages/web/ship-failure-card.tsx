@@ -9,7 +9,7 @@ import type { StepFix, TargetSummary } from "./ship-run-summary";
 /**
  * A failed target, opened under the ship's progress bar where a step's prompt
  * would: why it failed, what became of any fix and the run's supervisor, and
- * Send to agent (View agent while one is fixing it) and Retry, with + 1 fix
+ * Send to agent (View conversation while one is fixing it) and Retry, with + 1 fix
  * once the supervisor's fixes are spent, or Supervise when it has none.
  * Headed by the target's name, so several at once each say whose they are.
  */
@@ -83,7 +83,9 @@ export function ShipFailureCard({
 						href={agent}
 						className={buttonVariants({ variant: "outline", size: "sm" })}
 					>
-						View agent
+						{agent.startsWith("#conversations/")
+							? "View conversation"
+							: "View task"}
 					</a>
 				)}
 				{!busy && (
@@ -213,6 +215,16 @@ export function FixLine({
 				<>
 					{fix.step} was fixed in #{fix.task}
 					{failed ? ", and failed again." : " and retried."}
+				</>
+			) : fix.ended === "abandoned" ? (
+				<>
+					The agent on {task} ended without fixing {fix.step}, so the ship tried
+					it again.
+					{fix.note !== undefined && (
+						<span className="mt-1 block whitespace-pre-wrap">
+							Agent said: {fix.note}
+						</span>
+					)}
 				</>
 			) : (
 				<>

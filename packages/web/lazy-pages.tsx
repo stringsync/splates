@@ -22,7 +22,7 @@ export function onDemand<Props extends object>(
 	let Loaded: ComponentType<Props> | null = null;
 	const loaded = () =>
 		lazy(async () => {
-			const timeout = expiring(WAITS.answer);
+			const timeout = expiring(WAITS.load);
 			try {
 				const module = await aborts.race(timeout.signal, load());
 				Loaded = module.default;
@@ -52,7 +52,7 @@ export function onDemand<Props extends object>(
 					setTry({ Page: loaded(), attempt: attempt + 1, cached: false })
 				}
 			>
-				<Suspense fallback={<StillWaiting />}>
+				<Suspense fallback={<StillWaiting within={WAITS.load} />}>
 					{/* biome-ignore lint/suspicious/noExplicitAny: Props only ties load to the component */}
 					<Page {...(props as any)} />
 				</Suspense>
@@ -98,7 +98,7 @@ class ChunkFailed extends Component<
 		return {
 			failed:
 				error instanceof DOMException && error.name === "TimeoutError"
-					? `no answer in ${WAITS.answer.ms / 1000}s`
+					? `no answer in ${WAITS.load.ms / 1000}s`
 					: error instanceof Error
 						? error.message
 						: String(error),
@@ -118,9 +118,6 @@ class ChunkFailed extends Component<
 	}
 }
 
-export const AutomationsPage = onDemand(async () => ({
-	default: (await import("./automations")).AutomationsPage,
-}));
 export const BillingPage = onDemand(async () => ({
 	default: (await import("./billing")).BillingPage,
 }));

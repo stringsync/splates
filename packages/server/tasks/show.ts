@@ -54,9 +54,7 @@ export interface Details {
 	number: number | null;
 	/** The project it changes; null for a record without one. */
 	project: string | null;
-	/** The tags grouping it. */
-	tags: string[];
-	/** The areas its changed paths touch, most first, for chips beside its tags. Absent from older servers. */
+	/** The areas its changed paths touch, most first,. Absent from older servers. */
 	areas?: string[];
 	/** Files predicted to conflict at the last checked committed tips. */
 	comingConflict?: string[];
@@ -196,7 +194,6 @@ export class TaskDetails {
 			task: worktree.task,
 			number: state?.id ?? null,
 			project: worktree.scope,
-			tags: worktree.tags,
 			areas: areasOf(changed),
 			comingConflict: (await worktree.comingConflict())?.files ?? [],
 			landed: await landingNotices(worktree),
@@ -379,9 +376,6 @@ function report(details: Details): string {
 		`  branch:    ${details.branch}`,
 		`  base:      ${details.base}`,
 		...(details.project === null ? [] : [`  project:   ${details.project}`]),
-		...(details.tags.length === 0
-			? []
-			: [`  tags:      ${details.tags.join(", ")}`]),
 		`  worktree:  ${details.worktree}`,
 		`  lease:     ${details.lease}`,
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,

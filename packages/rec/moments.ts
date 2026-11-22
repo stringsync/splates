@@ -198,6 +198,7 @@ export async function buildMoments(
 				parts: { code, speech: spoken },
 				said: utterance.text,
 				pointed: where.pointed,
+				structure: where.structure,
 				still:
 					(kept
 						.map((signal) => signal.detail.still)
@@ -222,6 +223,7 @@ export async function buildMoments(
 				score: code,
 				parts: { code },
 				pointed: where.pointed,
+				structure: where.structure,
 				still:
 					(cluster
 						.map((signal) => signal.detail.still)
@@ -290,10 +292,14 @@ function pointedAt(
 	events: MomentEvent[],
 	from: number,
 	to: number,
-): { pointed?: string; still?: string } {
+): { pointed?: string; still?: string; structure?: string } {
 	let pointed: string | undefined;
 	let still: string | undefined;
+	let structure: string | undefined;
 	for (const event of events) {
+		if (event.structure && event.at >= from - 5000 && event.at <= to + 1000) {
+			structure = event.structure;
+		}
 		if (event.at < from - 1000 || event.at > to) {
 			continue;
 		}
@@ -310,7 +316,7 @@ function pointedAt(
 			pointed = target(event.elements[0]);
 		}
 	}
-	return { pointed, still };
+	return { pointed, still, structure };
 }
 
 /** Each signal goes to the utterance nearest it whose window holds it; the rest are alone. */

@@ -1,7 +1,7 @@
 import { ArchiveIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { bleed } from "./error-banner";
+import { bleed } from "./bleed";
 
 /**
  * Atop an archived conversation, across the pane's padding to its edges,

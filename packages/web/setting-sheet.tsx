@@ -30,7 +30,7 @@ import { latestPerClass } from "./model-classes";
 
 /** Classes for a picker in the composer's bottom row; pass them to its trigger. */
 export const IN_COMPOSER =
-	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
+	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 shrink-0 whitespace-nowrap gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
 /**
  * Shows a conversation's settings behind one button, for a row too narrow to
@@ -78,7 +78,7 @@ export function SettingsSheet({
 				}
 				className={cn(
 					IN_COMPOSER,
-					"inline-flex max-w-48 items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+					"inline-flex min-w-0 shrink max-w-48 items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				)}
 			>
 				{/* Who answers next in color: the agent's maker, split with Auto pick while it picks. */}

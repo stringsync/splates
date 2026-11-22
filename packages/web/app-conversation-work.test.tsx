@@ -35,7 +35,9 @@ describe("App's work row", () => {
 	/** Each row's line, as it reads folded. */
 	const lines = (list: Element) =>
 		[...list.children].map(
-			(row) => (row.querySelector("summary") ?? row).textContent,
+			(row) =>
+				(row.querySelector("[data-slot=collapsible-trigger]") ?? row)
+					.textContent,
 		);
 
 	it("ends a row of work at each thing the agent says, each message in the thread under the calls that led to it", async () => {
@@ -344,10 +346,9 @@ describe("App's work row", () => {
 			"Ran subagentFind the callers· 2 tool calls",
 		]);
 		unfoldCards(timeline);
-		expect(lines(timeline.querySelector("details ul") as Element)).toEqual([
-			"Searchedgrep fold",
-			"Read",
-		]);
+		expect(
+			lines(timeline.querySelector("[data-slot=collapsible] ul") as Element),
+		).toEqual(["Searchedgrep fold", "Read"]);
 	});
 });
 

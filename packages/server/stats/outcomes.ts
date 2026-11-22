@@ -1,4 +1,4 @@
-import type { Device, Entry } from "../conversations";
+import type { Device, Entry, Pairing } from "../conversations";
 import type { Decision } from "../plans";
 import { Prices } from "../prices";
 import type { Event } from "../records";
@@ -428,8 +428,13 @@ export interface PickOverride {
 	to: string;
 	/** When, as an ISO timestamp. */
 	at: string;
-	/** The index in the rules of the rule whose pick it overrode. */
-	rule: number;
+	/** The model and effort before and after this change, by name; absent on older overrides. */
+	from?: Pairing;
+	result?: Pairing;
+	/** The id of the lineup whose pick it overrode; absent on older overrides. */
+	lineup?: string;
+	/** On overrides before lineups, the index of the rule whose pick it overrode. */
+	rule?: number;
 	/** The kind and depth the task was taken for; null when unsure. */
 	kind: string | null;
 	depth: string | null;

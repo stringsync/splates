@@ -1,53 +1,19 @@
 import { z } from "zod";
 import type { AgentPick } from "../models";
 import {
-	CLARITY_IDS,
-	type ClarityId,
-	DEPTH_IDS,
-	type DepthId,
-	KIND_IDS,
-	type KindId,
-} from "./classes";
-import { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel } from "./rule-names";
-
-export { ANY, DEFAULT_PACE, RULES_FORMAT, ruleLabel };
+	LINEUP_COLORS,
+	type LineupColor,
+	ROUTE_DEPTHS,
+	ROUTE_KINDS,
+	type RouteDepth,
+	type RouteKind,
+	RULES_FORMAT,
+	UNSURE,
+} from "./cells";
+import { migrateRules } from "./migrate";
 
 // Browser-safe: the page edits the rules, so this file brings in no agent
 // processes and no `bun:` modules, and takes only types from `../models`.
-
-/**
- * The person's mapping from a task's classification to an agent, a model and
- * a thinking level, one per machine, kept in `~/.splates/auto-pick.json`.
- */
-export interface AutoPickRules {
-	/** The file's own format. */
-	format: 2;
-	/**
-	 * How sure the judge has to be, 0 to 1, before its likeliest kind, depth or
-	 * certainty counts; below it, the task is that dimension's `*` alone.
-	 */
-	threshold: number;
-	/** Tried in order: the first that matches the task decides. The last is `* *`. */
-	rules: Rule[];
-	/** When a pick's plan counts as used too fast; left out, `DEFAULT_PACE`. */
-	pace?: Pace;
-}
-
-/** One line of the mapping: what it matches, and whom it picks. */
-export interface Rule {
-	/** The kind of work it matches, or `*` for any, a task of no sure kind too. */
-	kind: KindId | "*";
-	/** The depth it matches, or `*` for any, a task of no sure depth too. */
-	depth: DepthId | "*";
-	/** How settled the behavior is; omitted or * accepts any certainty, including unknown. */
-	clarity?: ClarityId | "*";
-	/**
-	 * Whom it picks, the first first: a pick whose agent's plan is nearly
-	 * used up is passed over for the next. A pick with no model takes the
-	 * agent's default model, one with no effort its default thinking level.
-	 */
-	picks: AgentPick[];
-}
 
 /** Rules that check out, or the first problem with them, in a line the page can show. */
 export type CheckedRules =
@@ -68,8 +34,56 @@ export function checkRules(value: unknown): CheckedRules {
 }
 
 /**
- * When a pick is passed over for the next on its rule because of its agent's
- * plan, each share 0 to 1 of a plan window.
+ * The person's mapping from a task's kind and depth to who works it, one per
+ * machine, kept in `~/.splates/auto-pick.json`: named lineups, and routes
+ * sending every kind and depth, unsure ones too, to one of them.
+ */
+export interface AutoPickRules {
+	/** The file's own format. */
+	format: typeof RULES_FORMAT;
+	/**
+	 * How sure the judge has to be, 0 to 1, before its likeliest kind or depth
+	 * counts; below it, the task is that dimension's `unsure`.
+	 */
+	threshold: number;
+	/** Who can work a task, each a named list of picks in fallback order. */
+	lineups: Lineup[];
+	/** The lineup, by id, for every kind and depth. */
+	routes: Routes;
+	/** When a pick's plan counts as used too fast; left out, `DEFAULT_PACE`. */
+	pace?: Pace;
+}
+
+/** A named fallback order for tasks: choose one model per agent. */
+export interface Lineup {
+	/** Stable identifier. Use this value in routes to select the lineup. */
+	id: string;
+	name: string;
+	color: LineupColor;
+	/**
+	 * Whom it picks, the first first: a pick whose agent's plan is nearly
+	 * used up is passed over for the next. A pick with no model takes the
+	 * agent's default model, one with no effort its default thinking level.
+	 */
+	picks: AgentPick[];
+}
+
+/** The lineup id for each kind, then each depth. */
+export type Routes = Record<RouteKind, Record<RouteDepth, string>>;
+
+/** The lineup the routes send `kind` at `depth` to; unsure when null. */
+export function lineupFor(
+	rules: AutoPickRules,
+	kind: RouteKind | null,
+	depth: RouteDepth | null,
+): Lineup | undefined {
+	const id = rules.routes[kind ?? UNSURE]?.[depth ?? UNSURE];
+	return rules.lineups.find((each) => each.id === id);
+}
+
+/**
+ * When a pick is passed over for the next in its lineup because of its
+ * agent's plan, each share 0 to 1 of a plan window.
  */
 export interface Pace {
 	/**
@@ -90,36 +104,42 @@ const PICK = z.object({
 	effort: z.string().min(1).optional(),
 });
 
-const RULE = z.object({
-	kind: z.enum([ANY, ...KIND_IDS]),
-	depth: z.enum([ANY, ...DEPTH_IDS]),
-	clarity: z.enum([ANY, ...CLARITY_IDS]).optional(),
+const LINEUP = z.object({
+	id: z.string().min(1),
+	name: z.string().trim().min(1, "a lineup has a name"),
+	color: z.enum(LINEUP_COLORS),
 	picks: z
 		.array(PICK)
-		.min(1, "a rule picks at least one agent")
+		.min(1, "a lineup picks at least one agent")
 		.superRefine((picks, ctx) => {
 			const at = picks.findIndex(
 				(pick, index) =>
-					picks.findIndex(
-						(each) => each.agent === pick.agent && each.model === pick.model,
-					) !== index,
+					picks.findIndex((each) => each.agent === pick.agent) !== index,
 			);
 			if (at >= 0) {
 				ctx.addIssue({
 					code: "custom",
 					path: [at],
-					message: "a rule names the same agent and model once",
+					message:
+						"a lineup allows only one pick per agent; choose a different agent for the fallback",
 				});
 			}
 		}),
 });
 
-/** What `auto-pick.json` holds, its last rule `* *`. */
+const ROW = z.object(
+	Object.fromEntries(ROUTE_DEPTHS.map((depth) => [depth, z.string().min(1)])),
+);
+
+/** What `auto-pick.json` holds: every kind and depth routed to a lineup it lists. */
 export const AUTO_PICK_RULES = z
 	.object({
 		format: z.literal(RULES_FORMAT),
 		threshold: z.number().min(0).max(1),
-		rules: z.array(RULE).min(1, "the rules list at least one rule"),
+		lineups: z.array(LINEUP).min(1, "the rules list at least one lineup"),
+		routes: z.object(
+			Object.fromEntries(ROUTE_KINDS.map((kind) => [kind, ROW])),
+		),
 		pace: z
 			.object({
 				on: z.boolean(),
@@ -129,64 +149,34 @@ export const AUTO_PICK_RULES = z
 			.optional(),
 	})
 	.superRefine((value, ctx) => {
-		const last = value.rules.at(-1);
-		if (
-			last !== undefined &&
-			(last.kind !== ANY ||
-				last.depth !== ANY ||
-				(last.clarity !== undefined && last.clarity !== ANY))
-		) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["rules", value.rules.length - 1],
-				message:
-					"the last rule must be kind * and depth * with any certainty, so every task maps to a pick",
-			});
+		const ids = value.lineups.map((each) => each.id);
+		const names = value.lineups.map((each) => each.name.trim().toLowerCase());
+		for (const [at, lineup] of value.lineups.entries()) {
+			if (ids.indexOf(lineup.id) !== at) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["lineups", at, "id"],
+					message: `two lineups have the id '${lineup.id}'`,
+				});
+			}
+			if (names.indexOf(lineup.name.trim().toLowerCase()) !== at) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["lineups", at, "name"],
+					message: `two lineups are named '${lineup.name}'`,
+				});
+			}
+		}
+		for (const kind of ROUTE_KINDS) {
+			for (const depth of ROUTE_DEPTHS) {
+				const id = (value.routes as Routes)[kind][depth];
+				if (!ids.includes(id)) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["routes", kind, depth],
+						message: `no lineup has the id '${id}'`,
+					});
+				}
+			}
 		}
 	});
-
-/** Carry format 1 mappings forward in order, preserving their picks and pace. */
-function migrateRules(value: unknown): unknown {
-	if (
-		value === null ||
-		typeof value !== "object" ||
-		!("format" in value) ||
-		value.format !== 1 ||
-		!("rules" in value) ||
-		!Array.isArray(value.rules)
-	) {
-		return value;
-	}
-	const depths: Record<string, string> = {
-		easy: "shallow",
-		medium: "moderate",
-		hard: "deep",
-		"*": "*",
-	};
-	return {
-		...value,
-		format: 2,
-		rules: value.rules.map((rule: unknown) => {
-			if (rule === null || typeof rule !== "object") {
-				return rule;
-			}
-			const { difficulty, ...rest } = rule as Record<string, unknown>;
-			return {
-				...rest,
-				kind:
-					rest.kind === "lookup" || rest.kind === "mechanical"
-						? "*"
-						: rest.kind,
-				depth:
-					rest.depth ??
-					(typeof difficulty === "string"
-						? difficulty === "*" && rest.kind === "lookup"
-							? "shallow"
-							: difficulty === "*" && rest.kind === "mechanical"
-								? "moderate"
-								: (depths[difficulty] ?? difficulty)
-						: difficulty),
-			};
-		}),
-	};
-}

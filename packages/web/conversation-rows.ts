@@ -175,6 +175,34 @@ export function goOn(
 	}
 }
 
+/**
+ * The rows whose work is over and can be archived in one sweep: a
+ * conversation that ran a task, now merged, removed or reported done, with
+ * its agent at rest and nothing pinned, automated or still on the board. A
+ * conversation that never had a task is never one.
+ */
+export function finished(rows: Needing[]): Needing[] {
+	return rows.filter(({ conversation, need }) => {
+		if (
+			conversation === null ||
+			conversation.archived ||
+			conversation.pinned === true ||
+			automated(conversation) ||
+			conversation.task !== null ||
+			conversation.lastTask == null ||
+			conversation.status === "starting" ||
+			conversation.status === "running" ||
+			need.kind === "waiting" ||
+			need.kind === "working" ||
+			need.kind === "assuming"
+		) {
+			return false;
+		}
+		const ending = reportedAs(conversation);
+		return ending === "merged" || ending === "done" || ending === "removed";
+	});
+}
+
 /** Whether `row` shows as merged, or its lanes finished, in the sidebar. */
 function wasMerged({ conversation, need }: Needing): boolean {
 	return (

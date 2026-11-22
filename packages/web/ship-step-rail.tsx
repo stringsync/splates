@@ -5,6 +5,7 @@ import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import type { Standing } from "./merge-checklist";
 import { spanOf } from "./merge-lines";
+import { typicalKey, useShipEstimates } from "./ship-estimates";
 import { WatchShipStep } from "./ship-step-pane";
 import { StepTimeline, StepTimelineItem } from "./step-timeline";
 
@@ -22,6 +23,7 @@ export function StepRail({
 	target: string;
 	steps: StepState[];
 }): JSX.Element {
+	const estimates = useShipEstimates(run);
 	return (
 		<StepTimeline label="Steps" className="py-1">
 			{steps.map((step, index) => (
@@ -30,6 +32,7 @@ export function StepRail({
 					run={run}
 					target={target}
 					step={step}
+					typical={estimates.get(typicalKey(target, step.id)) ?? null}
 					last={index === steps.length - 1}
 				/>
 			))}
@@ -58,11 +61,14 @@ function StepRow({
 	run,
 	target,
 	step,
+	typical,
 	last,
 }: {
 	run: string;
 	target: string;
 	step: StepState;
+	/** How long the step usually takes on this target, when past runs say. */
+	typical: number | null;
 	last: boolean;
 }): JSX.Element {
 	const active = ["checking", "running", "waiting"].includes(step.status);
@@ -100,6 +106,14 @@ function StepRow({
 							? spanOf((step.ended ?? now) - step.started)
 							: null}
 					</span>
+					{typical !== null && standing !== "done" && standing !== "failed" && (
+						<span
+							title={`Usually ${spanOf(typical)} in recent ships`}
+							className="shrink-0 whitespace-nowrap text-muted-foreground/60 text-xs tabular-nums"
+						>
+							{step.started !== undefined && "/ "}~{spanOf(typical)}
+						</span>
+					)}
 					<span className="flex size-3.5 shrink-0 items-center justify-center">
 						{hasLog && (
 							<SquareTerminalIcon

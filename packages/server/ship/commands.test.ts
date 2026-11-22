@@ -60,6 +60,21 @@ describe("ShipCommands", () => {
 		]);
 	});
 
+	it("reads every command's current versions, and none from one that fails or prints no versions", async () => {
+		const ps = new FakeShipPs({
+			"bin/lib ship current": { "@x/lib": "1.4.2" },
+			"bin/bad ship current": { exitCode: 1, stderr: "boom" },
+			"bin/odd ship current": { stdout: "hello" },
+			"bin/num ship current": { prod: 3 },
+		});
+		const current = await new ShipCommands(
+			["bin/lib ship", "bin/bad ship", "bin/odd ship", "bin/num ship"],
+			ps,
+			"/repo",
+		).current();
+		expect(current).toEqual({ "@x/lib": "1.4.2" });
+	});
+
 	it("gives no counts for a command that fails, lacks the subcommand or prints no counts", async () => {
 		const ps = new FakeShipPs({
 			"bin/lib ship unshipped": { "@x/lib": 1 },

@@ -94,7 +94,7 @@ export class ShipComposer {
 	/**
 	 * Refuses picks no ship could start (an unknown or doubled target, a
 	 * version or bump the target does not take), planning nothing: the
-	 * refusal `compose` gives, for a ship card to be held to before Approve.
+	 * refusal `compose` gives.
 	 */
 	async check(picks: readonly Pick[]): Promise<{
 		listing: Awaited<ReturnType<ShipCommands["list"]>>;

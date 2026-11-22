@@ -1,6 +1,5 @@
 export type {
 	Ending,
-	Proposal,
 	Review,
 	Stretch,
 	TaskReport,
@@ -24,10 +23,6 @@ export {
 export type {
 	EvalAsk,
 	PermissionProposal,
-	ReachAsk,
-	ShipAsk,
-	ShipBump,
-	ShipPick,
 } from "./permission";
 export { queueIsSettled } from "./permission";
 export type { Decision, Question } from "./plan";
@@ -60,12 +55,9 @@ export {
 	directive,
 	evalsDoneReference,
 	eventReference,
-	GRANT_DENIED,
-	GRANTED,
 	groomReference,
 	handOffReference,
 	isUpdate,
-	laneReference,
 	leadingDirectives,
 	MERGE,
 	RECONNECT,
@@ -73,7 +65,6 @@ export {
 	RETRIED,
 	RUN_ALLOWED,
 	RUN_DENIED,
-	RUN_ELSEWHERE,
 	scheduleReference,
 	setupReference,
 	signalReference,
@@ -91,5 +82,6 @@ export {
 	replyOf,
 	takenOf,
 } from "./reply";
+export type { Steps } from "./steps";
 export { PlanStore } from "./store";
 export { openCards, unanswered, waitsOnYou } from "./unanswered";

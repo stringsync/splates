@@ -280,7 +280,6 @@ The picked looks, which the page and cards are built to:
 
 - [The Ships flow](ship-mocks/flow.md): pick, dependencies, review, run.
 - [Ship prompts](ship-mocks/prompts.md): confirm, sign in, enter a value.
-- [Ship cards](ship-mocks/cards.md): one card in a conversation from ask to done.
 
 ## Open
 

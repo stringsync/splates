@@ -14,6 +14,11 @@ import {
 	UnplugIcon,
 } from "lucide-react";
 import { createContext, type JSX, use, useState } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { InMessage, useCardReply } from "./card-reply";
 import { useNow } from "./hooks/use-now";
@@ -90,26 +95,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	return (
 		<Going value={work.going}>
 			<div data-slot="work" className="mt-1 mb-5 flex flex-col gap-1.5 text-xs">
-				<details
+				<Collapsible
 					open={open}
-					// The thread follows it as it grows while it is open.
 					data-working={work.working || undefined}
-					onToggle={(event) => {
-						setOpen(event.currentTarget.open);
-						if (event.currentTarget.open) {
+					onOpenChange={(next) => {
+						setOpen(next);
+						if (next) {
 							setOpened(true);
 						}
 					}}
-					// The timeline slides open and shut with the chevron, where the
-					// browser can size to `auto`; elsewhere it opens at once.
-					className={cn(
-						"group/work [interpolate-size:allow-keywords]",
-						"details-content:h-0 details-content:overflow-clip open:details-content:h-auto",
-						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
-					)}
+					className="group/work"
 				>
-					<summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-1.5 text-muted-foreground/70 tabular-nums hover:text-foreground md:flex-nowrap [&::-webkit-details-marker]:hidden">
-						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
+					<CollapsibleTrigger className="flex w-full cursor-pointer flex-wrap items-center gap-x-1.5 text-muted-foreground/70 tabular-nums hover:text-foreground md:flex-nowrap rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-open/work:rotate-90 motion-reduce:transition-none" />
 						<span
 							className={cn(
 								"min-w-0 truncate",
@@ -127,29 +125,34 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							events={quiet}
 							className="max-md:basis-full max-md:pl-5"
 						/>
-					</summary>
-					{opened &&
-						(steps.length > 0 || (!work.going && work.plan !== null)) && (
-							<ol
-								aria-label="timeline"
-								// Under the line's words, clear of its chevron.
-								className="mt-2 flex flex-col gap-1.5 pl-5"
-							>
-								{!work.going && work.plan !== null && (
-									<li>
-										<Plan steps={work.plan} />
-									</li>
-								)}
-								{steps.map((item, index) => (
-									// The timeline only grows at its end, so an index is stable.
-									// biome-ignore lint/suspicious/noArrayIndexKey: as above
-									<li key={index}>
-										<TimelineItem item={item} short={short} />
-									</li>
-								))}
-							</ol>
-						)}
-				</details>
+					</CollapsibleTrigger>
+					<CollapsibleContent
+						keepMounted
+						className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
+					>
+						{opened &&
+							(steps.length > 0 || (!work.going && work.plan !== null)) && (
+								<ol
+									aria-label="timeline"
+									// Under the line's words, clear of its chevron.
+									className="mt-2 flex flex-col gap-1.5 pl-5"
+								>
+									{!work.going && work.plan !== null && (
+										<li>
+											<Plan steps={work.plan} />
+										</li>
+									)}
+									{steps.map((item, index) => (
+										// The timeline only grows at its end, so an index is stable.
+										// biome-ignore lint/suspicious/noArrayIndexKey: as above
+										<li key={index}>
+											<TimelineItem item={item} short={short} />
+										</li>
+									))}
+								</ol>
+							)}
+					</CollapsibleContent>
+				</Collapsible>
 				{items
 					.filter((item) => item.type === "decision")
 					.map((item, index) => (
@@ -192,29 +195,32 @@ function Flags({
 				);
 				return (
 					<li key={tool.id}>
-						<details>
-							<summary className="flex cursor-pointer list-none items-center gap-1.5 text-warning text-xs [&::-webkit-details-marker]:hidden">
+						<Collapsible className="group/flag">
+							<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 rounded-sm text-left text-warning text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring">
 								<TriangleAlertIcon className="size-3.5 shrink-0" />
 								<span className="min-w-0 truncate">
 									{tool.flags.map(warning).join(" · ")}
 								</span>
-							</summary>
-							<div className="mt-1 mb-2 flex flex-col gap-1.5 pl-5">
-								<pre className="whitespace-pre-wrap break-all font-mono text-xs">
-									$ {label(tool)}
-								</pre>
-								{outside.length > 0 && (
-									<ul
-										aria-label="files changed in the main tree"
-										className="flex flex-col gap-0.5 font-mono text-muted-foreground text-xs"
-									>
-										{outside.map((path) => (
-											<li key={path}>{short(path)}</li>
-										))}
-									</ul>
-								)}
-							</div>
-						</details>
+								<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 group-data-open/flag:rotate-90 motion-reduce:transition-none" />
+							</CollapsibleTrigger>
+							<CollapsibleContent>
+								<div className="mt-1 mb-2 flex flex-col gap-1.5 pl-5">
+									<pre className="whitespace-pre-wrap break-all font-mono text-xs">
+										$ {label(tool)}
+									</pre>
+									{outside.length > 0 && (
+										<ul
+											aria-label="files changed in the main tree"
+											className="flex flex-col gap-0.5 font-mono text-muted-foreground text-xs"
+										>
+											{outside.map((path) => (
+												<li key={path}>{short(path)}</li>
+											))}
+										</ul>
+									)}
+								</div>
+							</CollapsibleContent>
+						</Collapsible>
 					</li>
 				);
 			})}

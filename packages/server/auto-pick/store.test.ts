@@ -7,12 +7,11 @@ import { AutoPickStore } from "./store";
 const PATH = "/home/.splates/auto-pick.json";
 
 const MINE: AutoPickRules = {
-	format: 2,
+	...DEFAULT_RULES,
 	threshold: 0.7,
-	rules: [
-		{ kind: "bugfix", depth: "*", picks: [{ agent: "codex" }] },
-		{ kind: "*", depth: "*", picks: [{ agent: "claude", model: "opus" }] },
-	],
+	lineups: DEFAULT_RULES.lineups.map((each) =>
+		each.id === "quick" ? { ...each, picks: [{ agent: "codex" }] } : each,
+	),
 };
 
 describe("AutoPickStore", () => {
@@ -34,10 +33,16 @@ describe("AutoPickStore", () => {
 		expect(await store.rules()).toEqual(MINE);
 	});
 
-	it("refuses to save rules that do not end on * *, leaving the file alone", async () => {
+	it("refuses to save a cell sent to no lineup, leaving the file alone", async () => {
 		expect(
-			store.save({ ...MINE, rules: MINE.rules.slice(0, 1) }),
-		).rejects.toThrow("the last rule must be kind * and depth *");
+			store.save({
+				...MINE,
+				routes: {
+					...MINE.routes,
+					devops: { ...MINE.routes.devops, deep: "gone" },
+				},
+			}),
+		).rejects.toThrow("no lineup has the id 'gone'");
 		expect(await fs.exists(PATH)).toBe(false);
 	});
 
@@ -51,10 +56,10 @@ describe("AutoPickStore", () => {
 		await fs.mkdir("/home/.splates", { recursive: true });
 		await fs.write(
 			PATH,
-			JSON.stringify({ format: 2, threshold: 0.5, rules: [] }),
+			JSON.stringify({ format: 3, threshold: 0.5, lineups: [], routes: {} }),
 		);
 		expect(store.rules()).rejects.toThrow(
-			`${PATH} is not Auto pick rules: rules: the rules list at least one rule`,
+			`${PATH} is not Auto pick rules: lineups: the rules list at least one lineup`,
 		);
 	});
 

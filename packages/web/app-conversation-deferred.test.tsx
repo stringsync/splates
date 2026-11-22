@@ -85,7 +85,9 @@ describe("App's Blocked card", () => {
 		expect(card.textContent).toContain("Rewrite the upload client");
 		expect(card.textContent).toContain("Keep the retry for old clients?");
 		expect(card.textContent).toContain("an upstream release");
-		expect(card.textContent).toContain("1 of 1 left");
+		expect(card.textContent).toContain(
+			"can start once its blockers are queued and done",
+		);
 		expect(
 			within(card)
 				.getAllByRole("button")
@@ -93,15 +95,15 @@ describe("App's Blocked card", () => {
 		).toEqual([
 			"Taskupload-retry",
 			"#812 Rewrite the upload client",
-			"Queue",
-			"Add blocker",
-			"Queue all (1)",
+			"Queue 1 blocker",
 		]);
 	});
 
 	it("queues a blocker, or all of them, from the card", async () => {
 		const { card } = await openCard(deferring, board);
-		fireEvent.click(within(card).getByRole("button", { name: "Queue" }));
+		fireEvent.click(
+			within(card).getByRole("button", { name: "Queue 1 blocker" }),
+		);
 		await waitFor(() =>
 			expect(testing.posted("/api/todos/812/queued")).toEqual([
 				{ method: "PUT", body: { queued: true } },
@@ -109,29 +111,54 @@ describe("App's Blocked card", () => {
 		);
 	});
 
-	it("adds a blocker from the card", async () => {
-		const { view, card } = await openCard(deferring, {
-			todos: [
-				...board.todos,
-				todo({
-					id: 900,
-					subject: "Document the retry flag",
-					stage: "available",
-				}),
-			],
+	it("says all blockers are queued once none is left for the person to queue", async () => {
+		const { card } = await openCard(deferring, {
+			todos: board.todos.map((each) =>
+				each.id === 812 ? { ...each, stage: "queued" as const } : each,
+			),
 			lanes: [],
 		});
-		fireEvent.click(within(card).getByRole("button", { name: "Add blocker" }));
-		fireEvent.click(
-			await waitFor(() =>
-				view.getByRole("button", { name: /Document the retry flag/ }),
+		expect(card.textContent).toContain("Starts automatically");
+		expect(
+			within(card).queryByRole("button", { name: /^Queue \d/ }),
+		).toBeNull();
+	});
+
+	it("does not say every blocker is done while something outside splates is still open", async () => {
+		const { card } = await openCard(deferring, {
+			todos: board.todos.filter((each) => each.id !== 812),
+			lanes: [],
+		});
+		expect(card.textContent).toContain("an upstream release");
+		expect(card.textContent).not.toContain("Every blocker is done.");
+		expect(card.textContent).toContain("Every task blocker is done.");
+	});
+
+	it("marks the row with the warning triangle only while a blocker needs queuing", async () => {
+		const { view } = await openCard(deferring, board);
+		const mark = await waitFor(() =>
+			view.getByRole("img", { name: "deferred" }),
+		);
+		expect(mark.innerHTML).toContain("text-warning");
+		cleanup();
+		const queuedAll = await openCard(deferring, {
+			todos: board.todos.map((each) =>
+				each.id === 812 ? { ...each, stage: "queued" as const } : each,
 			),
+			lanes: [],
+		});
+		const quiet = await waitFor(() =>
+			queuedAll.view.getByRole("img", { name: "deferred" }),
 		);
+		expect(quiet.innerHTML).toContain("lucide-ban");
+	});
+
+	it("offers no archive bar for a blocked task, whose conversation the menu archives", async () => {
+		const view = await testing.openConversations([deferring], undefined, board);
 		await waitFor(() =>
-			expect(testing.posted("/api/todos/20/blocked-by")).toEqual([
-				{ method: "PUT", body: { blockedBy: [812, 900] } },
-			]),
+			view.getByRole("region", { name: "deferred upload-retry" }),
 		);
+		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
 	it("folds to a line naming what it waits on once the conversation went on past it", async () => {
@@ -140,7 +167,7 @@ describe("App's Blocked card", () => {
 			messages: [...deferring.messages, message("user", "[SPLATES TASK #20]")],
 		});
 		const { card } = await openCard(resumed, board);
-		expect(card.textContent).toContain("Blocked on #812");
+		expect(card.textContent).toContain("waits on #812");
 		expect(within(card).queryByRole("button", { name: "Resume" })).toBeNull();
 		expect(card.textContent).not.toContain("The fix needs the new client.");
 	});
@@ -160,8 +187,13 @@ describe("App's Blocked card", () => {
 		);
 		expect(pinned.textContent).toContain("Rewrite the upload client");
 		const first = view.getByRole("region", { name: "deferred upload-retry" });
-		expect(first.textContent).toContain("Blocked on #812");
+		expect(first.textContent).toContain("waits on #812");
 		expect(first.textContent).not.toContain("The fix needs the new client.");
+
+		fireEvent.click(within(first).getByRole("button", { name: "Show" }));
+		expect(first.textContent).toContain("It set out to retry a 413.");
+		fireEvent.click(within(first).getByRole("button", { name: "Hide" }));
+		expect(first.textContent).not.toContain("It set out to retry a 413.");
 	});
 
 	it("lets the person link a blocker to an old deferral, which recorded none", async () => {

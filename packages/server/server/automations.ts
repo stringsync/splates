@@ -7,6 +7,7 @@ import {
 import {
 	type Automation,
 	AutomationRoutes,
+	type ClockShelf,
 	type FireDeps,
 	type Fired,
 	fire,
@@ -15,6 +16,7 @@ import {
 	GROOMER_AUTOMATION,
 	type Hook,
 	HookStore,
+	migrateSchedules,
 	RunStore,
 	Scheduler,
 	TASK_EVENTS,
@@ -31,13 +33,14 @@ import {
 	signalReference,
 } from "../plans";
 import type { Journal } from "../records";
+import { dotted } from "../signals";
 import { Groomer } from "./groomer";
 import type { Project } from "./project";
 
 /**
  * One project's automations as `splates server` runs them: each on a task
  * event as the journal takes it, and each on a schedule as it comes due,
- * with the routes the Automations page reads and changes them through.
+ * with the routes the Subscriptions tab reads and changes them through.
  */
 export class Automations implements Resource {
 	readonly routes: AutomationRoutes;
@@ -45,6 +48,7 @@ export class Automations implements Resource {
 	readonly #raise:
 		| ((name: string, payload: unknown) => Promise<void>)
 		| undefined;
+	readonly #clocks: (() => ClockShelf | undefined) | undefined;
 	readonly #slug: () => Promise<string>;
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
@@ -61,11 +65,17 @@ export class Automations implements Resource {
 		slug: () => Promise<string>,
 		/** Raises `<project>.<name>` as a signal with `payload`. */
 		raise?: (name: string, payload: unknown) => Promise<void>,
+		/** Where clock schedules are kept, which saved every and cron automations move onto at start. */
+		clocks?: () => ClockShelf | undefined,
 	) {
 		this.#raise = raise;
+		this.#clocks = clocks;
 		this.#slug = slug;
 		this.#project = project;
-		this.#store = new HookStore(project.storage);
+		this.#store = new HookStore(
+			project.storage,
+			() => project.config.signals ?? {},
+		);
 		this.#runs = new RunStore(project.storage);
 		this.routes = new AutomationRoutes(
 			this.#store,
@@ -110,6 +120,12 @@ export class Automations implements Resource {
 		const matching = await this.#onSignal(name);
 		for (const automation of matching) {
 			await fire(automation, { signal: name, by, payload }, deps);
+			// A one-time clock fires once: its subscription is then over.
+			if (isOneTimeClock(name) && automation.source === undefined) {
+				await this.#store
+					.finish(automation.id, new Date().toISOString())
+					.catch((error: unknown) => this.#project.log.error(String(error)));
+			}
 		}
 		return matching.length;
 	}
@@ -124,7 +140,9 @@ export class Automations implements Resource {
 		payload: unknown,
 	): Promise<TaskEvent | null> {
 		const slug = await this.#slug();
-		const event = TASK_EVENTS.find((each) => name === `${slug}/${each}`);
+		const event = TASK_EVENTS.find(
+			(each) => name === dotted(`${slug}/${each}`),
+		);
 		if (by !== "splates" || event === undefined) {
 			return null;
 		}
@@ -138,6 +156,44 @@ export class Automations implements Resource {
 		};
 	}
 
+	/**
+	 * Pauses the automations set on signal `name`, with a notice of `why`,
+	 * when the signal is removed; one already finished stays finished.
+	 */
+	async expireSignal(name: string, why = "signal expired"): Promise<void> {
+		for (const automation of await this.#store.read()) {
+			if (
+				"signal" in automation.trigger &&
+				automation.trigger.signal === name &&
+				automation.finishedAt === undefined
+			) {
+				await this.#store.pause(automation.id, true, `Source removed: ${why}`);
+			}
+		}
+	}
+
+	/**
+	 * Pauses, with a notice, each automation on a call of a signal function
+	 * that is not in `known`, as when the project stops declaring it; one
+	 * already paused or finished is left alone.
+	 */
+	async retireFamilies(known: Record<string, unknown>): Promise<void> {
+		for (const automation of await this.#store.read()) {
+			if (
+				automation.family !== undefined &&
+				!(automation.family in known) &&
+				automation.paused !== true &&
+				automation.finishedAt === undefined
+			) {
+				await this.#store.pause(
+					automation.id,
+					true,
+					"Source removed: this family is no longer declared",
+				);
+			}
+		}
+	}
+
 	/** How many automations, not paused, are set on signal `name`. */
 	async on(name: string): Promise<number> {
 		return (await this.#onSignal(name)).length;
@@ -145,16 +201,23 @@ export class Automations implements Resource {
 
 	/** Every automation set on a signal, paused or not. */
 	async onSignals(): Promise<
-		{ id: string; name: string | null; signal: string; paused: boolean }[]
+		{
+			id: string;
+			name: string | null;
+			signal: string;
+			paused: boolean;
+			finished: boolean;
+		}[]
 	> {
 		const found = [];
-		for (const { id, name, trigger, paused } of await this.all()) {
+		for (const { id, name, trigger, paused, finishedAt } of await this.all()) {
 			if ("signal" in trigger) {
 				found.push({
 					id,
 					name: name ?? null,
 					signal: trigger.signal,
 					paused: paused === true,
+					finished: finishedAt !== undefined,
 				});
 			}
 		}
@@ -163,8 +226,11 @@ export class Automations implements Resource {
 
 	async #onSignal(name: string) {
 		return (await this.all()).filter(
-			({ trigger, paused }) =>
-				paused !== true && "signal" in trigger && trigger.signal === name,
+			({ trigger, paused, finishedAt }) =>
+				paused !== true &&
+				finishedAt === undefined &&
+				"signal" in trigger &&
+				trigger.signal === name,
 		);
 	}
 
@@ -199,6 +265,13 @@ export class Automations implements Resource {
 				});
 			},
 		});
+		const shelf = this.#clocks?.();
+		if (shelf !== undefined) {
+			await migrateSchedules(this.#store, this.#runs, shelf).catch(
+				(error: unknown) =>
+					log.error(`moving schedules to clocks: ${String(error)}`),
+			);
+		}
 		this.#scheduler = await Scheduler.start({
 			...fireDeps,
 			automations: this.all,
@@ -381,4 +454,9 @@ function pickOf({ agent, model, effort }: AgentPick): AgentPick {
 		...(model === undefined ? {} : { model }),
 		...(effort === undefined ? {} : { effort }),
 	};
+}
+
+/** Whether `signal` is a one-time clock, `clock.in(...)` or `clock.at(...)`, which fires once. */
+function isOneTimeClock(signal: string): boolean {
+	return /^(?:[^/]+\/)?clock\.(?:in|at)\(/.test(signal);
 }

@@ -4,8 +4,10 @@ import type { AgentPick } from "@splates/server/models";
 import { ApiError, answered, scoped, send, sendJson } from "./api";
 
 /** Every automation set for this project, the checked-in ones too. */
-export async function automations(): Promise<AutomationRow[]> {
-	const response = await answered(scoped("/api/automations"));
+export async function automations(
+	project: string | null = null,
+): Promise<AutomationRow[]> {
+	const response = await answered(scoped("/api/automations", project));
 	const body = (await response.json().catch(() => ({}))) as {
 		automations?: AutomationRow[];
 		reason?: string;
@@ -25,9 +27,14 @@ export async function addAutomation(
 	trigger: Trigger,
 	hook: Hook,
 	name = "",
+	project: string | null = null,
 ): Promise<AutomationRow[]> {
 	return rows(
-		await sendJson("/api/automations", "POST", { trigger, hook, name }),
+		await sendJson(scoped("/api/automations", project), "POST", {
+			trigger,
+			hook,
+			name,
+		}),
 	);
 }
 
@@ -37,9 +44,14 @@ export async function editAutomation(
 	trigger: Trigger,
 	hook: Hook,
 	name = "",
+	project: string | null = null,
 ): Promise<AutomationRow[]> {
 	return rows(
-		await sendJson(`/api/automations/${id}`, "PUT", { trigger, hook, name }),
+		await sendJson(scoped(`/api/automations/${id}`, project), "PUT", {
+			trigger,
+			hook,
+			name,
+		}),
 	);
 }
 
@@ -55,17 +67,25 @@ export async function groomAutomation(
 }
 
 /** Takes away the person's automation `id`. */
-export async function removeAutomation(id: string): Promise<AutomationRow[]> {
-	return rows(await send(`/api/automations/${id}`, { method: "DELETE" }));
+export async function removeAutomation(
+	id: string,
+	project: string | null = null,
+): Promise<AutomationRow[]> {
+	return rows(
+		await send(scoped(`/api/automations/${id}`, project), {
+			method: "DELETE",
+		}),
+	);
 }
 
 /** Pauses the person's automation `id`, or with false, lets it run again. */
 export async function pauseAutomation(
 	id: string,
 	paused: boolean,
+	project: string | null = null,
 ): Promise<AutomationRow[]> {
 	return rows(
-		await send(`/api/automations/${id}/pause`, {
+		await send(scoped(`/api/automations/${id}/pause`, project), {
 			method: paused ? "PUT" : "DELETE",
 		}),
 	);

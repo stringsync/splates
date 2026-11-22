@@ -19,13 +19,20 @@ export function useEscapeStopsDictation(): void {
 			if (
 				event.key !== "Escape" ||
 				event.isComposing ||
-				(phase !== "asking" && phase !== "opening" && phase !== "recording")
+				(phase !== "asking" &&
+					phase !== "opening" &&
+					phase !== "recording" &&
+					phase !== "finishing")
 			) {
 				return;
 			}
+			// A second press while the take is finishing is swallowed too, so it
+			// cannot reach the composer's Escape and stop the agent's turn.
 			event.preventDefault();
 			event.stopImmediatePropagation();
-			void dictation.finish();
+			if (phase !== "finishing") {
+				void dictation.finish();
+			}
 		};
 		window.addEventListener("keydown", press, true);
 		return () => window.removeEventListener("keydown", press, true);

@@ -1,9 +1,10 @@
+// vet-ignore-file compact-files: serving a project wires every route it has, and was already past the limit
 import type { Resource } from "core/disposable";
 import { UuidProvider } from "core/id";
 import { Debouncer, SystemTimer, SystemWallClock } from "core/time";
 import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
 import type { TaskRecord } from "../board";
-import { BoardRoutes, ElsewhereLinks } from "../board";
+import { BoardRoutes, ElsewhereLinks, SignalTasks } from "../board";
 import { loadConfig } from "../config";
 import {
 	ConversationRoutes,
@@ -11,6 +12,7 @@ import {
 	JournalEvents,
 	NoopConversations,
 	SERVER_TOLD,
+	textOf,
 } from "../conversations";
 import { CredRoutes } from "../creds";
 import { fail } from "../exit";
@@ -42,6 +44,7 @@ import { Automations } from "./automations";
 import { BusyRunWatch } from "./busy-run-watch";
 import { cardWatches } from "./card-watches";
 import { ConflictWatch } from "./conflict-watch";
+import { EventWaitWatch } from "./event-wait-watch";
 import { heldFor } from "./held";
 import { MergeRoutes } from "./merges";
 import type { DevContext, Project, Served } from "./project-types";
@@ -76,8 +79,25 @@ export async function serveProject(
 	let queueRunner: QueueRunner | null = null;
 	let unwatchRoom: (() => void) | null = null;
 	let starting = Promise.resolve();
-	const automations = new Automations(project, slug, async (name, payload) => {
-		await context.raiseSignal?.(`${await slug()}/${name}`, "splates", payload);
+	const automations = new Automations(
+		project,
+		slug,
+		async (name, payload) => {
+			await context.raiseSignal?.(
+				`${await slug()}/${name}`,
+				"splates",
+				payload,
+			);
+		},
+		() => context.clockShelf?.(),
+	);
+	// Tasks that close on a signal subscribe to it, so a probe on it keeps
+	// running, and end as merged when it fires.
+	const signalTasks = new SignalTasks({
+		tasks: project.tasks,
+		raises: async () => (await context.signalTasks?.raises()) ?? {},
+		subscribed: async (name) => context.signalTasks?.subscribed(name),
+		log,
 	});
 	const replicator = context.replicas.of(project);
 	let events: Resource | null = null;
@@ -136,12 +156,13 @@ export async function serveProject(
 			capacity: () => capacity.reading,
 			log,
 		});
-		const queue = queueRunner;
-		const unwatch = context.onWorkerRoom(() => void queue.sweep());
+		const unwatch = context.onWorkerRoom(() => void queueRunner?.sweep());
 		const stopRuns = BusyRunWatch.begin(project, conversations, machine);
+		const stopWaits = EventWaitWatch.begin(project, conversations, machine);
 		unwatchRoom = () => {
 			unwatch();
 			stopRuns();
+			stopWaits();
 		};
 		events = await JournalEvents.follow({ journal, conversations, log });
 		await automations.start(conversations, journal);
@@ -154,7 +175,7 @@ export async function serveProject(
 		};
 		const handOff = (): void => {
 			// A task gone moves the queue on.
-			void queue.sweep();
+			void signalTasks.sweep().then(() => queueRunner?.sweep());
 			startAll();
 		};
 		const timer = new SystemTimer();
@@ -202,7 +223,7 @@ export async function serveProject(
 	const shipCards =
 		conversations === null
 			? null
-			: cardWatches(project, conversations, shipComposer, context);
+			: cardWatches(project, conversations, context);
 	const shipEngine = new ShipEngine({
 		storage,
 		processes: new ShellStepProcesses(
@@ -261,12 +282,34 @@ export async function serveProject(
 				if (conversation === undefined) {
 					throw new Error(`the conversation for task #${task} was not created`);
 				}
-				void conversation
-					.prompt(
+				// A turn that ends with the task still on the board and untaken
+				// means the agent gave up without saying so: ask it once to merge
+				// or remove with a reason, then let the ship try the step itself.
+				const untaken = async () =>
+					(await project.tasks.stored()).some(
+						(each) => each.id === task && each.takenBy === null,
+					);
+				void (async () => {
+					await conversation.prompt(
 						`${taskNumberReference(task)}\n\nThis task fixes a step of a ship the user started: its words say how to read the run and try the step again. Once the task merges, the ship retries the step by itself; removing it hands the step back to the user.`,
 						[],
-					)
-					.catch((error: unknown) => log.error(String(error)));
+					);
+					if (!(await untaken())) {
+						return;
+					}
+					await conversation.prompt(
+						`Your turn ended and task #${task} is still untaken, so the ship is waiting on it. Either take it (\`splates add --task ${task}\`) and fix the step, or, when nothing in code needs fixing, remove the task with \`--reason blocked\` and say in the reason exactly what the user has to do (for example, ship a version to staging first, then Retry).`,
+						[],
+					);
+					if (!(await untaken())) {
+						return;
+					}
+					const said = conversation.state.messages
+						.filter((each) => each.role === "agent")
+						.at(-1);
+					const note = said === undefined ? "" : textOf(said).trim();
+					await shipFixes.abandoned(task, note === "" ? undefined : note);
+				})().catch((error: unknown) => log.error(String(error)));
 			},
 			ended: async (task) => {
 				if ((await project.tasks.stored()).some((each) => each.id === task)) {
@@ -326,6 +369,37 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipPlanRoutes(shipCommands),
 		...new ShipRunRoutes(shipEngine, shipComposer, shipFixes),
+		sendToAgent: async (subject: string, text: string) => {
+			if (conversations === null) {
+				throw new Error("conversations are off");
+			}
+			const task = (await project.tasks.add(subject, null, { text })).id;
+			const started = async () => {
+				const response = await new AutoPickRoutes(
+					project,
+					conversations,
+					watch,
+					slug,
+				).startAutoPick(
+					new Request("http://localhost/start", {
+						method: "POST",
+						body: JSON.stringify({ todo: task }),
+					}),
+				);
+				const { id } = (await response.json()) as { id: string };
+				const conversation = (await conversations.list()).find(
+					(each) => each.state.id === id,
+				);
+				if (conversation === undefined) {
+					throw new Error(`the conversation for task #${task} was not created`);
+				}
+				await conversation.prompt(taskNumberReference(task), []);
+			};
+			void started().catch((error: unknown) =>
+				log.error(`The task #${task} did not start: ${String(error)}`),
+			);
+			return task;
+		},
 		startShipTask: async (task: string, ship: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
@@ -382,10 +456,26 @@ export async function serveProject(
 		kept: async (name) =>
 			(await project.creds.credentials.get(name)) !== undefined,
 		refresh: watch.changed,
-		signalRaised: (name, by, payload) =>
-			automations.signalRaised(name, by, payload),
-		signalAutomations: (name) => automations.on(name),
-		signalAutomationList: () => automations.onSignals(),
+		signalFunctions: () => project.config.signals ?? {},
+		expireSignal: (name, why) => automations.expireSignal(name, why),
+		retireFamilies: (known) => automations.retireFamilies(known),
+		signalRaised: async (name, by, payload) => {
+			const fired = await automations.signalRaised(name, by, payload);
+			await signalTasks.sweep();
+			return fired;
+		},
+		signalAutomations: async (name) =>
+			(await automations.on(name)) + (await signalTasks.on(name)),
+		signalAutomationList: async () => [
+			...(await automations.onSignals()),
+			...(await signalTasks.list()).map((each) => ({
+				id: `task-${each.id}`,
+				name: `#${each.id} ${each.subject}`,
+				signal: each.signal,
+				paused: false,
+				task: each.id,
+			})),
+		],
 		snapshot: async () => Response.json(await watch.current()),
 		current: () => watch.current(),
 		waiting: async () => {

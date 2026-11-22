@@ -13,11 +13,7 @@ export const QUEUE_SWEEP = Duration.mins(1);
 /** The most sweeps the queue waits before trying a refused start again. */
 export const RETRY_SWEEPS_MAX = 30;
 
-/**
- * The most queued tasks the queue has starting at once, each readying its
- * worktree and opening its agent, so a lane queued at once does not hit the
- * machine and the agents' providers all together.
- */
+/** The most queued tasks the queue starts at once, so a lane queued at once does not hit the machine and the agents' providers together. */
 export const QUEUE_STARTS_MAX = 2;
 
 /** The least time between two of the queue's starts, so agents connect one after another. */
@@ -580,9 +576,10 @@ export function queuePrompt(queued: TaskRecord): string {
 				: "";
 	return [
 		`splates server started this task for queued task #${queued.id} from the queue${lane}: nothing it is blocked by is left open.`,
-		...(queued.blockersLanded ?? []).map(
-			(landed) =>
-				`It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
+		...(queued.blockersLanded ?? []).map((landed) =>
+			landed.fired !== undefined
+				? `It was blocked by #${landed.id} ${landed.subject}, which closed when ${landed.fired.signal} was fired at ${landed.fired.at}${landed.fired.payload === null ? "" : ` with ${JSON.stringify(landed.fired.payload)}`}.`
+				: `It was blocked by #${landed.id} ${landed.subject}, which landed as ${landed.commit}: \`git show ${landed.commit}\` for what it builds on.`,
 		),
 		...(queued.blockersLost ?? []).map(
 			(gone) =>

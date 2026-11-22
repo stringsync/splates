@@ -12,7 +12,6 @@ import type {
 	Device,
 	Image,
 	Limit,
-	Progress,
 	Reminder,
 	Setting,
 } from "./state";
@@ -22,6 +21,12 @@ import type {
  * carries the `seq` of the agent's frame being handled when it was written;
  * missing before the first frame, and from older logs.
  */
+/** A model and an effort, by name, that a conversation runs on together. */
+export interface Pairing {
+	model: string | null;
+	effort: string | null;
+}
+
 export type Entry = Said & { seq?: number };
 
 type Said =
@@ -38,8 +43,6 @@ type Said =
 			base?: string | null;
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
-			/** The task's tags; missing from logs written before conversations kept them. */
-			tags?: string[];
 			createdAt: string;
 			/** Missing from logs written before assignments were kept apart. */
 			assigned?: boolean;
@@ -71,6 +74,9 @@ type Said =
 			aspect: "model" | "effort";
 			value: string;
 			at: string;
+			/** The model and effort, by name, before and after the change; absent on older lines. */
+			from?: Pairing;
+			result?: Pairing;
 	  }
 	/**
 	 * What Auto pick set it to: at its start, or `lifted` when it moved it up
@@ -107,8 +113,6 @@ type Said =
 			base?: string | null;
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
-			/** The task's tags; missing from logs written before conversations kept them. */
-			tags?: string[];
 	  }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
@@ -182,8 +186,6 @@ type Said =
 	| { kind: "flags"; tool: string; flags: Flag[] }
 	/** How the person answered the agent asking permission for a tool call. */
 	| { kind: "decision"; tool: string; decision: Decision }
-	/** A progress card as the server published it: the whole card, replacing its earlier one. */
-	| { kind: "progress"; progress: Progress }
 	/** A signal wait as it stands: the whole wait, replacing its earlier one. */
 	| { kind: "signal"; wait: SignalWait }
 	/** A signal probe this conversation started, as it stands: the whole probe, replacing its earlier one. */

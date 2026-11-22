@@ -9,6 +9,7 @@ import { json } from "../server/testing";
 import { Testing } from "../testing";
 import { classificationKey } from "./key";
 import type { AutoPicked } from "./record";
+import { routedTo } from "./testing";
 import type { AutoPickTrial } from "./trial";
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
@@ -44,17 +45,7 @@ describe("dev Auto pick", () => {
 		);
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
-			JSON.stringify({
-				format: 2,
-				threshold: 0.5,
-				rules: [
-					{
-						kind: "*",
-						depth: "*",
-						picks: [{ agent: "fake", model: "big" }],
-					},
-				],
-			}),
+			JSON.stringify(routedTo([{ agent: "fake", model: "big" }])),
 		);
 		({ id } = await deps.tasks.add(SUBJECT, null));
 		server = await dev(deps, {
@@ -107,7 +98,7 @@ describe("dev Auto pick", () => {
 			cached: true,
 			decision: {
 				pick: { agent: "fake", model: "big" },
-				rule: 0,
+				lineup: "all",
 				kind: "bugfix",
 				depth: "shallow",
 			},

@@ -216,7 +216,6 @@ type Here = Pick<
 	| "elsewhere"
 	| "root"
 	| "repo"
-	| "allowedTags"
 	| "taskStalenessMs"
 >;
 

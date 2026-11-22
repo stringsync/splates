@@ -5,18 +5,94 @@ import type { Classification } from "./classify";
 import { decide } from "./decide";
 import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
+import { routedTo, withCell } from "./testing";
 
 describe("decide", () => {
-	it("takes the first rule matching the likeliest kind and depth, saying why", () => {
+	const gemini4 = ["carbon", "neon", "hydrogen", "argon"].map(
+		(name) => `gemini-4-${name}`,
+	);
+	const offerings = (ids: string[]): Setting[] => [
+		{
+			id: "model",
+			name: "Model",
+			type: "select",
+			category: "model",
+			current: ids[0] ?? "",
+			options: ids.map((value) => ({ value, name: value, description: null })),
+		},
+	];
+
+	it.each(gemini4)("selects offered Antigravity model %s", (model) => {
+		const rules = routedTo([{ agent: "antigravity", model, effort: "low" }]);
+		const offered = { antigravity: [...offerings([model]), THOUGHT_LEVEL] };
+		expect(
+			decide({ ...BASE, rules, offered, classification: DESIGN }).pick,
+		).toEqual({ agent: "antigravity", model, effort: "low" });
+	});
+
+	it("passes over Gemini 4 for Flash on a personal account", () => {
+		const rules = routedTo(
+			[...gemini4, "gemini-3.8-flash"].map((model) => ({
+				agent: "antigravity",
+				model,
+			})),
+		);
+		const offered = { antigravity: offerings(["gemini-3.8-flash"]) };
+		const result = decide({ ...BASE, rules, offered, classification: DESIGN });
+		expect(result.pick).toEqual({
+			agent: "antigravity",
+			model: "gemini-3.8-flash",
+		});
+		expect(result.reasons).toEqual(
+			expect.arrayContaining(
+				gemini4.map(
+					(model) =>
+						`passed over Antigravity: model '${model}' is not offered by this account`,
+				),
+			),
+		);
+	});
+
+	it("uses an agent default when every explicit model is unavailable", () => {
+		const rules = routedTo([
+			{ agent: "antigravity", model: "gemini-4-carbon" },
+		]);
+		const offered = { antigravity: offerings([]) };
+		expect(
+			decide({
+				...BASE,
+				rules,
+				offered,
+				runnable: ["antigravity"],
+				classification: DESIGN,
+			}).pick,
+		).toEqual({ agent: "antigravity" });
+	});
+
+	it.each(["uncached", "no selector"])(
+		"keeps model picks with %s offerings",
+		(state) => {
+			const rules = routedTo([
+				{ agent: "antigravity", model: "gemini-4-carbon" },
+			]);
+			const offered: Record<string, Setting[]> =
+				state === "uncached" ? {} : { antigravity: [THOUGHT_LEVEL] };
+			expect(
+				decide({ ...BASE, rules, offered, classification: DESIGN }).pick,
+			).toEqual({ agent: "antigravity", model: "gemini-4-carbon" });
+		},
+	);
+
+	it("takes the lineup of the likeliest kind and depth, saying why", () => {
 		expect(decide({ ...BASE, classification: SHALLOW })).toEqual({
 			pick: { agent: "claude", model: "sonnet", effort: "low" },
-			rule: 1,
+			lineup: "quick",
 			kind: "bugfix",
 			depth: "shallow",
 			reasons: [
 				"Sonnet 5.5, low effort",
 				"judged: Bugfix 72%, Shallow 64%",
-				"rule 2: any kind, Shallow",
+				"route: Bugfix · Shallow → Quick",
 			],
 		});
 	});
@@ -24,7 +100,7 @@ describe("decide", () => {
 	it("routes deep design work to Opus", () => {
 		expect(decide({ ...BASE, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 6,
+			lineup: "careful",
 			kind: "design",
 			depth: "deep",
 		});
@@ -37,13 +113,13 @@ describe("decide", () => {
 		};
 		expect(decide({ ...BASE, classification: bugfix })).toMatchObject({
 			pick: { agent: "claude", model: "opus", effort: "high" },
-			rule: 5,
+			lineup: "careful",
 			kind: "bugfix",
 			depth: "deep",
 		});
 	});
 
-	it("takes a task for no kind when the judge is not sure enough, so only * matches it", () => {
+	it("takes a task for an unsure kind when the judge is not sure enough", () => {
 		const unsure: Classification = {
 			kinds: {
 				bugfix: 0.3,
@@ -55,13 +131,13 @@ describe("decide", () => {
 		};
 		expect(decide({ ...BASE, classification: unsure })).toMatchObject({
 			pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
-			rule: 8,
+			lineup: "hardest",
 			kind: null,
 			depth: "deep",
 			reasons: [
 				"K3.1 Pro, max effort",
 				"judged: unsure (Design 40%), Deep 80%",
-				"rule 9: any kind, Deep",
+				"route: Unsure · Deep → Hardest",
 			],
 		});
 	});
@@ -70,30 +146,26 @@ describe("decide", () => {
 		const strict: AutoPickRules = { ...DEFAULT_RULES, threshold: 0.75 };
 		expect(
 			decide({ ...BASE, rules: strict, classification: SHALLOW }),
-		).toMatchObject({ rule: 9, kind: null, depth: null });
+		).toMatchObject({ lineup: "standard", kind: null, depth: null });
 	});
 
-	it("lets an earlier rule win over a more specific one below it", () => {
-		const rules: AutoPickRules = {
-			format: 2,
-			threshold: 0.5,
-			rules: [
-				{ kind: "*", depth: "shallow", picks: [{ agent: "codex" }] },
-				{
-					kind: "bugfix",
-					depth: "shallow",
-					picks: [{ agent: "claude" }],
-				},
-				{ kind: "*", depth: "*", picks: [{ agent: "claude" }] },
-			],
-		};
+	it("takes only its own cell's lineup, not a neighbor's", () => {
+		const rules = withCell(
+			withCell(routedTo([{ agent: "claude" }]), "unsure", "shallow", "Near", [
+				{ agent: "kimi" },
+			]),
+			"bugfix",
+			"shallow",
+			"Mine",
+			[{ agent: "codex" }],
+		);
 		expect(decide({ ...BASE, rules, classification: SHALLOW })).toMatchObject({
 			pick: { agent: "codex" },
-			rule: 0,
+			lineup: "mine",
 			reasons: [
 				"Codex on its default model",
 				expect.any(String),
-				"rule 1: any kind, Shallow",
+				"route: Bugfix · Shallow → Mine",
 			],
 		});
 	});
@@ -119,19 +191,10 @@ describe("decide", () => {
 	it.each(["five_hour", "seven_day", "month"])(
 		"passes over Kimi when its %s plan window is spent",
 		(window) => {
-			const rules: AutoPickRules = {
-				...DEFAULT_RULES,
-				rules: [
-					{
-						kind: "*",
-						depth: "*",
-						picks: [
-							{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-							{ agent: "claude", model: "opus", effort: "high" },
-						],
-					},
-				],
-			};
+			const rules = routedTo([
+				{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+				{ agent: "claude", model: "opus", effort: "high" },
+			]);
 			const limits = {
 				kimi: [{ window, used: 0.96, resets: LATER, at: null }],
 			};
@@ -161,19 +224,10 @@ describe("decide", () => {
 				cost: "unknown",
 			})),
 		};
-		const rules: AutoPickRules = {
-			...DEFAULT_RULES,
-			rules: [
-				{
-					kind: "*",
-					depth: "*",
-					picks: [
-						{ agent: "opencode", model: "a" },
-						{ agent: "opencode", model: "b" },
-					],
-				},
-			],
-		};
+		const rules = routedTo([
+			{ agent: "opencode", model: "a" },
+			{ agent: "opencode", model: "b" },
+		]);
 		const limits = {
 			opencode: [{ window: "cap:a", used: 1, resets: LATER, at: null }],
 		};
@@ -345,23 +399,16 @@ describe("decide", () => {
 	});
 
 	it("passes over a pick whose agent is not on the roster", () => {
-		const rules: AutoPickRules = {
-			format: 2,
-			threshold: 0.5,
-			rules: [
-				{
-					kind: "*",
-					depth: "*",
-					picks: [{ agent: "ghost" }, { agent: "claude", model: "Sonnet 5.5" }],
-				},
-			],
-		};
+		const rules = routedTo([
+			{ agent: "ghost" },
+			{ agent: "claude", model: "Sonnet 5.5" },
+		]);
 		expect(decide({ ...BASE, rules, classification: DESIGN })).toMatchObject({
 			pick: { agent: "claude", model: "sonnet" },
 			reasons: [
 				"Sonnet 5.5",
 				expect.any(String),
-				"rule 1: any kind, any depth",
+				"route: Design · Deep → All",
 				"passed over ghost: not on the roster",
 			],
 		});
@@ -375,7 +422,7 @@ describe("decide", () => {
 			reasons: [
 				expect.any(String),
 				expect.any(String),
-				"rule 7: Design, Deep",
+				"route: Design · Deep → Careful",
 				"passed over Claude: can't run here",
 				"passed over Kimi: can't run here",
 			],
@@ -416,7 +463,7 @@ describe("decide", () => {
 		});
 	});
 
-	it("takes the rule's first pick when none of its picks can see the images", () => {
+	it("takes the lineup's first pick when none of its picks can see the images", () => {
 		expect(
 			decide({
 				...BASE,
@@ -427,7 +474,7 @@ describe("decide", () => {
 		).toMatchObject({
 			pick: { agent: "claude", model: "opus" },
 			reasons: expect.arrayContaining([
-				"none of rule 7's picks can see images, so the first: Claude",
+				"none of Careful's picks can see images, so the first: Claude",
 			]),
 		});
 	});
@@ -442,19 +489,15 @@ describe("decide", () => {
 		).toMatchObject({ pick: { agent: "claude", model: "opus" } });
 	});
 
-	it("falls back on the first roster agent that runs when no pick of the rule does", () => {
-		const rules: AutoPickRules = {
-			format: 2,
-			threshold: 0.5,
-			rules: [{ kind: "*", depth: "*", picks: [{ agent: "claude" }] }],
-		};
+	it("falls back on the first roster agent that runs when no pick of the lineup does", () => {
+		const rules = routedTo([{ agent: "claude" }]);
 		expect(
 			decide({ ...BASE, rules, runnable: ["codex"], classification: DESIGN }),
 		).toMatchObject({
 			pick: { agent: "codex" },
 			reasons: expect.arrayContaining([
 				"passed over Claude: can't run here",
-				"no pick of rule 1 can run here, so Codex on its default",
+				"no pick of All can run here, so Codex on its default",
 			]),
 		});
 	});
@@ -511,20 +554,25 @@ describe("decide", () => {
 				depth: { shallow: 0.9, moderate: 0.05, deep: 0.05 },
 			},
 		});
-		expect(shallow).toMatchObject({ kind: "devops", rule: 0 });
-		expect(DEFAULT_RULES.rules[0]).toEqual({
-			kind: "devops",
-			depth: "*",
+		expect(shallow).toMatchObject({ kind: "devops", lineup: "infra" });
+		expect(DEFAULT_RULES.routes.devops).toEqual({
+			unsure: "infra",
+			shallow: "infra",
+			moderate: "infra",
+			deep: "infra",
+		});
+		expect(
+			DEFAULT_RULES.lineups.find((each) => each.id === "infra"),
+		).toMatchObject({
 			picks: [
 				{ agent: "claude", model: "sonnet", effort: "medium" },
-				{ agent: "claude", model: "opus", effort: "high" },
 				{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 			],
 		});
 	});
 
 	it("never picks K3.1 Pro highspeed by default", () => {
-		const models = DEFAULT_RULES.rules.flatMap((each) =>
+		const models = DEFAULT_RULES.lineups.flatMap((each) =>
 			each.picks.map((pick) => pick.model),
 		);
 		expect(models).not.toContain("kimi-code/k3.1-pro-highspeed");
@@ -570,7 +618,7 @@ const THOUGHT_LEVEL: Setting = {
 	],
 };
 
-it("records context in reasons without changing the matched rule or pick", () => {
+it("records context in reasons without changing the lineup or pick", () => {
 	const before = decide({ ...BASE, classification: DESIGN });
 	const after = decide({
 		...BASE,
@@ -583,7 +631,7 @@ it("records context in reasons without changing the matched rule or pick", () =>
 		},
 	});
 	expect(after.pick).toEqual(before.pick);
-	expect(after.rule).toBe(before.rule);
+	expect(after.lineup).toBe(before.lineup);
 	expect(after.reasons).toEqual([
 		...before.reasons,
 		"breadth: One spot 10%, One module 20%, Across modules 90%",

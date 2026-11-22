@@ -17,6 +17,7 @@ import {
 	type Session,
 } from "../agents";
 import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
+import type { Health } from "../auto-pick/health";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
@@ -37,6 +38,7 @@ import type {
 import { NoopProjectRoster } from "./noop-project-roster";
 import type { ConversationsOptions } from "./options";
 import { outside } from "./outside";
+import { hearFault } from "./provider-faults";
 import { usedOf } from "./spent";
 import type { Limit, Setting } from "./state";
 import { lookBack } from "./turn-end";
@@ -66,6 +68,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly storage: Storage;
 	private readonly ids: IdProvider;
 	private readonly launcher: Launcher;
+	private readonly env: ConversationsOptions["env"];
 	private readonly placer: ConversationPlacer | undefined;
 	private readonly machine: WorkerMachine;
 	private readonly starting: Lock;
@@ -74,6 +77,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
+	/** Where provider errors are kept for Auto pick to avoid a failing model; null for none. */
+	readonly health: Health | null;
 	private readonly adherence: Adherence | null;
 	private readonly outcomes: Outcomes | null;
 	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
@@ -110,6 +115,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.storage = opts.storage ?? new FsStorage(dir, this.fs);
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
+		this.env = opts.env;
 		this.placer = opts.placer;
 		this.machine = opts.machine ?? new LocalWorkerMachine(systemPs(), this.fs);
 		this.starting = opts.starting ?? new MemoryLock();
@@ -118,6 +124,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.watch = opts.watch ?? null;
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
+		this.health = opts.health ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.outcomes = opts.outcomes ?? null;
 		this.spend = opts.spend ?? null;
@@ -158,6 +165,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			timer: this.timer,
 			clock: this.clock,
 			launcher: this.launcher,
+			...(this.env === undefined ? {} : { env: this.env }),
 			...(this.placer === undefined ? {} : { placer: this.placer }),
 			machine: this.machine,
 			starting: this.starting,
@@ -291,7 +299,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task,
 			base,
 			caller,
-			tags,
 			cwd,
 			scratch,
 			settings,
@@ -316,8 +323,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base?: string | null;
 			/** The conversation whose agent added `task`. */
 			caller?: string | null;
-			/** The tags of `task`. */
-			tags?: string[] | null;
 			cwd: string | ((id: string) => string | Promise<string>);
 			/** Runs projectless in its own scratch workspace. */
 			scratch?: boolean;
@@ -358,7 +363,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				task,
 				base,
 				caller,
-				tags,
 				cwd: directory,
 				scratch,
 				settings,
@@ -421,7 +425,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task,
 			base,
 			caller,
-			tags,
 			cwd,
 			title = null,
 		}: {
@@ -430,8 +433,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			base?: string | null;
 			/** The conversation whose agent added `task`. */
 			caller?: string | null;
-			/** The tags of `task`. */
-			tags?: string[] | null;
 			cwd: string;
 			title?: string | null;
 		},
@@ -458,7 +459,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				task,
 				base,
 				caller,
-				tags,
 				cwd,
 				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
@@ -517,6 +517,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		let archived = conversation.state.archived;
 		let limits = conversation.state.usage.limits;
 		let status = conversation.state.status;
+		let failed = conversation.state.error;
 		// When the running turn began; null when it began before this server.
 		let turnStarted: string | null = null;
 		// What it had used as the running turn began, for the ledger.
@@ -556,6 +557,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				(status === "running" && conversation.state.status !== "running") ||
 				(status === "starting" && conversation.state.status === "failed");
 			status = conversation.state.status;
+			failed = hearFault(this.health, conversation, failed);
 			if (conversation.state.usage.limits !== limits) {
 				limits = conversation.state.usage.limits;
 				void this.limited?.remember(agent, limits).catch(() => {});

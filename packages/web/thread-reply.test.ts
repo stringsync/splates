@@ -36,4 +36,21 @@ describe("thread-reply", () => {
 		const fenced = "```\n1. one\n";
 		expect(beforeList(fenced)).toBe(fenced);
 	});
+
+	test("drops a heading that only titles the questions after it", () => {
+		const turn = { task: null };
+		const parts = replied(
+			"Plan.\n\n## 🔐 Questions\n\n1. Keep it?\n   - (a) Yes (chosen)",
+			true,
+			turn,
+		);
+		expect(parts.map((part) => part.type)).toEqual(["text", "data-questions"]);
+		expect(parts[0]).toEqual({ type: "text", text: "Plan." });
+		const alone = replied(
+			"## 🔐 Questions\n\n1. Keep it?\n   - (a) Yes",
+			true,
+			turn,
+		);
+		expect(alone.map((part) => part.type)).toEqual(["data-questions"]);
+	});
 });

@@ -20,7 +20,7 @@ export interface Classification {
 	depth: Record<DepthId, number>;
 	/** Additional evidence, absent on older records. */
 	breadth?: Record<"spot" | "module" | "system", number>;
-	/** How settled the intended behavior is; independently matched by rules. */
+	/** How settled the intended behavior is; recorded, not routed on. */
 	clarity?: Record<"settled" | "unresolved", number>;
 	stakes?: Record<"routine" | "sensitive", number>;
 	verification?: Record<"automated" | "visual", number>;

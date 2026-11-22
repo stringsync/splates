@@ -4,12 +4,9 @@ import {
 	APPROVE,
 	BLOCKERS_CLEARED,
 	DIRECTIVES,
-	GRANT_DENIED,
-	GRANTED,
 	MERGE,
 	RUN_ALLOWED,
 	RUN_DENIED,
-	RUN_ELSEWHERE,
 	UNTRIAGED,
 } from "@splates/server/plans/browser";
 import type { FinishedTask } from "@splates/server/tasks";
@@ -234,7 +231,7 @@ export function isBare(directive: string): boolean {
 	return BARE_DIRECTIVES.some((each) => each.directive === directive);
 }
 
-/** The directives the person sends to approve a proposal or a merge. */
+/** The directives the person sends to approve a merge, or, from an old proposal card, a plan. */
 const APPROVALS: ReadonlySet<string> = new Set([APPROVE, MERGE]);
 
 /** A skill or command named alone, as the composer's `/` writes it. */
@@ -323,14 +320,8 @@ function wordsOf(
 	board: BoardContext,
 	nameAgent: (agent: { agent: string; model?: string }) => string | undefined,
 ): Words | null {
-	if (
-		directive === RUN_ALLOWED ||
-		directive === RUN_DENIED ||
-		directive === RUN_ELSEWHERE ||
-		directive === GRANTED ||
-		directive === GRANT_DENIED
-	) {
-		// The run-command or grant card it answers folds to an event line saying it.
+	if (directive === RUN_ALLOWED || directive === RUN_DENIED) {
+		// The run-command card it answers folds to an event line saying it.
 		return null;
 	}
 	if (directive === BLOCKERS_CLEARED) {

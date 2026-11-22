@@ -116,6 +116,24 @@ describe("App's composer mic", () => {
 		expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(true);
 	});
 
+	it("does not stop a running turn when Escape is pressed twice to stop dictating", async () => {
+		const view = await testing.openConversations([
+			conversation({ status: "running" }),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+
+		await act(async () => {
+			expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(false);
+			expect(fireEvent.keyDown(box, { key: "Escape" })).toBe(false);
+		});
+
+		expect(testing.posted(`/api/conversations/${talk.id}/cancel`)).toEqual([]);
+	});
+
 	it("sends with Enter while focus sits on the page, not the editor", async () => {
 		const { view, box } = await composer();
 		await typeIn(box, "Please");

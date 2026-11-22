@@ -1,23 +1,14 @@
-import type {
-	Demo,
-	Proposal,
-	Question,
-	TaskReport,
-} from "@splates/server/plans";
+import type { Demo, Question, TaskReport } from "@splates/server/plans";
 import {
 	type Answer,
-	APPROVE,
 	answerIn,
 	besides,
-	changes,
-	directive,
 	isEmpty,
 	replyOf,
 	takenOf,
 } from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
 import {
-	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	SendHorizontalIcon,
@@ -28,7 +19,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { focusStop, raises, useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { AnythingElsePage } from "./anything-else-page";
-import { caretToEnd } from "./box-editor";
+import { usePlanPage } from "./artifact-open";
 import { BoxFiles, MORE } from "./box-files";
 import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
@@ -36,7 +27,11 @@ import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
+import { PlanAnswer } from "./plan-answer";
+import { usePlanComments } from "./plan-comments";
+import { PlanLightbox, PlanTile, usePlanName } from "./plan-tile";
 import { QuestionCard } from "./question-card";
+import { toEnd } from "./question-focus";
 import { questionHeading } from "./question-heading";
 import { questionOutcome, replyText } from "./question-outcome";
 import { Refusal, refusalOf } from "./refusal";
@@ -45,15 +40,12 @@ import { SplatesEvent } from "./splates-event";
 
 /**
  * The panel a thread's questions are answered in, by keyboard alone. Questions
- * with a `(chosen)` choice come answered with it; under a proposal, Approve
- * approves it once every question is answered, and picking another choice or
- * writing anything else sends a reply instead. What is written stays in the
+ * with a `(chosen)` choice come answered with it. What is written stays in the
  * panel until it is sent.
  */
 export function QuestionCards({
 	questions,
 	escalation = null,
-	proposal = null,
 	demo = null,
 	draft = null,
 	earlier = [],
@@ -64,8 +56,6 @@ export function QuestionCards({
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
 	escalation?: TaskReport | null;
-	/** The proposal they rest under, which heads them in its place. */
-	proposal?: Proposal | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
@@ -101,16 +91,6 @@ export function QuestionCards({
 	// What the agent chose for `asked`, which it comes answered with.
 	const chosen = (asked: Question): Answer | null =>
 		asked.choices.some((choice) => choice.chosen) ? takenOf(asked) : null;
-	// What a sent reply leaves unsaid of `asked` still answers it: under a
-	// proposal, with what the agent chose; otherwise, nothing.
-	const unsaid = (asked: Question): Answer | null =>
-		proposal === null ? null : chosen(asked);
-	// What a reply says of `answer`: under a proposal, nothing of one that
-	// leaves what the agent chose.
-	const said = (asked: Question, answer: Answer | null): Answer | null =>
-		proposal === null || answer === null || changes(asked, answer)
-			? answer
-			: null;
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
@@ -130,7 +110,7 @@ export function QuestionCards({
 		kept.write(
 			replyOf(
 				questions,
-				questions.map((asked) => said(asked, next.answers[asked.text] ?? null)),
+				questions.map((asked) => next.answers[asked.text] ?? null),
 				next.more,
 			),
 		);
@@ -150,43 +130,22 @@ export function QuestionCards({
 		});
 	// What is written here, or once sent, what the reply that was says.
 	const answers = questions.map((asked) =>
-		sent === null
-			? writtenFor(asked)
-			: (answerIn(sent, asked) ?? unsaid(asked)),
+		sent === null ? writtenFor(asked) : answerIn(sent, asked),
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
 	const taking = useBoxTaking();
-	// A take under way is words on their way, so it sends rather than approves.
-	const settled = !taking && answers.every((answer) => answer !== null);
 	const send = answer !== null ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
-	const changed = () =>
-		questions.map((asked) => said(asked, writtenFor(asked)));
-	// Every one answered, and nothing the agent chose changed,
-	// sending approves the proposal; anything changed is a reply to it.
-	const approving =
-		proposal !== null &&
-		settled &&
-		!questions.some(
-			(asked) =>
-				unsaid(asked) !== null && said(asked, writtenFor(asked)) !== null,
-		) &&
-		written.more.trim() === "" &&
-		!attached;
-	// Approving takes what the agent chose as it stands, so it says only the
-	// rest; any other reply to a proposal also carries the answers the agent
-	// chose, so they are not lost beside what was changed or added.
-	const saidOf = () =>
-		!approving &&
-		proposal !== null &&
-		(changed().some((answer) => answer !== null) || written.more.trim() !== "")
-			? questions.map((asked) => writtenFor(asked))
-			: changed();
-	const out = replyOf(questions, saidOf(), written.more);
-	const empty = !approving && out === "" && !attached;
+	const said = questions.map((asked) => writtenFor(asked));
+	// Comments made on the plan's page, sent after the answers.
+	const planComments = usePlanComments();
+	const empty =
+		replyOf(questions, said, written.more) === "" &&
+		!attached &&
+		!planComments.any;
 	// A failed send says so until the next try, rather than for a moment: the
 	// person may have looked away, and the card is back to unanswered.
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -205,10 +164,9 @@ export function QuestionCards({
 		if (!live || (empty && !paging)) {
 			return;
 		}
-		const approved = (text: string) => replyText(approving, text);
 		if (answer !== null) {
 			void attempt(
-				answer(saidOf()).then(() => {
+				answer(said).then(() => {
 					kept.write("");
 					onSent?.();
 				}),
@@ -218,15 +176,18 @@ export function QuestionCards({
 			// Sent from outside a message, nothing else drops what it kept.
 			const { text, files: sending } = boxFiles.reply(
 				questions,
-				saidOf(),
+				said,
 				written.more,
 			);
 			void attempt(
-				send(approved(text), sending).then(() => {
-					kept.write("");
-					boxFiles.clear();
-					onSent?.();
-				}),
+				planComments
+					.send(send, replyText(planComments.joinedTo(text)), sending)
+					.then(() => {
+						kept.write("");
+						planComments.clear();
+						boxFiles.clear();
+						onSent?.();
+					}),
 				"Not sent",
 			);
 		}
@@ -327,22 +288,72 @@ export function QuestionCards({
 	useArrival(live, () =>
 		panel.current?.querySelector<HTMLElement>("[data-stop]"),
 	);
-	// Ending an escalation or under a proposal, they are its card: headed as
-	// it, what it says first. A proposal the task escalated to wait on is
-	// the escalation's card, led by what it proposed, which its title said.
-	const reported =
-		proposal !== null
-			? escalation === null
-				? proposal.body
-				: [`Proposed ${proposal.subject}`, proposal.body]
-						.filter((each) => each !== "")
-						.join("\n\n")
-			: escalation === null
-				? ""
-				: reportText(escalation);
+	// The plan the approval question asks about, inside it, its page opened in
+	// the lightbox with only its question, answered as one with the card.
+	const [planQuestion, setPlanQuestion] = useState<string | null>(null);
+	const plan = usePlanPage(
+		questions.find((asked) => typeof asked.plan === "string")?.plan ?? null,
+	);
+	const planName = usePlanName();
+	const tileOf = (asked: Question) =>
+		asked.plan === undefined ? null : (
+			<PlanTile
+				name={planName}
+				page={typeof asked.plan === "string" ? plan : null}
+				onOpen={() => setPlanQuestion(asked.number)}
+			/>
+		);
+	const planSheet = (
+		<PlanLightbox
+			page={plan}
+			name={planName}
+			open={planQuestion !== null && live}
+			onClose={() => setPlanQuestion(null)}
+			onReference={(reference) =>
+				write({
+					...written,
+					more:
+						written.more === "" ? reference : `${written.more}\n${reference}`,
+				})
+			}
+			markups={planComments.markups}
+			comments={planComments.comments}
+			onComments={planComments.set}
+			questions={
+				<PlanAnswer
+					key={planQuestion}
+					question={
+						questions.find((asked) => asked.number === planQuestion)?.text ?? ""
+					}
+					onBack={() => setPlanQuestion(null)}
+				>
+					<ol aria-label="questions" className="divide-y">
+						{questions
+							.filter((asked) => asked.number === planQuestion)
+							.map((asked) => (
+								<QuestionCard
+									key={asked.number}
+									asked={asked}
+									headed={false}
+									answer={answers[questions.indexOf(asked)] ?? null}
+									live={live}
+									files={files?.of(asked.text) ?? null}
+									onAnswer={(next) =>
+										setAnswer(asked, isEmpty(next) ? null : next)
+									}
+									onNext={() => {}}
+								/>
+							))}
+					</ol>
+				</PlanAnswer>
+			}
+		/>
+	);
+	// Ending an escalation, they are its card: headed as it, what it says first.
+	const reported = escalation === null ? "" : reportText(escalation);
 	const card = (
 		<CardShell
-			{...questionHeading(questions.length, escalation, proposal)}
+			{...questionHeading(questions.length, escalation)}
 			// Each question marks itself while it has the focus.
 			ringed={false}
 		>
@@ -386,6 +397,7 @@ export function QuestionCards({
 										setAnswer(asked, isEmpty(next) ? null : next)
 									}
 									onNext={() => next(asked.number)}
+									plan={tileOf(asked)}
 								/>
 							),
 						)}
@@ -477,20 +489,12 @@ export function QuestionCards({
 								</Button>
 							) : (
 								<Button
-									variant={approving ? "success" : "default"}
-									className={cn(
-										"h-11 flex-1 text-base",
-										!approving &&
-											"bg-black text-white hover:bg-black/90 active:bg-black/80",
-									)}
+									variant="default"
+									className="h-11 flex-1 bg-black text-base text-white hover:bg-black/90 active:bg-black/80"
 									onClick={sendNow}
 								>
-									{approving ? (
-										<CheckIcon data-icon="inline-start" />
-									) : (
-										<SendHorizontalIcon data-icon="inline-start" />
-									)}
-									{approving ? "Approve" : "Send"}
+									<SendHorizontalIcon data-icon="inline-start" />
+									Send
 								</Button>
 							)}
 						</div>
@@ -507,28 +511,20 @@ export function QuestionCards({
 										</span>
 										<span>
 											<Kbd>{label("Mod+Enter")}</Kbd>{" "}
-											{answer !== null
-												? "answers"
-												: approving
-													? "approves"
-													: "sends"}
+											{answer !== null ? "answers" : "sends"}
 										</span>
 									</>
 								)}
 							</p>
 							<Button
 								size="sm"
-								variant={answer === null && approving ? "success" : "default"}
+								variant="default"
 								disabled={empty && !taking}
 								onClick={sendNow}
 							>
-								{approving ? (
-									<CheckIcon data-icon="inline-start" />
-								) : (
-									<SendHorizontalIcon data-icon="inline-start" />
-								)}
+								<SendHorizontalIcon data-icon="inline-start" />
 								<span aria-live="polite">
-									{answer !== null ? "Answer" : approving ? "Approve" : "Send"}
+									{answer !== null ? "Answer" : "Send"}
 								</span>
 							</Button>
 						</div>
@@ -539,30 +535,25 @@ export function QuestionCards({
 		</CardShell>
 	);
 	if (sent === null && !askedAgain) {
-		return card;
+		return (
+			<>
+				{card}
+				{planSheet}
+			</>
+		);
 	}
 	return (
 		<div className="my-6">
 			<SplatesEvent
 				event={{
-					mark:
-						proposal !== null && sent !== null && directive(sent) === APPROVE
-							? "approved"
-							: null,
-					words: questionOutcome(questions.length, escalation, proposal, sent),
+					mark: null,
+					words: questionOutcome(questions.length, escalation),
 					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
 				}}
 			/>
 			{shown && card}
 		</div>
 	);
-}
-
-/** Puts the caret at the end of what `stop` holds, when it is a box. */
-function toEnd(stop: HTMLElement | null | undefined): void {
-	if (stop?.isContentEditable) {
-		caretToEnd(stop);
-	}
 }
 
 /** What the panel holds before it is sent: answers by question line, and the rest. */

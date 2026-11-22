@@ -8,6 +8,7 @@ import {
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	RadioIcon,
 	TerminalIcon,
 	XIcon,
 	ZapIcon,
@@ -27,22 +28,21 @@ import { Stamp, useStamps } from "./stamp";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
- * An event of splates's in the thread: one line of a verb, the thing it names,
- * and any one action, centered between two hairlines in the small muted type
- * nothing else in the thread uses, so it reads as splates speaking without
- * pulling the eye from the turns around it. Its one color is a mark leading
- * it, when it has one: a red X for a command that failed, a green check for
- * one that landed. An early warning's mark, of a conflict or an overlap, is
- * muted like its words, since it asks nothing of the person. A live wait counts down in its action's place, and goes
- * once what it waited on came; a merge under way counts up there instead. Where the line runs out of room it wraps onto more lines, and the names it
- * holds give way, each cut short and whole in its title. A burst of todos it
- * names lists each beneath, whole, with no hairlines of their own.
+ * An event of splates's in the thread: one muted line of a verb, the thing it
+ * names and any one action, centered between two hairlines so it reads as
+ * splates speaking. Pass the event's words, its mark if it has one, and its
+ * action or countdown if it offers one.
  */
 export function SplatesEvent({
 	event,
 }: {
 	event: SplatesEventView;
 }): JSX.Element | null {
+	// The line's one color is its leading mark. A live wait counts down in its
+	// action's place and goes once met; a merge under way counts up there.
+	// Where the line runs out of room it wraps, and the names it holds give
+	// way, each cut short and whole in its title. A burst of todos it names
+	// lists each beneath, whole, with no hairlines of their own.
 	const { deadline = null, since = null } = event;
 	const live = deadline !== null && !deadline.met;
 	const now = useNow(live || since !== null);
@@ -113,6 +113,8 @@ export type Named =
 			version: number;
 	  }
 	| { kind: "cred"; name: string }
+	/** A signal, which opens on the Signals page. */
+	| { kind: "signal"; name: string }
 	| { kind: "automation"; name: string; scheduled?: boolean }
 	/** A shell command, as a run-command card asked to run it. */
 	| { kind: "command"; command: string };
@@ -410,6 +412,17 @@ export function NamedChip({
 					Icon={KeyRoundIcon}
 					title={`Cred ${named.name}`}
 					href={credAddress(named.name)}
+					className={cn("font-mono", GIVES_WAY)}
+				>
+					{named.name}
+				</Chip>
+			);
+		case "signal":
+			return (
+				<Chip
+					Icon={RadioIcon}
+					title={`Signal ${named.name}`}
+					href={`#signals/${encodeURIComponent(named.name)}`}
 					className={cn("font-mono", GIVES_WAY)}
 				>
 					{named.name}

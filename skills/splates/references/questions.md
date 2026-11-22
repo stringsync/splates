@@ -9,8 +9,10 @@ is cheap, so when in doubt, ask: the `splates server` page shows your
 questions as a card with your pick already chosen, so the user answers with
 a tap, and you carry on with that pick meanwhile rather than wait.
 
-A proposal's calls are its questions: when the reply is a proposal, they sit
-in it and no questions card goes beside it (see [Proposing](proposing.md)).
+One question blocks: `Do you approve <the change, named>?`, the approval question of a costly
+or hard-to-undo task (see [Proposing](proposing.md)), and you write no code
+until it is answered Yes. Every other question carries on with its pick. Send
+one questions card a reply, the approval question last in it.
 
 This holds in every conversation in a splates repository, with a task open
 or not: a design talk in the main tree asks the same way a task does. A task
@@ -105,6 +107,14 @@ crowd the choices.
    - [b] Shorten the upload copy (chosen)
    - [c] Check why the fetch is slow
 ```
+
+**Choices the user picks by looking each carry their own image.** Mockup
+variants, a style, a layout, a placement: capture one image per choice and
+indent it under that choice, in every round (lo-fi, hi-fi, a design gate a
+queued task opens with, a design talk with no task). Never describe the
+variants in words and offer to show them later, never put one image above the
+choices, and never leave a choice bare because its mock is not built yet:
+build it, capture it, then ask.
 
 Show what a question is about whenever it is something to see: a screenshot,
 or a short recording when it moves or takes steps. Save it outside the

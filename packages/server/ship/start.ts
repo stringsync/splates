@@ -18,6 +18,7 @@ export class ShipStart {
 	async picks(
 		picks: readonly Pick[],
 		supervise?: Supervise,
+		autoApprove?: boolean,
 	): Promise<RunState> {
 		const composed = await this.composer.compose(picks);
 		const failed = composed.targets.filter((each) => each.error);
@@ -30,6 +31,7 @@ export class ShipStart {
 		return this.engine.start(
 			composed.targets.map(({ waves: _, error: __, ...target }) => target),
 			supervise,
+			autoApprove,
 		);
 	}
 }

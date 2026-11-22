@@ -226,7 +226,7 @@ Cap upload retries
 		expect(lineOf(quiet).hasAttribute("data-lit")).toBe(true);
 	});
 
-	it("leaves out a deferred task asking for your answer, which no row in the sidebar shows", async () => {
+	it("does not count deferred board questions that have no conversation row", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Runs", status: "running" })],
 			"c1",

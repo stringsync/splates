@@ -5,6 +5,7 @@ import { LEGACY_DIR, unmigrated } from "../config";
 import type { Agent, Setting } from "../conversations";
 import { fail } from "../exit";
 import { type Document, FsStorage, type Storage } from "../storage";
+import { AGY_ARGV, ANTIGRAVITY_MODELS, LEGACY_AGY_ARGV } from "./antigravity";
 import { KIMI_ARGV } from "./kimi";
 import { modelOption } from "./models";
 
@@ -212,7 +213,12 @@ export class Roster {
 
 	/** Every agent on the roster, in its order; the defaults when there is none. */
 	async agents(): Promise<RosterAgent[]> {
-		return this.validate(await this.load());
+		return this.validate(await this.load()).map((agent) =>
+			agent.id === "antigravity" &&
+			JSON.stringify(agent.argv) === JSON.stringify(LEGACY_AGY_ARGV)
+				? { ...agent, argv: AGY_ARGV }
+				: agent,
+		);
 	}
 
 	private validate(json: unknown): RosterAgent[] {
@@ -328,11 +334,11 @@ const schema = z.object({
 	),
 });
 
-/** Agents splates no longer offers: an old roster may still list them, so they stay readable but are not picked. */
-export const RETIRED_AGENTS = ["opencode"];
+/** Ids of agents to leave out wherever agents are offered or picked, though a roster may still list them. */
+export const RETIRED_AGENTS = ["opencode", "gemini"];
 
 /**
- * The agents a machine's roster starts with, and what it lists while there is
+ * The agents a new roster starts with, and what splates lists while there is
  * no `agents.json`: each with the models it offers, by the ids its Model
  * setting takes.
  */
@@ -476,6 +482,12 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 				costRank: 1,
 			},
 		],
+	},
+	{
+		id: "antigravity",
+		name: "Antigravity",
+		argv: AGY_ARGV,
+		models: ANTIGRAVITY_MODELS,
 	},
 ];
 

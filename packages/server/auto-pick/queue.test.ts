@@ -17,7 +17,7 @@ import {
 import { Testing } from "../testing";
 import { QueueAutoPick } from "./index";
 import type { Judge } from "./system-one";
-import { FakeJudge } from "./testing";
+import { FakeJudge, routedTo, withCell } from "./testing";
 
 /** A second agent for Auto pick to choose over the one the rules fall back on. */
 const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
@@ -90,22 +90,15 @@ describe("QueueAutoPick", () => {
 		);
 		await deps.fs.write(
 			`${deps.splatesHome}/auto-pick.json`,
-			JSON.stringify({
-				format: 2,
-				threshold: 0.5,
-				rules: [
-					{
-						kind: "bugfix",
-						depth: "shallow",
-						picks: [{ agent: "other", model: "small" }],
-					},
-					{
-						kind: "*",
-						depth: "*",
-						picks: [{ agent: "fake", model: "big" }],
-					},
-				],
-			}),
+			JSON.stringify(
+				withCell(
+					routedTo([{ agent: "fake", model: "big" }]),
+					"bugfix",
+					"shallow",
+					"Mine",
+					[{ agent: "other", model: "small" }],
+				),
+			),
 		);
 		({ id } = await deps.tasks.add("Rename `foo` to `bar`", null, {
 			text: "In src/names.ts only.",

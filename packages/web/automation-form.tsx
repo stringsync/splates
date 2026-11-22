@@ -16,6 +16,7 @@ import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
+import { useSignals } from "./use-signals";
 
 const STAGES: TaskStage[] = ["available", "queued", "running"];
 
@@ -49,7 +50,10 @@ export function AutomationForm({
 	submit,
 	onSubmit,
 	onCancel,
+	signal,
 }: {
+	/** Set when the trigger is fixed to this signal: the form then has no "When" to choose. */
+	signal?: string;
 	draft: AutomationDraft;
 	title: string;
 	submit: string;
@@ -57,6 +61,8 @@ export function AutomationForm({
 	onCancel?: () => void;
 }): JSX.Element {
 	const lanes = useContext(Lanes);
+	const { signals } = useSignals();
+	const names = signals.map((each) => each.name);
 	const {
 		name,
 		when,
@@ -95,95 +101,120 @@ export function AutomationForm({
 				value={name}
 				onChange={(change) => draft.set("name", change.target.value)}
 			/>
-			<div className="flex flex-wrap items-center gap-2">
-				<NativeSelect
-					aria-label="When"
-					value={when}
-					onChange={(change) => draft.set("when", change.target.value as When)}
-				>
-					<NativeSelectOption value="event">On a task event</NativeSelectOption>
-					<NativeSelectOption value="signal">On a signal</NativeSelectOption>
-					<NativeSelectOption value="every">Every so often</NativeSelectOption>
-					<NativeSelectOption value="cron">On a cron line</NativeSelectOption>
-				</NativeSelect>
-				{when === "event" ? (
-					<>
+			{signal !== undefined ? (
+				<p className="text-muted-foreground text-sm">
+					When <code className="font-mono">{signal}</code> is raised
+				</p>
+			) : (
+				<div className="flex flex-wrap items-center gap-2">
+					<NativeSelect
+						aria-label="When"
+						value={when}
+						onChange={(change) =>
+							draft.set("when", change.target.value as When)
+						}
+					>
+						<NativeSelectOption value="event">
+							On a task event
+						</NativeSelectOption>
+						<NativeSelectOption value="signal">On a signal</NativeSelectOption>
+						<NativeSelectOption value="every">
+							Every so often
+						</NativeSelectOption>
+						<NativeSelectOption value="cron">On a cron line</NativeSelectOption>
+					</NativeSelect>
+					{when === "event" ? (
+						<>
+							<NativeSelect
+								aria-label="Event"
+								value={event}
+								onChange={(change) =>
+									draft.set("event", change.target.value as TaskEventName)
+								}
+							>
+								{TASK_EVENTS.map((each) => (
+									<NativeSelectOption key={each} value={each}>
+										{each}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+							<NativeSelect
+								aria-label="Stage"
+								value={stage}
+								onChange={(change) => draft.set("stage", change.target.value)}
+							>
+								<NativeSelectOption value="">In any stage</NativeSelectOption>
+								{stage.includes(",") && (
+									<NativeSelectOption value={stage}>
+										In {stage.split(",").join(" or ")}
+									</NativeSelectOption>
+								)}
+								{STAGES.map((each) => (
+									<NativeSelectOption key={each} value={each}>
+										In {each}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+							<NativeSelect
+								aria-label="Lane"
+								value={lane}
+								onChange={(change) => draft.set("lane", change.target.value)}
+							>
+								<NativeSelectOption value="">In any lane</NativeSelectOption>
+								{lane.includes(",") && (
+									<NativeSelectOption value={lane}>
+										In lane {lane.split(",").join(" or ")}
+									</NativeSelectOption>
+								)}
+								{lanes.map((each) => (
+									<NativeSelectOption key={each.id} value={String(each.id)}>
+										{each.id} {each.name}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+							<Input
+								aria-label="Every Nth"
+								type="number"
+								min={1}
+								step={1}
+								className="w-60"
+								placeholder="Run on every Nth match (blank: each)"
+								title="Run on only every Nth time the event matches"
+								value={invokes}
+								onChange={(change) => draft.set("invokes", change.target.value)}
+							/>
+						</>
+					) : when === "signal" ? (
 						<NativeSelect
-							aria-label="Event"
-							value={event}
-							onChange={(change) =>
-								draft.set("event", change.target.value as TaskEventName)
-							}
+							aria-label="Signal"
+							required
+							value={schedule}
+							onChange={(change) => draft.set("schedule", change.target.value)}
 						>
-							{TASK_EVENTS.map((each) => (
+							<NativeSelectOption value="">Choose a signal</NativeSelectOption>
+							{schedule !== "" && !names.includes(schedule) && (
+								<NativeSelectOption value={schedule}>
+									{schedule}
+								</NativeSelectOption>
+							)}
+							{names.map((each) => (
 								<NativeSelectOption key={each} value={each}>
 									{each}
 								</NativeSelectOption>
 							))}
 						</NativeSelect>
-						<NativeSelect
-							aria-label="Stage"
-							value={stage}
-							onChange={(change) => draft.set("stage", change.target.value)}
-						>
-							<NativeSelectOption value="">In any stage</NativeSelectOption>
-							{stage.includes(",") && (
-								<NativeSelectOption value={stage}>
-									In {stage.split(",").join(" or ")}
-								</NativeSelectOption>
-							)}
-							{STAGES.map((each) => (
-								<NativeSelectOption key={each} value={each}>
-									In {each}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
-						<NativeSelect
-							aria-label="Lane"
-							value={lane}
-							onChange={(change) => draft.set("lane", change.target.value)}
-						>
-							<NativeSelectOption value="">In any lane</NativeSelectOption>
-							{lane.includes(",") && (
-								<NativeSelectOption value={lane}>
-									In lane {lane.split(",").join(" or ")}
-								</NativeSelectOption>
-							)}
-							{lanes.map((each) => (
-								<NativeSelectOption key={each.id} value={String(each.id)}>
-									{each.id} {each.name}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
+					) : (
 						<Input
-							aria-label="Every Nth"
-							type="number"
-							min={1}
-							step={1}
-							className="w-60"
-							placeholder="Run on every Nth match (blank: each)"
-							title="Run on only every Nth time the event matches"
-							value={invokes}
-							onChange={(change) => draft.set("invokes", change.target.value)}
+							aria-label="Schedule"
+							required
+							className="w-48"
+							placeholder={when === "every" ? "30m, 2h or 1d" : "0 9 * * 1-5"}
+							value={schedule}
+							onChange={(change) => draft.set("schedule", change.target.value)}
 						/>
-					</>
-				) : (
-					<Input
-						aria-label="Schedule"
-						required
-						className={when === "signal" ? "w-64" : "w-48"}
-						placeholder={
-							when === "signal"
-								? "project/name, as mdom.released"
-								: when === "every"
-									? "30m, 2h or 1d"
-									: "0 9 * * 1-5"
-						}
-						value={schedule}
-						onChange={(change) => draft.set("schedule", change.target.value)}
-					/>
-				)}
-			</div>
+					)}
+				</div>
+			)}
 			<div className="flex flex-wrap items-center gap-2">
 				<NativeSelect
 					aria-label="Runs"

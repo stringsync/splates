@@ -301,6 +301,24 @@ when the server starts on a machine with Kimi installed; take it off and it
 stays off. Its models go by their full ids, such as `kimi-code/k3.1-pro`.
 Sign in first with `kimi login`: splates never signs in for it.
 
+### Antigravity (Gemini)
+
+Gemini runs through Google's Antigravity CLI, on the default roster as
+Antigravity and started as `agy acp`, its own ACP server. Its installer puts
+`agy` in `~/.local/bin`, which may be off the PATH, so splates runs `AGY_PATH`
+when set, else `agy` on the PATH, else `~/.local/bin/agy`. A roster written
+before Antigravity joined gains it once, when the server starts on a machine
+with `agy` installed. Install it from Settings → Setup or with
+`curl -fsSL https://antigravity.google/cli/install.sh | bash`, then sign in
+with your Google account by running `agy acp --login`: splates never signs in
+for it, and counts it signed in once `agy models` lists its models. Its model
+is `gemini-3.8-flash`, and its Thinking Level is the effort. Usage and limits
+readouts are not yet shown for it.
+
+Gemini CLI, which splates ran before, is retired: Google stopped taking its
+personal sign-in, and a roster that still lists it keeps it readable but
+never picks it.
+
 ### Optional OpenCode ACP agent
 
 Open **Settings → Setup** and visit the optional OpenCode steps. Check this

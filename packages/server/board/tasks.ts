@@ -13,6 +13,7 @@ import { startedOf, type TaskStore } from "./store";
 import {
 	assigned,
 	checkSlug,
+	type Landed,
 	staged,
 	Task,
 	type TaskNew,
@@ -81,7 +82,7 @@ export class Tasks {
 			assignee = null,
 			origin,
 			scope,
-			tags = [],
+			closesOn,
 		}: TaskNew = {},
 	): Promise<Task> {
 		const words = wording(subject, text);
@@ -119,7 +120,7 @@ export class Tasks {
 				stage: "available",
 				...(origin === undefined ? {} : { origin }),
 				...(scope === undefined ? {} : { scope }),
-				...(tags.length === 0 ? {} : { labels: tags }),
+				...(closesOn === undefined ? {} : { closesOn }),
 			};
 			const task = await this.save(
 				assigned(
@@ -371,7 +372,7 @@ export class Tasks {
 	 * without merging is dropped as a link and kept as a note on what came
 	 * after it, which holds nothing.
 	 */
-	async delete(id: number, landed?: string): Promise<boolean> {
+	async delete(id: number, landed?: Landed): Promise<boolean> {
 		return this.locked(async () => {
 			const gone = await this.read(id);
 			const stored = await this.store.read(id);
@@ -395,7 +396,9 @@ export class Tasks {
 							: {
 									blockersLanded: [
 										...(state.blockersLanded ?? []),
-										{ ...blocker, commit: landed },
+										typeof landed === "string"
+											? { ...blocker, commit: landed }
+											: { ...blocker, fired: landed },
 									],
 								}),
 					};

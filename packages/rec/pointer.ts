@@ -1,7 +1,9 @@
 import { Disposer, type Resource } from "core/disposable";
 import type { Fs } from "core/system";
+import { SystemTimer } from "core/time";
 import type { Cdp, CdpEvent } from "./cdp";
 import { redactUrl } from "./network";
+import { PageSnapshots } from "./page-snapshot";
 import { POINTER_BINDING, pointerSource } from "./pointer-script";
 import type { Frame } from "./screencast";
 import type { Scrubber } from "./scrub";
@@ -125,6 +127,13 @@ export type PointerEvent = { at: number } & (
 	| ({ type: "quiet" } & Target)
 	| ({ type: "alert"; kind: string } & Target)
 	| { type: "route"; url: string }
+	| {
+			type: "snapshot";
+			trigger: string;
+			structure: string;
+			sourceAt?: number;
+			still?: string;
+	  }
 	| { type: "mark"; label: string; by: "agent" | "person"; still?: string }
 	| {
 			type: "highlight";
@@ -212,9 +221,26 @@ export class PointerEvents implements Resource {
 	private readonly pending = new Set<Promise<void>>();
 	private writing = Promise.resolve();
 	private stills = 0;
+	private readonly sessions = new Map<string, string>();
+	private readonly snapshots: PageSnapshots;
 	counts = { events: 0, stills: 0 };
 
 	private constructor(private readonly opts: PointerOptions) {
+		this.snapshots = this.disposer.use(
+			new PageSnapshots({
+				...opts,
+				timer: new SystemTimer(),
+				active: () => {
+					const id = this.frames.at(-1)?.targetId;
+					return id ? this.sessions.get(id) : undefined;
+				},
+				saved: (event, session) =>
+					this.record(
+						event,
+						[...this.sessions].find(([, id]) => id === session)?.[0],
+					),
+			}),
+		);
 		this.disposer.use(opts.cdp.on(this.receive));
 	}
 
@@ -244,11 +270,19 @@ export class PointerEvents implements Resource {
 
 	/** Writes an agent's remark as a `mark` event at `at`, with a still of the screen then. */
 	mark(at: number, label: string, by: "agent" | "person" = "agent"): void {
+		const id = this.frames.at(-1)?.targetId;
+		const session = id ? this.sessions.get(id) : undefined;
+		if (session) {
+			this.snapshots.capture(session, "mark", at);
+		}
 		this.record({ at, type: "mark", label, by });
 	}
 
 	/** Resolves once every event seen so far, and its still, is on disk. */
 	async flush(): Promise<void> {
+		await this.snapshots.flush();
+		await Promise.all([...this.pending]);
+		await this.snapshots.flush();
 		await Promise.all([...this.pending]);
 		await this.writing;
 	}
@@ -273,6 +307,7 @@ export class PointerEvents implements Resource {
 				{ targetId: info.targetId, flatten: true },
 			);
 			const source = pointerSource();
+			this.sessions.set(info.targetId, sessionId);
 			await cdp.send("Runtime.enable", {}, sessionId);
 			await cdp.send(
 				"Runtime.addBinding",
@@ -312,15 +347,25 @@ export class PointerEvents implements Resource {
 		}
 		const parsed = parseEvent(payload, this.opts.scrubber);
 		if (parsed) {
-			this.record(parsed);
+			if (
+				event.sessionId &&
+				["click", "highlight", "route", "alert", "quiet"].includes(parsed.type)
+			) {
+				this.snapshots.capture(event.sessionId, parsed.type, parsed.at);
+			}
+			this.record(
+				parsed,
+				[...this.sessions].find(([, id]) => id === event.sessionId)?.[0],
+			);
 		}
 	};
 
-	private record(event: PointerEvent): void {
+	private record(event: PointerEvent, targetId?: string): void {
 		if (
 			event.type !== "click" &&
 			event.type !== "highlight" &&
-			event.type !== "mark"
+			event.type !== "mark" &&
+			event.type !== "snapshot"
 		) {
 			this.write(event);
 			return;
@@ -329,7 +374,12 @@ export class PointerEvents implements Resource {
 		const job = new Promise<void>((resolve) => {
 			setTimeout(resolve, STILL_DELAY_MS);
 		}).then(async () => {
-			const frame = pickFrame(this.frames, event.at);
+			const frame = pickFrame(
+				targetId
+					? this.frames.filter((frame) => frame.targetId === targetId)
+					: this.frames,
+				event.at,
+			);
 			if (frame) {
 				try {
 					await this.opts.fs.writeBytes(`${this.opts.dir}/${name}`, frame.jpeg);
@@ -337,6 +387,12 @@ export class PointerEvents implements Resource {
 					this.counts.stills++;
 				} catch {
 					// The event is still worth keeping without its still.
+				}
+			}
+			if (event.type === "click" && targetId) {
+				const session = this.sessions.get(targetId);
+				if (session) {
+					this.snapshots.capture(session, "click-settled", event.at);
 				}
 			}
 			this.write(event);

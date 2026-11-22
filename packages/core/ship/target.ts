@@ -32,6 +32,8 @@ export type Target = {
 	plan(input: PlanInput): readonly Step[];
 	/** How many commits are unshipped, when the target can tell. */
 	readonly unshipped?: (ctx: Pick<Ctx, "sh">) => Promise<number>;
+	/** The version it is at now, when the target can tell. */
+	readonly current?: (ctx: Pick<Ctx, "sh">) => Promise<string>;
 };
 
 /** Declares a target. It only returns the target: nothing runs. */
@@ -42,6 +44,7 @@ export function target(spec: {
 	dependencies?: readonly string[];
 	plan(input: PlanInput): readonly Step[];
 	unshipped?: (ctx: Pick<Ctx, "sh">) => Promise<number>;
+	current?: (ctx: Pick<Ctx, "sh">) => Promise<string>;
 }): Target {
 	if (!spec.name.trim()) {
 		throw new Error("A target needs a name");
@@ -66,6 +69,7 @@ export function target(spec: {
 		dependencies: Object.freeze([...dependencies]),
 		plan: spec.plan,
 		...(spec.unshipped && { unshipped: spec.unshipped }),
+		...(spec.current && { current: spec.current }),
 	});
 }
 

@@ -68,6 +68,14 @@ export class QueueWork {
 			: `${splates} lane queue ${lane}`;
 	}
 
+	/** The board keys its own write holds pending, so another card's write never does. */
+	get keys(): string[] {
+		const { lane } = this.proposal;
+		return lane !== null && !this.byTask
+			? [`lane:${lane}`]
+			: this.todos.map((todo) => `todo:${todo.id}`);
+	}
+
 	/**
 	 * Whether it is queued: each task yet to start in the queue, or for a
 	 * lane's, let go by the queue too, for a blocker that will not start

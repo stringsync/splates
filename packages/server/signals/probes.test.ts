@@ -40,8 +40,9 @@ describe("Probes", () => {
 				waiting = 0;
 			},
 			subscriptions: async () => waiting,
-			expire: async (name) => {
-				expired.push(name);
+			remove: async (name, reason) => {
+				expired.push(`${name}: ${reason}`);
+				waiting = 0;
 			},
 			show: async (probe) => {
 				shown.push(probe);
@@ -148,7 +149,7 @@ describe("Probes", () => {
 				raised.push({ name, payload });
 			},
 			subscriptions: async () => 1,
-			expire: async () => {},
+			remove: async () => {},
 			show: async (probe) => {
 				shown.push(probe);
 			},
@@ -194,11 +195,11 @@ describe("Probes", () => {
 		timer.fireTimeouts();
 		await tick();
 
-		expect(expired).toEqual([ask.name]);
+		expect(expired).toEqual([`${ask.name}: probe timed out`]);
 		expect(last()?.state).toBe("timed out");
 	});
 
-	it("is replaced by a new probe on the same signal, its waits kept", async () => {
+	it("is replaced by a new probe on the same signal, its waits removed", async () => {
 		waiting = 1;
 		await probes.start(ask);
 		await probes.start({ ...ask, script: "check-stack --v2" });
@@ -206,8 +207,8 @@ describe("Probes", () => {
 		expect(shown.map((each) => `${each.script} ${each.state}`)).toContain(
 			"check-stack replaced",
 		);
-		expect(ran.at(-1)).toBe("/repo: check-stack --v2");
-		expect(last()?.state).toBe("running");
+		expect(expired).toEqual([`${ask.name}: probe replaced`]);
+		expect(last()?.state).toBe("idle");
 	});
 
 	it("stops when the person stops it", async () => {
@@ -215,8 +216,110 @@ describe("Probes", () => {
 		await probes.start(ask);
 		await probes.stop(ask.name);
 
+		expect(expired).toEqual([`${ask.name}: probe stopped`]);
 		expect(last()?.state).toBe("stopped");
 		expect(await book.probe(ask.name)).toMatchObject({ state: "stopped" });
+	});
+
+	it("polls now when the person asks, busy machine or not, and restarts the interval", async () => {
+		waiting = 1;
+		await probes.start(ask);
+		busy = true;
+		now += 60_000;
+
+		const polled = await probes.pollNow(ask.name);
+
+		expect(ran).toHaveLength(2);
+		expect(polled).toMatchObject({ state: "running", count: 2 });
+		expect(polled.next).toBe(new Date(now + ask.everyMs).toISOString());
+	});
+
+	it("fires on a poll-now pass even when the last poll passed", async () => {
+		const always = new Probes({
+			book,
+			shell: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+			busy: async () => false,
+			raise: async (name, _by, payload) => {
+				raised.push({ name, payload });
+			},
+			subscriptions: async () => 1,
+			remove: async () => {},
+			show: async (probe) => {
+				shown.push(probe);
+			},
+			now: () => now,
+			timer,
+			log: new MemoryLogger(),
+		});
+		await always.start(ask);
+		expect(raised).toHaveLength(1);
+
+		await always.pollNow(ask.name);
+
+		expect(raised).toHaveLength(2);
+	});
+
+	it("answers with the ended probe when a poll-now pass leaves nothing waiting", async () => {
+		waiting = 1;
+		exits = [1, 0];
+		await probes.start(ask);
+
+		const polled = await probes.pollNow(ask.name);
+
+		expect(raised).toHaveLength(1);
+		expect(polled.state).toBe("raised");
+	});
+
+	it("keeps what each run did: how long, what started it, whether it fired, and its streams apart", async () => {
+		const timed = new Probes({
+			book,
+			shell: async () => {
+				now += 2_400;
+				return {
+					exitCode: exits.shift() ?? 1,
+					stdout: outputs.shift() ?? "",
+					stderr: "no ship matched",
+				};
+			},
+			busy: async () => false,
+			raise: async (name, _by, payload) => {
+				raised.push({ name, payload });
+			},
+			subscriptions: async () => 1,
+			remove: async () => {},
+			show: async (probe) => {
+				shown.push(probe);
+			},
+			now: () => now,
+			timer,
+			log: new MemoryLogger(),
+		});
+		probes = timed;
+		exits = [1, 1, 0];
+		outputs = ["", "", "live"];
+		await timed.start(ask);
+		await tick();
+		await timed.pollNow(ask.name);
+
+		expect(last()?.runs).toMatchObject([
+			{ startedBy: "wait", fired: false, ms: 2_400, stderr: "no ship matched" },
+			{ startedBy: "scheduled", fired: false, stdout: "" },
+			{ startedBy: "poll now", fired: true, stdout: "live" },
+		]);
+	});
+
+	it("keeps the last 50 lines of each stream", async () => {
+		waiting = 1;
+		outputs = [Array.from({ length: 80 }, (_, i) => `line ${i}`).join("\n")];
+		await probes.start(ask);
+
+		const stdout = last()?.runs.at(-1)?.stdout ?? "";
+		expect(stdout.split("\n")).toHaveLength(50);
+		expect(stdout.startsWith("line 30")).toBe(true);
+	});
+
+	it("refuses to poll now with no poll script running", () => {
+		expect(probes.pollNow("aws.nothing")).rejects.toThrow("no poll script");
 	});
 
 	it("refuses a probe more often than every 30s", () => {

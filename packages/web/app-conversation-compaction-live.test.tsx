@@ -57,7 +57,7 @@ describe("App's compaction while the turn goes on", () => {
 	const lines = (thread: HTMLElement) =>
 		[
 			...thread.querySelectorAll(
-				'[data-slot="work"] summary, [data-slot="compaction"]',
+				'[data-slot="work"] > [data-slot="collapsible"] > [data-slot="collapsible-trigger"], [data-slot="compaction"]',
 			),
 		].map((each) => each.textContent);
 

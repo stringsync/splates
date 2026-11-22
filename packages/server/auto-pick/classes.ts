@@ -142,7 +142,7 @@ export const VERIFICATIONS = [
 	),
 ] as const;
 
-/** Context judgments are recorded and explained; clarity also participates in rule matching. */
+/** Context judgments are recorded and explained; none of them routes. */
 export const CONTEXT_CLASSES = {
 	breadth: BREADTHS,
 	clarity: CLARITIES,

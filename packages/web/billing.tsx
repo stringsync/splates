@@ -44,8 +44,8 @@ const ROLES: Record<RoleBudget["role"], string> = {
 const PLANS = [
 	{ agent: "claude", name: "Claude" },
 	{ agent: "codex", name: "Codex" },
-	{ agent: "opencode", name: "OpenCode" },
 	{ agent: "kimi", name: "Kimi" },
+	{ agent: "antigravity", name: "Antigravity" },
 ];
 
 /**
@@ -422,7 +422,7 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 		["changed"],
 	);
 	const now = useMinute();
-	// Codex and Kimi never send their limits, so the server asks them as the page opens.
+	// Codex, Kimi and Antigravity are asked for their limits as the page opens.
 	useEffect(() => void talk.refreshLimits(), [talk]);
 	return (
 		<div className="flex min-w-0 flex-col gap-4">
@@ -454,14 +454,8 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 							</div>
 							{limits.length === 0 ? (
 								<p className="mt-2 text-muted-foreground text-sm">
-									{agent === "opencode" ? (
-										"No plan limits reported by OpenCode. Check your provider for remaining quota."
-									) : (
-										<>
-											Not said yet: it shows once {name} says, or a conversation
-											drives it in splates server.
-										</>
-									)}
+									Not said yet: it shows once {name} says, or a conversation
+									drives it in splates server.
 								</p>
 							) : (
 								<PlanLimits

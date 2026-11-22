@@ -1,5 +1,6 @@
 import type {
 	Composed,
+	Currents,
 	Listing,
 	Pick,
 	RunState,
@@ -11,12 +12,38 @@ import { Duration } from "core/time";
 import { ApiError, answered, scoped } from "./request";
 
 /** Every target the registered ship commands serve, and the commands that failed. */
-export async function shipTargets(): Promise<Listing> {
-	const response = await answered(scoped("/api/ship/targets"));
+export async function shipTargets({
+	fresh = false,
+}: {
+	/** Wait for a fresh read rather than take the last one the server kept. */
+	fresh?: boolean;
+} = {}): Promise<Listing> {
+	const response = await answered(
+		scoped(fresh ? "/api/ship/targets?fresh=1" : "/api/ship/targets"),
+	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/ship/targets: ${response.status}`);
 	}
 	return (await response.json()) as Listing;
+}
+
+/** Each target's current version, by name, for the targets that can say. */
+export async function shipCurrent(): Promise<Currents> {
+	// Its own route, apart from the targets, as asking a registry can be slow.
+	const response = await answered(scoped("/api/ship/current"), {
+		within: Duration.mins(1),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/current: ${response.status}`);
+	}
+	const body: unknown = await response.json();
+	return Object.fromEntries(
+		Object.entries(
+			typeof body === "object" && body !== null ? body : {},
+		).filter(
+			(entry): entry is [string, string] => typeof entry[1] === "string",
+		),
+	);
 }
 
 /** Each target's unshipped commit count, by name, for the targets that count them. */
@@ -63,12 +90,17 @@ export async function shipPlan(picks: readonly Pick[]): Promise<Composed> {
 export async function startShip(
 	picks: readonly Pick[],
 	supervise?: Supervise,
+	autoApprove?: boolean,
 ): Promise<RunState> {
 	const response = await answered(scoped("/api/ship/runs"), {
 		method: "POST",
 		within: Duration.mins(2),
 		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ picks, ...(supervise && { supervise }) }),
+		body: JSON.stringify({
+			picks,
+			...(supervise && { supervise }),
+			...(autoApprove !== undefined && { autoApprove }),
+		}),
 	});
 	const body = (await response.json().catch(() => ({}))) as {
 		error?: string;
@@ -82,15 +114,20 @@ export async function startShip(
 	return body as RunState;
 }
 
-/** Every ship run, newest first, or with `running` only the one under way. */
+/** Every ship run, newest first, or with `running` only the one under way, or the newest `limit`. */
 export async function shipRuns({
 	running = false,
+	limit,
 }: {
 	running?: boolean;
+	limit?: number;
 } = {}): Promise<RunState[]> {
-	const response = await answered(
-		scoped(running ? "/api/ship/runs?status=running" : "/api/ship/runs"),
-	);
+	const query = running
+		? "?status=running"
+		: limit !== undefined
+			? `?limit=${limit}`
+			: "";
+	const response = await answered(scoped(`/api/ship/runs${query}`));
 	if (!response.ok) {
 		throw new ApiError("error", `/api/ship/runs: ${response.status}`);
 	}
@@ -149,6 +186,22 @@ export async function stopShipRun(id: string): Promise<RunState> {
 	return body as RunState;
 }
 
+/** Stops `target` of run `id` alone: the rest of the run carries on. */
+export async function stopShipTarget(
+	id: string,
+	target: string,
+): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/targets/${encodeURIComponent(target)}/stop`;
+	const response = await answered(scoped(path), { method: "POST" });
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
+	}
+	return body as RunState;
+}
+
 /** Sends failed step `step` of `target` in run `id` to an agent, as a board task. */
 /** Gives run `id`'s supervisor `fixes` more fixes, switching it on when off. */
 export async function superviseShipRun(
@@ -170,6 +223,26 @@ export async function superviseShipRun(
 	return body as RunState;
 }
 
+/** Switches run `id`'s auto-approving of Yes/No prompts on or off. */
+export async function autoApproveShipRun(
+	id: string,
+	on: boolean,
+): Promise<RunState> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/auto-approve`;
+	const response = await answered(scoped(path), {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ on }),
+	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (!response.ok) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
+	}
+	return body as RunState;
+}
+
 export async function sendShipStep(
 	id: string,
 	target: string,
@@ -180,6 +253,29 @@ export async function sendShipStep(
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ target, step }),
+	});
+	const body = (await response.json().catch(() => ({}))) as {
+		error?: string;
+		state?: RunState;
+		task?: number;
+	};
+	if (!response.ok || body.state === undefined || body.task === undefined) {
+		throw new ApiError("error", body.error ?? `${path}: ${response.status}`);
+	}
+	return { state: body.state, task: body.task };
+}
+
+/** Sends `target`'s recap to an agent, with the usual time of each slow step by id. */
+export async function sendShipTarget(
+	id: string,
+	target: string,
+	slow: Record<string, number>,
+): Promise<{ state: RunState; task: number }> {
+	const path = `/api/ship/runs/${encodeURIComponent(id)}/send-target`;
+	const response = await answered(scoped(path), {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ target, slow }),
 	});
 	const body = (await response.json().catch(() => ({}))) as {
 		error?: string;

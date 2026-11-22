@@ -1,7 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { agentTurn, fold, tally } from "../agents";
 import { LEGACY_PLAN_FILE } from "../config";
-import type { Entry } from "../conversations";
+import type { Entry, Pairing } from "../conversations";
 import {
 	blank,
 	type ConversationState,
@@ -59,7 +59,13 @@ export interface TaskLog {
 	 */
 	waitedMs: number;
 	/** What the person set the model or effort to after Auto pick, in order. */
-	overrides: { aspect: "model" | "effort"; value: string; at: string }[];
+	overrides: {
+		aspect: "model" | "effort";
+		value: string;
+		at: string;
+		from?: Pairing;
+		result?: Pairing;
+	}[];
 }
 
 /**
@@ -114,6 +120,8 @@ export async function taskLog(
 					aspect: entry.aspect,
 					value: entry.value,
 					at: entry.at,
+					...(entry.from === undefined ? {} : { from: entry.from }),
+					...(entry.result === undefined ? {} : { result: entry.result }),
 				});
 			}
 		} else if (entry.kind === "model-request") {

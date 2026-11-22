@@ -3,6 +3,7 @@ import { useReactive } from "core/react";
 import { CheckIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
 import {
+	shipCurrent,
 	shipPlan,
 	shipRuns,
 	shipTargets,
@@ -16,6 +17,7 @@ import { cn } from "./lib/utils";
 import { SHIP_HISTORY, shipRunAddress } from "./page-address";
 import { RouteTrail } from "./route-trail";
 import { ShipAgents } from "./ship-agents";
+import { ShipAutoApprove } from "./ship-auto-approve";
 import { ShipFlow } from "./ship-flow";
 import { ShipHeading } from "./ship-heading";
 import { backToShipDepth, shipDepth, useShipHistory } from "./ship-history";
@@ -65,6 +67,9 @@ export function ShipsPage({
 		listing,
 		failed,
 		unshipped,
+		current,
+		counting,
+		readingVersion,
 		picks,
 		added,
 		stage,
@@ -73,6 +78,7 @@ export function ShipsPage({
 		starting,
 		active,
 		supervise,
+		autoApprove,
 	} = useReactive(flow, (flow) => flow.state, ["changed"]);
 	const spawnedOf = useSpawnedOf(snapshot, talk);
 	const depth = shipDepth(stage);
@@ -82,49 +88,81 @@ export function ShipsPage({
 	useShipHistory(flow, depth);
 	useEffect(() => {
 		shipTargets().then(
-			(listing) => flow.listed(listing),
+			(listing) => {
+				flow.listed(listing);
+				// The server's last listing shows at once; the fresh one replaces it.
+				if (listing.stale) {
+					shipTargets({ fresh: true }).then(
+						(fresh) => flow.listed(fresh),
+						() => {},
+					);
+				}
+			},
 			(error: unknown) => flow.unlisted(error),
 		);
 		// Counted apart, so a slow or failing count never holds the targets.
 		shipUnshipped().then(
 			(counts) => flow.counted(counts),
-			() => {},
+			() => flow.counted({}),
+		);
+		// Read apart too: a slow registry never holds the targets or a ship.
+		shipCurrent().then(
+			(versions) => flow.versioned(versions),
+			() => flow.versioned({}),
 		);
 		// Only the run under way is read up front; past runs wait for a tap.
-		shipRuns({ running: true }).then(
-			(runs) => {
-				flow.underWay(runs);
-				// Opening the page while a ship runs goes to it, once.
-				const running = runs.find((each) => each.status === "running");
-				if (running !== undefined && !opened.current) {
-					opened.current = true;
-					if (location.hash !== SHIP_HISTORY) {
-						onRun(running.id);
+		const readUnderWay = (opening: boolean) => {
+			const stamp = flow.reading();
+			shipRuns({ running: true }).then(
+				(runs) => {
+					flow.underWay(runs, stamp);
+					// Opening the page while a ship runs goes to it, once.
+					const running = runs.find((each) => each.status === "running");
+					if (opening && running !== undefined && !opened.current) {
+						opened.current = true;
+						if (location.hash !== SHIP_HISTORY) {
+							onRun(running.id);
+						}
 					}
+					if (running === undefined && (!opening || !opened.current)) {
+						// With none running, the newest run goes to its recap once, until seen.
+						shipRuns({ limit: 1 }).then(
+							(all) => {
+								const latest = all.at(0);
+								flow.newest(latest, stamp);
+								if (
+									opening &&
+									(latest?.status === "failed" ||
+										(latest?.status === "done" && latest.id !== recapSeen())) &&
+									!opened.current &&
+									location.hash !== SHIP_HISTORY
+								) {
+									opened.current = true;
+									onRun(latest.id);
+								}
+							},
+							() => {},
+						);
+					}
+				},
+				() => {},
+			);
+		};
+		readUnderWay(true);
+		const off = [
+			SHIP_BUS.on("run", ({ state }) => flow.moved(state)),
+			// Back after the stream dropped, a ship may have ended unsaid: read again.
+			SHIP_BUS.on("open", (again) => {
+				if (again) {
+					readUnderWay(false);
 				}
-				if (running === undefined && !opened.current) {
-					// With none running, the newest run goes to its recap once, until seen.
-					shipRuns().then(
-						(all) => {
-							const latest = all.at(0);
-							flow.newest(latest);
-							if (
-								(latest?.status === "failed" ||
-									(latest?.status === "done" && latest.id !== recapSeen())) &&
-								!opened.current &&
-								location.hash !== SHIP_HISTORY
-							) {
-								opened.current = true;
-								onRun(latest.id);
-							}
-						},
-						() => {},
-					);
-				}
-			},
-			() => {},
-		);
-		return SHIP_BUS.on("run", ({ state }) => flow.moved(state));
+			}),
+		];
+		return () => {
+			for (const unlisten of off) {
+				unlisten();
+			}
+		};
 	}, [flow, onRun]);
 
 	const history = useShipHistoryRoute();
@@ -262,6 +300,8 @@ export function ShipsPage({
 							<ShipPickList
 								targets={listing.targets}
 								unshipped={unshipped}
+								loadingDetails={counting || readingVersion}
+								current={current}
 								picks={picks}
 								onPicks={(picks) => flow.pick(picks)}
 							/>
@@ -288,6 +328,12 @@ export function ShipsPage({
 						budget={supervise.budget}
 						onOn={(on) => flow.supervising(on)}
 						onFixes={(budget) => flow.fixes(budget)}
+					/>
+				)}
+				{stage.at === "review" && (
+					<ShipAutoApprove
+						on={autoApprove}
+						onOn={(on) => flow.autoApproving(on)}
 					/>
 				)}
 				{refused !== null && (

@@ -41,8 +41,8 @@ import {
 import { cn } from "#web/lib/utils.ts";
 
 /**
- * A list of picks a chip or row editor changes: a rule's, or the Evals
- * page's agents. Its `label` names it in their labels, such as "rule 1".
+ * A list of picks a chip editor changes, such as the Evals page's agents.
+ * Its `label` names it in their labels.
  */
 export interface PickList {
 	label: string;
@@ -63,10 +63,10 @@ export interface PickList {
 }
 
 /**
- * A rule's picks as chips in the order they are tried: dragged, or moved with
+ * Picks as chips in the order they are tried: dragged, or moved with
  * the keyboard from a focused chip, to reorder; a chip's menu sets its model
  * and thinking level or removes it; the dashed chip adds an agent and model
- * the rule does not name yet.
+ * the list does not name yet.
  */
 export function PickChips({
 	list,
@@ -106,7 +106,7 @@ export function PickChips({
 				>
 					{picks.map((pick, at) => (
 						<PickChip
-							// biome-ignore lint/suspicious/noArrayIndexKey: a pick is its place on the rule
+							// biome-ignore lint/suspicious/noArrayIndexKey: a pick is its place in the list
 							key={at}
 							list={list}
 							index={at}

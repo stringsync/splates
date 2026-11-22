@@ -1,5 +1,4 @@
 import type { TaskRecord } from "../board";
-import type { Reach } from "../projects";
 
 /** Whether the board has queued or started every task a queue card names. */
 export function queueIsSettled(
@@ -22,13 +21,9 @@ export function queueIsSettled(
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
-	return [
-		PERMISSION,
-		GRANT_PERMISSION,
-		EVALS_PERMISSION,
-		RUN_PERMISSION,
-		SHIP_PERMISSION,
-	].some((each) => each.test(line));
+	return [PERMISSION, EVALS_PERMISSION, RUN_PERMISSION].some((each) =>
+		each.test(line),
+	);
 }
 
 /** What the permission card titled `line`, with `body` under it, asks; null for any other line. */
@@ -39,30 +34,6 @@ export function permissionOf(
 	const permission = PERMISSION.exec(line);
 	const evals = EVALS_PERMISSION.exec(line);
 	const run = RUN_PERMISSION.exec(line);
-	const grant = GRANT_PERMISSION.exec(line);
-	const ship = SHIP_PERMISSION.exec(line);
-	if (ship !== null) {
-		const picks: ShipPick[] = [];
-		const prose = body.split("\n").filter((each) => {
-			const pick = SHIP_PICK.exec(each);
-			if (pick === null) {
-				return true;
-			}
-			picks.push({
-				name: pick[1] as string,
-				...(pick[2] === undefined ? {} : { bump: pick[2] as ShipBump }),
-			});
-			return false;
-		});
-		return {
-			action: "ship",
-			lane: null,
-			tasks: [],
-			title: ship[1] || null,
-			body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
-			ship: { picks },
-		};
-	}
 	if (run !== null) {
 		const rows = body.split("\n");
 		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
@@ -83,20 +54,6 @@ export function permissionOf(
 			...(reasons.length === 1
 				? { reason: (reasons[0] as string).toLowerCase() }
 				: {}),
-		};
-	}
-	if (grant !== null) {
-		return {
-			action: "grant",
-			lane: null,
-			tasks: [],
-			title: grant[4] || null,
-			body: body.replace(COMMAND_LINE, "").replace(/^\n+|\s+$/g, ""),
-			grant: {
-				in: grant[1] as string,
-				reach: grant[2] as Reach,
-				from: grant[3] as string,
-			},
 		};
 	}
 	if (evals !== null) {
@@ -170,25 +127,15 @@ export function permissionOf(
  */
 export interface PermissionProposal {
 	/**
-	 * What it asks: queue work, remove a lane with its tasks, run evals, run
-	 * a heavy command, the whole test suite among them, or let one project
-	 * reach further into another, or ship targets, which only the person
-	 * starts.
+	 * What it asks: queue work, remove a lane with its tasks, run evals, or
+	 * run a heavy command, the whole test suite among them.
 	 */
-	action:
-		| "queue"
-		| "remove-lane"
-		| "run-evals"
-		| "run-command"
-		| "grant"
-		| "ship";
+	action: "queue" | "remove-lane" | "run-evals" | "run-command";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
 	 */
 	project?: string;
-	/** For `grant`: what it lets project `from` do in project `in`. */
-	grant?: ReachAsk;
 	/** The lane it acts on whole; null for tasks named one by one. */
 	lane: number | null;
 	/** The tasks named one by one; none for a lane. */
@@ -203,33 +150,6 @@ export interface PermissionProposal {
 	command?: string;
 	/** For `run-command`: the card's `Reason:` word, `busy` only when the machine's load is the sole reason to ask, else `cost` or `risk`. */
 	reason?: string;
-	/** For `ship`: the targets it asks to ship, each with its bump. */
-	ship?: ShipAsk;
-}
-
-/** A bump a ship card names, as `core/ship` takes it. */
-export type ShipBump = "patch" | "minor" | "major";
-
-/** One target a ship card names: its name, and its bump when it says one. */
-export type ShipPick = { name: string; bump?: ShipBump };
-
-/**
- * The ship a `## 🔐 Permission: ship: <why>` card asks the person to start:
- * one `` - `<target>` <bump> `` item a target, in the order it lists them.
- * Only the person starts it, with the card's Approve.
- */
-export interface ShipAsk {
-	picks: ShipPick[];
-}
-
-/**
- * The reach a `## 🔐 Permission: grant <in> <reach> to <from>` card asks
- * project `in` to give project `from`, each by its slug.
- */
-export interface ReachAsk {
-	in: string;
-	from: string;
-	reach: Reach;
 }
 
 /**
@@ -258,10 +178,6 @@ const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_AGENTS = /^Agents:[ \t]*(`[^`\s]+`(?:,?[ \t]*`[^`\s]+`)*)[ \t]*$/;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
-const SHIP_PERMISSION = /^## 🔐 Permission: ship(?::[ \t]*(.*?))?[ \t]*$/;
-/** A ship card's target: a list item that is one code span, then maybe its bump. */
-const SHIP_PICK =
-	/^[-*][ \t]+`([^`\n]+)`(?:[ \t]+(patch|minor|major)\b)?(?:[ \t].*)?$/;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 /** A run-command card's `Reason: busy` line: one word, on a line of its own. */
@@ -272,8 +188,6 @@ const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
 // <name>`; the older `## 📥 Queue ...` titles read as the queue ones.
 const PERMISSION =
 	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(?:([\w.-]+) )?(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
-const GRANT_PERMISSION =
-	/^## 🔐 Permission: grant ([\w.-]+) (read|queue|tasks) to ([\w.-]+)(?::[ \t]*(.*?))?[ \t]*$/;
 /**
  * A queue card's line of the command that queues its work from a terminal,
  * `` `splates lane queue 7` ``, which the card shows on its own row.

@@ -5,11 +5,24 @@ import { FakeShipPs } from "./testing";
 
 describe("ShipPlanRoutes", () => {
 	it("lists the targets", async () => {
-		const response = await routes().shipTargets();
+		const response = await routes().shipTargets(get(""));
 		expect(await response.json()).toEqual({
 			targets: [{ command: "bin/net ship", plan: net }],
 			errors: [],
 		});
+	});
+
+	it("answers with the last listing, marked stale, once one was read", async () => {
+		const each = routes();
+		await each.shipTargets(get(""));
+		const again = await each.shipTargets(get(""));
+		expect(await again.json()).toEqual({
+			targets: [{ command: "bin/net ship", plan: net }],
+			errors: [],
+			stale: true,
+		});
+		const fresh = await each.shipTargets(get("?fresh=1"));
+		expect((await fresh.json()).stale).toBeUndefined();
 	});
 
 	it("counts the unshipped commits", async () => {
@@ -34,6 +47,8 @@ describe("ShipPlanRoutes", () => {
 		});
 	});
 });
+
+const get = (query: string) => new Request(`http://x/api/ship/targets${query}`);
 
 const net = {
 	name: "net",

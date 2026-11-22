@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 
 import { AsyncDisposer, type AsyncResource } from "core/disposable";
 import { Duration, SystemTimer } from "core/time";
-import { AutoPickRulesRoutes } from "../auto-pick";
+import { AutoPickRulesRoutes, HealthRoutes } from "../auto-pick";
 import { ConfigFiles } from "../config";
 import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
@@ -26,10 +26,15 @@ import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
 import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
 import {
+	Clocks,
+	isOn,
 	Probes,
 	pageKillRoute,
 	raiseIn,
 	SignalBook,
+	SignalExpiration,
+	type SignalFunction,
+	type SignalHome,
 	SignalRoutes,
 	subscriptionsIn,
 } from "../signals";
@@ -231,6 +236,11 @@ export async function dev(
 		paused: () => workers.records.paused,
 		raiseSignal: async (name, by, payload) => {
 			await signals.announce(name, by, payload);
+		},
+		clockShelf: () => signalHome.book,
+		signalTasks: {
+			raises: () => signalHome.book.raises(),
+			subscribed: (name) => probes.subscribed(name),
 		},
 	};
 	const serve = (project: Project): Promise<Served> =>
@@ -591,6 +601,8 @@ export async function dev(
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const rec = new Rec(ps, {
+		localOrigin: () =>
+			url === null ? null : url.replace(LOOPBACK, "localhost"),
 		logSources: {
 			find: async (request) => {
 				const { root } = await projectFor(request);
@@ -607,8 +619,10 @@ export async function dev(
 	});
 	disposer.defer(async () => pushes.dispose());
 	// What agents raise and wait on, across every project the server holds.
-	const allConversations = async () => {
-		await everywhere.openAll();
+	const allConversations = async (open = true) => {
+		if (open) {
+			await everywhere.openAll();
+		}
 		const found = [
 			...((await general?.conversations.list().catch(() => [])) ?? []),
 		];
@@ -653,10 +667,12 @@ export async function dev(
 		}
 		return owner;
 	};
-	const signalHome = {
+	const signalHome: Pick<SignalHome, "book" | "all" | "fire" | "now"> &
+		Pick<SignalHome, "setExpiration"> = {
 		book: new SignalBook(machineStorage.document("signals.json"), () =>
 			Date.now(),
 		),
+		now: () => Date.now(),
 		all: allConversations,
 		fire: async (name: string, by: string, payload: unknown) => {
 			for (const settled of await Promise.allSettled(served.values())) {
@@ -685,9 +701,9 @@ export async function dev(
 			}
 			return count;
 		},
-		expire: async (name) => {
+		remove: async (name, reason) => {
 			for (const conversation of await allConversations()) {
-				conversation.expireSignal(name);
+				conversation.removeSignal(name, reason);
 			}
 		},
 		show: async (probe) => {
@@ -704,8 +720,85 @@ export async function dev(
 	void probes
 		.arm()
 		.catch((error: unknown) => log.error(`arming probes: ${String(error)}`));
+	let recoveringClocks = true;
+	const clocks = new Clocks({
+		book: signalHome.book,
+		now: () => Date.now(),
+		timer: new SystemTimer(),
+		active: async () => {
+			// As with probes, open other projects only to recover an existing schedule.
+			if (recoveringClocks) {
+				recoveringClocks = false;
+				if (
+					(await signalHome.book.clocks()).some((clock) => clock.next !== null)
+				) {
+					await everywhere.openAll();
+				}
+			}
+			const names = new Set<string>();
+			for (const conversation of await allConversations(false)) {
+				for (const wait of conversation.state.signals) {
+					if (conversation.signalSubscriptions(wait.name) > 0) {
+						names.add(wait.name);
+					}
+				}
+			}
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					for (const automation of await settled.value
+						.signalAutomationList()
+						.catch(() => [])) {
+						if (!automation.paused) {
+							names.add(automation.signal);
+						}
+					}
+				}
+			}
+			return [...names];
+		},
+		raise: async (name, by, payload) => {
+			await raiseIn(signalHome, name, by, payload);
+		},
+		error: (error) => log.error(`clock: ${String(error)}`),
+	});
+	clocks.arm();
+	disposer.defer(async () => clocks.dispose());
+	const expiration = new SignalExpiration({
+		book: signalHome.book,
+		now: () => Date.now(),
+		timer: new SystemTimer(),
+		remove: async (name) => {
+			const probe = await signalHome.book.probe(name);
+			if (probe !== null && isOn(probe)) {
+				await probes.stop(name);
+			}
+			for (const conversation of await allConversations()) {
+				conversation.removeSignal(name, "signal expired");
+			}
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					await settled.value.expireSignal(name);
+				}
+			}
+		},
+		error: (error) => log.error(`expiring signals: ${String(error)}`),
+	});
+	disposer.defer(async () => expiration.dispose());
+	signalHome.setExpiration = (name, at) => expiration.set(name, at);
+	void expiration.arm().catch((error: unknown) => log.error(String(error)));
 	const signals = new SignalRoutes({
+		clocks,
+		setExpiration: (name, at) => expiration.set(name, at),
 		...signalHome,
+		signalFunctions: async () => {
+			const found: Record<string, SignalFunction> = {};
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					Object.assign(found, settled.value.signalFunctions());
+				}
+			}
+			return found;
+		},
 		rootOfProject: async (slug) =>
 			(await projects.list()).find((each) => each.slug === slug)?.root ?? null,
 		shell: (script, cwd, timeoutMs) =>
@@ -728,6 +821,13 @@ export async function dev(
 			}
 			return found;
 		},
+		retireFamilies: async (known) => {
+			for (const settled of await Promise.allSettled(served.values())) {
+				if (settled.status === "fulfilled") {
+					await settled.value.retireFamilies(known);
+				}
+			}
+		},
 		find: async (id) =>
 			(await (
 				await findConversation(id)
@@ -741,6 +841,9 @@ export async function dev(
 		probes,
 		now: () => Date.now(),
 	});
+	void signals
+		.reconcileSignalFunctions()
+		.catch((error: unknown) => log.error(String(error)));
 	// Setup is the machine's, but for the steps that read the repository of
 	// the project the page is on.
 	const setup = new SetupRoutes(async (request) => {
@@ -800,6 +903,7 @@ export async function dev(
 	});
 
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
+	const autoPickHealth = new HealthRoutes({ fs, home: splatesHome(ps) });
 	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
 
 	disposer.defer(() => workers.disposeAsync());
@@ -848,10 +952,42 @@ export async function dev(
 							}),
 						),
 					},
-					"/api/projects/:slug/grants": { PUT: guarded(picker.grant) },
 					"/api/focus": { PUT: guarded(picker.focus) },
 					"/api/stats": guarded(ended.stats),
 					"/api/auto-pick/overrides": guarded(ended.overrides),
+					"/api/auto-pick/overrides/dismiss": {
+						POST: guarded(ended.dismissOverrides),
+					},
+					"/api/auto-pick/overrides/send": {
+						POST: guarded(async (request) => {
+							if (request.headers.get("sec-fetch-site") !== "same-origin") {
+								return Response.json(
+									{
+										reason: "usage",
+										message:
+											"Only the user sends the overrides to an agent, from the Auto pick page",
+									},
+									{ status: 403 },
+								);
+							}
+							const text = await ended.overridesTask();
+							if (text === null) {
+								return Response.json(
+									{
+										reason: "usage",
+										message: "There are no overrides to send",
+									},
+									{ status: 400 },
+								);
+							}
+							const project = await projectFor(request);
+							const task = await project.sendToAgent(
+								"Update the Auto pick rules from the overrides",
+								text,
+							);
+							return Response.json({ task });
+						}),
+					},
 					"/api/evals": guarded(evals.list),
 					"/api/evals/agents": {
 						GET: guarded(evalAgents.read),
@@ -926,6 +1062,10 @@ export async function dev(
 						GET: guarded(autoPickRules.read),
 						PUT: guarded(autoPickRules.save),
 					},
+					"/api/auto-pick/avoided": guarded(autoPickHealth.read),
+					"/api/auto-pick/avoided/clear": {
+						POST: guarded(autoPickHealth.clear),
+					},
 					"/api/auto-pick/rules/reset": {
 						POST: guarded(autoPickRules.reset),
 					},
@@ -959,6 +1099,9 @@ export async function dev(
 					"/api/ship/unshipped": {
 						GET: scoped((project) => project.shipUnshipped),
 					},
+					"/api/ship/current": {
+						GET: scoped((project) => project.shipCurrent),
+					},
 					"/api/ship/plan": { POST: scoped((project) => project.shipPlan) },
 					"/api/ship/runs": {
 						GET: scoped((project) => project.shipRuns),
@@ -982,11 +1125,20 @@ export async function dev(
 					"/api/ship/runs/:id/stop": {
 						POST: scoped((project) => project.shipRunStop),
 					},
+					"/api/ship/runs/:id/targets/:target/stop": {
+						POST: scoped((project) => project.shipRunTargetStop),
+					},
 					"/api/ship/runs/:id/send": {
 						POST: scoped((project) => project.shipRunSend),
 					},
+					"/api/ship/runs/:id/send-target": {
+						POST: scoped((project) => project.shipRunSendTarget),
+					},
 					"/api/ship/runs/:id/supervise": {
 						POST: scoped((project) => project.shipRunSupervise),
+					},
+					"/api/ship/runs/:id/auto-approve": {
+						POST: scoped((project) => project.shipRunAutoApprove),
 					},
 					"/api/ship/runs/:id/note": {
 						POST: scoped((project) => project.shipRunNote),
@@ -1148,11 +1300,9 @@ export async function dev(
 						GET: talk(owned((project) => project.conversationArtifact)),
 						DELETE: talk(owned((project) => project.deleteArtifactVersion)),
 					},
-					"/api/conversations/:id/progress": {
-						POST: talk(owned((project) => project.reportProgress)),
-					},
 					"/api/signals": { GET: talk(signals.list) },
 					"/api/signals/raise": { POST: talk(signals.raise) },
+					"/api/signals/expiration": { POST: talk(signals.expiration) },
 					// A page the system killed says so, for an agent to look into once
 					// it has repeated.
 					"/api/page-kills": {
@@ -1161,6 +1311,7 @@ export async function dev(
 					"/api/conversations/:id/signal-wait": { POST: talk(signals.wait) },
 					"/api/conversations/:id/signal-probe": { POST: talk(signals.probe) },
 					"/api/signals/probe-stop": { POST: talk(signals.stopProbe) },
+					"/api/signals/poll-now": { POST: talk(signals.pollNow) },
 					"/api/signals/check": { POST: talk(signals.check) },
 					"/api/signals/check-test": { POST: talk(signals.testCheck) },
 					"/api/conversations/:id/signal-wait/:wait/stop": {

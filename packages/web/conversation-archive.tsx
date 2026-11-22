@@ -21,6 +21,7 @@ import { useExpect, useExpectSnapshot } from "./expecting";
 import { useHeldConversations } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { useRowRefusal } from "./row-refusal";
+import { waitingSignal } from "./row-status";
 import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
@@ -116,6 +117,8 @@ export function useArchive(
 		});
 		after.current?.();
 	};
+	// Its agent is suspended on a signal, which archiving stops waiting on.
+	const waiting = waitingSignal(conversation);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
 	// Otherwise only its shell can lose anything, like a dev server it runs;
@@ -123,6 +126,7 @@ export function useArchive(
 	const asks = () =>
 		!archived &&
 		(project !== null ||
+			waiting !== null ||
 			task?.unmerged === true ||
 			working ||
 			live.length > 0 ||
@@ -152,6 +156,12 @@ export function useArchive(
 									: task.ahead === 0
 										? `${task.task} has uncommitted changes. Archiving removes it, discarding them.`
 										: `${task.task} may have unmerged changes. Archiving removes it, discarding its worktree, branch and any uncommitted changes.`}
+						</DialogDescription>
+					)}
+					{waiting !== null && (
+						<DialogDescription>
+							It is waiting on {waiting.name}. Archiving stops the wait, and the
+							agent never hears the signal.
 						</DialogDescription>
 					)}
 					{(working || live.length > 0 || shell || project !== null) && (

@@ -4,16 +4,13 @@ import type { TaskReport } from "@splates/server/plans";
 import { type JSX, useContext } from "react";
 import { CardArchive, useArchivable } from "./archive-offer";
 import { BeforeAfter, cardRecord } from "./before-after";
+import { BlockedLine } from "./blocked-line";
+import { blockersLook, blockersOf, DeferredBody } from "./blockers-card";
 import { Board } from "./board";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { ChecksSection } from "./checks-section";
-import {
-	DeferredBody,
-	deferredTask,
-	HeldBlockers,
-	heldTask,
-} from "./deferred-body";
+import { deferredTask, HeldBlockers, heldTask } from "./deferred-body";
 import { EvalDoneBody } from "./eval-done-card";
 import { evalDoneOf } from "./eval-done-report";
 import { Markdown } from "./markdown";
@@ -41,7 +38,7 @@ export function ReportCard({
 }: {
 	report: TaskReport;
 }): JSX.Element | null {
-	const { Icon, tone } = ENDINGS[report.ending];
+	const ending = ENDINGS[report.ending];
 	const merged = report.ending === "merged";
 	const removed = report.ending === "removed";
 	const text = reportText(report);
@@ -76,11 +73,31 @@ export function ReportCard({
 					.filter((each) => each.kind === "task" && !cleared(each))
 					.flatMap((each) => (each.kind === "task" ? [each.id] : []))
 			: [];
+	// A blocked task's card says what it asks: to queue its blockers, or nothing.
+	const look =
+		deferral !== null && !resumed
+			? blockersLook(
+					blockersOf(deferral, board.todos, board.elsewhere),
+					deferral,
+				)
+			: ending;
+	const { Icon, tone } = look;
 	// A merge leads with the Before and After its record kept, when it did.
 	const record = merged ? cardRecord(landed?.outcome.outcome) : null;
 	// A merge shows once its outcome is read, so it never grows a footer.
 	if (landed === undefined) {
 		return null;
+	}
+	// Written past, it is a line in the thread; the live card is at the bottom.
+	if (resumed && deferral !== null) {
+		return (
+			<BlockedLine
+				report={report}
+				waits={blockedOn}
+				resumed={deferral.takenBy !== null}
+				text={text}
+			/>
+		);
 	}
 	return (
 		<div>
@@ -88,13 +105,13 @@ export function ReportCard({
 				// A merge's own words are the agent's, so they sit above its card.
 				<Markdown
 					text={text}
-					className="mb-3 px-1 text-sm leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+					className="mb-3 leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
 				/>
 			)}
 			<CardShell
 				label={`${report.ending} ${report.task}`.trim()}
 				Icon={Icon}
-				title={ENDINGS[report.ending].title}
+				title={look.title}
 				tone={tone}
 				// A Done report names no task; a merge names its task and base in its header.
 				task={report.task === "" ? undefined : report.task}

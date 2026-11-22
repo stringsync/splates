@@ -209,17 +209,21 @@ function HeldItem({
 						className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
 					/>
 				))}
-				{directives.map((directive) => (
-					<DirectiveChip key={directive} directive={directive} />
-				))}
-				<span className="min-w-0 flex-1 truncate text-sm">
-					<Directed text={rest} />
-				</span>
+				<div className="min-w-0 flex-1 overflow-hidden">
+					{directives.map((directive) => (
+						<DirectiveChip key={directive} directive={directive} />
+					))}
+					{rest !== "" && (
+						<div className="truncate text-sm">
+							<Directed text={rest} />
+						</div>
+					)}
+				</div>
 				{edits !== null && (
 					<>
 						{index === 0 && edits.onSendNow != null && (
 							<Button
-								size="xs"
+								size="sm"
 								variant="outline"
 								disabled={edits.busy}
 								onClick={edits.onSendNow}
@@ -230,18 +234,16 @@ function HeldItem({
 							</Button>
 						)}
 						<Button
-							size="icon-xs"
+							size="icon-sm"
 							variant="outline"
-							className="pointer-coarse:size-10"
 							aria-label={`Edit ${label}`}
 							onClick={() => edits.onEdit(index, message)}
 						>
 							<PencilIcon />
 						</Button>
 						<Button
-							size="icon-xs"
+							size="icon-sm"
 							variant="outline"
-							className="pointer-coarse:size-10"
 							aria-label={`Discard ${label}`}
 							disabled={edits.busy}
 							onClick={() => edits.onDiscard(index)}

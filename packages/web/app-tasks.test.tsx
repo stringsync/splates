@@ -124,26 +124,31 @@ describe("App's Queue page", () => {
 		);
 
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		const changes = await waitFor(() =>
+		const _changes = await waitFor(() =>
 			view.getByRole("complementary", { name: "changes in alpha" }),
 		);
-		const [first, second] = [...changes.querySelectorAll("summary")];
-		expect(first?.textContent).toBe("src/a.ts+1 −1");
-		expect(second?.textContent).toBe("logo.pngnewuncommitted+0 −0");
+		const first = view.getByRole("button", { name: /src\/a.ts/ });
+		const second = view.getByRole("button", { name: /logo.png/ });
+		const expanded = () =>
+			[first, second].map((button) => button.getAttribute("aria-expanded"));
+		expect(expanded()).toEqual(["false", "false"]);
+		await act(async () => fireEvent.click(first));
+		expect(expanded()).toEqual(["true", "false"]);
 		expect(view.getByLabelText("src/a.ts @@ -1,2 +1,2 @@").textContent).toBe(
 			"@@ -1,2 +1,2 @@+1 −1keep−old+new",
 		);
-
-		const files = [...changes.querySelectorAll("details")];
-		expect(files.map((file) => file.open)).toEqual([false, false]);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Expand all" })),
 		);
-		expect(files.map((file) => file.open)).toEqual([true, true]);
+		expect(expanded()).toEqual(["true", "true"]);
+		expect(view.getByText("A binary file: no lines to show.")).toBeTruthy();
+		await act(async () => fireEvent.click(second));
+		expect(expanded()).toEqual(["true", "false"]);
+		await act(async () => fireEvent.click(second));
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Collapse all" })),
 		);
-		expect(files.map((file) => file.open)).toEqual([false, false]);
+		expect(expanded()).toEqual(["false", "false"]);
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Close changes" })),

@@ -78,6 +78,11 @@ counts every target at once and prints `{ "<name>": <count> }`, leaving out a
 target that declares nothing, and one whose count throws (the error goes to
 stderr).
 
+A target may declare `current(ctx)`, returning the version it is at now;
+`npm.current("<package>")` answers with npm's latest. `ship current` prints
+`{ "<name>": "<version>" }` for every target that declares one, leaving out
+the rest and any that throw (the error goes to stderr).
+
 ## Serving a target
 
 splates never imports a target. The project's CLI hands its targets to
@@ -95,12 +100,13 @@ await serve(mdom, argv); // or serve([staging, prod], argv)
 ```sh
 bin/mdom ship plan --bump minor      # the plan as JSON, as view() returns it
 bin/mdom ship unshipped             # { "@stringsync/mdom": 3 }
+bin/mdom ship current              # { "@stringsync/mdom": "1.2.0" }
 bin/mdom ship done publish           # true or false
 bin/mdom ship run publish            # runs one step, writing JSON lines
 bin/mdom ship --bump minor           # shows the plan, asks, ships it all here
 ```
 
-Every request takes `--target <name>`, and all but `unshipped` take
+Every request takes `--target <name>`, and all but `unshipped` and `current` take
 `--version` or `--bump`, and `--upstream <name>=<version>`, once for each target it depends
 on. With several targets,
 `plan` with no `--target` prints an array of plans, and the rest need one.
@@ -227,8 +233,10 @@ and the deploy, before anything else, ask whether to continue its rollback
 a rollback that fails again, fails the step, and a stuck resource is fixed by
 hand before the step is retried. The deploy step's timeout is 150 minutes, room for a
 deploy and the rollback it waits out. A stack is found by its
-CloudFormation name, `name` with each `/` made `-` unless `stackName` says
-otherwise.
+CloudFormation name, which the deploy reads once from the app
+(`cdk list --long --json`, with the same `context`), so a stack inside a stage
+is found by its stage's `stageName` (`prod-App` for `Prod/App`); `stackName`
+overrides it.
 
 Optional `context`, `noRollback` and `cheapReplacement` serve a stack deployed
 in steps. `context: async (ctx) => ["--context", "digest=..."]` is read when

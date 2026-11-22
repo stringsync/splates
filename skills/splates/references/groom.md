@@ -14,8 +14,7 @@ when.
 
 ## Grooming a task you write
 
-Give it its tag (`--tag <name>`) when the config lists tags, and none of the
-project's name in its subject or slug. Write its detail as a goal, then details (see [queue.md](queue.md), Queueing tasks).
+Leave the project's name out of its subject and slug. Write its detail as a goal, then details (see [queue.md](queue.md), Queueing tasks).
 
 Before `splates task add`, check none already asks it (see One that already
 asks it), give it `--blocked-by` for each task whose code it needs or whose
@@ -126,8 +125,7 @@ few `splates task` commands, then your turn ends.
    themed lane fits, create a named lane for the task, even if it is the
    only task in it. Never leave a processed task in Backlog.
 6. **Place it**, last and in one `splates task update N '<detail>'
-   --blocked-by <id> (repeated per id) --lane <n>`. When the config lists tags and it has none, add
-   `--tag <name>` for the project it changes. Pick no agent, model or
+   --blocked-by <id> (repeated per id) --lane <n>`. Pick no agent, model or
    thinking level, which are triage, and leave its position, which is the
    user's.
 

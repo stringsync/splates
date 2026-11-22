@@ -1,7 +1,9 @@
 import { basename } from "node:path";
 import {
 	addedFacts,
+	closesOnFrom,
 	recordUpdate,
+	sinceNeedsSignal,
 	taskAdd,
 	taskList,
 	taskRemove,
@@ -10,7 +12,7 @@ import {
 	taskUpdate,
 } from "@splates/server/board";
 import { commaList } from "@splates/server/comma-list";
-import { pickScope, Tags } from "@splates/server/config";
+import { pickScope } from "@splates/server/config";
 import { refuseGroomer } from "@splates/server/conversations";
 import { fail } from "@splates/server/exit";
 import { OpenBoards, repository } from "@splates/server/records";
@@ -77,14 +79,20 @@ function adding(name: string, description: string, groomed: boolean) {
 			description:
 				"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`wren#404`); each has to merge before this one starts",
 		})
+		.option("closes-on", z.string(), {
+			default: "",
+			description:
+				"a signal (`<project>.<name>`) the task closes on, for waiting on an outside fact before work can start: nobody works it and the queue never starts it, and when the signal fires it ends as if merged, so the tasks it blocks clear. The board keeps a probe on that signal running while it is open",
+		})
+		.option("since", z.string(), {
+			default: "",
+			description:
+				"with --closes-on: also take a firing from before it was attached, as `signal wait --since` does: how long ago (30m, 2h, 1d) or an ISO time (default: only later firings count)",
+		})
 		.option("project", z.string(), {
 			default: "",
 			description:
 				"the project of splates.config.ts it changes, which the task that takes it inherits (default: the one whose folder you run it in, else the only project)",
-		})
-		.repeated("tag", z.string(), {
-			description:
-				"a tag grouping it, comma separated or the flag repeated; splates.config.ts may allow only some, or require one (default: the allowed tag whose folder you run it in)",
 		})
 		.option("lane", z.string(), {
 			default: "",
@@ -149,13 +157,7 @@ function adding(name: string, description: string, groomed: boolean) {
 					{ subject: opts.subject },
 				);
 			}
-			const tagging = new Tags(ctx.config);
-			// Run with `--project`, the folder is in the other repository, so
-			// only the flag tags it.
-			const tags = tagging.forNew(
-				tagging.parse(opts.tag),
-				ctx.elsewhere === null ? await folderOf(ctx) : "",
-			);
+			sinceNeedsSignal(opts["closes-on"], opts.since);
 			using boards = new OpenBoards(ctx, ctx.projects);
 			const { blockedBy, blockedElsewhere } = await blockerFlags({
 				boards,
@@ -179,7 +181,15 @@ function adding(name: string, description: string, groomed: boolean) {
 						project,
 						boards,
 						...(scope === null ? {} : { scope }),
-						tags,
+						...(opts["closes-on"] === ""
+							? {}
+							: {
+									closesOn: closesOnFrom(
+										opts["closes-on"],
+										opts.since,
+										Date.now(),
+									),
+								}),
 					}),
 				addedFacts,
 			);
@@ -215,13 +225,8 @@ splatesTask
 		description:
 			"only tasks free to start now: none has taken them, and nothing blocking them is still open",
 	})
-	.option("tag", z.string(), {
-		default: "",
-		description: "only the tasks with this tag",
-	})
 	.action(async (opts, ctx) =>
 		taskList(ctx, {
-			tag: opts.tag || undefined,
 			json: opts.json,
 			open: opts.open,
 			ready: opts.ready,
@@ -288,6 +293,16 @@ splatesTask
 		description:
 			"tasks no longer blocking it, as --blocked-by names them, comma separated or the flag repeated",
 	})
+	.option("closes-on", z.string(), {
+		default: "",
+		description:
+			"the signal (`<project>.<name>`) it closes on, as `task add --closes-on` says, or `none` to make it an ordinary task again",
+	})
+	.option("since", z.string(), {
+		default: "",
+		description:
+			"with --closes-on: also take a firing from before now, as `task add --since` says",
+	})
 	.option("lane", z.string(), {
 		default: "",
 		description:
@@ -307,13 +322,6 @@ splatesTask
 		description:
 			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
 	})
-	.repeated("tag", z.string(), {
-		description:
-			"more tags grouping it, comma separated or the flag repeated; splates.config.ts may allow only some",
-	})
-	.repeated("remove-tag", z.string(), {
-		description: "tags it no longer has, comma separated or the flag repeated",
-	})
 	.action(async (opts, ctx) => {
 		await refuseGroomer(
 			ctx.service,
@@ -321,9 +329,7 @@ splatesTask
 			await ctx.tasks.find(opts.id),
 		);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
-		const tagging = new Tags(ctx.config);
-		const tags = tagging.parse(opts.tag);
-		tagging.check(tags);
+		sinceNeedsSignal(opts["closes-on"], opts.since);
 		using boards = new OpenBoards(ctx, ctx.projects);
 		const { blockedBy, blockedElsewhere, unblocked } = await blockerFlags({
 			boards,
@@ -346,8 +352,14 @@ splatesTask
 				lane: laneIn(opts.lane),
 				assignee,
 				boards,
-				tags,
-				removeTags: tagging.parse(opts["remove-tag"]),
+				...(opts["closes-on"] === ""
+					? {}
+					: {
+							closesOn:
+								opts["closes-on"] === "none"
+									? null
+									: closesOnFrom(opts["closes-on"], opts.since, Date.now()),
+						}),
 			}),
 		);
 	});

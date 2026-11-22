@@ -3,10 +3,11 @@ import type { SignalOverview, SignalRaise } from "@splates/server/signals";
 import {
 	busiestDay,
 	cellOf,
-	familiesOf,
-	familyOf,
+	namespaceOf,
+	namespacesOf,
 	payloadColumns,
 	raisesPerDay,
+	removalOf,
 	taskNumbers,
 	usualRaiser,
 	WHOLE,
@@ -25,26 +26,25 @@ const raise = (
 const signal = (name: string, raises: SignalRaise[]): SignalOverview => ({
 	name,
 	project: name.split(".")[0] ?? name,
-	armed: false,
 	probe: null,
 	subscribers: [],
 	raises,
 });
 
 describe("signal summary", () => {
-	it("puts a signal in the family before its last dot", () => {
-		expect(familyOf("mono.task.started")).toEqual({
-			family: "mono.task",
+	it("puts a signal in the namespace before its last dot", () => {
+		expect(namespaceOf("mono.task.started")).toEqual({
+			namespace: "mono.task",
 			leaf: "started",
 		});
-		expect(familyOf("mdom.released")).toEqual({
-			family: "mdom",
+		expect(namespaceOf("mdom.released")).toEqual({
+			namespace: "mdom",
 			leaf: "released",
 		});
 	});
 
-	it("lists families and their signals by latest raise, counting the family's raises", () => {
-		const families = familiesOf([
+	it("lists namespaces and their signals by latest raise, counting the namespace's raises", () => {
+		const namespaces = namespacesOf([
 			signal("mono.task.done", [raise("2026-11-19T10:00:00Z")]),
 			signal("net.deployed", [raise("2026-11-19T09:00:00Z")]),
 			signal("mono.task.started", [
@@ -52,11 +52,11 @@ describe("signal summary", () => {
 				raise("2026-11-18T11:00:00Z"),
 			]),
 		]);
-		expect(families.map((each) => [each.family, each.raises])).toEqual([
+		expect(namespaces.map((each) => [each.namespace, each.raises])).toEqual([
 			["mono.task", 3],
 			["net", 1],
 		]);
-		expect(families[0]?.signals.map((each) => each.name)).toEqual([
+		expect(namespaces[0]?.signals.map((each) => each.name)).toEqual([
 			"mono.task.started",
 			"mono.task.done",
 		]);
@@ -114,4 +114,22 @@ describe("signal summary", () => {
 		expect(taskNumbers("numbers", ["x"])).toBeNull();
 		expect(taskNumbers("ids", [1])).toBeNull();
 	});
+});
+
+it("shows removal until a newer raise supplies the signal again", () => {
+	const row = signal("aws.ready", []);
+	row.subscribers = [
+		{
+			kind: "wait",
+			id: "w",
+			label: "ready",
+			state: "removed",
+			reason: "namespace undeclared",
+			endedAt: "2026-11-19T12:00:00Z",
+			live: false,
+		},
+	];
+	expect(removalOf(row)).toBe("namespace undeclared");
+	row.raises = [raise("2026-11-19T13:00:00Z")];
+	expect(removalOf(row)).toBeUndefined();
 });

@@ -3,7 +3,6 @@ import type {
 	ConversationState,
 	Message,
 	Part,
-	Progress,
 } from "@splates/server/conversations";
 import type { TaskReport } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
@@ -17,7 +16,7 @@ import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt } from "./held-prompt";
-import { reminderId } from "./reminder-of";
+import { failed, rested } from "./reply-endings";
 import { heldAfter, messageOf, queuesNow } from "./sending";
 import { probeId, signalId } from "./signal-of";
 import { supersedeQueues } from "./superseded-queues";
@@ -101,11 +100,6 @@ export function useThreadMessages(
 				: [heldPrompt(held, conversation.createdAt), ...kept];
 		const happened = turnsOf(said, conversation.events);
 		const cardsIn = cardsOf(said, [
-			...conversation.progress,
-			...conversation.reminders.map((reminder) => ({
-				id: reminderId(reminder.at),
-				startedAt: reminder.at,
-			})),
 			...conversation.signals.map((wait) => ({
 				id: signalId(wait.id),
 				startedAt: wait.startedAt,
@@ -183,7 +177,10 @@ export function useThreadMessages(
 				: conversation.messages.filter(
 						(each) => each.queued && !youngQueued.includes(each),
 					);
-		const ended = conversation.resting === true ? rested(thread) : thread;
+		const ended = failed(
+			conversation.resting === true ? rested(thread) : thread,
+			conversation,
+		);
 		const lined =
 			waiting.length === 0
 				? ended
@@ -218,13 +215,13 @@ export function useThreadMessages(
 		conversation.createdAt,
 		conversation.ask,
 		conversation.events,
-		conversation.progress,
-		conversation.reminders,
 		conversation.signals,
 		conversation.probes,
 		conversation.id,
 		conversation.lastTask,
 		conversation.resting,
+		conversation.error,
+		conversation.queue,
 		writing,
 		running,
 		shown,
@@ -233,6 +230,7 @@ export function useThreadMessages(
 		youngQueued,
 		youngSending,
 		unsentNow,
+		conversation,
 	]);
 	const { all: messages, last } = built;
 	// Its last word asks questions, escalates, or asks for a review, or it
@@ -516,7 +514,7 @@ function convert(
  */
 function cardsOf(
 	messages: readonly Message[],
-	progress: readonly Pick<Progress, "id" | "startedAt">[],
+	progress: readonly { id: string; startedAt: string }[],
 ): string[][] {
 	const out = messages.map((): string[] => []);
 	const agents = messages.flatMap((message, index) =>
@@ -531,24 +529,6 @@ function cardsOf(
 		out[at ?? -1]?.push(`${card.startedAt} ${card.id}`);
 	}
 	return out;
-}
-
-/**
- * `thread` ended with a `data-rested` part on its last reply: a persistent
- * agent's run put away, its context closed, the next run to start afresh.
- */
-function rested(thread: ThreadMessageLike[]): ThreadMessageLike[] {
-	const last = thread.at(-1);
-	if (last?.role !== "assistant" || typeof last.content === "string") {
-		return thread;
-	}
-	return [
-		...thread.slice(0, -1),
-		{
-			...last,
-			content: [...last.content, { type: "data-rested", data: {} }],
-		},
-	];
 }
 
 /**

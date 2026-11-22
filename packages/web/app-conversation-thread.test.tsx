@@ -8,6 +8,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	toggle,
 	tool,
 	waitFor,
 	within,
@@ -502,11 +503,11 @@ describe("App's conversation thread", () => {
 				'[data-slot="aui_thread-viewport"]',
 			) as HTMLElement;
 			const work = await waitFor(() => {
-				const found = thread.querySelector<HTMLDetailsElement>(
-					'[data-slot="work"] details',
+				const found = thread.querySelector<HTMLElement>(
+					'[data-slot="work"] > [data-slot="collapsible"]',
 				);
 				expect(found).not.toBeNull();
-				return found as HTMLDetailsElement;
+				return found as HTMLElement;
 			});
 			let height = 1000;
 			Object.defineProperty(thread, "scrollHeight", { get: () => height });
@@ -539,10 +540,7 @@ describe("App's conversation thread", () => {
 			expect(thread.scrollTop).toBe(600);
 
 			await scroll(600);
-			await act(async () => {
-				work.open = true;
-				fireEvent(work, new Event("toggle"));
-			});
+			toggle(work, true);
 			await grow(200);
 			expect(thread.scrollTop).toBe(800);
 
@@ -560,19 +558,54 @@ describe("App's conversation thread", () => {
 		}
 	});
 
-	it("shows why a conversation failed, and takes a prompt to resume it", async () => {
+	it("ends the last reply with why the agent stopped, the error folded until shown", async () => {
 		const view = await testing.openConversations([
-			conversation({ status: "failed", error: "Claude exited with code 1" }),
+			conversation({
+				title: "Broke",
+				status: "failed",
+				error: "Claude exited with code 1",
+				messages: [message("user", "go"), message("agent", "On it.")],
+			}),
 		]);
+		const thread = view.getByRole("region", { name: "Broke" });
 
-		expect(view.getByRole("alert").textContent).toBe(
-			"The agent stopped. Send a message to start it again.Claude exited with code 1",
+		const line = await within(thread).findByRole("alert");
+		expect(line.closest('[data-role="assistant"]')?.textContent).toContain(
+			"On it.",
 		);
+		expect(line.textContent).toBe("The agent stopped·Show error·Retry");
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Show error" })),
+		);
+		expect(line.textContent).toContain("Claude exited with code 1");
+		expect(within(line).getByRole("button", { name: "Copy" })).toBeTruthy();
 		expect(
 			view
 				.getByRole("textbox", { name: "Message input" })
 				.getAttribute("contenteditable"),
 		).toBe("true");
+	});
+
+	it("retries a stopped agent by telling it to continue", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Broke",
+				status: "failed",
+				error: "Claude exited with code 1",
+				messages: [message("user", "go"), message("agent", "On it.")],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Broke" });
+
+		await act(async () =>
+			fireEvent.click(
+				await within(thread).findByRole("button", { name: "Retry" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "Continue" } },
+		]);
 	});
 
 	it("says splates stopped an agent left idle, and what wakes it", async () => {
@@ -779,18 +812,14 @@ describe("App's conversation thread", () => {
 		).toBeNull();
 	});
 
-	it("says a failed turn takes another try, cut to a few lines until tapped", async () => {
+	it("says a failed turn on a reply of its own when the thread holds none", async () => {
 		const view = await testing.openConversations([
 			conversation({ error: "Internal error" }),
 		]);
 
-		const alert = view.getByRole("alert");
-		expect(alert.textContent).toContain(
-			"The last turn failed. Send a message to try again.",
-		);
-		const words = within(alert).getByRole("button", { name: "Internal error" });
-		expect(words.getAttribute("aria-expanded")).toBe("false");
-		await act(async () => fireEvent.click(words));
-		expect(words.getAttribute("aria-expanded")).toBe("true");
+		const line = await view.findByRole("alert");
+		expect(line.textContent).toContain("The last turn failed");
+		expect(line.closest('[data-role="assistant"]')).toBeTruthy();
+		expect(view.queryByText("Internal error")).toBeNull();
 	});
 });

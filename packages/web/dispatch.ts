@@ -9,6 +9,7 @@ import {
 	type Needing,
 	needs,
 	orphaned,
+	talkReference,
 	taskNumberReference,
 	taskReference,
 } from "@splates/server/plans/browser";
@@ -191,6 +192,19 @@ export class Dispatch {
 			);
 		}
 		return this.send(started, text);
+	}
+
+	/**
+	 * Starts a conversation about blocked queued task `id` from what the person
+	 * wrote there, as `begin` does, with `pick` or the first agent: it talks
+	 * about the task and takes none of it. Answers its address once started.
+	 */
+	talk(id: number, words: string, pick?: AgentPick): Promise<string> {
+		return this.beginWith(
+			pick ?? { agent: agentFor(NEW, this.agents, this.conversations) },
+			null,
+			`${talkReference(id)}\n\n${words}`,
+		);
 	}
 
 	/**

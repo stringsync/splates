@@ -30,7 +30,7 @@ export function Raises({
 	if (raises.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				No raises in the last 7 days.
+				No firings in the last 7 days.
 			</p>
 		);
 	}
@@ -38,7 +38,6 @@ export function Raises({
 	const shown = all ? raises : raises.slice(0, FIRST_RAISES);
 	return (
 		<div className="flex flex-col gap-1.5">
-			<h3 className="font-semibold text-sm">Raises</h3>
 			<div className="overflow-x-auto">
 				<table className="w-full border-collapse whitespace-nowrap text-[13px]">
 					<thead>

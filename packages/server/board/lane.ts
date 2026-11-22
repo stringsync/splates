@@ -59,7 +59,7 @@ export interface LaneShowOptions {
 }
 
 /**
- * One lane in full, step by step: what an agent handed `[SPLATES LANE N]`
+ * One lane in full, step by step: what an agent working down a lane
  * reads to know which task is next, and whether it is blocked first.
  */
 export async function laneShow(

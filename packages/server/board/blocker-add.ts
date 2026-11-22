@@ -1,7 +1,7 @@
 import { color, type Logger } from "core/log";
 import type { Fs, Ps } from "core/system";
 import { fail } from "../exit";
-import type { Task } from "./task";
+import type { ClosesOn, Task } from "./task";
 import { taskAdd } from "./task-edit";
 import type { Tasks } from "./tasks";
 
@@ -30,12 +30,13 @@ export async function blockerAdd(
 		task,
 		conversation,
 		scope,
-		tags,
+		closesOn,
 	}: {
 		task: string | null;
 		conversation?: string;
 		scope?: string;
-		tags?: string[];
+		/** The signal the new blocker closes on, for a subject: it ends when that is fired. */
+		closesOn?: ClosesOn;
 	},
 ): Promise<BlockerAdded> {
 	if (task === null) {
@@ -57,12 +58,19 @@ export async function blockerAdd(
 	const number = /^#?(\d+)$/.exec(text);
 	let blocker: Task;
 	let created = false;
+	if (closesOn !== undefined && number !== null) {
+		fail(
+			"usage",
+			"--closes-on makes a new task: give a subject, or `splates task update <n> --closes-on` for one on the board",
+			{ blocker: text },
+		);
+	}
 	if (number !== null) {
 		blocker = await deps.tasks.find(Number(number[1]));
 	} else {
 		blocker = await taskAdd(deps, text, task, {
 			...(scope === undefined ? {} : { scope }),
-			...(tags === undefined ? {} : { tags }),
+			...(closesOn === undefined ? {} : { closesOn }),
 		});
 		created = true;
 	}
@@ -78,7 +86,7 @@ export async function blockerAdd(
 		[
 			`${color.green("blocked")} task ${held.id} by ${created ? "new " : ""}task ${blocker.id}: ${blocker.subject}`,
 			"  `splates merge` refuses until every blocker has ended; work that does not need it can go on, and a notice comes here when the last one ends",
-			...(created
+			...(created && closesOn === undefined
 				? [
 						`  end your reply with \`## 🔐 Permission: queue #${blocker.id}: ${blocker.subject}\` so the user can queue it`,
 					]

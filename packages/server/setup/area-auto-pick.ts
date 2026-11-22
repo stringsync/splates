@@ -19,7 +19,7 @@ function autoPickArea(): SetupArea {
 	const judgeStep: SetupStep = {
 		id: "auto-pick-judge",
 		title: "Give Auto pick a decision model",
-		why: "Auto pick asks a small decision model what kind of work a task is and how deeply it needs to reason, to start it on the agent, model and thinking level your rules give that. Without one, every Auto pick takes your rule for any kind and depth.",
+		why: "Auto pick asks a small decision model what kind of work a task is and how deeply it needs to reason, to start it on the agent, model and thinking level your routes give that. Without one, every task is unsure of both and takes the lineup you route those to.",
 		user: `Create a TypeSafe API key and paste it here, for Jev. Clef on Cloudflare works too, with ${JUDGE_CREDS.clef.join(" and ")} kept for this device.`,
 		agent: `Request it with \`splates creds request ${TYPESAFE_KEY} --device\`, with how to get it; or, for Clef, ${JUDGE_CREDS.clef.map((name) => `\`${name}\``).join(" and ")} the same way.`,
 		optional: true,
@@ -65,10 +65,10 @@ function autoPickArea(): SetupArea {
 	const rulesStep: SetupStep = {
 		id: "auto-pick-rules",
 		title: "Map tasks to models",
-		why: "Auto pick tries your rules from the top, and the first that matches a task's kind and depth picks its agent; a pick whose plan is nearly used up, or used faster than its window goes by, is passed over for the next on its row.",
-		user: "Each rule matches a task by its kind, its depth (how much thinking it needs, shallow to deep) and its certainty (how settled what is asked is); *Any* matches all of them. Edit the rules, then press Next to save them. They are kept in `~/.splates/auto-pick.json`, which you can edit by hand too.",
+		why: "Auto pick sends each task, by its kind and its depth, to one lineup, and starts it on that lineup's first pick; a pick whose plan is nearly used up, or used faster than its window goes by, is passed over for the next in the lineup.",
+		user: "On *Routes*, a table sends every kind (Bugfix to DevOps, or Unsure) at every depth (how much thinking it needs, Unsure then Shallow to Deep) to a lineup. On *Lineups*, each lineup lists its picks in the order they are tried. Edit them, then press Next to save. They are kept in `~/.splates/auto-pick.json`, which you can edit by hand too.",
 		agent:
-			"Have the user edit the rules on the page, or edit `~/.splates/auto-pick.json` with them; its last rule must stay kind `*` and depth `*`.",
+			"Have the user edit the routes and lineups on the page, or edit `~/.splates/auto-pick.json` with them; every kind, `unsure` included, needs every depth, `unsure` included, routed to a lineup the file lists.",
 		optional: true,
 		after: [],
 		check: async (machine) => machine.fs.exists(rulesPath(machine)),

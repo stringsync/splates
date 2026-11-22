@@ -30,7 +30,7 @@ import type { ShortcutKey } from "./settings";
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, todo, cred, rule, evals, shipRun, setup } =
+	const { page, open, task, lane, todo, cred, cell, evals, shipRun, setup } =
 		useReactive(
 			address,
 			({
@@ -40,7 +40,7 @@ export function usePageRoute(): PageRoute {
 				lane,
 				todo,
 				cred,
-				rule,
+				cell,
 				evals,
 				shipRun,
 				setup,
@@ -52,7 +52,7 @@ export function usePageRoute(): PageRoute {
 				lane,
 				todo,
 				cred,
-				rule,
+				cell,
 				evals,
 				setup,
 			}),
@@ -71,7 +71,7 @@ export function usePageRoute(): PageRoute {
 		lane,
 		todo,
 		cred,
-		rule,
+		cell,
 		evals,
 		shipRun,
 		setup,
@@ -97,8 +97,8 @@ export function usePageRoute(): PageRoute {
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
  * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
- * `#creds`, `#signals`, `#billing` (`#budget` too), `#automations`,
- * `#automations/auto-pick` (or `#automations/auto-pick/<n>` set on a rule),
+ * `#creds`, `#signals`, `#billing` (`#budget` too), `#auto-pick`
+ * (or `#auto-pick/<kind>.<depth>` set on a cell; `#automations` opens it too),
  * `#setup`, or the board.
  */
 export type Page =
@@ -113,7 +113,6 @@ export type Page =
 	| "creds"
 	| "signals"
 	| "billing"
-	| "automations"
 	| "auto-pick"
 	| "setup"
 	| "welcome";
@@ -140,8 +139,8 @@ export const PAGES: {
 	},
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon, scope: "project" },
 	{
-		value: "automations",
-		label: "Automations",
+		value: "auto-pick",
+		label: "Auto pick",
 		Icon: ZapIcon,
 		scope: "project",
 	},
@@ -169,16 +168,9 @@ export const PAGES: {
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon, scope: "everywhere" },
 ];
 
-/**
- * The page in the nav that `page` sits under, so the nav marks it: Auto pick
- * opens from a card on Automations; every other page is its own.
- */
+/** The page in the nav that `page` sits under, so the nav marks it: the board for a task's todo; every other page is its own. */
 export function navPage(page: Page): Page {
-	return page === "auto-pick"
-		? "automations"
-		: page === "todos"
-			? "boards"
-			: page;
+	return page === "todos" ? "boards" : page;
 }
 
 /** The classes that lay each page out on a phone, under its bar. */
@@ -196,7 +188,6 @@ export const PHONE_PAGES: Record<Page, string> = {
 	creds: "min-w-0 px-4 py-6",
 	signals: "min-w-0 px-4 py-6",
 	billing: "min-w-0 px-4 py-6",
-	automations: "min-w-0 px-4 py-6",
 	"auto-pick": "min-w-0 px-4 py-6",
 	setup: "min-w-0 px-4 py-6",
 	welcome: "min-w-0 px-4 py-6",
@@ -257,8 +248,8 @@ export interface PageRoute {
 	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
-	/** The rule the Auto pick page is set on, by its place from 0, or null. */
-	rule: number | null;
+	/** The cell the Auto pick page is set on, `bugfix.deep`, or null. */
+	cell: string | null;
 	/** The batch and run the Evals page has open. */
 	evals: EvalsOpen;
 	/** The ship run the Ships page shows, by id, or null. */

@@ -217,7 +217,7 @@ describe("App's card answer boxes", () => {
 		);
 	});
 
-	it("sends a take's words on Enter under a proposal rather than approving", async () => {
+	it("sends a take's words on Enter, from a card that follows an old proposal heading", async () => {
 		const proposal = conversation({
 			title: "Header",
 			messages: [
@@ -237,7 +237,7 @@ describe("App's card answer boxes", () => {
 		});
 		const view = await testing.openConversations([proposal]);
 		const panel = await waitFor(() =>
-			view.getByRole("region", { name: "proposal a wrapping header" }),
+			view.getByRole("region", { name: "questions for you" }),
 		);
 		const more = panel.querySelector("[data-more]") as HTMLElement;
 		await act(async () =>
@@ -247,7 +247,6 @@ describe("App's card answer boxes", () => {
 			within(panel).getByRole("button", { name: "Stop dictation" }),
 		);
 		act(() => microphone.speak("make it blue"));
-		expect(within(panel).queryByRole("button", { name: "Approve" })).toBeNull();
 
 		await act(async () => fireEvent.keyDown(document.body, { key: "Enter" }));
 		await waitFor(() =>

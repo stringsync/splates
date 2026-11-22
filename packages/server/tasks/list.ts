@@ -13,8 +13,6 @@ interface Row {
 	task: string;
 	/** The project it changes; null for a record without one. */
 	project: string | null;
-	/** The tags grouping it. */
-	tags: string[];
 	comingConflict: string[];
 	/** Landings that changed files the task also changed, as notices. */
 	landed: string[];
@@ -42,19 +40,14 @@ export interface ListOptions {
 	 * and a file read per task.
 	 */
 	files?: boolean;
-	/** Only the tasks with this tag. */
-	tag?: string;
 }
 
 export async function list(
 	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
-	{ json = false, files = false, tag }: ListOptions = {},
+	{ json = false, files = false }: ListOptions = {},
 ): Promise<void> {
 	const rows: Row[] = [];
 	for (const worktree of await service.list()) {
-		if (tag !== undefined && !worktree.tags.includes(tag)) {
-			continue;
-		}
 		const base = await row(worktree);
 		rows.push(files ? { ...base, ...(await paths(worktree, fs)) } : base);
 	}
@@ -77,7 +70,6 @@ async function row(worktree: Worktree): Promise<Row> {
 		number: state?.id ?? null,
 		task: worktree.task,
 		project: worktree.scope,
-		tags: worktree.tags,
 		comingConflict: (await worktree.comingConflict())?.files ?? [],
 		landed: await landingNotices(worktree),
 		// One unreadable record shows as `unknown` instead of taking down the
@@ -116,7 +108,6 @@ function listing(rows: Row[]): string {
 		row.number === null ? "" : `#${row.number}`,
 		row.task,
 		row.project ?? "",
-		row.tags.join(","),
 		row.mergePlace === null
 			? row.status
 			: `${row.status} (queued ${row.mergePlace})`,
@@ -127,17 +118,7 @@ function listing(rows: Row[]): string {
 	]);
 	const out = [
 		table(
-			[
-				"#",
-				"TASK",
-				"PROJECT",
-				"TAGS",
-				"STATUS",
-				"LEASE",
-				"AHEAD",
-				"DIFF",
-				"AGE",
-			],
+			["#", "TASK", "PROJECT", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"],
 			cells,
 		),
 	];
@@ -174,9 +155,6 @@ function files(row: Row): string[] {
 	return [
 		color.bold(row.task),
 		...(row.project ? [`  ${color.dim("project")}  ${row.project}`] : []),
-		...(row.tags.length > 0
-			? [`  ${color.dim("tags")}     ${row.tags.join(", ")}`]
-			: []),
 		...(row.goal ? [`  ${color.dim("goal")}     ${row.goal}`] : []),
 		...(changed.length > 0 ? changed : [color.dim("  no files yet")]),
 	];
