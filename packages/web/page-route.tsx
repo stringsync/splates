@@ -3,6 +3,7 @@ import {
 	ChartColumnIcon,
 	FlaskConicalIcon,
 	GaugeIcon,
+	HardHatIcon,
 	KanbanIcon,
 	KeyRoundIcon,
 	ListChecksIcon,
@@ -96,7 +97,7 @@ export function usePageRoute(): PageRoute {
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
- * for it with todo N open, `#stats`, `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
+ * for it with todo N open, `#stats`, `#rigs` (or `#rigs/<run>` for a run), `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
  * `#creds`, `#signals`, `#billing` (`#budget` too), `#auto-pick`
  * (or `#auto-pick/<kind>.<depth>` set on a cell; `#automations` opens it too),
  * `#setup`, or the board.
@@ -108,6 +109,7 @@ export type Page =
 	| "conversations"
 	| "stats"
 	| "ships"
+	| "rigs"
 	| "rec"
 	| "evals"
 	| "creds"
@@ -151,6 +153,7 @@ export const PAGES: {
 		scope: "everywhere",
 	},
 	{ value: "ships", label: "Ships", Icon: ShipIcon, scope: "everywhere" },
+	{ value: "rigs", label: "Rigs", Icon: HardHatIcon, scope: "project" },
 	{
 		value: "signals",
 		label: "Signals",
@@ -175,22 +178,23 @@ export function navPage(page: Page): Page {
 
 /** The classes that lay each page out on a phone, under its bar. */
 export const PHONE_PAGES: Record<Page, string> = {
-	boards: "min-w-0 px-4 py-6",
-	// As tall as the screen under its bar, so the board's scrollbar sits on
-	// the screen's bottom edge.
+	boards: "min-w-0 px-4 pt-4 pb-6",
+	// As tall as the screen under its bar and compact area header, so the board's
+	// scrollbar sits on the screen's bottom edge.
 	todos:
-		"flex h-[calc(100dvh-var(--top-bar-height)-2.75rem-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
-	tasks: "px-4 py-6",
-	stats: "min-w-0 px-4 py-6",
-	ships: "min-w-0 px-4 py-6",
-	rec: "min-w-0 px-4 py-6",
-	evals: "min-w-0 px-4 py-6",
-	creds: "min-w-0 px-4 py-6",
-	signals: "min-w-0 px-4 py-6",
-	billing: "min-w-0 px-4 py-6",
-	"auto-pick": "min-w-0 px-4 py-6",
-	setup: "min-w-0 px-4 py-6",
-	welcome: "min-w-0 px-4 py-6",
+		"flex h-[calc(100dvh-var(--top-bar-height)-var(--phone-header-height,2.75rem)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-3.5",
+	tasks: "px-4 pt-4 pb-6",
+	stats: "min-w-0 px-4 pt-4 pb-6",
+	ships: "min-w-0 px-4 pt-4 pb-6",
+	rigs: "min-w-0 px-4 pt-4 pb-6",
+	rec: "min-w-0 px-4 pt-4 pb-6",
+	evals: "min-w-0 px-4 pt-4 pb-6",
+	creds: "min-w-0 px-4 pt-4 pb-6",
+	signals: "min-w-0 px-4 pt-4 pb-6",
+	billing: "min-w-0 px-4 pt-4 pb-6",
+	"auto-pick": "min-w-0 px-4 pt-4 pb-6",
+	setup: "min-w-0 px-4 pt-4 pb-6",
+	welcome: "min-w-0 px-4 pt-4 pb-6",
 	conversations: "min-h-0 flex-1",
 };
 

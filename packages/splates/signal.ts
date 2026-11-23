@@ -52,7 +52,7 @@ for (const name of ["fire", "raise"] as const) {
 		.command(name)
 		.use(repository({ needs: "own" }))
 		.description(
-			"fire a signal, as `mdom.released`, with an optional JSON payload: every conversation waiting on it at this moment wakes with it. Any agent may fire freely. Firing it again later is a new firing",
+			"fire a signal, as `mdom.released`, with an optional JSON payload: every conversation waiting on it at this moment wakes with it. Agents and splates-managed rigs can fire signals. Firing it again later is a new firing",
 		)
 		.arg("name", z.string(), {
 			description:
@@ -81,8 +81,12 @@ for (const name of ["fire", "raise"] as const) {
 					"`splates signal raise` is deprecated: use `splates signal fire`",
 				);
 			}
-			const task = await here(ctx);
-			const by = task ?? (await conversationOf(ctx.service, opts.conversation));
+			const rig =
+				opts.conversation === "" ? ctx.ps.env("SPLATES_RIG") : undefined;
+			const by = rig
+				? `rig:${rig}`
+				: ((await here(ctx)) ??
+					(await conversationOf(ctx.service, opts.conversation)));
 			const answer = await post(ctx, "/api/signals/raise", {
 				name: opts.name,
 				by,

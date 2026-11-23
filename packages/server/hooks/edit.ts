@@ -28,8 +28,8 @@ export interface HookChange {
 	invokes: string;
 	prompt: string;
 	run: string;
-	/** The agent to run in place of the one it runs, when given. */
-	pick?: AgentPick;
+	/** The agent to run in place of the one it runs, when given; null for Auto pick. */
+	pick?: AgentPick | null;
 }
 
 /** `automation`'s trigger and hook with `change` made, refusing one that will not fit. */
@@ -109,15 +109,15 @@ function rehooked(hook: Hook, { run, prompt, pick }: HookChange): Hook {
 		return {
 			kind: "agent",
 			prompt: prompt === "" ? was : prompt,
-			...(pick ?? ran),
+			...(pick === undefined ? ran : (pick ?? {})),
 		};
 	}
-	if (pick === undefined || prompt === "") {
+	if (prompt === "") {
 		fail(
 			"usage",
-			"a command becomes an agent with both --agent and --prompt",
+			"a command becomes an agent with --prompt, and --agent unless Auto pick picks it",
 			{},
 		);
 	}
-	return { kind: "agent", prompt, ...pick };
+	return { kind: "agent", prompt, ...(pick ?? {}) };
 }

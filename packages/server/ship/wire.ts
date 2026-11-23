@@ -18,6 +18,8 @@ export const PICK = z.object({
 	name: z.string().min(1),
 	bump: BUMP.optional(),
 	version: VERSION.optional(),
+	/** Set to ship at the version the followed dependency releases, no bump or version. */
+	follow: z.literal(true).optional(),
 });
 
 /** A step as a ship command's `plan` prints it. */
@@ -36,6 +38,8 @@ export const PLAN = z.object({
 	/** The version it resolved, from the version or bump it was planned with. */
 	version: z.string().optional(),
 	bump: BUMP.optional(),
+	/** The dependency whose release it takes by default, offered as "Follow <it>". */
+	follows: z.string().optional(),
 	dependencies: z.array(z.string()),
 	steps: z.array(STEP),
 });

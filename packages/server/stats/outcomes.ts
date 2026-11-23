@@ -1,4 +1,11 @@
-import type { Device, Entry, Pairing } from "../conversations";
+import type { AutoPicked } from "../auto-pick/record";
+import type {
+	AutoPickSet,
+	Device,
+	Entry,
+	LiftReason,
+	Pairing,
+} from "../conversations";
 import type { Decision } from "../plans";
 import { Prices } from "../prices";
 import type { Event } from "../records";
@@ -10,24 +17,25 @@ import type {
 	RemoveReason,
 } from "../tasks";
 import type { Finding } from "./findings";
-import { type TaskUsage, taskLog } from "./task-log";
+import { type TaskLog, type TaskUsage, taskLog } from "./task-log";
 
 /**
- * Every task that has ended on this machine, across projects, in
- * `~/.splates/outcomes.jsonl`, oldest first. Unlike the journal it is never
- * trimmed: a trend needs months of it, and a line per task stays small.
+ * History of merged and removed tasks on this machine, across projects.
+ * `list()` returns outcomes oldest first, with available usage, merge
+ * timings, and batch membership.
  */
 export class Outcomes {
 	readonly log: Log<Outcome>;
 	/**
-	 * The usage of the turns tasks ended in, which `splates merge` writes its
-	 * line too early to see; `list` adds each to its task.
+	 * Usage adjustments for finished tasks, including usage from the rest
+	 * of the turn that ended a task. `list()` includes these in its totals.
 	 */
 	// Apart from `log`, so splates versions that read only that never mistake
 	// one for a task.
 	readonly turns: Log<TurnUsage>;
 	/**
-	 * The merge times and batch membership recovered from the journal; `list` adds each to its task.
+	 * Recovered merge timings and batch membership. `list()` uses these
+	 * when the outcome lacks the corresponding values.
 	 */
 	readonly merges: Log<MergeTimed>;
 	/** The API list prices that agents saying no cost of their own are priced at. */
@@ -38,6 +46,7 @@ export class Outcomes {
 		storage: Storage,
 		prices: Prices = new Prices(storage),
 	) {
+		// Keep the compact outcome history indefinitely for long-term trends.
 		this.log = storage.log("outcomes.jsonl");
 		this.turns = storage.log("outcome-usage.jsonl");
 		this.merges = storage.log("outcome-merges.jsonl");
@@ -51,6 +60,7 @@ export class Outcomes {
 	}
 
 	async list(): Promise<Outcome[]> {
+		// Add all matching usage adjustments and use the latest merge supplement.
 		const turns = await this.turns.replay();
 		const merges = await this.merges.replay();
 		return (await this.log.replay()).map((outcome) => {
@@ -70,12 +80,9 @@ export class Outcomes {
 	}
 
 	/**
-	 * Gives merged tasks missing merge times or batch membership the
-	 * times of the `merge` event `eventsOf(project)` logged as each landed,
-	 * written beside the outcomes, as `backfill` writes costs. The event comes
-	 * just after the outcome, once the worktree is gone, so its run time takes
-	 * in that cleanup too. A task with no such event, or one from before
-	 * events kept times, stays untimed; a batch already recovered is skipped on a second run.
+	 * Recovers missing timings and batch membership for merged tasks.
+	 * Outcomes without a matching timed merge stay as they are. Repeated
+	 * runs skip fields that have already been recovered.
 	 */
 	async backfillMerges(
 		eventsOf: (project: string) => Promise<Event[]>,
@@ -87,6 +94,7 @@ export class Outcomes {
 		);
 		const projects = new Map<string, Event[]>();
 		for (const outcome of missing) {
+			// Read each project's journal once during a backfill.
 			let events = projects.get(outcome.project);
 			if (events === undefined) {
 				events = await eventsOf(outcome.project);
@@ -101,6 +109,7 @@ export class Outcomes {
 			) {
 				continue;
 			}
+			// The merge event follows worktree cleanup, so its run time includes it.
 			await this.merges.append({
 				project: outcome.project,
 				task: outcome.task,
@@ -115,12 +124,10 @@ export class Outcomes {
 	}
 
 	/**
-	 * Prices at the API list price the tasks that ended before splates did, whose
-	 * tokens say no cost: writes each its cost as a turn beside the outcomes,
-	 * as `creditTurn` does, leaving alone any whose conversation log
-	 * `logOf(project, conversation)` no longer finds or whose model has no
-	 * price. A task priced has a cost, so a second run skips it. Only what the
-	 * task used by its end is priced, not the turns credited to it after.
+	 * Fills in missing costs at API list prices for usage through the end
+	 * of each task. Skips tasks whose usage is unavailable, whose conversation
+	 * history is missing, or whose usage cannot be priced. Repeated runs
+	 * skip tasks that already have a cost.
 	 */
 	async backfill(
 		logOf: (project: string, conversation: string) => Promise<Log<Entry>>,
@@ -145,6 +152,7 @@ export class Outcomes {
 			if (cost === undefined || cost === null) {
 				continue;
 			}
+			// Store the cost as an adjustment without counting the tokens twice.
 			await this.turns.append({
 				project: outcome.project,
 				task: outcome.task,
@@ -161,6 +169,8 @@ export class Outcomes {
 		since: string,
 		until: string,
 	): Promise<void> {
+		// The outcome is written before the turn ends. Wait for the conversation
+		// log to catch up so the rest of that turn can be credited.
 		await conversation.saved();
 		await this.creditTurn(conversation.id, log, since, until);
 	}
@@ -348,11 +358,11 @@ export interface Outcome {
 	reviewRounds: number;
 	/** Merges that failed on a conflict, the gate, or a base that would not move. */
 	failedMerges: number;
-	/** `failedMerges` by why each failed. Absent from lines written before it was kept. */
+	/** Counts of failed merge attempts by reason, when a breakdown is available. */
 	failedMergesBy?: Partial<Record<MergeFailure, number>>;
 	/**
-	 * How many of its conflicts each file was in, as far as its record kept
-	 * them. Absent from lines written before it was kept, and when none.
+	 * Number of merge conflicts involving each file, by path. An absent
+	 * value can mean there were no conflicts or file counts are unavailable.
 	 */
 	conflictedFiles?: Record<string, number>;
 	/** The questions its plan asked under `## Blocked`. Absent from older lines. */
@@ -369,6 +379,11 @@ export interface Outcome {
 	 * task Auto pick did not start.
 	 */
 	overrides?: PickOverride[];
+	/**
+	 * The Auto pick decision, including picks the person later overrode.
+	 * An absent value leaves the pick unknown because older outcomes may omit it.
+	 */
+	autoPick?: OutcomeAutoPick;
 	/**
 	 * Each question its plan asked, with its size and what became of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
@@ -391,10 +406,10 @@ export interface Outcome {
 	 */
 	promptsFrom?: Partial<Record<Device, number>>;
 	/**
-	 * What its own turns used, not the rest of its conversation's, the turn it
-	 * ended in added from `turns` once `splates server` saw it end. Absent from
-	 * older lines, for a task with no conversation log to read, and, as read,
-	 * for one with no tokens out, which never kept the turns that did its work.
+	 * Tokens and cost attributable to this task's turns. Totals from
+	 * `Outcomes.list()` include any later credit for the turn that ended it.
+	 * Usage can be absent on older outcomes or when conversation history is
+	 * unavailable. `Outcomes.list()` omits usage with zero output tokens.
 	 */
 	usage?: TaskUsage;
 	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */
@@ -433,11 +448,118 @@ export interface PickOverride {
 	result?: Pairing;
 	/** The id of the lineup whose pick it overrode; absent on older overrides. */
 	lineup?: string;
-	/** On overrides before lineups, the index of the rule whose pick it overrode. */
+	/** The index of the overridden rule on records that predate lineup IDs. */
 	rule?: number;
 	/** The kind and depth the task was taken for; null when unsure. */
 	kind: string | null;
 	depth: string | null;
+}
+
+/** What Auto pick decided for a task, as its outcome keeps it. */
+export interface OutcomeAutoPick {
+	/** The id of the lineup its cell routed to; null on picks before lineups. */
+	lineup: string | null;
+	/** The kind and depth it was taken for; null when the judge was unsure. */
+	kind: string | null;
+	depth: string | null;
+	/**
+	 * The judge's confidence in each of those, from 0 to 1, as it said of the
+	 * likeliest; absent when no judge answered.
+	 */
+	kindConfidence?: number;
+	depthConfidence?: number;
+	/** Whom it started the task on: the roster agent, and its model and effort, null for the agent's own. */
+	agent: string;
+	model: string | null;
+	effort: string | null;
+	/** Each time it moved the conversation after that, in order. */
+	lifts: OutcomeLift[];
+	/**
+	 * Set when the holdout started it one difficulty easier, as an
+	 * experiment: `lineup` above is the easier one it started on, and this
+	 * the cell's own. A lift or an override after counts against the step
+	 * down. Absent for a task not held out, and from older lines.
+	 */
+	holdout?: OutcomeHoldout;
+}
+
+/** What an outcome keeps of a task the holdout started one difficulty easier. */
+export interface OutcomeHoldout {
+	holdout: true;
+	/** The assignment's version, so a fresh sample is told from an old one. */
+	version: string;
+	/** The lineup the task's cell routes to, which it was held back from. */
+	lineup: string | null;
+	/** That lineup's pick, in words: `Opus 5.5, high effort`. */
+	from: string;
+}
+
+/**
+ * What an outcome keeps of `picked`, the Auto pick its task's record holds,
+ * and the `lifts` its conversation's log shows after: a lift that left the
+ * pick where it was is no lift.
+ */
+export function outcomeAutoPick(
+	picked: AutoPicked,
+	lifts: TaskLog["lifts"],
+): OutcomeAutoPick {
+	const classification = picked.classified?.classification;
+	return {
+		lineup: picked.lineup ?? null,
+		kind: picked.kind,
+		depth: picked.depth,
+		...(classification === undefined
+			? {}
+			: {
+					kindConfidence: likeliest(classification.kinds),
+					depthConfidence: likeliest(classification.depth),
+				}),
+		agent: picked.pick.agent,
+		model: picked.pick.model ?? null,
+		effort: picked.pick.effort ?? null,
+		lifts: lifts
+			.filter((each) => each.from === null || !samePick(each.from, each.to))
+			.map((each) => ({
+				from: each.from,
+				to: each.to,
+				...(each.why === undefined ? {} : { reason: each.why }),
+				at: each.at,
+			})),
+		...(picked.holdout === undefined
+			? {}
+			: {
+					holdout: {
+						holdout: true,
+						version: picked.holdout.version,
+						lineup: picked.holdout.lineup,
+						from: picked.holdout.from,
+					},
+				}),
+	};
+}
+
+/** The judge's confidence in the likeliest of `answers`. */
+function likeliest(answers: Record<string, number>): number {
+	return Math.max(0, ...Object.values(answers));
+}
+
+/** Whether `left` and `right` start the same agent, model and effort. */
+function samePick(left: AutoPickSet, right: AutoPickSet): boolean {
+	return (
+		left.agent === right.agent &&
+		left.model === right.model &&
+		left.effort === right.effort
+	);
+}
+
+/** One time Auto pick moved a task's conversation after it started. */
+export interface OutcomeLift {
+	/** The pick it moved off, null when its log kept none. */
+	from: AutoPickSet | null;
+	to: AutoPickSet;
+	/** Why it moved; absent on lifts logged before it was kept. */
+	reason?: LiftReason;
+	at: string;
 }
 
 /** What made workers cost one task. */

@@ -47,6 +47,8 @@ export function RestartButton({
 		<Button
 			variant="outline"
 			size="sm"
+			// Opaque, so the bar's dotted band never shows through it.
+			className="bg-card dark:bg-card dark:hover:bg-muted dark:active:bg-muted"
 			aria-label={label}
 			title={label}
 			disabled={done}

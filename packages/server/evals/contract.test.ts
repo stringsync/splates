@@ -50,8 +50,15 @@ describe("a batch in the public format", () => {
 					costUsd: 0.5,
 					url: "https://evals.example/c1",
 					detail: "c1.json",
+					phases: { setupMs: 4100, agentMs: 8000, judgeMs: 1600 },
 				}),
-				JSON.stringify({ cell: "c2", status: "error", reason: "timed out" }),
+				JSON.stringify({
+					cell: "c2",
+					status: "error",
+					// vet-ignore test-setup-names-what-it-makes: harness is the saved eval contract field
+					harness: "error",
+					reason: "timed out",
+				}),
 				'{"cell": "c3", "sta',
 			].join("\n"),
 		);
@@ -87,6 +94,8 @@ describe("a batch in the public format", () => {
 			},
 		});
 		expect(grid?.grid[1]?.run?.error).toBe("timed out");
+		expect(grid?.grid[0]?.run).not.toHaveProperty("phases");
+		expect(grid?.grid[1]?.run).not.toHaveProperty("harness");
 		expect(grid).toMatchObject({ tokens: 100, costUsd: 0.5 });
 		expect((await store.batches()).map((batch) => batch.id)).toEqual([
 			"nightly",
@@ -98,12 +107,24 @@ describe("a batch in the public format", () => {
 
 		expect(run).toMatchObject({
 			scenario: "refunds/partial",
+			batch: { title: "nightly", cells: 3 },
 			input: "Refund half.",
 			reply: "Done.",
 			checks: [],
 			judge: null,
+			phases: { setupMs: 4100, agentMs: 8000, judgeMs: 1600 },
 			target: { model: "opus", agent: "" },
 		});
+	});
+
+	it("distinguishes a harness error from a legacy run with no phase metadata", async () => {
+		const run = await store.run("nightly#c2");
+		expect(run).toMatchObject({
+			status: "error",
+			harness: "error",
+			error: "timed out",
+		});
+		expect(run).not.toHaveProperty("phases");
 	});
 
 	it("knows no run for a cell yet to finish", async () => {

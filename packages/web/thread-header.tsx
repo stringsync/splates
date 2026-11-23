@@ -17,12 +17,12 @@ import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import type { Refuse } from "./refusal";
 import { TakeUpItems } from "./take-up";
-import { BarButton, TopBar, TopBarFrame } from "./top-bar";
+import { type BarAction, BarButton, TopBar, TopBarFrame } from "./top-bar";
 
 /**
- * A conversation's bar: its name, which a double-click renames, then its
- * widgets and a new conversation. On a phone, use the back button to return
- * to the inbox. Open the first widget to see where the conversation runs.
+ * Renders a conversation's header bar with its renameable title, widgets
+ * toggle, and new-conversation action. Pass `onBack` on a phone to return to
+ * the inbox, and `extraActions` for thread-specific controls.
  */
 export function ThreadHeader({
 	conversation,
@@ -30,6 +30,7 @@ export function ThreadHeader({
 	widgets,
 	onNew,
 	onBack,
+	extraActions = [],
 }: {
 	conversation: ConversationState;
 	refused: Refuse;
@@ -38,6 +39,8 @@ export function ThreadHeader({
 	onNew: () => void;
 	/** Back to the inbox, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
+	/** Extra actions shown before Widgets, such as Unqueue on a queued task's thread. */
+	extraActions?: readonly BarAction[];
 }): ReactNode {
 	const project = useContext(TopBarFrame)?.project;
 	const [renaming, setRenaming] = useState(false);
@@ -90,6 +93,7 @@ export function ThreadHeader({
 				</div>
 			}
 			actions={[
+				...extraActions,
 				{
 					label: "Widgets",
 					icon: widgets.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,

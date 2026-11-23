@@ -2,10 +2,12 @@ import { describe, expect, it } from "bun:test";
 import {
 	commandFor,
 	commandsOf,
+	DEFAULT_MINUTES,
 	readClaude,
 	readCodex,
 	readKimi,
 	readOpenCode,
+	runAgent,
 } from "./agents";
 
 describe("agents", () => {
@@ -96,6 +98,55 @@ describe("agents", () => {
 		expect(run).toMatchObject({ tokens: 42, turns: 1, usd: null, error: null });
 	});
 
+	it("ignores Codex's model-metadata fallback warning while still failing on real errors", () => {
+		const warned = readCodex([
+			{
+				type: "error",
+				message:
+					"Model metadata for `gpt-6.1-sol` not found. Defaulting to fallback metadata",
+			},
+			{
+				type: "item.completed",
+				item: {
+					type: "error",
+					message:
+						"Model metadata for `gpt-6.1-sol` not found. Defaulting to fallback metadata",
+				},
+			},
+			{
+				type: "item.completed",
+				item: { type: "agent_message", text: "Done." },
+			},
+			{ type: "turn.completed", usage: { input_tokens: 10, output_tokens: 5 } },
+		]);
+		expect(warned.error).toBeNull();
+		expect(warned.reply).toBe("Done.");
+		expect(warned.transcript).toEqual([{ kind: "text", text: "Done." }]);
+
+		const failed = readCodex([
+			{ type: "error", message: "401 Unauthorized: invalid api key" },
+		]);
+		expect(failed.error).toContain("401 Unauthorized");
+	});
+
+	it("defaults run timeout to 3 minutes, honors custom minutes, and catches spawn failures", async () => {
+		expect(DEFAULT_MINUTES).toBe(3);
+
+		const missing = await runAgent(
+			["/definitely-not-a-real-binary-eval-test"],
+			"claude",
+			{ cwd: process.cwd(), env: {} },
+		);
+		expect(missing.error).toContain("claude failed to start");
+
+		const timedOut = await runAgent(["sh", "-c", "sleep 2"], "claude", {
+			cwd: process.cwd(),
+			env: {},
+			minutes: 0.002,
+		});
+		expect(timedOut.error).toBe("stopped after 0.002 minutes");
+	});
+
 	it("reads OpenCode's text, bash calls, cost, tokens and errors", () => {
 		const run = readOpenCode([
 			{ type: "step_start", part: { type: "step-start" } },
@@ -107,6 +158,7 @@ describe("agents", () => {
 						status: "completed",
 						input: { command: "echo hi" },
 						output: "hi\n",
+						time: { start: 1000, end: 1035 },
 					},
 				},
 			},
@@ -126,6 +178,7 @@ describe("agents", () => {
 
 		expect(run.reply).toBe("done");
 		expect(commandsOf(run.transcript)).toEqual(["echo hi"]);
+		expect(run.transcript[0]).toMatchObject({ milliseconds: 35 });
 		expect(run).toMatchObject({ turns: 2, tokens: 37, error: null });
 		expect(run.usd).toBeCloseTo(0.03);
 		expect(
@@ -137,6 +190,24 @@ describe("agents", () => {
 			commandFor({ agent: "opencode", model: "a/b", effort: "high" }, "Hi.")
 				.argv,
 		).toContain("a/b#high");
+	});
+
+	it("leaves unknown OpenCode tool durations absent and keeps measured zero", () => {
+		const run = readOpenCode(
+			[
+				undefined,
+				{ start: 10 },
+				{ start: 10, end: 9 },
+				{ start: 10, end: 10 },
+			].map((time) => ({
+				type: "tool_use",
+				part: { tool: "bash", state: { time } },
+			})),
+		);
+		expect(run.transcript[0]).not.toHaveProperty("milliseconds");
+		expect(run.transcript[1]).not.toHaveProperty("milliseconds");
+		expect(run.transcript[2]).not.toHaveProperty("milliseconds");
+		expect(run.transcript[3]).toHaveProperty("milliseconds", 0);
 	});
 
 	it("reads Kimi's steps, Bash calls with their results and errors, and runs it headless at a thinking level", () => {

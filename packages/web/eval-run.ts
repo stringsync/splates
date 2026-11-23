@@ -176,9 +176,9 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 			]);
 			launch = found;
 			const named = this.ask.agents;
-			this.agents = saved.map((pick) => ({
+			this.agents = saved.map((pick, index) => ({
 				pick,
-				on: named === undefined || named.includes(targetOf(pick)),
+				on: named === undefined ? index === 0 : named.includes(targetOf(pick)),
 			}));
 			const have = new Set(saved.map(targetOf));
 			this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
@@ -254,9 +254,10 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				// A card can outlive a correction to a rejected model. Show the
 				// new picks and cost before the person authorizes that run.
 				const named = this.ask.agents;
-				this.agents = saved.map((pick) => ({
+				this.agents = saved.map((pick, index) => ({
 					pick,
-					on: named === undefined || named.includes(targetOf(pick)),
+					on:
+						named === undefined ? index === 0 : named.includes(targetOf(pick)),
 				}));
 				const have = new Set(saved.map(targetOf));
 				this.unknownAgents = (named ?? []).filter((each) => !have.has(each));

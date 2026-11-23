@@ -75,6 +75,28 @@ describe("ShipCommands", () => {
 		expect(current).toEqual({ "@x/lib": "1.4.2" });
 	});
 
+	it("reads every command's shippable versions, and none from one that fails or prints no versions", async () => {
+		const ps = new FakeShipPs({
+			"bin/lib ship versions": {
+				prod: [
+					{ version: "0.1.12", note: "staging now" },
+					{ version: "0.1.10" },
+				],
+			},
+			"bin/bad ship versions": { exitCode: 1, stderr: "boom" },
+			"bin/odd ship versions": { stdout: "hello" },
+			"bin/num ship versions": { prod: [3] },
+		});
+		const shippable = await new ShipCommands(
+			["bin/lib ship", "bin/bad ship", "bin/odd ship", "bin/num ship"],
+			ps,
+			"/repo",
+		).shippable();
+		expect(shippable).toEqual({
+			prod: [{ version: "0.1.12", note: "staging now" }, { version: "0.1.10" }],
+		});
+	});
+
 	it("gives no counts for a command that fails, lacks the subcommand or prints no counts", async () => {
 		const ps = new FakeShipPs({
 			"bin/lib ship unshipped": { "@x/lib": 1 },
@@ -154,5 +176,20 @@ describe("ShipCommands", () => {
 			{ bump: "minor" },
 		);
 		expect(plan.name).toBe("my app");
+	});
+
+	it("passes resolved upstream versions as --upstream flags when planning", async () => {
+		const ps = new FakeShipPs({
+			"bin/net ship plan --target prod --upstream staging=1.4.3": {
+				...prod,
+				steps: [{ id: "prove", does: "Check staging verified v1.4.3" }],
+			},
+		});
+		const plan = await new ShipCommands([], ps, "/repo").plan(
+			"bin/net ship",
+			"prod",
+			{ upstream: { staging: "1.4.3" } },
+		);
+		expect(plan.steps[0]?.does).toBe("Check staging verified v1.4.3");
 	});
 });

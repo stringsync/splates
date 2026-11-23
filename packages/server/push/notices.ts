@@ -1,5 +1,6 @@
 import { Duration } from "core/time";
 import type { Need, Needing } from "../plans";
+import { chainSpendOf } from "../queue/browser";
 
 /** Something a row did worth telling the person about, away from the page. */
 export interface Notice {
@@ -21,6 +22,8 @@ export interface Wants {
 interface Seen {
 	kind: Needing["need"]["kind"];
 	quiet: boolean;
+	/** How many `## 🤖 Queued` headings its agent has written. */
+	queued: number;
 }
 
 /**
@@ -50,7 +53,11 @@ export class Notices {
 		this.seen = new Map(
 			rows.map((row) => [
 				keyOf(row),
-				{ kind: row.need.kind, quiet: quiet(row, now, after) },
+				{
+					kind: row.need.kind,
+					quiet: quiet(row, now, after),
+					queued: queuedBy(row).length,
+				},
 			]),
 		);
 		if (before === null) {
@@ -63,6 +70,20 @@ export class Notices {
 				return [];
 			}
 			const need = row.need;
+			// An agent queued a task on its own: the task first, then what it is for.
+			const made = queuedBy(row);
+			if (made.length > was.queued && row.conversation !== null) {
+				const task = made.at(-1) as string;
+				return wants.finished
+					? [
+							{
+								row,
+								title: plain(task, TITLE_LENGTH),
+								body: plain(`Queued by ${name(row)}`, BODY_LENGTH),
+							},
+						]
+					: [];
+			}
 			// An orphaned task was mostly the person's own doing, archiving its
 			// conversation, and an agent failing says so on its own row. An agent
 			// outside the page asks in its own session, where the person is.
@@ -72,6 +93,23 @@ export class Notices {
 				was.kind !== "waiting" &&
 				need.why !== "orphaned"
 			) {
+				const spend = need.questions
+					?.map((each) => chainSpendOf(each.text, each.body))
+					.find((each) => each !== null);
+				if (spend !== undefined && spend !== null) {
+					return wants.waiting
+						? [
+								{
+									row,
+									title: "Chain out of budget",
+									body: plain(
+										`${spend.chain} spent ${spend.spent}. Add more or stop auto.`,
+										BODY_LENGTH,
+									),
+								},
+							]
+						: [];
+				}
 				return wants.waiting
 					? [{ row, title: titleOf(row, name), body: wanted(row, need) }]
 					: [];
@@ -110,6 +148,22 @@ export function keyOf(row: Needing): string {
 	return row.conversation !== null
 		? `conversation ${row.conversation.id}`
 		: `task ${row.task?.task}`;
+}
+
+/** The `## 🤖 Queued #N: subject` headings (a sprout in older skills) `row`'s agent has written, as "#N subject". */
+function queuedBy(row: Needing): string[] {
+	return (row.conversation?.messages ?? []).flatMap((message) =>
+		message.role !== "agent"
+			? []
+			: message.parts.flatMap((part) =>
+					part.type !== "text"
+						? []
+						: Array.from(
+								part.text.matchAll(/^## (?:🤖|🌱) Queued (#\d+): (.*)$/gm),
+								(found) => `${found[1]} ${found[2]}`,
+							),
+				),
+	);
 }
 
 /** Whether `row` is a conversation running with no word for `after`. */

@@ -1,5 +1,5 @@
 import { useReactive } from "core/react";
-import { CheckIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
+import { RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
@@ -12,6 +12,7 @@ import { Kbd } from "#web/components/ui/kbd.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
+import { AgentSettings, matchesAgentSettings } from "./agent-settings";
 import { CannedEditor, matchesCanned } from "./canned-editor";
 import { Refusal, useRefusal } from "./refusal";
 import {
@@ -42,12 +43,15 @@ export function SettingsDialog({
 	open,
 	onOpenChange,
 	onWelcome,
+	project,
 }: {
 	settings: Settings;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** Opens the Welcome page, once the dialog has closed. */
 	onWelcome: () => void;
+	/** The active project's display name, shown in server-saved sections. */
+	project?: string;
 }): JSX.Element {
 	const [query, setQuery] = useState("");
 	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
@@ -60,7 +64,10 @@ export function SettingsDialog({
 		category,
 		keys: found.filter((key) => definitionOf(key).category === category),
 	})).filter(
-		({ category, keys }) => keys.length > 0 || matchesCanned(category, query),
+		({ category, keys }) =>
+			keys.length > 0 ||
+			matchesCanned(category, query) ||
+			matchesAgentSettings(category, query),
 	);
 	const searching = query !== "";
 	const pages = searching
@@ -153,6 +160,8 @@ export function SettingsDialog({
 									<h3 className="mb-2 font-medium text-base">{category}</h3>
 									{category === "Canned replies" ? (
 										<CannedEditor />
+									) : category === "Agents" ? (
+										<AgentSettings project={project} />
 									) : (
 										<ul className="flex flex-col divide-y">
 											{keys.map((key) => (
@@ -244,7 +253,6 @@ function SettingRow({
 					id={id}
 					label={definition.title}
 					choices={definition.choices ?? []}
-					swatches={definition.swatches ?? false}
 					value={value}
 					disabled={disabled}
 					onChange={(next) => void settings.set(name, next)}
@@ -341,13 +349,12 @@ function NumberField({
 
 /**
  * A choice's values side by side as radios, the one set filled: a segmented
- * control of their labels, or for an accent, a swatch of each.
+ * control of their labels.
  */
 function Choices({
 	id,
 	label,
 	choices,
-	swatches,
 	value,
 	disabled,
 	onChange,
@@ -355,7 +362,6 @@ function Choices({
 	id: string;
 	label: string;
 	choices: readonly Choice[];
-	swatches: boolean;
 	value: string;
 	disabled: boolean;
 	onChange: (value: string) => void;
@@ -365,25 +371,16 @@ function Choices({
 			id={id}
 			aria-label={label}
 			disabled={disabled}
-			className={cn(
-				"flex shrink-0",
-				swatches ? "gap-1.5" : "rounded-md bg-muted p-0.5",
-			)}
+			className="flex shrink-0 rounded-md bg-muted p-0.5"
 		>
 			{choices.map((choice) => {
 				const checked = choice.value === value;
 				return (
 					<label
 						key={choice.value}
-						title={swatches ? choice.label : undefined}
-						data-accent={swatches ? choice.value : undefined}
 						className={cn(
-							"cursor-pointer has-focus-visible:ring-2 has-focus-visible:ring-ring",
-							swatches
-								? "flex size-6 items-center justify-center rounded-full bg-brand text-brand-foreground ring-offset-2 ring-offset-background"
-								: "rounded-[calc(var(--radius)-4px)] px-3 py-1 text-muted-foreground text-xs hover:text-foreground",
-							swatches && checked && "ring-2 ring-brand",
-							!swatches && checked && "bg-card text-foreground shadow-sm",
+							"cursor-pointer has-focus-visible:ring-2 has-focus-visible:ring-ring rounded-[calc(var(--radius)-4px)] px-3 py-1 text-muted-foreground text-xs hover:text-foreground",
+							checked && "bg-card text-foreground shadow-sm",
 						)}
 					>
 						<input
@@ -391,13 +388,10 @@ function Choices({
 							name={id}
 							value={choice.value}
 							checked={checked}
-							aria-label={swatches ? choice.label : undefined}
 							onChange={() => onChange(choice.value)}
 							className="sr-only"
 						/>
-						{swatches
-							? checked && <CheckIcon className="size-3.5" />
-							: choice.label}
+						{choice.label}
 					</label>
 				);
 			})}

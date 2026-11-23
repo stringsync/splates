@@ -107,16 +107,6 @@ export function Card({
 	// counts the rest, so a card with several kinds of trouble stays one line.
 	const notes: Note[] = [];
 	const shown = shownStage(todo, board.todos, board.tasks);
-	if (shown === "stalled") {
-		notes.push({
-			key: "stalled",
-			text: "Stalled: its agent is gone, and what it did may be on its branch",
-			short: "Stalled: agent gone",
-			Icon: CircleAlertIcon,
-			tone: "danger",
-			lead: "Stalled",
-		});
-	}
 	const deferredOn =
 		todo.takenBy !== null && todo.deferred !== undefined
 			? deferralBlockers(todo, board.todos).filter(
@@ -129,7 +119,6 @@ export function Card({
 			key: "deferred",
 			text,
 			Icon: HourglassIcon,
-			tone: "warning",
 			lead: "Blocked",
 		});
 	}
@@ -139,7 +128,6 @@ export function Card({
 			key: "left",
 			text,
 			Icon: CircleAlertIcon,
-			tone: "warning",
 			lead: "left the queue",
 		});
 	}
@@ -150,7 +138,6 @@ export function Card({
 			text,
 			short: text,
 			Icon: InfoIcon,
-			tone: "warning",
 		});
 	}
 	if (!blocked && waits.length > 0) {
@@ -159,7 +146,6 @@ export function Card({
 			text: waitLines(waits),
 			short: waitsShort(waits),
 			Icon: HourglassIcon,
-			tone: "warning",
 		});
 	} else if (!blocked && blockers.length > 0) {
 		const text = `Blocked by ${blockers.map((other) => blockerLabel(other, board.lanes)).join(", ")}`;
@@ -168,7 +154,6 @@ export function Card({
 			text,
 			short: text,
 			Icon: HourglassIcon,
-			tone: "warning",
 			lead: "Blocked",
 		});
 	}
@@ -179,7 +164,6 @@ export function Card({
 			text,
 			short: "Waiting on you",
 			Icon: HourglassIcon,
-			tone: "warning",
 			lead: "Waiting",
 		});
 	}
@@ -317,9 +301,7 @@ interface Note {
 	/** What the card says of it, when `text` is too long for a line. */
 	short?: string;
 	Icon: LucideIcon;
-	/** How pressing: its icon and first word take the color, the rest stays plain. */
-	tone?: "warning" | "danger";
-	/** The first word of what the card says, shown in the tone's color. */
+	/** The first word of the note, shown in the warning color. */
 	lead?: string;
 }
 
@@ -334,7 +316,6 @@ function Notes({ notes }: { notes: Note[] }): JSX.Element | null {
 	}
 	const label = notes.map((note) => note.text).join("\n");
 	const said = first.short ?? first.text;
-	const color = first.tone === "danger" ? "text-destructive" : "text-warning";
 	return (
 		<Tooltip>
 			<TooltipTrigger
@@ -342,11 +323,11 @@ function Notes({ notes }: { notes: Note[] }): JSX.Element | null {
 				aria-label={label}
 				className="relative inline-flex min-w-0 cursor-default items-center gap-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
-				<first.Icon aria-hidden className={cn("size-3 shrink-0", color)} />
+				<first.Icon aria-hidden className="size-3 shrink-0 text-warning" />
 				<span className="truncate" title={first.text}>
 					{first.lead !== undefined && said.startsWith(first.lead) ? (
 						<>
-							<span className={cn("font-semibold", color)}>{first.lead}</span>
+							<span className="font-semibold text-warning">{first.lead}</span>
 							{said.slice(first.lead.length)}
 						</>
 					) : (

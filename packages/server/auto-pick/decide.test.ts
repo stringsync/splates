@@ -287,6 +287,89 @@ describe("decide", () => {
 		});
 	});
 
+	it("checks Antigravity pressure and pace against only the picked model's quota group", () => {
+		const rules = routedTo([
+			{ agent: "antigravity", model: "gemini-4-neon" },
+			{ agent: "claude", model: "opus", effort: "high" },
+		]);
+		// Exhausted Claude/GPT group does not block a Gemini pick.
+		expect(
+			decide({
+				...BASE,
+				rules,
+				limits: {
+					antigravity: [
+						{
+							window: "Gemini Models · Five Hour",
+							used: 0.1,
+							resets: LATER,
+							at: NOW.toISOString(),
+						},
+						{
+							window: "Gemini Models · Weekly",
+							used: 0.1,
+							resets: IN_SIX_DAYS,
+							at: NOW.toISOString(),
+						},
+						{
+							window: "Claude and GPT models · Five Hour",
+							used: 0.99,
+							resets: LATER,
+							at: NOW.toISOString(),
+						},
+					],
+				},
+				classification: DESIGN,
+			}).pick,
+		).toEqual({ agent: "antigravity", model: "gemini-4-neon" });
+
+		// Two of five hours gone (40%): 60% of Gemini Models · Five Hour is ahead of pace.
+		expect(
+			decide({
+				...BASE,
+				rules,
+				limits: {
+					antigravity: [
+						{
+							window: "Gemini Models · Five Hour",
+							used: 0.6,
+							resets: LATER,
+							at: NOW.toISOString(),
+						},
+					],
+				},
+				classification: DESIGN,
+			}),
+		).toMatchObject({
+			pick: { agent: "claude", model: "opus", effort: "high" },
+			reasons: [
+				"Opus 5.5, high effort",
+				expect.any(String),
+				expect.any(String),
+				"passed over Antigravity: 60% of Gemini Models · Five Hour used, 40% of it gone",
+			],
+		});
+
+		// One of seven days gone (~14%): 50% of Gemini Models · Weekly is ahead of pace.
+		expect(
+			decide({
+				...BASE,
+				rules,
+				limits: {
+					antigravity: [
+						{
+							window: "Gemini Models · Weekly",
+							used: 0.5,
+							resets: IN_SIX_DAYS,
+							at: NOW.toISOString(),
+						},
+					],
+				},
+				classification: DESIGN,
+			}).pick,
+		).toEqual({ agent: "claude", model: "opus", effort: "high" });
+	});
+
 	it("keeps a pick within its slack of pace", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.45, resets: LATER, at: null }],

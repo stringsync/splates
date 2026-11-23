@@ -7,11 +7,12 @@ import {
 	MERGE,
 	RUN_ALLOWED,
 	RUN_DENIED,
+	talkReference,
 	UNTRIAGED,
 } from "@splates/server/plans/browser";
 import type { FinishedTask } from "@splates/server/tasks";
 import { UtensilsIcon } from "lucide-react";
-import { type JSX, useContext } from "react";
+import { createContext, type JSX, useContext } from "react";
 import { Board, type BoardContext } from "./board";
 import { Dispatching } from "./dispatching";
 import { FinishedReferences } from "./finished-references";
@@ -21,6 +22,17 @@ import { BARE_DIRECTIVES } from "./references";
 import { handOffOf } from "./server-messages";
 import { SplatesEvent, type Words } from "./splates-event";
 import { TaskIcon } from "./task-icon";
+
+/** Provide a queued task number to hide its leading talk directive chip inside its thread. */
+export const HiddenTalkTask = createContext<number | null>(null);
+
+/** Filters leading `directives` to omit the talk chip already shown by `HiddenTalkTask`. */
+export function useShownDirectives(directives: readonly string[]): string[] {
+	const hidden = useContext(HiddenTalkTask);
+	return hidden === null
+		? [...directives]
+		: directives.filter((each) => each !== talkReference(hidden));
+}
 
 /** The hash format for opening a directive's details. */
 const DIRECTIVE_LINK = /^#directive=(.+)$/;
@@ -187,7 +199,8 @@ export function DirectiveChip({
 }
 
 /** A directive about a task, whose chip wears the task clipboard. */
-const ABOUT_TASK = /^\[(?:SPLATES|ARBOR) (?:TASK|TODO|HANDOFF|REPORT|IDLE) /;
+const ABOUT_TASK =
+	/^\[(?:SPLATES|ARBOR) (?:TASK|TODO|TALK|HANDOFF|REPORT|IDLE) /;
 
 /** A directive that steers a task's own conversation, so it wears the clipboard too. */
 const IN_TASK =
@@ -195,11 +208,14 @@ const IN_TASK =
 
 /**
  * Whether a directive of `kind` names a task by its number, as
- * `[SPLATES TASK #N]` does, or `[SPLATES TODO #N]` from before the rename,
- * where `[SPLATES TASK <slug>]` names a started one.
+ * `[SPLATES TASK #N]` and `[SPLATES TALK #N]` do, or `[SPLATES TODO #N]`
+ * from before the rename, where `[SPLATES TASK <slug>]` names a started one.
  */
 function numbered(kind: string, argument: string): boolean {
-	return (kind === "TASK" || kind === "TODO") && argument.startsWith("#");
+	return (
+		(kind === "TASK" || kind === "TODO" || kind === "TALK") &&
+		argument.startsWith("#")
+	);
 }
 
 /** The page asking an agent to hand its task off: the agent, and any model. */

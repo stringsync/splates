@@ -21,11 +21,11 @@ export const splatesShip = target({
 	name: "@stringsync/splates",
 	bump: "patch",
 	dependencies: [],
-	// The mirror holds the release tags (the `v0.0.N` tags here are older and
-	// mark no release); here a release is the commit that bumped the version.
+	// `npm.release` tags the mono commit it built from as
+	// `@stringsync/splates@<version>`; the newest such tag marks the last ship.
 	unshipped: (ctx) =>
 		commitsSince(ctx, {
-			version: "splates/packages/splates/package.json",
+			release: "@stringsync/splates",
 			paths: SHIPPED_PATHS,
 		}),
 	plan: ({ bump = "patch" }) =>

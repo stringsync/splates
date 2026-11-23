@@ -65,7 +65,7 @@ export function ProbeCard({ probe }: { probe: SignalProbe }): JSX.Element {
 		>
 			<CardBody text={probe.description} />
 			<ProbeChecks probe={probe} now={now} />
-			<div className="border-border/60 border-t px-4 py-2.5 @max-md:px-3">
+			<div className="rule-t px-4 py-2.5 @max-md:px-3">
 				<ScriptToggle script={probe.script}>
 					{on ? (
 						<Button

@@ -32,25 +32,28 @@ export function DemoCard({ demo }: { demo: Demo }): JSX.Element {
 
 /**
  * A demo inside another card, as a section titled with its name that folds
- * its steps. A rule sits below it unless `className` says otherwise.
+ * its steps.
  */
 export function DemoSection({
 	demo,
+	ruled = true,
 	className,
 }: {
 	demo: Demo;
+	ruled?: boolean;
 	className?: string;
 }): JSX.Element {
 	return (
 		<CardSection
 			label={`demo${demo.title === null ? "" : ` ${demo.title}`}`}
+			ruled={ruled}
 			title={
 				<>
 					<ClapperboardIcon className="size-4 text-info" />
 					{demo.title === null ? "Demo" : `Demo: ${demo.title}`}
 				</>
 			}
-			className={cn("border-b px-4 pt-3", className)}
+			className={cn("px-4 pt-3", ruled && "rule-t", className)}
 		>
 			<DemoSteps demo={demo} />
 		</CardSection>

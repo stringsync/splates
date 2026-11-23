@@ -27,6 +27,10 @@ describe("DevTaskPorts", () => {
 	let app: Bun.Subprocess<"ignore", "pipe", "inherit">;
 	let appPort: number;
 	let fake: FakeAccess;
+	let rigTargets: {
+		routes: { label: string; port: number; run: string }[];
+		excluded: Set<number>;
+	};
 	let ports: DevTaskPorts;
 	let front: Bun.Server<Connection>;
 
@@ -56,15 +60,26 @@ describe("DevTaskPorts", () => {
 		local.kind = "local";
 		app = Bun.spawn(["bun", "-e", APP], { cwd: worktree, stdout: "pipe" });
 		const reader = app.stdout.getReader();
-		appPort = Number(new TextDecoder().decode((await reader.read()).value));
+		const decoder = new TextDecoder();
+		let said = "";
+		while (!/\n/.test(said)) {
+			const chunk = await reader.read();
+			if (chunk.done) {
+				break;
+			}
+			said += decoder.decode(chunk.value, { stream: true });
+		}
 		reader.releaseLock();
+		appPort = Number(/(\d+)\s*$/.exec(said.trim())?.[1]);
 		fake = await FakeAccess.make();
+		rigTargets = { routes: [], excluded: new Set() };
 		ports = new DevTaskPorts({
 			worker: () => local,
 			owners: async () => ({
 				worktrees: [{ task: "alpha", path: worktree, worker: "local" }],
 				agents: [],
 			}),
+			rigs: async () => rigTargets,
 			base: "ports.test",
 			access: fake.access,
 			log: new MemoryLogger(),
@@ -188,6 +203,38 @@ describe("DevTaskPorts", () => {
 		expect(heard).toBe("echo hi");
 		expect(socket.protocol).toBe("vite-hmr");
 		socket.close();
+	});
+
+	it("proxies a tunnel-exposed rig's animal subdomain behind Access and rebases redirects", async () => {
+		rigTargets.routes = [
+			{ label: "cat", port: appPort, run: "vexml/dev@main" },
+		];
+		const token = await fake.token();
+
+		const refused = await at("/app", {}, "cat");
+		expect(refused.status).toBe(403);
+
+		const response = await at("/app", { [ACCESS_HEADER]: token }, "cat");
+		expect(await response.json()).toEqual({
+			path: "/app",
+			host: `localhost:${appPort}`,
+			cookie: null,
+			"x-forwarded-host": "cat.ports.test",
+			[ACCESS_HEADER]: null,
+		});
+
+		const redirect = await at("/login", { [ACCESS_HEADER]: token }, "cat");
+		expect(redirect.headers.get("location")).toBe(
+			"https://cat.ports.test/home",
+		);
+	});
+
+	it("refuses and hides ports belonging to rigs excluded from splates's proxy", async () => {
+		rigTargets.excluded = new Set([appPort]);
+
+		expect(await ports.links()).toEqual([]);
+		const response = await at("/app", { [ACCESS_HEADER]: await fake.token() });
+		expect(response.status).toBe(404);
 	});
 });
 

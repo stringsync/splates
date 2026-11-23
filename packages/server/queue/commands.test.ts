@@ -122,16 +122,81 @@ describe("queue commands", () => {
 	});
 	it("lets the person change the queue, and refuses an agent", async () => {
 		await using deps = await Testing.open();
-		refuseAgentQueue(deps.service, "queue add");
+		expect(await refuseAgentQueue(deps.service, "queue add")).toEqual({
+			by: "person",
+		});
 
 		deps.proc.env.SPLATES_CONVERSATION = "c1";
-		expect(() => refuseAgentQueue(deps.service, "lane queue")).toThrow(
-			"does not change the queue",
-		);
+		await expect(refuseAgentQueue(deps.service, "lane queue")).toBail("usage");
 		delete deps.proc.env.SPLATES_CONVERSATION;
 		deps.proc.env.SPLATES_STARTED_BY = "c2";
-		expect(() => refuseAgentQueue(deps.service, "queue remove")).toThrow(
-			"does not change the queue",
+		await expect(refuseAgentQueue(deps.service, "queue remove")).toBail(
+			"usage",
 		);
+	});
+
+	it("asks the server for agent queue add and records agent provenance on the task", async () => {
+		await using deps = await Testing.open();
+		await taskAdd(deps, "Follow-up", null);
+		deps.proc.env.SPLATES_CONVERSATION = "c-root";
+		deps.proc.env.SPLATES_DEV = "http://localhost:4310";
+
+		await expect(
+			refuseAgentQueue(deps.service, "queue add", {
+				ids: [1],
+				log: deps.log,
+				send: async () =>
+					Response.json({
+						allowed: false,
+						reason: "never",
+						level: "never",
+						queued: 0,
+						cap: 5,
+					}),
+			}),
+		).toBail("usage");
+
+		await expect(
+			refuseAgentQueue(deps.service, "queue add", {
+				ids: [1],
+				log: deps.log,
+				send: async () =>
+					Response.json({
+						allowed: false,
+						reason: "cap",
+						level: "safe",
+						queued: 5,
+						cap: 5,
+					}),
+			}),
+		).toBail("usage");
+
+		const agentBy = {
+			by: "agent" as const,
+			conversation: "c-root",
+			task: "root-slug",
+			fromTask: 10,
+			root: {
+				conversation: "c-root",
+				task: "root-slug",
+				boardTask: 10,
+			},
+		};
+		const by = await refuseAgentQueue(deps.service, "queue add", {
+			ids: [1],
+			log: deps.log,
+			send: async () =>
+				Response.json({
+					allowed: true,
+					by: agentBy,
+					level: "safe",
+					queued: 1,
+					cap: 5,
+				}),
+		});
+		expect(by).toEqual(agentBy);
+
+		await queueAdd(deps, [1], { by });
+		expect((await deps.tasks.find(1)).state.queuedBy).toEqual(agentBy);
 	});
 });

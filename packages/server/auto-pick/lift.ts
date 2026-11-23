@@ -76,7 +76,11 @@ export function lifting(
 		if (words === null && !asked) {
 			return;
 		}
-		const context = await contextOf(project, conversations, now());
+		// Its agent runs on: only the model and effort can move.
+		const context = {
+			...(await contextOf(project, conversations, now())),
+			runnable: [state.agent],
+		};
 		const judged = await rejudged(words, context, judge, {
 			task: state.task,
 			conversation: state.id,
@@ -110,7 +114,11 @@ export function lifting(
 				return current === undefined ? [] : [[id, current]];
 			}),
 		);
-		await conversation.lift(settings, setOf(decision));
+		await conversation.lift(
+			settings,
+			setOf(decision),
+			decision === judged?.decision ? "judged" : "asked-back",
+		);
 		await journalPick(
 			project.journal.in(state.id),
 			state.task,
@@ -182,7 +190,7 @@ async function rejudging(
 		}),
 	);
 	const from = heldOn(state.settings);
-	await conversation.lift(settings, setOf(decision));
+	await conversation.lift(settings, setOf(decision), "switched");
 	await journalPick(
 		project.journal.in(state.id),
 		state.task,

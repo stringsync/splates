@@ -1,15 +1,19 @@
-import type { ThreadMessage } from "@assistant-ui/react";
+import type { ThreadMessage, ThreadMessageLike } from "@assistant-ui/react";
 import type { Steps } from "@splates/server/plans/browser";
 import { textOf } from "./card-reply";
 
 /**
  * What the person asks the agent from a Steps card's pop-out: their words,
- * after a line naming the step they are on, so the agent knows where they
- * are from the message alone, whatever harness it runs in.
+ * after a line naming the step they are reading, so the agent has the context
+ * from the message alone, whatever harness it runs in.
  */
-export function askedFrom(steps: Steps, done: number, words: string): string {
+export function askedFrom(
+	steps: Steps,
+	reading: number,
+	words: string,
+): string {
 	const count = steps.steps.length;
-	const on = Math.min(done, count - 1);
+	const on = Math.min(reading, count - 1);
 	const line = (steps.steps[on] ?? "").split("\n")[0] ?? "";
 	return `(From the steps pop-out, on step ${on + 1} of ${count} of "${steps.title}": ${line})\n\n${words}`;
 }
@@ -37,31 +41,18 @@ export function readAsked(text: string): Asked | null {
 }
 
 /**
- * One question asked from the pop-out and what the agent has said since:
- * the words of its replies, whether one holds a card the pop-out does not
- * draw, and whether it is still answering.
+ * One question asked from the pop-out and what the agent has said since: the
+ * thread's own messages, by index, drawn as the thread draws them, and
+ * whether the agent is still at work on it.
  */
 export interface Exchange {
 	id: string;
 	step: number;
-	words: string;
-	answers: string[];
-	/** Whether a reply holds a card other than Steps, opened in the tab. */
-	carded: boolean;
+	/** Its question's index in the thread, then each reply's. */
+	messages: number[];
 	/** Whether the agent is still at work on it, with nothing more since. */
 	waiting: boolean;
 }
-
-/** Data parts that are no card: Steps, which the pop-out draws, and the thread's own rows. */
-const UNCARDED = [
-	"steps",
-	"work",
-	"event",
-	"background",
-	"compaction",
-	"interrupted",
-	"stopped",
-];
 
 /** The questions asked from the pop-out of the Steps card titled `title`. */
 export function exchangesOf(
@@ -71,7 +62,7 @@ export function exchangesOf(
 ): Exchange[] {
 	const found: Exchange[] = [];
 	let open: Exchange | null = null;
-	for (const message of messages) {
+	for (const [index, message] of messages.entries()) {
 		if (message.role === "user") {
 			const asked = readAsked(textOf(message));
 			open =
@@ -79,26 +70,15 @@ export function exchangesOf(
 					? {
 							id: message.id,
 							step: asked.step,
-							words: asked.words,
-							answers: [],
-							carded: false,
+							messages: [index],
 							waiting: false,
 						}
 					: null;
 			if (open !== null) {
 				found.push(open);
 			}
-			continue;
-		}
-		if (open === null || message.role !== "assistant") {
-			continue;
-		}
-		for (const part of message.content) {
-			if (part.type === "text" && part.text.trim() !== "") {
-				open.answers.push(part.text.trim());
-			} else if (part.type === "data" && !UNCARDED.includes(part.name)) {
-				open.carded = true;
-			}
+		} else if (open !== null && message.role === "assistant") {
+			open.messages.push(index);
 		}
 	}
 	const last = found.at(-1);
@@ -146,4 +126,122 @@ export function changedSteps(
 		}
 	});
 	return changed;
+}
+
+/**
+ * What the person sends from a Steps card's Done: that they are finished,
+ * and how many steps they checked off, which need not be all of them.
+ */
+export function doneFrom(steps: Steps, done: number): string {
+	const count = steps.steps.length;
+	return `(Done with the steps "${steps.title}": ${Math.min(done, count)} of ${count} checked off)`;
+}
+
+/** A message `doneFrom` wrote, read back. */
+export interface Finished {
+	title: string;
+	checked: number;
+	count: number;
+}
+
+const DONE = /^\(Done with the steps "(.*)": (\d+) of (\d+) checked off\)$/;
+
+export function readDone(text: string): Finished | null {
+	const found = DONE.exec(text.trim());
+	return found === null
+		? null
+		: {
+				title: found[1] as string,
+				checked: Number(found[2]),
+				count: Number(found[3]),
+			};
+}
+
+/**
+ * Whether the newest version of the Steps card titled `title` was marked
+ * done: a Done for it after the message that holds that version. A newer
+ * version starts over, with Done of its own.
+ */
+export function finishedOf(
+	messages: readonly ThreadMessage[],
+	title: string,
+): Finished | null {
+	const newest = messages.findLastIndex(
+		(message) => versionsOf([message], title).length > 0,
+	);
+	for (const message of messages.slice(newest + 1)) {
+		const finished = message.role === "user" ? readDone(textOf(message)) : null;
+		if (finished !== null && finished.title === title) {
+			return finished;
+		}
+	}
+	return null;
+}
+
+/** One part of a message as the thread is fed it. */
+type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
+
+function likeText(message: ThreadMessageLike): string {
+	return typeof message.content === "string"
+		? message.content
+		: message.content
+				.map((part) => (part.type === "text" ? part.text : ""))
+				.join("");
+}
+
+/**
+ * The messages of a thread, as it is fed them, that belong to the pop-out of
+ * the Steps card titled `title`: each question asked from it and what the
+ * agent said after, up to the person's next message.
+ */
+export function askedOnly(
+	messages: readonly ThreadMessageLike[],
+	title: string,
+): ThreadMessageLike[] {
+	const kept: ThreadMessageLike[] = [];
+	let open = false;
+	for (const message of messages) {
+		if (message.role === "user") {
+			open = readAsked(likeText(message))?.title === title;
+		}
+		if (open) {
+			kept.push(message);
+		}
+	}
+	return kept;
+}
+
+/** Every version of the Steps card titled `title` in a thread as it is fed, oldest first. */
+export function versionsIn(
+	messages: readonly ThreadMessageLike[],
+	title: string,
+): Steps[] {
+	return messages.flatMap((message) =>
+		message.role !== "assistant" || typeof message.content === "string"
+			? []
+			: message.content.flatMap((part: LikePart) =>
+					part.type === "data-steps" &&
+					(part.data as { steps: Steps }).steps.title === title
+						? [(part.data as { steps: Steps }).steps]
+						: [],
+				),
+	);
+}
+
+/** `finishedOf` for a thread as it is fed. */
+export function finishedIn(
+	messages: readonly ThreadMessageLike[],
+	title: string,
+): Finished | null {
+	const newest = messages.findLastIndex(
+		(message) => versionsIn([message], title).length > 0,
+	);
+	for (const message of messages.slice(newest + 1)) {
+		const finished =
+			message.role === "user" ? readDone(likeText(message)) : null;
+		if (finished !== null && finished.title === title) {
+			return finished;
+		}
+	}
+	return null;
 }

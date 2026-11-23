@@ -630,6 +630,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		autoPick: null,
 		automatic: false,
 		heldForTask: null,
+		queuedTask: null,
 		unread: false,
 		seen: 0,
 		read: null,

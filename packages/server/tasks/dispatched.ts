@@ -128,7 +128,9 @@ async function heldFor(
 		return null;
 	}
 	const held = await conversations.find(id).catch(() => null);
-	return held === null || held.state.archived || held.state.heldForTask === null
+	return held === null ||
+		held.state.archived ||
+		(held.state.heldForTask === null && held.state.queuedTask === null)
 		? null
 		: held;
 }

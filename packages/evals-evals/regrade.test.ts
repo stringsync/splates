@@ -47,6 +47,7 @@ describe("regradeBatch", () => {
 			join(directory, "agent.ts"),
 			`Bun.spawnSync(["sh", "-c", ${JSON.stringify(command)}]);
 const lines = [
+	{ type: "assistant", message: { content: [{ type: "text", text: "Editing." }] } },
 	{ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: ${JSON.stringify(command)} } }] } },
 	{ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "t1", content: "" }] } },
 	{ type: "result", subtype: "success", is_error: false, result: "Done.", total_cost_usd: 0.02, num_turns: 1, usage: { input_tokens: 1, output_tokens: 1 } },
@@ -87,7 +88,13 @@ for (const line of lines) console.log(JSON.stringify(line));
 				id: "edited",
 				about: "seeded.txt says something else",
 				test: async ({ repo }) =>
-					(await repo.run(["cat", "seeded.txt"])) === "other\n",
+					(await repo.run(["cat", "seeded.txt"])) === "other\n" || {
+						pass: false,
+						step: {
+							index: 1,
+							observed: "The command wrote edited to seeded.txt.",
+						},
+					},
 			},
 			kept,
 		],
@@ -149,6 +156,11 @@ for (const line of lines) console.log(JSON.stringify(line));
 		await regradeBatch(batch, [{ scenario: stricter, dir: SKILL }], { out });
 		const line = JSON.parse(await readFile(join(out, "results.jsonl"), "utf8"));
 		expect(line.status).toBe("fail");
+		const detail = JSON.parse(await readFile(join(out, line.detail), "utf8"));
+		expect(detail.checks[0]).toMatchObject({
+			pass: false,
+			step: { index: 1, observed: "The command wrote edited to seeded.txt." },
+		});
 		const manifest = JSON.parse(
 			await readFile(join(out, "batch.json"), "utf8"),
 		);

@@ -1,6 +1,12 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
+import {
+	type CSSProperties,
+	type JSX,
+	type ReactNode,
+	useEffect,
+	useState,
+} from "react";
 import { Tabs, TabsContent } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AppStatus } from "./app-header";
@@ -11,6 +17,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { OfflineBanner, useFreshness } from "./freshness";
 import { useShortcut } from "./hooks/use-shortcut";
+import { pageArea } from "./page-areas";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
 import { Sidebar } from "./sidebar";
@@ -19,29 +26,31 @@ import type { Terminals } from "./terminals";
 import { TopBar, TopBarFrame } from "./top-bar";
 
 /**
- * How each page sits beside a sidebar, under its bar. The board runs as wide
- * as its lanes, the way a Trello board scrolls sideways.
+ * How each page sits beside a sidebar, under its integrated header band. The
+ * board runs as wide as its lanes, the way a Trello board scrolls sideways.
  */
 const DESKTOP_PAGES: Record<Page, string> = {
-	boards: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	// As tall as the window under its bar, so the board's scrollbar sits on
-	// the window's bottom edge.
+	boards: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	// As tall as the window under its header band, so the board's scrollbar sits
+	// on the window's bottom edge.
 	todos:
-		"flex h-[calc(100dvh-var(--top-bar-height))] min-w-0 flex-none flex-col px-4",
+		"flex h-[calc(100dvh-var(--page-header-height,var(--top-bar-height)))] min-w-0 flex-none flex-col px-4 pt-3.5",
 	// A board too, as tall and as wide.
 	tasks:
-		"flex h-[calc(100dvh-var(--top-bar-height))] min-w-0 flex-none flex-col px-4",
-	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	ships: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	rec: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+		"flex h-[calc(100dvh-var(--page-header-height,var(--top-bar-height)))] min-w-0 flex-none flex-col px-4 pt-3.5",
+	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	ships: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	// Rigs in one column, as on a phone.
+	rigs: "mx-auto w-full min-w-0 max-w-2xl px-4 pt-5 pb-8",
+	rec: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// A list beside a signal's detail, so wider than one column.
-	signals: "mx-auto w-full min-w-0 max-w-5xl px-4 pt-2 pb-6",
-	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	"auto-pick": "mx-auto w-full min-w-0 max-w-5xl px-4 pt-2 pb-6",
-	setup: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	welcome: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	signals: "mx-auto w-full min-w-0 max-w-5xl px-4 pt-5 pb-8",
+	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	"auto-pick": "mx-auto w-full min-w-0 max-w-5xl px-4 pt-5 pb-8",
+	setup: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	welcome: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// A thread reaches across its right padding, so its scrollbar sits at the
 	// window's edge (`--thread-bleed-end`).
 	conversations: "min-w-0 px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
@@ -53,6 +62,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
  */
 export function DesktopApp({
 	page,
+	evalRunOpen,
 	open,
 	go,
 	name,
@@ -69,6 +79,8 @@ export function DesktopApp({
 	menu,
 }: {
 	page: Page;
+	/** A saved run uses the slim toolbar used by conversations. */
+	evalRunOpen: boolean;
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null) => void;
@@ -106,16 +118,38 @@ export function DesktopApp({
 	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
 	const { unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
-	// Where each page's bar and any banner under it go.
+	// Where each page's integrated header band and any banner under it go.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
+	const [headerHeight, setHeaderHeight] = useState<number | null>(null);
+	useEffect(() => {
+		if (slot === null) {
+			return;
+		}
+		const measure = () => {
+			if (slot.offsetHeight > 0) {
+				setHeaderHeight(slot.offsetHeight);
+			}
+		};
+		measure();
+		const resized = new ResizeObserver(measure);
+		resized.observe(slot);
+		return () => resized.disconnect();
+	}, [slot]);
+	const area =
+		bodies !== null &&
+		page !== "conversations" &&
+		page !== "welcome" &&
+		!evalRunOpen
+			? pageArea(page)
+			: null;
 	const frame = {
 		refreshing: restartBusy,
 		slot,
 		bannerSlot,
 		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
 		project: name,
-		status: (
+		status: !evalRunOpen && (
 			<AppStatus
 				snapshot={snapshot}
 				outdated={outdated}
@@ -124,7 +158,8 @@ export function DesktopApp({
 			/>
 		),
 		menu: menu.items,
-		dot: menu.dot,
+		dot: evalRunOpen ? undefined : menu.dot,
+		area: area === null ? undefined : { page, sidebarHidden: !shown },
 	};
 	return (
 		<TopBarFrame value={frame}>
@@ -139,16 +174,31 @@ export function DesktopApp({
 					shown && "pl-(--sidebar-width)",
 					paned && BESIDE_PANE,
 				)}
-				style={{ "--sidebar-width": `${width}px` } as CSSProperties}
+				style={
+					{
+						"--sidebar-width": `${width}px`,
+						...(headerHeight !== null
+							? { "--page-header-height": `${headerHeight}px` }
+							: {}),
+					} as CSSProperties
+				}
 			>
 				<SidebarHead name={name} sidebar={sidebar} />
-				{/* Every page's bar lands here, one row with the sidebar's head,
-				    and clear of it once it hides. */}
+				{/* Welcome, saved runs, and loading use the slim toolbar. */}
 				<header
 					ref={setSlot}
+					data-page-area={area?.area}
 					className={cn(
-						"sticky top-0 z-30 flex h-(--top-bar-height) shrink-0 items-center gap-1 bg-background pr-2 pl-4",
-						!shown && "pl-(--top-bar-start)",
+						"z-30 shrink-0",
+						area === null
+							? cn(
+									"sticky top-0 flex h-(--top-bar-height) items-center gap-1 bg-background pr-2 pl-4",
+									!shown && "pl-(--top-bar-start)",
+								)
+							: cn(
+									"page-header-band min-h-(--top-bar-height)",
+									area.compact ? "sticky top-0" : "relative",
+								),
 					)}
 				/>
 				<div ref={setBannerSlot} className="contents" />

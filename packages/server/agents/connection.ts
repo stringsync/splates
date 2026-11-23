@@ -35,6 +35,7 @@ import {
 	STEER,
 	steers,
 } from "./acp-extensions";
+import { AntigravityBackground } from "./antigravity-background";
 import { agentError, requestError } from "./errors";
 import {
 	configValue,
@@ -82,6 +83,8 @@ export class AgentConnection {
 	private stream: AgentStream | null = null;
 	/** What listens on the stream and the log while they are up. */
 	private listening: Disposer | null = null;
+	/** Antigravity's backgrounded commands, while an Antigravity process is attached. */
+	private antigravity: AntigravityBackground | null = null;
 	/** How many times `open` has run, so a start that fails late knows it is still the latest. */
 	private opens = 0;
 	/** The agent's session, once it has opened one. */
@@ -522,6 +525,25 @@ export class AgentConnection {
 		this.stream = stream;
 		const listening = new Disposer();
 		this.listening = listening;
+		if (agent.id === "antigravity") {
+			const antigravity = new AntigravityBackground(
+				host,
+				{
+					fs: this.deps.fs,
+					timer: this.deps.timer,
+					home:
+						this.deps.antigravityHome ?? `${homedir()}/.gemini/antigravity-cli`,
+				},
+				this,
+			);
+			this.antigravity = antigravity;
+			listening.defer(() => {
+				antigravity.dispose();
+				if (this.antigravity === antigravity) {
+					this.antigravity = null;
+				}
+			});
+		}
 		// Only a process a worker can hand back after a restart has its
 		// frames and requests written down: one that ends with this process
 		// leaves nothing to take back.
@@ -897,6 +919,7 @@ export class AgentConnection {
 				}
 				host.log.write({ kind: "update", update, at });
 				fold(host.state, update, at);
+				this.antigravity?.heard(update);
 				this.watchCommand(update);
 				host.changed();
 				if (result(update)) {

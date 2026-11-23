@@ -1,5 +1,10 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type { Demo, Question, TaskReport } from "@splates/server/plans";
+import type {
+	Demo,
+	PlanCard,
+	Question,
+	TaskReport,
+} from "@splates/server/plans";
 import { isUpdate } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
@@ -19,6 +24,8 @@ export interface QuestionsData {
 	escalation: TaskReport | null;
 	demo: Demo | null;
 	task: string | null;
+	/** The plan they decide, which heads them; null or unset for none. */
+	plan?: PlanCard | null;
 }
 
 /**
@@ -41,6 +48,7 @@ export function MessageQuestions({
 	questions,
 	escalation,
 	demo,
+	plan = null,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
 	// The drafts of the questions asked before these since the person last
@@ -73,11 +81,12 @@ export function MessageQuestions({
 	const sheeted = useSheeted();
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
-		<Sheeted {...questionHeading(questions.length, escalation, count)}>
+		<Sheeted {...questionHeading(questions.length, escalation, count, plan)}>
 			<QuestionCards
 				questions={questions}
 				escalation={escalation}
 				demo={demo}
+				plan={plan}
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
 				paged={sheeted}

@@ -82,6 +82,7 @@ describe("App's settings and notifications", () => {
 			"Startup",
 			"Editor",
 			"Notifications",
+			"Agents",
 			"Updates",
 			"Shortcuts",
 			"Canned replies",
@@ -220,7 +221,7 @@ describe("App's settings and notifications", () => {
 		expect(dialog.textContent).toContain("No settings match “zebra”");
 	});
 
-	it("picks the theme and accent among their choices, keeping them for the next visit", async () => {
+	it("picks the theme among its choices, keeping them for the next visit", async () => {
 		const { dialog } = await settings();
 		const theme = within(dialog).getByRole("group", { name: "Theme" });
 		expect(within(theme).getByRole("radio", { name: "System" })).toHaveProperty(
@@ -231,9 +232,6 @@ describe("App's settings and notifications", () => {
 		await act(async () =>
 			fireEvent.click(within(theme).getByRole("radio", { name: "Dark" })),
 		);
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("radio", { name: "Rose" })),
-		);
 
 		expect(within(theme).getByRole("radio", { name: "Dark" })).toHaveProperty(
 			"checked",
@@ -241,7 +239,6 @@ describe("App's settings and notifications", () => {
 		);
 		expect(JSON.parse(localStorage.getItem("splates.settings") ?? "")).toEqual({
 			"appearance.theme": "dark",
-			"appearance.accent": "rose",
 			"startup.welcome": false,
 		});
 	});

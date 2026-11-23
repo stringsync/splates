@@ -33,6 +33,7 @@ describe("WorktreeService", () => {
 
 			afterBump: null,
 			ships: [],
+			rigs: [],
 			on: {},
 			queueLoad: null,
 			autoAllowBusyRuns: false,

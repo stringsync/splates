@@ -18,6 +18,7 @@ export {
 export { attach } from "./attach";
 export type { Attachment } from "./attachments";
 export { Attachments, readFiles } from "./attachments";
+export { DIAGRAM_REQUEST } from "./diagrams";
 export { ArtifactRoom } from "./room";
 export {
 	addVersion,

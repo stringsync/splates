@@ -11,6 +11,7 @@ import {
 	waitFor,
 	within,
 } from "./testing";
+import { refreshAutoPickImprovements } from "./use-auto-pick-improvements";
 
 /** Waits as long as a loaded merge gate needs to open the page. */
 const settled = <T,>(check: () => T) => waitFor(check, { timeout: 5000 });
@@ -54,18 +55,58 @@ describe("App's Auto pick page", () => {
 		expect(within(log).getByLabelText("Kind").textContent).toContain("90%");
 	});
 
-	it("lists the overridden cells, each opening to the lineups it moved between, and sends them to an agent", async () => {
+	it("shows lineup and legacy moves in the scorecard after sending and dismissing the review notice", async () => {
 		const sonnet = { model: "Sonnet 5.5", effort: "medium" };
 		const opus = { model: "Opus 5.5", effort: "high" };
-		testing.autoPickOverrides = [
-			{
-				kind: "design",
-				depth: "unsure",
-				count: 3,
-				earlier: 0,
-				moves: [{ from: sonnet, to: opus, count: 3 }],
-			},
-		];
+		const history = {
+			kind: "bugfix",
+			depth: "shallow",
+			count: 3,
+			earlier: 0,
+			moves: [
+				{
+					from: sonnet,
+					to: opus,
+					count: 3,
+					fromProvider: "anthropic" as const,
+					toProvider: "anthropic" as const,
+				},
+			],
+		};
+		testing.autoPickOverrides = [history];
+		testing.autoPickOverrideCursor = 9;
+		testing.autoPickScores = {
+			minimumTasks: 10,
+			rows: [
+				{
+					kind: "bugfix",
+					depth: "shallow",
+					lineup: "all",
+					tasks: 3,
+					dollarsPerTask: null,
+					turns: null,
+					lines: null,
+					troubleRate: null,
+					correctionRate: null,
+					liftRate: 0,
+					lifts: 0,
+					liftedInHoldout: false,
+					troubledWithoutLift: 0,
+					overridesUp: 3,
+					overridesDown: 0,
+					overridesUnranked: 0,
+					verdict: "sparse",
+					signals: [],
+					comparison: null,
+					holdout: null,
+					suggestion: null,
+				},
+			],
+			overrides: [
+				{ ...history, lineup: "all" },
+				{ ...history, lineup: null, count: 1, earlier: 1, moves: [] },
+			],
+		};
 		// The page read none on opening; leave it and come back.
 		await act(async () => {
 			location.hash = "#tasks";
@@ -75,31 +116,111 @@ describe("App's Auto pick page", () => {
 			location.hash = "#auto-pick";
 			window.dispatchEvent(new HashChangeEvent("hashchange"));
 		});
-		await settled(() => view.getByText("Design · Unsure"));
-		const overrides = view.getByRole("region", { name: "Overrides" });
-		expect(overrides.textContent).toContain("3 overrides across 1 cell");
-		await act(async () =>
-			fireEvent.click(
-				within(overrides).getByRole("button", { name: "Design · Unsure" }),
-			),
+		const scorecard = within(view.getByRole("region", { name: "Scorecard" }));
+		const notice = await settled(() =>
+			scorecard.getByRole("region", { name: "Unreviewed overrides" }),
 		);
-		expect(overrides.textContent).toContain("Sonnet 5.5 · medium");
-		expect(overrides.textContent).toContain("Opus 5.5 · high");
-		expect(overrides.textContent).toContain("3 times");
+		expect(notice.textContent).toContain(
+			"3 unreviewed overrides across 1 cell",
+		);
+		const row = await settled(() =>
+			scorecard.getByRole("button", { name: /All · 3 tasks/ }),
+		);
+		await act(async () => fireEvent.click(row));
+		expect(scorecard.getByText("Too few tasks to judge.")).toBeDefined();
+		expect(scorecard.getByText("3 up · 0 down")).toBeDefined();
+		const moves = scorecard.getByRole("list", { name: "Recorded moves" });
+		expect(moves.textContent).toContain("Sonnet 5.5 · medium");
+		expect(moves.textContent).toContain("Opus 5.5 · high");
+		expect(moves.textContent).toContain("3 times");
+		expect(
+			within(moves).getAllByRole("img", { name: "Anthropic" }),
+		).toHaveLength(2);
 		testing.reply = { task: 7 };
 		await act(async () =>
 			fireEvent.click(
-				within(overrides).getByRole("button", { name: "Send to agent" }),
+				within(notice).getByRole("button", { name: "Send to agent" }),
 			),
 		);
 		await settled(() => view.getByText("Sent as task #7"));
 		await act(async () =>
-			fireEvent.click(
-				within(overrides).getByRole("button", { name: "Dismiss" }),
-			),
+			fireEvent.click(within(notice).getByRole("button", { name: "Dismiss" })),
 		);
 		await settled(() =>
-			expect(view.queryByRole("region", { name: "Overrides" })).toBeNull(),
+			expect(
+				scorecard.queryByRole("region", { name: "Unreviewed overrides" }),
+			).toBeNull(),
+		);
+		expect(testing.posts).toMatchObject([
+			{ path: "/api/auto-pick/overrides/send", method: "POST" },
+			{
+				path: "/api/auto-pick/overrides/dismiss",
+				method: "POST",
+				body: '{"cursor":9}',
+			},
+		]);
+		expect(scorecard.getByRole("list", { name: "Recorded moves" })).toBe(moves);
+		const log = scorecard.getByRole("button", {
+			name: "View cell in the pick log",
+		});
+		await act(async () => fireEvent.click(log));
+		expect(
+			view
+				.getByRole("button", { name: /Log of picks.*Bugfix · Shallow only/ })
+				.getAttribute("aria-expanded"),
+		).toBe("true");
+		await act(async () =>
+			fireEvent.click(
+				scorecard.getByRole("button", {
+					name: /No recorded lineup · 1 override/,
+				}),
+			),
+		);
+		expect(
+			scorecard.getByText("1 earlier override with no pairing recorded"),
+		).toBeDefined();
+	});
+
+	it("counts possible improvements on its tab and sends them to an agent without naming them", async () => {
+		testing.autoPickImprovements = { count: 2, key: "flagged" };
+		await act(() => refreshAutoPickImprovements());
+		await settled(() =>
+			view.getByRole("status", { name: "2 possible improvements" }),
+		);
+		const callout = view.getByRole("region", { name: "Possible improvements" });
+		expect(callout.textContent).toContain(
+			"Auto pick found possible improvements",
+		);
+		testing.reply = { task: 9 };
+		testing.autoPickImprovements = { count: 0, key: "flagged" };
+		await act(async () =>
+			fireEvent.click(
+				within(callout).getByRole("button", { name: "Send to agent" }),
+			),
+		);
+		await settled(() => view.getByText("Sent as task #9"));
+		expect(
+			view.queryByRole("status", { name: /possible improvement/ }),
+		).toBeNull();
+	});
+
+	it("hides the possible improvements once dismissed", async () => {
+		testing.autoPickImprovements = { count: 1, key: "flagged" };
+		await act(() => refreshAutoPickImprovements());
+		const callout = await settled(() =>
+			view.getByRole("region", { name: "Possible improvements" }),
+		);
+		expect(
+			view.getByRole("status", { name: "1 possible improvement" }),
+		).toBeTruthy();
+		testing.autoPickImprovements = { count: 0, key: "flagged" };
+		await act(async () =>
+			fireEvent.click(within(callout).getByRole("button", { name: "Dismiss" })),
+		);
+		await settled(() =>
+			expect(
+				view.queryByRole("region", { name: "Possible improvements" }),
+			).toBeNull(),
 		);
 	});
 
@@ -305,17 +426,10 @@ describe("App's Auto pick page", () => {
 	});
 
 	it("asks before leaving with unsaved changes, keeping them or leaving", async () => {
-		await act(async () =>
-			fireEvent.click(
-				await settled(() =>
-					view.getByRole("button", { name: "Bugfix · Shallow: All" }),
-				),
-			),
-		);
+		await selectCell();
 		await act(async () =>
 			fireEvent.change(
 				view.getByRole("spinbutton", {
-					hidden: true,
 					name: "How sure the judge has to be, in percent",
 				}),
 				{ target: { value: "70" } },

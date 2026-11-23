@@ -58,4 +58,57 @@ describe("Conversations.refreshLimits", () => {
 		await conversations.refreshLimits();
 		expect(asked).toEqual(["fake", "fake"]);
 	});
+
+	it("replaces stale windows on a full refresh and stops old logs from re-adding them", async () => {
+		const storage = new FsStorage("/home/.splates", new FakeFs());
+		const limits = new Limits(storage.document("limits.json"));
+		const stale = {
+			window: "All Models · Gemini 4 Neon",
+			used: 0.5,
+			resets: null,
+			at: "2026-10-11T09:00:00.000Z",
+		};
+		const fresh = [
+			{
+				window: "Gemini Models · Weekly",
+				used: 0.2,
+				resets: "2026-10-18T10:00:00.000Z",
+				at: "2026-10-11T10:00:00.000Z",
+			},
+			{
+				window: "Gemini Models · Five Hour",
+				used: 0.4,
+				resets: "2026-10-11T15:00:00.000Z",
+				at: "2026-10-11T10:00:00.000Z",
+			},
+		];
+		await limits.remember("fake", [stale]);
+		let current = fresh;
+		const refreshed = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs: new FakeFs(),
+				timer: new FakeTimer(),
+				clock,
+				limits,
+				launch: new FakeAgent().launch,
+				readLimits: async () => current,
+			},
+		);
+
+		await refreshed.refreshLimits();
+		expect(await refreshed.limits()).toEqual({ fake: fresh });
+
+		// An empty read (offline CLI) keeps the last known snapshot.
+		current = [];
+		clock.advance(Duration.mins(6));
+		await refreshed.refreshLimits();
+		expect(await refreshed.limits()).toEqual({ fake: fresh });
+
+		// Replaying an older log after restart does not resurrect dropped windows.
+		const reloaded = new Limits(storage.document("limits.json"));
+		await reloaded.remember("fake", [stale]);
+		expect(await reloaded.all()).toEqual({ fake: fresh });
+	});
 });

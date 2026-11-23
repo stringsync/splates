@@ -11,7 +11,10 @@ it("dismisses only the history shown, even after a restart or a stale dismissal"
 		"outcomes.jsonl",
 	);
 	const record = (kind: string) =>
-		log.append({ overrides: [{ kind, depth: "deep" }] });
+		log.append({
+			endedAt: "2020-01-01T00:00:00.000Z",
+			overrides: [{ kind, depth: "deep" }],
+		});
 	const request = new Request(
 		"http://localhost/api/auto-pick/overrides?view=notice",
 	);
@@ -32,7 +35,6 @@ it("dismisses only the history shown, even after a restart or a stale dismissal"
 			(row: { kind: string }) => row.kind,
 		),
 	).toEqual(["bugfix"]);
-	expect(await restarted.overridesTask()).toContain("design");
 	await dismiss(2);
 	await dismiss(1);
 	expect(await (await restarted.overrides(request)).json()).toEqual([]);
@@ -40,5 +42,19 @@ it("dismisses only the history shown, even after a restart or a stale dismissal"
 		new Request("http://localhost/api/auto-pick/overrides"),
 	);
 	expect(await history.json()).toHaveLength(2);
-	expect(await restarted.overridesTask()).toContain("bugfix");
+	const scorecard = (period: string) =>
+		restarted.scorecard(
+			new Request(`http://localhost/api/auto-pick/scorecard?period=${period}`),
+		);
+	expect(await (await scorecard("7d")).json()).toMatchObject({
+		rows: [],
+		overrides: [],
+	});
+	expect(await (await scorecard("all")).json()).toMatchObject({
+		rows: [],
+		overrides: [
+			{ kind: "design", lineup: null, earlier: 1 },
+			{ kind: "bugfix", lineup: null, earlier: 1 },
+		],
+	});
 });

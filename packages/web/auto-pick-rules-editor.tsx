@@ -83,26 +83,24 @@ export function RulesEditorView({
 					onLog={onLog}
 				/>
 			</section>
-			<details className="rounded-xl border bg-card p-4">
-				<summary className="cursor-pointer font-semibold">
-					Settings{" "}
-					<span className="ml-2 font-normal text-muted-foreground text-sm">
-						Confidence and plan limits
-					</span>
-				</summary>
-				<fieldset
-					disabled={saving}
-					className="mt-4 flex min-w-0 flex-col gap-4"
-				>
+			<section aria-label="Settings" className="flex min-w-0 flex-col gap-3">
+				<h2 className="font-semibold">Settings</h2>
+				<p className="text-muted-foreground text-sm">
+					Confidence, plan limits and the holdout.
+				</p>
+				<fieldset disabled={saving} className="flex min-w-0 flex-col gap-4">
 					<Threshold editor={editor} />
 					<Pacing editor={editor} />
+					<HoldingOut editor={editor} />
 					<Button
 						className="self-end"
 						disabled={
 							saving ||
 							(editor.draft.threshold === saved.threshold &&
 								JSON.stringify(editor.draft.pace) ===
-									JSON.stringify(saved.pace))
+									JSON.stringify(saved.pace) &&
+								JSON.stringify(editor.draft.holdout) ===
+									JSON.stringify(saved.holdout))
 						}
 						onClick={() =>
 							void attempt(editor.apply("settings"), "Settings not applied")
@@ -111,8 +109,8 @@ export function RulesEditorView({
 						Apply settings
 					</Button>
 				</fieldset>
-				<Refusal refusal={refusal} className="mt-3" />
-			</details>
+				<Refusal refusal={refusal} />
+			</section>
 		</div>
 	);
 }
@@ -191,6 +189,51 @@ function Pacing({ editor }: { editor: RulesEditor }): JSX.Element {
 				<FieldDescription>
 					Past it, a pick is passed over for the next in its lineup, pace or
 					not. When every pick is past it, the least used is picked.
+				</FieldDescription>
+			</Field>
+		</section>
+	);
+}
+
+/**
+ * Whether a share of tasks starts one difficulty easier than judged, as an
+ * experiment measuring whether a lineup is stronger than its tasks need.
+ */
+function HoldingOut({ editor }: { editor: RulesEditor }): JSX.Element {
+	const holdout = useReactive(editor, (each) => each.holdout, ["changed"]);
+	return (
+		<section
+			aria-label="Holdout"
+			className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+		>
+			<h3 className="font-medium text-sm">Holdout</h3>
+			<Field orientation="horizontal">
+				<Switch
+					id="auto-pick-held-out"
+					checked={holdout.on}
+					onCheckedChange={(checked) => editor.setHeldOut(checked)}
+				/>
+				<FieldLabel htmlFor="auto-pick-held-out">
+					Start a share of tasks one difficulty easier, as an experiment
+				</FieldLabel>
+			</Field>
+			<Field data-disabled={!holdout.on || undefined}>
+				<FieldLabel htmlFor="auto-pick-holdout-share">
+					How many tasks to hold out, in percent
+				</FieldLabel>
+				<div>
+					<PercentInput
+						id="auto-pick-holdout-share"
+						disabled={!holdout.on}
+						value={Math.round(holdout.share * 100)}
+						onCommit={(value) => editor.setHoldoutPercent(value)}
+					/>
+				</div>
+				<FieldDescription>
+					A held-out Deep task starts on its Moderate cell's pick, a Moderate
+					one on its Shallow cell's, on the same agent, so their outcomes show
+					whether a lineup is stronger than its tasks need. It trades some
+					quality for knowing; its conversation says so, with an Undo.
 				</FieldDescription>
 			</Field>
 		</section>

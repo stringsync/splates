@@ -52,6 +52,20 @@ export interface AutoPickRules {
 	routes: Routes;
 	/** When a pick's plan counts as used too fast; left out, `DEFAULT_PACE`. */
 	pace?: Pace;
+	/** Whether a share of tasks starts one difficulty easier, as an experiment; left out, off. */
+	holdout?: Holdout;
+}
+
+/**
+ * A share of tasks started one difficulty easier than judged, on the same
+ * agent, so their outcomes show whether a cell's lineup is stronger than its
+ * tasks need. It trades some quality for knowing, so only the person turns
+ * it on.
+ */
+export interface Holdout {
+	on: boolean;
+	/** The share of tasks held out, 0 to 1. */
+	share: number;
 }
 
 /** A named fallback order for tasks: choose one model per agent. */
@@ -146,6 +160,9 @@ export const AUTO_PICK_RULES = z
 				slack: z.number().min(0).max(1),
 				spent: z.number().min(0).max(1),
 			})
+			.optional(),
+		holdout: z
+			.object({ on: z.boolean(), share: z.number().min(0).max(1) })
 			.optional(),
 	})
 	.superRefine((value, ctx) => {

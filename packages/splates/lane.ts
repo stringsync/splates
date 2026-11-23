@@ -111,7 +111,7 @@ splatesLane
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "lane queue");
+		await refuseAgentQueue(ctx.service, "lane queue");
 		await refuseGroomer(ctx.service, "lane queue");
 		const queued = await laneQueue(ctx, opts.lane, true);
 		await sayUnqueuedBlockers(
@@ -130,7 +130,7 @@ splatesLane
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "lane unqueue");
+		await refuseAgentQueue(ctx.service, "lane unqueue");
 		await laneQueue(ctx, opts.lane, false);
 	});
 

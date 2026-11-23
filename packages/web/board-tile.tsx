@@ -3,7 +3,65 @@ import { CSS } from "@dnd-kit/utilities";
 import type { BoardRecord, TaskRecord } from "@splates/server/board/browser";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
-import { needsLook } from "./board-row";
+
+/**
+ * A board as a tile on the board index, in its cover color: its name, how many
+ * tasks are on it and how many of them are queued. Pass `action`
+ * for the tile's ⋯ menu, which shows on hover with a mouse and always on a
+ * touch screen.
+ */
+export function BoardTile({
+	name,
+	id,
+	tasks,
+	current,
+	onOpen,
+	action,
+	title,
+	icon,
+}: {
+	name: string;
+	id: number;
+	tasks: TaskRecord[];
+	current?: boolean;
+	onOpen: () => void;
+	action?: ReactNode;
+	title?: string;
+	icon?: ReactNode;
+}): JSX.Element {
+	const queuedCount = tasks.filter((task) => task.stage === "queued").length;
+	const cover = coverOf(id);
+	return (
+		<div className="group relative">
+			<button
+				type="button"
+				onClick={onOpen}
+				title={title}
+				data-accent={cover.accent}
+				className={cn(
+					"flex h-28 w-full flex-col justify-between rounded-lg p-3 text-left shadow-sm outline-none transition-[filter] hover:brightness-110 focus-visible:ring-3 focus-visible:ring-ring/60",
+					cover.className,
+					current &&
+						"ring-2 ring-foreground/40 ring-offset-2 ring-offset-background",
+				)}
+			>
+				<span className="flex min-w-0 items-center gap-2 pr-16 font-semibold">
+					{icon}
+					<span className="truncate">{name}</span>
+				</span>
+				<span className="flex min-w-0 items-center gap-1.5 text-(--cover-muted) text-xs tabular-nums">
+					<span className="truncate">
+						{plural(tasks.length, "task")}
+						{` · ${queuedCount} queued`}
+					</span>
+				</span>
+			</button>
+			<div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+				{action}
+			</div>
+		</div>
+	);
+}
 
 /**
  * Trello-like covers: muted, mid-dark blues, greens and the like that keep
@@ -68,74 +126,6 @@ export function coverOf(id: number): {
 		accent: cover.accent,
 		className: `${cover.gradient} ${text}`,
 	};
-}
-
-/**
- * A board as a tile on the board index, in its cover color: its name, how many
- * tasks are on it, and a dot when something there needs a look. Pass `action`
- * for the tile's ⋯ menu, which shows on hover with a mouse and always on a
- * touch screen.
- */
-export function BoardTile({
-	name,
-	id,
-	tasks,
-	current,
-	onOpen,
-	action,
-	title,
-	icon,
-}: {
-	name: string;
-	id: number;
-	tasks: TaskRecord[];
-	current?: boolean;
-	onOpen: () => void;
-	action?: ReactNode;
-	title?: string;
-	icon?: ReactNode;
-}): JSX.Element {
-	const looking = tasks.filter(needsLook).length;
-	const cover = coverOf(id);
-	return (
-		<div className="group relative">
-			<button
-				type="button"
-				onClick={onOpen}
-				title={title}
-				data-accent={cover.accent}
-				className={cn(
-					"flex h-28 w-full flex-col justify-between rounded-lg p-3 text-left shadow-sm outline-none transition-[filter] hover:brightness-110 focus-visible:ring-3 focus-visible:ring-ring/60",
-					cover.className,
-					current &&
-						"ring-2 ring-foreground/40 ring-offset-2 ring-offset-background",
-				)}
-			>
-				<span className="flex min-w-0 items-center gap-2 pr-16 font-semibold">
-					{icon}
-					<span className="truncate">{name}</span>
-				</span>
-				<span className="flex min-w-0 items-center gap-1.5 text-(--cover-muted) text-xs tabular-nums">
-					{looking > 0 ? (
-						<span
-							role="img"
-							aria-label="Needs a look"
-							className="size-1.5 shrink-0 rounded-full bg-amber-400"
-						/>
-					) : null}
-					<span className="truncate">
-						{plural(tasks.length, "task")}
-						{looking > 0
-							? ` · ${looking} ${looking === 1 ? "needs" : "need"} a look`
-							: ""}
-					</span>
-				</span>
-			</button>
-			<div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
-				{action}
-			</div>
-		</div>
-	);
 }
 
 /** Wraps a tile so it can be dragged to another place; `locked` turns that off. */

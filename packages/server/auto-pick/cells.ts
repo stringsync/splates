@@ -40,6 +40,9 @@ export type LineupColor = (typeof LINEUP_COLORS)[number];
 /** The pace a mapping without one takes. */
 export const DEFAULT_PACE = { on: true, slack: 0.1, spent: 0.95 } as const;
 
+/** The holdout a mapping without one takes: off, a tenth of tasks once on. */
+export const DEFAULT_HOLDOUT = { on: false, share: 0.1 } as const;
+
 /** A kind's name: `Bugfix`, or `Unsure` for none. */
 export function kindLabel(kind: RouteKind | null): string {
 	return kind === null || kind === UNSURE

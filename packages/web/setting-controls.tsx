@@ -14,7 +14,12 @@ import { AgentMark } from "./agent-icons";
 import { useWide } from "./app-nav";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import type { AutoPickControl } from "./auto-pick-switch";
-import { IN_COMPOSER, SettingsSheet, settingLabel } from "./setting-sheet";
+import {
+	type AgentSwitch,
+	IN_COMPOSER,
+	SettingsSheet,
+	settingLabel,
+} from "./setting-sheet";
 
 /** The agent's own suffix on its default model, too wide for the composer's trigger. */
 const RECOMMENDED = / \(recommended\)$/i;
@@ -30,6 +35,7 @@ export function SettingControls({
 	onChange,
 	agent,
 	autoPick,
+	agentSwitch,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
@@ -38,16 +44,20 @@ export function SettingControls({
 	agent?: string | undefined;
 	/** Auto pick's switch, for a conversation that offers it. */
 	autoPick?: AutoPickControl | undefined;
+	/** The agents a conversation not yet started can switch to, in the sheet. */
+	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element | null {
 	const wide = useWide();
 	if (settings.length === 0) {
-		// Auto pick, still to choose the agent, has its switch to show alone.
-		return autoPick === undefined ? null : (
+		// Auto pick, still to choose the agent, has the agents to show alone.
+		return autoPick === undefined && agentSwitch === undefined ? null : (
 			<SettingsSheet
 				settings={settings}
 				current={current}
 				onChange={onChange}
-				autoPick={autoPick}
+				agent={agentSwitch?.auto === false ? agent : undefined}
+				autoPick={agentSwitch === undefined ? autoPick : undefined}
+				agentSwitch={agentSwitch}
 			/>
 		);
 	}
@@ -59,6 +69,7 @@ export function SettingControls({
 				onChange={onChange}
 				agent={agent}
 				autoPick={autoPick}
+				agentSwitch={agentSwitch}
 			/>
 		);
 	}
@@ -69,6 +80,7 @@ export function SettingControls({
 			onChange={onChange}
 			agent={agent}
 			autoPick={autoPick}
+			agentSwitch={agentSwitch}
 		/>
 	);
 }
@@ -86,12 +98,14 @@ function InlineSettings({
 	onChange,
 	agent,
 	autoPick,
+	agentSwitch,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
 	agent?: string | undefined;
 	autoPick?: AutoPickControl | undefined;
+	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element {
 	const row = useRef<HTMLDivElement>(null);
 	const whole = useRef<HTMLDivElement>(null);
@@ -153,6 +167,7 @@ function InlineSettings({
 						onChange={onChange}
 						agent={agent}
 						autoPick={autoPick}
+						agentSwitch={agentSwitch}
 					/>
 				</div>
 			)}

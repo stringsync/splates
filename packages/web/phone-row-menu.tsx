@@ -143,13 +143,20 @@ export function Filed({
 				pins={archivable && !nested}
 				refuse={refuse}
 			/>
-			<div {...pendingRow(pending, showPending, "flex items-center pr-2")}>
+			<div
+				{...pendingRow(
+					pending,
+					showPending,
+					// The press highlight spans the row, the actions button included.
+					"flex items-center has-[button:active]:bg-muted",
+				)}
+			>
 				{children(press)}
 				<Button
 					type="button"
 					variant="ghost"
 					size="icon"
-					className="size-11"
+					className="mr-2 size-11"
 					aria-label="Conversation actions"
 					aria-description={nameOf(conversation)}
 					aria-haspopup="dialog"

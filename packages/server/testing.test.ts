@@ -31,18 +31,17 @@ test("unexpected value", async () => {
 			deps.root,
 		);
 		const report = await deps.fs.read(join(deps.root, "refusals.xml"));
+		const stderr = Bun.stripANSI(result.stderr);
 
 		expect(result.exitCode).toBe(1);
-		expect(result.stderr).toContain("1 pass");
-		expect(result.stderr).toContain("2 fail");
-		expect(result.stderr).toContain(
+		expect(stderr).toContain("1 pass");
+		expect(stderr).toContain("2 fail");
+		expect(stderr).toContain(
 			"expected a tests_failed refusal, but it rejected with",
 		);
-		expect(result.stderr).toContain("error: could not remove batch checkout");
-		expect(result.stderr).toContain(
-			'rejected with "batch storage unavailable"',
-		);
-		expect(result.stderr).not.toContain("returned a promise that rejected");
+		expect(stderr).toContain("error: could not remove batch checkout");
+		expect(stderr).toContain('rejected with "batch storage unavailable"');
+		expect(stderr).not.toContain("returned a promise that rejected");
 		expect(report).toContain(
 			"expected a tests_failed refusal, but it rejected with",
 		);

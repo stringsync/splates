@@ -1,7 +1,7 @@
 ---
 name: splates
-description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (a plan with its approval question has a shape only this skill gives), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.0.17
+description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before asking the user a question, and before answering when they ask what you think of a change or idea (use the plan card for proposals), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
+version: 2.0.18
 ---
 
 # Using splates
@@ -76,14 +76,15 @@ the rest:
    run `splates add <task> --goal "<what done means>"` first (the project's name
    left out of the task name), then read and
    edit only in the worktree path it prints.
-2. **Plan while it is cheap (principle 1).** When the user asks for a plan, or the
-   change touches UI, spans several services or tables, or will take several
-   commits, write a plan page (one HTML artifact) in place of the text plan:
-   the reply is one line and the approval question with a `Plan: <name>.html` line
-   (see [proposing.md](references/proposing.md), Plan page or text plan).
-   Otherwise, after your first look, a task's first reply is
-   a short plan (what changes, a picture when it needs one) ending in one
-   questions card whose last question is `Do you approve <the change, named>?` with Yes
+2. **Plan while it is cheap (principle 1).** After your first look, a task's
+   first reply is a plan card: `## 📝 Plan: <title>`, then only what could
+   change the user's answer, in the shape [proposing.md](references/proposing.md)
+   prescribes: a `**Goal:**` sentence, an `**After:**` sentence, an
+   `**Approach:**` of at most two, `**Hard to undo:**` only when something is,
+   and the picture. Write the plan in Markdown directly in the card, near 120
+   words and never over 200, with no step list. Use D2 diagrams and attached
+   images where it needs a picture.
+   The card ends in its questions, the last `Do you approve <the change, named>?` with Yes
    and No, neither marked `(chosen)` so the user decides (short, at most one plain sentence under it, no bullets; the question itself names what is approved; see [proposing.md](references/proposing.md)), and code waits for the answer Yes unless the task is easy to
    reverse and takes little effort to execute. For those tasks, start and
    build without asking permission; say so in a line. Mockups are gold to the user, the quickest route to an
@@ -93,9 +94,13 @@ the rest:
    [proposing.md](references/proposing.md).
 3. **Ask as a numbered list.** Every question for the user is a `1.` item
    ending at its `?`, as in Formats below.
-   **One questions card a reply.** Put every question in it, and end the turn
-   when it holds the approval question, since that is the only question you
-   wait on before writing code; for any other question carry on with your pick.
+   **One card for questions in a reply.** Put proposal approval and any
+   accompanying questions in the plan card, then end the turn. Use a
+   questions card for standalone questions and carry on with your picks
+   when you can.
+   **Avoid long paragraphs.** Orient the user a chunk at a time by asking
+   about the idea, and when they seem confused, ask what about; keep it to a
+   few questions that move them along, never needless ones.
 4. **Go easy on a busy machine.** The user works on it beside other agents.
    What is heavy depends on the project and the hardware, and nothing enforces
    this, so it is your best effort:
@@ -206,6 +211,26 @@ pick-one card for non-exclusive items leaves the user unable to answer.
 
 A plain yes or no is asked the same way, as `- (a) Yes` and `- (b) No` choices, never as prose and never as named options: "Should we remove it?" is `- (a) Yes, remove it` and `- (b) No, keep it`, not `- (a) Remove it` and `- (b) Keep it`. The user can always add words to the answer.
 
+A plan is a plan card: `## 📝 Plan: <title>`, the short plan under it in
+the shape proposing.md prescribes, then its questions, the approval question last; the page draws them as
+one card. Never a plan card and a second questions card in one reply
+([proposing.md](references/proposing.md)):
+
+```markdown
+## 📝 Plan: retry failed upload scans
+
+**Goal:** <one sentence: the problem it solves, never After restated>
+**After:** <one sentence: what the user will meet once it lands>
+**Approach:** <at most two sentences on the how>
+**Hard to undo:** <one line, only when something is>
+
+<the picture, when the change needs one>
+
+1. Do you approve retrying failed upload scans with a dead-letter queue?
+   - (a) Yes, approve it
+   - (b) No
+```
+
 Never as `Should I keep the old endpoint? I'd lean yes.` (and keep "I" and "you" out of
 questions and choices: say "we" or name the subject), a bold line, or
 your harness's own question tool: the page shows none of those as a card.
@@ -270,8 +295,8 @@ of it after the colon, so the user sees the work is over and archives it. A
 Done report claims nothing is left: use it only when the request is fully
 met and no step, fix or follow-up remains that the user might want. A
 finding that leaves something to do (a bug found, a fix identified, a
-change proposed) is not over: say what you found and ask whether to
-proceed, as a numbered question, with no Done title. An eval loop whose
+change proposed) is not over: say what you found and use a plan card
+when asking for approval of the proposed change. An eval loop whose
 scenario already passes ends on Done with its pass rates, though its task is
 removed (see [evals.md](references/evals.md), Stopping). Never end on Done
 when the user asked for a change and none was made, or when the next move is
@@ -285,14 +310,11 @@ Both kept their tests; the notes needed no change.
 ```
 
 Reporting anything else (a health check, an audit, a survey, a comparison:
-findings the user reads rather than answers) is a Report card, whatever
-the subject: `## 📊 Report: <subject>`, a one-sentence headline, then only
-the readouts that help. It is plain markdown, so it reads as it is outside the
-page. [references/reporting.md](references/reporting.md), Reports, has the
-readouts (`stats`, `chart`, `progress`, `steps`, `gallery`, `d2`, callouts, a status table, a
-folded `### Details`) and their shapes; copy one from there. Any card's prose
-body (Merged, Done and the rest, not Review or Questions) may use them too. A report asks
-nothing; when it ends an automation's run, send it before the Done report.
+findings the user reads rather than answers) is an ordinary markdown reply: a
+one-sentence headline, then only the detail that helps, with no card title.
+The readouts in [references/reporting.md](references/reporting.md), Readouts,
+draw only inside the body of a Merged, Done, Removed, Blocked or Permission
+card, so outside those use plain markdown (tables, lists, images).
 
 Whenever the agent asks the user to carry out a sequence of manual actions,
 use a Steps conversation card. This includes click-by-click instructions in
@@ -308,7 +330,12 @@ end in no `?`; ask a question after the card, as its own numbered list. The
 page lets the user keep their place in it and pop it out beside another
 tab, so give every step in one card. A message from that pop-out opens with
 `(From the steps pop-out, on step <n> of <m> of "<title>": <the step>)`:
-answer about that step, briefly, and it shows in the pop-out. When a step is
+answer about that step, briefly, and it shows in the pop-out. The card's
+Done sends `(Done with the steps "<title>": <k> of <m> checked off)`: the
+user says they finished, with or without every step checked, so check what
+you can of the result and carry on. Never depend on it: the user may finish
+without pressing Done, or press it without finishing, so never wait for it
+or read its absence as anything. When a step is
 wrong or missing, send the whole card again under the same title with it
 fixed; the page swaps it in, marks the changed steps and keeps their place.
 Keep every step in the resend, the ones the user has checked included, and
@@ -373,18 +400,20 @@ saved, leave the line out).
 Evals cost the user tokens, so only they start them, approving every round.
 Every run card waits for the user to review its agents, set its dollar budget
 and press Run; each card is one round with its own budget. You never set the
-budget. To ask for a run (in
+budget. A round is 1 repetition on 1 agent by default, with more repetitions
+only to tell a change from noise and more agents only to confirm across agents
+before landing. To ask for a run (in
 a project whose `splates.config.ts` names `evals.list` and `evals.run`, as
 splates's own does, its list naming the scenarios), end your reply with the
 run card, the word after `run evals` naming the skill or suite: the
 scenarios you picked, one `` - `id` `` item each, and optionally the
-revision the change is judged against and how many times to run each cell
-(`Repetitions: <n>`, to tell a change from noise)
+revision the change is judged against, how many times to run each cell
+(`Repetitions: <n>`, defaulting to 1, raised only to tell a change from noise),
 and the saved agents to
 run on (`Agents:` then each as `` `agent:model@effort` ``), chosen only from the saved
 eval agents the project allows, never an agent you invent, leaving out those that need no
-rerun, such as a model already passing; with no `Agents:` line every saved agent runs. The page shows it with
-the saved eval agents, only those named ticked, and, when the project prints a plan, what the run
+rerun, such as a model already passing; with no `Agents:` line only the first saved agent is ticked. The page shows it with
+the saved eval agents, only those named ticked (or the first saved when none are named), and, when the project prints a plan, what the run
 costs at most; it runs in your worktree, and its Run button is the user's
 for every round: never run the eval command yourself.
 
@@ -397,8 +426,7 @@ Checks the new wording of the scoped-tests rule.
 - `resources/whole-suite`
 
 Baseline: `main`
-Repetitions: 3
-Agents: `<agent:model@effort>`, `<agent:model@effort>`
+Agents: `<agent:model@effort>`
 ```
 
 In another project, evals from any framework show on the Evals page when the
@@ -471,7 +499,11 @@ tasks needs the user's remove-lane permission card (see
 every lane on a board and may add and remove empty boards (`splates board`);
 see Boards in [queue.md](references/queue.md).
 
-You never change the queue, which splates refuses an agent: when a
+You never change the queue, which splates refuses an agent, except
+`splates queue add` where the project's Agents setting allows it and the
+ask-first criteria do not apply (see [queue.md](references/queue.md), Queueing
+on your own, which also has the `## 🤖 Queued` message, the cap and the
+out-of-budget question): when a
 conversation asks for several tasks, or a request is several medium changes,
 offer a lane and add it once the user agrees (see
 [queue.md](references/queue.md), Asking the user to queue), and when the user
@@ -495,6 +527,8 @@ wakes you when it exits, so nothing polls.
   it, with no approval. Every conversation waiting on the name at that moment
   wakes with the payload; nothing is stored as current truth, so fire it
   when the fact holds.
+- A rig started by splates can run the same `splates signal fire` command
+  from its checkout, including main. The firing is attributed to the rig.
 - `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 is published on npm, so vexml can adopt it."`
   puts one card in the conversation, then end your turn. `--description` is
   required: one or two plain sentences a stranger understands, naming the fact
@@ -587,7 +621,7 @@ the file when one arrives.
 | Directive                           | What it asks                                                                                                                                      | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[SPLATES TASK #N]`                 | Take queued task N                                                                                                                                | `splates task show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `splates add <slug> --task N`, under the `slug:` it prints when it has one, then, when `splates task show N` says `groomed: no`, groom it as [groom.md](references/groom.md) says under Grooming a task you start; then [queue.md](references/queue.md), Taking a queued task |
-| `[SPLATES TALK #N]` | The user wrote on queued task N while it is blocked, to talk about it | `splates task show N` and read what it is blocked by, then talk with the user as they wrote: answer, plan, refine its words with `splates task update`. Never `splates add` it, take it, change code or merge: it is not yours, and `splates merge` refuses while a blocker is open anyway. End with the answer, or a questions card; a Done report when the talk is over |
+| `[SPLATES TALK #N]` | The user wrote on queued task N while it waits or is blocked, to talk about it | `splates task show N` and read what it is waiting on or blocked by, then talk with the user as they wrote: answer, plan, refine its words with `splates task update`. Never `splates add` it, take it, change code or merge: the queue will hand the task to this conversation when it starts. End with the answer, or a questions card; a Done report when the talk is over |
 | `[SPLATES TASK <task>]`             | Resume a task                                                                                                                                     | `splates claim <task>`, read its `SPLATES.md`, and carry on from where it stands                                                                                                                                                                                                                                                                                                                                                                               |
 | `[SPLATES MERGE]`                   | The user approved your review, from the Ready to merge card                                                                                       | As for a reply of "merge": [merge.md](references/merge.md), Merge or review                                                                                                                                                                                                                                                                                                                                                                                    |
 | `[SPLATES APPROVE]`                 | Legacy: an old proposal card was approved, with any answers after it                                                                         | Take it as Yes to the approval question: [proposing.md](references/proposing.md)                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -681,7 +715,7 @@ queuing work there and what a grant allows.
    queue).
 2. **Plan and propose.** After your first look at the code, fill in `## Before` and
    `## After` in `SPLATES.md` before touching code (see SPLATES.md below), and when the work will take several commits, list
-   them under `## Next` (see SPLATES.md below). Then send the plan with its
+   them under `## Next` (see SPLATES.md below). Then send the plan card with its
    approval question and end your turn; touch no code until it is answered Yes, unless the task
    is easy to reverse and takes little effort to execute: then start
    building without asking and say so in a line (see

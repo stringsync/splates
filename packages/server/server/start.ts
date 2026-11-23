@@ -450,6 +450,7 @@ async function start(
 			workers,
 			worker,
 			coordinator,
+			limits,
 		},
 	);
 	const loop = new LoopWatch(ctx.log);

@@ -13,7 +13,7 @@ import {
 	TriangleAlertIcon,
 	UnplugIcon,
 } from "lucide-react";
-import { createContext, type JSX, use, useState } from "react";
+import { createContext, type JSX, type ReactNode, use, useState } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -75,7 +75,13 @@ export const InterruptedUI = makeAssistantDataUI<{ at: string }>({
 /** Where the project's trees sit, so a path can show from the top of its own. */
 export const TreesContext = createContext<Trees | null>(null);
 
-export function WorkRow({ work }: { work: Work }): JSX.Element {
+export function WorkRow({
+	work,
+	recorded,
+}: {
+	work: Work;
+	recorded?: RecordedWork;
+}): JSX.Element {
 	// It counts up only once the agent has moved, so the row never sits at
 	// 0s while the agent has yet to start.
 	const since = work.until === null ? null : work.at;
@@ -92,13 +98,30 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	// The timeline is built on the first open and kept after, so reopening is
 	// instant and a long thread mounts none of its folded cards.
 	const [opened, setOpened] = useState(false);
+	if (recorded !== undefined && steps.length === 0) {
+		return (
+			<p className="mb-3 text-muted-foreground text-xs">
+				Worked {recorded.elapsed}
+			</p>
+		);
+	}
 	return (
 		<Going value={work.going}>
-			<div data-slot="work" className="mt-1 mb-5 flex flex-col gap-1.5 text-xs">
+			<div
+				data-slot="work"
+				className={cn(
+					"flex flex-col gap-1.5 text-xs",
+					recorded ? "mb-3" : "mt-1 mb-5",
+				)}
+			>
 				<Collapsible
-					open={open}
+					open={recorded?.open ?? open}
 					data-working={work.working || undefined}
 					onOpenChange={(next) => {
+						if (recorded !== undefined) {
+							recorded.onOpenChange(next);
+							return;
+						}
 						setOpen(next);
 						if (next) {
 							setOpened(true);
@@ -115,7 +138,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							)}
 						>
 							{!work.working
-								? worked(work)
+								? recorded?.elapsed === undefined
+									? worked(work)
+									: `Worked ${recorded.elapsed}`
 								: since === null
 									? "Working"
 									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
@@ -128,9 +153,13 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					</CollapsibleTrigger>
 					<CollapsibleContent
 						keepMounted
-						className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
+						className={
+							recorded === undefined
+								? "h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
+								: undefined
+						}
 					>
-						{opened &&
+						{(recorded?.open ?? opened) &&
 							(steps.length > 0 || (!work.going && work.plan !== null)) && (
 								<ol
 									aria-label="timeline"
@@ -142,13 +171,30 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 											<Plan steps={work.plan} />
 										</li>
 									)}
-									{steps.map((item, index) => (
-										// The timeline only grows at its end, so an index is stable.
-										// biome-ignore lint/suspicious/noArrayIndexKey: as above
-										<li key={index}>
-											<TimelineItem item={item} short={short} />
-										</li>
-									))}
+									{steps.map((item, index) => {
+										const id = item.type === "tool" ? item.tool.id : undefined;
+										const call =
+											id === undefined ? undefined : recorded?.calls.get(id);
+										return (
+											<li
+												key={recorded === undefined ? index : (id ?? index)}
+												id={call?.annotation ? id : undefined}
+												tabIndex={call?.annotation ? -1 : undefined}
+												className={
+													call?.annotation ? "scroll-mt-14" : undefined
+												}
+											>
+												<TimelineItem
+													item={item}
+													short={short}
+													elapsed={call?.elapsed}
+												/>
+												{call?.annotation && (
+													<div className="-ml-5 my-2">{call.annotation}</div>
+												)}
+											</li>
+										);
+									})}
 								</ol>
 							)}
 					</CollapsibleContent>
@@ -171,6 +217,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 			</div>
 		</Going>
 	);
+}
+
+export interface RecordedCall {
+	elapsed: string | undefined;
+	annotation: ReactNode;
+}
+
+// vet-ignore objects-over-callbacks: controlled state for the collapsible React component
+export interface RecordedWork {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	elapsed: string | undefined;
+	calls: ReadonlyMap<string, RecordedCall>;
 }
 
 /**

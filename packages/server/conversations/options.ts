@@ -18,6 +18,8 @@ export interface ConversationsOptions {
 	fs?: Fs;
 	/** Kimi Code's home (`~/.kimi-code`), whose session logs supply its tokens. */
 	kimiHome?: string;
+	/** Antigravity's home (`~/.gemini/antigravity-cli`), whose transcripts name its backgrounded commands' tasks. */
+	antigravityHome?: string;
 	/** Where the conversations are kept; the files in `dir`, on `fs`, by default. */
 	storage?: Storage;
 	/** How many bytes of artifacts each may keep; `ARTIFACT_LIMITS` by default. */

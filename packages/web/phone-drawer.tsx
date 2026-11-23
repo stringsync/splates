@@ -16,8 +16,8 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
+import { useAutoPickImprovements } from "./use-auto-pick-improvements";
 import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
-import { useSignalSubscribers } from "./use-signals";
 
 /**
  * The phone's menu of every page, project and the archived conversations:
@@ -74,17 +74,17 @@ export function Drawer({
 	const [adding, setAdding] = useState(false);
 	const asking = useShipsWaiting().length;
 	const shipsRunning = useShipsRunning();
-	const signalSubscribers = useSignalSubscribers();
+	const improvements = useAutoPickImprovements()?.count ?? 0;
 	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}
 			current={navPage(page) === value}
+			{...(value === "auto-pick" && { count: improvements, urgent: true })}
 			{...(value === "ships" && {
 				count: asking,
 				urgent: true,
 				running: shipsRunning,
 			})}
-			{...(value === "signals" && { count: signalSubscribers })}
 			onClick={() => go(value)}
 			icon={
 				<span className="relative flex">

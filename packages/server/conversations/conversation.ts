@@ -4,7 +4,7 @@ import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration } from "core/time";
 import type { Agent, AgentProcess, ProcessHandle } from "../agents";
-import { AgentConnection, endBackground, fold, heard } from "../agents";
+import { AgentConnection, endBackground, fold } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
@@ -39,6 +39,7 @@ import {
 	callerAfter,
 	type Device,
 	IDLE_STOP,
+	type LiftReason,
 	type Limit,
 	lifted,
 	type QueueSpot,
@@ -349,6 +350,7 @@ export class Conversation
 			automatic = false,
 			skill = null,
 			heldForTask,
+			queuedTask,
 			title = null,
 			persistent,
 			automation,
@@ -376,6 +378,7 @@ export class Conversation
 		state.skill = skill;
 		state.automatic = automatic;
 		state.heldForTask = heldForTask ?? null;
+		state.queuedTask = queuedTask ?? null;
 		state.title = title;
 		if (persistent !== undefined) {
 			state.persistent = persistent;
@@ -402,6 +405,7 @@ export class Conversation
 			...(automatic ? { automatic } : {}),
 			...(skill === null ? {} : { skill }),
 			...(heldForTask === undefined ? {} : { heldForTask }),
+			...(queuedTask === undefined ? {} : { queuedTask }),
 			...(persistent === undefined ? {} : { persistent }),
 			...(automation === undefined ? {} : { automation }),
 			...(ship === undefined ? {} : { ship }),
@@ -569,7 +573,7 @@ export class Conversation
 		this.log.write({ kind: "limits", limits });
 		this.state.usage = {
 			...this.state.usage,
-			limits: heard(this.state.usage.limits, limits),
+			limits: [...limits],
 		};
 		this.changed();
 	}
@@ -656,11 +660,18 @@ export class Conversation
 	async lift(
 		settings: Record<string, string>,
 		pick: AutoPickSet,
+		why?: LiftReason,
 	): Promise<void> {
 		for (const [id, value] of Object.entries(settings)) {
 			await choose(this, this.connection, id, value, true);
 		}
-		this.log.write({ kind: "auto-pick", pick, lifted: true, at: this.now() });
+		this.log.write({
+			kind: "auto-pick",
+			pick,
+			lifted: true,
+			...(why === undefined ? {} : { why }),
+			at: this.now(),
+		});
 		this.set({ autoPick: lifted(this.state.autoPick, pick) });
 	}
 
@@ -780,8 +791,13 @@ export class Conversation
 		caller: string | null = null,
 	): void {
 		this.move(task, cwd, base, caller);
-		this.log.write({ kind: "held-for-task", heldForTask: null });
-		this.set({ heldForTask: null, queue: null });
+		if (this.state.heldForTask !== null) {
+			this.log.write({ kind: "held-for-task", heldForTask: null });
+		}
+		if (this.state.queuedTask !== null) {
+			this.log.write({ kind: "queued-task", queuedTask: null });
+		}
+		this.set({ heldForTask: null, queuedTask: null, queue: null });
 		this.letGo(true);
 	}
 
@@ -1191,6 +1207,7 @@ export class Conversation
 		this.grant = null;
 		this.letGo(false);
 		if (this.state.status === "stopped" || this.state.status === "failed") {
+			await this.log.flush();
 			return;
 		}
 		this.connection.close();
@@ -1479,6 +1496,8 @@ interface Opening {
 	skill?: string | null;
 	/** The queued task it is held for until the queue starts it (`hold`). */
 	heldForTask?: number;
+	/** The queued task the person opened a live talk on while it waits. */
+	queuedTask?: number;
 	/** What to call it until its agent names it. */
 	title?: string | null;
 	/** The persistent agent's role it is started for, as `"groomer"`. */

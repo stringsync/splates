@@ -61,12 +61,18 @@ import { useTouch } from "./hooks/use-touch";
 import { Orphaned } from "./list-rows";
 import { NamedContext } from "./mentioned";
 import type { Move } from "./page-address";
-import { antigravityModelLimits, limitsOf, PlanLimits } from "./plan-limits";
+import {
+	AgentQuotas,
+	antigravityModelLimits,
+	limitsOf,
+	PlanLimits,
+} from "./plan-limits";
 import { shownProject, useProjectName } from "./project-places";
 import { ProjectSwitcher } from "./projects";
 import { useReferences } from "./references";
 import { Refusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
+import type { AgentSwitch } from "./setting-sheet";
 import type { Terminals } from "./terminals";
 import { BELOW_BAR, TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
@@ -293,24 +299,24 @@ export function useNewConversation({
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
-	// On Auto pick the agent is yet to be picked: only its switch shows, off
-	// for the agent it stands in with.
+	// The sheet switches the agent as the title's menu does, what was typed
+	// carried over; on Auto pick the agent is yet to be picked, so it leads.
+	const agentSwitch: AgentSwitch = {
+		agents,
+		agent,
+		auto,
+		pick: (each) =>
+			onOpen(
+				each === null ? autoAddress(task) : newAddress(each, task),
+				"replace",
+			),
+	};
 	const controls = auto ? (
 		<SettingControls
 			settings={[]}
 			current={(setting) => setting.current}
 			onChange={() => {}}
-			autoPick={{
-				on: true,
-				chooses:
-					"Chooses the agent, model and effort from your first message. Off, it starts on the agent you pick.",
-				// Off, New starts on the agent Auto pick stood in with.
-				switch: (on) => {
-					if (!on) {
-						onOpen(newAddress(agent, task), "replace");
-					}
-				},
-			}}
+			agentSwitch={agentSwitch}
 		/>
 	) : offered.length > 0 ? (
 		<span aria-busy={keeping > 0} className="contents">
@@ -319,6 +325,7 @@ export function useNewConversation({
 				settings={offered}
 				current={current}
 				autoPick={model === null ? autoPick : undefined}
+				agentSwitch={agentSwitch}
 				onChange={(setting, value) => {
 					const before = current(setting);
 					setPicks((picks) => ({ ...picks, [setting.id]: value }));
@@ -335,9 +342,15 @@ export function useNewConversation({
 			/>
 		</span>
 	) : (
-		<span className="px-1.5 text-[11px] text-muted-foreground">
-			Settings appear once {agentName(agents, agent)} starts
-		</span>
+		// No settings known yet: the sheet still switches the agent, and says
+		// when its settings appear.
+		<SettingControls
+			agent={agent}
+			settings={[]}
+			current={(setting) => setting.current}
+			onChange={() => {}}
+			agentSwitch={agentSwitch}
+		/>
 	);
 	// Picked, the page shows that project's own screen to start one, what was
 	// typed carried there; its trees are its own, so none of this one's task.
@@ -453,8 +466,15 @@ export function Home({
 							}
 							below={
 								<>
+									{auto && (
+										<AgentQuotas
+											agents={agents}
+											conversations={conversations}
+										/>
+									)}
 									{!auto && (
 										<PlanLimits
+											paced
 											limits={
 												agent === "antigravity"
 													? antigravityModelLimits(

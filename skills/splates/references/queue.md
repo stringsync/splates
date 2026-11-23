@@ -114,9 +114,12 @@ for a stranger who has none of this conversation.
 
 ## Asking the user to queue
 
-You never change the queue: splates refuses an agent `splates queue add`,
-`remove`, `move`, `pause` and `resume`, and `splates lane queue` and `unqueue`. The user
-queues, from the board or from the queue card your reply ends with.
+You never change the queue: splates refuses an agent `splates queue remove`,
+`move`, `pause` and `resume`, and `splates lane queue` and `unqueue`. The user
+queues, from the board or from the queue card your reply ends with. The one
+exception is `splates queue add` when the project's Agents setting lets you
+(Queueing on your own, below); with the setting at Never, the default, it is
+refused too.
 
 A task is one medium-sized change: one coherent thing you can state in a
 sentence, that an agent can finish without carrying decisions from an earlier
@@ -180,6 +183,93 @@ the last thing in the reply, is how the user queues what you added. Ask for one 
 end, and leave it at that: whatever the user picks, carry on with any work
 under way, and do none of the work on the card in this conversation unless
 they ask you to.
+
+## Queueing on your own
+
+The user sets, per project in Settings under Agents, how much an agent may queue
+without asking: **Never** (the default), **Safe tasks only**, or **Any task**.
+You cannot change it. Do not read it: after `splates task add`, run
+`splates queue add <id>`. When the setting or the cap forbids it, splates
+refuses and says so; then carry on as Asking the user to queue says, with the
+queue card. Never retry a refused add, and never work around it (`splates
+queue move`, a lane queue, asking another agent).
+
+**Ask first** when any one of these holds, whatever the level, and give the
+user the queue card instead (at Any task, the criteria below still bind you
+except where the user's own words already approved the very thing):
+
+1. Hard to undo: migrations, deleting files, data or branches, rewriting git
+   history, changing stored state, rotating secrets.
+2. Reaches outside the repo: cloud resources, DNS, deploys, ships, npm,
+   posting to GitHub, email or chat, paid APIs, purchases.
+3. Expensive to run: full builds or suites, docker, benchmarks, profiling,
+   model training or inference, long jobs, large downloads, caches or
+   fixtures, token-heavy work (evals, workflows, large refactors).
+4. The user's decision: product or UX, features not asked for, any UI change
+   (it opens with a mockup gate), removing behavior, naming public things,
+   adding or majorly upgrading a dependency, licensing.
+5. Security and permissions: auth, credentials, grants, sending data off the
+   machine, changing what agents may do.
+6. Wide scope: crosses projects, a shared interface needing expand/contract,
+   root files, many packages, more than about 5 commits.
+7. Uncertain: a guessed diagnosis, speculative cleanup, depends on an
+   unanswered question, conflicts with or duplicates an open task.
+8. Over the chain budget, or past this conversation's cap.
+
+A task you may queue without asking is a follow-up the user asked for or
+clearly implied, one goal in one project, fully revertible, and needing
+nothing from the user along the way. At **Safe tasks only** that is all you
+queue; at **Any task** the criteria above are still your guide, so a task that
+meets none of them goes in, and one that meets any goes to the user. Nothing
+you notice on the way is such a follow-up unless it passes this test: drop it
+or queue-card it as Do, queue or drop says.
+
+The same criteria apply when you start work in a task an agent queued: if
+the work turns out to meet one, ask as Questions says before doing it.
+
+**Say it.** For each task you queue, write one heading and a `Why:` line, in
+the reply that queued it, the reason one short sentence. The page groups the
+headings of one reply into one card:
+
+```markdown
+## 🤖 Queued #821: Fix the flaky merge-place test
+
+Why: the merge gate failed on it twice while landing this; one test file.
+```
+
+**The cap.** You may queue at most the cap the setting names (default 5) from
+this conversation; only tasks you queued count, never ones queued further down
+the chain. `queue add` says when you are at it. Past it, end your reply with
+today's queue card, which says so:
+
+```markdown
+## 🔐 Permission: queue #830: Trim the merge log
+
+`splates queue add 830`
+
+This conversation has queued its 5; the rest need you.
+```
+
+**The chain budget.** A chain is the tasks agents queued under a task the user
+started or queued, with a token budget (default 5M, fresh input and
+output, cache reads left out). When the chain is out of it, queue nothing and ask before starting
+any work, as an ordinary numbered question with the four choices, naming
+the chain, what it spent, and the task you wanted to queue or start with its
+rough cost:
+
+```markdown
+1. How much more may the agent-enqueue-setting chain spend?
+   It spent 5.0M of 5M; #826 wants to queue #831 Split the fixture loader (about 0.6M).
+   - (a) Add 2M
+   - (b) Add 5M
+   - (c) Add a custom amount
+   - (d) Stop auto for this chain
+```
+
+Apply the answer with `splates queue budget`: `--add 2M` for (a), `--add 5M`
+for (b), `--add <amount>` for (c), `--stop` for (d). `queue add` refuses with
+this question's shape while the chain is out of budget. On (d), queue nothing
+more from this chain and finish your own task; leave the rest to queue cards.
 
 ## Changing several units
 
@@ -262,6 +352,25 @@ once its work finishes. Backlog's Groom button starts the groomer, which
 moves each ungroomed task to a themed lane or leaves it in Backlog, groomed.
 
 `splates task update <id> --lane <n>` moves one that exists.
+
+### Design first
+
+A lane the user will meet as a look or an interaction (a page, a component, a
+flow) starts with one design task: the general design settled as mockup
+variants, plus the choice among them. Every other task in the lane is
+`--blocked-by` it, so no code builds on a design the user has not seen. Add
+it first, name it for the design (`Design: <what>`), and write its goal as
+the questions the design settles, not the build.
+
+Skip it when there is nothing to design: a mechanical lane (a rename, a
+migration, a refactor, a backend change with no new look), or a design that
+is already settled, such as an approved mock in an earlier task or the user's
+own picture of it. When skipping a design that might be expected, say in the
+lane's queue card line that the design is settled and where.
+
+The point is that the user knows what a lane represents before it runs: the
+design task's mockups are what they approve, and the queue card's line on
+what the tasks add up to names the design task first.
 
 The user queues a lane from the board or a queue card, once: every task
 waiting in it joins the queue then, which starts each once what it is

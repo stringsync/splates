@@ -48,6 +48,7 @@ in the splates repository) documents each one, and its defaults are in
 | `ship`         | `null`  | What the ship runner runs from the root to ship the project: publish its packages at their next version and tag the release on trunk, or, for a deploy target, put it out with no version. `null` never ships it. Only the user ships. |
 | `afterBump` | `null` | A command for consumers to run after installing this project’s new versions, such as `"bunx @stringsync/splates refresh"`. Retained for ship-step adoption; the old cascade no longer runs bump tasks. |
 | `ships` | `[]` | The commands that ship the repository's targets, as `["bin/mdom ship", "bin/net ship"]`. Each serves one target or several through core/ship's `serve`, runs from the repository's root, and answers `plan` for the targets it ships; the Ships page lists them. Only the user ships. |
+| `rigs` | `[]` | The commands that declare the repository's dev servers, as `["bin/vex rig"]`. Each answers `describe` with the rigs it serves and `start <rig>` to run one in the tree the user picks; the Rigs page lists them and is the only place they start. The protocol is in splates's `docs/rigs.md`. |
 
 ## Task events
 

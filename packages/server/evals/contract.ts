@@ -81,6 +81,11 @@ export async function contractDetail(
 	const detail = await detailOf(dir, result.detail);
 	return {
 		...runOf(contractRunId(id, cell), result),
+		...(batch.title
+			? { batch: { title: batch.title, cells: batch.cells.length } }
+			: {}),
+		...(result.harness === undefined ? {} : { harness: result.harness }),
+		...(result.phases === undefined ? {} : { phases: result.phases }),
 		producer: batch.producer ?? null,
 		scenario: planned.case,
 		aspect: planned.group ?? "",

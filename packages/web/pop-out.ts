@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 
 /** Whether this browser can pop a card out into a window of its own. */
 export function canPopOut(): boolean {
@@ -6,31 +6,28 @@ export function canPopOut(): boolean {
 }
 
 /**
- * A window a card pops out into, titled `title`, carrying the page's styles
- * and theme; null until opened and once closed. Only one is open a tab, so
- * opening another closes this one. It closes with the card.
+ * Opens a window to pop a card out into, titled `title`, carrying the page's
+ * styles and theme; null where the browser has none. Call it from a click:
+ * the browser opens one only for something the person did. `closed` is
+ * called once it closes, by its own close button or `close()`.
  */
-export function usePopOut(title: string): {
-	popped: Window | null;
-	open: () => Promise<void>;
-	close: () => void;
-} {
-	const [popped, setPopped] = useState<Window | null>(null);
-	const open = useCallback(async () => {
-		const pip = pictureInPicture();
-		if (pip === null) {
-			return;
-		}
-		const opened = await pip.requestWindow({ width: 380, height: 560 });
-		opened.document.title = title;
-		copyLook(document, opened.document);
-		opened.addEventListener("pagehide", () => setPopped(null), {
-			once: true,
-		});
-		setPopped(opened);
-	}, [title]);
-	const close = useCallback(() => popped?.close(), [popped]);
-	// The theme switched while it is open follows it there.
+export async function openPopOut(
+	title: string,
+	closed: () => void,
+): Promise<Window | null> {
+	const pip = pictureInPicture();
+	if (pip === null) {
+		return null;
+	}
+	const opened = await pip.requestWindow({ width: 380, height: 600 });
+	opened.document.title = title;
+	copyLook(document, opened.document);
+	opened.addEventListener("pagehide", closed, { once: true });
+	return opened;
+}
+
+/** Keeps `popped` in the page's theme while it is open: a switch follows it there. */
+export function useFollowLook(popped: Window | null): void {
 	useEffect(() => {
 		if (popped === null) {
 			return;
@@ -44,8 +41,6 @@ export function usePopOut(title: string): {
 		});
 		return () => watch.disconnect();
 	}, [popped]);
-	useEffect(() => () => popped?.close(), [popped]);
-	return { popped, open, close };
 }
 
 /** Copies `from`'s stylesheets and theme into `to`. */

@@ -1,5 +1,6 @@
 import type { Deps } from "core/cmd";
 import type { Fs } from "core/system";
+import type { Timer } from "core/time";
 import type { SecretStores } from "../creds";
 import type { Assets } from "./assets";
 
@@ -17,4 +18,6 @@ export interface SplatesDeps extends Deps {
 	secrets?: SecretStores;
 	/** How `splates tunnel setup` reaches Cloudflare's API; the global one by default. */
 	fetch?: typeof fetch;
+	/** How `splates machine` waits between CPU readings. */
+	machineTimer?: Timer;
 }

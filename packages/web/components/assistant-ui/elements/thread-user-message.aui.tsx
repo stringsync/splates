@@ -3,7 +3,6 @@
 import {
 	ActionBarPrimitive,
 	AuiIf,
-	type CompleteAttachment,
 	MessagePrimitive,
 	type TextMessagePartComponent,
 	useAuiState,
@@ -34,7 +33,6 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 } from "#web/components/ui/dropdown-menu.tsx";
-import { SEEN } from "#web/conversation-feed.ts";
 import { useNameOf } from "#web/conversation-names.ts";
 import {
 	DirectiveChip,
@@ -44,6 +42,7 @@ import {
 	linkDirectives,
 	soleDirective,
 	unshown,
+	useShownDirectives,
 	withoutLoopParameters,
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
@@ -53,21 +52,30 @@ import {
 	type Sent,
 	SentAttachmentChip,
 	SentAttachments,
+	sentOf,
 	unnamed,
 } from "#web/sent-attachments.tsx";
 import { handOffLines, serverToldLines } from "#web/server-messages.ts";
 import { SplatesEvent } from "#web/splates-event.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
+import { readAsked } from "#web/steps-asked.ts";
 import { QueueGoal } from "#web/task-goal-message.tsx";
 import { SendingLine, UnsentLine } from "#web/unsent.tsx";
+import { USER_BUBBLE } from "./thread-user-bubble.aui";
 
+/**
+ * A message's words without the line a Steps card's pop-out put before them
+ * to tell the agent where the person was: the page says that under the
+ * bubble instead (see `PoppedNote`).
+ */
+const wordsOf = (text: string): string => readAsked(text)?.words ?? text;
 /**
  * What the person typed, as markdown with each line break kept, each todo it
  * mentions a link to it, each system and file a chip, and the directives and
  * attachments after those `Leading` shows as chips where they stand.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
-	const { directives, rest } = leadingDirectives(text);
+	const { directives, rest } = leadingDirectives(wordsOf(text));
 	return withoutLoopParameters(directives, rest) === "" ? null : (
 		<MarkdownText typed={afterDirectives} />
 	);
@@ -81,10 +89,11 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
 	text,
 	sent,
 }) => {
-	const { directives, rest: all } = leadingDirectives(text);
+	const { directives, rest: all } = leadingDirectives(wordsOf(text));
+	const shown = useShownDirectives(directives);
 	const rest = withoutLoopParameters(directives, all);
 	const loose = unnamed(sent, text);
-	if (directives.length + loose.length === 0) {
+	if (shown.length + loose.length === 0) {
 		return null;
 	}
 	return (
@@ -95,7 +104,7 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
 				rest !== "" && "pb-2",
 			)}
 		>
-			{directives.map((directive) => (
+			{shown.map((directive) => (
 				<DirectiveChip key={directive} directive={directive} opens />
 			))}
 			{loose.map((placed) => (
@@ -112,7 +121,7 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
  * directive after them a link the markdown draws as its chip.
  */
 const afterDirectives = (text: string) => {
-	const { directives, rest } = leadingDirectives(text);
+	const { directives, rest } = leadingDirectives(wordsOf(text));
 	return linkAttachments(
 		linkDirectives(withoutLoopParameters(directives, rest)),
 	);
@@ -162,6 +171,7 @@ export const UserMessage: FC = () => {
 			.flatMap((part) => (part.type === "text" ? [part.text] : []))
 			.join("\n"),
 	);
+	const popped = readAsked(text);
 	// A review's Merge, which the card's own line says was approved.
 	const approved = useAuiState(
 		(s) =>
@@ -240,7 +250,7 @@ export const UserMessage: FC = () => {
 					</SentAttachments>
 				</Clamped>
 			</Bubble>
-			{(steered || at !== null || told !== null) && (
+			{(steered || at !== null || told !== null || popped !== null) && (
 				<div
 					className={cn(
 						"text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs",
@@ -250,7 +260,16 @@ export const UserMessage: FC = () => {
 					)}
 				>
 					{at !== null && <Stamp at={at} />}
-					{at !== null && told !== null && <span aria-hidden>·</span>}
+					{at !== null && popped !== null && <span aria-hidden>·</span>}
+					{popped !== null && (
+						<span data-slot="aui_user-message-popped">
+							Sent from the steps pop-out, on step {popped.step} of “
+							{popped.title}”
+						</span>
+					)}
+					{(at !== null || popped !== null) && told !== null && (
+						<span aria-hidden>·</span>
+					)}
 					{told !== null && (
 						<span data-slot="aui_user-message-told">
 							from{" "}
@@ -268,7 +287,7 @@ export const UserMessage: FC = () => {
 							)}
 						</span>
 					)}
-					{(at !== null || told !== null) && steered && (
+					{(at !== null || told !== null || popped !== null) && steered && (
 						<span aria-hidden>·</span>
 					)}
 					{steered && (
@@ -329,30 +348,6 @@ export const UserMessage: FC = () => {
 		</MessagePrimitive.Root>
 	);
 };
-/**
- * The files a message holds, where the page loads each from. An image kept as
- * a file, for an agent that sees no images, still counts as an image, as the
- * composer named it.
- */
-const sentOf = (
-	attachments: readonly CompleteAttachment[] | undefined = [],
-): Sent[] =>
-	attachments.flatMap((attachment) =>
-		(attachment.content ?? []).flatMap((part) =>
-			part.type === "image" || part.type === "file"
-				? [
-						{
-							src: part.type === "image" ? part.image : part.data,
-							name: attachment.name,
-							type: SEEN.includes(attachment.contentType ?? "")
-								? "image"
-								: attachment.type,
-							contentType: attachment.contentType,
-						},
-					]
-				: [],
-		),
-	);
 /** How long after a hold's finger lifts its click may still come. */
 const LIFT_MS = 400;
 /**
@@ -470,15 +465,6 @@ const UserCopy: FC = () => (
 	</ActionBarPrimitive.Copy>
 );
 /**
- * What the person said, across the thread's full width like the reply: the
- * theme's muted fill, set apart from the page, with room at its end for the
- * copy button. On a phone, a chat bubble instead: as wide as its words up
- * to most of the thread, at its end, rounded and unbordered, the copy
- * button below it.
- */
-const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:pe-4 max-sm:leading-relaxed min-w-0 max-w-full wrap-anywhere";
-/**
  * Room at the box's start for the mic a dictated message shows, in the top
  * corner by its first line.
  */
@@ -544,7 +530,7 @@ const Clamped: FC<
 			}}
 			className={cn(
 				"aui-user-message-content outline-none focus-visible:ring-2 focus-visible:ring-ring",
-				USER_BOX,
+				USER_BUBBLE,
 				dictated && ["relative", DICTATED_BOX],
 				// Held for its menu on a phone, rather than iOS selecting
 				// a word with its own menu.

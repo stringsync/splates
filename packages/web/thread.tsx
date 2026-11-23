@@ -1,7 +1,5 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import type { ConversationState } from "@splates/server/conversations";
-import type { TaskReport } from "@splates/server/plans";
-import { isEscalation } from "@splates/server/records/browser";
 import type { Details } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import {
@@ -21,10 +19,12 @@ import { cn } from "#web/lib/utils.ts";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import { useAged } from "./aged";
 import { FailedUI } from "./agent-failed";
+import { AgentQueuedUI } from "./agent-queued-card";
 import {
 	ArchiveBar,
 	ArchiveConversation,
 	ArchiveOfferProvider,
+	endedReport,
 	useArchiveOffer,
 } from "./archive-offer";
 import { ArchivedBanner } from "./archived-banner";
@@ -35,6 +35,7 @@ import { AskPanel } from "./ask-panel";
 import { BackgroundCard, BackgroundUI } from "./background";
 import { BlockedPanel } from "./blocked-panel";
 import { ReplyContext } from "./card-reply";
+import { ChainBar, ChainCard } from "./chain-card";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -46,12 +47,12 @@ import {
 import { NEW } from "./conversation-address";
 import { markRead } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
-import { lastReport, useNameOf } from "./conversation-names";
+import { useNameOf } from "./conversation-names";
 import { DemoUI } from "./demo-cards";
+import { HiddenTalkTask } from "./directives";
 import type { Drafts } from "./drafts";
 import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
-import { tierOf } from "./event-tier";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
@@ -66,6 +67,8 @@ import { ProbeCards, ProbeUI } from "./probe-card";
 import { useArchiveAfterPutBack, usePutBack } from "./put-back";
 import { QueueSummaryFor } from "./queue-summary-card";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
+import { useQueuedTaskInThread } from "./queued-task";
+import { QuotaCard } from "./quota-card";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
@@ -281,7 +284,7 @@ function Conversation({
 	const fileAway = () => archive.file(onLeft);
 	const swipeAway = (_then?: () => void, failed?: () => void) =>
 		archive.file(onLeft, failed);
-	const last = archivable ? ended(conversation) : null;
+	const last = archivable ? endedReport(conversation) : null;
 	// A blocked task is no ending to offer archiving at: the menu does that.
 	const { offer, barred } = useArchiveOffer(
 		last?.ending === "deferred" ? null : last,
@@ -290,6 +293,7 @@ function Conversation({
 	useArchiveAfterPutBack(awaiting, last, fileAway);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
+	const queuedTask = useQueuedTaskInThread(conversation, refused);
 	return (
 		<>
 			{onBack !== null && archivable && (
@@ -323,6 +327,7 @@ function Conversation({
 					conversation={conversation}
 					refused={refused}
 					widgets={widgets}
+					extraActions={queuedTask.actions}
 					// With the same agent, in the main tree: a task's tree is its own.
 					onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
 					onBack={onBack}
@@ -374,6 +379,7 @@ function Conversation({
 													<ReportUI />
 													<PermissionUI />
 													<DemoUI />
+													<AgentQueuedUI />
 													<StepsUI />
 													<WorkUI />
 													<EventUI />
@@ -393,70 +399,86 @@ function Conversation({
 																<UnsentActionsContext value={unsentActions}>
 																	<ReplyContext value={reply}>
 																		<NamedContext value={named}>
-																			<ThreadView
-																				docked
-																				occupied={
-																					(sending?.length ?? 0) > 0 ||
-																					queued.length > 0
-																				}
-																				historyFailure={historyFailure}
-																				onRead={onRead}
-																				autoFocus={
-																					summary !== true && (!asking || typed)
-																				}
-																				stopping={stopping}
-																				mentions={mentions ?? undefined}
-																				references={references}
-																				commands={commands ?? undefined}
-																				placeholder={
-																					archived
-																						? "Send a message to unarchive and continue"
-																						: undefined
-																				}
-																				controls={
-																					<ThreadControls
-																						conversation={conversation}
-																						refused={refused}
-																					/>
-																				}
-																				after={
-																					<BlockedPanel
-																						conversation={conversation}
-																					/>
-																				}
-																				above={
-																					<>
-																						<NeedsYouBar />
-																						<WaitBar />
-																						<Refusal
-																							refusal={refusal}
-																							className="px-2"
+																			<HiddenTalkTask value={queuedTask.todoId}>
+																				<ThreadView
+																					docked
+																					occupied={
+																						(sending?.length ?? 0) > 0 ||
+																						queued.length > 0
+																					}
+																					historyFailure={historyFailure}
+																					onRead={onRead}
+																					autoFocus={
+																						summary !== true &&
+																						(!asking || typed)
+																					}
+																					stopping={stopping}
+																					mentions={mentions ?? undefined}
+																					references={references}
+																					commands={commands ?? undefined}
+																					placeholder={
+																						archived
+																							? "Send a message to unarchive and continue"
+																							: undefined
+																					}
+																					welcome={
+																						queuedTask.todoId === null
+																							? undefined
+																							: null
+																					}
+																					before={queuedTask.before}
+																					controls={
+																						<ThreadControls
+																							conversation={conversation}
+																							refused={refused}
 																						/>
-																						{offer !== null && barred && (
-																							<ArchiveBar offer={offer} />
-																						)}
-																						<PendingRow
-																							messages={agedSending}
-																							held={queued}
-																							edits={heldEdits(conversation, {
-																								sendNow,
-																								edit,
-																								discard,
-																								busy: queueBusy,
-																							})}
+																					}
+																					after={
+																						<BlockedPanel
+																							conversation={conversation}
 																						/>
-																						{conversation.ask !== null && (
-																							<AskPanel
-																								key={conversation.ask.id}
-																								drafts={drafts}
-																								conversation={conversation}
-																								agent={agent}
-																								ask={conversation.ask}
+																					}
+																					above={
+																						<>
+																							{queuedTask.signal}
+																							<NeedsYouBar />
+																							<WaitBar />
+																							{onBack !== null && (
+																								<ChainBar
+																									conversation={id}
+																									onOpen={onOpen}
+																								/>
+																							)}
+																							<Refusal
+																								refusal={refusal}
+																								className="px-2"
 																							/>
-																						)}
-																					</>
-																				}
-																			/>
+																							{offer !== null && barred && (
+																								<ArchiveBar offer={offer} />
+																							)}
+																							<PendingRow
+																								messages={agedSending}
+																								held={queued}
+																								edits={heldEdits(conversation, {
+																									sendNow,
+																									edit,
+																									discard,
+																									busy: queueBusy,
+																								})}
+																							/>
+																							{conversation.ask !== null && (
+																								<AskPanel
+																									key={conversation.ask.id}
+																									drafts={drafts}
+																									conversation={conversation}
+																									agent={agent}
+																									ask={conversation.ask}
+																								/>
+																							)}
+																						</>
+																					}
+																				/>
+																			</HiddenTalkTask>
 																		</NamedContext>
 																	</ReplyContext>
 																</UnsentActionsContext>
@@ -477,6 +499,17 @@ function Conversation({
 							onClose={widgets.close}
 							actions={where === null ? actions : [where, ...actions]}
 						>
+							<ChainCard
+								conversation={id}
+								open={widgets.open}
+								onOpen={onOpen}
+							/>
+							<QuotaCard
+								conversation={conversation}
+								agent={agent}
+								feed={feed}
+								open={widgets.open}
+							/>
 							<BackgroundCard
 								conversation={id}
 								background={conversation.background}
@@ -492,28 +525,4 @@ function Conversation({
 			</section>
 		</>
 	);
-}
-
-/**
- * The report that is the conversation's last word when it says the task is
- * over, and nothing splates shows in the thread came after it, such as
- * another task taken up: null otherwise.
- */
-function ended(conversation: ConversationState): TaskReport | null {
-	const report = lastReport(conversation);
-	if (report === null || report.ending === "escalated") {
-		return null;
-	}
-	// When the agent began saying it; a log too old to say keeps the offer.
-	const reply = conversation.messages
-		.at(-1)
-		?.parts.findLast((part) => part.type === "text" && part.text.trim() !== "");
-	const said = reply?.type === "text" ? reply.at : null;
-	const movedOn =
-		typeof said === "string" &&
-		conversation.events.some(
-			(event) =>
-				event.at > said && (isEscalation(event) || tierOf(event) === "loud"),
-		);
-	return movedOn ? null : report;
 }

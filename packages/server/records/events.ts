@@ -377,6 +377,12 @@ export interface Facts {
 		 * from lines written before Auto pick looked again.
 		 */
 		lifted: Lifted | null;
+		/**
+		 * For a pick the holdout started one difficulty easier, as an
+		 * experiment, the cell's own pick it held back from, with the
+		 * settings an Undo sets to move up to it; absent otherwise.
+		 */
+		held?: Lifted;
 	};
 }
 
@@ -558,7 +564,7 @@ export const FACTS = {
 		"afterReply",
 	],
 	"note applied": ["path", "probability", "tier", "dollars"],
-	auto: ["agent", "model", "effort", "reasons", "signs", "lifted"],
+	auto: ["agent", "model", "effort", "reasons", "signs", "lifted", "held"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 
 /** Each action's facts `FACTS` leaves out, which must be none. */
@@ -645,7 +651,7 @@ export function isCurrent(event: Event): boolean {
 					"batch",
 					"conflictsLeft",
 				].includes(fact)) ||
-			(event.action === "auto" && fact === "lifted") ||
+			(event.action === "auto" && (fact === "lifted" || fact === "held")) ||
 			((event.action === "task add" || event.action === "task update") &&
 				fact === "failureKeys") ||
 			LATER_NOTE_FACTS[event.action]?.includes(fact) === true,

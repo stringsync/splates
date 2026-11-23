@@ -631,4 +631,82 @@ describe("App's card answer boxes", () => {
 			within(card(view, "2")).queryByRole("button", { name: "Image 1" }),
 		).toBeNull();
 	});
+
+	it("switches a plan card's Approve button to Send while dictating in Anything else and sends without implicit approval", async () => {
+		const planned = conversation({
+			title: "Rename",
+			messages: [
+				message("user", "rename stop"),
+				message(
+					"agent",
+					[
+						"## 📝 Plan: rename the Stop button",
+						"",
+						"### Approach",
+						"",
+						"Rename it Pause.",
+						"",
+						"1. Should the shortcut change too?",
+						"   - (a) Keep Esc (chosen)",
+						"   - (b) Use Space",
+						"2. Do you approve renaming the Stop button?",
+						"   - (a) Yes, approve it",
+						"   - (b) No",
+					].join("\n"),
+				),
+			],
+		});
+		const view = await testing.openConversations([planned]);
+		await waitFor(() => view.getByRole("textbox", { name: "Anything else" }));
+		const more = view.container.querySelector<HTMLElement>(
+			"[data-more]",
+		) as HTMLElement;
+		expect(more).toBeTruthy();
+		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
+
+		// Dictating in a preceding question does not turn Approve into Send.
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "1")).getByRole("button", { name: "Dictate" }),
+			),
+		);
+		await waitFor(() =>
+			within(card(view, "1")).getByRole("button", { name: "Stop dictation" }),
+		);
+		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "1")).getByRole("button", {
+					name: "Discard dictation",
+				}),
+			),
+		);
+
+		// Dictating in Anything else switches Approve to Send and sends without approving.
+		await act(async () =>
+			fireEvent.click(within(more).getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() =>
+			within(more).getByRole("button", { name: "Stop dictation" }),
+		);
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
+		act(() => microphone.speak("Call it Hold instead."));
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1),
+		);
+		const body = testing.posted("/api/conversations/c1/prompt")[0]?.body as {
+			text: string;
+			dictated?: string;
+		};
+		expect(body.text).toContain("Call it Hold instead.");
+		expect(body.text).not.toContain("Yes, approve it");
+		expect(body.dictated).toBe("true");
+	});
 });

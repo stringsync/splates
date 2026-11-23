@@ -18,10 +18,11 @@ import { scheduleOf } from "./schedule";
 
 /**
  * What runs on a trigger: an agent told of it with a prompt, or a shell
- * command.
+ * command. An agent hook that names no agent runs on Auto pick, which picks
+ * the agent, model and effort for each run from what it is told.
  */
 export type Hook =
-	| ({ kind: "agent"; prompt: string } & AgentPick)
+	| ({ kind: "agent"; prompt: string } & Partial<AgentPick>)
 	| { kind: "run"; command: string }
 	/** The project's groomer, told to groom ungroomed Backlog tasks, as built-in automation `groomer` runs. */
 	| ({ kind: "groom" } & AgentPick);

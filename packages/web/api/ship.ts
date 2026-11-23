@@ -4,6 +4,7 @@ import type {
 	Listing,
 	Pick,
 	RunState,
+	Shippables,
 	Supervise,
 	Unshipped,
 	Waiting,
@@ -42,6 +43,37 @@ export async function shipCurrent(): Promise<Currents> {
 			typeof body === "object" && body !== null ? body : {},
 		).filter(
 			(entry): entry is [string, string] => typeof entry[1] === "string",
+		),
+	);
+}
+
+/** Each target's shippable versions, newest first, for the targets that can say. */
+export async function shipVersions(): Promise<Shippables> {
+	const response = await answered(scoped("/api/ship/versions"), {
+		within: Duration.mins(1),
+	});
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ship/versions: ${response.status}`);
+	}
+	const body: unknown = await response.json();
+	if (typeof body !== "object" || body === null) {
+		return {};
+	}
+	return Object.fromEntries(
+		Object.entries(body).flatMap(([name, list]) =>
+			Array.isArray(list)
+				? [
+						[
+							name,
+							list.filter(
+								(each): each is { version: string; note?: string } =>
+									typeof each === "object" &&
+									each !== null &&
+									typeof each.version === "string",
+							),
+						],
+					]
+				: [],
 		),
 	);
 }

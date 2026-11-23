@@ -1,6 +1,15 @@
 import { join } from "node:path";
+import {
+	commandsOf,
+	readClaude,
+	readCodex,
+	readKimi,
+	readOpenCode,
+} from "./agent-parsers";
 import { codexEvidence } from "./codex-evidence";
 import type { Limits, Step } from "./scenario";
+
+export { commandsOf, readClaude, readCodex, readKimi, readOpenCode };
 
 /** `kimi` as found on the PATH, then `KIMI_PATH`, then the installer's home, ahead of the arguments to run it with. */
 const KIMI_CLI = [
@@ -36,7 +45,8 @@ export interface AgentRun {
 export const AGENTS = ["claude", "codex", "opencode", "kimi"];
 
 const TURNS = 30;
-const MINUTES = 5;
+/** Default per-turn timeout in minutes when a scenario sets no `limits.minutes`. */
+export const DEFAULT_MINUTES = 3;
 const USD = 1;
 
 /**
@@ -192,14 +202,27 @@ async function runTurn(
 	format: Format,
 	opts: AgentOptions,
 ): Promise<AgentRun> {
-	const child = Bun.spawn(argv, {
-		cwd: opts.cwd,
-		env: opts.env,
-		stdin: "ignore",
-		stdout: "pipe",
-		stderr: "pipe",
-		timeout: (opts.minutes ?? MINUTES) * 60_000,
-	});
+	const minutes = opts.minutes ?? DEFAULT_MINUTES;
+	let child: Bun.Subprocess<"ignore", "pipe", "pipe">;
+	try {
+		child = Bun.spawn(argv, {
+			cwd: opts.cwd,
+			env: opts.env,
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+			timeout: minutes * 60_000,
+		});
+	} catch (error) {
+		return {
+			reply: "",
+			transcript: [],
+			usd: null,
+			tokens: null,
+			turns: null,
+			error: `${format} failed to start: ${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
 	const [stdout, stderr, code] = await Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
@@ -245,7 +268,7 @@ async function runTurn(
 	if (child.signalCode !== null) {
 		return {
 			...run,
-			error: `stopped after ${opts.minutes ?? MINUTES} minutes`,
+			error: `stopped after ${minutes} minutes`,
 		};
 	}
 	if (code !== 0 && run.error === null) {
@@ -261,7 +284,7 @@ async function runTurn(
 export interface AgentOptions {
 	cwd: string;
 	env: Record<string, string>;
-	/** How long each turn may run, 5 minutes by default. */
+	/** How long each turn may run, 3 minutes by default. */
 	minutes?: number;
 	/** Off by default: the agent runs once. */
 	followUp?: FollowUp;
@@ -294,265 +317,10 @@ export function continueCommand(
 	return { argv: [...argv.slice(0, -1), "--continue", message], format };
 }
 
-/** Read a Claude stream-json run as the reply, tool evidence and usage to grade. */
-export function readClaude(lines: Record<string, unknown>[]): AgentRun {
-	const transcript: Step[] = [];
-	const calls = new Map<string, Extract<Step, { kind: "tool" }>>();
-	const run: AgentRun = {
-		reply: "",
-		transcript,
-		usd: null,
-		tokens: null,
-		turns: null,
-		error: null,
-	};
-	for (const line of lines) {
-		const content = contentOf(line);
-		if (line.type === "assistant") {
-			for (const part of content) {
-				if (part.type === "text" && typeof part.text === "string") {
-					transcript.push({ kind: "text", text: part.text });
-				} else if (part.type === "tool_use") {
-					const step: Extract<Step, { kind: "tool" }> = {
-						kind: "tool",
-						name: String(part.name),
-						input: JSON.stringify(part.input ?? {}),
-						output: null,
-					};
-					calls.set(String(part.id), step);
-					transcript.push(step);
-				}
-			}
-		} else if (line.type === "user") {
-			for (const part of content) {
-				const step = calls.get(String(part.tool_use_id));
-				if (part.type === "tool_result" && step !== undefined) {
-					step.output = textOf(part.content);
-				}
-			}
-		} else if (line.type === "result") {
-			run.reply = typeof line.result === "string" ? line.result : "";
-			run.usd = numberOr(line.total_cost_usd);
-			run.turns = numberOr(line.num_turns);
-			const usage = (line.usage ?? {}) as Record<string, unknown>;
-			run.tokens = sum([
-				usage.input_tokens,
-				usage.output_tokens,
-				usage.cache_read_input_tokens,
-				usage.cache_creation_input_tokens,
-			]);
-			if (line.is_error === true || line.subtype !== "success") {
-				run.error = `claude ended: ${String(line.subtype)}`;
-			}
-		}
-	}
-	if (run.reply === "") {
-		run.reply = lastText(transcript);
-	}
-	return run;
-}
-
-/** Codex's `exec --json`: items as they complete, and each turn's usage. */
-export function readCodex(lines: Record<string, unknown>[]): AgentRun {
-	const transcript: Step[] = [];
-	const run: AgentRun = {
-		reply: "",
-		transcript,
-		usd: null,
-		tokens: null,
-		turns: 0,
-		error: null,
-	};
-	for (const line of lines) {
-		if (line.type === "item.completed") {
-			const item = (line.item ?? {}) as Record<string, unknown>;
-			if (item.type === "agent_message" && typeof item.text === "string") {
-				transcript.push({ kind: "text", text: item.text });
-			} else if (item.type === "command_execution") {
-				transcript.push({
-					kind: "tool",
-					name: "shell",
-					input: String(item.command ?? ""),
-					output: `${String(item.aggregated_output ?? "")}${item.exit_code === undefined ? "" : `\n(exit ${String(item.exit_code)})`}`,
-				});
-			} else if (item.type !== "reasoning") {
-				transcript.push({
-					kind: "tool",
-					name: String(item.type),
-					input: JSON.stringify(item),
-					output: null,
-				});
-			}
-		} else if (line.type === "turn.completed") {
-			run.turns = (run.turns ?? 0) + 1;
-			const usage = (line.usage ?? {}) as Record<string, unknown>;
-			run.tokens =
-				(run.tokens ?? 0) +
-				(sum([usage.input_tokens, usage.output_tokens]) ?? 0);
-		} else if (line.type === "turn.failed" || line.type === "error") {
-			run.error = `codex: ${JSON.stringify(line.error ?? line.message ?? line)}`;
-		}
-	}
-	run.reply = lastText(transcript);
-	return run;
-}
-
-/** OpenCode's `run --format json`: text and tool parts, each step's cost and tokens, and errors. */
-export function readOpenCode(lines: Record<string, unknown>[]): AgentRun {
-	const transcript: Step[] = [];
-	const run: AgentRun = {
-		reply: "",
-		transcript,
-		usd: null,
-		tokens: null,
-		turns: 0,
-		error: null,
-	};
-	for (const line of lines) {
-		const part = (line.part ?? {}) as Record<string, unknown>;
-		if (line.type === "text" && typeof part.text === "string") {
-			transcript.push({ kind: "text", text: part.text });
-		} else if (line.type === "tool_use") {
-			const state = (part.state ?? {}) as Record<string, unknown>;
-			transcript.push({
-				kind: "tool",
-				name: String(part.tool),
-				input: JSON.stringify(state.input ?? {}),
-				output:
-					typeof state.output === "string"
-						? state.output
-						: typeof state.error === "string"
-							? state.error
-							: null,
-			});
-		} else if (line.type === "step_finish") {
-			run.turns = (run.turns ?? 0) + 1;
-			if (typeof part.cost === "number") {
-				run.usd = (run.usd ?? 0) + part.cost;
-			}
-			const tokens = (part.tokens ?? {}) as Record<string, unknown>;
-			const cache = (tokens.cache ?? {}) as Record<string, unknown>;
-			run.tokens =
-				(run.tokens ?? 0) +
-				(sum([tokens.input, tokens.output, cache.read, cache.write]) ?? 0);
-		} else if (line.type === "error") {
-			const error = (line.error ?? {}) as {
-				name?: unknown;
-				data?: { message?: unknown };
-			};
-			run.error = `opencode: ${String(error.data?.message ?? error.name ?? JSON.stringify(line))}`;
-		}
-	}
-	run.reply = lastText(transcript);
-	return run;
-}
-
-/**
- * Kimi's `--output-format stream-json`: chat messages, each assistant step's
- * text and tool calls, then each tool's result. It reports no usage.
- */
-export function readKimi(lines: Record<string, unknown>[]): AgentRun {
-	const transcript: Step[] = [];
-	const calls = new Map<string, Extract<Step, { kind: "tool" }>>();
-	const run: AgentRun = {
-		reply: "",
-		transcript,
-		usd: null,
-		tokens: null,
-		turns: 0,
-		error: null,
-	};
-	for (const line of lines) {
-		if (line.role === "assistant") {
-			run.turns = (run.turns ?? 0) + 1;
-			if (typeof line.content === "string" && line.content !== "") {
-				transcript.push({ kind: "text", text: line.content });
-			}
-			const toolCalls = Array.isArray(line.tool_calls) ? line.tool_calls : [];
-			for (const call of toolCalls as Record<string, unknown>[]) {
-				const fn = (call.function ?? {}) as Record<string, unknown>;
-				const step: Extract<Step, { kind: "tool" }> = {
-					kind: "tool",
-					name: String(fn.name),
-					input: String(fn.arguments ?? "{}"),
-					output: null,
-				};
-				calls.set(String(call.id), step);
-				transcript.push(step);
-			}
-		} else if (line.role === "tool") {
-			const step = calls.get(String(line.tool_call_id));
-			if (step !== undefined) {
-				step.output = textOf(line.content);
-			}
-		} else if (line.type === "error") {
-			run.error = `kimi: ${String(line.message ?? JSON.stringify(line))}`;
-		}
-	}
-	run.reply = lastText(transcript);
-	return run;
-}
-
-/** Each shell command a transcript ran, as the agent wrote it. */
-export function commandsOf(transcript: readonly Step[]): string[] {
-	return transcript.flatMap((step) => {
-		if (step.kind !== "tool") {
-			return [];
-		}
-		if (step.name === "shell") {
-			return [step.input];
-		}
-		if (step.name === "bash") {
-			const input = JSON.parse(step.input) as { command?: unknown };
-			return typeof input.command === "string" ? [input.command] : [];
-		}
-		if (step.name === "Bash") {
-			const input = JSON.parse(step.input) as { command?: unknown };
-			return typeof input.command === "string" ? [input.command] : [];
-		}
-		return [];
-	});
-}
-
-function contentOf(line: Record<string, unknown>): Record<string, unknown>[] {
-	const message = (line.message ?? {}) as { content?: unknown };
-	return Array.isArray(message.content)
-		? (message.content as Record<string, unknown>[])
-		: [];
-}
-
-function textOf(content: unknown): string {
-	if (typeof content === "string") {
-		return content;
-	}
-	return Array.isArray(content)
-		? content
-				.map((part) =>
-					typeof part?.text === "string" ? part.text : JSON.stringify(part),
-				)
-				.join("\n")
-		: "";
-}
-
-function lastText(transcript: readonly Step[]): string {
-	return transcript.findLast((step) => step.kind === "text")?.text ?? "";
-}
-
 function addOrNull(first: number | null, second: number | null): number | null {
 	return first === null && second === null
 		? null
 		: (first ?? 0) + (second ?? 0);
-}
-
-function numberOr(value: unknown): number | null {
-	return typeof value === "number" ? value : null;
-}
-
-function sum(values: unknown[]): number | null {
-	const numbers = values.filter((each) => typeof each === "number");
-	return numbers.length === 0
-		? null
-		: numbers.reduce((total, each) => total + each, 0);
 }
 
 function tail(text: string): string {

@@ -4,8 +4,44 @@ import type {
 	AutoPickTrial,
 	Avoided,
 } from "@splates/server/auto-pick";
-import type { CellOverrides } from "@splates/server/stats/browser";
+import type {
+	CellOverrides,
+	LineupOverrides,
+	PeriodId,
+	ScorecardRow,
+} from "@splates/server/stats/browser";
 import { ApiError, answered, sendJson } from "./api";
+
+export interface AutoPickScores {
+	minimumTasks: number;
+	rows: ScorecardRow[];
+	overrides: LineupOverrides[];
+}
+
+export async function autoPickScores(
+	period: PeriodId,
+): Promise<AutoPickScores> {
+	const response = await answered(`/api/auto-pick/scorecard?period=${period}`);
+	if (!response.ok) {
+		throw new ApiError(
+			"error",
+			`Could not read the scorecard (${response.status})`,
+		);
+	}
+	const scores = (await response.json()) as Partial<AutoPickScores> | null;
+	if (
+		!Array.isArray(scores?.rows) ||
+		!Array.isArray(scores.overrides) ||
+		typeof scores.minimumTasks !== "number"
+	) {
+		throw new ApiError("error", "The server returned an invalid scorecard");
+	}
+	return {
+		rows: scores.rows,
+		overrides: scores.overrides,
+		minimumTasks: scores.minimumTasks,
+	};
+}
 
 /** How often the person overrode each rule's pick, across this machine's projects. */
 export async function autoPickOverrides(): Promise<{
@@ -26,7 +62,7 @@ export async function dismissAutoPickOverrides(cursor: number): Promise<void> {
 	await sendJson("/api/auto-pick/overrides/dismiss", "POST", { cursor });
 }
 
-/** Sends the overrides to an agent as one board task, answering its number. */
+/** Sends flagged scorecard cells to an agent as one board task, answering its number. */
 export async function sendAutoPickOverrides(): Promise<number> {
 	const body = (await sendJson(
 		"/api/auto-pick/overrides/send",
@@ -101,4 +137,39 @@ export async function clearAvoided(
 		agent,
 		model,
 	})) as Avoided[];
+}
+
+/** How many lineups Auto pick could route easier, and the key that dismisses them. */
+export interface AutoPickImprovements {
+	count: number;
+	key: string;
+}
+
+export async function autoPickImprovements(): Promise<AutoPickImprovements> {
+	const response = await answered("/api/auto-pick/improvements");
+	if (!response.ok) {
+		throw new ApiError(
+			"error",
+			`/api/auto-pick/improvements: ${response.status}`,
+		);
+	}
+	const body = (await response.json()) as Partial<AutoPickImprovements> | null;
+	if (typeof body?.count !== "number" || typeof body.key !== "string") {
+		throw new ApiError("error", "The server returned invalid improvements");
+	}
+	return { count: body.count, key: body.key };
+}
+
+export async function dismissAutoPickImprovements(key: string): Promise<void> {
+	await sendJson("/api/auto-pick/improvements/dismiss", "POST", { key });
+}
+
+/** Sends the possible improvements to an agent as one board task, answering its number. */
+export async function sendAutoPickImprovements(): Promise<number> {
+	const body = (await sendJson(
+		"/api/auto-pick/improvements/send",
+		"POST",
+		{},
+	)) as { task: number };
+	return body.task;
 }

@@ -10,6 +10,7 @@ import { type JSX, useContext } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Dispatching } from "./dispatching";
 import { ReferenceChip } from "./reference-chip";
 import { Stamp } from "./stamp";
@@ -183,12 +184,23 @@ function Runs({ hook, does }: { hook: Hook; does: string }): JSX.Element {
 	return (
 		<div className="flex min-w-0 flex-col gap-0.5">
 			<p className="flex min-w-0 items-center gap-1.5 text-sm">
-				<AgentIcon
-					agent={hook.agent}
-					name={dispatch.agentName(hook.agent)}
-					className="size-3.5"
-				/>
-				<span className="truncate">{dispatch.pickName(hook)}</span>
+				{hook.agent === undefined ? (
+					<>
+						<AutoIcon colored className="size-3.5 shrink-0" />
+						<span className="truncate">{AUTO_PICK_NAME}</span>
+					</>
+				) : (
+					<>
+						<AgentIcon
+							agent={hook.agent}
+							name={dispatch.agentName(hook.agent)}
+							className="size-3.5"
+						/>
+						<span className="truncate">
+							{dispatch.pickName({ ...hook, agent: hook.agent })}
+						</span>
+					</>
+				)}
 			</p>
 			<p
 				className={cn(

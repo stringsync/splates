@@ -4,16 +4,16 @@ import {
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
 import type { ClosesOn, TaskRecord } from "@splates/server/board";
-import { isReady } from "@splates/server/board/browser";
+import type { ConversationState } from "@splates/server/conversations";
 import type { SignalWait } from "@splates/server/signals";
-import { SystemWallClock } from "core/time";
 import { ChevronLeftIcon, ListXIcon } from "lucide-react";
-import { type JSX, useContext, useState } from "react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#web/composing.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
-import { assignTodo, queueTodo, updateTodo } from "./api";
+import { AgentQueuedBanner } from "./agent-queued-banner";
+import { assignTodo, queueTodo } from "./api";
 import { BlockersCard } from "./blockers-card";
 import { Board } from "./board";
 import { assigned, queued } from "./board-expectations";
@@ -21,31 +21,53 @@ import { filesOf, said } from "./composer-drafts";
 import { AssigneeMenu, Dispatching } from "./dispatching";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
 import { TaskCard } from "./queued-card";
-import { addedWhileQueued } from "./queued-note";
 import { WaitingPanel } from "./queued-status";
-import { Refusal, useRefusal } from "./refusal";
+import { Refusal, type Refuse, useRefusal } from "./refusal";
 import { SignalBar } from "./signal-card";
 import { shownStage } from "./todo-queue";
-import { BarButton, BELOW_BAR, TopBar } from "./top-bar";
+import { type BarAction, BarButton, BELOW_BAR, TopBar } from "./top-bar";
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
 
 /**
+ * What a queued task's page shows above its composer: who queued it when an
+ * agent did, the task, and what holds it back or where it stands in line.
+ */
+export function QueuedTaskCards({ todo }: { todo: TaskRecord }): JSX.Element {
+	const { todos } = useContext(Board);
+	const blocked = shownStage(todo, todos) === "blocked";
+	return (
+		<div className="flex flex-col gap-3">
+			<AgentQueuedBanner todo={todo} />
+			<TaskCard todo={todo} />
+			{todo.closesOn !== undefined ? null : blocked ? (
+				<BlockersCard task={todo} label="Blocked" />
+			) : (
+				<WaitingPanel todo={todo} />
+			)}
+		</div>
+	);
+}
+
+/**
  * The page of a queued task, which has no conversation yet: the task, what
  * holds it back or where it stands in the queue, and the thread's own
- * composer, whose picker chooses the agent and whose messages add to the
- * task, with a way to put it back on the board, out of the queue.
+ * composer, whose picker chooses the agent and whose messages start a live
+ * conversation in place, with a way to put it back on the board.
  */
 export function QueuedTask({
 	id,
 	onBack,
 	onLeft,
+	onStarted,
 }: {
 	id: number;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 	/** Where to go once the task is no longer queued. */
 	onLeft: () => void;
+	/** Opens the conversation started from this page in place. */
+	onStarted?: (id: string) => void;
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -97,33 +119,36 @@ export function QueuedTask({
 				]}
 			/>
 			<div className="relative min-h-0 flex-1">
-				<QueuedThread todo={todo} refusal={refusal} refuse={refuse} />
+				<QueuedThread
+					todo={todo}
+					refusal={refusal}
+					refuse={refuse}
+					onStarted={onStarted}
+				/>
 			</div>
 		</section>
 	);
 }
 
 /**
- * The thread's own composer under the task: a message sent there starts a
- * conversation about the task while it is blocked, and otherwise is added to
- * the task's words, for the agent that takes it to read, and its picker
- * chooses the agent, which the task's card then shows.
+ * The thread's own composer under the task: any message sent there starts a
+ * live conversation linked to the queued task, staying in place under the task
+ * and status cards until the queue hands the worktree to that same conversation.
  */
 function QueuedThread({
 	todo,
 	refusal,
 	refuse,
+	onStarted,
 }: {
 	todo: TaskRecord;
 	refusal: string | null;
 	refuse: (title: string, error: unknown) => void;
+	onStarted?: (id: string) => void;
 }): JSX.Element {
-	const { todos } = useContext(Board);
 	const expect = useExpectSnapshot();
 	const adapters = useAdapters();
-	const blockedNow = shownStage(todo, todos) === "blocked";
-	const waitingOnBlocker = !isReady(todo);
-	const [adding, setAdding] = useState(false);
+	const [starting, setStarting] = useState(false);
 	const dispatching = useContext(Dispatching);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
@@ -135,54 +160,33 @@ function QueuedThread({
 			if (words === "" && files.length === 0) {
 				return;
 			}
-			setAdding(true);
-			if (waitingOnBlocker && dispatching !== null && files.length === 0) {
-				// A blocked task has nothing to build yet: the words start a talk
-				// about it, which takes none of it, in place of a note.
-				await dispatching.dispatch
-					.talk(todo.id, words, todo.assignee ?? undefined)
-					.then(dispatching.open)
-					.catch((error: unknown) => {
-						runtime.thread.composer.setText(words);
-						refuse("Not started", error);
-					})
-					.finally(() => setAdding(false));
+			if (dispatching === null) {
 				return;
 			}
-			await updateTodo(todo.id, {
-				subject: todo.subject,
-				text: addedWhileQueued(todo.text, words, new SystemWallClock().now()),
-				files,
-				keep: todo.files,
-			})
+			setStarting(true);
+			await dispatching.dispatch
+				.talk(todo.id, words, todo.assignee ?? undefined, {
+					title: todo.subject,
+					files,
+				})
+				.then((id) => (onStarted ?? dispatching.open)(id))
 				.catch((error: unknown) => {
-					// The words back in the composer, to send again.
 					runtime.thread.composer.setText(words);
 					for (const file of files) {
 						void runtime.thread.composer.addAttachment(file);
 					}
-					refuse("Not added", error);
+					refuse("Not started", error);
 				})
-				.finally(() => setAdding(false));
+				.finally(() => setStarting(false));
 		},
 	});
-	const blocked = blockedNow;
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
 			<Composing.Provider value={runtime.thread.composer}>
 				<ThreadView
 					docked
 					welcomeAtTop
-					welcome={
-						<div className="flex flex-col gap-3">
-							<TaskCard todo={todo} />
-							{todo.closesOn !== undefined ? null : blocked ? (
-								<BlockersCard task={todo} label="Blocked" />
-							) : (
-								<WaitingPanel todo={todo} />
-							)}
-						</div>
-					}
+					welcome={<QueuedTaskCards todo={todo} />}
 					above={
 						<>
 							{todo.closesOn !== undefined && (
@@ -202,20 +206,86 @@ function QueuedThread({
 							}
 						/>
 					}
-					placeholder={
-						waitingOnBlocker
-							? "Talk about this task while it waits"
-							: "Add to this task before an agent takes it"
-					}
-					starting={adding}
+					placeholder="Talk about this task while it waits"
+					starting={starting}
 				/>
 			</Composing.Provider>
 		</AssistantRuntimeProvider>
 	);
 }
 
+/**
+ * The queued task header action, cards, and signal bar for a live conversation
+ * opened on a queued task; empty once the task starts or leaves the queue.
+ */
+export function useQueuedTaskInThread(
+	conversation: ConversationState,
+	refused: Refuse,
+): {
+	todoId: number | null;
+	actions: BarAction[];
+	before: ReactNode;
+	signal: ReactNode;
+} {
+	const { todos } = useContext(Board);
+	const expect = useExpectSnapshot();
+	const todo =
+		conversation.queuedTask === null || conversation.task !== null
+			? null
+			: (todos.find(
+					(each) =>
+						each.id === conversation.queuedTask &&
+						each.takenBy === null &&
+						each.stage === "queued",
+				) ?? null);
+	const pending = usePendingSnapshot(todo === null ? "" : `todo:${todo.id}`);
+	if (todo === null) {
+		// Once an agent-queued task runs, its conversation still says who queued it.
+		const running =
+			conversation.task === null
+				? undefined
+				: todos.find(
+						(each) =>
+							each.takenBy === conversation.task &&
+							each.queuedBy?.by === "agent",
+					);
+		return {
+			todoId: null,
+			actions: [],
+			before:
+				running === undefined ? undefined : (
+					<AgentQueuedBanner todo={running} />
+				),
+			signal: null,
+		};
+	}
+	return {
+		todoId: todo.id,
+		actions: [
+			{
+				label: "Unqueue",
+				icon: <ListXIcon aria-hidden />,
+				text: "Unqueue",
+				run: pending
+					? undefined
+					: () =>
+							void expect(
+								queued(todo.id, false),
+								queueTodo(todo.id, false),
+							).catch((error: unknown) => refused("Not unqueued", error)),
+				busy: pending,
+			},
+		],
+		before: <QueuedTaskCards todo={todo} />,
+		signal:
+			todo.closesOn === undefined ? null : (
+				<SignalBar wait={closingWait(todo.closesOn)} />
+			),
+	};
+}
+
 /** The wait a task that closes on a signal stands for, for the bar: it has no deadline. */
-function closingWait(closesOn: ClosesOn): SignalWait {
+export function closingWait(closesOn: ClosesOn): SignalWait {
 	return {
 		id: `closes-on ${closesOn.signal}`,
 		name: closesOn.signal,

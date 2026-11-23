@@ -235,6 +235,133 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
+	it("keeps what Auto pick decided for a task, and each lift that moved it", async () => {
+		await using deps = await Testing.open();
+		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
+		await add(deps, "alpha");
+		const { store } = deps.tasks;
+		await store.locked(async () => {
+			const record = await store.find("alpha");
+			expect(record).not.toBeNull();
+			await store.write({
+				...(record as NonNullable<typeof record>),
+				autoPick: {
+					pick: { agent: "claude", model: "sonnet", effort: "low" },
+					lineup: "quick",
+					kind: "bugfix",
+					depth: null,
+					reasons: [],
+					at: new Date().toISOString(),
+					classified: {
+						key: "k",
+						classification: {
+							kinds: { bugfix: 0.8, design: 0.1, open: 0.05, devops: 0.05 },
+							depth: { shallow: 0.4, moderate: 0.3, deep: 0.3 },
+						},
+					},
+				},
+			});
+		});
+		const during = new Date().toISOString();
+		const set = (effort: string) => ({
+			lineup: "quick",
+			kind: "bugfix",
+			depth: null,
+			agent: "claude",
+			model: "sonnet",
+			effort,
+		});
+		await deps.writeLog(
+			"conversations/c1.jsonl",
+			[
+				{ kind: "start", id: "c1", agent: "claude", task: null },
+				{ kind: "auto-pick", pick: set("low"), at: during },
+				{
+					kind: "auto-pick",
+					pick: set("high"),
+					lifted: true,
+					why: "asked-back",
+					at: during,
+				},
+				// Switched on and already there: no lift.
+				{
+					kind: "auto-pick",
+					pick: set("high"),
+					lifted: true,
+					why: "switched",
+					at: during,
+				},
+			]
+				.map((line) => `${JSON.stringify(line)}\n`)
+				.join(""),
+		);
+
+		await remove(deps, "alpha");
+
+		expect((await deps.outcomes.list())[0]?.autoPick).toEqual({
+			lineup: "quick",
+			kind: "bugfix",
+			depth: null,
+			kindConfidence: 0.8,
+			depthConfidence: 0.4,
+			agent: "claude",
+			model: "sonnet",
+			effort: "low",
+			lifts: [
+				{
+					from: set("low"),
+					to: set("high"),
+					reason: "asked-back",
+					at: during,
+				},
+			],
+		});
+	});
+
+	it("marks a task the holdout started one difficulty easier", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const { store } = deps.tasks;
+		await store.locked(async () => {
+			const record = await store.find("alpha");
+			await store.write({
+				...(record as NonNullable<typeof record>),
+				autoPick: {
+					pick: { agent: "claude", model: "sonnet", effort: "high" },
+					lineup: "thoughtful",
+					kind: "design",
+					depth: "deep",
+					reasons: [],
+					at: new Date().toISOString(),
+					holdout: {
+						version: "holdout-1",
+						lineup: "careful",
+						from: "Opus 5.5, high effort",
+						undo: { model: "opus" },
+					},
+				},
+			});
+		});
+
+		await remove(deps, "alpha");
+
+		const kept = (await deps.outcomes.list())[0]?.autoPick;
+		expect(kept?.lineup).toBe("thoughtful");
+		expect(kept?.holdout).toEqual({
+			holdout: true,
+			version: "holdout-1",
+			lineup: "careful",
+			from: "Opus 5.5, high effort",
+		});
+	});
+
+	it("keeps no Auto pick on a task it did not start", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		await remove(deps, "alpha");
+		expect((await deps.outcomes.list())[0]?.autoPick).toBeUndefined();
+	});
+
 	it("keeps each gate failure with what it named, the budget running out once, and the size landed", async () => {
 		await using deps = await Testing.open();
 		deps.config.mergeRetryCount = 1;
@@ -380,6 +507,27 @@ describe.concurrent("outcomes", () => {
 			cached: 100_000,
 			output: 100_000,
 			cost: { amount: 4.53, currency: "USD", listPrice: true },
+		});
+	});
+
+	it("prices an Antigravity task's tokens at its Gemini model's API list price", async () => {
+		await using deps = await Testing.open();
+
+		const usage = await listPriced(deps, "antigravity", (at) => [
+			picked("gemini-4-neon"),
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("on it", at(1)),
+			{
+				kind: "usage",
+				usage: { inputTokens: 1_000_000, outputTokens: 100_000 },
+			},
+		]);
+
+		expect(usage).toEqual({
+			input: 1_000_000,
+			cached: 0,
+			output: 100_000,
+			cost: { amount: 4.5, currency: "USD", listPrice: true },
 		});
 	});
 
@@ -573,6 +721,7 @@ async function listPrices(deps: Testing): Promise<void> {
 				"openai/gpt-6.1-sol": rate(2, 10, 0.1),
 				"opencode-go/kimi-k3": rate(3, 15, 0.3),
 				"moonshotai/kimi-k3": rate(3, 15, 0.3),
+				"google/gemini-4-neon": rate(3, 15, 0.3),
 			},
 		}),
 	);

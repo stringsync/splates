@@ -28,7 +28,13 @@ export function PlanAnswer({
 			<CollapsibleContent>
 				{children}
 				<footer className="sticky bottom-0 flex items-center justify-end gap-3 border-t bg-card px-4 py-3">
-					<Button size="sm" variant="default" onClick={onBack}>
+					<Button
+						size="sm"
+						variant="default"
+						onClick={onBack}
+						// A block button on a phone, like the questions flow's Next.
+						className="h-11 w-full md:h-8 md:w-auto"
+					>
 						<ArrowLeftIcon data-icon="inline-start" />
 						Back to questions
 					</Button>

@@ -5,6 +5,7 @@ import type {
 	Offered,
 	Pick,
 	RunState,
+	Shippables,
 	Supervise,
 	Unshipped,
 } from "@splates/server/ship";
@@ -29,6 +30,8 @@ export type ShipFlowState = {
 	readingVersion: boolean;
 	/** Each target's current version, as far as read yet. */
 	current: Currents;
+	/** The versions each target may ship, as far as read yet. */
+	shippable: Shippables;
 	picks: Picks;
 	/** The targets added on the Needed first screen, each with its bump. */
 	added: Picks;
@@ -68,6 +71,7 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 		counting: true,
 		readingVersion: true,
 		current: {},
+		shippable: {},
 		picks: new Map(),
 		added: new Map(),
 		stage: { at: "pick" },
@@ -113,6 +117,11 @@ export class ShipFlow implements Eventful<ShipFlowEvents> {
 	/** The current versions, once they come back. */
 	versioned(current: Currents): void {
 		this.set({ current, readingVersion: false });
+	}
+
+	/** The versions each target may ship, once they come back. */
+	shippables(shippable: Shippables): void {
+		this.set({ shippable });
 	}
 
 	unlisted(error: unknown): void {

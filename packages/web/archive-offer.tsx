@@ -1,4 +1,6 @@
+import type { ConversationState } from "@splates/server/conversations";
 import type { TaskReport } from "@splates/server/plans";
+import { isEscalation } from "@splates/server/records/browser";
 import { ArchiveIcon } from "lucide-react";
 import {
 	createContext,
@@ -13,6 +15,8 @@ import {
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { ENDINGS, TONES } from "./card-shell";
+import { lastReport } from "./conversation-names";
+import { tierOf } from "./event-tier";
 import { UnmergeIt } from "./unmerge-it";
 
 /**
@@ -55,6 +59,31 @@ export function useArchiveOffer(
 		[report, archive, sight],
 	);
 	return { offer, barred: offer !== null && !seen };
+}
+
+/**
+ * The report that is the conversation's last word when it says the task is
+ * over, and nothing splates shows in the thread came after it, such as
+ * another task taken up: null otherwise.
+ */
+export function endedReport(
+	conversation: ConversationState,
+): TaskReport | null {
+	const report = lastReport(conversation);
+	if (report === null || report.ending === "escalated") {
+		return null;
+	}
+	const reply = conversation.messages
+		.at(-1)
+		?.parts.findLast((part) => part.type === "text" && part.text.trim() !== "");
+	const said = reply?.type === "text" ? reply.at : null;
+	const movedOn =
+		typeof said === "string" &&
+		conversation.events.some(
+			(event) =>
+				event.at > said && (isEscalation(event) || tierOf(event) === "loud"),
+		);
+	return movedOn ? null : report;
 }
 
 /** Whether `report`'s card offers to archive the conversation. */

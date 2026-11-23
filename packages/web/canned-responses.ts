@@ -13,26 +13,9 @@ export const CANNED_RESPONSES: readonly CannedGroup[] = [
 	{
 		label: "Clarify",
 		replies: [
-			"I don't understand the options you've given me. Please explain each one in plain words, say what it would change, and then ask again.",
-			"I don't have enough context to decide. Please tell me what you've done so far, what this question is blocking, and what each option means for the user.",
-			"Please show me a picture, mockup or example of each option before I choose.",
-			"I don't know the terms you used. Please define them and ask again.",
-		],
-	},
-	{
-		label: "Decide",
-		replies: [
-			"Go with your recommendation.",
-			"Use your own judgment on this one and don't ask me again.",
-			"I need to think about this. Park it and continue with whatever doesn't depend on it.",
-		],
-	},
-	{
-		label: "Redirect",
-		replies: [
-			"None of these options is right. Here's what I want instead: ",
-			"This is too big for one task. Please split it up and queue the rest.",
-			"Please stop and tell me what you've done so far before going further.",
+			"I don't understand the answers; please explain them more simply.",
+			"I don't understand the question; please ask it more simply.",
+			"Please show me more mockups or variants.",
 		],
 	},
 ];

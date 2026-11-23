@@ -65,6 +65,7 @@ import { WatchShipStep } from "./ship-step-pane";
 import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { StatsReport } from "./stats-report";
+import { StepsPopOutHost } from "./steps-pop-host";
 import {
 	OpenTerminalPage,
 	ShellRunning,
@@ -198,6 +199,11 @@ export function App({
 		setup,
 		openSetup,
 	} = usePageRoute();
+	const evalRunOpen =
+		page === "evals" &&
+		evals.batch !== null &&
+		evals.run !== null &&
+		evals.plan === null;
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	const searched = searchedIn(snapshot);
 	// A todo opens on the board, or as the task that took it.
@@ -386,158 +392,163 @@ export function App({
 						<PageReadingsContext value={readings}>
 							<SnapshotExpecting value={feed}>
 								<Talking feed={talk}>
-									<Lanes value={searched.lanes}>
-										{available && snapshot !== null && (
-											<Notifications
+									<StepsPopOutHost talk={talk} drafts={drafts}>
+										<Lanes value={searched.lanes}>
+											{available && snapshot !== null && (
+												<Notifications
+													feed={talk}
+													tasks={snapshot.tasks}
+													todos={snapshot.todos}
+													settings={settings}
+													onOpen={openConversation}
+												/>
+											)}
+											<DispatchingProvider
 												feed={talk}
-												tasks={snapshot.tasks}
-												todos={snapshot.todos}
-												settings={settings}
-												onOpen={openConversation}
-											/>
-										)}
-										<DispatchingProvider
-											feed={talk}
-											drafts={drafts}
-											tasks={tasks}
-											open={openConversation}
-										>
-											<Trunk value={snapshot?.trunk ?? null}>
-												<ReviewChanges value={review}>
-													<WatchBackground value={watch}>
-														<WatchMerge value={watchMerge}>
-															<WatchShipStep value={watchShip}>
-																<NestedPanesContext value={nested}>
-																	<ToggleTerminal
-																		value={
-																			shown === null ? null : toggleTerminal
-																		}
-																	>
-																		<ShellRunning value={shellRunning}>
-																			<ShowTerminal
-																				value={
-																					available ? revealTerminal : null
-																				}
-																			>
-																				<OpenTerminalPage
+												drafts={drafts}
+												tasks={tasks}
+												open={openConversation}
+											>
+												<Trunk value={snapshot?.trunk ?? null}>
+													<ReviewChanges value={review}>
+														<WatchBackground value={watch}>
+															<WatchMerge value={watchMerge}>
+																<WatchShipStep value={watchShip}>
+																	<NestedPanesContext value={nested}>
+																		<ToggleTerminal
+																			value={
+																				shown === null ? null : toggleTerminal
+																			}
+																		>
+																			<ShellRunning value={shellRunning}>
+																				<ShowTerminal
 																					value={
-																						available ? openTerminal : null
+																						available ? revealTerminal : null
 																					}
 																				>
-																					<ShortcutSettings value={settings}>
-																						<PageShortcuts
-																							onPage={go}
-																							onBack={
-																								available ? visits.back : null
-																							}
-																							onForward={
-																								available
-																									? visits.forward
-																									: null
-																							}
-																							onSettings={() =>
-																								setSetting(true)
-																							}
-																							onTerminal={
-																								shown === null
-																									? null
-																									: () =>
-																											toggleTerminal(shown.id)
-																							}
-																						/>
-																						<TooltipProvider>
-																							<ConversationCheckpoint
-																								feed={talk}
-																								every={checkpointEvery}
-																								restartShown={
-																									checkpointRestartShown
+																					<OpenTerminalPage
+																						value={
+																							available ? openTerminal : null
+																						}
+																					>
+																						<ShortcutSettings value={settings}>
+																							<PageShortcuts
+																								onPage={go}
+																								onBack={
+																									available ? visits.back : null
 																								}
-																								reload={reload}
-																								autoRestart={autoRestart}
-																								timer={timer}
-																							>
-																								{wide ? (
-																									<DesktopApp
-																										page={page}
-																										open={open}
-																										go={go}
-																										name={name}
-																										bodies={bodies}
-																										opening={opening}
-																										paned={paned}
-																										available={available}
-																										snapshot={snapshot}
-																										outdated={outdated}
-																										offline={offline}
-																										talk={talk}
-																										drafts={drafts}
-																										terminals={terminals}
-																										menu={pageMenu}
-																									/>
-																								) : (
-																									<PhoneApp
-																										page={page}
-																										open={open}
-																										go={go}
-																										name={name}
-																										header={header}
-																										offline={offline}
-																										body={
-																											bodies === null ? (
-																												opening
-																											) : (
-																												<div
-																													className={
-																														PHONE_PAGES[page]
-																													}
-																												>
-																													{bodies[page]}
-																												</div>
-																											)
-																										}
-																										available={available}
-																										waiting={
-																											counted ? waiting : 0
-																										}
-																										snapshot={snapshot}
-																										talk={talk}
-																										drafts={drafts}
-																										terminals={terminals}
-																										pageMenu={pageMenu}
-																									/>
-																								)}
-																								{pane}
-																								<SearchDialog
-																									searched={searched}
+																								onForward={
+																									available
+																										? visits.forward
+																										: null
+																								}
+																								onSettings={() =>
+																									setSetting(true)
+																								}
+																								onTerminal={
+																									shown === null
+																										? null
+																										: () =>
+																												toggleTerminal(shown.id)
+																								}
+																							/>
+																							<TooltipProvider>
+																								<ConversationCheckpoint
 																									feed={talk}
-																									pick={pick}
-																								/>
-																								<PageDialogs
-																									settings={settings}
-																									settingsOpen={setting}
-																									onSettingsOpenChange={
-																										setSetting
+																									every={checkpointEvery}
+																									restartShown={
+																										checkpointRestartShown
 																									}
-																									onWelcome={() =>
-																										go("welcome")
-																									}
-																								/>
-																								<WelcomeLanding go={go} />
-																							</ConversationCheckpoint>
-																						</TooltipProvider>
-																					</ShortcutSettings>
-																				</OpenTerminalPage>
-																			</ShowTerminal>
-																		</ShellRunning>
-																	</ToggleTerminal>
-																</NestedPanesContext>
-															</WatchShipStep>
-														</WatchMerge>
-													</WatchBackground>
-												</ReviewChanges>
-											</Trunk>
-										</DispatchingProvider>
-									</Lanes>
+																									reload={reload}
+																									autoRestart={autoRestart}
+																									timer={timer}
+																								>
+																									{wide ? (
+																										<DesktopApp
+																											evalRunOpen={evalRunOpen}
+																											page={page}
+																											open={open}
+																											go={go}
+																											name={name}
+																											bodies={bodies}
+																											opening={opening}
+																											paned={paned}
+																											available={available}
+																											snapshot={snapshot}
+																											outdated={outdated}
+																											offline={offline}
+																											talk={talk}
+																											drafts={drafts}
+																											terminals={terminals}
+																											menu={pageMenu}
+																										/>
+																									) : (
+																										<PhoneApp
+																											evalRunOpen={evalRunOpen}
+																											page={page}
+																											open={open}
+																											go={go}
+																											name={name}
+																											header={header}
+																											offline={offline}
+																											body={
+																												bodies === null ? (
+																													opening
+																												) : (
+																													<div
+																														className={
+																															PHONE_PAGES[page]
+																														}
+																													>
+																														{bodies[page]}
+																													</div>
+																												)
+																											}
+																											available={available}
+																											waiting={
+																												counted ? waiting : 0
+																											}
+																											snapshot={snapshot}
+																											talk={talk}
+																											drafts={drafts}
+																											terminals={terminals}
+																											pageMenu={pageMenu}
+																										/>
+																									)}
+																									{pane}
+																									<SearchDialog
+																										searched={searched}
+																										feed={talk}
+																										pick={pick}
+																									/>
+																									<PageDialogs
+																										settings={settings}
+																										settingsOpen={setting}
+																										onSettingsOpenChange={
+																											setSetting
+																										}
+																										onWelcome={() =>
+																											go("welcome")
+																										}
+																										project={name}
+																									/>
+																									<WelcomeLanding go={go} />
+																								</ConversationCheckpoint>
+																							</TooltipProvider>
+																						</ShortcutSettings>
+																					</OpenTerminalPage>
+																				</ShowTerminal>
+																			</ShellRunning>
+																		</ToggleTerminal>
+																	</NestedPanesContext>
+																</WatchShipStep>
+															</WatchMerge>
+														</WatchBackground>
+													</ReviewChanges>
+												</Trunk>
+											</DispatchingProvider>
+										</Lanes>
+									</StepsPopOutHost>
 								</Talking>
 							</SnapshotExpecting>
 						</PageReadingsContext>

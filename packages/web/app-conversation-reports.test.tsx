@@ -430,6 +430,33 @@ describe("App's report cards", () => {
 		expect(view.queryByRole("region", { name: "take todo #12" })).toBeNull();
 	});
 
+	it("shows a talk directive as a clickable task chip", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					messages: [
+						message(
+							"user",
+							"[SPLATES TALK #12]\n\nWait, everything else is ok",
+						),
+					],
+				}),
+			],
+			undefined,
+			{ todos: [todo({ id: 12, subject: "Retry the upload" })], lanes: [] },
+		);
+
+		const chip = await waitFor(() => view.getByTitle("[SPLATES TALK #12]"));
+		expect(chip.textContent).toContain("Task #12");
+		expect(chip.textContent).toContain("Retry the upload");
+		expect(chip.textContent).not.toContain("Talk");
+
+		fireEvent.click(chip);
+		await waitFor(() =>
+			expect(view.getByRole("dialog").textContent).toContain("Task 12"),
+		);
+	});
+
 	it("keeps a checkpoint said with more as a chip", async () => {
 		const view = await testing.openConversations([
 			conversation({

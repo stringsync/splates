@@ -42,10 +42,18 @@ import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { useShowPending } from "#web/pending.tsx";
 
+/** The composer's look: set it around a `Composer` shown outside a `Thread`. */
+export const COMPOSER_LOOK: Record<string, string> = {
+	"--composer-bg": "color-mix(in oklab, var(--color-muted) 30%, transparent)",
+	"--composer-radius": "1rem",
+	"--composer-padding": "8px",
+};
+
 export const Thread: FC<ThreadProps> = ({
 	components = EMPTY_COMPONENTS,
 	autoFocus = true,
 	above,
+	before,
 	after,
 	welcome,
 	below,
@@ -70,6 +78,7 @@ export const Thread: FC<ThreadProps> = ({
 			<ThreadExtrasContext.Provider
 				value={{
 					above,
+					before,
 					after,
 					welcome,
 					below,
@@ -117,7 +126,8 @@ const ThreadRoot: FC<{
 	const isNew = (s: AssistantState) => !occupied && isNewChatView(s);
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const historyReady = useAuiState((s) => !s.thread.isLoading);
-	const { welcome, below, composer, after } = useContext(ThreadExtrasContext);
+	const { welcome, below, composer, before, after } =
+		useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
 	// keyboard over half the page.
@@ -157,10 +167,7 @@ const ThreadRoot: FC<{
 			className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
 			style={{
 				["--thread-max-width" as string]: "48rem",
-				["--composer-bg" as string]:
-					"color-mix(in oklab, var(--color-muted) 30%, transparent)",
-				["--composer-radius" as string]: "1rem",
-				["--composer-padding" as string]: "8px",
+				...COMPOSER_LOOK,
 			}}
 		>
 			<ThreadPrimitive.Viewport
@@ -201,6 +208,12 @@ const ThreadRoot: FC<{
 					<AuiIf condition={(s) => !isHistoryLoadingView(s)}>
 						{historyFailure}
 					</AuiIf>
+
+					{before !== undefined && (
+						<div className="mb-6 flex flex-col gap-3 empty:hidden">
+							{before}
+						</div>
+					)}
 
 					<ThreadLoadEarlier viewport={viewport} />
 
@@ -251,10 +264,23 @@ const ThreadRoot: FC<{
  */
 // Streaming changes the runtime's message scopes directly. Rebuilding every
 // provider from the parent also wakes settled messages on each delta.
-const ThreadTurns: FC = memo(function ThreadTurns() {
+export const Transcript: FC<{ components: ThreadProps["components"] }> = ({
+	components,
+}) => (
+	<ThreadComponentsContext.Provider value={components ?? EMPTY_COMPONENTS}>
+		<ThreadTurns compact />
+	</ThreadComponentsContext.Provider>
+);
+
+const ThreadTurns: FC<{ compact?: boolean }> = memo(function ThreadTurns({
+	compact = false,
+}) {
 	const roster = useAuiState((s) =>
 		s.thread.messages
-			.map((each) => `${carriesOn(each) ? "line" : each.role} ${each.id}`)
+			.map(
+				(each) =>
+					`${!compact && carriesOn(each) ? "line" : each.role} ${each.id}`,
+			)
 			.join("\n"),
 	);
 	const turns = useMemo(() => {
@@ -281,7 +307,11 @@ const ThreadTurns: FC = memo(function ThreadTurns() {
 			// messages as within one. The 2rem below a stuck message is what
 			// keeps its fade clear of the reply, on a wide thread, the only one
 			// it sticks atop.
-			className="[&>*+*]:mt-6 md:[&>[data-sticks]+*]:mt-8"
+			className={
+				compact
+					? "[&>*+*]:mt-3 [&>[data-role=assistant]>div]:px-0"
+					: "[&>*+*]:mt-6 md:[&>[data-sticks]+*]:mt-8"
+			}
 		>
 			{turn.map(({ id, index }) => (
 				<MessageByIndexProvider key={id} index={index}>

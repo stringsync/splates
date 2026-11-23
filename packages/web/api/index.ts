@@ -1,3 +1,5 @@
+export { readAgentChain, stopAgentChain } from "./agent-chain";
+export { readAgentSettings, saveAgentSettings } from "./agent-settings";
 export {
 	type Budgets,
 	budgets,
@@ -10,6 +12,7 @@ export {
 	resumeBudget,
 	setBudget,
 } from "./budgets";
+export { readChainSpends } from "./chain-spend";
 export {
 	dismissCred,
 	type KeptCreds,
@@ -60,6 +63,7 @@ export {
 	updateTodo,
 } from "./planning";
 export { pushKey, subscribePush, unsubscribePush } from "./push";
+export { readQuotaReserve } from "./quota-reserve";
 export {
 	closeRec,
 	deleteRecSession,
@@ -94,9 +98,11 @@ export {
 } from "./signals";
 export {
 	billing,
+	clearPlan,
 	pullBilling,
-	setCurrency,
+	setPlan,
 	spend,
+	unusedQuota,
 } from "./spend";
 export {
 	bumpMerge,

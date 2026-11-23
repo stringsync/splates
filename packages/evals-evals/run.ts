@@ -15,6 +15,9 @@ import {
 	type ContractDetail,
 	type ContractResult,
 	type ContractTarget,
+	type EvalCheck,
+	type HarnessStatus,
+	type Phases,
 	RESULTS_FILE,
 } from "./contract";
 import { fingerprintOf } from "./fingerprint";
@@ -28,10 +31,44 @@ import {
 import { type RepoSnapshot, saveSnapshot, snapshotRepo } from "./keep";
 import { revisionOf } from "./revision";
 import { type MakeSandbox, type Sandbox, sandbox } from "./sandbox";
-import type { Limits, Scenario, Step } from "./scenario";
+import {
+	evaluateCheck,
+	type Limits,
+	type Scenario,
+	type Step,
+} from "./scenario";
 
-/** How a run ended: every check and the judge held, one did not, or the run broke before it could be graded. */
-export type Status = "pass" | "fail" | "error";
+/** How a run ended: every check and the judge held, one did not, the harness broke on it, it was skipped after an earlier harness error on its target, or another error stopped it. */
+export type Status = "pass" | "fail" | "error" | "harness" | "skipped";
+
+const HARNESS_ERROR_PATTERN =
+	/\b(401|403|unauthorized|unauthenticated|forbidden|authentication|invalid[_ ]api[_ ]key|api[_ ]key|not logged in|login required|credential|oauth|token expired|invalid[_ ]token|permission denied|model[_ ]not[_ ]found|unknown model|invalid model|unsupported model|does not exist|no such model|not_found_error|invalid_model|model is not supported|enoent|eacces|command not found|executable file not found|no eval runner|failed to start|spawn)\b|model .+ not found/i;
+
+/**
+ * Returns a one-line harness-error reason when the run broke in the harness or
+ * agent setup (failed to start, empty transcript, auth or model error), or
+ * `null` when the agent ran normally or hit a non-harness runtime error.
+ */
+export function harnessErrorOf(run: AgentRun, agent: string): string | null {
+	const empty = run.transcript.length === 0 && run.reply.trim() === "";
+	if (run.error !== null) {
+		if (run.error.startsWith("stopped after ")) {
+			return null;
+		}
+		if (HARNESS_ERROR_PATTERN.test(run.error) || empty) {
+			return oneLine(run.error);
+		}
+		return null;
+	}
+	if (empty) {
+		return `${agent} returned an empty transcript`;
+	}
+	return null;
+}
+
+function oneLine(text: string): string {
+	return text.replace(/\s+/g, " ").trim();
+}
 
 /** Runs `scenario` once on `pick` with the skill at `skill`, and grades it. */
 export async function runOne(
@@ -64,7 +101,16 @@ export async function runOne(
 	};
 	let box: Sandbox | null = null;
 	try {
+		let phaseStart = performance.now();
+		const lap = () => {
+			const now = performance.now();
+			const ms = Math.round(now - phaseStart);
+			phaseStart = now;
+			return ms;
+		};
 		box = await (opts.sandbox ?? defaultSandbox)(opts.skill, scenario);
+		const phases: Phases = { setupMs: lap() };
+		result.phases = phases;
 		const { argv, format } = runners.command(
 			pick,
 			scenario.message,
@@ -87,6 +133,7 @@ export async function runOne(
 						}
 					: undefined,
 		});
+		phases.agentMs = lap();
 		result.reply = run.reply;
 		result.transcript = run.transcript;
 		result.usage = {
@@ -95,6 +142,12 @@ export async function runOne(
 			turns: run.turns,
 			milliseconds: 0,
 		};
+		const harnessReason = harnessErrorOf(run, pick.agent);
+		if (harnessReason !== null) {
+			result.status = "harness";
+			result.error = harnessReason;
+			return result;
+		}
 		if (run.error !== null) {
 			result.error = run.error;
 			return result;
@@ -108,11 +161,7 @@ export async function runOne(
 		};
 		for (const check of scenario.checks ?? []) {
 			try {
-				result.checks.push({
-					id: check.id,
-					about: check.about,
-					pass: await check.test(outcome),
-				});
+				result.checks.push(await evaluateCheck(check, outcome));
 			} catch (error) {
 				result.checks.push({
 					id: check.id,
@@ -135,13 +184,24 @@ export async function runOne(
 				judgeFor(scenario),
 			);
 		}
+		phases.judgeMs = lap();
 		result.status =
 			result.checks.every((check) => check.pass) && (result.judge?.pass ?? true)
 				? "pass"
 				: "fail";
 		return result;
 	} catch (error) {
-		result.error = String(error);
+		const message = oneLine(
+			error instanceof Error ? error.message : String(error),
+		);
+		result.error = message;
+		if (
+			result.transcript.length === 0 &&
+			result.reply.trim() === "" &&
+			HARNESS_ERROR_PATTERN.test(message)
+		) {
+			result.status = "harness";
+		}
 		return result;
 	} finally {
 		result.usage = {
@@ -171,13 +231,7 @@ export interface RunOptions {
 }
 
 /** One check of a run, and how it went. */
-export interface CheckResult {
-	id: string;
-	about: string;
-	pass: boolean;
-	/** Why it could not be told, when the check itself threw. */
-	error?: string;
-}
+export type CheckResult = EvalCheck;
 
 /** The skill a run used: the checkout's, or the one at `revision`. */
 export interface SkillUsed {
@@ -205,6 +259,8 @@ export interface Result {
 	judge: Verdict | null;
 	reply: string;
 	transcript: Step[];
+	/** How long each phase took, for the phases the run reached. */
+	phases?: Phases;
 	/** The repo as the agent left it, before the checks ran; kept beside the run. */
 	repo?: RepoSnapshot | null;
 	usage: {
@@ -284,25 +340,93 @@ export async function runBatch(
 		})),
 	};
 	await writeFile(join(dir, "batch.json"), JSON.stringify(batch, null, "\t"));
-	const queue = [...cells.entries()];
-	const work = async () => {
-		for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
-			const [index, cell] = next;
-			const result = await runOne(cell.scenario, cell.agent, {
-				skill: cell.skill.dir,
-				used: cell.skill.used,
-				repetition: cell.repetition,
-				runners: opts.runners,
-				sandbox: cell.sandbox ?? opts.sandbox,
-			});
-			await saveResult(dir, cellId(index), result);
-			opts.landed?.(result);
+	const concurrency = Math.max(1, opts.parallel ?? 8);
+	const seenTargets = new Set<string>();
+	const probes: [number, Cell][] = [];
+	const rest: [number, Cell][] = [];
+	for (const entry of cells.entries()) {
+		const key = targetKey(entry[1].agent);
+		if (!seenTargets.has(key)) {
+			seenTargets.add(key);
+			probes.push(entry);
+		} else {
+			rest.push(entry);
 		}
+	}
+	const dropped = new Map<string, string>();
+	const runQueue = async (
+		queue: [number, Cell][],
+	): Promise<{ cell: Cell; result: Result }[]> => {
+		const results: { cell: Cell; result: Result }[] = [];
+		const work = async () => {
+			for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+				const [index, cell] = next;
+				const result = await runOne(cell.scenario, cell.agent, {
+					skill: cell.skill.dir,
+					used: cell.skill.used,
+					repetition: cell.repetition,
+					runners: opts.runners,
+					sandbox: cell.sandbox ?? opts.sandbox,
+				});
+				await saveResult(dir, cellId(index), result);
+				opts.landed?.(result);
+				results.push({ cell, result });
+			}
+		};
+		await Promise.all(
+			Array.from({ length: Math.min(concurrency, queue.length) }, work),
+		);
+		return results;
 	};
-	await Promise.all(
-		Array.from({ length: Math.max(1, opts.parallel ?? 8) }, work),
-	);
+	for (const { cell, result } of await runQueue([...probes])) {
+		if (result.status === "harness") {
+			dropped.set(
+				targetKey(cell.agent),
+				oneLine(result.error ?? "harness error"),
+			);
+		}
+	}
+	const healthy: [number, Cell][] = [];
+	for (const entry of rest) {
+		const [index, cell] = entry;
+		const dropReason = dropped.get(targetKey(cell.agent));
+		if (dropReason !== undefined) {
+			const skipped = skippedResult(cell, dropReason);
+			await saveResult(dir, cellId(index), skipped);
+			opts.landed?.(skipped);
+		} else {
+			healthy.push(entry);
+		}
+	}
+	await runQueue(healthy);
 	return dir;
+}
+
+function targetKey(pick: AgentPick): string {
+	return `${pick.agent}\0${pick.model ?? ""}\0${pick.effort ?? ""}`;
+}
+
+function skippedResult(cell: Cell, reason: string): Result {
+	return {
+		scenario: {
+			id: cell.scenario.id,
+			aspect: cell.scenario.aspect,
+			requirement: cell.scenario.requirement,
+			message: cell.scenario.message,
+			rubric: cell.scenario.judge ?? null,
+		},
+		agent: cell.agent,
+		skill: cell.skill.used,
+		repetition: cell.repetition,
+		startedAt: new Date().toISOString(),
+		status: "skipped",
+		error: `skipped: ${reason}`,
+		checks: [],
+		judge: null,
+		reply: "",
+		transcript: [],
+		usage: { usd: null, tokens: null, turns: null, milliseconds: 0 },
+	};
 }
 
 /** Cell `index` of a batch, in plan order, as its result line names it. */
@@ -356,14 +480,26 @@ export async function saveResult(
 		join(dir, `${cell}.json`),
 		JSON.stringify(detail, null, "\t"),
 	);
+	const contractStatus: ContractResult["status"] =
+		result.status === "harness" || result.status === "skipped"
+			? "error"
+			: result.status;
+	const harness: HarnessStatus | undefined =
+		result.status === "harness"
+			? "error"
+			: result.status === "skipped"
+				? "skipped"
+				: undefined;
 	const reason = result.error ?? result.judge?.reason;
 	const line: ContractResult = {
 		cell,
-		status: result.status,
+		status: contractStatus,
+		...(harness === undefined ? {} : { harness }),
 		...(reason === undefined ? {} : { reason }),
 		...(result.usage.tokens === null ? {} : { tokens: result.usage.tokens }),
 		...(result.usage.usd === null ? {} : { costUsd: result.usage.usd }),
 		milliseconds: result.usage.milliseconds,
+		...(result.phases === undefined ? {} : { phases: result.phases }),
 		detail: `${cell}.json`,
 	};
 	await appendFile(join(dir, RESULTS_FILE), `${JSON.stringify(line)}\n`);

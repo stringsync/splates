@@ -1,6 +1,6 @@
-import type { TaskReport } from "@splates/server/plans";
+import type { PlanCard, TaskReport } from "@splates/server/plans";
 import type { LucideIcon } from "lucide-react";
-import { TriangleAlertIcon } from "lucide-react";
+import { FileTextIcon, TriangleAlertIcon } from "lucide-react";
 import { ENDINGS, type Tone } from "./card-shell";
 
 /** What heads a questions card, on the page and on a phone's sheet alike. */
@@ -15,13 +15,15 @@ export interface QuestionHeading {
 }
 
 /**
- * The heading for a questions card: the escalation's when it ends one,
- * otherwise "questions for you", with `count` saying how many on a phone's sheet.
+ * The heading for a questions card: the escalation's when it ends one, the
+ * plan's when they decide one, otherwise "questions for you", with `count`
+ * saying how many on a phone's sheet.
  */
 export function questionHeading(
 	questions: number,
 	escalation: TaskReport | null,
 	count?: string,
+	plan: PlanCard | null = null,
 ): QuestionHeading {
 	if (escalation !== null) {
 		return {
@@ -29,6 +31,20 @@ export function questionHeading(
 			...ENDINGS.escalated,
 			...(count === undefined ? {} : { title: `${count} for you` }),
 			task: escalation.task,
+		};
+	}
+	if (plan !== null) {
+		return {
+			// Found as questions are: a plan is what they ask about.
+			label: "questions for you",
+			Icon: FileTextIcon,
+			title:
+				count !== undefined
+					? "A plan for you"
+					: plan.title === ""
+						? "Plan"
+						: `Plan: ${plan.title}`,
+			tone: "plan",
 		};
 	}
 	return {

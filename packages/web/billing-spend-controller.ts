@@ -1,7 +1,11 @@
-import type { BillingView, SpendReport } from "@splates/server/spend";
+import type {
+	BillingView,
+	PlanProvider,
+	SpendReport,
+} from "@splates/server/spend";
 import type { Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
-import { billing, pullBilling, setCurrency, spend } from "./api";
+import { billing, clearPlan, pullBilling, setPlan, spend } from "./api";
 import { type Span, spanOf } from "./billing-sums";
 
 export type Range = Span | "custom";
@@ -20,8 +24,8 @@ const DAY = 86_400_000;
 
 /**
  * What the Spend section shows and the controls that change it: pick a range,
- * step earlier or later, set a custom range's dates, pull the billing sources
- * or change the currency. Call `open` once when it mounts and `dispose` when
+ * step earlier or later, set a custom range's dates, pull the billing sources.
+ * Call `open` once when it mounts and `dispose` when
  * it goes; the report reads again by itself after each change.
  */
 export class SpendController
@@ -40,8 +44,8 @@ export class SpendController
 	error: string | null = null;
 	sources: BillingView | null;
 	pulling = false;
-	/** A currency change is on its way: held until the server answers. */
-	changingCurrency = false;
+	/** The agent provider whose plan override is being saved or cleared. */
+	savingPlan: PlanProvider | null = null;
 	sourceError: string | null = null;
 	/** The range as a span of time, or null for a custom one not yet picked. */
 	span: { since: string; until: string } | null = null;
@@ -113,23 +117,48 @@ export class SpendController
 			});
 	}
 
-	changeCurrency(currency: string): void {
-		if (this.changingCurrency) {
+	async savePlan(
+		provider: PlanProvider,
+		amount: number,
+		renewalDay: number,
+	): Promise<void> {
+		if (this.savingPlan !== null) {
 			return;
 		}
-		this.changingCurrency = true;
+		this.savingPlan = provider;
+		this.sourceError = null;
 		this.dispatcher.dispatch("changed");
-		setCurrency(currency)
-			.then(
-				(read) => this.setSources(read),
-				(caught: Error) => this.fail("sourceError", caught.message),
-			)
-			.finally(() => {
-				if (!this.disposed) {
-					this.changingCurrency = false;
-					this.dispatcher.dispatch("changed");
-				}
-			});
+		try {
+			const read = await setPlan(provider, amount, renewalDay);
+			this.savingPlan = null;
+			this.setSources(read);
+		} catch (caught) {
+			if (!this.disposed) {
+				this.savingPlan = null;
+				this.dispatcher.dispatch("changed");
+			}
+			throw caught;
+		}
+	}
+
+	async removePlan(provider: PlanProvider): Promise<void> {
+		if (this.savingPlan !== null) {
+			return;
+		}
+		this.savingPlan = provider;
+		this.sourceError = null;
+		this.dispatcher.dispatch("changed");
+		try {
+			const read = await clearPlan(provider);
+			this.savingPlan = null;
+			this.setSources(read);
+		} catch (caught) {
+			if (!this.disposed) {
+				this.savingPlan = null;
+				this.dispatcher.dispatch("changed");
+			}
+			throw caught;
+		}
 	}
 
 	dispose(): void {
@@ -189,6 +218,7 @@ export class SpendController
 			span.until,
 			this.sources?.currency,
 			this.sources?.pulledAt,
+			JSON.stringify(this.sources?.plans ?? []),
 		].join("|");
 		if (key === this.asked) {
 			return;

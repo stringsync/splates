@@ -123,6 +123,41 @@ describe("ShipComposer", () => {
 		});
 	});
 
+	it("plans a follower with no version or bump, passing its dependency's resolved version as --upstream", async () => {
+		const follower = {
+			...prod,
+			dependencies: ["staging"],
+			follows: "staging",
+		};
+		const composed = await composer({
+			"bin/stage ship plan": [staging, follower],
+			"bin/stage ship plan --target prod --upstream staging=1.4.3": {
+				...follower,
+				steps: [{ id: "prove", does: "Check staging verified v1.4.3" }],
+			},
+		}).compose([
+			{ name: "staging", bump: "patch" },
+			{ name: "prod", follow: true },
+		]);
+		expect(composed.errors).toEqual([]);
+		const followed = composed.targets.find((each) => each.name === "prod");
+		expect(followed?.error).toBeUndefined();
+		expect(followed?.bump).toBeUndefined();
+		expect(followed?.version).toBeUndefined();
+		expect(followed?.steps[0]?.does).toBe("Check staging verified v1.4.3");
+	});
+
+	it("refuses a follow of a target that follows nothing, or one with a version too", async () => {
+		expect(
+			composer().compose([{ name: "prod", follow: true }]),
+		).rejects.toThrow('"prod" follows nothing');
+		expect(
+			composer({
+				"bin/stage ship plan": [staging, { ...prod, follows: "staging" }],
+			}).compose([{ name: "prod", follow: true, version: "1.0.0" }]),
+		).rejects.toThrow("takes no version or bump");
+	});
+
 	it("plans a versioned target at an exact version, with no bump", async () => {
 		const composed = await composer().compose([
 			{ name: "staging", version: "1.2.0" },

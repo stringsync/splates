@@ -73,6 +73,52 @@ describe("Antigravity quota", () => {
 			},
 		]);
 	});
+	it("folds a model's levels into its most used one, with no placeholder reset", () => {
+		const epoch = "1970-01-01T00:00:00Z";
+		expect(
+			antigravityLimitsIn(
+				{
+					status: "SUCCESS",
+					command: {
+						name: "usage",
+						data: {
+							groups: [
+								{
+									name: "All Models",
+									buckets: [
+										{
+											name: "Gemini 4 Neon (High)",
+											remaining_fraction: 0.9,
+											reset_time: epoch,
+										},
+										{
+											name: "Gemini 4 Neon (Low)",
+											remaining_fraction: 0.4,
+											reset_time: epoch,
+										},
+										{
+											name: "Claude Opus 5.5 (Thinking)",
+											remaining_fraction: 1,
+											reset_time: "2026-11-28T21:27:05Z",
+										},
+									],
+								},
+							],
+						},
+					},
+				},
+				AT,
+			),
+		).toEqual([
+			{ window: "All Models · Gemini 4 Neon", used: 0.6, resets: null, at: AT },
+			{
+				window: "All Models · Claude Opus 5.5",
+				used: 0,
+				resets: "2026-11-28T21:27:05.000Z",
+				at: AT,
+			},
+		]);
+	});
 	it.each([
 		null,
 		{},

@@ -1,8 +1,9 @@
 import type { TaskRecord } from "@splates/server/board/browser";
 import type { Details } from "@splates/server/tasks";
+import { Scroll } from "core/browser";
 import { useReactive } from "core/react";
 import { ChevronRightIcon } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -19,11 +20,12 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { AutoPickAvoided } from "./auto-pick-avoided";
-import { AutoPickLog, AutoPickMark } from "./auto-pick-log";
-import { AutoPickOverrides } from "./auto-pick-overrides";
+import { AutoPickImprovements } from "./auto-pick-improvements";
+import { AutoPickLog } from "./auto-pick-log";
 import { cellKeyLabel, pickedCell, RulesEditor } from "./auto-pick-rules";
 import { RulesEditorView } from "./auto-pick-rules-editor";
 import { autoPickRuns } from "./auto-pick-runs";
+import { AutoPickScorecard } from "./auto-pick-scorecard";
 import { guardNavigation } from "./navigation-guard";
 import { TopBar } from "./top-bar";
 
@@ -71,6 +73,20 @@ export function AutoPickPage({
 	// The cell whose picks the log lists, `bugfix.deep`; null for all of them.
 	const [only, setOnly] = useState<string | null>(null);
 	const [logOpen, setLogOpen] = useState(false);
+	const saved = useReactive(editor, (each) => each.saved, ["changed"]);
+	const history = useRef<HTMLElement>(null);
+
+	const showLog = (cell: string) => {
+		setOnly(cell);
+		setLogOpen(true);
+		Scroll.reveal(
+			() =>
+				history.current?.querySelector<HTMLElement>(
+					"[data-slot=collapsible-trigger]",
+				) ?? null,
+			{ block: "start" },
+		);
+	};
 	const runs = autoPickRuns(tasks, todos);
 	const counts = runs.reduce<Record<string, number>>((all, run) => {
 		const cell = pickedCell(run.picked);
@@ -81,63 +97,56 @@ export function AutoPickPage({
 		<>
 			<section aria-label="Auto pick" className="flex min-w-0 flex-col gap-6">
 				<TopBar title="Auto pick" />
-				<div className="flex items-center gap-3">
-					<AutoPickMark className="size-8" />
-					<p className="text-muted-foreground text-sm">
-						On a task started with no agent named, the judge sorts it by kind
-						and difficulty, and the lineup that pair routes to picks the agent.
-					</p>
-				</div>
+				<AutoPickImprovements />
 				<AutoPickAvoided />
-				<Collapsible
-					open={logOpen}
-					onOpenChange={setLogOpen}
-					className="flex flex-col gap-2"
-				>
-					<CollapsibleTrigger
-						render={<Button variant="ghost" className="group self-start" />}
-					>
-						<ChevronRightIcon
-							aria-hidden
-							data-icon="inline-start"
-							className="transition-transform group-aria-expanded:rotate-90"
-						/>
-						Log of picks ({runs.length})
-						{only !== null && ` · ${cellKeyLabel(only)} only`}
-					</CollapsibleTrigger>
-					<CollapsibleContent className="flex flex-col gap-2 pt-2">
-						{only !== null && (
-							<button
-								type="button"
-								className="self-start text-muted-foreground text-xs underline"
-								onClick={() => setOnly(null)}
-							>
-								Show every pick
-							</button>
-						)}
-						<AutoPickLog
-							tasks={tasks}
-							todos={todos}
-							opens={opens}
-							only={only}
-						/>
-					</CollapsibleContent>
-				</Collapsible>
 				<RulesEditorView
 					editor={editor}
 					mark={mark}
 					counts={counts}
-					onLog={(cell) => {
-						setOnly(cell);
-						setLogOpen(true);
-					}}
+					onLog={showLog}
 				/>
-				<AutoPickOverrides
-					onCell={(cell) => {
-						setOnly(cell);
-						setLogOpen(true);
-					}}
-				/>
+				<section
+					ref={history}
+					aria-label="Pick history"
+					className="flex min-w-0 flex-col gap-3"
+				>
+					<h2 className="font-semibold">Pick history</h2>
+					<Collapsible
+						open={logOpen}
+						onOpenChange={setLogOpen}
+						className="flex flex-col gap-2"
+					>
+						<CollapsibleTrigger
+							render={<Button variant="ghost" className="group self-start" />}
+						>
+							<ChevronRightIcon
+								aria-hidden
+								data-icon="inline-start"
+								className="transition-transform group-aria-expanded:rotate-90"
+							/>
+							Log of picks ({runs.length})
+							{only !== null && ` · ${cellKeyLabel(only)} only`}
+						</CollapsibleTrigger>
+						<CollapsibleContent className="flex flex-col gap-2 pt-2">
+							{only !== null && (
+								<button
+									type="button"
+									className="self-start text-muted-foreground text-xs underline"
+									onClick={() => setOnly(null)}
+								>
+									Show every pick
+								</button>
+							)}
+							<AutoPickLog
+								tasks={tasks}
+								todos={todos}
+								opens={opens}
+								only={only}
+							/>
+						</CollapsibleContent>
+					</Collapsible>
+					<AutoPickScorecard rules={saved ?? editor.draft} onCell={showLog} />
+				</section>
 			</section>
 			<Dialog
 				open={leaving !== null}

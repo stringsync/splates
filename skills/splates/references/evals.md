@@ -20,8 +20,8 @@ Start a splates task, read the scenario's requirement and history with
 `splates dev eval show` on its latest run if it has one, and begin the loop at
 step 1 with the run card. An `Agents:` line names the saved
 agents to run on: copy it into the run card's `Agents:` line, and with none
-run every saved agent as step 1 says. A `Repetitions: <n>` line after it
-replaces the 3 of step 1. Then carry on exactly as from a failed run.
+run on the first saved agent as step 1 says. A `Repetitions: <n>` line after it
+replaces the 1 of step 1. Then carry on exactly as from a failed run.
 
 `[SPLATES EVAL LOOP scenarios <id> <id> ...]` is one loop over several
 scenarios of a namespace (the Evals page starts one conversation per
@@ -34,12 +34,13 @@ budget or round cap.
 
 ## The loop
 
-1. **Run.** Ask with the run card (Formats in the skill): the one scenario
-   and `Repetitions: 3`, since one run cannot tell a fix from luck, and no
-   `Baseline:` yet, since nothing has changed. Run every saved agent the
-   first time, unless the user or the scenario's history already shows some
-   pass, since this round measures where each stands. Its pass rate is where the
-   loop starts. End your turn.
+1. **Run.** Ask with the run card (Formats in the skill): the one scenario,
+   1 repetition on 1 agent by default (leave out `Repetitions:` and `Agents:`
+   unless the user asked for specific ones, so the card defaults to 1
+   repetition on the first saved agent), and no `Baseline:` yet, since
+   nothing has changed. Use more repetitions only to tell a change from noise,
+   and more agents only to confirm across agents before landing. Its pass rate
+   is where the loop starts. End your turn.
 2. **Diagnose.** When `[SPLATES EVALS DONE <batch>]` comes, open each run
    that failed with `splates dev eval show <run>`, which prints every step
    the agent took, and label it by what went wrong:
@@ -89,12 +90,13 @@ budget or round cap.
    scenario or judge fix is a grader change: see Grader changes below, which
    it must meet before it is kept.
 4. **Rerun**: the same run card, now with `Baseline:` the commit your task
-   branched from, and an `Agents:` line naming only the agents worth the
-   tokens, each copied verbatim from `splates evals agents` (never one it
-   does not print): leave out one that passed every repetition last round and that
-   the fix cannot plausibly break, and keep those that failed, errored or
-   could be moved by the change. With no `Agents:` line every saved agent
-   runs, so name them whenever any can be skipped. A harness, scenario or judge fix changes both columns,
+   branched from, keeping 1 repetition on 1 agent while iterating; add more
+   repetitions only to tell a change from noise, or an `Agents:` line
+   (each copied verbatim from `splates evals agents`, never one it does not
+   print) to confirm across agents before landing or to rerun only the agents
+   worth the tokens (leaving out any that already passed and that the fix
+   cannot plausibly break). With no `Agents:` line only the first saved agent
+   is ticked. A harness, scenario or judge fix changes both columns,
    since only the skill differs between them; a skill fix should move the
    current column alone.
 5. **Log the round** as a row under `## Rounds` in `SPLATES.md`:
@@ -104,7 +106,7 @@ budget or round cap.
 
    | Round | Label | Change | Current | Baseline |
    | ----- | ----- | ------ | ------- | -------- |
-   | 1 | skill | Directive table says to claim before reading | 1/3 | 0/3 |
+   | 1 | skill | Directive table says to claim before reading | 1/1 | 0/1 |
    ```
 
    Add `Why` (the diagnosis, one line) and `Files` (what the change touched)
@@ -115,12 +117,12 @@ budget or round cap.
    for a gain: it starts a new baseline (see Grader changes), and the row's
    Label says so.
 
-On each `[SPLATES EVALS DONE]`, reply with the round's report card, then
+On each `[SPLATES EVALS DONE]`, reply with the round's report as plain markdown, then
 the run card for the rerun, asking nothing else. The remarks and the round's
-row are too thin to say what changed, so the report card is the account:
+row are too thin to say what changed, so the report is the account:
 
 ```markdown
-## 📊 Report: <scenario> round <n>
+**<scenario> round <n>**
 
 <One-sentence headline: what went wrong and where.>
 

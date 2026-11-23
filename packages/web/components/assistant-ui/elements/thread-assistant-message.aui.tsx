@@ -71,6 +71,7 @@ const MessageError: FC = () => {
 };
 export const AssistantMessage: FC = () => {
 	const {
+		AssistantText = MarkdownText,
 		ToolFallback: ToolFallbackComponent = ToolFallback,
 		ToolGroup,
 		ReasoningGroup,
@@ -142,7 +143,7 @@ export const AssistantMessage: FC = () => {
 								);
 							}
 							case "text":
-								return <MarkdownText />;
+								return <AssistantText {...part} />;
 							case "reasoning":
 								return <Reasoning {...part} />;
 							case "tool-call":
@@ -216,8 +217,14 @@ export const WorkingIndicator: FC = () => {
 	if (labelled || streaming || sending) {
 		return null;
 	}
-	// Laid out as the work row's line: its spacing, its size, its caret and
-	// its words, so the two read as one. There is nothing to open yet.
+	return <WorkingRow />;
+};
+
+/**
+ * The shimmering Working label, for where a reply's turn goes on with no
+ * reply yet to hold it.
+ */
+export const WorkingRow: FC = () => {
 	return (
 		<div
 			data-slot="aui_assistant-message-indicator"

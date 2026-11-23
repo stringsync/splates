@@ -11,6 +11,7 @@ import type { ConversationLog } from "./log";
 import type {
 	AutoPickSet,
 	ConversationState,
+	LiftReason,
 	Message,
 	QueueSpot,
 } from "./state";
@@ -49,7 +50,11 @@ export interface ConversationHost {
 	/** Marks it `unread` or not. */
 	flag(unread: boolean): void;
 	/** Sets `settings`, by id, as Auto pick moves it up to `pick`. */
-	lift(settings: Record<string, string>, pick: AutoPickSet): Promise<void>;
+	lift(
+		settings: Record<string, string>,
+		pick: AutoPickSet,
+		why?: LiftReason,
+	): Promise<void>;
 }
 
 /**
@@ -69,6 +74,8 @@ export interface ConversationDeps {
 	fs: Fs;
 	/** Kimi Code's home (`~/.kimi-code`), whose session logs supply its tokens. */
 	kimiHome?: string;
+	/** Antigravity's home (`~/.gemini/antigravity-cli`), whose transcripts name its backgrounded commands' tasks. */
+	antigravityHome?: string;
 	/**
 	 * Where every conversation of the repo is kept: its log as `<id>.jsonl`,
 	 * the files the person sent in it as the collection `<id>`.

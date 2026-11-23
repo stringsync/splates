@@ -123,6 +123,7 @@ export function Tasks({
 				className="flex min-h-0 min-w-0 flex-1 flex-col"
 			>
 				<TopBar
+					badge={`${queue.length} queued · ${running} running`}
 					title={
 						<div className="flex min-w-0 items-center gap-3">
 							{/* A phone has Queue in its menu, and no room for the way back. */}

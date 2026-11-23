@@ -3,11 +3,18 @@ import type {
 	Currents,
 	Listed,
 	Pick,
+	Shippable,
+	Shippables,
 	Unshipped,
 } from "@splates/server/ship";
 import type { JSX } from "react";
+import { Badge } from "./components/ui/badge";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "./components/ui/native-select";
 import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 import { cn } from "./lib/utils";
 import { BumpToggle } from "./ship-bump-toggle";
@@ -15,44 +22,14 @@ import { BumpToggle } from "./ship-bump-toggle";
 /**
  * What a picked target ships at: a bump, an exact `version` for a target
  * that takes artifact versions, or null for the target's own default (a
- * deploy that takes none, or a versioned target's default bump).
+ * deploy that takes none, or a versioned target's default bump), or
+ * `{ follow: true }` for a target that follows a dependency, shipping the
+ * version that dependency releases.
  */
-export type Choice = Bump | { version: string } | null;
+export type Choice = Bump | { version: string } | { follow: true } | null;
 
 /** What is picked to ship: each target's name and its {@link Choice}. */
 export type Picks = ReadonlyMap<string, Choice>;
-
-/**
- * The choice a target is picked at first: its own bump or default, or an
- * empty version for a versioned target that resolves none by itself.
- */
-export function firstChoice({ plan }: Listed): Choice {
-	if (plan.versioned && plan.version === undefined && !plan.bump) {
-		return { version: "" };
-	}
-	return plan.bump ?? null;
-}
-
-/** Whether every picked exact version has been typed in. */
-export function chosen(picks: Picks): boolean {
-	return [...picks.values()].every(
-		(choice) =>
-			choice === null ||
-			typeof choice === "string" ||
-			choice.version.trim() !== "",
-	);
-}
-
-/** The picks as the plan and start routes take them. */
-export function picksOf(picks: Picks): Pick[] {
-	return [...picks].map(([name, choice]) =>
-		choice === null
-			? { name }
-			: typeof choice === "string"
-				? { name, bump: choice }
-				: { name, version: choice.version.trim() },
-	);
-}
 
 /**
  * Picks what to ship from every target, given as a flat list: tap a line to
@@ -67,6 +44,7 @@ export function ShipPickList({
 	targets,
 	unshipped = {},
 	current = {},
+	shippable = {},
 	loadingDetails = false,
 	picks,
 	onPicks,
@@ -75,21 +53,57 @@ export function ShipPickList({
 	targets: readonly Listed[];
 	unshipped?: Unshipped;
 	current?: Currents;
+	shippable?: Shippables;
 	loadingDetails?: boolean;
 	picks: Picks;
 	onPicks: (picks: Picks) => void;
 }): JSX.Element {
+	const served = new Map(targets.map((each) => [each.plan.name, each]));
+	// Following a dependency ticks it too, even with nothing unshipped.
+	const withFollowed = (
+		next: Map<string, Choice>,
+		choice: Choice,
+		of: string,
+	) => {
+		const followed = served.get(of)?.plan.follows;
+		const dependency =
+			followed === undefined ? undefined : served.get(followed);
+		if (
+			choice !== null &&
+			typeof choice === "object" &&
+			"follow" in choice &&
+			dependency !== undefined &&
+			!next.has(dependency.plan.name)
+		) {
+			next.set(dependency.plan.name, firstChoice(dependency));
+		}
+		return next;
+	};
 	const toggle = (target: Listed) => {
+		const { name } = target.plan;
 		const next = new Map(picks);
-		if (next.has(target.plan.name)) {
-			next.delete(target.plan.name);
+		if (next.has(name)) {
+			next.delete(name);
+			// What followed it ships the newest listed version instead.
+			for (const [other, choice] of next) {
+				if (
+					typeof choice === "object" &&
+					choice !== null &&
+					"follow" in choice &&
+					served.get(other)?.plan.follows === name
+				) {
+					next.set(other, { version: shippable[other]?.[0]?.version ?? "" });
+				}
+			}
 		} else {
-			next.set(target.plan.name, firstChoice(target));
+			const choice = firstChoice(target);
+			next.set(name, choice);
+			withFollowed(next, choice, name);
 		}
 		onPicks(next);
 	};
 	const choose = (name: string, to: Choice) => {
-		onPicks(new Map(picks).set(name, to));
+		onPicks(withFollowed(new Map(picks).set(name, to), to, name));
 	};
 	const groups = new Map<string, Listed[]>();
 	for (const target of targets) {
@@ -115,10 +129,18 @@ export function ShipPickList({
 							const deploy = target.plan.bump === undefined && !versioned;
 							const count = unshipped[name];
 							const now = current[name];
+							const follows = target.plan.follows;
+							const followed =
+								follows === undefined ? undefined : served.get(follows);
+							const versions = shippable[name] ?? [];
+							const own = picked
+								? ownNotes({ choice, now, versions, followed, follows })
+								: [];
 							const notes = [
 								deploy ? "deploy" : undefined,
 								now !== undefined ? `current ${now}` : undefined,
 								count === undefined ? undefined : sinceLastShip(count),
+								...own,
 								loadingDetails ? "loading" : undefined,
 							].filter((note) => note !== undefined);
 							return (
@@ -141,7 +163,15 @@ export function ShipPickList({
 										)}
 									>
 										<span className="flex min-w-0 flex-col">
-											<span className="truncate">{name}</span>
+											<span className="flex min-w-0 items-center gap-2">
+												<span className="truncate">{name}</span>
+												{picked &&
+													typeof choice === "object" &&
+													choice !== null &&
+													"follow" in choice && (
+														<Badge variant="secondary">follows {follows}</Badge>
+													)}
+											</span>
 											<span
 												className={cn(
 													"min-h-4 truncate font-normal text-xs",
@@ -154,23 +184,32 @@ export function ShipPickList({
 											</span>
 										</span>
 									</span>
-									{versioned
+									{follows !== undefined
 										? picked && (
-												<VersionChoice
+												<FollowChoice
 													target={target}
 													choice={choice}
+													versions={versions}
 													onChoice={(to) => choose(name, to)}
 												/>
 											)
-										: !deploy &&
-											picked &&
-											typeof choice === "string" && (
-												<BumpToggle
-													name={name}
-													bump={choice}
-													onBump={(to) => choose(name, to)}
-												/>
-											)}
+										: versioned
+											? picked && (
+													<VersionChoice
+														target={target}
+														choice={choice}
+														onChoice={(to) => choose(name, to)}
+													/>
+												)
+											: !deploy &&
+												picked &&
+												typeof choice === "string" && (
+													<BumpToggle
+														name={name}
+														bump={choice}
+														onBump={(to) => choose(name, to)}
+													/>
+												)}
 								</li>
 							);
 						})}
@@ -178,6 +217,44 @@ export function ShipPickList({
 				</section>
 			))}
 		</div>
+	);
+}
+
+/**
+ * The choice a target is picked at first: its own bump or default, or an
+ * empty version for a versioned target that resolves none by itself.
+ */
+export function firstChoice({ plan }: Listed): Choice {
+	if (plan.follows !== undefined) {
+		return { follow: true };
+	}
+	if (plan.versioned && plan.version === undefined && !plan.bump) {
+		return { version: "" };
+	}
+	return plan.bump ?? null;
+}
+
+/** Whether every picked exact version has been typed in. */
+export function chosen(picks: Picks): boolean {
+	return [...picks.values()].every(
+		(choice) =>
+			choice === null ||
+			typeof choice === "string" ||
+			"follow" in choice ||
+			choice.version.trim() !== "",
+	);
+}
+
+/** The picks as the plan and start routes take them. */
+export function picksOf(picks: Picks): Pick[] {
+	return [...picks].map(([name, choice]) =>
+		choice === null
+			? { name }
+			: typeof choice === "string"
+				? { name, bump: choice }
+				: "follow" in choice
+					? { name, follow: true as const }
+					: { name, version: choice.version.trim() },
 	);
 }
 
@@ -215,7 +292,8 @@ function VersionChoice({
 	onChoice: (choice: Choice) => void;
 }): JSX.Element {
 	const { name, version } = target.plan;
-	const exact = choice !== null && typeof choice === "object";
+	const exact =
+		choice !== null && typeof choice === "object" && "version" in choice;
 	return (
 		<div className="flex w-full items-center gap-2 pb-3 pl-7 sm:w-auto sm:pb-0 sm:pl-0">
 			<ToggleGroup
@@ -243,7 +321,7 @@ function VersionChoice({
 					</ToggleGroupItem>
 				))}
 			</ToggleGroup>
-			{exact ? (
+			{exact && "version" in choice ? (
 				<Input
 					aria-label={`${name}'s version`}
 					placeholder="version"
@@ -254,7 +332,7 @@ function VersionChoice({
 			) : (
 				<BumpToggle
 					name={name}
-					bump={choice}
+					bump={typeof choice === "string" ? choice : null}
 					// The target's own default bump, shown by the version it resolves to.
 					{...(version !== undefined && {
 						own: { value: DEFAULT, label: `default · ${version}` },
@@ -265,4 +343,97 @@ function VersionChoice({
 			)}
 		</div>
 	);
+}
+
+const FOLLOW = "follow:";
+
+/**
+ * A follower's version dropdown, "Follow <dependency>" first, then each
+ * version it may ship with its note; a version no list has yet can be typed
+ * when the list is empty.
+ */
+function FollowChoice({
+	target,
+	choice,
+	versions,
+	onChoice,
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
+}: {
+	target: Listed;
+	choice: Choice;
+	versions: readonly Shippable[];
+	onChoice: (choice: Choice) => void;
+}): JSX.Element {
+	const { name, follows } = target.plan;
+	const following =
+		choice !== null && typeof choice === "object" && "follow" in choice;
+	const picked =
+		choice !== null && typeof choice === "object" && "version" in choice
+			? choice.version
+			: "";
+	return (
+		<div className="flex w-full items-center gap-2 pb-3 pl-7 sm:w-auto sm:pb-0 sm:pl-0">
+			<NativeSelect
+				size="sm"
+				aria-label={`${name}'s version`}
+				value={following ? FOLLOW : picked}
+				onChange={(event) =>
+					onChoice(
+						event.target.value === FOLLOW
+							? { follow: true }
+							: { version: event.target.value },
+					)
+				}
+				className="min-w-0 flex-1 sm:flex-none"
+			>
+				<NativeSelectOption value={FOLLOW}>Follow {follows}</NativeSelectOption>
+				{versions.map((each) => (
+					<NativeSelectOption key={each.version} value={each.version}>
+						{each.version}
+						{each.note === undefined ? "" : ` · ${each.note}`}
+					</NativeSelectOption>
+				))}
+				{picked !== "" && !versions.some((each) => each.version === picked) && (
+					<NativeSelectOption value={picked}>{picked}</NativeSelectOption>
+				)}
+			</NativeSelect>
+		</div>
+	);
+}
+
+/**
+ * The row subtitle's version change for a picked follower: `current →
+ * picked`, with the item's note, or what the followed dependency will
+ * release.
+ */
+function ownNotes({
+	choice,
+	now,
+	versions,
+	followed,
+	follows,
+}: {
+	choice: Choice;
+	now: string | undefined;
+	versions: readonly Shippable[];
+	followed: Listed | undefined;
+	follows: string | undefined;
+}): string[] {
+	if (follows === undefined || choice === null || typeof choice !== "object") {
+		return [];
+	}
+	const from = now === undefined ? "" : `v${now.replace(/^v/, "")} → `;
+	if ("follow" in choice) {
+		const released = followed?.plan.version;
+		return [
+			released === undefined
+				? `${from}once ${follows} deploys`
+				: `${from}${released}, once ${follows} deploys`,
+		];
+	}
+	if ("version" in choice && choice.version !== "") {
+		const note = versions.find((each) => each.version === choice.version)?.note;
+		return [`${from}${choice.version}`, ...(note === undefined ? [] : [note])];
+	}
+	return [];
 }

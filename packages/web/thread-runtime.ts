@@ -37,6 +37,7 @@ export function useThreadRuntime(
 	drafts: Drafts,
 	{ messages, running, hasEarlier, loadEarlier }: ThreadMessages,
 	refused: (title: string, error: unknown) => void,
+	{ draft, asked }: ThreadRuntimeOptions = {},
 ): ThreadRuntime {
 	const { id } = conversation;
 	const [stopping, setStopping] = useState(false);
@@ -109,9 +110,14 @@ export function useThreadRuntime(
 		(message: AppendMessage) => {
 			const files = filesOf(message);
 			const text = said(message);
-			return send(named(text, files), files, text !== "" && dictated.current());
+			const words = named(text, files);
+			return send(
+				asked === undefined ? words : asked(words),
+				files,
+				text !== "" && dictated.current(),
+			);
 		},
-		[send],
+		[send, asked],
 	);
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
@@ -160,7 +166,7 @@ export function useThreadRuntime(
 			});
 		},
 	});
-	useDraft(runtime, drafts, id);
+	useDraft(runtime, drafts, draft ?? id);
 	dictated.current = useDictated(runtime);
 	/** Puts `message`, refused before, back in the composer, after what is typed there. */
 	const edit = useCallback(
@@ -180,6 +186,14 @@ export function useThreadRuntime(
 	return { runtime, send, retry, edit, stopping: stopping && running };
 }
 
+/** How a thread other than the conversation's own sends and keeps drafts. */
+export interface ThreadRuntimeOptions {
+	/** What its composer's draft is kept under; the conversation's id by default. */
+	draft?: string;
+	/** What its composer sends for `words`; the words alone by default. */
+	asked?: (words: string) => string;
+}
+
 /** What `useThreadRuntime` gives a thread. */
 export interface ThreadRuntime {
 	runtime: AssistantRuntime;
@@ -193,5 +207,5 @@ export interface ThreadRuntime {
 	edit: (message: Sending) => void;
 }
 
-const convertMessage = (message: ThreadMessageLike): ThreadMessageLike =>
+export const convertMessage = (message: ThreadMessageLike): ThreadMessageLike =>
 	message;

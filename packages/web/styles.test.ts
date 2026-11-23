@@ -28,7 +28,12 @@ describe("styles.css", () => {
 	it("reads the .ts files that hold class strings", async () => {
 		const read = await scanned();
 		expect(read).toEqual(
-			expect.arrayContaining(["board.ts", "phone-rows.ts", "status-pill.ts"]),
+			expect.arrayContaining([
+				"board.ts",
+				"page-areas.ts",
+				"phone-rows.ts",
+				"status-pill.ts",
+			]),
 		);
 	});
 

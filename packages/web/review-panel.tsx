@@ -94,14 +94,7 @@ export function ReviewPanel({
 		(each) => each.task === review.task,
 	);
 	const record = cardRecord(live?.plan);
-	const prose = (
-		<>
-			{review.summary !== "" && <CardBody text={review.summary} />}
-			{review.demo !== null && (
-				<DemoSection demo={review.demo} className="last:border-b-0" />
-			)}
-		</>
-	);
+	const body = [review.summary, review.details].filter(Boolean).join("\n\n");
 	const card = (
 		<CardShell
 			label={`review ${review.task}`}
@@ -118,27 +111,35 @@ export function ReviewPanel({
 			}
 		>
 			{/* What deciding to merge takes, in order: the change as its record
-			has it, what passed, and the prose. A task with no record left, as
-			an older review's, keeps the prose open. */}
-			<div className="divide-y">
-				{record === null ? (
-					<>
-						{prose}
-						{review.details !== "" && <CardBody text={review.details} />}
-					</>
+			has it, and the prose (with any demo between summary and details). */}
+			<div>
+				{record !== null && (
+					<BeforeAfter
+						record={record}
+						className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+					/>
+				)}
+				{review.demo === null ? (
+					body !== "" && (
+						<div className={record !== null ? "rule-t" : undefined}>
+							<CardBody text={body} />
+						</div>
+					)
 				) : (
 					<>
-						<BeforeAfter
-							record={record}
-							className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+						{review.summary !== "" && (
+							<div className={record !== null ? "rule-t" : undefined}>
+								<CardBody text={review.summary} />
+							</div>
+						)}
+						<DemoSection
+							demo={review.demo}
+							ruled={record !== null || review.summary !== ""}
 						/>
-						{(review.summary !== "" ||
-							review.demo !== null ||
-							review.details !== "") && (
-							<>
-								{prose}
-								{review.details !== "" && <CardBody text={review.details} />}
-							</>
+						{review.details !== "" && (
+							<div className="rule-t">
+								<CardBody text={review.details} />
+							</div>
 						)}
 					</>
 				)}

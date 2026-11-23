@@ -18,12 +18,19 @@ import {
 	targetOf,
 } from "../evals";
 import { fail } from "../exit";
-import { splatesHome } from "../models";
-import { claimedFirst, DevTaskPorts, portOwnersOf, SLOT_POOL } from "../ports";
+import { Limits, splatesHome } from "../models";
+import {
+	claimedFirst,
+	DevTaskPorts,
+	portOwnersOf,
+	rigProxyTargetsOf,
+	SLOT_POOL,
+} from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
 import { Rec } from "../rec";
 import { OpenBoards, openRepository } from "../records";
+import { RigSlots } from "../rigs";
 import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
 import {
 	Clocks,
@@ -121,6 +128,7 @@ export async function dev(
 		portsHost = null,
 		pusher,
 		open: givenOpen,
+		limits: givenLimits,
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects, opened = [] } = deps;
@@ -171,6 +179,9 @@ export async function dev(
 	const served = new Map<string, Promise<Served>>();
 	const replicas = new Replicas(log);
 	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
+	const rigSlots = RigSlots.in(machineStorage, {
+		exists: (path) => fs.exists(path),
+	});
 	const context: DevContext = {
 		replicas,
 		get url() {
@@ -200,6 +211,8 @@ export async function dev(
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 		boards: new OpenBoards({ fs, ps, log }, projects),
+		portsBase: portsHost,
+		rigSlots,
 		shipLauncher: {
 			launch: (argv, cwd, env) => workers.local.launch(argv, cwd, env),
 			resume: (handle, held) => workers.local.resume(handle, held),
@@ -451,8 +464,8 @@ export async function dev(
 				for (const [root, opened] of served) {
 					const project = await opened.catch(() => null);
 					const conversations = await project?.conversations?.detachAsync();
-					const ships = await project?.detachShips();
-					if (conversations || ships) {
+					const work = await project?.detachWork();
+					if (conversations || work) {
 						roots.push(root);
 					}
 				}
@@ -473,7 +486,21 @@ export async function dev(
 
 	const picker = new Picker(deps);
 
-	const ended = new DevOutcomes(deps);
+	const ended = new DevOutcomes(deps, {
+		async ofProject(root) {
+			try {
+				const repository = await openRepository(deps, { at: root });
+				try {
+					return await repository.journal.all();
+				} finally {
+					repository.dispose();
+				}
+			} catch {
+				// A project may have moved or been removed since its tasks ended.
+				return [];
+			}
+		},
+	});
 	const configFiles = new ConfigFiles(fs);
 	// Read at each request, so a project that adds `evals` to its config
 	// shows its Evals page, and runs them, without a restart.
@@ -634,6 +661,8 @@ export async function dev(
 		return found;
 	};
 	const ledger = new Spend(machineStorage);
+	const limits =
+		givenLimits ?? new Limits(machineStorage.document("limits.json"));
 	const billing = new BillingRoutes(
 		machineStorage,
 		ledger,
@@ -650,6 +679,7 @@ export async function dev(
 						...(deps.fetch === undefined ? {} : { fetcher: deps.fetch }),
 					},
 				}),
+			limits: () => limits.history(),
 		},
 	);
 
@@ -910,6 +940,7 @@ export async function dev(
 	const taskPorts = new DevTaskPorts({
 		worker: () => workers.local,
 		owners: () => portOwnersOf(served),
+		rigs: () => rigProxyTargetsOf(served),
 		base: portsHost,
 		access: gate.access,
 		log,
@@ -954,6 +985,7 @@ export async function dev(
 					},
 					"/api/focus": { PUT: guarded(picker.focus) },
 					"/api/stats": guarded(ended.stats),
+					"/api/auto-pick/scorecard": { GET: guarded(ended.scorecard) },
 					"/api/auto-pick/overrides": guarded(ended.overrides),
 					"/api/auto-pick/overrides/dismiss": {
 						POST: guarded(ended.dismissOverrides),
@@ -970,21 +1002,57 @@ export async function dev(
 									{ status: 403 },
 								);
 							}
-							const text = await ended.overridesTask();
+							const text = await ended.rulesTask();
 							if (text === null) {
 								return Response.json(
 									{
 										reason: "usage",
-										message: "There are no overrides to send",
+										message:
+											"No Auto pick cell is flagged with enough tasks to change the rules",
 									},
 									{ status: 400 },
 								);
 							}
 							const project = await projectFor(request);
 							const task = await project.sendToAgent(
-								"Update the Auto pick rules from the overrides",
+								"Propose Auto pick rule changes from the scorecard",
 								text,
 							);
+							return Response.json({ task });
+						}),
+					},
+					"/api/auto-pick/improvements": { GET: guarded(ended.improvements) },
+					"/api/auto-pick/improvements/dismiss": {
+						POST: guarded(ended.dismissImprovements),
+					},
+					"/api/auto-pick/improvements/send": {
+						POST: guarded(async (request) => {
+							if (request.headers.get("sec-fetch-site") !== "same-origin") {
+								return Response.json(
+									{
+										reason: "usage",
+										message:
+											"Only the user sends Auto pick's possible improvements to an agent, from the Auto pick page",
+									},
+									{ status: 403 },
+								);
+							}
+							const improvements = await ended.improvementsTask();
+							if (improvements === null) {
+								return Response.json(
+									{
+										reason: "usage",
+										message: "There are no possible improvements to send",
+									},
+									{ status: 400 },
+								);
+							}
+							const project = await projectFor(request);
+							const task = await project.sendToAgent(
+								"Review Auto pick's possible improvements",
+								improvements.text,
+							);
+							await ended.improvementsSent(improvements.key);
 							return Response.json({ task });
 						}),
 					},
@@ -1016,6 +1084,11 @@ export async function dev(
 					"/api/billing": guarded(billing.read),
 					"/api/billing/pull": { POST: guarded(billing.pull) },
 					"/api/billing/currency": { PUT: guarded(billing.setCurrency) },
+					"/api/billing/unused-quota": guarded(billing.unusedQuota),
+					"/api/billing/plan": {
+						PUT: guarded(billing.setPlan),
+						DELETE: guarded(billing.clearPlan),
+					},
 					"/api/machine": guarded(async () =>
 						Response.json({
 							...(await machine.read()),
@@ -1093,6 +1166,33 @@ export async function dev(
 					"/api/tasks/:task/merge-output/:index": scoped(
 						(project) => project.mergeOutput,
 					),
+					"/api/rigs": { GET: scoped((project) => project.rigs) },
+					"/api/rigs/start": { POST: scoped((project) => project.rigStart) },
+					"/api/rigs/stop": { POST: scoped((project) => project.rigStop) },
+					"/api/rigs/log": { GET: scoped((project) => project.rigLog) },
+					"/api/rigs/presets": {
+						PUT: scoped((project) => project.rigPresets),
+						DELETE: scoped((project) => project.rigPresets),
+					},
+					"/api/agent-settings": {
+						GET: scoped((project) => project.readAgentSettings),
+						PUT: scoped((project) => project.saveAgentSettings),
+					},
+					"/api/quota-reserve": {
+						GET: scoped((project) => project.quotaReserveHolds),
+					},
+					"/api/queue/agent-authorize": {
+						POST: scoped((project) => project.authorizeAgentQueue),
+					},
+					"/api/queue/chain-spend": {
+						GET: scoped((project) => project.chainSpends),
+					},
+					"/api/queue/agent-chain": {
+						GET: scoped((project) => project.readChain),
+					},
+					"/api/queue/agent-budget": {
+						POST: scoped((project) => project.changeChainBudget),
+					},
 					"/api/ship/targets": {
 						GET: scoped((project) => project.shipTargets),
 					},
@@ -1101,6 +1201,9 @@ export async function dev(
 					},
 					"/api/ship/current": {
 						GET: scoped((project) => project.shipCurrent),
+					},
+					"/api/ship/versions": {
+						GET: scoped((project) => project.shipVersions),
 					},
 					"/api/ship/plan": { POST: scoped((project) => project.shipPlan) },
 					"/api/ship/runs": {

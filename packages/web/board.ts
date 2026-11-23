@@ -43,6 +43,12 @@ export interface BoardContext {
 	elsewhere?: ElsewhereOnBoard;
 	open: (id: number) => void;
 	openTask: (task: string) => void;
+	/** Opens a queued task's conversation if the project still has it. */
+	openQueuedConversation?: (
+		id: number,
+		task: string | null,
+		saved: string | null,
+	) => boolean;
 	/** Opens the board on lane `id`, scrolled to its column. */
 	openLane: (id: number) => void;
 	/** Opens the todo board showing only the todos in `ids`. */

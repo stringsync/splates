@@ -25,9 +25,11 @@ import { files, resource, type State, span, stateOf, verb } from "./work";
 export function TimelineItem({
 	item,
 	short,
+	elapsed,
 }: {
 	item: Item;
 	short: (path: string) => string;
+	elapsed?: string | undefined;
 }): JSX.Element | null {
 	switch (item.type) {
 		case "command": {
@@ -120,7 +122,7 @@ export function TimelineItem({
 			);
 		case "tool":
 			return (
-				<Call tool={item.tool}>
+				<Call tool={item.tool} elapsed={elapsed}>
 					{/* A read's output is only the end of the file it read. */}
 					{item.tool.kind !== "read" && item.tool.output !== "" && (
 						<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-xs">
@@ -211,6 +213,7 @@ function Call({
 	tool,
 	code = false,
 	subagent = false,
+	elapsed,
 	after,
 	children,
 }: {
@@ -218,6 +221,7 @@ function Call({
 	/** What it works on is a command, set as code. */
 	code?: boolean;
 	subagent?: boolean;
+	elapsed?: string | undefined;
 	/** Said after what it works on, before how long it took. */
 	after?: ReactNode;
 	/** What it opens to; a row with none does not open. */
@@ -248,7 +252,7 @@ function Call({
 			after={
 				<>
 					{after}
-					<Took tool={tool} />
+					<Took tool={tool} elapsed={elapsed} />
 				</>
 			}
 		>
@@ -333,13 +337,24 @@ function Line({
 	);
 }
 
-function Took({ tool }: { tool: Tool }): JSX.Element | null {
-	if (tool.at === null || tool.until === null) {
+function Took({
+	tool,
+	elapsed,
+}: {
+	tool: Tool;
+	elapsed?: string | undefined;
+}): JSX.Element | null {
+	const label =
+		elapsed ??
+		(tool.at === null || tool.until === null
+			? null
+			: span(tool.at, tool.until));
+	if (label === null) {
 		return null;
 	}
 	return (
 		<span className="ml-auto shrink-0 pl-2 text-muted-foreground tabular-nums">
-			{span(tool.at, tool.until)}
+			{label}
 		</span>
 	);
 }

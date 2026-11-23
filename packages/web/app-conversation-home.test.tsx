@@ -351,7 +351,7 @@ describe("App's conversation home", () => {
 		}
 	});
 
-	it("shows Auto pick in New's settings while it picks the agent, switched off there for the agent it stood in with", async () => {
+	it("lists the agents in New's settings while Auto pick picks one, a tap starting on that agent", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", agent: "codex" })],
 			null,
@@ -365,9 +365,7 @@ describe("App's conversation home", () => {
 		await act(async () => fireEvent.click(settings));
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("switch", { name: "Auto pick" }),
-			),
+			fireEvent.click(within(dialog).getByRole("button", { name: /Codex/ })),
 		);
 
 		await waitFor(() =>
@@ -505,10 +503,21 @@ describe("App's conversation home", () => {
 		testing.reply = conversation({ id: "c9", agent: "codex", task: null });
 
 		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
-		expect(view.getByText("Settings appear once Claude starts")).toBeTruthy();
+		const sheet = view.getByRole("button", { name: "settings" });
+		expect(sheet.textContent).toBe("Claude");
+		await act(async () => fireEvent.click(sheet));
+		expect(
+			(await waitFor(() => view.getByRole("dialog"))).textContent,
+		).toContain("Settings appear once Claude starts.");
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				key: "Escape",
+			}),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 
 		await newWith(view, "Codex");
-		expect(view.queryByText(/Settings appear once/)).toBeNull();
+		expect(view.queryByRole("button", { name: "settings" })).toBeNull();
 		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
 			"Big",
 		);
@@ -597,6 +606,85 @@ describe("App's conversation home", () => {
 
 		await newWith(view, "Gemini");
 		expect(view.queryByRole("region", { name: "plan limits" })).toBeNull();
+	});
+
+	it("shows each window's burn rate and a pace icon beside Plan limits when one runs out before it resets", async () => {
+		const now = new Date().toISOString();
+		const view = await testing.openConversations([], null, {}, [
+			{
+				id: "claude",
+				name: "Claude",
+				settings: [],
+				// 3h into 5 at 75%: 25%/h, out in 1h, before the reset in 2h.
+				limits: [limit("five_hour", 0.75, now)],
+			},
+		]);
+		await openHome();
+
+		const limits = view.getByRole("region", { name: "plan limits" });
+		expect(within(limits).getByLabelText("5-hour").textContent).toContain(
+			"25%/h · resets ",
+		);
+		fireEvent.click(within(limits).getByRole("button", { name: "quota pace" }));
+		expect((await view.findByRole("dialog")).textContent).toContain(
+			"5-hour runs out ~",
+		);
+	});
+
+	// vet-ignore simple-test-setup: Antigravity's model selector and grouped quota rows belong only to this home-screen test.
+	it("shows Antigravity's 5-hour and weekly quota for only the selected model's group", async () => {
+		const view = await testing.openConversations([], null, {}, [
+			{
+				id: "antigravity",
+				name: "Antigravity",
+				settings: [
+					{
+						id: "model",
+						name: "Model",
+						type: "select",
+						category: "model",
+						current: "gemini-4-neon",
+						options: [
+							{
+								value: "gemini-4-neon",
+								name: "Gemini 4 Neon",
+								description: null,
+							},
+							{
+								value: "claude-opus-5-5",
+								name: "Claude Opus 5.5",
+								description: null,
+							},
+						],
+					},
+				],
+				limits: [
+					limit("Gemini Models · Weekly", 0.25, "2026-10-11T10:00:00.000Z"),
+					limit("Gemini Models · Five Hour", 0.1, "2026-10-11T10:00:00.000Z"),
+					limit(
+						"Claude and GPT models · Weekly",
+						0.5,
+						"2026-10-11T10:00:00.000Z",
+					),
+					limit(
+						"Claude and GPT models · Five Hour",
+						0.8,
+						"2026-10-11T10:00:00.000Z",
+					),
+				],
+			},
+		]);
+		await openHome();
+
+		const limits = view.getByRole("region", { name: "plan limits" });
+		expect(
+			within(limits)
+				.getAllByRole("listitem")
+				.map((item) => item.getAttribute("aria-label")),
+		).toEqual(["Gemini Models · 5-hour", "Gemini Models · Weekly"]);
+		expect(
+			within(limits).getByLabelText("Gemini Models · Weekly").textContent,
+		).toContain("25%");
 	});
 
 	it("opens the new conversation screen with the agent picked in its header after New is clicked", async () => {

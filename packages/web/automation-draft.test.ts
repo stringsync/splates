@@ -81,7 +81,20 @@ describe("AutomationDraft", () => {
 		).toBe("Standup");
 	});
 
-	it("asks for an agent before it makes an agent hook", () => {
-		expect(() => new AutomationDraft().made()).toThrow("pick the agent");
+	it("makes an agent hook on Auto pick when no agent is picked", () => {
+		const draft = new AutomationDraft();
+		draft.set("prompt", "look");
+		expect(draft.made().hook).toEqual({ kind: "agent", prompt: "look" });
+	});
+
+	it("keeps an Auto pick hook on Auto pick when it edits one", () => {
+		const draft = AutomationDraft.of({
+			id: "1",
+			trigger: { signal: "mdom.released" },
+			hook: { kind: "agent", prompt: "adopt it" },
+			createdAt: "2026-11-22T00:00:00.000Z",
+		});
+		expect(draft.fields.pick).toBeNull();
+		expect(draft.made().hook).toEqual({ kind: "agent", prompt: "adopt it" });
 	});
 });

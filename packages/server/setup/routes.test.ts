@@ -1,45 +1,47 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "core/system";
-import { dev } from "../server";
-import { json } from "../server/testing";
-import { Testing } from "../testing";
-import type { SetupProgress } from "./setup";
+import { beforeEach, describe, expect, it } from "bun:test";
+import { FakeSecretStore } from "core/creds/testing";
+import { FakeFs } from "core/system/testing";
+import { DICTATION_AREA } from "./area-dictation";
+import { SetupRoutes } from "./routes";
+import { Setup, type SetupMachine, type SetupProgress } from "./setup";
 
-describe("dev's setup routes", () => {
-	let deps: Testing;
+const HOME = "/home/.splates";
+
+function post(path: string): Request {
+	return new Request(`http://localhost${path}`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ answers: {} }),
+	});
+}
+
+describe("SetupRoutes", () => {
+	let routes: SetupRoutes;
 
 	beforeEach(async () => {
-		deps = await Testing.open();
+		const machine: SetupMachine = {
+			fs: new FakeFs(),
+			home: HOME,
+			device: new FakeSecretStore(),
+		};
+		await machine.fs.mkdir(HOME, { recursive: true });
+		routes = new SetupRoutes(async () => new Setup(machine, [DICTATION_AREA]));
 	});
 
-	afterEach(() => deps.disposeAsync());
+	it("reads the setup and presses a step's Next", async () => {
+		const fresh = (await (
+			await routes.read(new Request("http://localhost/api/setup"))
+		).json()) as SetupProgress;
+		const unsaved = await routes.next(post("/api/setup/dictation/next"));
 
-	it("reads the machine's setup and presses a step's Next", async () => {
-		const server = await dev(deps, { ports: OpenPortProvider.any() });
-		try {
-			const fresh = (await (
-				await fetch(`http://127.0.0.1:${server.port}/api/setup`)
-			).json()) as SetupProgress;
-			const unsaved = await json(
-				server.port,
-				"/api/setup/dictation/next",
-				"POST",
-				{ answers: {} },
-			);
-			const unknown = await json(server.port, "/api/setup/nope/next", "POST", {
-				answers: {},
-			});
-
-			// Claude's steps read this machine, so which comes next varies.
-			expect(fresh.next).toStartWith("claude-");
-			expect(unsaved.status).toBe(422);
-			expect(await unsaved.json()).toEqual({
-				reason: "step",
-				message: "Paste the OpenAI API key first.",
-			});
-			expect(unknown.status).toBe(404);
-		} finally {
-			await server.disposeAsync();
-		}
+		expect(fresh.next).toBe("dictation");
+		expect(unsaved.status).toBe(422);
+		expect(await unsaved.json()).toEqual({
+			reason: "step",
+			message: "Paste the OpenAI API key first.",
+		});
+		expect(routes.next(post("/api/setup/nope/next"))).rejects.toMatchObject({
+			reason: "not_found",
+		});
 	});
 });

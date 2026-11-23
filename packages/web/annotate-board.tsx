@@ -1,7 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Position, Rect } from "core/geometry";
 import { useReactive } from "core/react";
-import { MoveUpRightIcon, SquareIcon, Undo2Icon, XIcon } from "lucide-react";
+import { Undo2Icon, XIcon } from "lucide-react";
 import {
 	type JSX,
 	type KeyboardEvent,
@@ -10,30 +10,32 @@ import {
 	useEffect,
 	useRef,
 	useState,
+	useSyncExternalStore,
 } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
+import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
-import type { Annotation, Tool } from "./annotation";
+import { NoteBar, ToolDock } from "./annotate-phone";
+import { LIGHT, TOOLS } from "./annotate-tools";
+import type { Annotation } from "./annotation";
 import { MarkList } from "./mark-notes";
-
-/** A control on the dark around the image, in either theme. */
-const LIGHT = "text-white hover:bg-white/15 hover:text-white";
+import { NoteSheet } from "./note-sheet";
 
 /** How far off a mark, in screen pixels, a press still picks it. */
 const SLOP = 10;
 
 /**
  * How far past the image, in screen pixels, marks and notes may go: room to
- * start an arrow off the image, kept to a share of a small screen.
+ * start an arrow off the image, kept to a share of a small screen, and on a
+ * phone to a sliver, where every pixel of the image counts.
  */
-const MARGIN = { most: 120, share: 0.12 };
+const MARGIN = { most: 120, share: 0.12, phone: 16 };
 
-const TOOLS: { tool: Tool; label: string; key: string; icon: JSX.Element }[] = [
-	{ tool: "arrow", label: "Arrow", key: "a", icon: <MoveUpRightIcon /> },
-	{ tool: "box", label: "Box", key: "b", icon: <SquareIcon /> },
-];
+/** Below Tailwind's `sm`: a phone, where the tools dock at the foot. */
+const NARROW = "(max-width: 639.98px)";
 
 export function AnnotateBoard({
 	annotation,
@@ -49,6 +51,13 @@ export function AnnotateBoard({
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const view = useView(annotation, stage);
 	const touch = useTouch();
+	const narrow = useNarrow();
+	// On a phone the board fits what the keyboard leaves, so the note bar sits
+	// on it and the image shrinks to stay in sight.
+	const viewport = useViewport();
+	const note = useRef<HTMLTextAreaElement>(null);
+	/** The marks and the picked one when the press began. */
+	const pressed = useRef({ marks: 0, selected: null as number | null });
 	const { marks, tool, selected, draft } = useReactive(
 		annotation,
 		(each) => ({
@@ -146,7 +155,18 @@ export function AnnotateBoard({
 					onDone();
 				}
 			}}
-			className="fixed inset-0 z-50 flex flex-col items-center gap-3 px-3 pt-3 pb-4 text-white sm:gap-4 sm:px-8 sm:pt-4 sm:pb-8 outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+			style={
+				narrow
+					? {
+							top: viewport.top,
+							height: viewport.height,
+							paddingBottom: viewport.keyboard
+								? 0
+								: "max(1rem, env(safe-area-inset-bottom))",
+						}
+					: undefined
+			}
+			className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col items-center gap-3 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-4 text-white max-sm:bg-neutral-950 sm:gap-4 sm:px-8 sm:pt-4 sm:pb-8 outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
 		>
 			<DialogPrimitive.Title className="sr-only">
 				Mark up {annotation.original.name}
@@ -162,76 +182,89 @@ export function AnnotateBoard({
 				>
 					<XIcon />
 				</Button>
-				<fieldset
-					aria-label="tool"
-					className="flex rounded-lg bg-white/10 p-0.5"
-				>
-					{TOOLS.map((each) => (
-						<Button
-							key={each.tool}
-							variant="ghost"
-							size="sm"
-							aria-pressed={tool === each.tool}
-							aria-keyshortcuts={each.key.toUpperCase()}
-							title={`${each.label} (${each.key.toUpperCase()})`}
-							onClick={() => annotation.use(each.tool)}
-							className={cn(
-								LIGHT,
-								tool === each.tool && "bg-white! text-black! hover:bg-white!",
-							)}
-						>
-							{each.icon}
-							<span className="max-sm:sr-only">{each.label}</span>
-							{!touch && (
-								<Kbd
-									aria-hidden
-									className={cn(
-										"max-sm:hidden",
-										tool === each.tool
-											? "bg-black/10 text-black/60"
-											: "bg-white/15 text-white/70",
-									)}
-								>
-									{each.key.toUpperCase()}
-								</Kbd>
-							)}
-						</Button>
-					))}
-				</fieldset>
-				<span className="min-w-0 flex-1 truncate px-2 text-center text-sm text-white/70 max-sm:hidden">
-					Drag to draw, click to pin
-				</span>
+				{narrow && (
+					<span className="flex-1 text-center font-semibold text-[15px]">
+						Mark up
+					</span>
+				)}
+				{!narrow && (
+					<fieldset
+						aria-label="tool"
+						className="flex rounded-lg bg-white/10 p-0.5"
+					>
+						{TOOLS.map((each) => (
+							<Button
+								key={each.tool}
+								variant="ghost"
+								size="sm"
+								aria-pressed={tool === each.tool}
+								aria-keyshortcuts={each.key.toUpperCase()}
+								title={`${each.label} (${each.key.toUpperCase()})`}
+								onClick={() => annotation.use(each.tool)}
+								className={cn(
+									LIGHT,
+									tool === each.tool && "bg-white! text-black! hover:bg-white!",
+								)}
+							>
+								{each.icon}
+								<span className="max-sm:sr-only">{each.label}</span>
+								{!touch && (
+									<Kbd
+										aria-hidden
+										className={cn(
+											"max-sm:hidden",
+											tool === each.tool
+												? "bg-black/10 text-black/60"
+												: "bg-white/15 text-white/70",
+										)}
+									>
+										{each.key.toUpperCase()}
+									</Kbd>
+								)}
+							</Button>
+						))}
+					</fieldset>
+				)}
+				{!narrow && (
+					<span className="min-w-0 flex-1 truncate px-2 text-center text-sm text-white/70">
+						Drag to draw, click to pin
+					</span>
+				)}
 				<div className="ml-auto flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						disabled={marks.length === 0}
-						onClick={() => annotation.undo()}
-						aria-label="Undo"
-						className={LIGHT}
-					>
-						<Undo2Icon />
-						<span className="max-sm:hidden">Undo</span>
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						disabled={marks.length === 0}
-						onClick={() => annotation.clear()}
-						className={LIGHT}
-					>
-						Clear
-					</Button>
+					{!narrow && (
+						<>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={marks.length === 0}
+								onClick={() => annotation.undo()}
+								aria-label="Undo"
+								className={LIGHT}
+							>
+								<Undo2Icon />
+								<span className="max-sm:hidden">Undo</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={marks.length === 0}
+								onClick={() => annotation.clear()}
+								className={LIGHT}
+							>
+								Clear
+							</Button>
+						</>
+					)}
 					<Button
 						size="sm"
 						onClick={onDone}
-						className="ml-1 bg-white text-black hover:bg-white/85 sm:ml-2"
+						className="ml-1 max-sm:rounded-full max-sm:px-4 bg-white text-black hover:bg-white/85 sm:ml-2"
 					>
 						Done
 					</Button>
 				</div>
 			</div>
-			<div className="flex min-h-0 w-full flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+			<div className="relative flex min-h-0 w-full flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
 				<div
 					ref={stage}
 					// A click past the frame falls through to the popup, which closes.
@@ -259,6 +292,10 @@ export function AnnotateBoard({
 								return;
 							}
 							event.currentTarget.setPointerCapture(event.pointerId);
+							pressed.current = {
+								marks: annotation.marks.length,
+								selected: annotation.selected,
+							};
 							annotation.press(at(event), slop());
 						}}
 						onPointerMove={(event) => {
@@ -269,16 +306,56 @@ export function AnnotateBoard({
 									? "pointer"
 									: "";
 						}}
-						onPointerUp={() => annotation.release()}
+						onPointerUp={() => {
+							if (!narrow) {
+								annotation.release();
+								return;
+							}
+							// A mark drawn or tapped is there to be written about: its note
+							// is focused in the press itself, so a phone raises its keyboard.
+							flushSync(() => annotation.release());
+							const { marks: before, selected: was } = pressed.current;
+							const picked = annotation.selected;
+							if (
+								picked !== null &&
+								(annotation.marks.length > before || picked !== was)
+							) {
+								note.current?.focus({ preventScroll: true });
+							}
+						}}
 						onPointerCancel={() => annotation.release()}
 					/>
 				</div>
-				<MarkList
-					annotation={annotation}
-					className="max-sm:max-h-[34%] sm:w-72"
-				/>
+				{!narrow && (
+					<NoteSheet label="Marks" count={marks.length} wide="sm">
+						<MarkList annotation={annotation} />
+					</NoteSheet>
+				)}
 			</div>
+			{narrow && <NoteBar annotation={annotation} field={note} />}
+			{narrow && selected === null && (
+				<>
+					{marks.length === 0 && (
+						<p className="shrink-0 text-center text-sm text-white/50">
+							Drag to draw, tap to pin
+						</p>
+					)}
+					<ToolDock annotation={annotation} />
+				</>
+			)}
 		</DialogPrimitive.Popup>
+	);
+}
+
+/** Whether the window is a phone's width, following it as it resizes. */
+function useNarrow(): boolean {
+	return useSyncExternalStore(
+		(changed) => {
+			const query = matchMedia(NARROW);
+			query.addEventListener("change", changed);
+			return () => query.removeEventListener("change", changed);
+		},
+		() => matchMedia(NARROW).matches,
 	);
 }
 
@@ -316,10 +393,12 @@ function useView(
 			if (width === 0 || height === 0) {
 				return;
 			}
-			const margin = Math.min(
-				MARGIN.most,
-				Math.round(Math.min(width, height) * MARGIN.share),
-			);
+			const margin = matchMedia(NARROW).matches
+				? MARGIN.phone
+				: Math.min(
+						MARGIN.most,
+						Math.round(Math.min(width, height) * MARGIN.share),
+					);
 			const scale = Math.min(
 				1,
 				(width - margin * 2) / annotation.width,

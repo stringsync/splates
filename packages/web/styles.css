@@ -13,6 +13,7 @@
 @source not "./*.test.tsx";
 @source "./phone-rows.ts";
 @source "./board.ts";
+@source "./page-areas.ts";
 @source "./status-pill.ts";
 @source "./components/ui";
 @source "./components/assistant-ui";
@@ -317,4 +318,212 @@
 
 .splates-image-viewer .pswp:not(.pswp--zoomed-in) .pswp__img {
 	cursor: default;
+}
+
+/* Per-page area hues (light, then dark) for integrated page headers and active
+   sidebar icons. */
+[data-page-area="boards"] {
+	--area-hue: oklch(0.52 0.17 272);
+}
+[data-page-area="creds"] {
+	--area-hue: oklch(0.59 0.15 72);
+}
+[data-page-area="auto-pick"] {
+	--area-hue: oklch(0.54 0.19 305);
+}
+[data-page-area="rigs"] {
+	--area-hue: oklch(0.55 0.16 32);
+}
+[data-page-area="stats"] {
+	--area-hue: oklch(0.53 0.15 232);
+}
+[data-page-area="ships"] {
+	--area-hue: oklch(0.52 0.16 252);
+}
+[data-page-area="signals"] {
+	--area-hue: oklch(0.52 0.12 185);
+}
+[data-page-area="rec"] {
+	--area-hue: oklch(0.55 0.17 12);
+}
+[data-page-area="evals"] {
+	--area-hue: oklch(0.54 0.18 296);
+}
+[data-page-area="billing"] {
+	--area-hue: oklch(0.52 0.13 164);
+}
+[data-page-area="setup"] {
+	--area-hue: oklch(0.52 0.1 212);
+}
+[data-page-area="welcome"] {
+	--area-hue: oklch(0.53 0.16 282);
+}
+[data-page-area="conversations"] {
+	--area-hue: oklch(0.53 0.14 152);
+}
+
+:is(.dark, .dark *)[data-page-area="boards"] {
+	--area-hue: oklch(0.69 0.15 272);
+}
+:is(.dark, .dark *)[data-page-area="creds"] {
+	--area-hue: oklch(0.77 0.14 72);
+}
+:is(.dark, .dark *)[data-page-area="auto-pick"] {
+	--area-hue: oklch(0.72 0.16 305);
+}
+:is(.dark, .dark *)[data-page-area="rigs"] {
+	--area-hue: oklch(0.73 0.14 34);
+}
+:is(.dark, .dark *)[data-page-area="stats"] {
+	--area-hue: oklch(0.73 0.13 232);
+}
+:is(.dark, .dark *)[data-page-area="ships"] {
+	--area-hue: oklch(0.68 0.16 250);
+}
+:is(.dark, .dark *)[data-page-area="signals"] {
+	--area-hue: oklch(0.74 0.13 185);
+}
+:is(.dark, .dark *)[data-page-area="rec"] {
+	--area-hue: oklch(0.73 0.15 12);
+}
+:is(.dark, .dark *)[data-page-area="evals"] {
+	--area-hue: oklch(0.71 0.17 296);
+}
+:is(.dark, .dark *)[data-page-area="billing"] {
+	--area-hue: oklch(0.74 0.13 164);
+}
+:is(.dark, .dark *)[data-page-area="setup"] {
+	--area-hue: oklch(0.72 0.1 212);
+}
+:is(.dark, .dark *)[data-page-area="welcome"] {
+	--area-hue: oklch(0.71 0.15 282);
+}
+:is(.dark, .dark *)[data-page-area="conversations"] {
+	--area-hue: oklch(0.73 0.14 152);
+}
+
+/* Integrated full-bleed page header band (Variant A): neutral bottom hairline,
+   top-left area glow and opaque surfaces. */
+.page-header-band {
+	position: relative;
+	overflow: hidden;
+	background: var(--background);
+	border-bottom: 1px solid var(--border);
+}
+.page-header-glow {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(
+		ellipse 48% 155% at 0% 0%,
+		color-mix(in oklch, var(--area-hue) 13%, transparent),
+		transparent 68%
+	);
+}
+.dark .page-header-glow {
+	background: radial-gradient(
+		ellipse 48% 155% at 0% 0%,
+		color-mix(in oklch, var(--area-hue) 22%, transparent),
+		transparent 68%
+	);
+}
+@media (width < 768px) {
+	.page-header-glow {
+		background: radial-gradient(
+			ellipse 75% 135% at 0% 0%,
+			color-mix(in oklch, var(--area-hue) 14%, transparent),
+			transparent 72%
+		);
+	}
+	.dark .page-header-glow {
+		background: radial-gradient(
+			ellipse 75% 135% at 0% 0%,
+			color-mix(in oklch, var(--area-hue) 22%, transparent),
+			transparent 72%
+		);
+	}
+}
+.page-header-sheen {
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	height: 2px;
+	pointer-events: none;
+	background: linear-gradient(
+		to right,
+		color-mix(in oklch, var(--area-hue) 85%, transparent),
+		color-mix(in oklch, var(--area-hue) 32%, transparent) 44%,
+		transparent 84%
+	);
+}
+.page-header-icon {
+	border: 1px solid color-mix(in oklch, var(--area-hue) 30%, var(--border));
+	background: color-mix(in oklch, var(--area-hue) 11%, var(--card));
+	color: var(--area-hue);
+}
+.dark .page-header-icon {
+	border-color: color-mix(in oklch, var(--area-hue) 36%, var(--border));
+	background: color-mix(in oklch, var(--area-hue) 16%, var(--card));
+}
+.page-header-pill {
+	border: 1px solid color-mix(in oklch, var(--foreground) 13%, var(--card));
+	background: var(--card);
+	color: color-mix(in oklch, var(--foreground) 78%, var(--card));
+}
+.page-header-desc {
+	color: color-mix(in oklch, var(--foreground) 76%, var(--background));
+}
+
+/* Scorecard verdicts use the theme's status colors on the page's card surface. */
+.scorecard-verdict {
+	color: color-mix(in oklab, var(--verdict) 52%, var(--foreground));
+	background-color: color-mix(in oklab, var(--verdict) 18%, var(--card));
+	border-color: color-mix(in oklab, var(--verdict) 33%, var(--card));
+}
+
+/* A card's hairline between sections, held in from its sides by the card's
+   padding (1rem, 0.75rem in a narrow card) so it lines up with the text above
+   and below, as Before and After's does. `rule-t` and `rule-b` draw it above
+   or below an element, `rule-y` between a list's children; set `--rule-inset`
+   where the text sits further in. Lines that edge a shaded band (the header, a
+   tinted footer) stay full width. Drawn as a sized background image in a
+   transparent border, so it lands on whole pixels and leaves the element's
+   position and background color alone. */
+@utility rule-t {
+	--rule-pad: 1rem;
+	border-top: 1px solid transparent;
+	background-image: linear-gradient(var(--color-border), var(--color-border));
+	background-size: calc(100% - 2 * var(--rule-inset, var(--rule-pad))) 1px;
+	background-position: var(--rule-inset, var(--rule-pad)) top;
+	background-repeat: no-repeat;
+	background-origin: border-box;
+	@container (width < 28rem) {
+		--rule-pad: 0.75rem;
+	}
+}
+@utility rule-b {
+	--rule-pad: 1rem;
+	border-bottom: 1px solid transparent;
+	background-image: linear-gradient(var(--color-border), var(--color-border));
+	background-size: calc(100% - 2 * var(--rule-inset, var(--rule-pad))) 1px;
+	background-position: var(--rule-inset, var(--rule-pad)) bottom;
+	background-repeat: no-repeat;
+	background-origin: border-box;
+	@container (width < 28rem) {
+		--rule-pad: 0.75rem;
+	}
+}
+@utility rule-y {
+	--rule-pad: 1rem;
+	& > * + * {
+		border-top: 1px solid transparent;
+		background-image: linear-gradient(var(--color-border), var(--color-border));
+		background-size: calc(100% - 2 * var(--rule-inset, var(--rule-pad))) 1px;
+		background-position: var(--rule-inset, var(--rule-pad)) top;
+		background-repeat: no-repeat;
+		background-origin: border-box;
+	}
+	@container (width < 28rem) {
+		--rule-pad: 0.75rem;
+	}
 }

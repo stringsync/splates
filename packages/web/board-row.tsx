@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { BoardRecord, TaskRecord } from "@splates/server/board/browser";
+import type { BoardRecord } from "@splates/server/board/browser";
 import { GripVerticalIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { Button } from "#web/components/ui/button.tsx";
@@ -100,9 +100,4 @@ export function NameField({
 			</Button>
 		</form>
 	);
-}
-
-/** Whether a task there needs a look: one running or blocked. */
-export function needsLook(task: TaskRecord): boolean {
-	return task.stage === "running" || task.blockedBy.length > 0;
 }

@@ -9,7 +9,7 @@ const PICKS = z.object({ picks: z.array(PICK) });
 /**
  * What the Ships page calls to plan a ship: `GET /api/ship/targets` lists
  * what the registered commands serve, `GET /api/ship/unshipped` counts what
- * each has waiting, `GET /api/ship/current` reads each one's current version, and `POST /api/ship/plan` composes a pick of them.
+ * each has waiting, `GET /api/ship/current` reads each one's current version, `GET /api/ship/versions` the versions each may ship, and `POST /api/ship/plan` composes a pick of them.
  */
 export class ShipPlanRoutes {
 	readonly #commands: ShipCommands;
@@ -57,6 +57,10 @@ export class ShipPlanRoutes {
 	/** Each target's current version, by name, for those that can say. */
 	readonly shipCurrent = async (): Promise<Response> =>
 		Response.json(await this.#commands.current());
+
+	/** Each target's shippable versions, newest first, for those that can say. */
+	readonly shipVersions = async (): Promise<Response> =>
+		Response.json(await this.#commands.shippable());
 
 	/** One plan for `{ picks: [{ name, bump?, version? }] }`. */
 	readonly shipPlan = async (request: Request): Promise<Response> => {

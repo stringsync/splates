@@ -198,6 +198,13 @@ export interface Config {
 	 */
 	ships: string[];
 	/**
+	 * The commands that declare this repository's dev servers, as
+	 * `["bin/vex rig", "bin/s2s rig"]`. Each answers `describe` with the rigs
+	 * it serves and `start <rig>` with one of them, from the tree the user
+	 * picks; the Rigs page lists them. See `docs/rigs.md`.
+	 */
+	rigs: string[];
+	/**
 	 * Path globs that count against no project, such as the root `package.json`
 	 * or `bun.lock`, which every project shares. Only read with `projects`.
 	 */

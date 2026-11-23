@@ -1,5 +1,6 @@
 import {
 	MessagePrimitive,
+	type TextMessagePartComponent,
 	type ToolCallMessagePartComponent,
 	type TriggerAdapter,
 } from "@assistant-ui/react";
@@ -24,6 +25,8 @@ export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
  */
 export type ThreadComponents = {
 	AssistantMessage?: ComponentType | undefined;
+	UserMessage?: ComponentType | undefined;
+	AssistantText?: TextMessagePartComponent | undefined;
 	Welcome?: ComponentType | undefined;
 	ToolFallback?: ToolCallMessagePartComponent | undefined;
 	ToolGroup?:
@@ -51,6 +54,8 @@ export type ThreadProps = {
 	starting?: boolean | undefined;
 	/** Shown just above the composer, such as what the agent is asking. */
 	above?: ReactNode | undefined;
+	/** Shown above the first message, in the scroll, such as a queued task's cards. */
+	before?: ReactNode | undefined;
 	/** Shown under the last message, in the scroll, such as a card that tracks live state. */
 	after?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
@@ -92,6 +97,7 @@ export const ThreadExtrasContext = createContext<
 	Pick<
 		ThreadProps,
 		| "above"
+		| "before"
 		| "after"
 		| "welcome"
 		| "below"

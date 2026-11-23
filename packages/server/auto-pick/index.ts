@@ -51,10 +51,13 @@ export { classificationKey } from "./key";
 export { lifting } from "./lift";
 export { QueueAutoPick } from "./queue";
 export type { AutoPicked } from "./record";
+export type { ReserveHold } from "./reserve";
+export { reserveHold } from "./reserve";
 export { AutoPickRoutes } from "./routes";
 export type {
 	AutoPickRules,
 	CheckedRules,
+	Holdout,
 	Lineup,
 	Pace,
 	Routes,
@@ -63,7 +66,7 @@ export { AUTO_PICK_RULES, checkRules, lineupFor } from "./rules";
 export type { AutoPickAgent, AutoPickRulesView } from "./rules-routes";
 export { AutoPickRulesRoutes, pickableAgents } from "./rules-routes";
 export type { AutoPickStart, AutoPickTarget, AutoPickWords } from "./start";
-export { startAutoPick } from "./start";
+export { contextOf, startAutoPick } from "./start";
 export { AutoPickStore } from "./store";
 export type {
 	Judge,

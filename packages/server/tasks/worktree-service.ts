@@ -10,7 +10,13 @@ import { limited, READ_CONCURRENCY } from "../limited";
 import { ranWith } from "../models";
 import { decisions, goalLine, outcomeOf, Plans, picks } from "../plans";
 import type { Adherence } from "../stats";
-import { findings, type Outcomes, promptsFrom, taskLog } from "../stats";
+import {
+	findings,
+	type Outcomes,
+	outcomeAutoPick,
+	promptsFrom,
+	taskLog,
+} from "../stats";
 import { type Collection, FsStorage, type Log, type Storage } from "../storage";
 import { Finished } from "./finished";
 import { StartedRecords } from "./started-records";
@@ -463,6 +469,9 @@ export class WorktreeService {
 							depth: state.autoPick?.depth ?? null,
 						})),
 					}),
+			...(state.autoPick === undefined
+				? {}
+				: { autoPick: outcomeAutoPick(state.autoPick, worked?.lifts ?? []) }),
 			...(outcomeOf(ending.plan) === ""
 				? {}
 				: { outcome: outcomeOf(ending.plan) }),

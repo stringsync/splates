@@ -214,13 +214,31 @@ const uninitialized: Scenario[] = [
 				id: "clock",
 				about:
 					"ran `splates signal wait` on clock.in or clock.at with --timeout and --description",
-				test: ({ commands }) =>
-					commands.some(
+				test: ({ commands, transcript }) => {
+					const waited = commands.some(
 						(command) =>
 							/splates signal wait\s+['"]?clock\.(in|at)\(/.test(command) &&
 							command.includes("--timeout") &&
 							command.includes("--description"),
-					),
+					);
+					if (waited) {
+						return true;
+					}
+					const index = transcript.findIndex(
+						(step) =>
+							step.kind === "tool" && /(?:^|__)CronCreate$/i.test(step.name),
+					);
+					return index === -1
+						? false
+						: {
+								pass: false,
+								step: {
+									index,
+									observed:
+										"The agent called CronCreate. A session cron ends with the session.",
+								},
+							};
+				},
 			},
 			{
 				id: "no-timer",

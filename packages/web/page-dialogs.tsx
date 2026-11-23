@@ -8,12 +8,14 @@ export function PageDialogs({
 	settingsOpen,
 	onSettingsOpenChange,
 	onWelcome,
+	project,
 }: {
 	settings: Settings;
 	settingsOpen: boolean;
 	onSettingsOpenChange: (open: boolean) => void;
 	/** Opens the Welcome page. */
 	onWelcome: () => void;
+	project?: string;
 }): JSX.Element {
 	return (
 		<SettingsDialog
@@ -21,6 +23,7 @@ export function PageDialogs({
 			open={settingsOpen}
 			onOpenChange={onSettingsOpenChange}
 			onWelcome={onWelcome}
+			project={project}
 		/>
 	);
 }

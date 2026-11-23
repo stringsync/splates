@@ -22,19 +22,21 @@ export function heldFor(
 					(worktree) => worktree.state?.dispatch?.held ?? [],
 				),
 			);
-			return (await conversations.list()).flatMap(({ state }) =>
-				state.heldForTask === null || state.archived
+			return (await conversations.list()).flatMap(({ state }) => {
+				const queued = state.heldForTask ?? state.queuedTask;
+				return queued === null || state.archived
 					? []
 					: [
 							{
 								id: state.id,
-								queued: state.heldForTask,
+								queued,
 								agent: state.agent,
 								createdAt: state.createdAt,
 								handed: handed.has(state.id),
+								...(state.queuedTask !== null ? { live: true as const } : {}),
 							},
-						],
-			);
+						];
+			});
 		},
 		hold: async (queued, pick) => {
 			const offered = (await conversations.settings())[pick.agent] ?? [];

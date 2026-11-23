@@ -315,6 +315,12 @@ function TargetCard({
 	const preview = targetPreview(target.steps);
 	const shown = expanded ? target.steps : preview.steps;
 	const details = useId();
+	const signedIn = target.signedIn;
+	const fixes = target.status === "failed" ? [] : target.fixes;
+	// Notes sit under their step in the rail; those whose step it does not draw sit below it.
+	const railed = new Set(
+		target.steps.length > 1 || expanded ? shown.map((each) => each.id) : [],
+	);
 	const card = useRef<HTMLElement>(null);
 	const toggle = () => {
 		setDisclosure({ done, expanded: !expanded });
@@ -402,14 +408,39 @@ function TargetCard({
 				>
 					{(target.steps.length > 1 || expanded) && (
 						<div className="-ml-7.5">
-							<StepRail run={runId} target={target.name} steps={shown} />
+							<StepRail
+								run={runId}
+								target={target.name}
+								steps={shown}
+								notes={(step) => (
+									<>
+										{signedIn
+											.filter((each) => each.step === step)
+											.map((each) => (
+												<ShipSignedIn key={each.step} url={each.url} />
+											))}
+										{fixes
+											.filter((fix) => fix.step === step)
+											.map((fix) => (
+												<FixLine
+													key={`${fix.step}\n${fix.task}`}
+													fix={fix}
+													failed={false}
+												/>
+											))}
+									</>
+								)}
+							/>
 						</div>
 					)}
-					{target.signedIn.map((each) => (
-						<ShipSignedIn key={each.step} url={each.url} />
-					))}
-					{target.status !== "failed" &&
-						target.fixes.map((fix) => (
+					{signedIn
+						.filter((each) => !railed.has(each.step))
+						.map((each) => (
+							<ShipSignedIn key={each.step} url={each.url} />
+						))}
+					{fixes
+						.filter((fix) => !railed.has(fix.step))
+						.map((fix) => (
 							<FixLine
 								key={`${fix.step}\n${fix.task}`}
 								fix={fix}

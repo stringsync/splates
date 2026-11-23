@@ -212,21 +212,30 @@ function hookIn(raw: unknown): Hook {
 	}
 	if (
 		given.kind === "agent" &&
-		typeof given.agent === "string" &&
 		typeof given.prompt === "string" &&
 		given.prompt.trim() !== ""
 	) {
-		return {
-			kind: "agent",
-			agent: given.agent,
-			prompt: given.prompt,
-			...(typeof given.model === "string" && given.model !== ""
-				? { model: given.model }
-				: {}),
-			...(typeof given.effort === "string" && given.effort !== ""
-				? { effort: given.effort }
-				: {}),
-		};
+		// No agent named runs on Auto pick, which picks the model and effort too.
+		if (
+			given.agent === undefined ||
+			given.agent === null ||
+			given.agent === ""
+		) {
+			return { kind: "agent", prompt: given.prompt };
+		}
+		if (typeof given.agent === "string") {
+			return {
+				kind: "agent",
+				agent: given.agent,
+				prompt: given.prompt,
+				...(typeof given.model === "string" && given.model !== ""
+					? { model: given.model }
+					: {}),
+				...(typeof given.effort === "string" && given.effort !== ""
+					? { effort: given.effort }
+					: {}),
+			};
+		}
 	}
 	fail(
 		"usage",

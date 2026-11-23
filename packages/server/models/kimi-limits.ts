@@ -148,11 +148,7 @@ async function listedSubscription(
 function currencyOf(base: string): string | null {
 	try {
 		const host = new URL(base).hostname;
-		return host === "api.kimi.ai"
-			? "USD"
-			: host === "api.kimi.com"
-				? "CNY"
-				: null;
+		return host === "api.kimi.ai" || host === "api.kimi.com" ? "USD" : null;
 	} catch {
 		return null;
 	}

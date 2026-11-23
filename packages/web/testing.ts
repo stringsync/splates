@@ -1,5 +1,9 @@
 // vet-ignore-file compact-files: the page tests' one fake server; its routes belong together
-import type { BillingView, SpendReport } from "@splates/server/spend";
+import type {
+	BillingView,
+	SpendReport,
+	UnusedQuotaReport,
+} from "@splates/server/spend";
 // Imported for the side effect, and first: the DOM it sets up must be in place
 // before anything below loads react-dom.
 import "./testing-dom";
@@ -27,6 +31,7 @@ import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { createElement } from "react";
 import type { Budgets, KeptCreds, MachineStatus } from "./api";
 import { WAITS } from "./api";
+import type { AutoPickScores } from "./auto-pick-api";
 import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
@@ -138,6 +143,15 @@ export class Testing implements Resource {
 		days: [],
 		projects: [],
 		upcoming: [],
+	};
+	/** What `/api/billing/unused-quota` says of unused subscription quota. */
+	unusedQuotaReport: UnusedQuotaReport = {
+		days: 28,
+		currency: "USD",
+		totalUnusedMonthly: 0,
+		totalPricedMonthly: 0,
+		pricedPlans: 0,
+		plans: [],
 	};
 	/** What `/api/budgets` waits on, for a test to hold a reading back. */
 	readingBudgets: Promise<void> = Promise.resolve();
@@ -251,6 +265,14 @@ export class Testing implements Resource {
 	autoPickRules: AutoPickRulesView | null = null;
 	/** What `/api/auto-pick/overrides` reads. */
 	autoPickOverrides: CellOverrides[] = [];
+	autoPickOverrideCursor = 0;
+	autoPickScores: AutoPickScores = {
+		minimumTasks: 10,
+		rows: [],
+		overrides: [],
+	};
+	/** What `/api/auto-pick/improvements` reads. */
+	autoPickImprovements = { count: 0, key: "[]" };
 	/** What `/api/auto-pick/avoided` reads, and what `Use anyway` leaves. */
 	autoPickAvoided: Avoided[] = [];
 	/** The ports `/api/ports` says tasks serve. */
@@ -298,6 +320,15 @@ export class Testing implements Resource {
 			if (path === "/api/billing/pull") {
 				return Response.json(this.billingView);
 			}
+			if (path.split("?")[0] === "/api/billing/plan") {
+				this.posts.push({
+					path,
+					method: init?.method ?? "PUT",
+					body: init?.body,
+					headers: init?.headers,
+				});
+				return Response.json(this.billingView);
+			}
 			if (path.split("?")[0] === "/api/auto-pick/avoided/clear") {
 				this.autoPickAvoided = [];
 				return Response.json(this.autoPickAvoided);
@@ -343,6 +374,15 @@ export class Testing implements Resource {
 			if (route === "/api/billing") {
 				return Response.json(this.billingView);
 			}
+			if (route === "/api/billing/unused-quota") {
+				const days = Number(
+					new URL(path, "http://localhost").searchParams.get("days") ?? "28",
+				);
+				return Response.json({
+					...this.unusedQuotaReport,
+					days: days === 90 ? 90 : 28,
+				});
+			}
 			if (route === "/api/spend") {
 				return Response.json(this.spendReport);
 			}
@@ -369,8 +409,16 @@ export class Testing implements Resource {
 			if (route === "/api/auto-pick/avoided") {
 				return Response.json(this.autoPickAvoided);
 			}
+			if (route?.split("?")[0] === "/api/auto-pick/scorecard") {
+				return Response.json(this.autoPickScores);
+			}
+			if (route === "/api/auto-pick/improvements") {
+				return Response.json(this.autoPickImprovements);
+			}
 			if (route?.split("?")[0] === "/api/auto-pick/overrides") {
-				return Response.json(this.autoPickOverrides);
+				return Response.json(this.autoPickOverrides, {
+					headers: { "X-Override-Cursor": String(this.autoPickOverrideCursor) },
+				});
 			}
 			if (route === "/api/auto-pick/rules") {
 				return this.autoPickRules === null

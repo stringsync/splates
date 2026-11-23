@@ -1,8 +1,9 @@
 import type { Steps } from "@splates/server/plans/browser";
-import { CheckIcon, RotateCcwIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, RotateCcwIcon } from "lucide-react";
 import type { JSX, KeyboardEvent, ReactNode } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { CopyableCode } from "./copyable-code";
 import { Markdown } from "./markdown";
 
 /**
@@ -18,6 +19,7 @@ export function moved(
 	// The window's document itself is a target too, with nothing to look up from.
 	const target = event.target as Partial<Element> | null;
 	if (
+		event.defaultPrevented ||
 		event.metaKey ||
 		event.ctrlKey ||
 		event.altKey ||
@@ -41,6 +43,8 @@ export function StepsBody({
 	done,
 	place,
 	move,
+	preview,
+	togglePreview,
 	hint,
 	changed = NONE_CHANGED,
 }: {
@@ -48,10 +52,47 @@ export function StepsBody({
 	done: number;
 	place: (done: number) => void;
 	move: (by: number) => void;
+	preview: number | null;
+	togglePreview: (step: number) => void;
 	/** Whether the step they are on says how to mark it done. */
 	hint: boolean;
 	/** The steps the agent changed in its last version, with their old words. */
 	changed?: ReadonlyMap<number, string | null>;
+}): JSX.Element {
+	return (
+		<CopyableCode value>
+			<StepsList
+				steps={steps}
+				done={done}
+				place={place}
+				move={move}
+				preview={preview}
+				togglePreview={togglePreview}
+				hint={hint}
+				changed={changed}
+			/>
+		</CopyableCode>
+	);
+}
+
+function StepsList({
+	steps,
+	done,
+	place,
+	move,
+	preview,
+	togglePreview,
+	hint,
+	changed,
+}: {
+	steps: Steps;
+	done: number;
+	place: (done: number) => void;
+	move: (by: number) => void;
+	preview: number | null;
+	togglePreview: (step: number) => void;
+	hint: boolean;
+	changed: ReadonlyMap<number, string | null>;
 }): JSX.Element {
 	const count = steps.steps.length;
 	return (
@@ -76,10 +117,11 @@ export function StepsBody({
 						n={i + 1}
 						text={text}
 						at={i < done ? "past" : i === done ? "here" : "ahead"}
+						previewed={i === preview}
 						hint={hint}
 						was={changed.has(i) ? (changed.get(i) ?? null) : undefined}
 						onDone={() => place(i + 1)}
-						onHere={() => place(i)}
+						onPreview={() => togglePreview(i)}
 					/>
 				))}
 			</ol>
@@ -109,7 +151,8 @@ function Fold({
 		<div
 			inert={!open}
 			className={cn(
-				"grid transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+				// One column no wider than the step, so a long command scrolls in it.
+				"grid grid-cols-[minmax(0,1fr)] transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
 				open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
 			)}
 		>
@@ -119,29 +162,31 @@ function Fold({
 }
 
 /**
- * A step: the one they are on unfolds in full, its mark grown; every other
- * folds to its first line, so moving on animates one closed and the next open.
+ * The current step stays unfolded. One other step can be opened for reference.
  */
 function Step({
 	n,
 	text,
 	at,
+	previewed,
 	hint,
 	was,
 	onDone,
-	onHere,
+	onPreview,
 }: {
 	n: number;
 	text: string;
 	at: "past" | "here" | "ahead";
+	previewed: boolean;
 	hint: boolean;
 	/** What it said before the agent changed it: null for a new step, undefined for one unchanged. */
 	was: string | null | undefined;
 	onDone: () => void;
-	onHere: () => void;
+	onPreview: () => void;
 }): JSX.Element {
 	const here = at === "here";
 	const past = at === "past";
+	const open = here || previewed;
 	const cut = text.indexOf("\n");
 	const line = cut === -1 ? text : text.slice(0, cut);
 	const detail = cut === -1 ? "" : text.slice(cut + 1).trim();
@@ -158,23 +203,36 @@ function Step({
 				here
 					? "border-violet-500 bg-linear-to-r from-violet-500/[0.09] via-violet-500/[0.04] to-transparent py-4"
 					: "border-transparent py-2",
+				previewed && "border-muted-foreground/35 bg-muted/50",
 				past && "text-muted-foreground",
 			)}
 		>
-			<Mark n={n} at={at} onDone={onDone} onHere={onHere} />
+			<Mark
+				n={n}
+				at={at}
+				previewed={previewed}
+				onClick={here ? onDone : onPreview}
+			/>
 			<div
 				className={cn(
 					"min-w-0 flex-1 text-sm leading-relaxed",
 					here && "pt-0.5",
 				)}
 			>
-				<Fold open={here}>
+				<Fold open={open}>
 					<div className="mb-0.5 flex items-baseline gap-2">
-						<span className="font-semibold text-[10px] text-violet-600 uppercase tracking-[0.06em] dark:text-violet-400">
-							You are here
+						<span
+							className={cn(
+								"font-semibold text-[10px] uppercase tracking-[0.06em]",
+								here
+									? "text-violet-600 dark:text-violet-400"
+									: "text-muted-foreground",
+							)}
+						>
+							{here ? "You are here" : "Preview"}
 						</span>
-						{here && updated}
-						{hint && (
+						{open && updated}
+						{here && hint && (
 							<span className="ml-auto text-muted-foreground/80 text-xs @max-md:hidden">
 								tap the circle ·{" "}
 								<kbd className="rounded border border-b-2 bg-background px-1 font-mono text-[11px]">
@@ -184,20 +242,47 @@ function Step({
 						)}
 					</div>
 				</Fold>
-				<div className="flex items-baseline gap-2">
+				{/* biome-ignore lint/a11y/useKeyWithClickEvents: the step's mark is the keyboard and screen reader control */}
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: the title extends the mark's pointer target while preserving links */}
+				<div
+					className={cn(
+						"flex items-baseline gap-2",
+						!here && "cursor-pointer hover:text-foreground",
+					)}
+					onClick={
+						here
+							? undefined
+							: (event) => {
+									if (!(event.target as Element).closest("a, button")) {
+										onPreview();
+									}
+								}
+					}
+				>
 					<Markdown
 						text={linkedUrls(line)}
 						className={cn(
 							"min-w-0 flex-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
 							// Folded, a step is its first line, cut short to fit.
-							!here && "text-muted-foreground [&_p]:truncate",
-							past && "line-through decoration-muted-foreground/40",
+							!open && "text-muted-foreground [&_p]:truncate",
+							past &&
+								!previewed &&
+								"line-through decoration-muted-foreground/40",
 						)}
 					/>
-					{!here && updated}
+					{!open && updated}
+					{!here && (
+						<ChevronDownIcon
+							aria-hidden
+							className={cn(
+								"size-4 shrink-0 self-center text-muted-foreground transition-transform motion-reduce:transition-none",
+								previewed && "rotate-180",
+							)}
+						/>
+					)}
 				</div>
 				{/* Its old words and what is indented under its line: detail, a command. */}
-				<Fold open={here}>
+				<Fold open={open}>
 					{was !== undefined && was !== null && (
 						<Markdown
 							text={was.split("\n")[0] ?? ""}
@@ -217,86 +302,52 @@ function Step({
 }
 
 /**
- * A step's mark: a check once done, which steps back to it; the circle of the
- * step they are on, grown, which fills with a check on hover and marks it
- * done; and the number of one ahead, which shows a check on hover and marks
- * it done with every step before it. One ring holds each, so moving on grows
- * and shrinks it rather than swapping it.
+ * The current circle marks a step done. Other markers open the preview.
  */
 function Mark({
 	n,
 	at,
-	onDone,
-	onHere,
+	previewed,
+	onClick,
 }: {
 	n: number;
 	at: "past" | "here" | "ahead";
-	onDone: () => void;
-	onHere: () => void;
+	previewed: boolean;
+	onClick: () => void;
 }): JSX.Element {
 	const here = at === "here";
-	const inner =
-		"absolute inset-0 grid place-items-center rounded-full outline-none";
 	return (
-		<span
+		<button
+			type="button"
+			title={here ? "Mark done" : previewed ? "Close preview" : "Preview step"}
+			aria-label={
+				here
+					? `Mark step ${n} done`
+					: `Preview step ${n}${at === "past" ? ", done" : ""}`
+			}
+			aria-expanded={here ? undefined : previewed}
+			onClick={onClick}
 			className={cn(
-				"relative grid shrink-0 place-items-center rounded-full border-2 tabular-nums transition-all duration-500 motion-reduce:transition-none",
+				"grid shrink-0 place-items-center rounded-full border-2 outline-none tabular-nums transition-all duration-500 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
 				SPRING,
 				here
-					? "size-10 border-violet-500 bg-background font-bold text-lg text-violet-600 shadow-[0_0_0_6px] shadow-violet-500/15 dark:text-violet-400"
-					: "mt-px size-6 border-transparent text-xs",
+					? "group/mark size-10 border-violet-500 bg-background font-bold text-lg text-violet-600 shadow-[0_0_0_6px] shadow-violet-500/15 hover:bg-violet-600 hover:text-white focus-visible:bg-violet-600 focus-visible:text-white dark:text-violet-400 dark:hover:text-white dark:focus-visible:text-white"
+					: "mt-px size-6 border-transparent text-xs hover:bg-muted",
+				at === "past" && "text-success",
 				at === "ahead" && "text-muted-foreground",
 			)}
 		>
-			{at === "past" && (
-				<button
-					type="button"
-					title="Back to this step"
-					aria-label={`Step ${n}, done: back to it`}
-					onClick={onHere}
-					className={cn(
-						inner,
-						"text-success transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-					)}
-				>
-					<CheckIcon className="size-4 animate-in zoom-in-50 fade-in duration-300" />
-				</button>
-			)}
+			{at === "past" && <CheckIcon className="size-4" />}
 			{here && (
-				<button
-					type="button"
-					title="Mark done"
-					aria-label={`Mark step ${n} done`}
-					onClick={onDone}
-					className={cn(
-						inner,
-						"group/mark transition-all duration-200 hover:scale-110 hover:bg-violet-600 hover:text-white focus-visible:bg-violet-600 focus-visible:text-white active:scale-95",
-					)}
-				>
-					<span className="animate-in zoom-in-50 fade-in duration-300 group-hover/mark:hidden group-focus-visible/mark:hidden">
-						{n}
-					</span>
-					<CheckIcon className="hidden size-5 stroke-3 group-hover/mark:block group-focus-visible/mark:block" />
-				</button>
-			)}
-			{at === "ahead" && (
-				<button
-					type="button"
-					title="Mark done, with every step before it"
-					aria-label={`Mark steps through ${n} done`}
-					onClick={onDone}
-					className={cn(
-						inner,
-						"group/mark transition-all duration-200 hover:scale-110 hover:bg-success/15 hover:text-success focus-visible:bg-success/15 focus-visible:text-success active:scale-95",
-					)}
-				>
+				<>
 					<span className="group-hover/mark:hidden group-focus-visible/mark:hidden">
 						{n}
 					</span>
-					<CheckIcon className="hidden size-4 group-hover/mark:block group-focus-visible/mark:block" />
-				</button>
+					<CheckIcon className="hidden size-5 stroke-3 group-hover/mark:block group-focus-visible/mark:block" />
+				</>
 			)}
-		</span>
+			{at === "ahead" && n}
+		</button>
 	);
 }
 

@@ -36,7 +36,7 @@ export function WelcomePage({
 			aria-label="welcome"
 			className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-10 pb-10"
 		>
-			<TopBar title="Welcome" />
+			<TopBar title="" />
 			<header className="flex items-center gap-6 px-3 pt-6">
 				<PlateIcon className="size-16 shrink-0 rounded-2xl" />
 				<div className="flex flex-col gap-1">

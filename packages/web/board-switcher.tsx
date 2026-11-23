@@ -44,7 +44,7 @@ import {
 import { DeleteBoard } from "./board-delete-dialog";
 import { BoardMenu } from "./board-menu";
 import { saveBoard } from "./board-places";
-import { NameField, needsLook, SortableRow } from "./board-row";
+import { NameField, SortableRow } from "./board-row";
 import { BoardTile, SortableTile } from "./board-tile";
 
 /** Pass these operations to BoardSwitcher to create, edit, move, or delete boards. */
@@ -74,7 +74,7 @@ export interface BoardTasks {
 /**
  * The top bar's board switcher: names the current board and opens a list of
  * the project's boards in their order, each with its task count and
- * a dot when something there needs a look, with Create, and a menu on each to rename, reorder or delete it. Typing
+ * with Create, and a menu on each to rename, reorder or delete it. Typing
  * filters; `b` opens it.
  */
 export function BoardSwitcher({
@@ -232,13 +232,6 @@ export function BoardSwitcher({
 						)}
 					>
 						<span className="truncate">{board.name}</span>
-						{own.some(needsLook) ? (
-							<span
-								role="img"
-								aria-label="Needs a look"
-								className="size-1.5 shrink-0 rounded-full bg-amber-500"
-							/>
-						) : null}
 						<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
 							{own.length}
 						</span>

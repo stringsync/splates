@@ -1,4 +1,6 @@
 import type { Pairing } from "../conversations";
+import type { RosterAgent } from "../models";
+import { type ModelProvider, modelProvider } from "./model-provider";
 import type { Outcome } from "./outcomes";
 
 /**
@@ -15,6 +17,48 @@ export interface CellOverrides {
 	moves: { from: Pairing; to: Pairing; count: number }[];
 	/** Overrides made before pairings were recorded, which show no move. */
 	earlier: number;
+}
+
+/** Recorded moves for a lineup in a cell, with null when the lineup is unknown. */
+export interface LineupOverrides extends CellOverrides {
+	lineup: string | null;
+	moves: (CellOverrides["moves"][number] & {
+		fromProvider: ModelProvider | null;
+		toProvider: ModelProvider | null;
+	})[];
+}
+
+/** Keeps old overrides in their cell even when the lineup was not recorded. */
+export function overridesByLineup(
+	outcomes: readonly Outcome[],
+	agents: readonly RosterAgent[],
+): LineupOverrides[] {
+	const groups = new Map<string | null, Outcome[]>();
+	for (const outcome of outcomes) {
+		const first = outcome.overrides?.[0];
+		if (first === undefined) {
+			continue;
+		}
+		const pick = outcome.autoPick;
+		const matchingPick =
+			(pick?.kind ?? null) === (first.kind ?? null) &&
+			(pick?.depth ?? null) === (first.depth ?? null);
+		const lineup = first.lineup ?? (matchingPick ? pick?.lineup : null) ?? null;
+		const group = groups.get(lineup) ?? [];
+		group.push(outcome);
+		groups.set(lineup, group);
+	}
+	return [...groups].flatMap(([lineup, group]) =>
+		overridesByCell(group).map((cell) => ({
+			...cell,
+			lineup,
+			moves: cell.moves.map((move) => ({
+				...move,
+				fromProvider: modelProvider(move.from.model, agents),
+				toProvider: modelProvider(move.to.model, agents),
+			})),
+		})),
+	);
 }
 
 /**
@@ -72,38 +116,4 @@ export function overridesByCell(outcomes: readonly Outcome[]): CellOverrides[] {
 			};
 		})
 		.toSorted((one, other) => other.count - one.count);
-}
-
-function pairing(each: Pairing): string {
-	return [each.model, each.effort].filter(Boolean).join(" · ") || "unknown";
-}
-
-/**
- * The words of the board task that has an agent update the Auto pick rules
- * from `cells`, or null when nothing was overridden.
- */
-export function overridesTaskText(
-	cells: readonly CellOverrides[],
-): string | null {
-	if (cells.length === 0) {
-		return null;
-	}
-	const lines = cells.map((cell) => {
-		const moves = cell.moves.map(
-			(move) =>
-				`  - ${pairing(move.from)} to ${pairing(move.to)}, ${move.count} ${move.count === 1 ? "time" : "times"}`,
-		);
-		if (cell.earlier > 0) {
-			moves.push(`  - ${cell.earlier} earlier, with no pairing recorded`);
-		}
-		return [
-			`- ${cell.kind} at ${cell.depth} depth: ${cell.count} overridden`,
-			...moves,
-		].join("\n");
-	});
-	return [
-		"The user keeps moving conversations off what Auto pick chose. Read the overrides below, a cell being the kind and depth the judge sorted a task into, and update the Auto pick rules (the Auto pick page's rules, saved for this machine) so each cell that is often overridden picks what the user moves it to. Leave alone a cell overridden once or twice, and say what you changed and why.",
-		"",
-		...lines,
-	].join("\n");
 }

@@ -64,7 +64,7 @@ export function boardRef({ conversation, task }: Needing): {
 	return {
 		task:
 			task?.task ?? conversation?.task ?? conversation?.lastTask ?? undefined,
-		held: conversation?.heldForTask ?? undefined,
+		held: conversation?.heldForTask ?? conversation?.queuedTask ?? undefined,
 	};
 }
 

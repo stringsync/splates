@@ -6,6 +6,7 @@ import type { Conversations } from "../conversations";
 import type { Creds } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { Git } from "../git";
+import type { Limits } from "../models";
 import type { Slot } from "../ports";
 import type { Journal } from "../records";
 import type { Storage } from "../storage";
@@ -148,4 +149,6 @@ export interface DevOptions {
 	sensors?: MachineSensors | null;
 	/** What pushes notices to the devices that subscribed; the Web Push services by default. */
 	pusher?: (keys: VapidKeys) => Pusher;
+	/** Shared agent plan limits and reset-peak history; opened from machine storage by default. */
+	limits?: Limits;
 }

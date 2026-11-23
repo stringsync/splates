@@ -1,3 +1,7 @@
+import type { EvalCheck, EvalStep, EvalVerdict } from "@evals/evals/contract";
+
+export type { EvalCheck, EvalStep, EvalVerdict } from "@evals/evals/contract";
+
 /** A run's outcome, as the harness graded it, or `pending` for a cell yet to land and `unreadable` for a result that cannot be read. */
 export type EvalStatus = "pass" | "fail" | "error" | "pending" | "unreadable";
 
@@ -74,31 +78,14 @@ export interface EvalGrid extends EvalBatch {
 	remarks?: string;
 }
 
-/** One code check of a run and how it went. */
-export interface EvalCheck {
-	id: string;
-	/** What it checks, in words. */
-	about: string;
-	pass: boolean;
-	/** Why it could not be told, when the check itself broke. */
-	error?: string;
-}
-
-/** What the judge decided of a run, and why. */
-export interface EvalVerdict {
-	pass: boolean;
-	reason: string;
-	/** Who judged, as `claude:<model>[@<effort>]`, when the batch records it. */
-	judge?: string;
-}
-
-/** One step of what the agent did: something it said, or a tool it called and what came back. */
-export type EvalStep =
-	| { kind: "text"; text: string }
-	| { kind: "tool"; name: string; input: string; output: string | null };
-
 /** A run opened: what it asked, each check, the judge's verdict and what the agent did. */
 export interface EvalDetail extends EvalRun {
+	/** The label and size of the batch this run belongs to, when titled. */
+	batch?: { title: string; cells: number };
+	/** A setup failure or a skipped cell, when the producer identifies it. */
+	harness?: import("@evals/evals/contract").HarnessStatus;
+	/** Only the phases reached by this run, when the producer records them. */
+	phases?: import("@evals/evals/contract").Phases;
 	/** Who wrote its batch, as `EvalBatch.producer`. */
 	producer: string | null;
 	scenario: string;

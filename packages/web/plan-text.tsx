@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useRef, useState } from "react";
 import { BeforeAfter, type CardRecord } from "./before-after";
+import { NoteSheet } from "./note-sheet";
 import {
 	CommentButton,
 	CommentList,
@@ -75,11 +76,13 @@ export function PlanText({
 					/>
 				)}
 			</div>
-			<CommentList
-				comments={comments}
-				onChange={onComments}
-				className="flex max-h-40 shrink-0 flex-col gap-1.5 md:max-h-none md:w-64"
-			/>
+			<NoteSheet label="Comments" count={comments.length} wide="md" openOnAdd>
+				<CommentList
+					comments={comments}
+					onChange={onComments}
+					className="flex shrink-0 flex-col gap-1.5"
+				/>
+			</NoteSheet>
 		</div>
 	);
 }

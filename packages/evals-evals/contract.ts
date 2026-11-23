@@ -12,6 +12,15 @@ export interface EvalCheck {
 	pass: boolean;
 	/** Why it could not be told, when the check itself broke. */
 	error?: string;
+	/** The transcript step that explains a failed check, when one exists. */
+	step?: EvalCheckStep;
+}
+
+export interface EvalCheckStep {
+	/** Zero-based index in the full saved transcript, including text. */
+	index: number;
+	/** What the step did that explains the failure. */
+	observed: string;
 }
 
 /** What the judge decided of a run, and why. */
@@ -25,7 +34,14 @@ export interface EvalVerdict {
 /** One step of what the agent did: something it said, or a tool it called and what came back. */
 export type EvalStep =
 	| { kind: "text"; text: string }
-	| { kind: "tool"; name: string; input: string; output: string | null };
+	| {
+			kind: "tool";
+			name: string;
+			input: string;
+			output: string | null;
+			/** Elapsed tool time, when the runner recorded it. */
+			milliseconds?: number;
+	  };
 
 /**
  * `batch.json` as any framework writes it (`designs/evals-contract.md`):
@@ -77,16 +93,33 @@ export interface ContractTarget {
 	variant?: string;
 }
 
+/** Why an errored cell was not a normal runtime failure: the harness broke on it, or it was skipped after an earlier harness error on the same target. */
+export type HarnessStatus = "error" | "skipped";
+
+/** How long each phase of a cell took, in milliseconds; a phase the cell never reached is absent. */
+export interface Phases {
+	/** Making the sandbox. */
+	setupMs?: number;
+	/** The agent session. */
+	agentMs?: number;
+	/** Code checks and the judge. */
+	judgeMs?: number;
+}
+
 /** A line of `results.jsonl`: how one cell ended. */
 export interface ContractResult {
 	cell: string;
 	status: "pass" | "fail" | "error";
+	/** Optional expand/contract marker for harness errors (`"error"`) and cells skipped after a target probe failed (`"skipped"`), so readers that only know `status` still treat them as `error`. */
+	harness?: HarnessStatus;
 	/** From 0 to 1, for a framework that grades on a scale. */
 	score?: number;
 	reason?: string;
 	tokens?: number;
 	costUsd?: number;
 	milliseconds?: number;
+	/** Optional time per phase, so a slow run shows where it went. */
+	phases?: Phases;
 	/** The framework's own view of the cell. */
 	url?: string;
 	/** A JSON file in the batch's directory with what the cell did, `ContractDetail`. */

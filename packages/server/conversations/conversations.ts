@@ -64,6 +64,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly known = new Map<string, Conversation>();
 	private readonly fs: Fs;
 	private readonly kimiHome: string | undefined;
+	private readonly antigravityHome: string | undefined;
 	/** Where the conversations are kept, each log `<id>.jsonl` in it. */
 	private readonly storage: Storage;
 	private readonly ids: IdProvider;
@@ -112,6 +113,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.kimiHome = opts.kimiHome;
+		this.antigravityHome = opts.antigravityHome;
 		this.storage = opts.storage ?? new FsStorage(dir, this.fs);
 		this.ids = opts.ids ?? new UuidProvider();
 		this.launcher = opts.launcher ?? launcherOf(opts.launch ?? launch);
@@ -157,6 +159,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			},
 			fs: this.fs,
 			kimiHome: this.kimiHome,
+			antigravityHome: this.antigravityHome,
 			storage: this.storage,
 			dir: this.dir,
 			ids: this.ids,
@@ -240,7 +243,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				}
 				this.asked.set(agent.id, now);
 				const limits = await read(agent).catch((): Limit[] => []);
-				await this.limited?.remember(agent.id, limits).catch(() => {});
+				await this.limited?.replace(agent.id, limits).catch(() => {});
 			}),
 		);
 	}
@@ -296,22 +299,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		agent: string,
 		{
 			id: given,
-			task,
-			base,
-			caller,
 			cwd,
-			scratch,
-			settings,
-			model,
-			assigned,
-			startedBy,
-			automatic,
-			heldForTask,
-			title,
-			persistent,
-			automation,
-			ship,
 			picking,
+			...opening
 		}: {
 			/**
 			 * The id the page picked, so it opens the conversation before the
@@ -337,6 +327,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			automatic?: boolean;
 			/** The queued task it is held for, its agent unopened until `release`. */
 			heldForTask?: number;
+			/** The queued task the person opened a live talk on while it waits. */
+			queuedTask?: number;
 			/** What to call it until its agent names it. */
 			title?: string;
 			/** The persistent agent's role it is started for, as `"groomer"`. */
@@ -358,23 +350,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		const directory = typeof cwd === "string" ? cwd : await cwd(id);
 		const conversation = await Conversation.start(
 			{
+				...opening,
 				id,
 				agent: chosen,
-				task,
-				base,
-				caller,
 				cwd: directory,
-				scratch,
-				settings,
-				model,
-				assigned,
-				startedBy,
-				automatic,
-				heldForTask,
-				title,
-				persistent,
-				automation,
-				ship,
 				picking: picking?.then((picked) => ({
 					...picked,
 					agent: this.agentOf(picked.agent),
@@ -383,7 +362,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			},
 			this.deps,
 		);
-		this.track(conversation, assigned ? undefined : settings);
+		this.track(conversation, opening.assigned ? undefined : opening.settings);
 		return conversation;
 	}
 
@@ -583,7 +562,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			return;
 		}
 		void this.readLimits(agent)
-			.then((limits) => conversation.hear(limits))
+			.then(async (limits) => {
+				await this.limited?.replace(agent.id, limits).catch(() => {});
+				conversation.hear(limits);
+			})
 			.catch(() => {});
 	}
 

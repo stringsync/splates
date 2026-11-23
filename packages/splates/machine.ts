@@ -5,7 +5,7 @@ import {
 	OsSensors,
 	strained,
 } from "@splates/server/workers";
-import { Duration, sleep } from "core/time";
+import { Duration, SystemTimer } from "core/time";
 
 /** How long CPU is measured over, as a share since the reading before. */
 const SAMPLE = Duration.secs(1);
@@ -25,7 +25,8 @@ export async function printMachine(
 	opts: MachineOptions,
 ): Promise<void> {
 	const machine = new Machine(new OsSensors(ctx.fs));
-	await sleep(SAMPLE);
+	const timer = ctx.machineTimer ?? new SystemTimer();
+	await new Promise<void>((resolve) => timer.setTimeout(resolve, SAMPLE));
 	const reading = await machine.read();
 	const busy = strained(reading);
 	ctx.log.info(

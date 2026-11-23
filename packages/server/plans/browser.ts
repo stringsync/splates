@@ -1,4 +1,10 @@
-export type { Ending, Review, Stretch, TaskReport } from "./asked";
+export type {
+	Ending,
+	PlanCard,
+	Review,
+	Stretch,
+	TaskReport,
+} from "./asked";
 export { stretches } from "./asked";
 export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
@@ -42,6 +48,7 @@ export {
 	UNTRIAGED,
 	unmergeReference,
 } from "./prompts";
+export type { QueuedCard, QueuedTask } from "./queued";
 export type { Answer } from "./reply";
 export {
 	answerIn,

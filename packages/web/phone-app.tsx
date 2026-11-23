@@ -1,7 +1,14 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type CSSProperties,
+	type JSX,
+	type ReactNode,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { useCheckpoint } from "./checkpoint";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
@@ -9,6 +16,7 @@ import type { Drafts } from "./drafts";
 import { OfflineBanner, useFreshness } from "./freshness";
 import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
+import { pageArea } from "./page-areas";
 import type { PageMenu } from "./page-menu";
 import type { Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
@@ -25,6 +33,7 @@ import { BarButton, TopBarFrame } from "./top-bar";
  */
 export function PhoneApp({
 	page,
+	evalRunOpen,
 	open,
 	go,
 	name,
@@ -40,6 +49,8 @@ export function PhoneApp({
 	pageMenu,
 }: {
 	page: Page;
+	/** A saved run uses the slim toolbar used by conversations. */
+	evalRunOpen: boolean;
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null, how?: Move) => void;
@@ -79,6 +90,22 @@ export function PhoneApp({
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
 	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
+	const [headerHeight, setHeaderHeight] = useState<number | null>(null);
+	useEffect(() => {
+		if (titleSlot === null) {
+			return;
+		}
+		const measure = () => {
+			if (titleSlot.offsetHeight > 0) {
+				setHeaderHeight(titleSlot.offsetHeight);
+			}
+		};
+		measure();
+		const resized = new ResizeObserver(measure);
+		resized.observe(titleSlot);
+		return () => resized.disconnect();
+	}, [titleSlot]);
+	const showPageHeader = !evalRunOpen && page !== "welcome";
 	const { conversations } = useReactive(
 		talk,
 		(talk) => ({ conversations: talk.conversations }),
@@ -151,7 +178,13 @@ export function PhoneApp({
 					</TopBarFrame>
 				</Screen>
 			) : (
-				<div>
+				<div
+					style={
+						(headerHeight !== null
+							? { "--phone-header-height": `${headerHeight}px` }
+							: undefined) as CSSProperties | undefined
+					}
+				>
 					{/* The page's own bar lands in the middle, as every other's
 					    does beside a sidebar. */}
 					<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -168,36 +201,43 @@ export function PhoneApp({
 								/>
 							)}
 						</span>
-						<ProjectSwitcher
-							name={name}
-							path={false}
-							servers={false}
-							className="mx-0 max-w-3/5 shrink"
-						/>
+						{!evalRunOpen && (
+							<ProjectSwitcher
+								name={name}
+								path={false}
+								servers={false}
+								className="mx-0 max-w-3/5 shrink"
+							/>
+						)}
 						<div
 							ref={setSlot}
 							className="flex min-w-0 flex-1 items-center gap-1"
 						/>
 						{/* The shell's own, so it is there while a page still loads. */}
-						{available && (
+						{available && !evalRunOpen && (
 							<BarButton label="New conversation" onClick={() => openNew()}>
 								<SquarePenIcon />
 							</BarButton>
 						)}
 					</header>
 					<div ref={setBannerSlot} className="contents" />
-					<div
-						ref={setTitleSlot}
-						className="flex h-11 min-w-0 items-center px-4 [&>nav]:w-full"
-					/>
+					{showPageHeader && (
+						<div
+							ref={setTitleSlot}
+							data-page-area={pageArea(page).area}
+							className="page-header-band flex min-w-0 items-center [&>nav]:w-full"
+						/>
+					)}
 					<TopBarFrame
 						value={{
 							...kebab,
 							slot,
 							bannerSlot,
 							banner,
-							untitled: true,
-							titleSlot,
+							untitled: !evalRunOpen,
+							titleSlot: showPageHeader ? titleSlot : null,
+							area: showPageHeader ? { page } : undefined,
+							dot: evalRunOpen ? undefined : kebab.dot,
 						}}
 					>
 						{body}

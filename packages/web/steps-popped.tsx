@@ -1,53 +1,74 @@
+import { useAui } from "@assistant-ui/react";
 import type { Steps } from "@splates/server/plans/browser";
-import { ArrowUpIcon, ListChecksIcon, SparklesIcon } from "lucide-react";
 import {
+	ChevronDownIcon,
+	ChevronUpIcon,
+	ListChecksIcon,
+	MessageCircleIcon,
+	XIcon,
+} from "lucide-react";
+import {
+	createContext,
 	type JSX,
+	useCallback,
 	useContext,
 	useEffect,
-	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
+import {
+	COMPOSER_LOOK,
+	Thread,
+} from "#web/components/assistant-ui/elements/thread.aui.tsx";
+import { Composer } from "#web/components/assistant-ui/elements/thread-composer.aui.tsx";
+import { ThreadExtrasContext } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
 import { Button } from "#web/components/ui/button.tsx";
-import { CardBox } from "./card-box";
+import { cn } from "#web/lib/utils.ts";
 import { ReplyContext } from "./card-reply";
-import { Files } from "./files";
-import { Markdown } from "./markdown";
-import { askedFrom, type Exchange } from "./steps-asked";
+import type { Exchange, Finished } from "./steps-asked";
 import { moved, StepsBody } from "./steps-body";
+import { DoneBar } from "./steps-done";
 
-/** What the agent's newest version changed, and a way back to the one before. */
-export interface Update {
-	/** Whether the version before is shown in its place. */
-	back: boolean;
-	/** The steps it changed, by number from 0. */
-	steps: number[];
-	toggle: () => void;
-}
+/** Provide `true` around messages shown in the pop-out; a Steps card among them renders nothing. */
+export const InPopout = createContext(false);
 
 /**
- * A Steps card as its popped-out window shows it: the steps, then every
- * question asked from here and the agent's answers, as a chat, and a box to
- * ask about the step the person is on.
+ * A Steps card as its popped-out window shows it: the steps, Chat (the
+ * questions asked from here and the agent's answers) and a box to ask about
+ * the step the person is reading. Render it into the pop-out's document; `onClose`
+ * closes the window.
  */
 export function Popped({
 	steps,
 	done,
 	place,
 	move,
+	preview,
+	togglePreview,
 	changed,
 	exchanges,
-	update,
+	last,
+	versions,
+	finished = null,
 	window: popped,
+	onClose,
 }: {
 	steps: Steps;
 	done: number;
 	place: (done: number) => void;
 	move: (by: number) => void;
+	preview: number | null;
+	togglePreview: (step: number) => void;
 	changed: ReadonlyMap<number, string | null>;
 	exchanges: readonly Exchange[];
-	update: Update | null;
+	/** The first line of the newest answer, which the folded bar shows. */
+	last: string | null;
+	/** How many versions of the card the thread holds. */
+	versions: number;
+	/** The Done sent for this version, or null; sending Done closes the window. */
+	finished?: Finished | null;
 	window: Window;
+	onClose: () => void;
 }): JSX.Element {
 	// The keys work anywhere in the window but its box, which takes its own.
 	useEffect(() => {
@@ -55,197 +76,219 @@ export function Popped({
 		popped.document.addEventListener("keydown", onKey);
 		return () => popped.document.removeEventListener("keydown", onKey);
 	}, [popped, move]);
-	// A new question or answer scrolls down to it, as a chat does.
-	const scroller = useRef<HTMLDivElement>(null);
-	const said = exchanges
-		.map((each) => `${each.id}:${each.answers.length}:${each.waiting}`)
-		.join(",");
-	useLayoutEffect(() => {
-		if (said !== "") {
-			scroller.current?.scrollTo({
-				top: scroller.current.scrollHeight,
-				behavior: "smooth",
-			});
-		}
-	}, [said]);
+	const { open, unread, show, toggle, seen } = useChatFold(
+		exchanges,
+		done,
+		versions,
+	);
+	// The step they are on stays in view as they move through the steps.
+	const list = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		void done;
+		list.current
+			?.querySelector("[aria-current=step]")
+			?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+	}, [done]);
 	const count = steps.steps.length;
 	return (
 		<div className="flex h-screen flex-col bg-card text-card-foreground">
-			<div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
+			<div className="flex items-center gap-2.5 pt-2.5 pr-2.5 pb-2 pl-4">
 				<ListChecksIcon className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
-				<span className="min-w-0 flex-1 font-medium text-[13px]">
+				<span className="min-w-0 flex-1 truncate font-semibold text-sm">
 					{steps.title === "" ? "Steps" : steps.title}
 				</span>
 				<span className="text-muted-foreground text-xs tabular-nums">
 					{done} of {count}
 				</span>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label="Close"
+					onClick={onClose}
+					className="text-muted-foreground"
+				>
+					<XIcon />
+				</Button>
 			</div>
-			{update !== null && update.steps.length > 0 && (
-				<UpdateStrip update={update} />
-			)}
-			<div ref={scroller} className="min-h-0 flex-1 overflow-y-auto pb-3">
-				<StepsBody
-					steps={steps}
-					done={done}
-					place={place}
-					move={move}
-					changed={changed}
-					hint={false}
-				/>
-				{exchanges.map((exchange) => (
-					<Chat key={exchange.id} exchange={exchange} />
-				))}
-			</div>
-			<Ask steps={steps} done={done} />
-		</div>
-	);
-}
-
-/** Says which steps the agent changed, with Undo to the version before. */
-function UpdateStrip({ update }: { update: Update }): JSX.Element {
-	const named = update.steps.map((step) => step + 1);
-	const which =
-		named.length === 1
-			? `step ${named[0]}`
-			: `steps ${named.slice(0, -1).join(", ")} and ${named.at(-1)}`;
-	return (
-		<div className="mx-3 mt-2.5 flex items-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/[0.07] px-3 py-2 text-[13px] animate-in fade-in slide-in-from-top-1 duration-300">
-			<SparklesIcon className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
-			<span className="flex-1">
-				{update.back
-					? "Showing the steps before the update"
-					: `The agent updated ${which}`}
-			</span>
-			<button
-				type="button"
-				onClick={update.toggle}
-				className="font-medium text-violet-700 hover:underline dark:text-violet-300"
+			<div
+				role="progressbar"
+				aria-label="Steps done"
+				aria-valuemin={0}
+				aria-valuemax={count}
+				aria-valuenow={done}
+				className="mx-4 mb-1 h-[3px] shrink-0 overflow-hidden rounded-full bg-muted"
 			>
-				{update.back ? "Use the update" : "Undo"}
-			</button>
-		</div>
-	);
-}
-
-/** A question asked from the pop-out and the agent's answers, as bubbles. */
-function Chat({ exchange }: { exchange: Exchange }): JSX.Element {
-	return (
-		<section
-			aria-label={`Asked on step ${exchange.step}`}
-			className="px-4 pt-3"
-		>
-			<div className="mb-2.5 flex items-center gap-2.5 text-[11px] text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
-				Asked on step {exchange.step}
+				<div
+					className="h-full rounded-full bg-violet-500 transition-[width] duration-500"
+					style={{ width: `${count === 0 ? 0 : (done / count) * 100}%` }}
+				/>
 			</div>
-			<div className="flex flex-col gap-1.5">
-				<div className="max-w-[85%] self-end wrap-anywhere rounded-3xl bg-muted px-4 py-2 text-sm leading-relaxed animate-in fade-in slide-in-from-bottom-1 duration-200">
-					<Markdown
-						text={exchange.words}
-						className="[&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+			<div className="relative min-h-0 flex-1">
+				<div
+					ref={list}
+					inert={open}
+					className={cn(
+						"h-full overflow-y-auto pb-12 transition-opacity duration-300",
+						open && "opacity-45 saturate-50",
+					)}
+				>
+					<StepsBody
+						steps={steps}
+						done={done}
+						place={place}
+						move={move}
+						preview={preview}
+						togglePreview={togglePreview}
+						changed={changed}
+						hint={false}
 					/>
 				</div>
-				{exchange.answers.map((answer, i) => (
-					<div
-						// biome-ignore lint/suspicious/noArrayIndexKey: answers only grow
-						key={i}
-						className="max-w-[90%] self-start wrap-anywhere rounded-3xl border bg-background px-4 py-2 text-sm leading-relaxed shadow-xs animate-in fade-in slide-in-from-bottom-1 duration-200"
+				<section
+					aria-label="Chat"
+					onPointerDown={seen}
+					onKeyDown={seen}
+					className={cn(
+						"absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-2xl border border-b-0 bg-card transition-[top,box-shadow] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none",
+						open
+							? "top-12 shadow-[0_-10px_28px_-8px_rgb(0_0_0/0.22)]"
+							: "top-[calc(100%-2.75rem)] shadow-[0_-6px_16px_-8px_rgb(0_0_0/0.14)]",
+					)}
+				>
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={toggle}
+						className={cn(
+							"flex h-11 shrink-0 items-center gap-2 px-4 text-left font-semibold text-xs",
+							!open && "bg-muted/45 hover:bg-muted/70",
+						)}
 					>
-						<Markdown
-							text={answer}
-							className="[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_pre]:my-1.5"
-						/>
-					</div>
-				))}
-				{exchange.carded && (
-					<p className="self-start px-2 text-muted-foreground text-xs">
-						The agent asked something in the splates tab.
-					</p>
-				)}
-				{exchange.waiting ? (
-					<div
-						role="status"
-						aria-label="The agent is answering"
-						className="flex gap-1 self-start rounded-3xl border bg-background px-4 py-3"
-					>
-						{[0, 150, 300].map((delay) => (
+						<MessageCircleIcon className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+						Chat
+						{unread && !open ? (
 							<span
-								key={delay}
-								className="size-1.5 animate-bounce rounded-full bg-muted-foreground/70"
-								style={{ animationDelay: `${delay}ms` }}
+								role="img"
+								aria-label="New answer"
+								className="-ml-0.5 size-[7px] shrink-0 rounded-full bg-violet-500"
 							/>
-						))}
+						) : (
+							exchanges.length > 0 && (
+								<span className="rounded-full bg-muted px-1.5 font-medium text-[11px] text-muted-foreground tabular-nums">
+									{exchanges.length}
+								</span>
+							)
+						)}
+						<span className="min-w-0 flex-1 truncate font-normal text-muted-foreground">
+							{open ? "" : (last ?? "")}
+						</span>
+						{open ? (
+							<ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
+						) : (
+							<ChevronUpIcon className="size-4 shrink-0 text-muted-foreground" />
+						)}
+					</button>
+					{/* The conversation's own thread, its composer kept at the window's foot. */}
+					<div inert={!open} className="min-h-0 flex-1">
+						<InPopout value>
+							<Thread
+								docked
+								autoFocus={false}
+								composer={false}
+								welcome={
+									<p className="text-center text-muted-foreground text-sm">
+										Ask the agent about a step: its answers show here.
+									</p>
+								}
+							/>
+						</InPopout>
 					</div>
-				) : (
-					exchange.answers.length > 0 && (
-						<p className="self-start px-2 text-[11px] text-muted-foreground">
-							Agent
-						</p>
-					)
-				)}
+				</section>
 			</div>
-		</section>
+			<Ask steps={steps} reading={preview ?? done} onSend={show} />
+			<DoneBar steps={steps} done={done} finished={finished} onSent={onClose} />
+		</div>
 	);
 }
 
 /**
- * The box to ask the agent about the step the person is on: typed, pasted
- * or dictated, sent as a message of the conversation naming the step.
+ * Whether Chat is open, and whether an answer came the person has yet to
+ * look at: one since they last opened Chat, touched it or sent a message.
+ * Chat opens when they send a message, and folds once they mark a step done
+ * (unless an answer waits unread) or the agent sends the steps again.
+ */
+function useChatFold(
+	exchanges: readonly Exchange[],
+	done: number,
+	versions: number,
+): {
+	open: boolean;
+	unread: boolean;
+	show: () => void;
+	toggle: () => void;
+	seen: () => void;
+} {
+	const answers = exchanges.reduce(
+		(sum, each) => sum + each.messages.length - 1,
+		0,
+	);
+	const [open, setOpen] = useState(() =>
+		exchanges.some((each) => each.waiting),
+	);
+	const [read, setRead] = useState(answers);
+	const unread = answers > read;
+	const seen = useCallback(() => setRead(answers), [answers]);
+	const show = useCallback(() => {
+		setOpen(true);
+		setRead(answers);
+	}, [answers]);
+	const toggle = useCallback(() => {
+		setOpen((was) => !was);
+		setRead(answers);
+	}, [answers]);
+	// A step marked done takes them back to the steps, unless an answer
+	// waits; steps sent again fold Chat over whatever it holds.
+	const before = useRef({ done, versions });
+	useEffect(() => {
+		const was = before.current;
+		before.current = { done, versions };
+		if (versions > was.versions || (done > was.done && !unread)) {
+			setOpen(false);
+		}
+	}, [done, versions, unread]);
+	return { open, unread, show, toggle, seen };
+}
+
+/**
+ * The conversation's composer, to ask the agent about the step the person
+ * is reading: what it sends names the step. None where nothing can be sent.
  */
 function Ask({
 	steps,
-	done,
+	reading,
+	onSend,
 }: {
 	steps: Steps;
-	done: number;
+	reading: number;
+	onSend: () => void;
 }): JSX.Element | null {
 	const send = useContext(ReplyContext)?.send ?? null;
-	const [words, setWords] = useState("");
-	const [files] = useState(() => new Files());
-	const [sending, setSending] = useState(false);
+	const aui = useAui();
+	useEffect(() => aui.on("composer.send", onSend), [aui, onSend]);
 	if (send === null) {
 		return null;
 	}
-	const on = Math.min(done, steps.steps.length - 1) + 1;
-	const submit = () => {
-		const text = words.trim();
-		if ((text === "" && files.files.length === 0) || sending) {
-			return;
-		}
-		setSending(true);
-		void send(askedFrom(steps, done, text), files.files)
-			.then(() => {
-				setWords("");
-				files.clear();
-			})
-			.finally(() => setSending(false));
-	};
+	const on = Math.min(reading, steps.steps.length - 1) + 1;
 	return (
-		<div className="flex items-end gap-2 border-t bg-card px-3 pt-2.5 pb-3">
-			<div className="min-w-0 flex-1">
-				<CardBox
-					roomy
-					aria-label="Ask the agent"
-					placeholder={`Ask about step ${on}…`}
-					value={words}
-					onValue={setWords}
-					files={files}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" && !event.shiftKey) {
-							event.preventDefault();
-							submit();
-						}
-					}}
-				/>
-			</div>
-			<Button
-				size="icon"
-				aria-label="Send"
-				disabled={sending || words.trim() === ""}
-				onClick={submit}
-				className="mb-1 size-9 shrink-0 rounded-full"
+		<fieldset
+			aria-label="Ask"
+			className="min-w-0 shrink-0 border-t bg-background px-2 pt-2 pb-2"
+			style={COMPOSER_LOOK}
+		>
+			<ThreadExtrasContext.Provider
+				value={{ placeholder: `Ask about step ${on}…` }}
 			>
-				<ArrowUpIcon />
-			</Button>
-		</div>
+				<Composer autoFocus={false} />
+			</ThreadExtrasContext.Provider>
+		</fieldset>
 	);
 }

@@ -130,6 +130,7 @@ function RemoveLaneCard({
 		>
 			{!done && (
 				<Panel
+					ruled={proposal.body !== ""}
 					heading={
 						todos.length === 0
 							? "No tasks go with it."
@@ -240,6 +241,7 @@ function OtherQueueCard({
 					todos={todos}
 					board={snapshot.todos}
 					whole={false}
+					ruled={proposal.body !== ""}
 					onOpen={(id) => navigation.show(todoUrl(project, id))}
 				/>
 			)}
@@ -296,6 +298,7 @@ export function OwnQueueCard({
 					todos={todos}
 					board={board.todos}
 					whole={whole}
+					ruled={proposal.body !== ""}
 					onOpen={board.open}
 					perTask={perTask}
 				/>
@@ -320,17 +323,19 @@ function QueuePanel({
 	todos,
 	board,
 	whole,
+	ruled = true,
 	onOpen,
 	perTask = false,
 }: {
 	todos: readonly TaskRecord[];
 	board: readonly TaskRecord[];
 	whole: boolean;
+	ruled?: boolean;
 	onOpen: (id: number) => void;
 	perTask?: boolean;
 }): JSX.Element {
 	return (
-		<Panel>
+		<Panel ruled={ruled}>
 			{todos.map((todo) => (
 				<QueueItem
 					key={todo.id}
@@ -406,13 +411,15 @@ function QueueItem({
  */
 function Panel({
 	heading,
+	ruled = true,
 	children,
 }: {
 	heading?: string;
+	ruled?: boolean;
 	children?: ReactNode;
 }): JSX.Element {
 	return (
-		<div className="border-t text-sm">
+		<div className={cn(ruled && "rule-t", "text-sm")}>
 			{heading !== undefined && (
 				<p className="px-4 pt-2.5 pb-1 text-muted-foreground text-xs @max-md:px-3">
 					{heading}
@@ -460,7 +467,7 @@ function Row({
 	return (
 		<li
 			className={cn(
-				"flex items-center gap-2 border-t px-4 py-1.5 first:border-t-0 @max-md:px-3",
+				"flex items-center gap-2 rule-t px-4 py-1.5 first:border-t-0 first:bg-none @max-md:px-3",
 				row,
 			)}
 		>

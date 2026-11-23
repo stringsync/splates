@@ -409,9 +409,11 @@ function TodosBar({
 	hidden: number[];
 	view: TodoView;
 }): JSX.Element {
+	const boardTasks = lanes.reduce((sum, each) => sum + each.todos.length, 0);
 	return (
 		<TopBar
 			title={switcher ?? "Board"}
+			badge={`${lanes.length} ${lanes.length === 1 ? "lane" : "lanes"} · ${boardTasks} ${boardTasks === 1 ? "task" : "tasks"}`}
 			actions={[
 				shownLanes({
 					lanes,

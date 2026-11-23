@@ -1,0 +1,365 @@
+<!doctype html><meta charset="utf-8"><title>Agent auto-queue: hi-fi</title><style>
+/* biome-ignore-all lint/style/noDescendingSpecificity: a static mock sheet whose rules are read top to bottom */
+:root{--radius:.625rem;--background:oklch(.968 .004 264);--foreground:oklch(.255 .014 264);
+--card:oklch(.993 .002 264);--muted:oklch(.928 .006 264);--muted-foreground:oklch(.52 .014 264);
+--brand:oklch(.32 .014 264);--brand-foreground:oklch(.97 .004 264);
+--accent:color-mix(in oklab,var(--brand) 9%,var(--card));
+--destructive:oklch(.577 .215 27.3);--success:oklch(.6 .15 152);--warning:oklch(.666 .157 58.3);--info:oklch(.588 .158 241.966);
+--agent:oklch(.56 .17 300);--border:oklch(.885 .007 264);--input:oklch(.86 .008 264)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:#d9dbe0;color:var(--foreground);
+ padding:24px;-webkit-font-smoothing:antialiased;font-size:14px;display:flex;flex-direction:column;gap:28px;width:max-content}
+section{display:flex;gap:24px;align-items:flex-start}
+.dim{color:var(--muted-foreground)}.sm{font-size:12.5px}.xs{font-size:11.5px}
+svg.i{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.s{width:13px;height:13px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--muted);color:var(--muted-foreground);font-weight:500;white-space:nowrap}
+.pill.warn{background:color-mix(in oklab,var(--warning) 18%,var(--card));color:oklch(.5 .13 58)}
+.pill.ok{background:color-mix(in oklab,var(--success) 16%,var(--card));color:oklch(.45 .12 152)}
+.pill.run{background:color-mix(in oklab,var(--info) 14%,var(--card));color:oklch(.48 .14 241)}
+.pill.ag{background:color-mix(in oklab,var(--agent) 12%,var(--card));color:oklch(.45 .15 300)}
+.pill.q{background:var(--card);border:1px solid var(--input);color:var(--foreground)}
+.chip{display:inline-flex;align-items:center;font-size:12px;padding:1px 7px;border-radius:6px;border:1px solid var(--input);background:var(--card)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--input);background:var(--card);white-space:nowrap}
+.btn.pri{background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)}
+.btn.sm{height:26px;font-size:12.5px;padding:0 10px}
+.seg{display:inline-flex;background:var(--muted);border-radius:9px;padding:2px;flex:none}
+.seg span{padding:4px 11px;font-size:13px;color:var(--muted-foreground);border-radius:7px}
+.seg span.on{background:var(--card);color:var(--foreground);box-shadow:0 1px 2px rgb(0 0 0/.08)}
+.tog{width:32px;height:18px;border-radius:9px;background:var(--brand);position:relative;flex:none}
+.tog::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:white}
+.meter{height:6px;border-radius:3px;background:var(--muted);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--brand);border-radius:3px}
+.meter.full i{background:var(--destructive)}
+.frame{background:var(--background);border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0/.12);display:flex;flex-direction:column;flex:none}
+.cap{font-size:13px;font-weight:600;color:oklch(.35 .01 264);margin-bottom:8px}
+.col{display:flex;flex-direction:column}
+/* desktop shell */
+.desk{width:1000px;height:640px;flex-direction:row}
+.side{width:200px;border-right:1px solid var(--border);padding:12px 10px;display:flex;flex-direction:column;gap:2px;font-size:13.5px;flex:none}
+.side .p{font-weight:500;padding:4px 8px 10px}
+.side .it{padding:6px 8px;border-radius:8px;display:flex;gap:8px;align-items:center}
+.side .it.on{background:var(--muted)}
+.side .cv{padding:6px 8px;border-radius:8px;display:flex;flex-direction:column;font-size:13px}
+.side .cv.on{background:var(--muted)}
+.side .cv .s{font-size:11.5px;color:var(--muted-foreground)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;font-size:14px;flex:none}
+.body{flex:1;display:flex;gap:16px;padding:6px 16px 16px;min-height:0}
+.thread{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.msg{font-size:14px;line-height:1.5}
+.msg h4{font-size:15px;font-weight:600;margin-bottom:3px}
+.user{align-self:flex-end;background:var(--muted);border-radius:16px;padding:9px 14px;max-width:70%;font-size:14px}
+.composer{margin-top:auto;border:1px solid var(--input);border-radius:16px;padding:12px 14px;color:var(--muted-foreground);background:var(--card)}
+/* queued card (the inline one) */
+.qd{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.qd .h{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12.5px;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+.qd .h .ic{color:var(--agent)}
+.qd .h b{color:var(--foreground);font-weight:600}
+.qd .h .r{margin-left:auto}
+.qd .t{display:flex;gap:10px;align-items:flex-start;padding:10px 12px}
+.qd .t+.t{border-top:1px solid var(--border)}
+.qd .t .m{flex:1;min-width:0}
+.qd .t .n{display:flex;gap:8px;align-items:center;font-weight:500}
+.qd .t .w{font-size:12.5px;color:var(--muted-foreground);margin-top:3px;line-height:1.4}
+.qd .t .w em{font-style:normal;color:var(--foreground)}
+/* widget */
+.wd{width:290px;flex:none;background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;font-size:13px}
+.wd .wh{display:flex;align-items:center;gap:6px;padding:10px 12px 0;font-size:12px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.04em}
+.wd .wh .r{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
+.wd .bud{padding:8px 12px 10px;display:flex;flex-direction:column;gap:5px}
+.wd .bud .l{display:flex;justify-content:space-between;font-size:12.5px}
+.tree{display:flex;flex-direction:column;padding:2px 6px 6px;border-top:1px solid var(--border)}
+.node{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:7px;font-size:12.5px;min-width:0}
+.node.here{background:var(--accent)}
+.node .ind{flex:none;align-self:stretch;border-left:1px solid var(--border);margin-left:6px}
+.node .tt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.node .op{color:var(--muted-foreground)}
+.node .tk{color:var(--muted-foreground);font-size:11.5px;flex:none}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ok{background:var(--success)}.dot.run{background:var(--info)}.dot.q{border:1.5px solid var(--muted-foreground)}.dot.warn{background:var(--warning)}.dot.root{background:var(--brand)}
+.more{padding:3px 6px 3px 0;font-size:12px;color:var(--muted-foreground);display:flex;gap:6px;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border)}
+.stats div{background:var(--card);padding:7px 8px}
+.stats b{display:block;font-size:14px;font-weight:600}
+.stats span{font-size:11px;color:var(--muted-foreground)}
+.wf{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted-foreground)}
+/* question card */
+.q{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.q .qh{padding:12px 16px 6px;font-size:12px;color:var(--muted-foreground);display:flex;gap:6px;align-items:center}
+.q .qh .r{margin-left:auto}
+.q .qq{padding:6px 16px 4px;font-weight:600;font-size:15px}
+.q .qs{padding:0 16px 10px;font-size:13px;color:var(--muted-foreground);line-height:1.45}
+.q .ch{margin:0 12px 6px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;display:flex;gap:10px;align-items:center;font-size:14px}
+.q .ch .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--input);flex:none}
+.q .ch.on{border-color:var(--brand);background:var(--accent)}.q .ch.on .o{border:5px solid var(--brand)}
+.q .ch .x{margin-left:auto;font-size:12px;color:var(--muted-foreground)}
+.q .qf{padding:6px 12px 12px;display:flex;justify-content:flex-end;gap:8px}
+/* settings */
+.dlg{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;width:780px;box-shadow:0 10px 40px rgb(0 0 0/.12)}
+.dlg .hd{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.dlg .search{flex:1;height:32px;border:1px solid var(--input);border-radius:8px;display:flex;gap:8px;align-items:center;padding:0 10px;color:var(--muted-foreground)}
+.dlg .bd{display:flex}
+.dlg nav{width:180px;border-right:1px solid var(--border);padding:8px;display:flex;flex-direction:column;gap:2px;flex:none}
+.dlg nav span{padding:6px 12px;border-radius:8px}
+.dlg nav span.on{background:var(--muted)}
+.pane{flex:1;padding:18px 22px 20px}
+.pane h3{font-size:17px;font-weight:500}
+.saved{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted-foreground);margin:4px 0 14px}
+.lvl{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.radio{display:flex;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px}
+.radio.on{border-color:var(--brand);background:var(--accent)}
+.radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--input);flex:none;margin-top:2px}
+.radio.on .o{border:5px solid var(--brand)}
+.radio .d{font-size:12.5px;color:var(--muted-foreground);margin-top:1px;line-height:1.4}
+.row{display:flex;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row .m{flex:1}.row .n{font-weight:500}
+.row .d{font-size:12.5px;color:var(--muted-foreground);margin-top:2px;line-height:1.4}
+.lbl{font-weight:500;margin-top:4px}
+/* board */
+.lane{background:color-mix(in oklab,var(--muted) 60%,var(--background));border-radius:14px;padding:12px 8px;width:330px;display:flex;flex-direction:column;gap:8px;flex:none}
+.lane .lh{font-weight:500;padding:0 6px 2px;display:flex;gap:8px;align-items:center}
+.qc{background:var(--card);border:1px solid var(--input);border-radius:10px;padding:10px 12px 10px 28px;position:relative;display:flex;flex-direction:column;gap:6px}
+.qc .num{position:absolute;left:10px;top:11px;font-size:12px;color:var(--muted-foreground)}
+.qc .tt{font-size:15px;line-height:1.35}
+.qc .ch{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted-foreground)}
+.qc .wt{font-size:12.5px;color:var(--muted-foreground);display:flex;gap:6px;align-items:center}
+.qc .ft{display:flex;justify-content:flex-end;gap:6px}
+/* phone */
+.phone{width:390px;height:844px;border-radius:32px}
+.phone .pt{height:54px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border);flex:none;font-weight:600}
+.phone .pb{flex:1;padding:14px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.phone .comp{margin:0 12px 26px;border:1px solid var(--input);border-radius:18px;padding:12px 14px;color:var(--muted-foreground);background:var(--card);flex:none}
+.bar{display:flex;align-items:center;gap:8px;margin:0 12px 8px;padding:8px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-size:13px;flex:none}
+.bar .meter{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;box-shadow:0 -8px 30px rgb(0 0 0/.15);display:flex;flex-direction:column}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--input);margin:8px auto 4px}
+.scrim{position:absolute;inset:0;background:rgb(0 0 0/.25)}
+.notif{width:370px;background:rgb(246 246 248/.95);border-radius:16px;padding:12px 14px;display:flex;gap:10px;box-shadow:0 6px 24px rgb(0 0 0/.15);font-size:13px;line-height:1.35}
+.notif .ap{width:34px;height:34px;border-radius:8px;background:#222;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.notif .tm{margin-left:auto;font-size:11.5px;color:var(--muted-foreground)}
+.banner{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid color-mix(in oklab,var(--agent) 35%,transparent);background:color-mix(in oklab,var(--agent) 7%,var(--card));border-radius:12px;font-size:13px}
+.banner .ic{color:var(--agent)}
+.plain{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--card);border:1px dashed var(--input);border-radius:8px;padding:10px 12px;white-space:pre-wrap;color:var(--muted-foreground);width:420px;line-height:1.5}
+.ps{position:relative}
+.ps-bg{position:absolute;inset:0;background:color-mix(in oklab,var(--muted) 55%,#c9cbd0)}
+.ps-dlg{position:absolute;left:16px;right:16px;top:134px;bottom:134px;background:var(--card);border:1px solid var(--border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgb(0 0 0/.15)}
+.ps-hd{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.ps-s{display:flex;gap:6px;align-items:center;height:32px;border:1px solid var(--input);border-radius:8px;padding:0 10px;color:var(--muted-foreground);width:86px;overflow:hidden}
+.ps-tabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden}
+.ps-tabs span{padding:6px 12px;border-radius:8px}
+.ps-tabs span.on{background:var(--muted)}
+.ps-body{flex:1;overflow:hidden;padding:16px}
+.ps-h{font-size:17px;font-weight:500}
+.ps-r{padding:12px 0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.ps-r:first-of-type{border-top:0;padding-top:0}
+.ps-r .n{font-weight:500}
+.ps-r>.d{font-size:12.5px;color:var(--muted-foreground);line-height:1.4;margin-top:-4px}
+.ps-r .seg{align-self:flex-start}
+.ps-r .lvl{margin-top:2px}
+.ps-t{flex-direction:row;align-items:flex-start;gap:12px}
+.ps-t .d{margin-top:2px;font-size:12.5px;color:var(--muted-foreground);line-height:1.4}
+</style>
+<svg aria-hidden="true" style="display:none"><defs>
+<symbol id="sprout" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></symbol>
+<symbol id="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+<symbol id="cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="listx" viewBox="0 0 24 24"><path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="m19 10-4 4"/><path d="m15 10 4 4"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+</defs></svg>
+
+<!-- ================= SETTINGS ================= -->
+<section id="settings">
+<div class="col"><div class="cap">Desktop · Settings → Agents</div>
+<div class="dlg"><div class="hd"><span style="font-size:17px">Settings</span><span class="btn">Welcome page</span><span class="search"><svg aria-hidden="true" class="i"><use href="#search"/></svg>Search settings</span><span class="dim">✕</span></div>
+<div class="bd"><nav><span>Appearance</span><span>Startup</span><span>Editor</span><span>Notifications</span><span class="on">Agents</span><span>Updates</span><span>Shortcuts</span><span>Canned replies</span></nav>
+<div class="pane"><h3>Agents</h3><div class="saved"><svg aria-hidden="true" class="i s"><use href="#cloud"/></svg>Saved on the server for <b style="color:var(--foreground);font-weight:500">mono</b>, on every device. Agents can't change these.</div>
+<div class="lbl">Agents may queue tasks themselves</div><div class="dim sm" style="margin-top:2px">Without asking you first, within the limits below.</div>
+<div class="lvl">
+<div class="radio"><span class="o"></span><div><div>Never</div><div class="d">Agents ask with a queue card, as today.</div></div></div>
+<div class="radio on"><span class="o"></span><div><div>Safe tasks only</div><div class="d">Small, revertible work in the same project that spends nothing outside it. Anything else still gets a queue card.</div></div></div>
+<div class="radio"><span class="o"></span><div><div>Any task</div><div class="d">Agents queue anything. The task still asks before costly or irreversible work.</div></div></div>
+</div>
+<div style="margin-top:10px">
+<div class="row"><div class="m"><div class="n">Most an agent queues per conversation</div><div class="d">After this, the agent asks with a queue card.</div></div><div class="seg"><span>3</span><span class="on">5</span><span>10</span><span>Custom</span></div></div>
+<div class="row"><div class="m"><div class="n">Budget per task chain</div><div class="d">What agent-queued tasks under one task may spend before asking for more. Cache reads don't count.</div></div><div class="seg"><span>2M</span><span class="on">5M</span><span>10M</span><span>Custom</span></div></div>
+<div class="row"><div class="m"><div class="n">Quota reserve</div><div class="d">Agent-queued tasks wait while every agent they could run on is below this in a plan window. Yours never wait.</div></div><div class="seg"><span>10%</span><span class="on">25%</span><span>50%</span></div></div>
+<div class="row"><div class="m"><div class="n">Notify when an agent queues a task</div><div class="d">A browser notification with the task and its chain. Clicking it opens the task.</div></div><span class="tog"></span></div>
+</div></div></div></div></div>
+
+<div class="col"><div class="cap">Phone · Settings → Agents</div>
+<div class="frame phone ps"><div class="ps-bg"></div>
+<div class="ps-dlg"><div class="ps-hd"><span style="font-size:17px">Settings</span><span class="btn">Welcome page</span><span class="ps-s"><svg aria-hidden="true" class="i"><use href="#search"/></svg>Sea</span><span class="dim" style="margin-left:auto">✕</span></div>
+<div class="ps-tabs"><span>Editor</span><span>Notifications</span><span class="on">Agents</span><span>Updates</span><span>Shortcuts</span></div>
+<div class="ps-body"><div class="ps-h">Agents</div>
+<div class="saved" style="margin:2px 0 10px"><svg aria-hidden="true" class="i s"><use href="#cloud"/></svg><span>Saved on the server for <b style="color:var(--foreground);font-weight:500">mono</b>, on every device. Agents can't change these.</span></div>
+<div class="ps-r"><div class="n">Agents may queue tasks themselves</div><div class="d">Without asking you first, within the limits below.</div>
+<div class="lvl">
+<div class="radio"><span class="o"></span><div><div>Never</div><div class="d">Agents ask with a queue card, as today.</div></div></div>
+<div class="radio on"><span class="o"></span><div><div>Safe tasks only</div><div class="d">Small, revertible work in the same project that spends nothing outside it. Anything else still gets a queue card.</div></div></div>
+<div class="radio"><span class="o"></span><div><div>Any task</div><div class="d">Agents queue anything. The task still asks before costly or irreversible work.</div></div></div></div></div>
+<div class="ps-r"><div class="n">Most an agent queues per conversation</div><div class="d">After this, the agent asks with a queue card.</div><div class="seg"><span>3</span><span class="on">5</span><span>10</span><span>Custom</span></div></div></div></div></div></div>
+<div class="col"><div class="cap">Phone · scrolled down</div>
+<div class="frame phone ps"><div class="ps-bg"></div>
+<div class="ps-dlg"><div class="ps-hd"><span style="font-size:17px">Settings</span><span class="btn">Welcome page</span><span class="ps-s"><svg aria-hidden="true" class="i"><use href="#search"/></svg>Sea</span><span class="dim" style="margin-left:auto">✕</span></div>
+<div class="ps-tabs"><span>Editor</span><span>Notifications</span><span class="on">Agents</span><span>Updates</span><span>Shortcuts</span></div>
+<div class="ps-body"><div class="ps-r"><div class="n">Most an agent queues per conversation</div><div class="d">After this, the agent asks with a queue card.</div><div class="seg"><span>3</span><span class="on">5</span><span>10</span><span>Custom</span></div></div>
+<div class="ps-r"><div class="n">Budget per task chain</div><div class="d">What agent-queued tasks under one task may spend before asking for more. Cache reads don't count.</div><div class="seg"><span>2M</span><span class="on">5M</span><span>10M</span><span>Custom</span></div></div>
+<div class="ps-r"><div class="n">Quota reserve</div><div class="d">Agent-queued tasks wait while every agent they could run on is below this in a plan window. Yours never wait.</div><div class="seg"><span>10%</span><span class="on">25%</span><span>50%</span></div></div>
+<div class="ps-r ps-t"><div><div class="n">Notify when an agent queues a task</div><div class="d">A browser notification with the task and its chain. Clicking it opens the task.</div></div><span class="tog"></span></div></div></div></div></div>
+</section>
+
+<!-- ================= CONVERSATION ================= -->
+<section id="conversation">
+<div class="col"><div class="cap">Desktop · the conversation that queued, with the chain widget</div>
+<div class="frame desk">
+<div class="side"><div class="p">mono ⌄</div><div class="it">Boards</div><div class="it">Auto pick</div><div class="it">Billing</div><div style="height:12px"></div>
+<div class="cv on">agent-enqueue-setting<span class="s">Merged</span></div><div class="cv">flaky-merge-place<span class="s">Working</span></div><div class="cv">skill-disclosure-audit<span class="s">4 questions</span></div></div>
+<div class="main"><div class="topbar"><b style="font-weight:500">agent-enqueue-setting</b><span class="pill ok">merged</span></div>
+<div class="body"><div class="thread">
+<div class="user">Land it once the setting saves on the server.</div>
+<div class="msg"><h4>✅ Merged agent-enqueue-setting onto main</h4>The Agents section of Settings now saves on the server, and the CLI reads it.</div>
+<div class="qd"><div class="h"><svg aria-hidden="true" class="i s ic"><use href="#sprout"/></svg><b>Queued 2 tasks</b>· Safe tasks only<span class="r">2 of 5 from this conversation</span></div>
+<div class="t"><div class="m"><div class="n">#821 Fix the flaky merge-place test<span class="pill run">running</span></div><div class="w"><em>Why:</em> the merge gate failed on it twice while landing this; one test file.</div></div><span class="btn sm">View</span></div>
+<div class="t"><div class="m"><div class="n">#822 Note the new setting in the skill<span class="pill warn">waiting: quota reserve</span></div><div class="w"><em>Why:</em> the skill still says agents never queue; docs only, one commit.</div></div><span class="btn sm">View</span></div></div>
+<div class="composer">Message agent-enqueue-setting…</div>
+</div>
+<div class="wd"><div class="wh"><svg aria-hidden="true" class="i s" style="color:var(--agent)"><use href="#sprout"/></svg>Task chain<span class="r">auto on</span></div>
+<div class="bud"><div class="l"><span><b>1.8M</b> <span class="dim">of 5M tokens</span></span><span class="dim">3.2M left</span></div><div class="meter"><i style="width:36%"></i></div></div>
+<div class="tree">
+<div class="node here"><span class="dot root"></span><span class="tt">agent-enqueue-setting</span><span class="tk">you</span></div>
+<div class="node"><span class="ind"></span><span class="dot run"></span><span class="tt">#821 Fix flaky merge-place test</span><span class="tk">0.9M</span><svg aria-hidden="true" class="i s op"><use href="#ext"/></svg></div>
+<div class="node"><span class="ind"></span><span class="ind"></span><span class="dot ok"></span><span class="tt">#824 Drop the dead retry flag</span><span class="tk">0.4M</span><svg aria-hidden="true" class="i s op"><use href="#ext"/></svg></div>
+<div class="node"><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="dot run"></span><span class="tt">#826 Split merge-place fixtures</span><span class="tk">0.3M</span><svg aria-hidden="true" class="i s op"><use href="#ext"/></svg></div>
+<div class="node"><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="more"><svg aria-hidden="true" class="i s"><use href="#chev"/></svg>2 more under #826</span></div>
+<div class="node"><span class="ind"></span><span class="ind"></span><span class="dot q"></span><span class="tt">#825 Test the retry path</span><span class="tk">queued</span><svg aria-hidden="true" class="i s op"><use href="#ext"/></svg></div>
+<div class="node"><span class="ind"></span><span class="dot warn"></span><span class="tt">#822 Note the new setting</span><span class="tk">reserve</span><svg aria-hidden="true" class="i s op"><use href="#ext"/></svg></div>
+</div>
+<div class="stats"><div><b>2</b><span>running</span></div><div><b>2</b><span>queued</span></div><div><b>1</b><span>merged</span></div><div><b>1</b><span>held</span></div></div>
+<div class="wf"><span>Each row opens its conversation</span><span style="text-decoration:underline">Stop auto</span></div></div>
+</div></div></div></div>
+</section>
+
+<section id="conversation-phone">
+<div class="col"><div class="cap">Phone · the same conversation</div>
+<div class="frame phone"><div class="pt"><svg aria-hidden="true" class="i"><use href="#back"/></svg>agent-enqueue-setting<span class="pill ok" style="font-weight:500">merged</span></div>
+<div class="pb">
+<div class="msg"><h4>✅ Merged agent-enqueue-setting onto main</h4>The Agents section of Settings now saves on the server, and the CLI reads it.</div>
+<div class="qd"><div class="h"><svg aria-hidden="true" class="i s ic"><use href="#sprout"/></svg><b>Queued 2 tasks</b><span class="r">2 of 5 here</span></div>
+<div class="t"><div class="m"><div class="n">#821 Fix the flaky merge-place test</div><div style="margin-top:4px"><span class="pill run">running</span></div><div class="w"><em>Why:</em> the merge gate failed on it twice; one test file.</div></div><span class="btn sm">View</span></div>
+<div class="t"><div class="m"><div class="n">#822 Note the new setting in the skill</div><div style="margin-top:4px"><span class="pill warn">waiting: quota reserve</span></div><div class="w"><em>Why:</em> the skill still says agents never queue; docs only.</div></div><span class="btn sm">View</span></div></div>
+</div>
+<div class="bar"><svg aria-hidden="true" class="i s" style="color:var(--agent)"><use href="#sprout"/></svg>Chain<div class="meter"><i style="width:36%"></i></div><span>1.8M / 5M</span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg></div>
+<div class="comp">Message…</div></div></div>
+
+<div class="col"><div class="cap">Phone · tapping the chain bar</div>
+<div class="frame phone" style="position:relative"><div class="pt"><svg aria-hidden="true" class="i"><use href="#back"/></svg>agent-enqueue-setting</div><div class="pb"></div>
+<div class="scrim"></div>
+<div class="sheet"><div class="grab"></div>
+<div class="wd" style="width:auto;border:0;border-radius:0"><div class="wh" style="font-size:13px"><svg aria-hidden="true" class="i s" style="color:var(--agent)"><use href="#sprout"/></svg>Task chain<span class="r">auto on</span></div>
+<div class="bud"><div class="l"><span><b>1.8M</b> <span class="dim">of 5M tokens</span></span><span class="dim">3.2M left</span></div><div class="meter"><i style="width:36%"></i></div></div>
+<div class="tree" style="font-size:14px">
+<div class="node here" style="padding:9px 6px"><span class="dot root"></span><span class="tt">agent-enqueue-setting</span><span class="tk">you</span></div>
+<div class="node" style="padding:9px 6px"><span class="ind"></span><span class="dot run"></span><span class="tt">#821 Fix flaky merge-place test</span><svg aria-hidden="true" class="i s op"><use href="#chev"/></svg></div>
+<div class="node" style="padding:9px 6px"><span class="ind"></span><span class="ind"></span><span class="dot ok"></span><span class="tt">#824 Drop the dead retry flag</span><svg aria-hidden="true" class="i s op"><use href="#chev"/></svg></div>
+<div class="node" style="padding:9px 6px"><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="dot run"></span><span class="tt">#826 Split fixtures</span><svg aria-hidden="true" class="i s op"><use href="#chev"/></svg></div>
+<div class="node" style="padding:6px"><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="ind"></span><span class="more"><svg aria-hidden="true" class="i s"><use href="#chev"/></svg>2 more under #826</span></div>
+<div class="node" style="padding:9px 6px"><span class="ind"></span><span class="ind"></span><span class="dot q"></span><span class="tt">#825 Test the retry path</span><svg aria-hidden="true" class="i s op"><use href="#chev"/></svg></div>
+<div class="node" style="padding:9px 6px"><span class="ind"></span><span class="dot warn"></span><span class="tt">#822 Note the new setting</span><svg aria-hidden="true" class="i s op"><use href="#chev"/></svg></div></div>
+<div class="stats"><div><b>2</b><span>running</span></div><div><b>2</b><span>queued</span></div><div><b>1</b><span>merged</span></div><div><b>1</b><span>held</span></div></div>
+<div class="wf" style="padding-bottom:30px"><span>Tap a task to open its conversation</span><span style="text-decoration:underline">Stop auto</span></div></div></div></div></div>
+
+<div class="col"><div class="cap">Plain message the agent writes (no page needed)</div>
+<div class="plain">## 🌱 Queued #821: Fix the flaky merge-place test
+
+Why: the merge gate failed on it twice while landing this; one test file.
+
+## 🌱 Queued #822: Note the new setting in the skill
+
+Why: the skill still says agents never queue; docs only, one commit.</div>
+<div style="height:16px"></div>
+<div class="cap">When the agent has queued 5 here, it falls back to today's card</div>
+<div class="plain">## 🔐 Permission: queue #830: Trim the merge log
+
+`splates queue add 830`
+
+This conversation has queued its 5; the rest need you.</div></div>
+</section>
+
+<!-- ================= VIEW DESTINATION ================= -->
+<section id="view">
+<div class="col"><div class="cap">Desktop · View on a queued task opens its page</div>
+<div class="frame desk" style="height:440px">
+<div class="side"><div class="p">mono ⌄</div><div class="it">Boards</div><div class="it">Auto pick</div><div style="height:12px"></div><div class="cv">agent-enqueue-setting<span class="s">Merged</span></div><div class="cv on">#822 Note the new setting<span class="s">Queued · 3</span></div></div>
+<div class="main"><div class="topbar"><svg aria-hidden="true" class="i"><use href="#back"/></svg><b style="font-weight:500">Note the new setting in the skill</b><span class="pill q">Queued · 3</span><span style="margin-left:auto" class="btn sm"><svg aria-hidden="true" class="i s"><use href="#listx"/></svg>Unqueue</span><span class="btn sm">Start now</span></div>
+<div class="body"><div class="thread">
+<div class="banner"><svg aria-hidden="true" class="i ic"><use href="#sprout"/></svg><div style="flex:1">Queued by <u>agent-enqueue-setting</u> · chain 1.8M of 5M<div class="dim sm">Why: the skill still says agents never queue; docs only, one commit.</div></div></div>
+<div class="banner" style="border-color:color-mix(in oklab,var(--warning) 45%,transparent);background:color-mix(in oklab,var(--warning) 8%,var(--card))"><svg aria-hidden="true" class="i" style="color:var(--warning)"><use href="#pause"/></svg><div style="flex:1">Waiting: quota reserve<div class="dim sm">Claude has 18% of its 5-hour window left and Codex 21% of its week; it starts once one is above 25%.</div></div></div>
+<div class="qd" style="padding:12px 14px;font-size:14px;line-height:1.5">The skill says agents never queue tasks. Document the three levels, the chain budget and the reserve where it covers the queue.</div>
+<div class="composer">Message to start this task now…</div></div></div></div></div></div>
+<div class="col"><div class="cap">Running ones open the live conversation, with Stop</div>
+<div class="frame desk" style="width:300px;height:440px;flex-direction:column"><div class="topbar"><svg aria-hidden="true" class="i"><use href="#back"/></svg><b style="font-weight:500">flaky-merge-place</b><span class="pill run">working</span></div>
+<div class="body" style="flex-direction:column"><div class="banner"><svg aria-hidden="true" class="i ic"><use href="#sprout"/></svg><div>Queued by <u>agent-enqueue-setting</u></div></div><div class="msg dim sm">Reproducing the flake with the seed from the failed gate…</div><div class="composer" style="display:flex;justify-content:space-between">Message…<span class="btn sm">■ Stop</span></div></div></div></div>
+</section>
+
+<!-- ================= BOARD ================= -->
+<section id="board">
+<div class="col"><div class="cap">Board · Queued lane</div>
+<div class="lane"><div class="lh">Queued <span class="dim sm">11</span></div>
+<div class="qc"><span class="num">3</span><div class="tt">Test the retry path</div>
+<div class="ch">#825<span class="chip">Agent auto-queue</span><span class="pill ag"><svg aria-hidden="true" class="i s"><use href="#sprout"/></svg>agent-queued</span>2m</div>
+<div class="wt">by #824 · chain 1.8M of 5M</div><div class="ft"><span class="btn sm">Unqueue</span></div></div>
+<div class="qc"><span class="num">4</span><div class="tt">Note the new setting in the skill</div>
+<div class="ch">#822<span class="pill ag"><svg aria-hidden="true" class="i s"><use href="#sprout"/></svg>agent-queued</span>4m</div>
+<div class="wt"><svg aria-hidden="true" class="i s" style="color:var(--warning)"><use href="#pause"/></svg>waiting: quota reserve · Claude 5h at 18%</div><div class="ft"><span class="btn sm">Unqueue</span></div></div>
+<div class="qc"><span class="num">5</span><div class="tt">Register for sales tax and VAT</div><div class="ch">#3284<span class="chip">Phase 5: Prod readiness</span>11h</div></div>
+</div></div>
+<div class="col"><div class="cap">Phone · board card</div>
+<div class="frame phone" style="height:430px"><div class="pt">Queue</div><div class="pb" style="padding:10px">
+<div class="qc"><span class="num">3</span><div class="tt">Test the retry path</div>
+<div class="ch">#825<span class="pill ag"><svg aria-hidden="true" class="i s"><use href="#sprout"/></svg>agent-queued</span>2m</div>
+<div class="wt">by #824 · chain 1.8M of 5M</div><div class="ft"><span class="btn sm">Unqueue</span></div></div>
+<div class="qc"><span class="num">4</span><div class="tt">Note the new setting in the skill</div>
+<div class="ch">#822<span class="pill ag"><svg aria-hidden="true" class="i s"><use href="#sprout"/></svg>agent-queued</span>4m</div>
+<div class="wt"><svg aria-hidden="true" class="i s" style="color:var(--warning)"><use href="#pause"/></svg>waiting: quota reserve</div><div class="ft"><span class="btn sm">Unqueue</span></div></div>
+</div></div></div>
+</section>
+
+<!-- ================= BUDGET ================= -->
+<section id="budget">
+<div class="col"><div class="cap">Desktop · out of budget, asked as a question card</div>
+<div class="q" style="width:620px"><div class="qh"><svg aria-hidden="true" class="i s" style="color:var(--agent)"><use href="#sprout"/></svg>Task chain agent-enqueue-setting<span class="r"><b style="color:var(--foreground)">5.0M</b> of 5M</span></div>
+<div class="meter full" style="margin:2px 16px 8px"><i style="width:100%"></i></div>
+<div class="qq">1. How much more may the agent-enqueue-setting chain spend?</div>
+<div class="qs">#826 wants to queue #831 Split the fixture loader (about 0.6M). Until answered, the chain's agents queue nothing and ask before starting work; running tasks finish.</div>
+<div class="ch on"><span class="o"></span>Add 2M<span class="x">7M in all</span></div><div class="ch"><span class="o"></span>Add 5M<span class="x">10M in all</span></div><div class="ch"><span class="o"></span>Add a custom amount</div><div class="ch"><span class="o"></span>Stop auto for this chain<span class="x">back to queue cards</span></div>
+<div class="qf"><span class="btn pri">Answer</span></div></div></div>
+<div class="col"><div class="cap">Phone</div>
+<div class="frame phone" style="height:620px"><div class="pt"><svg aria-hidden="true" class="i"><use href="#back"/></svg>flaky-merge-place</div><div class="pb">
+<div class="q"><div class="qh"><svg aria-hidden="true" class="i s" style="color:var(--agent)"><use href="#sprout"/></svg>Chain · <b style="color:var(--foreground)">5.0M</b> of 5M</div>
+<div class="meter full" style="margin:2px 16px 8px"><i style="width:100%"></i></div>
+<div class="qq">1. How much more may the chain spend?</div>
+<div class="qs">#826 wants to queue #831 (about 0.6M). Until answered, the chain queues nothing.</div>
+<div class="ch on"><span class="o"></span>Add 2M</div><div class="ch"><span class="o"></span>Add 5M</div><div class="ch"><span class="o"></span>Add a custom amount</div><div class="ch"><span class="o"></span>Stop auto for this chain</div>
+<div class="qf"><span class="btn pri">Answer</span></div></div></div></div></div>
+<div class="col"><div class="cap">Plain message the agent writes</div>
+<div class="plain" style="width:340px">1. How much more may the agent-enqueue-setting chain spend?
+   It spent 5.0M of 5M; #826 wants to queue
+   #831 Split the fixture loader (about 0.6M).
+   - (a) Add 2M
+   - (b) Add 5M
+   - (c) Add a custom amount
+   - (d) Stop auto for this chain</div></div>
+</section>
+
+<!-- ================= NOTIFICATIONS ================= -->
+<section id="notif">
+<div class="col" style="gap:10px"><div class="cap">Notifications</div>
+<div class="notif"><div class="ap">🍽</div><div><b>Agent queued #822</b><br>Note the new setting in the skill<br><span class="dim">mono · chain agent-enqueue-setting · 1.8M of 5M</span></div><span class="tm">now</span></div>
+<div class="notif"><div class="ap">🍽</div><div><b>Chain out of budget</b><br>agent-enqueue-setting spent 5M. Add more or stop auto.<br><span class="dim">mono</span></div><span class="tm">now</span></div></div>
+</section>

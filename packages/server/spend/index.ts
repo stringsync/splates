@@ -1,7 +1,21 @@
 export type { BillingOptions, ProviderStatus } from "./billing";
 export { pullBilling } from "./billing";
-export type { Expected, Plan, PlansOptions } from "./plans";
-export { readPlans, renewals } from "./plans";
+export type {
+	Expected,
+	Plan,
+	PlanOverride,
+	PlanProvider,
+	PlansOptions,
+	PlanView,
+} from "./plans";
+export {
+	mergePlans,
+	PLAN_PROVIDERS,
+	planFromOverride,
+	planViews,
+	readPlans,
+	renewals,
+} from "./plans";
 export { PROVIDERS } from "./providers";
 export { Rates } from "./rates";
 export type { SpendReport } from "./report";
@@ -20,3 +34,10 @@ export type {
 export { periodStart, projectTotals, totals } from "./totals";
 export type { TurnSpend, TurnTokens, Used } from "./turn";
 export { KINDS, turnSpend } from "./turn";
+export type {
+	UnusedQuotaInput,
+	UnusedQuotaPlan,
+	UnusedQuotaReport,
+	UnusedQuotaReset,
+} from "./unused-quota";
+export { unusedQuotaReport } from "./unused-quota";

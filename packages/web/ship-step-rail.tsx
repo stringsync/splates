@@ -1,6 +1,6 @@
 import type { StepState } from "@splates/server/ship";
 import { SquareTerminalIcon } from "lucide-react";
-import { type JSX, useContext } from "react";
+import { type JSX, type ReactNode, useContext } from "react";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
 import type { Standing } from "./merge-checklist";
@@ -18,10 +18,13 @@ export function StepRail({
 	run,
 	target,
 	steps,
+	notes,
 }: {
 	run: string;
 	target: string;
 	steps: StepState[];
+	/** What to show under a step, by step id: a sign-in it went through, its fix. */
+	notes?: (step: string) => ReactNode;
 }): JSX.Element {
 	const estimates = useShipEstimates(run);
 	return (
@@ -34,6 +37,7 @@ export function StepRail({
 					step={step}
 					typical={estimates.get(typicalKey(target, step.id)) ?? null}
 					last={index === steps.length - 1}
+					notes={notes?.(step.id)}
 				/>
 			))}
 		</StepTimeline>
@@ -63,6 +67,7 @@ function StepRow({
 	step,
 	typical,
 	last,
+	notes,
 }: {
 	run: string;
 	target: string;
@@ -70,6 +75,7 @@ function StepRow({
 	/** How long the step usually takes on this target, when past runs say. */
 	typical: number | null;
 	last: boolean;
+	notes?: ReactNode;
 }): JSX.Element {
 	const active = ["checking", "running", "waiting"].includes(step.status);
 	const now = useNow(active);
@@ -130,6 +136,7 @@ function StepRow({
 					{step.update}
 				</p>
 			)}
+			{notes}
 		</StepTimelineItem>
 	);
 }

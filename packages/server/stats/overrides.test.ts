@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Outcome } from "./outcomes";
-import { overridesByCell, overridesTaskText } from "./overrides";
+import { overridesByCell, overridesByLineup } from "./overrides";
 
 function outcome(overrides: Outcome["overrides"]): Outcome {
 	return { overrides } as Outcome;
@@ -68,18 +68,78 @@ test("counts a task's model and effort changes as one move between pairings, mos
 	]);
 });
 
-test("words the board task from each cell's moves, none when nothing was overridden", () => {
-	expect(overridesTaskText([])).toBeNull();
-	const text = overridesTaskText([
+test("keeps each lineup's moves together and retains overrides with no lineup", () => {
+	const move = {
+		aspect: "model" as const,
+		to: "opus",
+		at,
+		from: sonnet,
+		result: opus,
+		kind: "bugfix",
+		depth: "shallow",
+	};
+	const astra = { model: "6 Astra", effort: "high" };
+	const gemini = { model: "Gemini 4 Neon", effort: null };
+	const rows = overridesByLineup(
+		[
+			outcome([{ ...move, lineup: "quick" }]),
+			{
+				...outcome([move]),
+				autoPick: {
+					lineup: "quick",
+					kind: move.kind,
+					depth: move.depth,
+					agent: "claude",
+					model: "sonnet",
+					effort: "medium",
+					lifts: [],
+				},
+			},
+			outcome([{ ...move, lineup: "careful", from: astra, result: gemini }]),
+			outcome([{ ...move, from: undefined, result: undefined, rule: 2 }]),
+		],
+		[],
+	);
+	expect(rows).toEqual([
 		{
 			kind: "bugfix",
-			depth: "deep",
-			count: 4,
+			depth: "shallow",
+			lineup: "quick",
+			count: 2,
+			earlier: 0,
+			moves: [
+				{
+					from: sonnet,
+					to: opus,
+					count: 2,
+					fromProvider: "anthropic",
+					toProvider: "anthropic",
+				},
+			],
+		},
+		{
+			kind: "bugfix",
+			depth: "shallow",
+			lineup: "careful",
+			count: 1,
+			earlier: 0,
+			moves: [
+				{
+					from: astra,
+					to: gemini,
+					count: 1,
+					fromProvider: "openai",
+					toProvider: "google",
+				},
+			],
+		},
+		{
+			kind: "bugfix",
+			depth: "shallow",
+			lineup: null,
+			count: 1,
 			earlier: 1,
-			moves: [{ from: sonnet, to: opus, count: 3 }],
+			moves: [],
 		},
 	]);
-	expect(text).toContain("- bugfix at deep depth: 4 overridden");
-	expect(text).toContain("Sonnet 5.5 · medium to Opus 5.5 · high, 3 times");
-	expect(text).toContain("1 earlier, with no pairing recorded");
 });

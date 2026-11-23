@@ -1,48 +1,29 @@
-import type { CellOverrides, Pairing } from "@splates/server/stats/browser";
-import { ActivityIcon, ChevronRightIcon, SendIcon } from "lucide-react";
+import type {
+	LineupOverrides,
+	ModelProvider,
+	Pairing,
+} from "@splates/server/stats/browser";
+import { ActivityIcon, ArrowRightIcon, SendIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "#web/components/ui/alert.tsx";
+import { Badge } from "#web/components/ui/badge.tsx";
+import { Button } from "#web/components/ui/button.tsx";
 import {
 	autoPickOverrides,
 	dismissAutoPickOverrides,
 	sendAutoPickOverrides,
 } from "./auto-pick-api";
-import { cellKeyLabel } from "./auto-pick-rules";
+import { ModelProviderMark } from "./model-provider-mark";
 
-/** A model and an effort as one lineup, `Opus 5.5 · high`. */
-function PairingChip({ pairing }: { pairing: Pairing }): JSX.Element {
-	return (
-		<span className="rounded-md border bg-card px-2.5 py-1 text-sm">
-			<span className="font-medium">{pairing.model ?? "Unknown model"}</span>
-			{pairing.effort !== null && (
-				<span className="text-muted-foreground"> · {pairing.effort}</span>
-			)}
-		</span>
-	);
-}
-
-/**
- * The picks the person changed, by the cell of the routes they were made
- * for, one row to a cell with its count. A cell opens to the lineups it was
- * moved between, a model and an effort always together, and the banner above
- * them sends it all to an agent to update the rules. Shows nothing until
- * there is one.
- */
-export function AutoPickOverrides({
-	onCell,
-}: {
-	/** Lists the picks of `cell`, `bugfix.deep`. */
-	onCell: (cell: string) => void;
-}): JSX.Element | null {
-	const [{ rows, cursor }, setNotice] = useState<{
-		rows: CellOverrides[];
-		cursor: number;
-	}>({ rows: [], cursor: 0 });
+/** Review new overrides across all periods, independent of the scorecard filter. */
+export function OverrideReview(): JSX.Element | null {
+	const [notice, setNotice] = useState<Awaited<
+		ReturnType<typeof autoPickOverrides>
+	> | null>(null);
 	const [sent, setSent] = useState<number | null>(null);
 	const [sending, setSending] = useState(false);
 	const [refused, setRefused] = useState<string | null>(null);
@@ -56,11 +37,11 @@ export function AutoPickOverrides({
 			live = false;
 		};
 	}, []);
-	if (rows.length === 0) {
+	if (notice === null || notice.rows.length === 0) {
 		return null;
 	}
+	const { rows, cursor } = notice;
 	const total = rows.reduce((sum, row) => sum + row.count, 0);
-	const worst = rows[0];
 	const respond = async (action: "send" | "dismiss") => {
 		setSending(true);
 		setRefused(null);
@@ -69,7 +50,7 @@ export function AutoPickOverrides({
 				setSent(await sendAutoPickOverrides());
 			} else {
 				await dismissAutoPickOverrides(cursor);
-				setNotice({ rows: [], cursor });
+				setNotice(null);
 			}
 		} catch (error) {
 			setRefused(error instanceof Error ? error.message : String(error));
@@ -78,111 +59,127 @@ export function AutoPickOverrides({
 		}
 	};
 	return (
-		<section aria-label="Overrides" className="flex flex-col gap-3">
-			<h3 className="font-semibold text-sm">Overrides</h3>
-			<div className="flex flex-wrap items-center gap-3.5 rounded-lg border border-warning/35 bg-warning/10 px-4 py-3.5">
-				<span className="flex size-8 flex-none items-center justify-center rounded-lg bg-warning/20 text-warning">
-					<ActivityIcon aria-hidden className="size-4" />
-				</span>
-				<div className="min-w-40 flex-1">
-					<p className="font-medium text-sm">
-						{total} {total === 1 ? "override" : "overrides"} across{" "}
-						{rows.length} {rows.length === 1 ? "cell" : "cells"}
-					</p>
-					<p className="text-muted-foreground text-xs">
-						{worst !== undefined && rows.length > 1
-							? `${cellKeyLabel(`${worst.kind}.${worst.depth}`)} alone is ${worst.count}. `
-							: ""}
-						An agent can read them and propose changes to the rules.
-					</p>
-					{refused !== null && (
-						<p role="alert" className="text-destructive text-xs">
-							{refused}
-						</p>
-					)}
-				</div>
-				<div className="ml-auto flex items-center gap-2">
-					{sent === null ? (
-						<Button
-							size="sm"
-							disabled={sending}
-							onClick={() => void respond("send")}
-						>
-							<SendIcon aria-hidden data-icon="inline-start" />
-							Send to agent
-						</Button>
-					) : (
-						<span className="text-muted-foreground text-sm">
-							Sent as task #{sent}
-						</span>
-					)}
+		<Alert
+			className="border-warning/35 bg-warning/10 [&>svg]:text-warning md:has-[>svg]:grid-cols-[auto_minmax(0,1fr)_auto]"
+			role="region"
+			aria-label="Unreviewed overrides"
+		>
+			<ActivityIcon aria-hidden />
+			<AlertTitle>
+				{total} unreviewed {total === 1 ? "override" : "overrides"} across{" "}
+				{rows.length} {rows.length === 1 ? "cell" : "cells"}
+			</AlertTitle>
+			<AlertDescription className="col-start-2 text-xs">
+				The agent reviews flagged cells across all time.
+			</AlertDescription>
+			{refused !== null && (
+				<p role="alert" className="col-start-2 text-destructive text-xs">
+					{refused}
+				</p>
+			)}
+			<div className="col-span-full mt-2 flex flex-wrap items-center justify-end gap-2 md:col-span-1 md:col-start-3 md:row-span-2 md:row-start-1 md:mt-0 md:self-center">
+				{sent === null ? (
 					<Button
 						size="sm"
-						variant="outline"
 						disabled={sending}
-						onClick={() => void respond("dismiss")}
+						onClick={() => void respond("send")}
 					>
-						Dismiss
+						<SendIcon aria-hidden data-icon="inline-start" />
+						Send to agent
 					</Button>
-				</div>
+				) : (
+					<span role="status" className="text-muted-foreground text-sm">
+						Sent as task #{sent}
+					</span>
+				)}
+				<Button
+					size="sm"
+					variant="outline"
+					disabled={sending}
+					onClick={() => void respond("dismiss")}
+				>
+					Dismiss
+				</Button>
 			</div>
-			<ul className="divide-y overflow-hidden rounded-lg border bg-card">
-				{rows.map((row) => {
-					const cell = `${row.kind}.${row.depth}`;
-					return (
-						<li key={cell}>
-							<Collapsible>
-								<CollapsibleTrigger
-									className="group flex min-h-11 w-full items-center gap-3 px-4 text-left text-sm"
-									aria-label={cellKeyLabel(cell)}
-								>
-									<span className="flex-1 font-medium">
-										{cellKeyLabel(cell)}
-									</span>
-									<span className="font-semibold tabular-nums">
-										{row.count}
-									</span>
-									<ChevronRightIcon
-										aria-hidden
-										className="size-4 text-muted-foreground transition-transform group-aria-expanded:rotate-90"
-									/>
-								</CollapsibleTrigger>
-								<CollapsibleContent className="flex flex-col gap-1 border-t bg-muted/40 px-4 pb-3.5">
-									{row.moves.map((move) => (
-										<div
-											key={JSON.stringify([move.from, move.to])}
-											className="flex items-center gap-2.5 border-b py-2.5 last:border-b-0"
-										>
-											<div className="flex flex-1 flex-wrap items-center gap-2.5">
-												<PairingChip pairing={move.from} />
-												<span aria-hidden className="text-muted-foreground">
-													→
-												</span>
-												<PairingChip pairing={move.to} />
-											</div>
-											<span className="text-muted-foreground text-xs">
-												{move.count} {move.count === 1 ? "time" : "times"}
-											</span>
-										</div>
-									))}
-									{row.earlier > 0 && (
-										<p className="py-2 text-muted-foreground text-xs">
-											{row.earlier} earlier, from before lineups were recorded
-										</p>
-									)}
-									<button
-										type="button"
-										className="self-start font-medium text-primary text-xs"
-										onClick={() => onCell(cell)}
-									>
-										View these picks in the log
-									</button>
-								</CollapsibleContent>
-							</Collapsible>
-						</li>
-					);
-				})}
-			</ul>
-		</section>
+		</Alert>
+	);
+}
+
+/** The pairings people moved between, with a count for earlier overrides. */
+export function OverrideMoves({
+	overrides,
+	onLog,
+}: {
+	overrides: LineupOverrides;
+	onLog: () => void;
+}): JSX.Element {
+	const { moves, earlier } = overrides;
+	return (
+		<div className="flex flex-col items-start gap-2">
+			{moves.length > 0 && (
+				<>
+					<p className="font-medium text-xs">Recorded moves</p>
+					<ul
+						className="flex max-w-full flex-col gap-2"
+						aria-label="Recorded moves"
+					>
+						{moves.map(({ from, to, count, fromProvider, toProvider }) => (
+							<li
+								key={JSON.stringify([from, to])}
+								className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-1.5 md:flex md:flex-wrap"
+							>
+								<PairingChip pairing={from} provider={fromProvider} />
+								<ArrowRightIcon
+									aria-hidden
+									className="size-3 text-muted-foreground"
+								/>
+								<span className="sr-only">to</span>
+								<PairingChip pairing={to} provider={toProvider} />
+								<span className="whitespace-nowrap text-muted-foreground text-xs">
+									{count} {count === 1 ? "time" : "times"}
+								</span>
+							</li>
+						))}
+					</ul>
+				</>
+			)}
+			{earlier > 0 && (
+				<p className="text-muted-foreground text-xs">
+					{earlier} earlier {earlier === 1 ? "override" : "overrides"} with no
+					pairing recorded
+				</p>
+			)}
+			<button
+				type="button"
+				className="font-medium text-primary text-xs underline"
+				onClick={onLog}
+			>
+				View cell in the pick log
+			</button>
+		</div>
+	);
+}
+
+/** A model and its effort as one pairing, such as `Opus 5.5 · high`. */
+function PairingChip({
+	pairing,
+	provider,
+}: {
+	pairing: Pairing;
+	provider: ModelProvider | null;
+}): JSX.Element {
+	return (
+		<Badge
+			variant="outline"
+			className="h-auto min-w-0 max-w-full items-start whitespace-normal rounded-md bg-card py-1"
+		>
+			<ModelProviderMark provider={provider} className="mt-0.5" />
+			<span className="wrap-anywhere">
+				{pairing.model ?? "Unknown model"}
+				{pairing.effort !== null && (
+					<span className="text-muted-foreground"> · {pairing.effort}</span>
+				)}
+			</span>
+		</Badge>
 	);
 }

@@ -7,7 +7,6 @@ import { ChevronRightIcon, PencilIcon, ZapIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutoIcon } from "./auto-brand";
 import { cellKeyLabel, pickedCell } from "./auto-pick-rules";
 import { type AutoPickRun, autoPickRuns } from "./auto-pick-runs";
 import { cellAddress } from "./page-address";
@@ -58,25 +57,6 @@ export function AutoPickLog({
 				/>
 			))}
 		</ol>
-	);
-}
-
-/** Auto pick's mark: its gradient sparkles on a faint violet tile. */
-export function AutoPickMark({
-	className,
-}: {
-	className?: string;
-}): JSX.Element {
-	return (
-		<span
-			aria-hidden
-			className={cn(
-				"flex shrink-0 items-center justify-center rounded-lg bg-violet-500/15",
-				className,
-			)}
-		>
-			<AutoIcon colored className="size-1/2" />
-		</span>
 	);
 }
 

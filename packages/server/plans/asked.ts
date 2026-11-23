@@ -5,6 +5,12 @@ import {
 	permissionOf,
 } from "./permission";
 import { dedent, offers, type Question, settled, sized } from "./plan";
+import {
+	groupQueued,
+	isQueuedTitle,
+	type QueuedCard,
+	queuedTaskOf,
+} from "./queued";
 import { isStepsTitle, type Steps, stepsOf } from "./steps";
 
 /**
@@ -73,6 +79,14 @@ function cut(text: string): Stretch[] {
 			i = demo.end - 1;
 			continue;
 		}
+		const plan = planHere(lines, i);
+		if (plan !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push({ type: "plan", plan: plan.plan });
+			from = plan.end;
+			i = plan.end - 1;
+			continue;
+		}
 		const steps = stepsHere(lines, i);
 		if (steps !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -102,7 +116,11 @@ function cut(text: string): Stretch[] {
 		i = list.end - 1;
 	}
 	found.push(...prose(lines.slice(from)));
-	return found;
+	return groupQueued(
+		found,
+		(each) => (each.type === "queued" ? each.queued : null),
+		(queued): Stretch => ({ type: "queued", queued }),
+	);
 }
 
 /**
@@ -118,8 +136,20 @@ export type Stretch =
 	| { type: "review"; review: Review }
 	| { type: "report"; report: TaskReport }
 	| { type: "permission"; permission: PermissionProposal }
+	| { type: "queued"; queued: QueuedCard }
 	| { type: "demo"; demo: Demo }
-	| { type: "steps"; steps: Steps };
+	| { type: "steps"; steps: Steps }
+	| { type: "plan"; plan: PlanCard };
+
+/**
+ * A plan the skill titles `## 📝 Plan: <title>`, written however the agent
+ * plans, which the questions after it, its approval question last, decide.
+ */
+export interface PlanCard {
+	title: string;
+	/** Everything it says under its title, as markdown. */
+	body: string;
+}
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -203,6 +233,13 @@ function keptAt(
 	const done = DONE.exec(line);
 	const ended = ENDED.exec(line);
 	const asking = asksPermission(line);
+	if (isQueuedTitle(line)) {
+		const at = endAt(lines, start + 1);
+		const task = queuedTaskOf(line, lines.slice(start + 1, at).join("\n"));
+		return task === null
+			? null
+			: { stretch: { type: "queued", queued: { tasks: [task] } }, end: at };
+	}
 	if (!asking && merged === null && done === null && ended === null) {
 		return null;
 	}
@@ -325,6 +362,55 @@ function demoHere(
  * questions after its own list, and the line after it; null for any other
  * line, or a title with no steps under it.
  */
+/** A plan's title: `## 📝 Plan: <title>`. */
+const PLAN_TITLE = /^## 📝\uFE0F?[ \t]+Plan(?::[ \t]*(.*?))?[ \t]*$/;
+/** A card's title, opened by an emoji, which ends a plan before it. */
+const CARD_TITLE = /^## \P{ASCII}/u;
+
+/**
+ * The plan titled at `start`, which runs to the questions that decide it,
+ * the next card, or the end, and the line after it; null for any other line.
+ * Its own headings and lists are its body, whatever the agent plans with.
+ */
+function planHere(
+	lines: string[],
+	start: number,
+): { plan: PlanCard; end: number } | null {
+	const title = PLAN_TITLE.exec(lines[start] as string);
+	if (title === null) {
+		return null;
+	}
+	let end = lines.length;
+	let fenced = false;
+	for (let i = start + 1; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (fenced) {
+			continue;
+		}
+		if (
+			CARD_TITLE.test(line) ||
+			(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null)
+		) {
+			end = i;
+			break;
+		}
+	}
+	return {
+		plan: {
+			title: (title[1] ?? "").trim(),
+			body: lines
+				.slice(start + 1, end)
+				.join("\n")
+				.replace(/^\n+|\s+$/g, ""),
+		},
+		end,
+	};
+}
+
 function stepsHere(
 	lines: string[],
 	start: number,

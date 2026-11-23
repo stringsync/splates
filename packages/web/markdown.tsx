@@ -7,6 +7,7 @@ import {
 	isValidElement,
 	type JSX,
 	memo,
+	type ReactNode,
 	useContext,
 	useState,
 } from "react";
@@ -19,6 +20,7 @@ import {
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
+import { CopyableCode, CopyablePre } from "./copyable-code";
 import { DiagramView } from "./diagram-view";
 import { FinishedReferences } from "./finished-references";
 import { GROUP } from "./lightbox";
@@ -254,7 +256,7 @@ export function linkTasks(text: string): string {
 	return text
 		.split(CODE)
 		.map((part, i) => {
-			// The odd parts are the code the split kept.
+			// CODE has a capture group, so the split keeps the code at odd indexes.
 			if (i % 2 === 0) {
 				return part.replace(TASK_WORD, (_, task: string) => taskLink(task));
 			}
@@ -431,6 +433,7 @@ function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
 
 /** A fenced `d2` block is drawn as a diagram; any other fence stays code. */
 function Pre(props: ComponentProps<"pre">): JSX.Element {
+	const copyable = useContext(CopyableCode);
 	const code = Children.toArray(props.children)[0];
 	if (isValidElement<ComponentProps<"code">>(code)) {
 		const source = code.props.children;
@@ -442,12 +445,33 @@ function Pre(props: ComponentProps<"pre">): JSX.Element {
 			return <DiagramView source={source.trim()} />;
 		}
 	}
+	if (copyable) {
+		return (
+			<CopyablePre text={textOf(props.children).replace(/\n$/, "")}>
+				<pre
+					{...props}
+					className="min-w-0 flex-1 overflow-x-auto p-3 text-xs"
+				/>
+			</CopyablePre>
+		);
+	}
 	return (
 		<pre
 			{...props}
 			className="my-2 overflow-x-auto rounded bg-current/8 p-3 text-xs"
 		/>
 	);
+}
+
+/** The text a node renders, for a code block's copy. */
+function textOf(node: ReactNode): string {
+	if (typeof node === "string" || typeof node === "number") {
+		return String(node);
+	}
+	if (isValidElement<{ children?: ReactNode }>(node)) {
+		return textOf(node.props.children);
+	}
+	return Children.toArray(node).map(textOf).join("");
 }
 
 /** A checklist box only reports: the document is the agent's to tick. */

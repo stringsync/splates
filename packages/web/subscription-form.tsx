@@ -141,6 +141,8 @@ export function SubscriptionForm({
 							<AssigneeMenu
 								assignee={pick}
 								onPick={(picked) => draft.set("pick", picked)}
+								auto
+								label="Run as"
 							/>
 						</div>
 					</div>

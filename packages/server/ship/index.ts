@@ -4,6 +4,8 @@ export {
 	type Listed,
 	type Listing,
 	ShipCommands,
+	type Shippable,
+	type Shippables,
 	type Unanswered,
 	type Unshipped,
 } from "./commands";

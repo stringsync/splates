@@ -158,21 +158,19 @@ margin, outside code blocks, wherever you ask it, even a lone one as
 Each item's line ends at its `?`, as under `## Blocked`, its body and choices
 indented under it.
 
-## Reports
+## Readouts
 
-Any time you report on something that is not a task's end (a check's results,
-an audit, a survey, a comparison), write a Report card rather than a wall of
-text. Its title is `## 📊 Report: <subject>`; it runs to the next `##`
-heading, so `###` sections stay inside it. Everything in it is markdown, so
-it reads the same in a terminal, GitHub or a paste; the `splates server`
-page draws the readouts below as a card. A readout is read-only: it displays data and takes no action. Use none, some or all of them: the
-headline sentence is the only part a report needs. Any card whose body is
-prose (Merged, Done, Removed, Blocked, Permission) draws the same
-read-only readouts, so a Merged card may carry a `stats` row; Review and
-Questions cards do not.
+A report on something that is not a task's end (a check's results, an audit, a
+survey, a comparison) is an ordinary markdown reply: a headline sentence, then
+what helps. It has no card title, and the `splates server` page draws no
+readout in it: a fenced readout there shows as a raw code block. Readouts
+render only in the prose body of a Merged, Done, Removed, Blocked or Permission
+card (Review and Questions cards do not), where they are read-only: they
+display data and take no action. Use none, some or all of them. The example
+shows a Done card carrying them:
 
 ````markdown
-## 📊 Report: test health, 2026-11-16
+## ✅ Done: test health checked, one test needs a fix
 
 Pass rate dipped to 98.9%. One test has failed every run since Friday; two others are flaky.
 
@@ -245,5 +243,4 @@ Logs and longer evidence, folded on the page.
   evidence there, not in the headline.
 
 Leave out a readout that adds nothing: a table of three rows needs no chart.
-An unknown fence stays a code block. A report that ends an automation's run
-comes before its Done report, which stays one line.
+An unknown fence stays a code block. 

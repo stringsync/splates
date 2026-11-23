@@ -144,7 +144,7 @@ export function triggerLabel(trigger: Trigger): string {
 export function hookLabel(hook: Hook): string {
 	switch (hook.kind) {
 		case "agent":
-			return `tell ${pickLabel(hook)}: ${hook.prompt}`;
+			return `tell ${hook.agent === undefined ? "Auto pick" : pickLabel({ ...hook, agent: hook.agent })}: ${hook.prompt}`;
 		case "run":
 			return `run \`${hook.command}\``;
 		case "groom":

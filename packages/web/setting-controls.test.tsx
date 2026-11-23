@@ -1,6 +1,7 @@
 import "./testing-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ComponentProps } from "react";
+import type { AgentChoice } from "./agent-choice";
 import { SettingControls } from "./setting-controls";
 import {
 	act,
@@ -219,6 +220,68 @@ describe("composer setting controls", () => {
 		);
 		expect(view.queryByRole("combobox")).toBeNull();
 		expect(view.getByRole("button", { name: "settings" })).toBeTruthy();
+	});
+	const agents = [
+		{ id: "claude", name: "Claude" },
+		{ id: "codex", name: "Codex" },
+	] as AgentChoice[];
+	it("lists the agents on Auto pick, a tap switching to one and closing the sheet", async () => {
+		const picks: (string | null)[] = [];
+		view.rerender(
+			<SettingControls
+				settings={[]}
+				current={(setting) => setting.current}
+				onChange={() => {}}
+				agentSwitch={{
+					agents,
+					agent: "claude",
+					auto: true,
+					pick: (agent) => picks.push(agent),
+				}}
+			/>,
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "settings" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getByText("Select agent")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: /Codex/ })),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(picks).toEqual(["codex"]);
+	});
+	it("leads the models with the agent, which opens the agents to switch to", async () => {
+		const picks: (string | null)[] = [];
+		layout.content = 1200;
+		view.rerender(
+			<SettingControls
+				{...props}
+				agent="claude"
+				agentSwitch={{
+					agents,
+					agent: "claude",
+					auto: false,
+					pick: (agent) => picks.push(agent),
+				}}
+			/>,
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "settings" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: /Change agent/ }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: /Auto pick/ }),
+			),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(picks).toEqual([null]);
 	});
 });
 

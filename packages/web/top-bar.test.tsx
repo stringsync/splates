@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CopyIcon, PlayIcon, SquarePenIcon } from "lucide-react";
 import { act, cleanup, fireEvent, render, resize, waitFor } from "./testing";
-import { type BarAction, TopBar } from "./top-bar";
+import { type BarAction, TopBar, TopBarFrame } from "./top-bar";
 
 /** Three icons, each as wide as a button beside a sidebar. */
 const ACTIONS: BarAction[] = [
@@ -55,6 +55,7 @@ describe("TopBar", () => {
 
 	afterEach(() => {
 		cleanup();
+		resize(1280, 800);
 		for (const [name, descriptor] of Object.entries(widths)) {
 			if (descriptor !== undefined) {
 				Object.defineProperty(HTMLElement.prototype, name, descriptor);
@@ -99,5 +100,74 @@ describe("TopBar", () => {
 		const bar = render(<TopBar title="Stats" actions={ACTIONS} />);
 
 		expect(bar.getAllByRole("button")).toHaveLength(ACTIONS.length);
+	});
+
+	it("renders the integrated desktop area header with scope pill, description, and docked tabs", () => {
+		const slot = document.createElement("header");
+		document.body.appendChild(slot);
+		try {
+			room = 800;
+			const bar = render(
+				<TopBarFrame
+					value={{
+						slot,
+						project: "mono",
+						area: { page: "signals" },
+					}}
+				>
+					<TopBar
+						title="Signals"
+						tabs={
+							<nav aria-label="signals views">
+								<a href="#signals">All signals</a>
+							</nav>
+						}
+					/>
+				</TopBarFrame>,
+			);
+
+			expect(bar.getAllByRole("heading", { name: "Signals" })).toHaveLength(1);
+			expect(slot.textContent).toContain("All projects");
+			expect(slot.textContent).toContain(
+				"Named events and poll scripts that wake waiting agents",
+			);
+			expect(
+				slot.querySelector("nav[aria-label='signals views']"),
+			).toBeTruthy();
+		} finally {
+			slot.remove();
+		}
+	});
+
+	it("renders the integrated phone area header inside titleSlot without repeating the title in slot", () => {
+		resize(390, 844);
+		const slot = document.createElement("div");
+		const titleSlot = document.createElement("div");
+		document.body.append(slot, titleSlot);
+		try {
+			render(
+				<TopBarFrame
+					value={{
+						slot,
+						titleSlot,
+						untitled: true,
+						project: "mono",
+						area: { page: "todos" },
+					}}
+				>
+					<TopBar title="splates" badge="2 lanes · 9 tasks" />
+				</TopBarFrame>,
+			);
+
+			expect(slot.textContent).not.toContain("splates");
+			expect(titleSlot.textContent).toContain("splates");
+			expect(titleSlot.textContent).toContain("2 lanes · 9 tasks");
+			expect(titleSlot.textContent).toContain(
+				"Organize lanes, block dependencies, and queue tasks for agents.",
+			);
+		} finally {
+			slot.remove();
+			titleSlot.remove();
+		}
 	});
 });

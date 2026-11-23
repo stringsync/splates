@@ -7,7 +7,10 @@ import { BACKLOG_LANE } from "./backlog";
 import type { Deferral, DeferralAsk } from "./deferral";
 import { type ElsewhereBlocker, sameBlocker } from "./elsewhere";
 import { ElsewhereLinks } from "./elsewhere-links";
+import type { ChainRoot, QueuedBy } from "./queued-by";
 import type { Tasks } from "./tasks";
+
+export type { ChainRoot, QueuedBy };
 
 /**
  * One numbered task on the board: read its words and links, and take,
@@ -513,11 +516,6 @@ export function enqueued<T extends TaskRecord>(state: T, by: QueuedBy): T {
 		queuedAt: new Date().toISOString(),
 	} as T;
 }
-
-/**
- * Who queued a task: the person directly, or a lane they queued.
- */
-export type QueuedBy = { by: "person" } | { by: "lane"; lane: number };
 
 /**
  * `state` taken out of the queue, available again. The queue lets one go

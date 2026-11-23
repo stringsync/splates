@@ -1,7 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
 import { BeforeAfter } from "./before-after";
+import { BlockersCard } from "./blockers-card";
+import { Board, NO_BOARD } from "./board";
 import { CardBody } from "./card-shell";
 import { ChecksSection } from "./checks-section";
+import { details, todo } from "./fixtures";
+import { LiveMergeCard } from "./merge-card";
+import { OwnQueueCard } from "./permission-card";
+import { QuestionCards } from "./question-cards";
+import { ReviewPanel } from "./review-panel";
 import { cleanup, render } from "./testing-library";
 
 afterEach(cleanup);
@@ -23,6 +30,10 @@ test("a rule sits above each header's section after a lead, and not above the fi
 		<CardBody text={"Lead.\n\n## One\n\na\n\n## Two\n\nb"} />,
 	);
 	expect(ruled(lead.container)).toEqual(["One", "Two"]);
+	expect(lead.getByText("Lead.").closest("div")?.className).toContain("pb-5");
+	expect(lead.getByText("Lead.").closest("div")?.className).toContain(
+		"@max-md:pb-5",
+	);
 	cleanup();
 	const bare = render(<CardBody text={"## One\n\na\n\n## Two\n\nb"} />);
 	expect(ruled(bare.container)).toEqual(["Two"]);
@@ -43,4 +54,147 @@ test("a card whose only readout is a d2 diagram draws the diagram, not plain cod
 	);
 	// The diagram view's source fallback carries a border; markdown code does not.
 	expect(container.querySelector("pre.border")).not.toBeNull();
+});
+
+test("a card body with prose and an inline readout draws no divider between them", () => {
+	const { container } = render(
+		<CardBody text={"Lead.\n\n> ℹ️ Note.\n\nAfter."} />,
+	);
+	expect(
+		container.querySelectorAll(".divide-y, .border-t, .rule-y, .rule-t"),
+	).toHaveLength(0);
+});
+
+test("a Ready to merge card joins summary and details without a divider between them", () => {
+	const { container } = render(
+		<ReviewPanel
+			review={{
+				task: "header",
+				base: "main",
+				summary: "Opening line:",
+				demo: null,
+				checks: [],
+				failed: [],
+				details: "- One\n- Two",
+			}}
+		/>,
+	);
+	expect(
+		container.querySelectorAll(".divide-y, .border-t, .rule-y, .rule-t"),
+	).toHaveLength(0);
+});
+
+test("a questions card with a report and demo draws no double borders around the demo", () => {
+	const { container } = render(
+		<QuestionCards
+			escalation={{
+				ending: "escalated",
+				task: "header",
+				base: null,
+				reason: "Need a look",
+				body: "Context.",
+				source: "## ⚠️ Escalated header: Need a look\n\nContext.",
+			}}
+			demo={{
+				title: null,
+				intro: "Open the page.",
+				steps: [],
+			}}
+			questions={[
+				{
+					number: "1",
+					done: false,
+					text: "Does it fit?",
+					size: null,
+					body: "",
+					reply: null,
+					followUps: [],
+					choices: [],
+					pick: null,
+				},
+			]}
+		/>,
+	);
+	// Only the card header has border-b; sections use border-t between each other.
+	expect(container.querySelectorAll(".border-b")).toHaveLength(1);
+	expect(ruled(container)).toEqual(["demo"]);
+});
+
+test("a live merge card's batch banner draws no rule directly under the header", () => {
+	const { container } = render(
+		<LiveMergeCard
+			conversation="c1"
+			task={details({
+				task: "a",
+				mergeBatch: ["a", "b"],
+				mergeSteps: {
+					steps: [{ step: "rebase", at: "2026-01-01T00:00:00.000Z" }],
+				},
+				mergeSince: "2026-01-01T00:00:00.000Z",
+			})}
+		/>,
+	);
+	expect(ruled(container)).not.toContain("Batch");
+});
+
+test("a queue card with no body draws no divider directly under the header", () => {
+	const first = todo({ id: 1, subject: "First task" });
+	const { container } = render(
+		<Board.Provider value={{ ...NO_BOARD, linked: true, todos: [first] }}>
+			<OwnQueueCard
+				proposal={{
+					action: "queue",
+					lane: null,
+					tasks: [1],
+					title: "tasks added in this conversation",
+					body: "",
+				}}
+			/>
+		</Board.Provider>,
+	);
+	// Only the action footer at the bottom carries a rule, not the panel directly under the header.
+	expect(
+		container
+			.querySelector("ul")
+			?.parentElement?.className.match(/\b(border|rule)-t\b/) != null,
+	).toBe(false);
+	expect(container.querySelectorAll("div.border-t, div.rule-t")).toHaveLength(
+		1,
+	);
+});
+
+test("a blockers card with no why text draws no divider on its first blocker under the header", () => {
+	const blocker = todo({ id: 1, subject: "First blocker" });
+	const blocked = todo({ id: 2, subject: "Blocked task", blockedBy: [1] });
+	const { container } = render(
+		<Board.Provider
+			value={{ ...NO_BOARD, linked: true, todos: [blocker, blocked] }}
+		>
+			<BlockersCard task={blocked} label="blocked" />
+		</Board.Provider>,
+	);
+	const firstRow = container.querySelector("ol[aria-label='blockers'] > li");
+	expect(firstRow).not.toBeNull();
+	expect(
+		container
+			.querySelector("ol[aria-label='blockers']")
+			?.className.includes("[&>li:first-child]:border-t-0"),
+	).toBe(true);
+});
+
+test("an empty queue card draws no footer rule directly under the header", () => {
+	const { container } = render(
+		<Board.Provider value={{ ...NO_BOARD, linked: true, todos: [] }}>
+			<OwnQueueCard
+				proposal={{
+					action: "queue",
+					lane: null,
+					tasks: [99],
+					title: "missing task",
+					body: "",
+				}}
+			/>
+		</Board.Provider>,
+	);
+	expect(container.querySelectorAll(".border-t, .rule-t")).toHaveLength(0);
 });

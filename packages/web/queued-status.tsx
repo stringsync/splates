@@ -4,6 +4,7 @@ import { type JSX, type ReactNode, useContext } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { upNext } from "./blocked-fix";
 import { Board } from "./board";
+import { ReserveBanner, useQuotaReserve } from "./quota-reserve";
 import { TONES } from "./task-sections";
 import { type Wait, waitsOn } from "./waits-on";
 
@@ -20,6 +21,10 @@ const WAIT_TONES: Record<Wait["state"], string> = {
 export function WaitingPanel({ todo }: { todo: TaskRecord }): JSX.Element {
 	const { todos, lanes } = useContext(Board);
 	const ahead = upNext(todos).findIndex((each) => each.id === todo.id);
+	const hold = useQuotaReserve()[todo.id];
+	if (hold !== undefined) {
+		return <ReserveBanner hold={hold} />;
+	}
 	return (
 		<section
 			role="status"

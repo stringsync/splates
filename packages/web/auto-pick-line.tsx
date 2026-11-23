@@ -29,19 +29,22 @@ export function AutoPickLine({
 }): JSX.Element {
 	const params = paramsOf(event);
 	const lifted = event.lifted ?? null;
+	const held = lifted === null ? (event.held ?? null) : null;
 	const verb =
-		lifted === null
-			? "Auto picked"
-			: lifted.switched
-				? "Auto switched to"
-				: "Auto moved up to";
+		held !== null
+			? "Auto held back to"
+			: lifted === null
+				? "Auto picked"
+				: lifted.switched
+					? "Auto switched to"
+					: "Auto moved up to";
 	const short =
 		params.signals
 			.slice(0, 2)
 			.flatMap((each) => each.answers.slice(0, 1).map((best) => best.label))
 			.join(" · ") ||
 		(params.notes[0] ?? "no judge to ask");
-	const undo = useUndo(event, lifted);
+	const undo = useUndo(event, lifted ?? held);
 	if (details) {
 		return (
 			<div
@@ -53,6 +56,7 @@ export function AutoPickLine({
 					<span>Auto-picked {params.picked}</span>
 					{undo.control}
 				</div>
+				{held !== null && <HeldNote held={held} />}
 				<Findings params={params} lifted={lifted} />
 				<Refusal refusal={undo.refusal} />
 			</div>
@@ -92,8 +96,28 @@ export function AutoPickLine({
 				</p>
 				<Rule />
 			</div>
+			{held !== null && <HeldNote held={held} className="mt-1 text-center" />}
 			<Refusal refusal={undo.refusal} className="mt-1 text-center" />
 		</div>
+	);
+}
+
+/**
+ * Why a held-out pick started below its cell's own: on purpose, as an
+ * experiment, which its Undo ends.
+ */
+function HeldNote({
+	held,
+	className,
+}: {
+	held: Lifted;
+	className?: string;
+}): JSX.Element {
+	return (
+		<p className={className}>
+			Held back on purpose as an experiment: its cell picks {held.from}. Undo
+			moves it up.
+		</p>
 	);
 }
 
@@ -137,9 +161,9 @@ function Findings({
 }
 
 /**
- * The Undo of a pick that moved the conversation up, busy until the server
- * takes it, then said done, and any refusal; no Undo for
- * a starting pick.
+ * The Undo of a pick that moved the conversation up, or that the holdout
+ * started below its cell's own, busy until the server takes it, then said
+ * done, and any refusal; no Undo for any other starting pick.
  */
 function useUndo(
 	event: AutoEvent,
@@ -219,6 +243,9 @@ function paramsOf(event: AutoEvent): Params {
 	let rule: string | null = null;
 	for (const reason of rest) {
 		const signal = SIGNAL.exec(reason);
+		if (reason.startsWith("held out: ")) {
+			continue;
+		}
 		if (reason.startsWith("route: ") || reason.startsWith("rule ")) {
 			rule = reason;
 		} else if (signal === null) {

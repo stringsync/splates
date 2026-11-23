@@ -1,7 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { agentTurn, fold, tally } from "../agents";
 import { LEGACY_PLAN_FILE } from "../config";
-import type { Entry, Pairing } from "../conversations";
+import type { AutoPickSet, Entry, LiftReason, Pairing } from "../conversations";
 import {
 	blank,
 	type ConversationState,
@@ -14,6 +14,117 @@ import { PLAN_FILE, stretches } from "../plans";
 import { type Catalog, catalogKey, priced, type TurnTokens } from "../prices";
 import type { Log } from "../storage";
 
+/**
+ * What the conversation logged in `log` did for a task from `since` to
+ * `until`, since a conversation can outlive the task or come to it already
+ * under way; null when there is no such log. Turns of an agent that says no
+ * API cost of its own are priced from `opts.catalog`.
+ */
+export async function taskLog(
+	log: Log<Entry>,
+	since: string,
+	until: string,
+	opts: TaskLogOptions = {},
+): Promise<TaskLog | null> {
+	const entries = await log.replay();
+	const start = entries[0];
+	if (start?.kind !== "start") {
+		return null;
+	}
+	const state = blank(start.id, start.agent, start.task, start.createdAt);
+	// The usage the conversation had run up as the task began. Usage lines
+	// say no time, so each falls on the last time a line said.
+	let before: Usage | null = null;
+	// The task's turns, each with the model it ran on, for pricing.
+	const turns: { model: string | null; tokens: TurnTokens }[] = [];
+	let requested: string | null = null;
+	const overrides: TaskLog["overrides"] = [];
+	const lifts: TaskLog["lifts"] = [];
+	let picked: AutoPickSet | null = null;
+	for (const entry of entries) {
+		const at = "at" in entry && typeof entry.at === "string" ? entry.at : null;
+		if (at !== null && at > until) {
+			break;
+		}
+		if (before === null && at !== null && at >= since) {
+			before = structuredClone(state.usage);
+		}
+		if (entry.kind === "update") {
+			fold(state, entry.update, at);
+		} else if (entry.kind === "usage") {
+			tally(state, entry.usage);
+			// OpenCode's turns are priced as observed, each once, below.
+			if (before !== null && state.agent !== "opencode") {
+				turns.push({
+					model: turnModel(state, requested),
+					tokens: turnTokens(entry.usage, state),
+				});
+			}
+		} else if (entry.kind === "settings") {
+			state.settings = entry.settings;
+		} else if (entry.kind === "override") {
+			if (entry.at >= since) {
+				overrides.push({
+					aspect: entry.aspect,
+					value: entry.value,
+					at: entry.at,
+					...(entry.from === undefined ? {} : { from: entry.from }),
+					...(entry.result === undefined ? {} : { result: entry.result }),
+				});
+			}
+		} else if (entry.kind === "auto-pick") {
+			if (entry.lifted === true && entry.at >= since) {
+				lifts.push({
+					from: picked,
+					to: entry.pick,
+					...(entry.why === undefined ? {} : { why: entry.why }),
+					at: entry.at,
+				});
+			}
+			picked = entry.pick;
+		} else if (entry.kind === "model-request") {
+			requested = entry.model;
+		} else if (entry.kind === "observed-turn") {
+			state.usage.opencode?.turns.push(entry.turn);
+		} else if (entry.kind === "agent") {
+			// Auto's pick moves a conversation off the agent it started on.
+			runOn(state, entry.agent);
+		} else if (entry.kind === "stopped") {
+			agentTurn(state, entry.at).stopped = entry.at;
+		} else if (entry.kind === "interrupted") {
+			agentTurn(state, entry.at).interrupted = entry.at;
+		} else if (entry.kind === "prompt" && !entry.queued) {
+			// Its words stand for nothing here, but the next turn starts after them.
+			state.messages.push({
+				role: "user",
+				parts: [],
+				plan: null,
+				at,
+				until: at,
+			});
+		}
+	}
+	turns.push(...observedTurns(state, since, until));
+	const result = summed(state, before ?? state.usage, since, until, {
+		turns,
+		catalog:
+			LISTED.includes(state.agent) && opts.catalog !== undefined
+				? await opts.catalog()
+				: null,
+	});
+	result.overrides = overrides;
+	result.lifts = lifts;
+	return result;
+}
+
+export interface TaskLogOptions {
+	/**
+	 * The API list prices to price an agent's turns at when it says no cost
+	 * of its own, asked for only then; none prices nothing.
+	 */
+	catalog?: () => Promise<Catalog | null>;
+}
+
 /** What a task's turns used, apart from the rest of its conversation's. */
 export interface TaskUsage {
 	/** Tokens read, those from cache among them. */
@@ -21,8 +132,8 @@ export interface TaskUsage {
 	cached: number;
 	output: number;
 	/**
-	 * What it cost at the API's list price: as Claude says, or for Codex, Kimi
-	 * and OpenCode, which say none or their plan's, its tokens at the model's
+	 * What it cost at the API's list price: as Claude says, or for Antigravity,
+	 * Codex, Kimi and OpenCode, which say none or their plan's, its tokens at the model's
 	 * public price. Null when neither is known.
 	 */
 	cost: {
@@ -66,108 +177,21 @@ export interface TaskLog {
 		from?: Pairing;
 		result?: Pairing;
 	}[];
-}
-
-/**
- * What the conversation logged in `log` did for a task from `since` to
- * `until`, since a conversation can outlive the task or come to it already
- * under way; null when there is no such log. Turns of an agent that says no
- * API cost of its own are priced from `opts.catalog`.
- */
-export async function taskLog(
-	log: Log<Entry>,
-	since: string,
-	until: string,
-	opts: TaskLogOptions = {},
-): Promise<TaskLog | null> {
-	const entries = await log.replay();
-	const start = entries[0];
-	if (start?.kind !== "start") {
-		return null;
-	}
-	const state = blank(start.id, start.agent, start.task, start.createdAt);
-	// The usage the conversation had run up as the task began. Usage lines
-	// say no time, so each falls on the last time a line said.
-	let before: Usage | null = null;
-	// The task's turns, each with the model it ran on, for pricing.
-	const turns: { model: string | null; tokens: TurnTokens }[] = [];
-	let requested: string | null = null;
-	const overrides: TaskLog["overrides"] = [];
-	for (const entry of entries) {
-		const at = "at" in entry && typeof entry.at === "string" ? entry.at : null;
-		if (at !== null && at > until) {
-			break;
-		}
-		if (before === null && at !== null && at >= since) {
-			before = structuredClone(state.usage);
-		}
-		if (entry.kind === "update") {
-			fold(state, entry.update, at);
-		} else if (entry.kind === "usage") {
-			tally(state, entry.usage);
-			// OpenCode's turns are priced as observed, each once, below.
-			if (before !== null && state.agent !== "opencode") {
-				turns.push({
-					model: turnModel(state, requested),
-					tokens: turnTokens(entry.usage, state),
-				});
-			}
-		} else if (entry.kind === "settings") {
-			state.settings = entry.settings;
-		} else if (entry.kind === "override") {
-			if (entry.at >= since) {
-				overrides.push({
-					aspect: entry.aspect,
-					value: entry.value,
-					at: entry.at,
-					...(entry.from === undefined ? {} : { from: entry.from }),
-					...(entry.result === undefined ? {} : { result: entry.result }),
-				});
-			}
-		} else if (entry.kind === "model-request") {
-			requested = entry.model;
-		} else if (entry.kind === "observed-turn") {
-			state.usage.opencode?.turns.push(entry.turn);
-		} else if (entry.kind === "agent") {
-			// Auto's pick moves a conversation off the agent it started on.
-			runOn(state, entry.agent);
-		} else if (entry.kind === "stopped") {
-			agentTurn(state, entry.at).stopped = entry.at;
-		} else if (entry.kind === "interrupted") {
-			agentTurn(state, entry.at).interrupted = entry.at;
-		} else if (entry.kind === "prompt" && !entry.queued) {
-			// Its words stand for nothing here, but the next turn starts after them.
-			state.messages.push({
-				role: "user",
-				parts: [],
-				plan: null,
-				at,
-				until: at,
-			});
-		}
-	}
-	turns.push(...observedTurns(state, since, until));
-	const result = summed(state, before ?? state.usage, since, until, {
-		turns,
-		catalog:
-			LISTED.includes(state.agent) && opts.catalog !== undefined
-				? await opts.catalog()
-				: null,
-	});
-	result.overrides = overrides;
-	return result;
-}
-
-export interface TaskLogOptions {
 	/**
-	 * The API list prices to price an agent's turns at when it says no cost
-	 * of its own, asked for only then; none prices nothing.
+	 * Each time Auto pick moved the conversation after it started, with the
+	 * pick it was on before (null when the log kept none) and why; `why` is
+	 * absent on lifts logged before it was kept.
 	 */
-	catalog?: () => Promise<Catalog | null>;
+	lifts: {
+		from: AutoPickSet | null;
+		to: AutoPickSet;
+		why?: LiftReason;
+		at: string;
+	}[];
 }
 
 /** Agents that say no API cost of their own, so splates prices their tokens. */
-const LISTED = ["codex", "kimi", "opencode"];
+const LISTED = ["antigravity", "codex", "kimi", "opencode"];
 
 /**
  * OpenCode's turns from `since` to `until` that said their tokens, as it
@@ -286,6 +310,7 @@ function summed(
 		reviewRounds: 0,
 		waitedMs: 0,
 		overrides: [],
+		lifts: [],
 	};
 	for (const [at, message] of state.messages.entries()) {
 		if (message.stopped !== undefined && message.stopped >= since) {

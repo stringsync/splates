@@ -48,6 +48,16 @@ export function EvalsPage({
 	}, [open, plan]);
 	const listing = open === null && plan === null;
 	const ready = batches !== null && scenariosRead;
+	if (plan === null && open !== null && run !== null) {
+		return (
+			<EvalDebug
+				key={run}
+				id={run}
+				onEvals={() => onOpen(null)}
+				onReport={() => onOpen(open)}
+			/>
+		);
+	}
 	return (
 		<section aria-label="evals" className="flex min-w-0 flex-col gap-6">
 			<TopBar
@@ -62,12 +72,7 @@ export function EvalsPage({
 									? [{ label: "History" }]
 									: plan !== null
 										? [{ label: "Plan" }]
-										: run !== null
-											? [
-													{ label: "Report", onClick: () => onOpen(open) },
-													{ label: "Run" },
-												]
-											: [{ label: "Report" }]),
+										: [{ label: "Report" }]),
 							]}
 						/>
 					)
@@ -124,8 +129,6 @@ export function EvalsPage({
 				<p className="text-muted-foreground text-sm">
 					Run evals from a conversation. Browse results on Evals.
 				</p>
-			) : open !== null && run !== null ? (
-				<EvalDebug id={run} />
 			) : open !== null ? (
 				<Batch id={open} onOpen={(each) => onOpen(open, each)} />
 			) : null}

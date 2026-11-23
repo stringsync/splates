@@ -1,41 +1,39 @@
-import type { Demo, Question, TaskReport } from "@splates/server/plans";
-import {
-	type Answer,
-	answerIn,
-	besides,
-	isEmpty,
-	replyOf,
-	takenOf,
-} from "@splates/server/plans/browser";
+import type {
+	Demo,
+	PlanCard,
+	Question,
+	TaskReport,
+} from "@splates/server/plans";
+import { type Answer, isEmpty, replyOf } from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
 import {
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	SendHorizontalIcon,
-} from "lucide-react";
-import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { Kbd } from "#web/components/ui/kbd.tsx";
+	type JSX,
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { focusStop, raises, useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
 import { AnythingElsePage } from "./anything-else-page";
-import { usePlanPage } from "./artifact-open";
+import { AnythingElseSection } from "./anything-else-section";
 import { BoxFiles, MORE } from "./box-files";
-import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
-import { useArrival, useCardReply, useKept } from "./card-reply";
+import { useBoxTaking, useCardDictationTurn } from "./card-box";
+import { useArrival, useCardReply } from "./card-reply";
 import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { useEnterWhileTaking } from "./enter-while-taking";
-import { Markdown } from "./markdown";
-import { PlanAnswer } from "./plan-answer";
+import { outsideCode } from "./markdown";
 import { usePlanComments } from "./plan-comments";
-import { PlanLightbox, PlanTile, usePlanName } from "./plan-tile";
 import { QuestionCard } from "./question-card";
+import { decisionOf, QuestionCardsFooter } from "./question-cards-footer";
+import { useQuestionDrafts } from "./question-drafts";
 import { toEnd } from "./question-focus";
 import { questionHeading } from "./question-heading";
 import { questionOutcome, replyText } from "./question-outcome";
-import { Refusal, refusalOf } from "./refusal";
-import { label } from "./shortcuts";
+import { useQuestionPlan } from "./question-plan-lightbox";
+import { refusalOf } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /**
@@ -47,6 +45,7 @@ export function QuestionCards({
 	questions,
 	escalation = null,
 	demo = null,
+	plan: planned = null,
 	draft = null,
 	earlier = [],
 	paged = false,
@@ -58,6 +57,8 @@ export function QuestionCards({
 	escalation?: TaskReport | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
+	/** The plan they decide, which heads them, its body above them. */
+	plan?: PlanCard | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
 	/**
@@ -86,53 +87,9 @@ export function QuestionCards({
 	const [shown, setShown] = useState(false);
 	const live =
 		sent === null && !askedAgain && (answer !== null || reply !== null);
-	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
-	// What the agent chose for `asked`, which it comes answered with.
-	const chosen = (asked: Question): Answer | null =>
-		asked.choices.some((choice) => choice.chosen) ? takenOf(asked) : null;
-	const [written, setWritten] = useState((): Written => {
-		const before = kept.read();
-		return {
-			answers: Object.fromEntries(
-				questions.flatMap((asked) => {
-					const answer = answerIn(before, asked) ?? chosen(asked);
-					return answer === null ? [] : [[asked.text, answer]];
-				}),
-			),
-			more: besides(before, questions),
-		};
-	});
-	// By each question's line, which stays put as others come and go.
-	const writtenFor = (asked: Question) => written.answers[asked.text] ?? null;
-	const write = (next: Written) => {
-		setWritten(next);
-		kept.write(
-			replyOf(
-				questions,
-				questions.map((asked) => next.answers[asked.text] ?? null),
-				next.more,
-			),
-		);
-	};
-	// Sets what is written to `asked`, dropping it once it says nothing.
-	const setAnswer = (asked: Question, next: Answer | null) =>
-		write({
-			...written,
-			answers:
-				next === null
-					? Object.fromEntries(
-							Object.entries(written.answers).filter(
-								([text]) => text !== asked.text,
-							),
-						)
-					: { ...written.answers, [asked.text]: next },
-		});
-	// What is written here, or once sent, what the reply that was says.
-	const answers = questions.map((asked) =>
-		sent === null ? writtenFor(asked) : answerIn(sent, asked),
-	);
-	const more = sent === null ? written.more : besides(sent, questions);
+	const { kept, written, write, writtenFor, setAnswer, answers, more } =
+		useQuestionDrafts({ questions, draft, sent, earlier });
 	const taking = useBoxTaking();
 	const send = answer !== null ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
@@ -204,15 +161,74 @@ export function QuestionCards({
 		}
 	});
 	const sendNow = () => finishThen(() => setSendTaken(true));
+	// The plan's approval, decided from the footer rather than by its choices.
+	const decision = decisionOf(questions);
+	const feedbackOwner = useId();
+	const feedbackTaking = useBoxTaking(feedbackOwner);
+	const feedback =
+		decision === null ? "" : (writtenFor(decision.asked)?.words ?? "");
+	const feedbackAttached = useReactive(
+		boxFiles,
+		(each) =>
+			decision !== null && each.of(decision.asked.text).files.length > 0,
+		["changed"],
+	);
+	const sendingFeedback =
+		feedback.trim() !== "" || feedbackAttached || feedbackTaking;
+	// Approves, rejects, requests a full plan, sends a note without approving,
+	// or (on Enter) approves when empty and sends words with no choice otherwise.
+	// Waits for any dictation take to finish first so its words are included.
+	const [pendingDecision, setPendingDecision] = useState<
+		"approve" | "reject" | "full" | "send" | "submit" | null
+	>(null);
+	useEffect(() => {
+		if (pendingDecision === null || decision === null) {
+			return;
+		}
+		setPendingDecision(null);
+		if (pendingDecision === "send") {
+			setAnswer(
+				decision.asked,
+				feedback === "" ? null : { picks: [], words: feedback },
+			);
+			if (feedback.trim() !== "" || feedbackAttached || !empty) {
+				setSendTaken(true);
+			}
+			return;
+		}
+		const key =
+			pendingDecision === "full"
+				? decision.full
+				: pendingDecision === "reject"
+					? decision.reject
+					: pendingDecision === "approve"
+						? decision.approve
+						: feedback.trim() === ""
+							? decision.approve
+							: null;
+		setAnswer(decision.asked, {
+			picks: key === null ? [] : [key],
+			words: feedback,
+		});
+		setSendTaken(true);
+	});
+	const decide = (pick: "approve" | "reject" | "full" | "send" | "submit") => {
+		if (decision === null) {
+			return;
+		}
+		finishThen(() => setPendingDecision(pick));
+	};
 	// Answered, every question shows, as on any other card.
 	const paging = paged && live;
 	// The screen shown when paging, over a footer pinned to the sheet's foot:
 	// a question's index, or `end` for "Anything else", which the last
 	// question opens only when asked.
 	const [page, setPage] = useState(0);
-	const end = questions.length;
+	// With a decision the last question's page sends; there is no "Anything else".
+	const end = decision === null ? questions.length : questions.length - 1;
 	// From "Anything else", which always comes last, the footer sends.
 	const sending = page >= end;
+	const decidingHere = decision !== null && paging && page === end;
 	// Whether the page turned to takes the focus, and raises the keyboard
 	// even on a touch screen, as when Enter turned it from a field; null when
 	// the focus stays where it is, as on the button that turned it.
@@ -260,7 +276,13 @@ export function QuestionCards({
 			?.replace("question ", "");
 		const at = questions.findIndex((asked) => asked.number === number);
 		if (number === undefined || at === -1) {
-			sendNow();
+			if (decision !== null) {
+				decide("submit");
+			} else {
+				sendNow();
+			}
+		} else if (questions[at] === decision?.asked) {
+			decide("submit");
 		} else if (paging) {
 			next(number);
 		} else {
@@ -290,70 +312,49 @@ export function QuestionCards({
 	);
 	// The plan the approval question asks about, inside it, its page opened in
 	// the lightbox with only its question, answered as one with the card.
-	const [planQuestion, setPlanQuestion] = useState<string | null>(null);
-	const plan = usePlanPage(
-		questions.find((asked) => typeof asked.plan === "string")?.plan ?? null,
-	);
-	const planName = usePlanName();
-	const tileOf = (asked: Question) =>
-		asked.plan === undefined ? null : (
-			<PlanTile
-				name={planName}
-				page={typeof asked.plan === "string" ? plan : null}
-				onOpen={() => setPlanQuestion(asked.number)}
-			/>
-		);
-	const planSheet = (
-		<PlanLightbox
-			page={plan}
-			name={planName}
-			open={planQuestion !== null && live}
-			onClose={() => setPlanQuestion(null)}
-			onReference={(reference) =>
-				write({
-					...written,
-					more:
-						written.more === "" ? reference : `${written.more}\n${reference}`,
-				})
-			}
-			markups={planComments.markups}
-			comments={planComments.comments}
-			onComments={planComments.set}
-			questions={
-				<PlanAnswer
-					key={planQuestion}
-					question={
-						questions.find((asked) => asked.number === planQuestion)?.text ?? ""
-					}
-					onBack={() => setPlanQuestion(null)}
-				>
-					<ol aria-label="questions" className="divide-y">
-						{questions
-							.filter((asked) => asked.number === planQuestion)
-							.map((asked) => (
-								<QuestionCard
-									key={asked.number}
-									asked={asked}
-									headed={false}
-									answer={answers[questions.indexOf(asked)] ?? null}
-									live={live}
-									files={files?.of(asked.text) ?? null}
-									onAnswer={(next) =>
-										setAnswer(asked, isEmpty(next) ? null : next)
-									}
-									onNext={() => {}}
-								/>
-							))}
-					</ol>
-				</PlanAnswer>
-			}
-		/>
-	);
+	const { tileOf, lightbox: planSheet } = useQuestionPlan({
+		questions,
+		planned,
+		answers,
+		live,
+		decisionAsked: decision?.asked,
+		files,
+		markups: planComments.markups,
+		comments: planComments.comments,
+		onReference: (reference) =>
+			write({
+				...written,
+				more: written.more === "" ? reference : `${written.more}\n${reference}`,
+			}),
+		onComments: planComments.set,
+		onAnswer: setAnswer,
+	});
 	// Ending an escalation, they are its card: headed as it, what it says first.
 	const reported = escalation === null ? "" : reportText(escalation);
+	// A markdown plan card renders its final approval prompt as an "Anything
+	// else?" note section instead of repeating "Do you approve ...?".
+	const inlineDecision = planned !== null && decision !== null && live;
+	const listedQuestions = inlineDecision ? questions.slice(0, -1) : questions;
+	const hasReported = reported !== "" && (!paging || page === 0);
+	const hasPlanned =
+		planned !== null && planned.body !== "" && (!paging || page === 0);
+	const hasDemo = demo !== null && (!paging || page === 0);
+	const hasBody = hasReported || hasPlanned;
+	const hasIntro = hasBody || hasDemo;
+	const showCounter =
+		paging &&
+		(page < end || (decidingHere && !inlineDecision)) &&
+		(inlineDecision ? listedQuestions.length > 0 : questions.length > 1);
 	const card = (
 		<CardShell
-			{...questionHeading(questions.length, escalation)}
+			{...questionHeading(questions.length, escalation, undefined, planned)}
+			aside={
+				planned !== null && live ? (
+					<span className="text-muted-foreground text-xs">
+						Awaiting approval
+					</span>
+				) : undefined
+			}
 			// Each question marks itself while it has the focus.
 			ringed={false}
 		>
@@ -365,93 +366,108 @@ export function QuestionCards({
 					if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 						event.preventDefault();
 						event.stopPropagation();
-						sendNow();
+						if (decision !== null) {
+							decide("submit");
+						} else {
+							sendNow();
+						}
 					}
 				}}
 			>
-				{reported !== "" && (!paging || page === 0) && (
-					<div className="border-b">
-						<CardBody text={reported} lead={escalation?.reason != null} />
+				{hasReported && (
+					<CardBody text={reported} lead={escalation?.reason != null} />
+				)}
+				{hasPlanned && (
+					<div className={hasReported ? "rule-t" : undefined}>
+						<CardBody text={planBody(planned.body)} />
 					</div>
 				)}
-				{demo !== null && (!paging || page === 0) && (
-					<DemoSection demo={demo} />
-				)}
-				{paging && page < end && questions.length > 1 && (
-					<p className="px-5 pt-5 font-medium text-muted-foreground text-sm tabular-nums">
-						Question {page + 1} of {questions.length}
-					</p>
-				)}
-				{(!paging || page < end) && (
-					<ol aria-label="questions" className="divide-y">
-						{questions.map((asked, at) =>
-							paging && at !== page ? null : (
-								<QuestionCard
-									key={asked.number}
-									asked={asked}
-									answer={answers[at] ?? null}
-									live={live}
-									roomy={paging}
-									files={files?.of(asked.text) ?? null}
-									onAnswer={(next) =>
-										setAnswer(asked, isEmpty(next) ? null : next)
-									}
-									onNext={() => next(asked.number)}
-									plan={tileOf(asked)}
-								/>
-							),
-						)}
-					</ol>
-				)}
-				{!paging && (live ? answer === null : more !== "") && (
-					// Below the questions, as one more, numbered and asked like them:
-					// barred while it has the focus, as each question is.
-					<div
-						data-more
+				{hasDemo && <DemoSection demo={demo} ruled={hasBody} />}
+				{showCounter && (
+					<p
 						className={cn(
-							"relative flex gap-3 border-t px-4 py-4",
-							live &&
-								"transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
+							"px-5 pt-5 font-medium text-muted-foreground text-sm tabular-nums",
+							hasIntro && "rule-t [--rule-inset:1.25rem]",
 						)}
 					>
-						<span
-							aria-hidden
-							className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums"
-						>
-							{questions.length + 1}
-						</span>
-						<div className="flex min-w-0 flex-1 flex-col gap-3">
-							<p className="font-medium text-sm leading-snug">Anything else?</p>
-							{live ? (
-								<CardBox
-									data-stop="more"
-									aria-label="Anything else"
-									value={written.more}
-									placeholder="Your answer (optional)"
-									onValue={(more) => write({ ...written, more })}
-									files={files?.of(MORE) ?? null}
-									onKeyDown={(event) => {
-										// Enter sends, as in the composer; Shift+Enter is a new line.
-										if (event.key === "Enter" && !event.shiftKey) {
-											event.preventDefault();
-											submit();
-										}
-									}}
-									className="min-h-9 pointer-coarse:min-h-11"
-								/>
-							) : (
-								// What else the person said, as it was sent: its box, frozen.
-								<fieldset
-									aria-label="Anything else"
-									className="min-w-0 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm"
-								>
-									<Markdown text={more} className="min-w-0" />
-								</fieldset>
-							)}
-						</div>
-					</div>
+						Question {page + 1} of{" "}
+						{inlineDecision ? listedQuestions.length : questions.length}
+					</p>
 				)}
-				{paging && page === end && (
+				{(!paging || page < end || (decidingHere && !inlineDecision)) &&
+					listedQuestions.length > 0 && (
+						<ol
+							aria-label="questions"
+							className={cn("rule-y", hasIntro && !showCounter && "rule-t")}
+						>
+							{listedQuestions.map((asked, at) =>
+								paging && at !== page ? null : (
+									<QuestionCard
+										key={asked.number}
+										asked={asked}
+										answer={answers[at] ?? null}
+										live={live}
+										roomy={paging}
+										files={files?.of(asked.text) ?? null}
+										onAnswer={(next) =>
+											setAnswer(asked, isEmpty(next) ? null : next)
+										}
+										onNext={() =>
+											asked === decision?.asked
+												? decide("submit")
+												: next(asked.number)
+										}
+										plan={tileOf(asked)}
+										decided={asked === decision?.asked}
+										dictationOwner={
+											asked === decision?.asked ? feedbackOwner : undefined
+										}
+									/>
+								),
+							)}
+						</ol>
+					)}
+				{inlineDecision && (!paging || page === end) && (
+					<AnythingElseSection
+						number={listedQuestions.length > 0 ? questions.length : undefined}
+						value={feedback}
+						placeholder="Request changes, or leave a note…"
+						stop={decision.asked.number}
+						live
+						roomy={paging}
+						ruled={hasIntro || listedQuestions.length > 0}
+						files={files?.of(decision.asked.text) ?? null}
+						dictationOwner={feedbackOwner}
+						onValue={(words) => {
+							const prior = writtenFor(decision.asked) ?? {
+								picks: [],
+								words: "",
+							};
+							const nextAnswer = { ...prior, words };
+							setAnswer(
+								decision.asked,
+								isEmpty(nextAnswer) ? null : nextAnswer,
+							);
+						}}
+						onSubmit={() => decide("submit")}
+					/>
+				)}
+				{!paging &&
+					(live ? answer === null && decision === null : more !== "") && (
+						<AnythingElseSection
+							number={questions.length + 1}
+							value={written.more}
+							frozen={more}
+							placeholder="Your answer (optional)"
+							stop="more"
+							live={live}
+							ruled={hasIntro || listedQuestions.length > 0}
+							files={files?.of(MORE) ?? null}
+							onValue={(more) => write({ ...written, more })}
+							onSubmit={submit}
+						/>
+					)}
+				{paging && page === end && decision === null && (
 					<AnythingElsePage
 						questions={questions}
 						answers={answers}
@@ -461,76 +477,24 @@ export function QuestionCards({
 						onTurn={turn}
 					/>
 				)}
-				{paging ? (
-					<footer
-						// It stays at the sheet's foot, as a composer does.
-						data-pinned
-						className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-3"
-					>
-						<div className="flex items-center gap-3">
-							{page > 0 && (
-								<Button
-									variant="outline"
-									className="h-11 px-4 text-base"
-									onClick={() => turn(page - 1)}
-								>
-									<ChevronLeftIcon data-icon="inline-start" />
-									Back
-								</Button>
-							)}
-							{!sending ? (
-								<Button
-									variant="outline"
-									className="h-11 flex-1 border-border bg-white text-base text-black hover:bg-white/90 hover:text-black active:bg-white/80 active:text-black dark:border-border dark:bg-white dark:hover:bg-white/90 dark:active:bg-white/80"
-									onClick={() => turn(page + 1)}
-								>
-									Next
-									<ChevronRightIcon data-icon="inline-end" />
-								</Button>
-							) : (
-								<Button
-									variant="default"
-									className="h-11 flex-1 bg-black text-base text-white hover:bg-black/90 active:bg-black/80"
-									onClick={sendNow}
-								>
-									<SendHorizontalIcon data-icon="inline-start" />
-									Send
-								</Button>
-							)}
-						</div>
-						<Refusal refusal={refusal} className="text-right" />
-					</footer>
-				) : live ? (
-					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
-						<div className="flex items-center gap-3">
-							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								{!touch && (
-									<>
-										<span>
-											<Kbd>↵</Kbd> next
-										</span>
-										<span>
-											<Kbd>{label("Mod+Enter")}</Kbd>{" "}
-											{answer !== null ? "answers" : "sends"}
-										</span>
-									</>
-								)}
-							</p>
-							<Button
-								size="sm"
-								variant="default"
-								disabled={empty && !taking}
-								onClick={sendNow}
-							>
-								<SendHorizontalIcon data-icon="inline-start" />
-								<span aria-live="polite">
-									{answer !== null ? "Answer" : "Send"}
-								</span>
-							</Button>
-						</div>
-						<Refusal refusal={refusal} className="text-right" />
-					</footer>
-				) : null}
+				<QuestionCardsFooter
+					paging={paging}
+					live={live}
+					page={page}
+					sending={sending}
+					decidingHere={decidingHere}
+					decision={decision}
+					sendingFeedback={sendingFeedback}
+					planned={planned !== null}
+					touch={touch}
+					answering={answer !== null}
+					empty={empty}
+					taking={taking}
+					refusal={refusal}
+					onTurn={turn}
+					onSend={sendNow}
+					onDecide={decide}
+				/>
 			</div>
 		</CardShell>
 	);
@@ -556,8 +520,12 @@ export function QuestionCards({
 	);
 }
 
-/** What the panel holds before it is sent: answers by question line, and the rest. */
-interface Written {
-	answers: Record<string, Answer>;
-	more: string;
+/** The plan format puts each field on a new line. Markdown needs a blank line between paragraphs. */
+function planBody(text: string): string {
+	return outsideCode(text, (prose) =>
+		prose.replace(
+			/(?<!\n)\n(?=\*\*(?:Goal|After|Approach|Hard to undo):\*\*)/g,
+			"\n\n",
+		),
+	);
 }

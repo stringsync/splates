@@ -5,11 +5,13 @@ import { createRoot } from "react-dom/client";
 import { scoped } from "./api";
 import { reportPageKill } from "./api/page-kills";
 import { followAppearance } from "./appearance";
+import { D2_DRAW } from "./d2-draw";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
+import { answerFrameDiagrams } from "./frame-diagrams";
 import { NoopPageCopy } from "./noop-page-copy";
 import type { Stale } from "./page-cache";
 import { IndexedPageCopies } from "./page-copies";
@@ -39,6 +41,10 @@ followAppearance(
 	document.documentElement,
 	matchMedia("(prefers-color-scheme: dark)"),
 );
+
+// A plan page or other framed page has its D2 diagrams drawn here, as it
+// has no origin of its own to load the engine from.
+answerFrameDiagrams(window, D2_DRAW);
 
 // Every spinner runs on one clock: each spin starts at the document timeline's
 // origin rather than when its element mounted, so all of them stand at the

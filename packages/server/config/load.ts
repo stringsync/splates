@@ -58,7 +58,8 @@ function renamedSettings(
 	found: Partial<Config> & { todoStalenessMs?: number },
 ): Partial<Config> {
 	const { todoStalenessMs, ...rest } = found;
-	checkShips(rest.ships);
+	checkCommands(rest.ships, "ships", "ship", "bin/mdom ship");
+	checkCommands(rest.rigs, "rigs", "rig", "bin/vex rig");
 	checkSignalFunctions(rest.signals);
 	recLogSources(rest.rec);
 	return todoStalenessMs === undefined || rest.taskStalenessMs !== undefined
@@ -66,20 +67,28 @@ function renamedSettings(
 		: { ...rest, taskStalenessMs: todoStalenessMs };
 }
 
-/** Refuses a `ships` that is not a list of commands, as the legacy record was. */
-function checkShips(ships: unknown): void {
-	if (ships === undefined || ships === null) {
+/**
+ * Refuses a `ships` or `rigs` that is not a list of commands, as the legacy
+ * ships record was.
+ */
+function checkCommands(
+	commands: unknown,
+	key: string,
+	kind: string,
+	example: string,
+): void {
+	if (commands === undefined || commands === null) {
 		return;
 	}
-	if (!Array.isArray(ships)) {
+	if (!Array.isArray(commands)) {
 		throw new Error(
-			'splates.config.ts: `ships` is a list of ship commands, as ["bin/mdom ship"]',
+			`splates.config.ts: \`${key}\` is a list of ${kind} commands, as ["${example}"]`,
 		);
 	}
-	for (const command of ships) {
+	for (const command of commands) {
 		if (typeof command !== "string" || !command.trim()) {
 			throw new Error(
-				'splates.config.ts: each of `ships` is a command, as "bin/mdom ship"',
+				`splates.config.ts: each of \`${key}\` is a command, as "${example}"`,
 			);
 		}
 	}
@@ -123,6 +132,7 @@ function defaults(root: string, trunk: string): Config {
 		evals: null,
 		projects: null,
 		ships: [],
+		rigs: [],
 		shared: [],
 		rec: null,
 		signals: {},

@@ -185,7 +185,8 @@ function BatchRole({
 		<CardSection
 			label="Batch"
 			title="Batch"
-			className="border-b px-4 py-2 @max-md:px-3"
+			ruled={false}
+			className="rule-b px-4 py-2 @max-md:px-3"
 		>
 			<div
 				role="note"

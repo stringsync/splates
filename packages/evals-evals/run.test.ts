@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 import type { ContractBatch, ContractDetail, ContractResult } from "./contract";
 import { type JudgePick, judgeName, type Verdict } from "./judge";
 import { restoreRun } from "./keep";
-import { type Runners, runBatch } from "./run";
+// vet-ignore test-setup-names-what-it-makes: harnessErrorOf is the exported production function under test.
+import { type Cell, harnessErrorOf, type Runners, runBatch } from "./run";
 import { sandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
@@ -115,6 +116,69 @@ process.exit(${exit});
 		};
 	}
 
+	it("saves timed tool steps and check evidence in the run detail", async () => {
+		runners.command = () => ({
+			argv: [
+				"printf",
+				"%s\n",
+				JSON.stringify({ type: "text", part: { text: "Checking." } }),
+				JSON.stringify({
+					type: "tool_use",
+					part: {
+						tool: "bash",
+						state: {
+							input: { command: "ls missing" },
+							error: "Missing",
+							time: { start: 4, end: 14 },
+						},
+					},
+				}),
+			],
+			format: "opencode",
+		});
+		const { result } = await run({
+			scenario: {
+				...scenario,
+				checks: [
+					{
+						id: "path",
+						about: "Uses the seeded path",
+						test: ({ transcript }) => ({
+							pass: false,
+							step: {
+								index: transcript.findIndex((step) => step.kind === "tool"),
+								observed: "The command used a missing path.",
+							},
+						}),
+					},
+					{ id: "edit", about: "Makes an edit", test: () => false },
+					{
+						id: "verify",
+						about: "Verifies the edit",
+						test: ({ transcript }) => ({
+							pass: false,
+							step: { index: transcript.length, observed: "No verification." },
+						}),
+					},
+				],
+			},
+		});
+
+		expect(result.status).toBe("fail");
+		expect(result.transcript?.[1]).toMatchObject({
+			kind: "tool",
+			milliseconds: 10,
+		});
+		expect(result.checks?.map(({ pass, step }) => ({ pass, step }))).toEqual([
+			{
+				pass: false,
+				step: { index: 1, observed: "The command used a missing path." },
+			},
+			{ pass: false, step: undefined },
+			{ pass: false, step: undefined },
+		]);
+	});
+
 	it("runs the agent in a seeded repo with the skill, checks the outcome and asks the judge", async () => {
 		await agent("ls .claude/skills/demo-skill", "Checked.");
 
@@ -149,6 +213,11 @@ process.exit(${exit});
 		expect(result).toMatchObject({ costUsd: 0.02, tokens: 120 });
 		expect(judged[0]).toContain("Pass when it ran a focused check.");
 		expect(judged[0]).toContain("TOOL Bash");
+		expect(result.phases).toEqual({
+			setupMs: expect.any(Number),
+			agentMs: expect.any(Number),
+			judgeMs: expect.any(Number),
+		});
 	});
 
 	it("keeps the ended repo so a restored run gives the checks the same verdicts", async () => {
@@ -315,5 +384,169 @@ process.exit(${exit});
 			await readFile(join(dir, "run-000.json"), "utf8"),
 		);
 		expect(detail.reply).toBe("Final.");
+	});
+
+	it("classifies harness errors apart from timeouts and mid-run runtime errors", () => {
+		const empty = {
+			reply: "",
+			transcript: [],
+			usd: null,
+			tokens: null,
+			turns: 0,
+			error: null,
+		};
+		expect(harnessErrorOf(empty, "kimi")).toBe(
+			"kimi returned an empty transcript",
+		);
+		expect(
+			harnessErrorOf(
+				{ ...empty, error: "codex failed to start:\nENOENT" },
+				"codex",
+			),
+		).toBe("codex failed to start: ENOENT");
+		expect(
+			harnessErrorOf(
+				{
+					...empty,
+					transcript: [{ kind: "text", text: "hi" }],
+					error: "opencode: 401 Unauthorized",
+				},
+				"opencode",
+			),
+		).toBe("opencode: 401 Unauthorized");
+		expect(
+			harnessErrorOf(
+				{
+					...empty,
+					transcript: [{ kind: "text", text: "hi" }],
+					error: "claude: model_not_found",
+				},
+				"claude",
+			),
+		).toBe("claude: model_not_found");
+		expect(
+			harnessErrorOf({ ...empty, error: "stopped after 3 minutes" }, "claude"),
+		).toBeNull();
+		expect(
+			harnessErrorOf(
+				{
+					...empty,
+					transcript: [{ kind: "text", text: "partial" }],
+					reply: "partial",
+					error: "claude ended: error_max_turns",
+				},
+				"claude",
+			),
+		).toBeNull();
+	});
+
+	it("probes each target once before fanning out, drops broken targets and skips their remaining cells", async () => {
+		await agent("true", "Checked.");
+		const invoked: string[] = [];
+		const skill = { dir: SKILL, used: { label: "current", revision: null } };
+		const scenarioTwo: Scenario = { ...scenario, id: "test/second" };
+		const cells: Cell[] = [
+			{
+				scenario,
+				agent: { agent: "claude", model: "bad-model" },
+				skill,
+				repetition: 0,
+			},
+			{
+				scenario: scenarioTwo,
+				agent: { agent: "claude", model: "bad-model" },
+				skill,
+				repetition: 0,
+			},
+			{
+				scenario,
+				agent: { agent: "claude", model: "bad-model" },
+				skill,
+				repetition: 1,
+			},
+			{
+				scenario,
+				agent: { agent: "claude", model: "good-model" },
+				skill,
+				repetition: 0,
+			},
+			{
+				scenario: scenarioTwo,
+				agent: { agent: "claude", model: "good-model" },
+				skill,
+				repetition: 0,
+			},
+		];
+		const landedStatuses: string[] = [];
+		const argvByModel: Record<string, (message: string) => string[]> = {
+			"bad-model": () => ["sh", "-c", "true"],
+			"good-model": (message) => [
+				process.execPath,
+				join(directory, "agent.ts"),
+				message,
+			],
+		};
+		const dir = await runBatch(cells, {
+			directory,
+			skill: "demo-skill",
+			producer: "demo",
+			parallel: 4,
+			runners: {
+				...runners,
+				command: (pick, message) => {
+					invoked.push(`${pick.model}:${message}`);
+					return {
+						argv: argvByModel[pick.model ?? "good-model"]?.(message) ?? [],
+						format: "claude",
+					};
+				},
+			},
+			landed: (result) => landedStatuses.push(result.status),
+		});
+
+		expect(invoked.slice(0, 2).sort()).toEqual([
+			"bad-model:Check it.",
+			"good-model:Check it.",
+		]);
+		expect(invoked.slice(2)).toEqual(["good-model:Check it."]);
+		expect(
+			landedStatuses.filter((status) => status === "harness"),
+		).toHaveLength(1);
+		expect(
+			landedStatuses.filter((status) => status === "skipped"),
+		).toHaveLength(2);
+		expect(landedStatuses.filter((status) => status === "pass")).toHaveLength(
+			2,
+		);
+
+		const lines = (await readFile(join(dir, "results.jsonl"), "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as ContractResult);
+		const byCell = new Map(lines.map((line) => [line.cell, line]));
+
+		expect(byCell.get("run-000")).toMatchObject({
+			status: "error",
+			// vet-ignore test-setup-names-what-it-makes: harness is the ContractResult field name.
+			harness: "error",
+			reason: "claude returned an empty transcript",
+		});
+		expect(byCell.get("run-001")).toMatchObject({
+			status: "error",
+			// vet-ignore test-setup-names-what-it-makes: harness is the ContractResult field name.
+			harness: "skipped",
+			reason: "skipped: claude returned an empty transcript",
+			milliseconds: 0,
+		});
+		expect(byCell.get("run-002")).toMatchObject({
+			status: "error",
+			// vet-ignore test-setup-names-what-it-makes: harness is the ContractResult field name.
+			harness: "skipped",
+			reason: "skipped: claude returned an empty transcript",
+			milliseconds: 0,
+		});
+		expect(byCell.get("run-003")).toMatchObject({ status: "pass" });
+		expect(byCell.get("run-003")?.harness).toBeUndefined();
+		expect(byCell.get("run-004")).toMatchObject({ status: "pass" });
 	});
 });

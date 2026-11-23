@@ -16,6 +16,7 @@ import { type CardRecord, cardRecord } from "./before-after";
 import type { Shown } from "./lightbox";
 import { MarkList } from "./mark-notes";
 import { MergeCardContext } from "./merge-card";
+import { NoteSheet } from "./note-sheet";
 import {
 	CommentButton,
 	CommentList,
@@ -328,7 +329,12 @@ export function PlanLightbox({
 									/>
 								)}
 							</div>
-							<div className="flex max-h-44 shrink-0 flex-col gap-3 overflow-y-auto md:max-h-none md:w-64">
+							<NoteSheet
+								label="Comments"
+								count={comments.length + annotations.length}
+								wide="md"
+								openOnAdd
+							>
 								<CommentList
 									comments={comments}
 									onChange={onComments}
@@ -351,7 +357,7 @@ export function PlanLightbox({
 										<MarkList annotation={annotation} />
 									</section>
 								))}
-							</div>
+							</NoteSheet>
 						</div>
 					)}
 					<div

@@ -186,6 +186,43 @@ describe("App's Auto pick", () => {
 		]);
 	});
 
+	it("says a held-out pick was held back on purpose, and moves it up at once", async () => {
+		const view = await testing.openConversations([
+			{
+				...turn(["On it."]),
+				events: [
+					{
+						...picked(["Open 90%", "Deep 80%"], "judged: Open 90%, Deep 80%"),
+						reasons: [
+							"Haiku, low effort",
+							"held out: started as moderate, one difficulty easier, as an experiment; the cell picks Big, high effort",
+							"judged: Open 90%, Deep 80%",
+						],
+						held: {
+							from: "Big, high effort",
+							undo: { model: "big", effort: "high" },
+						},
+					} as Event,
+				],
+			},
+		]);
+		const line = await quietLine(view);
+		expect(line.textContent).toContain("Auto held back to Haiku, low effort");
+		expect(line.textContent).toContain(
+			"Held back on purpose as an experiment: its cell picks Big, high effort.",
+		);
+
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Undo" })),
+		);
+
+		expect(line.textContent).toContain("Back on Big, high effort");
+		expect(testing.posted("/api/conversations/c1/setting")).toEqual([
+			{ method: "PUT", body: { id: "model", value: "big" } },
+			{ method: "PUT", body: { id: "effort", value: "high" } },
+		]);
+	});
+
 	it("says why the judge found nothing when it did not answer", async () => {
 		const line = await lineFor(null, "the judge took over 5s");
 		const found = await openFindings(line);

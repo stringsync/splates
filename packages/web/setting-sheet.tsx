@@ -6,7 +6,7 @@ import {
 	ChevronRightIcon,
 	SlidersHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useId, useState } from "react";
+import { type JSX, type ReactNode, useId, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -23,12 +23,26 @@ import {
 } from "#web/components/ui/field.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { type AgentChoice, agentName } from "./agent-choice";
 import { AgentMark } from "./agent-icons";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
 import type { AutoPickControl } from "./auto-pick-switch";
 import { latestPerClass } from "./model-classes";
 
 /** Classes for a picker in the composer's bottom row; pass them to its trigger. */
+/**
+ * The agent a new conversation starts with, for the settings sheet to switch:
+ * the roster, the one in force (or Auto pick) and what a pick does.
+ */
+export interface AgentSwitch {
+	agents: AgentChoice[];
+	agent: string;
+	/** Whether Auto pick chooses the agent from the first message. */
+	auto: boolean;
+	/** Starts on `agent` instead, or on Auto pick for null. */
+	pick: (agent: string | null) => void;
+}
+
 export const IN_COMPOSER =
 	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 shrink-0 whitespace-nowrap gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
@@ -44,19 +58,26 @@ export function SettingsSheet({
 	onChange,
 	agent,
 	autoPick,
+	agentSwitch,
 }: {
 	settings: Setting[];
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
 	agent?: string | undefined;
 	autoPick?: AutoPickControl | undefined;
+	/** The agents to switch to, on a conversation not yet started. */
+	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element {
 	const model = settings.find((setting) => setting.category === "model");
-	const auto = autoPick?.on === true;
+	// Auto pick picks for this conversation: its model, or its agent too.
+	const auto = autoPick?.on === true || agentSwitch?.auto === true;
 	const switchId = useId();
 	const [open, setOpen] = useState(false);
 	const [subId, setSub] = useState<string>();
 	const [all, setAll] = useState(false);
+	// On Auto pick the agent is the choice; else a tap deeper, past the models.
+	const [choosing, setChoosing] = useState(false);
+	const agentsFirst = agentSwitch?.auto;
 	// The sheet opens on the models; everything else is a tap deeper.
 	const details = settings.filter((setting) => setting !== model);
 	// Only the newest of each class shows until asked for the rest.
@@ -68,7 +89,52 @@ export function SettingsSheet({
 		setOpen(next);
 		setSub(undefined);
 		setAll(false);
+		setChoosing(false);
 	};
+	const agentList =
+		agentSwitch === undefined ? null : (
+			<div
+				role="radiogroup"
+				aria-label="agent"
+				className="flex flex-col rounded-xl bg-muted/40 px-3"
+			>
+				<OptionRow
+					name={
+						<span className="flex items-center gap-2.5">
+							<AutoIcon colored />
+							Auto pick
+						</span>
+					}
+					description="Chooses the agent, model and effort from your first message."
+					selected={agentSwitch.auto}
+					onSelect={() => {
+						if (!agentSwitch.auto) {
+							agentSwitch.pick(null);
+						}
+						changeOpen(false);
+					}}
+				/>
+				{agentSwitch.agents.map((each) => (
+					<OptionRow
+						key={each.id}
+						name={
+							<span className="flex items-center gap-2.5">
+								<AgentMark agent={each.id} name={each.name} />
+								{each.name}
+							</span>
+						}
+						description={null}
+						selected={!agentSwitch.auto && each.id === agentSwitch.agent}
+						onSelect={() => {
+							if (agentSwitch.auto || each.id !== agentSwitch.agent) {
+								agentSwitch.pick(each.id);
+							}
+							changeOpen(false);
+						}}
+					/>
+				))}
+			</div>
+		);
 	return (
 		<Dialog open={open} onOpenChange={changeOpen}>
 			<DialogTrigger
@@ -101,14 +167,33 @@ export function SettingsSheet({
 							?.name ?? "Unavailable model"}
 					</span>
 				)}
-				{model === undefined && <span>{auto ? "Auto pick" : "Settings"}</span>}
+				{model === undefined && (
+					<span>
+						{auto
+							? "Auto pick"
+							: agentSwitch !== undefined && !agentSwitch.auto
+								? agentName(agentSwitch.agents, agentSwitch.agent)
+								: "Settings"}
+					</span>
+				)}
 				<ChevronDownIcon className="shrink-0" />
 			</DialogTrigger>
 			<DialogContent
 				showCloseButton={false}
-				className="max-h-[85dvh] gap-3 overflow-y-auto max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-closed:slide-out-to-bottom max-sm:data-open:slide-in-from-bottom"
+				className="max-h-[85dvh] gap-3 overflow-y-auto max-sm:top-auto max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] max-sm:bottom-0 max-sm:left-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:data-closed:slide-out-to-bottom max-sm:data-open:slide-in-from-bottom"
 			>
-				{sub === undefined ? (
+				{agentList !== null && (agentsFirst || choosing) ? (
+					<>
+						<DialogHeader className="relative items-center">
+							{choosing && <BackButton onClick={() => setChoosing(false)} />}
+							<DialogTitle>Select agent</DialogTitle>
+							<DialogDescription className="sr-only">
+								Starts the conversation with the agent you pick.
+							</DialogDescription>
+						</DialogHeader>
+						{agentList}
+					</>
+				) : sub === undefined ? (
 					<>
 						<DialogHeader>
 							<DialogTitle className="text-center">
@@ -120,6 +205,28 @@ export function SettingsSheet({
 								Applies to your next message.
 							</DialogDescription>
 						</DialogHeader>
+						{agentSwitch !== undefined && (
+							<button
+								type="button"
+								onClick={() => setChoosing(true)}
+								className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-muted/40 px-3 py-2 text-left"
+							>
+								<span className="flex items-center gap-2.5 text-base">
+									<AgentMark agent={agentSwitch.agent} />
+									{agentName(agentSwitch.agents, agentSwitch.agent)}
+								</span>
+								<span className="flex items-center gap-1 text-sm text-muted-foreground">
+									Change agent
+									<ChevronRightIcon className="size-4 shrink-0" />
+								</span>
+							</button>
+						)}
+						{settings.length === 0 && agentSwitch !== undefined && (
+							<p className="px-1 text-sm text-muted-foreground">
+								Settings appear once{" "}
+								{agentName(agentSwitch.agents, agentSwitch.agent)} starts.
+							</p>
+						)}
 						{autoPick !== undefined && (
 							<Field orientation="horizontal">
 								<FieldContent>
@@ -203,14 +310,7 @@ export function SettingsSheet({
 				) : (
 					<>
 						<DialogHeader className="relative items-center">
-							<button
-								type="button"
-								aria-label="Back"
-								onClick={() => setSub(undefined)}
-								className="absolute top-1/2 left-0 flex size-8 -translate-y-1/2 items-center justify-center rounded-full hover:bg-muted"
-							>
-								<ChevronLeftIcon className="size-4" />
-							</button>
+							<BackButton onClick={() => setSub(undefined)} />
 							<DialogTitle>{sub.name}</DialogTitle>
 							<DialogDescription className="sr-only">
 								Applies to your next message.
@@ -254,6 +354,20 @@ export function SettingsSheet({
 	);
 }
 
+/** Back to the sheet's first view, at the left of a deeper view's title. */
+function BackButton({ onClick }: { onClick: () => void }): JSX.Element {
+	return (
+		<button
+			type="button"
+			aria-label="Back"
+			onClick={onClick}
+			className="absolute top-1/2 left-0 flex size-8 -translate-y-1/2 items-center justify-center rounded-full hover:bg-muted"
+		>
+			<ChevronLeftIcon className="size-4" />
+		</button>
+	);
+}
+
 /** One choice in the sheet: its name and note, a check on the one in force. */
 function OptionRow({
 	name,
@@ -261,7 +375,7 @@ function OptionRow({
 	selected,
 	onSelect,
 }: {
-	name: string;
+	name: ReactNode;
 	description: string | null;
 	selected: boolean;
 	onSelect: () => void;

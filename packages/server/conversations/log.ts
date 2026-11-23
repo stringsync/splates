@@ -7,7 +7,6 @@ import {
 	endBackground,
 	fold,
 	foldBackground,
-	heard,
 	result,
 	tally,
 	toolIn,
@@ -142,6 +141,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		state.skill = start.skill ?? null;
 		state.automatic = start.automatic ?? start.capped ?? false;
 		state.heldForTask = start.heldForTask ?? start.queued ?? null;
+		state.queuedTask = start.queuedTask ?? null;
 		if (start.persistent !== undefined) {
 			state.persistent = start.persistent;
 		}
@@ -218,7 +218,9 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "usage") {
 				tally(state, entry.usage);
 			} else if (entry.kind === "limits") {
-				state.usage.limits = heard(state.usage.limits, entry.limits);
+				if (entry.limits.length > 0) {
+					state.usage.limits = [...entry.limits];
+				}
 			} else if (entry.kind === "model-request") {
 				replayed.model = entry.model;
 			} else if (entry.kind === "auto-pick") {
@@ -238,6 +240,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.heldForTask = entry.heldForTask;
 			} else if (entry.kind === "queued") {
 				state.heldForTask = entry.queued;
+			} else if (entry.kind === "queued-task") {
+				state.queuedTask = entry.queuedTask;
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
 				replayed.sessionCwd = entry.cwd ?? replayed.sessionCwd;

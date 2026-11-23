@@ -7,7 +7,13 @@ import type { Bump, PlannedStep } from "./wire";
  * A target picked to ship, at a bump or its own default, or, for a target
  * that takes artifact versions, at an exact `version`.
  */
-export type Pick = { name: string; bump?: Bump; version?: string };
+export type Pick = {
+	name: string;
+	bump?: Bump;
+	version?: string;
+	/** Ships at the version the target's followed dependency releases. */
+	follow?: true;
+};
 
 /** A picked target in the composed plan. */
 export type ComposedTarget = {
@@ -72,17 +78,29 @@ export class ShipComposer {
 		} catch (error) {
 			throw new ComposeError((error as Error).message);
 		}
-		const planned = new Map(
-			await Promise.all(
-				picks.map(
-					async (pick) =>
-						[
-							pick.name,
-							await this.planned(pick, listed.get(pick.name) as Listed),
-						] as const,
-				),
-			),
-		);
+		const pickByName = new Map(picks.map((pick) => [pick.name, pick]));
+		const planned = new Map<string, ComposedTarget>();
+		// Plan wave by wave so a dependent receives the version each earlier
+		// dependency resolved as `--upstream <name>=<version>`.
+		for (const wave of order) {
+			const built = await Promise.all(
+				wave.map(async (name) => {
+					const pick = pickByName.get(name) as Pick;
+					const entry = listed.get(name) as Listed;
+					const upstream: Record<string, string> = {};
+					for (const dep of entry.plan.dependencies) {
+						const version = planned.get(dep)?.version;
+						if (version !== undefined) {
+							upstream[dep] = version;
+						}
+					}
+					return [name, await this.planned(pick, entry, upstream)] as const;
+				}),
+			);
+			for (const [name, target] of built) {
+				planned.set(name, target);
+			}
+		}
 		return {
 			waves: order,
 			targets: order.flat().map((name) => planned.get(name) as ComposedTarget),
@@ -114,6 +132,14 @@ export class ShipComposer {
 				throw new ComposeError(`"${pick.name}" is picked twice`);
 			}
 			seen.add(pick.name);
+			if (pick.follow && found.plan.follows === undefined) {
+				throw new ComposeError(`"${pick.name}" follows nothing`);
+			}
+			if (pick.follow && (pick.version !== undefined || pick.bump)) {
+				throw new ComposeError(
+					`"${pick.name}" follows, so takes no version or bump`,
+				);
+			}
 			if (pick.version !== undefined && !found.plan.versioned) {
 				throw new ComposeError(`"${pick.name}" takes no version`);
 			}
@@ -133,9 +159,12 @@ export class ShipComposer {
 	private async planned(
 		pick: Pick,
 		{ command, plan }: Listed,
+		upstream: Record<string, string>,
 	): Promise<ComposedTarget> {
 		const bump =
-			pick.version === undefined ? (pick.bump ?? plan.bump) : undefined;
+			pick.version === undefined && !pick.follow
+				? (pick.bump ?? plan.bump)
+				: undefined;
 		const base = {
 			name: pick.name,
 			command,
@@ -146,8 +175,10 @@ export class ShipComposer {
 			const again = await this.commands.plan(command, pick.name, {
 				...(bump && { bump }),
 				...(pick.version !== undefined && { version: pick.version }),
+				...(Object.keys(upstream).length > 0 && { upstream }),
 			});
-			if (plan.versioned && again.version === undefined) {
+			// A follower takes the version its dependency releases in this ship.
+			if (plan.versioned && again.version === undefined && !pick.follow) {
 				throw new Error("Choose a version or a bump");
 			}
 			return {

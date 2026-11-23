@@ -1,52 +1,21 @@
-/** How hard the machine `splates server` runs on is working right now. */
-export interface MachineReading {
-	/** What the page calls the machine: "Mac" on macOS, else "machine". */
-	kind: "Mac" | "machine";
-	/** The share of CPU time busy since the reading before, 0 to 1. */
-	cpu: number;
-	/** The share of memory in use, 0 to 1. */
-	memory: number;
-	/** The load average over the last minute. */
-	load: number;
-	cores: number;
-	/** The hottest CPU sensor in °C, or null where none can be read. */
-	temperature: number | null;
-	/**
-	 * What splates itself takes of the machine: the server, the supervisor it
-	 * runs under and every process under them, agents and their tools
-	 * included. CPU and memory are shares of the whole machine, as `cpu` and
-	 * `memory` are; null where the process table cannot be read.
-	 */
-	splates: { cpu: number; memory: number; bytes: number } | null;
-}
-
-/** One of splates' processes, as a reading counts it. */
-export interface ProcessUse {
-	pid: number;
-	/** CPU time it has spent since it started, in seconds. */
-	cpu: number;
-	/** Memory it holds, in bytes. */
-	memory: number;
-}
-
-/** Where a reading comes from: the OS by default, a fake in tests. */
-export interface MachineSensors {
-	platform: NodeJS.Platform;
-	cpus(): { times: Record<"user" | "nice" | "sys" | "idle" | "irq", number> }[];
-	loadavg(): number[];
-	freemem(): number;
-	totalmem(): number;
-	temperature(): Promise<number | null>;
-	/** Each of splates' processes, or null where they cannot be listed. */
-	splates(): Promise<ProcessUse[] | null>;
-}
+import { Duration } from "core/time";
 
 /**
- * Reads the machine on each ask, its CPU share taken over the time since the
- * ask before, or since it was made for the first.
+ * The least time a `Machine` measures its CPU share over, by default; pass
+ * `window` to it to measure over another.
+ */
+// A share over a shorter stretch swings with every burst on a busy machine.
+export const CPU_WINDOW = Duration.secs(3);
+
+/**
+ * How busy this machine is, for the page and the busy checks. Pass `window`
+ * to set how long each CPU share is measured over (`CPU_WINDOW` by default).
  */
 export class Machine {
 	readonly #sensors: MachineSensors;
+	readonly #window: Duration;
+	/** Whether a share has been measured yet: the first is, however soon. */
+	#measured = false;
 	#last: { busy: number; total: number };
 	/** The share last read, given again to a read too soon to count anything. */
 	#cpu = 0;
@@ -55,8 +24,12 @@ export class Machine {
 	/** The CPU time each of splates' processes had spent at the reading before. */
 	#spent: Map<number, number> | null = null;
 
-	constructor(sensors: MachineSensors) {
+	constructor(
+		sensors: MachineSensors,
+		{ window = CPU_WINDOW }: { window?: Duration } = {},
+	) {
 		this.#sensors = sensors;
+		this.#window = window;
 		this.#last = this.#times();
 	}
 
@@ -65,9 +38,13 @@ export class Machine {
 		const now = this.#times();
 		const total = now.total - this.#last.total;
 		const splates = await sensors.splates().catch(() => null);
-		// Too close to the last to have counted anything: it still stands, as
-		// when several pages ask each second.
-		if (total > 0) {
+		// CPU times are in ms summed over every core, so a stretch of the
+		// window takes that many ms on each. Sooner, the last share stands, as
+		// when several pages and checks ask each second.
+		const cores = Math.max(sensors.cpus().length, 1);
+		const due = !this.#measured || total >= this.#window.ms * cores;
+		if (total > 0 && due) {
+			this.#measured = true;
 			this.#cpu = clamp((now.busy - this.#last.busy) / total);
 			if (splates !== null) {
 				// CPU times are in ms, summed over every core, as `total` is.
@@ -109,6 +86,49 @@ export class Machine {
 		}
 		return { busy, total };
 	}
+}
+
+/** How hard the machine `splates server` runs on is working right now. */
+export interface MachineReading {
+	/** What the page calls the machine: "Mac" on macOS, else "machine". */
+	kind: "Mac" | "machine";
+	/** The share of CPU time busy since the reading before, 0 to 1. */
+	cpu: number;
+	/** The share of memory in use, 0 to 1. */
+	memory: number;
+	/** The load average over the last minute. */
+	load: number;
+	cores: number;
+	/** The hottest CPU sensor in °C, or null where none can be read. */
+	temperature: number | null;
+	/**
+	 * What splates itself takes of the machine: the server, the supervisor it
+	 * runs under and every process under them, agents and their tools
+	 * included. CPU and memory are shares of the whole machine, as `cpu` and
+	 * `memory` are; null where the process table cannot be read.
+	 */
+	splates: { cpu: number; memory: number; bytes: number } | null;
+}
+
+/** One of splates' processes, as a reading counts it. */
+export interface ProcessUse {
+	pid: number;
+	/** CPU time it has spent since it started, in seconds. */
+	cpu: number;
+	/** Memory it holds, in bytes. */
+	memory: number;
+}
+
+/** What a `Machine` reads the machine through: `OsSensors` for this one. */
+export interface MachineSensors {
+	platform: NodeJS.Platform;
+	cpus(): { times: Record<"user" | "nice" | "sys" | "idle" | "irq", number> }[];
+	loadavg(): number[];
+	freemem(): number;
+	totalmem(): number;
+	temperature(): Promise<number | null>;
+	/** Each of splates' processes, or null where they cannot be listed. */
+	splates(): Promise<ProcessUse[] | null>;
 }
 
 /**

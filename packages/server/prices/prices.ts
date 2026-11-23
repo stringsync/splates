@@ -155,7 +155,8 @@ const KIMI_MODELS: Record<string, string> = {
 
 /**
  * Where `agent` running `model` is in the catalog: Codex runs OpenAI's
- * models, Kimi Code runs Moonshot's, and OpenCode names each by its provider
+ * models, Kimi Code runs Moonshot's, Antigravity runs Google's Gemini and
+ * Anthropic's Claude models, and OpenCode names each by its provider
  * already. Null for an agent that says its own API cost, as Claude does.
  */
 export function catalogKey(agent: string, model: string | null): string | null {
@@ -169,6 +170,15 @@ export function catalogKey(agent: string, model: string | null): string | null {
 		const id = model.startsWith("kimi-code/") ? model.slice(10) : null;
 		const named = id === null ? undefined : KIMI_MODELS[id];
 		return named === undefined ? null : `moonshotai/${named}`;
+	}
+	if (agent === "antigravity") {
+		if (model.startsWith("gemini-")) {
+			return `google/${model}`;
+		}
+		if (model.startsWith("claude-")) {
+			return `anthropic/${model}`;
+		}
+		return null;
 	}
 	if (agent === "opencode") {
 		return model.includes("/") ? model : null;

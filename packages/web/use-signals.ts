@@ -18,11 +18,6 @@ export function useSignals(): Signals & { read: () => Promise<void> } {
 	return { ...now, read: SHARED.read };
 }
 
-/** How many live subscribers signals have, for a nav to count. */
-export function useSignalSubscribers(): number {
-	return useSyncExternalStore(SHARED.subscribe, SHARED.subscribers, () => 0);
-}
-
 /** Forgets the signals read so far, for a test to start from none. */
 export function forgetSignals(): void {
 	SHARED.forget();
@@ -58,8 +53,6 @@ class SharedSignals {
 	};
 
 	readonly current = (): Signals => this.now;
-
-	readonly subscribers = (): number => this.now.subscribers;
 
 	readonly read = async (): Promise<void> => {
 		if (globalThis.document?.visibilityState === "hidden") {

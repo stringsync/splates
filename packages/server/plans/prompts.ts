@@ -4,9 +4,9 @@ export function taskNumberReference(id: number): string {
 }
 
 /**
- * What opens a conversation the person started by writing on blocked queued
- * task `id`: the agent talks about the task with them and does not take it,
- * and the splates skill says what it means.
+ * What opens a conversation the person started by writing on queued task `id`
+ * while it waits or is blocked: the agent talks about the task with them and
+ * does not take it, and the splates skill says what it means.
  */
 export function talkReference(id: number): string {
 	return `[SPLATES TALK #${id}]`;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { NodePs, OpenPortProvider } from "core/system";
 import { FakeFs } from "core/system/testing";
+import { Duration } from "core/time";
 import { dev } from "../server";
 import { Testing } from "../testing";
 import { darwinTemperature } from "./darwin-temperature";
@@ -10,7 +11,7 @@ import { OsSensors, ownPids, parseTable } from "./os-sensors";
 describe("machine", () => {
 	it("reads the CPU share busy since the reading before", async () => {
 		const sensors = new FakeSensors();
-		const machine = new Machine(sensors);
+		const machine = new Machine(sensors, { window: Duration.ms(0) });
 		sensors.busy = 30;
 		sensors.idle = 70;
 		expect((await machine.read()).cpu).toBe(0.3);
@@ -29,6 +30,22 @@ describe("machine", () => {
 		expect((await machine.read()).cpu).toBe(0.3);
 	});
 
+	it("measures CPU over the whole window, the share standing until it has passed", async () => {
+		const sensors = new FakeSensors();
+		const machine = new Machine(sensors, { window: Duration.secs(1) });
+		sensors.busy = 30;
+		sensors.idle = 70;
+		// The first share counts, however soon.
+		expect((await machine.read()).cpu).toBe(0.3);
+
+		// A full second on each core, but spent across two asks: the burst in
+		// the first half shows only once the window is over, averaged in.
+		sensors.busy += 500;
+		expect((await machine.read()).cpu).toBe(0.3);
+		sensors.idle += 500;
+		expect((await machine.read()).cpu).toBe(0.5);
+	});
+
 	it("reads memory in use, the load, the cores and the temperature", async () => {
 		const sensors = new FakeSensors();
 		sensors.hot = 71.5;
@@ -45,7 +62,7 @@ describe("machine", () => {
 
 	it("reads splates' share of memory, and of CPU since the reading before", async () => {
 		const sensors = new FakeSensors();
-		const machine = new Machine(sensors);
+		const machine = new Machine(sensors, { window: Duration.ms(0) });
 		sensors.busy = 30;
 		sensors.idle = 70;
 		sensors.processes = [{ pid: 1, cpu: 1, memory: 8 }];

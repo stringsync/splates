@@ -31,7 +31,13 @@ import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { useReading } from "./page-readings";
 import { pendingRow, usePendingWrites, useShowPending } from "./pending";
 import { PHONE_HEADING } from "./phone-rows";
-import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
+import {
+	ago,
+	antigravityPlanLimits,
+	limitsOf,
+	PlanLimits,
+	saidAt,
+} from "./plan-limits";
 import { TopBar } from "./top-bar";
 
 /** What each model is, under its name. */
@@ -436,8 +442,10 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 			</header>
 			<ul className="flex flex-col gap-4">
 				{PLANS.map(({ agent, name }) => {
-					const limits = limitsOf(agents, conversations, agent);
-					const at = saidAt(limits);
+					const raw = limitsOf(agents, conversations, agent);
+					const limits =
+						agent === "antigravity" ? antigravityPlanLimits(raw) : raw;
+					const at = saidAt(limits) ?? saidAt(raw);
 					return (
 						<li
 							key={agent}

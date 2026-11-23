@@ -9,10 +9,10 @@ is cheap, so when in doubt, ask: the `splates server` page shows your
 questions as a card with your pick already chosen, so the user answers with
 a tap, and you carry on with that pick meanwhile rather than wait.
 
-One question blocks: `Do you approve <the change, named>?`, the approval question of a costly
-or hard-to-undo task (see [Proposing](proposing.md)), and you write no code
-until it is answered Yes. Every other question carries on with its pick. Send
-one questions card a reply, the approval question last in it.
+Ask for approval of a costly or hard-to-undo change in the
+[plan card](proposing.md). Its last question is
+`Do you approve <the change, named>?`. Wait for Yes before writing code.
+Use a single questions card for standalone questions.
 
 This holds in every conversation in a splates repository, with a task open
 or not: a design talk in the main tree asks the same way a task does. A task
@@ -31,6 +31,16 @@ never ask it in the reply as a question, and in a task
 write the pick and the alternative in a line under the `## Next` step it
 belongs to (`- retry limit 3; 5 is the alternative`), since whoever resumes
 needs to know it was a choice.
+
+Questions also orient the user. Avoid long paragraphs: when an idea needs
+explaining, disclose it a chunk at a time by asking about it, so the user
+gets their bearings from the choices themselves ("Is the problem the retry
+or the timeout?" with each choice saying what it means). When the user seems
+confused, ask what about: offer the likely sticking points as choices
+(`- [a]` when more than one can apply) instead of explaining all of it. Keep
+this lean: a few questions that move the user along, never needless ones
+whose answer changes nothing. The numbered format and the one-card rule below
+still hold, and an orienting question carries on with its pick like any other.
 
 Ask in your reply, as [Reporting](reporting.md) says, in the format below and
 nowhere else: a numbered list, a lone question numbered `1.` too, so the page

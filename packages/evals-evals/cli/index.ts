@@ -347,14 +347,30 @@ async function shown(
 		join(dir, line.detail ?? `${run}.json`),
 	).json()) as ContractDetail;
 	const revision = manifest.revision;
+	const statusLabel =
+		line.harness === "error"
+			? "harness"
+			: line.harness === "skipped"
+				? "skipped"
+				: line.status;
 	const out = [
 		...(revision === undefined
 			? []
 			: [
 					`revision: ${revision.commit ?? "no commit"}  skill ${revision.skillHash.slice(0, 12)}  scenarios ${revision.scenarioHash.slice(0, 12)}`,
 				]),
-		`${line.status}  ${cell.case}  ${cell.target.agent ?? ""} ${cell.target.model}`.trimEnd(),
+		`${statusLabel}  ${cell.case}  ${cell.target.agent ?? ""} ${cell.target.model}`.trimEnd(),
 		line.reason === undefined ? "" : `reason: ${line.reason}`,
+		line.phases === undefined
+			? ""
+			: `time: ${[
+					["setup", line.phases.setupMs],
+					["agent", line.phases.agentMs],
+					["judge", line.phases.judgeMs],
+				]
+					.filter(([, ms]) => ms !== undefined)
+					.map(([name, ms]) => `${name} ${((ms as number) / 1000).toFixed(1)}s`)
+					.join("  ")}`,
 		"",
 		`message: ${detail.input ?? ""}`,
 		"",

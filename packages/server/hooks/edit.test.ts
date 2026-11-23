@@ -66,13 +66,24 @@ describe("changed", () => {
 		);
 	});
 
-	it("turns an agent into a command, and back only with both agent and prompt", () => {
+	it("moves an agent hook onto Auto pick, keeping its prompt", () => {
+		expect(changed(NOTIFY, { ...NONE, pick: null }).hook).toEqual({
+			kind: "agent",
+			prompt: "say hi",
+		});
+	});
+
+	it("turns an agent into a command, and back only with a prompt", () => {
 		const run = changed(NOTIFY, { ...NONE, run: "notify" });
 		expect(run.hook).toEqual({ kind: "run", command: "notify" });
 		const command = { ...NOTIFY, hook: run.hook };
-		expect(() => changed(command, { ...NONE, prompt: "hi" })).toThrow(
-			"both --agent and --prompt",
-		);
+		expect(() =>
+			changed(command, { ...NONE, pick: { agent: "claude" } }),
+		).toThrow("with --prompt");
+		expect(changed(command, { ...NONE, prompt: "hi" }).hook).toEqual({
+			kind: "agent",
+			prompt: "hi",
+		});
 		expect(
 			changed(command, { ...NONE, prompt: "hi", pick: { agent: "claude" } })
 				.hook,

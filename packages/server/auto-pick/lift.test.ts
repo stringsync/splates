@@ -69,6 +69,12 @@ describe("lifting", () => {
 	};
 	const autoLines = async () =>
 		(await deps.journal.tail(20)).filter((each) => each.action === "auto");
+	/** Why the conversation's log says Auto pick last moved it. */
+	const liftedFor = async (id: string) => {
+		await (await conversations.find(id)).saved();
+		const entries = await deps.service.conversationLog(id).replay();
+		return entries.findLast((each) => each.kind === "auto-pick" && each.lifted);
+	};
 
 	beforeEach(async () => {
 		deps = await Testing.open();
@@ -148,6 +154,133 @@ describe("lifting", () => {
 			model: "big",
 			lifted: { from: "Small", undo: { model: "small" } },
 		});
+		expect(await liftedFor(conversation.id)).toMatchObject({ why: "judged" });
+	});
+
+	it("moves the conversation up even when the deeper lineup leads with another agent", async () => {
+		const other = { id: "other", name: "Other", argv: ["other-acp"] };
+		await conversations.disposeAsync();
+		conversations = new Conversations(
+			`${deps.dir}/conversations`,
+			[other, AGENT],
+			{
+				storage: deps.storage.within("conversations"),
+				launch: agent.launch,
+			},
+		);
+		conversations.lift = lifting(deps, conversations, {
+			judge: async () => judge,
+		});
+		await deps.fs.write(
+			`${deps.splatesHome}/agents.json`,
+			JSON.stringify({
+				agents: [
+					{
+						...other,
+						models: [
+							{
+								id: "top",
+								name: "Top",
+								strengths: "",
+								cost: "high",
+								tier: 4,
+								speed: "medium",
+								costRank: 3,
+							},
+						],
+					},
+					RANKED,
+				],
+			}),
+		);
+		await deps.fs.write(
+			`${deps.splatesHome}/auto-pick.json`,
+			JSON.stringify(
+				withCell(
+					routedTo([
+						{ agent: "other", model: "top" },
+						{ agent: "fake", model: "big" },
+					]),
+					"bugfix",
+					"shallow",
+					"Mine",
+					[{ agent: "fake", model: "small" }],
+				),
+			),
+		);
+
+		const conversation = await start();
+		expect(on).toEqual(["small"]);
+
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+
+		expect(on).toEqual(["small", "big"]);
+		expect(conversation.state.autoPick).toMatchObject({
+			agent: "fake",
+			model: "big",
+			kind: "open",
+			depth: "deep",
+		});
+	});
+
+	it("moves nothing when the deeper lineup omits the running agent", async () => {
+		const other = { id: "other", name: "Other", argv: ["other-acp"] };
+		await conversations.disposeAsync();
+		conversations = new Conversations(
+			`${deps.dir}/conversations`,
+			[other, AGENT],
+			{
+				storage: deps.storage.within("conversations"),
+				launch: agent.launch,
+			},
+		);
+		conversations.lift = lifting(deps, conversations, {
+			judge: async () => judge,
+		});
+		await deps.fs.write(
+			`${deps.splatesHome}/agents.json`,
+			JSON.stringify({
+				agents: [
+					{
+						...other,
+						models: [
+							{
+								id: "top",
+								name: "Top",
+								strengths: "",
+								cost: "high",
+								tier: 4,
+								speed: "medium",
+								costRank: 3,
+							},
+						],
+					},
+					RANKED,
+				],
+			}),
+		);
+		await deps.fs.write(
+			`${deps.splatesHome}/auto-pick.json`,
+			JSON.stringify(
+				withCell(
+					routedTo([{ agent: "other", model: "top" }]),
+					"bugfix",
+					"shallow",
+					"Mine",
+					[{ agent: "fake", model: "small" }],
+				),
+			),
+		);
+
+		const conversation = await start();
+		expect(on).toEqual(["small"]);
+
+		judge = new FakeJudge(WIDE);
+		await say(conversation, WIDENING);
+
+		expect(on).toEqual(["small", "small"]);
+		expect(await autoLines()).toHaveLength(1);
 	});
 
 	it("moves nothing for a message the judge finds no bigger", async () => {
@@ -248,6 +381,9 @@ describe("lifting", () => {
 			lifted: { from: "Small", undo: { model: "small" } },
 		});
 		expect(line?.reasons).toContain("its first answer asked back, so moderate");
+		expect(await liftedFor(conversation.id)).toMatchObject({
+			why: "asked-back",
+		});
 	});
 
 	it("moves nothing for the answer to a first reply that ended otherwise", async () => {
@@ -311,6 +447,9 @@ describe("lifting", () => {
 		expect((await autoLines()).at(-1)).toMatchObject({
 			model: "small",
 			lifted: { from: "Big", undo: { model: "big" }, switched: true },
+		});
+		expect(await liftedFor(conversation.id)).toMatchObject({
+			why: "switched",
 		});
 	});
 

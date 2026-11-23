@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "core/system";
 import { FakeAgent, heard, say } from "../agents/testing";
+import { DIAGRAM_REQUEST } from "../artifacts";
 import { dev } from "../server";
 import { eventually, json, readUntil, serving } from "../server/testing";
 import { add } from "../tasks";
@@ -31,12 +32,9 @@ describe("dev conversations", () => {
 	let server: Awaited<ReturnType<typeof dev>>;
 	let port: number;
 	let said: string[];
-	let tree: string;
 
 	beforeEach(async () => {
 		deps = await Testing.open();
-		await add(deps, "alpha");
-		tree = (await deps.service.find("alpha")).path;
 		agent = new FakeAgent();
 		said = [];
 		agent.turn = async (client, sessionId, text) => {
@@ -66,6 +64,12 @@ describe("dev conversations", () => {
 	const opened = async () => {
 		const id = await start(port, null);
 		return { id, conversation: await conversations.find(id) };
+	};
+
+	/** Creates the `alpha` task worktree for routes that depend on one. */
+	const withAlpha = async (): Promise<string> => {
+		await add(deps, "alpha");
+		return (await deps.service.find("alpha")).path;
 	};
 
 	it("says they are off unless asked for", async () => {
@@ -131,12 +135,14 @@ describe("dev conversations", () => {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
 		});
-		await Bun.sleep(200);
+		// Disposing waits for the startup dispatch pass to finish.
+		await server.disposeAsync();
 
 		expect(agent.launched).toHaveLength(1);
 	});
 
 	it("lists the sessions in a task's tree", async () => {
+		const tree = await withAlpha();
 		agent.held = [{ ...held, cwd: tree }];
 
 		const listed = await get(port, "/api/conversations/sessions?task=alpha");
@@ -152,6 +158,7 @@ describe("dev conversations", () => {
 	});
 
 	it("brings a session of a task's tree in, with what was said in it", async () => {
+		const tree = await withAlpha();
 		agent.held = [{ ...held, cwd: tree }];
 
 		const brought = await json(port, "/api/conversations/sessions", "POST", {
@@ -177,6 +184,7 @@ describe("dev conversations", () => {
 	});
 
 	it("starts one in a task's tree with its own id in the agent's env", async () => {
+		const tree = await withAlpha();
 		const listed = await (await get(port, "/api/conversations")).json();
 
 		const id = await start(port, "alpha");
@@ -221,7 +229,7 @@ describe("dev conversations", () => {
 	});
 
 	it("streams the agent's turn", async () => {
-		const id = await start(port, "alpha");
+		const { id } = await opened();
 		const events = await get(port, "/api/conversations/events");
 		const reader = (events.body as ReadableStream<Uint8Array>).getReader();
 
@@ -233,7 +241,7 @@ describe("dev conversations", () => {
 	});
 
 	it("plays the file sent with a prompt from the server, a part at a time", async () => {
-		const id = await start(port, "alpha");
+		const { id } = await opened();
 		await prompt(port, id);
 		const sent = (await conversations.find(id)).state.messages[0]?.parts[0];
 
@@ -249,7 +257,7 @@ describe("dev conversations", () => {
 	}, 15_000);
 
 	it("pins one, and stops it when archived", async () => {
-		const id = await start(port, "alpha");
+		const { id } = await opened();
 
 		const pinned = await json(port, `/api/conversations/${id}/pinned`, "PUT", {
 			pinned: true,
@@ -332,7 +340,7 @@ describe("dev conversations", () => {
 		},
 	);
 
-	it("serves a page with a selection report only when asked with ?select", async () => {
+	it("serves a page with its diagram request, and a selection report only when asked with ?select", async () => {
 		const { id, conversation } = await opened();
 		await conversation.artifacts.add({
 			name: "plan.html",
@@ -343,7 +351,7 @@ describe("dev conversations", () => {
 		const plain = await (await get(port, base)).text();
 		const asked = await (await get(port, `${base}?select`)).text();
 
-		expect(plain).toBe("<body><p>plan</p></body>");
+		expect(plain).toBe(`<body><p>plan</p>${DIAGRAM_REQUEST}</body>`);
 		expect(asked).toContain("<p>plan</p><script>");
 		expect(asked).toContain('splates:"selection"');
 		expect(asked.endsWith("</body>")).toBe(true);
@@ -374,7 +382,7 @@ describe("dev conversations", () => {
 		const unknown = [await at("page.html", 3), await at("other.png", 1)];
 
 		expect(page.status).toBe(200);
-		expect(pageText).toBe("<p>two</p>");
+		expect(pageText).toBe(`<p>two</p>${DIAGRAM_REQUEST}`);
 		expect(page.headers.get("content-type")).toBe("text/html");
 		expect(policy).toContain("sandbox allow-scripts;");
 		expect(policy).not.toContain("allow-same-origin");
@@ -435,6 +443,7 @@ describe("dev conversations", () => {
 	});
 
 	it("removes a task, stopping each conversation in its tree and moving it to the main tree", async () => {
+		await withAlpha();
 		const id = await start(port, "alpha");
 		const conversation = await conversations.find(id);
 		await eventually(
@@ -469,6 +478,7 @@ describe("dev conversations", () => {
 	});
 
 	it("follows its agent into a task, but not into a part of its own task", async () => {
+		await withAlpha();
 		await add(deps, "part", { base: "task/alpha" });
 		await add(deps, "subpart", { base: "task/part" });
 		await add(deps, "beta");

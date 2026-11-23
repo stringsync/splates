@@ -145,6 +145,11 @@ export interface ConversationState {
 	 */
 	heldForTask: number | null;
 	/**
+	 * The queued task the person started this live conversation on while it
+	 * waits or is blocked; handed the task when the queue starts it; null otherwise.
+	 */
+	queuedTask: number | null;
+	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -233,6 +238,13 @@ export interface ConversationState {
  * prompt resumes the session in a new one.
  */
 /** What Auto pick set a conversation to, and why, as its log keeps it. */
+/**
+ * Why Auto pick moved a conversation after it started: the judge read what
+ * the person said as needing more, the first answer asked back, or the
+ * person switched Auto pick on and it looked afresh.
+ */
+export type LiftReason = "judged" | "asked-back" | "switched";
+
 export interface AutoPickSet {
 	/** The id of the lineup its cell sent it to; null before it took one, as for a conversation switched on that it has yet to look at. */
 	lineup?: string | null;
@@ -671,8 +683,8 @@ export interface Limit {
 	window: string;
 	/** How much of it is used, from 0 to 1. */
 	used: number;
-	/** When it starts over, as an ISO timestamp. */
-	resets: string;
+	/** When it starts over, as an ISO timestamp; null when the agent does not say. */
+	resets: string | null;
 	/** When the agent said so; null in logs written before it was kept. */
 	at: string | null;
 }
@@ -721,6 +733,7 @@ export function blank(
 		autoPick: null,
 		automatic: false,
 		heldForTask: null,
+		queuedTask: null,
 		unread: false,
 		seen: 0,
 		read: null,

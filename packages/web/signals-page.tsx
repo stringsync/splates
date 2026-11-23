@@ -55,6 +55,22 @@ export function SignalsPage({
 			<PlusIcon /> New poll script
 		</Button>
 	);
+	const viewTabs =
+		at.signal === null ? (
+			<nav aria-label="signals views" className="flex gap-5 text-sm">
+				<TabLink href="#signals" current={!at.subscriptions}>
+					All signals
+				</TabLink>
+				<TabLink href={SUBSCRIPTIONS} current={at.subscriptions}>
+					Subscriptions
+					{subscriptions !== null && (
+						<span className="ml-1.5 text-muted-foreground tabular-nums">
+							{subscriptions}
+						</span>
+					)}
+				</TabLink>
+			</nav>
+		) : null;
 	return (
 		<section aria-label="signals" className="flex min-w-0 flex-col gap-6">
 			<TopBar
@@ -75,26 +91,8 @@ export function SignalsPage({
 						/>
 					)
 				}
+				tabs={viewTabs}
 			/>
-			<nav
-				aria-label="signals views"
-				className={cn(
-					"flex gap-4 border-b text-sm",
-					at.signal !== null && "hidden",
-				)}
-			>
-				<TabLink href="#signals" current={!at.subscriptions}>
-					Signals
-				</TabLink>
-				<TabLink href={SUBSCRIPTIONS} current={at.subscriptions}>
-					Subscriptions
-					{subscriptions !== null && (
-						<span className="ml-1.5 text-muted-foreground tabular-nums">
-							{subscriptions}
-						</span>
-					)}
-				</TabLink>
-			</nav>
 			{at.subscriptions && (
 				<SubscriptionsPanel onCount={setSubscriptions} opens={opens} />
 			)}

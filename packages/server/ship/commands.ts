@@ -113,11 +113,41 @@ export class ShipCommands {
 		return Object.assign({}, ...answers);
 	}
 
-	/** The plan of `target`, served by `command`, at the `version` or `bump` given. */
+	/** The versions each target may ship, newest first, for those that can say. */
+	async shippable(): Promise<Shippables> {
+		const commands = await this.registered();
+		const answers = await Promise.all(
+			commands.map(async (command): Promise<Shippables> => {
+				const result = await this.ps
+					.spawnCapture(["sh", "-c", `${command} versions`], {
+						cwd: this.root,
+						stdin: "",
+						timeoutMs: CURRENT_TIMEOUT.ms,
+					})
+					.catch(() => null);
+				if (result === null || result.exitCode !== 0) {
+					return {};
+				}
+				try {
+					const parsed = SHIPPABLES.safeParse(JSON.parse(result.stdout));
+					return parsed.success ? parsed.data : {};
+				} catch {
+					return {};
+				}
+			}),
+		);
+		return Object.assign({}, ...answers);
+	}
+
+	/** The plan of `target`, served by `command`, at the `version`, `bump` and `upstream` versions given. */
 	async plan(
 		command: string,
 		target: string,
-		chosen: { bump?: Bump; version?: string } = {},
+		chosen: {
+			bump?: Bump;
+			version?: string;
+			upstream?: Record<string, string>;
+		} = {},
 	): Promise<Plan> {
 		const flags = [
 			"--target",
@@ -127,6 +157,10 @@ export class ShipCommands {
 				: chosen.bump
 					? ["--bump", chosen.bump]
 					: []),
+			...Object.entries(chosen.upstream ?? {}).flatMap(([name, version]) => [
+				"--upstream",
+				`${name}=${version}`,
+			]),
 		];
 		const [plan] = await this.plans(command, flags);
 		if (plan === undefined || plan.name !== target) {
@@ -211,3 +245,16 @@ export class ShipCommands {
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
+
+/** A version a target may ship, with a short note such as "staging now". */
+export type Shippable = { version: string; note?: string };
+
+/** The versions each target may ship, newest first, by name. */
+export type Shippables = Record<string, Shippable[]>;
+
+const SHIPPABLES = z.record(
+	z.string(),
+	z.array(
+		z.object({ version: z.string().min(1), note: z.string().optional() }),
+	),
+);

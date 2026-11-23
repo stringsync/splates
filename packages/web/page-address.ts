@@ -322,6 +322,9 @@ function pageIn(hash: string): Page {
 	if (hash === "#stats") {
 		return "stats";
 	}
+	if (hash === "#rigs" || hash.startsWith("#rigs/")) {
+		return "rigs";
+	}
 	if (hash === "#ships" || hash === SHIP_HISTORY || shipRunIn(hash) !== null) {
 		return "ships";
 	}

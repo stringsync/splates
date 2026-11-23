@@ -11,12 +11,10 @@ import { classificationKey } from "./key";
 import { announce, contextOf, settle, wordsOf } from "./start";
 
 /**
- * Auto pick for the queue: a queued task that names no agent is judged as
- * it is queued, and again whenever its words change, so its held
- * conversation waits on the agent it will start on; it starts on what Auto
- * pick decides then, kept on its record and logged in its conversation as a
- * start from its Start menu is. Only the queue's own starts come here; a
- * conversation the person starts on a task keeps its agent.
+ * Picks an agent for queue-managed starts of tasks without an assigned agent.
+ * It judges tasks ahead of time and reassesses them when their words change.
+ * Held conversations preview the expected agent and start on the final pick.
+ * Manually started conversations keep their chosen agent.
  */
 export class QueueAutoPick implements QueuePicker {
 	readonly #project: Project;
@@ -137,8 +135,10 @@ export class QueueAutoPick implements QueuePicker {
 				judge: this.#judge,
 				who: { task: `#${queued.id}` },
 				context,
+				task: queued.id,
 			});
 			const picked = autoPicked(judged, key, this.#now());
+			// Save the pick now and log it once the queue has a conversation for it.
 			await settle(this.#project, queued.id, picked, {
 				conversation: null,
 				judged: judged.judged,
@@ -191,6 +191,7 @@ export class QueueAutoPick implements QueuePicker {
 				judge: this.#judge,
 				who: { task: `#${id}` },
 				context: await this.#context(attachments),
+				task: id,
 			});
 			await settle(this.#project, id, autoPicked(judged, key, this.#now()), {
 				conversation: null,

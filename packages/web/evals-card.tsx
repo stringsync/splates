@@ -134,7 +134,7 @@ export function EvalsCard({
 					</div>
 					<Skeleton className="h-16 animate-pulse rounded-lg" />
 				</div>
-				<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
+				<div className="flex items-center justify-end gap-2 rule-t px-4 py-2.5">
 					<Skeleton className="h-8 w-20 animate-pulse rounded-lg" />
 					<Skeleton className="h-8 w-16 animate-pulse rounded-lg" />
 				</div>
@@ -199,6 +199,7 @@ export function EvalsCard({
 					<CardSection
 						label="scenarios"
 						title={`${state.scenarios.length} scenarios`}
+						ruled={proposal.body !== ""}
 						className="mx-4 mb-3 text-sm"
 					>
 						<div className="flex flex-col gap-3">
@@ -273,7 +274,7 @@ export function EvalsCard({
 									aria-label="Run repetitions"
 									min={1}
 									defaultValue={run.ask.reps}
-									placeholder="Default"
+									placeholder="1"
 									onChange={(event) =>
 										void run.repeat(Number(event.target.value))
 									}
@@ -348,7 +349,7 @@ export function EvalsCard({
 				</div>
 			)}
 			{open && send !== null && (
-				<div ref={panel} className="flex flex-col gap-3 border-t px-4 py-4">
+				<div ref={panel} className="flex flex-col gap-3 rule-t px-4 py-4">
 					<p className="font-medium text-sm leading-snug">Anything else?</p>
 					<CardBox
 						aria-label="Anything else"
@@ -370,53 +371,55 @@ export function EvalsCard({
 				/>
 			)}
 			<EvalRunCue open={open} state={state} />
-			<div className="flex items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5">
-				{open && (
-					<Button
-						size="sm"
-						variant="outline"
-						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-						disabled={send === null || rejecting}
-						onClick={() => turn(reject)}
-					>
-						{rejecting && showRejecting ? (
-							<PendingSpinner shown />
-						) : (
-							<BanIcon data-icon="inline-start" />
-						)}
-						Reject
-					</Button>
-				)}
-				{open && (
-					<Button
-						size="sm"
-						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base in-data-sheet:flex-1"
-						disabled={
-							!state.loaded ||
-							state.unknown.length > 0 ||
-							state.unknownAgents.length > 0 ||
-							state.plan === null ||
-							state.plan.refused ||
-							overBudget
-						}
-						onClick={() => turn(start)}
-					>
-						<PlayIcon data-icon="inline-start" />
-						Run
-					</Button>
-				)}
-				{state.running && (
-					<Button
-						size="sm"
-						variant="outline"
-						className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-						onClick={() => void run.stop()}
-					>
-						<SquareIcon data-icon="inline-start" />
-						Stop
-					</Button>
-				)}
-			</div>
+			{(open || state.running) && (
+				<div className="flex items-center justify-end gap-2 rule-t px-4 py-2.5">
+					{open && (
+						<Button
+							size="sm"
+							variant="outline"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
+							disabled={send === null || rejecting}
+							onClick={() => turn(reject)}
+						>
+							{rejecting && showRejecting ? (
+								<PendingSpinner shown />
+							) : (
+								<BanIcon data-icon="inline-start" />
+							)}
+							Reject
+						</Button>
+					)}
+					{open && (
+						<Button
+							size="sm"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base in-data-sheet:flex-1"
+							disabled={
+								!state.loaded ||
+								state.unknown.length > 0 ||
+								state.unknownAgents.length > 0 ||
+								state.plan === null ||
+								state.plan.refused ||
+								overBudget
+							}
+							onClick={() => turn(start)}
+						>
+							<PlayIcon data-icon="inline-start" />
+							Run
+						</Button>
+					)}
+					{state.running && (
+						<Button
+							size="sm"
+							variant="outline"
+							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
+							onClick={() => void run.stop()}
+						>
+							<SquareIcon data-icon="inline-start" />
+							Stop
+						</Button>
+					)}
+				</div>
+			)}
 			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
 		</CardShell>
 	);

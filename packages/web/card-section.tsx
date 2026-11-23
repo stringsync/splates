@@ -45,7 +45,7 @@ export function CardSection({
 		>
 			<h2
 				className={cn(
-					"flex flex-wrap items-center gap-2 font-semibold text-[0.7rem] text-muted-foreground uppercase leading-relaxed tracking-[0.08em] @md:flex-col @md:items-start @md:gap-1",
+					"flex min-w-0 flex-wrap items-center gap-2 font-semibold text-[0.7rem] [overflow-wrap:anywhere] text-muted-foreground uppercase leading-relaxed tracking-[0.08em] @md:flex-col @md:items-start @md:gap-1",
 					folds && open && "text-foreground",
 				)}
 			>

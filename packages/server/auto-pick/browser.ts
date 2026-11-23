@@ -11,6 +11,7 @@
 
 export {
 	cellLabel,
+	DEFAULT_HOLDOUT,
 	DEFAULT_PACE,
 	depthLabel,
 	kindLabel,
@@ -30,3 +31,5 @@ export {
 } from "./classes";
 export { DEFAULT_LINEUPS } from "./default-lineups";
 export { DEFAULT_RULES } from "./defaults";
+
+export type { ReserveHold } from "./reserve";

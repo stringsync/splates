@@ -1,11 +1,16 @@
 import { describe, expect, it } from "bun:test";
-import type { ThreadMessage } from "@assistant-ui/react";
+import type { ThreadMessage, ThreadMessageLike } from "@assistant-ui/react";
 import type { Steps } from "@splates/server/plans/browser";
 import {
 	askedFrom,
+	askedOnly,
 	changedSteps,
+	doneFrom,
 	exchangesOf,
+	finishedOf,
 	readAsked,
+	readDone,
+	versionsIn,
 	versionsOf,
 } from "./steps-asked";
 
@@ -38,23 +43,11 @@ describe("the pop-out's questions and the steps' versions", () => {
 		});
 	});
 
-	it("counts the agent's work as no card", () => {
-		const messages = [
-			user("u1", askedFrom(STEPS, 1, "No Roll button.")),
-			agent("a1", { type: "data", name: "work", data: {} }),
-			agent("a2", { type: "text", text: "It's in the ⋯ menu." }),
-		];
-
-		expect(exchangesOf(messages, "Rotate the secret", false)[0]?.carded).toBe(
-			false,
-		);
-	});
-
 	it("names the last step once every step is done", () => {
 		expect(readAsked(askedFrom(STEPS, 3, "Now what?"))?.step).toBe(3);
 	});
 
-	it("pairs each question with the agent's answers until the next message of the person's", () => {
+	it("pairs each question with the agent's messages, by index, until the next message of the person's", () => {
 		const messages = [
 			agent("a0", { type: "data", name: "steps", data: { steps: STEPS } }),
 			user("u1", askedFrom(STEPS, 1, "No Roll button.")),
@@ -68,9 +61,7 @@ describe("the pop-out's questions and the steps' versions", () => {
 			{
 				id: "u1",
 				step: 2,
-				words: "No Roll button.",
-				answers: ["It's in the ⋯ menu."],
-				carded: true,
+				messages: [1, 2, 3],
 				waiting: false,
 			},
 		]);
@@ -136,6 +127,73 @@ describe("the pop-out's questions and the steps' versions", () => {
 			[3, null],
 		]);
 		expect([...changedSteps(null, fixed)]).toEqual([]);
+	});
+
+	it("says the person finished and how many steps they checked off, and reads back", () => {
+		const sent = doneFrom(STEPS, 1);
+
+		expect(sent).toBe(
+			'(Done with the steps "Rotate the secret": 1 of 3 checked off)',
+		);
+		expect(readDone(sent)).toEqual({
+			title: "Rotate the secret",
+			checked: 1,
+			count: 3,
+		});
+		expect(readDone("Done with it.")).toBeNull();
+	});
+
+	it("marks the newest version finished by a Done after it, and a newer version starts over", () => {
+		const done = user("u1", doneFrom(STEPS, 3));
+		const first = [
+			agent("a0", { type: "data", name: "steps", data: { steps: STEPS } }),
+			done,
+		];
+
+		expect(finishedOf(first, STEPS.title)?.checked).toBe(3);
+		expect(finishedOf(first, "Another card")).toBeNull();
+		expect(
+			finishedOf(
+				[
+					...first,
+					agent("a1", { type: "data", name: "steps", data: { steps: STEPS } }),
+				],
+				STEPS.title,
+			),
+		).toBeNull();
+	});
+
+	it("keeps only the questions asked from the card's pop-out and what the agent said after each", () => {
+		const fed: ThreadMessageLike[] = [
+			{
+				id: "a0",
+				role: "assistant",
+				content: [{ type: "data-steps", data: { steps: STEPS } }],
+			},
+			{ id: "u1", role: "user", content: askedFrom(STEPS, 1, "Where?") },
+			{
+				id: "a1",
+				role: "assistant",
+				content: [{ type: "text", text: "Here." }],
+			},
+			{ id: "u2", role: "user", content: "Something else" },
+			{
+				id: "a2",
+				role: "assistant",
+				content: [{ type: "text", text: "Sure." }],
+			},
+			{
+				id: "u3",
+				role: "user",
+				content: askedFrom({ ...STEPS, title: "Other" }, 0, "Hm?"),
+			},
+		];
+
+		expect(askedOnly(fed, STEPS.title).map((each) => each.id)).toEqual([
+			"u1",
+			"a1",
+		]);
+		expect(versionsIn(fed, STEPS.title)).toEqual([STEPS]);
 	});
 });
 

@@ -29,6 +29,8 @@ import type { Files } from "./files";
 type Props = Omit<BoxEditorProps, "inset"> & {
 	/** Sized for a finger, as the one question on a phone's screen. */
 	roomy?: boolean;
+	/** Stable owner id for dictation, when a parent watches this box's take. */
+	dictationOwner?: string;
 };
 
 /**
@@ -46,9 +48,11 @@ export function CardBox(props: Props): JSX.Element {
 
 function DictatedBox({
 	dictation,
+	dictationOwner,
 	...props
 }: Props & { dictation: Dictation }): JSX.Element {
-	const by = useId();
+	const generated = useId();
+	const by = dictationOwner ?? generated;
 	// Read as the take writes, which can be long after this render.
 	const value = useRef(props.value);
 	value.current = props.value;
@@ -78,6 +82,7 @@ function Box({
 	value,
 	files,
 	roomy = false,
+	dictationOwner: _dictationOwner,
 	className,
 	box,
 	taking = false,
@@ -153,7 +158,7 @@ function Box({
 							className,
 						)}
 					/>
-					<Suffix roomy={roomy} shell={shell} below={below}>
+					<Suffix roomy={roomy} shell={shell} below={below} taking={taking}>
 						{files !== null && <AttachPlus files={files} />}
 						<CannedPicker
 							onPick={(reply) => onValue(withCanned(value, reply))}
@@ -254,10 +259,13 @@ function Suffix({
 	roomy,
 	shell,
 	below,
+	taking,
 	children,
 }: {
 	roomy: boolean;
 	below: boolean;
+	/** Dictation covers the buttons, so they stay out of sight, touch screen or not. */
+	taking: boolean;
 	shell: RefObject<HTMLDivElement | null>;
 	children: ReactNode;
 }): JSX.Element {
@@ -286,6 +294,8 @@ function Suffix({
 			ref={ref}
 			className={cn(
 				"flex items-center opacity-0 transition-opacity duration-150 group-focus-within/box:opacity-100 group-hover/box:opacity-100 pointer-coarse:opacity-100",
+				taking &&
+					"opacity-0! group-focus-within/box:opacity-0! group-hover/box:opacity-0! pointer-coarse:opacity-0! transition-none",
 				below
 					? "col-start-1 row-start-2 justify-end"
 					: "absolute inset-y-0 right-0",
@@ -362,14 +372,17 @@ export function useCardDictationTurn(
 /**
  * Whether a box's take is under way, rather than the composer's: its words
  * are not in the box until it finishes, so an empty card can still send.
+ * Pass `owner` to watch one specific box's take.
  */
-export function useBoxTaking(): boolean {
+export function useBoxTaking(owner?: string): boolean {
 	const dictation = useContext(DictationContext);
 	return useSyncExternalStore(
 		(changed) => dictation?.events.on("changed", changed) ?? (() => {}),
 		() =>
 			dictation !== null &&
-			dictation.owner !== COMPOSER &&
+			(owner === undefined
+				? dictation.owner !== COMPOSER
+				: dictation.owner === owner) &&
 			["asking", "opening", "recording", "finishing"].includes(
 				dictation.state.phase,
 			),

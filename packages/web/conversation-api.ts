@@ -29,6 +29,8 @@ export async function startConversation(
 		assigned = false,
 		autoPick = false,
 		modelChosen = false,
+		queuedTask,
+		title,
 		id,
 		project,
 	}: {
@@ -44,6 +46,10 @@ export async function startConversation(
 		autoPick?: boolean;
 		/** Whether the person picked the model in the composer, which Auto pick then keeps. */
 		modelChosen?: boolean;
+		/** The queued task this live conversation was started on while it waits. */
+		queuedTask?: number;
+		/** What to title it until the agent names it. */
+		title?: string;
 		/** The id it starts on, picked by the page to open it at once; the server's otherwise. */
 		id?: string;
 		/** The project it starts in, else the one this page shows. */
@@ -59,6 +65,8 @@ export async function startConversation(
 		...(assigned ? { assigned } : {}),
 		...(autoPick ? { autoPick } : {}),
 		...(autoPick && modelChosen ? { chosen: true } : {}),
+		...(queuedTask === undefined ? {} : { queuedTask }),
+		...(title === undefined ? {} : { title }),
 	})) as ConversationState;
 }
 

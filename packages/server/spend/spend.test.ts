@@ -162,6 +162,51 @@ describe("spend", () => {
 		).toBeNull();
 	});
 
+	test("prices Antigravity as plan use against Google and Anthropic catalog rates", () => {
+		const catalog = {
+			"google/gemini-4-hydrogen": {
+				input: 1.5,
+				output: 7.5,
+				cacheRead: 0.075,
+				cacheWrite: 1.5,
+				tiers: [],
+			},
+			"anthropic/claude-sonnet-5-5": {
+				input: 3,
+				output: 15,
+				cacheRead: 0.3,
+				cacheWrite: 3.75,
+				tiers: [],
+			},
+		};
+		const after = used({
+			input: 1_100_000,
+			cached: 100_000,
+			output: 100_000,
+		});
+		const gemini = turnSpend(
+			"antigravity",
+			"gemini-4-hydrogen",
+			used({}),
+			after,
+			catalog,
+		);
+		expect(gemini?.kind).toBe("equivalent");
+		expect(gemini?.dollars).toBeCloseTo(1.5 + 0.0075 + 0.75);
+		const claude = turnSpend(
+			"antigravity",
+			"claude-sonnet-5-5",
+			used({}),
+			after,
+			catalog,
+		);
+		expect(claude?.kind).toBe("equivalent");
+		expect(claude?.dollars).toBeCloseTo(3 + 0.03 + 1.5);
+		expect(
+			turnSpend("antigravity", "gpt-oss-120b-medium", used({}), after, catalog),
+		).toBeNull();
+	});
+
 	test("converts, dedupes, and reports what it cannot reach when pulling billing", async () => {
 		const options = billingOptions();
 		const statuses = await pullBilling(spend, options);

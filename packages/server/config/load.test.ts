@@ -86,6 +86,21 @@ describe("loadConfig", () => {
 		);
 	});
 
+	it("reads rigs as a list of commands, and refuses anything else", async () => {
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { rigs: ["bin/vex rig"] };\n`,
+		);
+		expect((await loadConfig(root, { fs, git })).rigs).toEqual(["bin/vex rig"]);
+		await fs.write(
+			join(root, "splates.config.ts"),
+			`export default { rigs: "bin/vex rig" };\n`,
+		);
+		expect(loadConfig(root, { fs, git })).rejects.toThrow(
+			"`rigs` is a list of rig commands",
+		);
+	});
+
 	it("falls back to main when the repo has no origin/HEAD", async () => {
 		const config = await loadConfig(root, { fs, git });
 

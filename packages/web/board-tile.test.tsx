@@ -14,25 +14,16 @@ describe("BoardTile", () => {
 				name="prod"
 				tasks={[
 					todo({ id: 1, stage: "running" }),
-					todo({ id: 2 }),
-					todo({ id: 3, blockedBy: [1] }),
+					todo({ id: 2, stage: "queued" }),
+					todo({ id: 3 }),
 				]}
 				onOpen={() => opened.push("prod")}
 			/>,
 		);
 		const tile = view.getByRole("button", { name: /prod/ });
-		expect(tile.textContent).toContain("3 tasks · 2 need a look");
-		expect(view.getByRole("img", { name: "Needs a look" })).toBeTruthy();
+		expect(tile.textContent).toContain("3 tasks · 1 queued");
 		fireEvent.click(tile);
 		expect(opened).toEqual(["prod"]);
-	});
-
-	it("shows no dot when nothing needs a look", () => {
-		const view = render(
-			<BoardTile id={3} name="quiet" tasks={[todo()]} onOpen={() => {}} />,
-		);
-		expect(view.getByRole("button").textContent).toContain("1 task");
-		expect(view.queryByRole("img", { name: "Needs a look" })).toBeNull();
 	});
 
 	it("keeps a board's color by its id, and the Queue slate", () => {

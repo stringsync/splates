@@ -10,6 +10,7 @@ import {
 	BillingPage,
 	EvalsPage,
 	RecPage,
+	RigsPage,
 	SetupPage,
 	ShipsPage,
 	SignalsPage,
@@ -127,6 +128,7 @@ export function useAppPages({
 								talk={available ? talk : null}
 							/>
 						),
+						rigs: <RigsPage />,
 						rec: <RecPage feed={available ? talk : null} />,
 						evals: (
 							<EvalsPage

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import type { SpendTotal } from "@splates/server/spend";
 import {
+	apiTotal,
 	byProvider,
 	colorOf,
 	everyDay,
+	missingPlans,
 	monthEnd,
 	nameOf,
+	plansInProjection,
 	projected,
 	spanOf,
 	spanTitle,
@@ -22,22 +25,35 @@ const row = (over: Partial<SpendTotal>): SpendTotal => ({
 });
 
 describe("billing sums", () => {
-	it("groups services on the bill by provider, the costliest of each first", () => {
+	it("groups services by provider, including API-equivalent plan use, the costliest actual bill first", () => {
 		const grouped = byProvider([
 			row({ service: "Pro plan", expected: 20 }),
 			row({ provider: "openai", service: "whisper", billed: 5 }),
 			row({ service: "Max 20x plan", expected: 200 }),
 			row({ service: "opus", equivalent: 3 }),
+			row({
+				provider: "antigravity",
+				service: "gemini-4-neon",
+				equivalent: 12,
+			}),
 		]);
 		expect(
-			grouped.map((each) => [each.provider, each.billed, each.expected]),
+			grouped.map((each) => [
+				each.provider,
+				each.billed,
+				each.expected,
+				each.equivalent,
+				apiTotal(each),
+			]),
 		).toEqual([
-			["claude", 0, 220],
-			["openai", 5, 0],
+			["claude", 0, 220, 3, 3],
+			["openai", 5, 0, 0, 5],
+			["antigravity", 0, 0, 12, 12],
 		]);
 		expect(grouped[0]?.services.map((each) => each.service)).toEqual([
 			"Max 20x plan",
 			"Pro plan",
+			"opus",
 		]);
 	});
 
@@ -68,7 +84,9 @@ describe("billing sums", () => {
 	it("keeps a provider's color whatever else is in range", () => {
 		expect(colorOf("kimi")).toBe("var(--series-3)");
 		expect(colorOf("openai")).toBe("var(--series-5)");
+		expect(colorOf("antigravity")).toBe("var(--series-8)");
 		expect(nameOf("kimi")).toBe("Kimi");
+		expect(nameOf("antigravity")).toBe("Antigravity");
 		expect(colorOf("somewhere")).toBe("var(--muted-foreground)");
 	});
 
@@ -99,5 +117,42 @@ describe("billing sums", () => {
 		expect(spanTitle("day", now, 2)).toBe("Oct 19");
 		expect(spanTitle("week", now, 1)).toBe("Oct 8 to Oct 14");
 		expect(spanTitle("month", now, 1)).toBe("September 2026");
+	});
+
+	it("adds up each provider's plan fees, charged and still to come, biggest first", () => {
+		expect(
+			plansInProjection(
+				[
+					row({ service: "Max 5x plan", expected: 100 }),
+					row({ equivalent: 9 }),
+				],
+				[
+					row({ provider: "kimi", service: "Max plan", expected: 99 }),
+					row({ provider: "codex", service: "Pro Lite plan", expected: 100 }),
+				],
+			),
+		).toEqual([
+			{ provider: "claude", amount: 100 },
+			{ provider: "codex", amount: 100 },
+			{ provider: "kimi", amount: 99 },
+		]);
+	});
+
+	it("names providers with plan usage but no plan", () => {
+		const plan = (provider: string, source: "none" | "detected") =>
+			({ provider, source }) as never;
+		expect(
+			missingPlans(
+				[
+					row({ provider: "antigravity", equivalent: 38 }),
+					row({ provider: "kimi", equivalent: 5 }),
+				],
+				[
+					plan("antigravity", "none"),
+					plan("kimi", "detected"),
+					plan("codex", "none"),
+				],
+			),
+		).toEqual(["antigravity"]);
 	});
 });

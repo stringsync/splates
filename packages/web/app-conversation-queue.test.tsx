@@ -89,6 +89,56 @@ describe("App's composer queue", () => {
 		).toMatch(/Task\s*#\s*3/);
 	});
 
+	it("opens a finished queued task's conversation from its bar", async () => {
+		testing.finished = [
+			{
+				key: "5-1760000000000",
+				id: 5,
+				task: "fix-upload",
+				subject: "Fix upload",
+				ended: "merged",
+				reason: null,
+				base: "main",
+				commit: "abc1234",
+				startedAt: "2026-11-01T00:00:00Z",
+				endedAt: "2026-11-01T01:00:00Z",
+				conversation: "c2",
+				took: [{ id: 12, subject: "Fix upload" }],
+				hasDemo: false,
+				plan: "",
+			},
+		];
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Triage",
+					messages: [
+						message("user", "Queue the fix"),
+						message(
+							"agent",
+							"## 🤖 Queued #12: Fix upload\n\nWhy: Uploads time out.",
+						),
+					],
+				}),
+				conversation({ id: "c2", title: "Fix upload", archived: true }),
+			],
+			"c1",
+			{ todos: [], tasks: [] },
+		);
+
+		expect(await view.findByText("1 task queued")).toBeTruthy();
+		const row = view.getByText("#12").closest("li") as HTMLLIElement;
+		expect(within(row).queryByText("done")).toBeNull();
+		await act(async () =>
+			fireEvent.click(await within(row).findByRole("button", { name: "View" })),
+		);
+		expect(
+			await view.findByRole("region", { name: "Fix upload" }),
+		).toBeTruthy();
+		expect(location.hash).toBe("#conversations/c2");
+	});
+
 	it("looks sent in the thread, not held above the composer, until it has waited past the delay", async () => {
 		setHeldAfterMs(400);
 		const state = conversation({

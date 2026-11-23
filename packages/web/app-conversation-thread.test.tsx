@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { SERVER_TOLD } from "@splates/server/conversations/browser";
 import { conflictWarning, earlyWarning } from "@splates/server/server/browser";
 import {
@@ -125,6 +125,34 @@ describe("App's conversation thread", () => {
 		expect(labels[0]?.querySelector("a")?.getAttribute("href")).toBe(
 			"#conversations/orch",
 		);
+	});
+
+	it("says under a message that the steps pop-out sent it, without the agent's prefix", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Read the note",
+					messages: [
+						message(
+							"user",
+							'(From the steps pop-out, on step 2 of 3 of "Rotate the secret": Pick the endpoint)\n\nWhich one is it?',
+						),
+					],
+				}),
+			],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+
+		await waitFor(() =>
+			expect(thread.textContent).toContain("Which one is it?"),
+		);
+
+		expect(thread.textContent).not.toContain("(From the steps pop-out");
+		expect(
+			thread.querySelector("[data-slot=aui_user-message-popped]")?.textContent,
+		).toBe("Sent from the steps pop-out, on step 2 of “Rotate the secret”");
 	});
 
 	it("draws splates server's early warning as an event line, not a message", async () => {
@@ -413,8 +441,16 @@ describe("App's conversation thread", () => {
 			return found as HTMLElement;
 		});
 		const hold = async (pointerType: string) => {
-			fireEvent.pointerDown(box, { pointerType });
-			await act(() => new Promise((done) => setTimeout(done, 600)));
+			await act(async () => {
+				// Restore real timers before React flushes the menu's effects.
+				jest.useFakeTimers();
+				try {
+					fireEvent.pointerDown(box, { pointerType });
+					jest.advanceTimersByTime(600);
+				} finally {
+					jest.useRealTimers();
+				}
+			});
 			fireEvent.pointerUp(box, { pointerType });
 		};
 

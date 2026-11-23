@@ -198,13 +198,25 @@ export class ConversationRoutes {
 			autoPick,
 			chosen,
 			ship,
+			queuedTask,
+			title,
 		} = await body(request);
+		const queued =
+			typeof queuedTask === "number" &&
+			Number.isInteger(queuedTask) &&
+			queuedTask > 0
+				? queuedTask
+				: undefined;
 		if (
 			this.#scratchRoot !== null &&
 			((typeof task === "string" && task !== "") ||
-				(task !== null && task !== undefined))
+				(task !== null && task !== undefined) ||
+				queued !== undefined)
 		) {
-			fail("usage", "a General conversation has no task", { task });
+			fail("usage", "a General conversation has no task", {
+				task,
+				...(queued === undefined ? {} : { queuedTask: queued }),
+			});
 		}
 		const tree = this.#scratchRoot === null ? await this.treeFor(task) : null;
 		const scratchRoot = this.#scratchRoot;
@@ -217,6 +229,11 @@ export class ConversationRoutes {
 			scratch: scratchRoot !== null,
 			model: typeof model === "string" && model !== "" ? model : undefined,
 			assigned: assigned === true,
+			queuedTask: queued,
+			title:
+				typeof title === "string" && title.trim() !== ""
+					? title.trim()
+					: undefined,
 			ship: typeof ship === "string" && ship !== "" ? ship : undefined,
 			settings: Object.fromEntries(
 				Object.entries(

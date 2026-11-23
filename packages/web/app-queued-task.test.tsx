@@ -121,34 +121,24 @@ describe("App's page for a queued task", () => {
 		expect(within(list).getByText("queued")).toBeTruthy();
 	});
 
-	it("takes what is sent in the thread's own composer as more for the task", async () => {
-		const view = await open("Waits for an agent");
-		const box = await view.findByRole("textbox", { name: "Message input" });
-
-		await typeIn(box, "Mind the retry limit.");
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send message" })),
-		);
-
-		await waitFor(() => expect(testing.posted("/api/todos/2")).toHaveLength(1));
-		const [sent] = testing.posted("/api/todos/2");
-		expect(sent?.method).toBe("PATCH");
-		expect(sent?.body).toMatchObject({ subject: "Waits for an agent" });
-		expect(sent?.body).toMatchObject({
-			text: expect.stringMatching(
-				/^\*\*Added while queued, .+:\*\*\n\nMind the retry limit\.$/,
-			),
-		});
-	});
-
-	it.each(["Needs the third", "Follows the fourth", "Follows running work"])(
-		"starts a conversation about %s instead of adding a note",
-		async (subject) => {
+	it.each([
+		{ id: 2, subject: "Waits for an agent", blocked: false },
+		{ id: 1, subject: "Needs the third", blocked: true },
+		{ id: 5, subject: "Follows the fourth", blocked: false },
+		{ id: 6, subject: "Follows running work", blocked: false },
+	])(
+		"starts an in-page conversation for $subject under its task card and hides the leading talk chip",
+		async ({ id, subject, blocked }) => {
 			const view = await open(subject);
 			const box = await view.findByRole("textbox", { name: "Message input" });
-			testing.reply = conversation({ id: "c9", status: "starting" });
+			testing.reply = conversation({
+				id: "c9",
+				status: "idle",
+				queuedTask: id,
+				title: subject,
+			});
 
-			await typeIn(box, "Why does this wait?");
+			await typeIn(box, "Wait, everything else is ok");
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: "Send message" })),
 			);
@@ -156,9 +146,63 @@ describe("App's page for a queued task", () => {
 			await waitFor(() =>
 				expect(testing.posted("/api/conversations")).toHaveLength(1),
 			);
-			expect(testing.posted("/api/todos/1")).toHaveLength(0);
-			expect(testing.posted("/api/todos/5")).toHaveLength(0);
-			expect(testing.posted("/api/todos/6")).toHaveLength(0);
+			expect(testing.posted("/api/conversations")[0]?.body).toMatchObject({
+				queuedTask: id,
+				title: subject,
+			});
+			expect(testing.posted(`/api/todos/${id}`)).toHaveLength(0);
+
+			// Stays on the queued task's cards, Unqueue button, and live thread.
+			expect(
+				await view.findByRole("article", { name: `Task #${id}` }),
+			).toBeTruthy();
+			expect(
+				view.getByRole("button", { name: "Unqueue: Unqueue" }),
+			).toBeTruthy();
+			expect(
+				blocked
+					? view.getByRole("region", { name: "Blocked" })
+					: view.getByRole("status", { name: "Queued" }),
+			).toBeTruthy();
+			expect(await view.findByText("Wait, everything else is ok")).toBeTruthy();
+			expect(view.queryByTitle(`[SPLATES TALK #${id}]`)).toBeNull();
 		},
 	);
+
+	it("shows the queued task cards when opening a live queuedTask conversation directly", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c9",
+					queuedTask: 1,
+					title: "Needs the third",
+					messages: [
+						{
+							role: "user",
+							parts: [
+								{
+									type: "text",
+									text: "[SPLATES TALK #1]\n\nCan we trim the scope?",
+								},
+							],
+							plan: null,
+							at: "2026-10-11T10:00:00.000Z",
+							until: "2026-10-11T10:00:00.000Z",
+						},
+					],
+				}),
+			],
+			undefined,
+			board,
+		);
+
+		expect(await view.findByRole("article", { name: "Task #1" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "Blocked" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Unqueue: Unqueue" })).toBeTruthy();
+		expect(view.getByText("Can we trim the scope?")).toBeTruthy();
+		expect(view.queryByTitle("[SPLATES TALK #1]")).toBeNull();
+		// Task #1 is deduplicated from the sidebar Queue list while its live talk is open.
+		const queue = view.getByRole("list", { name: /queue$/ });
+		expect(within(queue).queryByText("Needs the third")).toBeNull();
+	});
 });

@@ -1,11 +1,7 @@
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 
-/**
- * The columns a list of meters lays out in: a name, the bar, then what it
- * says. Every list on a page that uses them puts its bars at the same x, the
- * same width. On mobile the bar spans a second row below the name and numbers.
- */
+/** Apply to a meter grid to align its labels, bars, and values at desktop and phone widths. */
 export const METER_COLUMNS =
 	"grid-cols-[7rem_1fr_10rem] max-md:grid-cols-[minmax(0,1fr)_auto]";
 
@@ -20,21 +16,25 @@ export function toneOf(used: number): "warning" | "destructive" | null {
 
 /**
  * A thin bar filled to `used`, 0 to 1, in its tone, or in `color` for a
- * share that names who it is, which has no tone.
+ * share that names who it is, which has no tone. Pass a CSS background image
+ * as `trackPattern` to distinguish the unfilled portion.
  */
 export function Meter({
 	used,
 	color,
+	trackPattern,
 	className,
 }: {
 	used: number;
 	color?: string;
+	trackPattern?: string;
 	className?: string;
 }): JSX.Element {
 	const tone = color === undefined ? toneOf(used) : null;
 	return (
 		<span
 			aria-hidden
+			style={{ backgroundImage: trackPattern }}
 			className={cn(
 				"relative h-1 overflow-hidden rounded-full bg-foreground/15",
 				className,

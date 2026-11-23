@@ -62,18 +62,15 @@ describe("Settings", () => {
 	it("keeps a choice only while it is one the setting still offers", async () => {
 		const settings = new Settings(localStorage);
 		expect(settings.get("appearance.theme")).toBe("system");
-		expect(settings.get("appearance.accent")).toBe("graphite");
 
-		await settings.set("appearance.accent", "violet");
-		expect(new Settings(localStorage).get("appearance.accent")).toBe("violet");
+		await settings.set("appearance.theme", "dark");
+		expect(new Settings(localStorage).get("appearance.theme")).toBe("dark");
 
 		localStorage.setItem(
 			"splates.settings",
-			JSON.stringify({ "appearance.accent": "chartreuse" }),
+			JSON.stringify({ "appearance.theme": "chartreuse" }),
 		);
-		expect(new Settings(localStorage).get("appearance.accent")).toBe(
-			"graphite",
-		);
+		expect(new Settings(localStorage).get("appearance.theme")).toBe("system");
 	});
 
 	it("binds a shortcut, taking it from the one that had it, and keeps only one it can press", async () => {

@@ -1,6 +1,7 @@
 import { Disposer, type Resource } from "core/disposable";
 import { color, type Logger } from "core/log";
 import { Duration, SystemTimer, type Timer } from "core/time";
+import type { ReserveHold } from "../auto-pick/reserve";
 import { type TaskRecord, ungroomed } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
@@ -13,7 +14,7 @@ export const QUEUE_SWEEP = Duration.mins(1);
 /** The most sweeps the queue waits before trying a refused start again. */
 export const RETRY_SWEEPS_MAX = 30;
 
-/** The most queued tasks the queue starts at once, so a lane queued at once does not hit the machine and the agents' providers together. */
+/** The most queued tasks the queue starts at once. */
 export const QUEUE_STARTS_MAX = 2;
 
 /** The least time between two of the queue's starts, so agents connect one after another. */
@@ -75,6 +76,8 @@ export class QueueRunner implements Resource {
 	readonly #heldOn = new Map<string, string>();
 	/** The gap after the last start, until it passes; null once it has. */
 	#gap: Resource | null = null;
+	/** The agent-queued tasks held for the quota reserve now, by id. */
+	#reserved = new Map<number, ReserveHold>();
 
 	private constructor(
 		private readonly deps: QueueRunnerDeps,
@@ -110,6 +113,11 @@ export class QueueRunner implements Resource {
 		return this.#checking;
 	}
 
+	/** The tasks held for the quota reserve as of the last check, by id. */
+	holds(): ReadonlyMap<number, ReserveHold> {
+		return this.#reserved;
+	}
+
 	/** Tries queued task `id` again, its start refused, as though it changed. */
 	retry(id: number): Promise<void> {
 		this.#refused.delete(id);
@@ -136,9 +144,23 @@ export class QueueRunner implements Resource {
 			}
 		}
 		const resumed = await this.#resume(all);
+		// Only a task an agent queued is held; the person's own never are.
+		const reserved = new Map<number, ReserveHold>();
+		if (this.deps.reserve !== undefined) {
+			for (const queued of all) {
+				if (queued.stage === "queued" && queued.queuedBy?.by === "agent") {
+					const hold = await this.deps.reserve(queued);
+					if (hold !== null) {
+						reserved.set(queued.id, hold);
+					}
+				}
+			}
+		}
+		this.#reserved = reserved;
 		const startable = queueOrder(all).filter(
 			(queued) =>
 				!resumed.has(queued.id) &&
+				!reserved.has(queued.id) &&
 				!this.#starting.has(queued.id) &&
 				this.#refused.get(queued.id)?.due !== false &&
 				canStart(queued, all),
@@ -155,7 +177,7 @@ export class QueueRunner implements Resource {
 		const picks = await this.#picks(all, next);
 		const held =
 			this.deps.held === undefined
-				? new Map<number, string>()
+				? new Map<number, HeldConversation>()
 				: await this.#hold(
 						this.deps.held,
 						all,
@@ -177,13 +199,15 @@ export class QueueRunner implements Resource {
 			const task = taskName(queued, names);
 			names.add(task);
 			this.#starting.add(queued.id);
+			const existing = held.get(queued.id);
+			const live = existing?.live === true;
 			starts.push({
 				queued,
 				task,
-				pick: picks.of(queued),
+				pick: live ? { agent: existing.agent } : picks.of(queued),
 				prompt: queuePrompt(queued),
-				...(held.has(queued.id) ? { held: held.get(queued.id) } : {}),
-				...(picks.decided.has(queued.id)
+				...(existing === undefined ? {} : { held: existing.id }),
+				...(!live && picks.decided.has(queued.id)
 					? { decided: picks.decided.get(queued.id) }
 					: {}),
 			});
@@ -337,7 +361,7 @@ export class QueueRunner implements Resource {
 		busy: boolean,
 		/** The ones that start now, which the queue has room and leave to start. */
 		starting: ReadonlySet<number>,
-	): Promise<Map<number, string>> {
+	): Promise<Map<number, HeldConversation>> {
 		// One that names no agent is assigned one only at the last moment, once
 		// it can run, so none waits at an agent Auto pick only guessed; one whose
 		// start was refused stays, so its conversation says why.
@@ -348,7 +372,25 @@ export class QueueRunner implements Resource {
 		const queue = queueOrder(all);
 		const listed = await conversations.list();
 		const kept = new Map<number, HeldConversation>();
+		// Live talks the person started on a queued task are never auto-dropped
+		// or latched; keeping them first lets any stale held placeholder drop.
 		for (const each of listed) {
+			if (each.live !== true) {
+				continue;
+			}
+			const task = all.find((queued) => queued.id === each.queued);
+			if (
+				task !== undefined &&
+				task.stage === "queued" &&
+				!kept.has(each.queued)
+			) {
+				kept.set(each.queued, each);
+			}
+		}
+		for (const each of listed) {
+			if (each.live === true) {
+				continue;
+			}
 			const task = all.find((queued) => queued.id === each.queued);
 			const busy = this.#starting.has(each.queued) || each.handed;
 			const pick = task === undefined ? null : pickOf(task);
@@ -382,7 +424,7 @@ export class QueueRunner implements Resource {
 				await conversations.hold(queued, pickOf(queued));
 			}
 		}
-		const held = new Map<number, string>();
+		const held = new Map<number, HeldConversation>();
 		const now = await conversations.list();
 		for (const id of this.#heldOn.keys()) {
 			if (!now.some((each) => each.id === id)) {
@@ -395,10 +437,16 @@ export class QueueRunner implements Resource {
 			if (queued === undefined) {
 				continue;
 			}
+			if (each.live === true) {
+				if (!held.has(each.queued)) {
+					held.set(each.queued, each);
+				}
+				continue;
+			}
 			if (!this.#heldOn.has(each.id)) {
 				this.#heldOn.set(each.id, JSON.stringify(pickOf(queued)));
 			}
-			held.set(each.queued, each.id);
+			held.set(each.queued, each);
 			const refused = this.#refused.get(queued.id);
 			const reason =
 				refused?.due === false
@@ -501,6 +549,11 @@ export interface QueueRunnerDeps {
 	 */
 	overloaded?: () => boolean | Promise<boolean>;
 	capacity?: () => import("./load").QueueCapacityReading | undefined;
+	/**
+	 * Why an agent-queued task waits for the quota reserve, or null when it
+	 * may start; absent, none is held.
+	 */
+	reserve?: (queued: TaskRecord) => Promise<ReserveHold | null>;
 	log: Logger;
 }
 
@@ -542,6 +595,8 @@ export interface HeldConversation {
 	createdAt: string;
 	/** Whether a task the queue started names it, to take it. */
 	handed: boolean;
+	/** True for a live talk the person opened on the queued task (never auto-dropped or latched). */
+	live?: true;
 }
 
 /**

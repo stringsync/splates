@@ -11,6 +11,7 @@ import type {
 	Decision,
 	Device,
 	Image,
+	LiftReason,
 	Limit,
 	Reminder,
 	Setting,
@@ -58,6 +59,8 @@ type Said =
 			heldForTask?: number;
 			/** Read from `queued` in logs written before it was renamed. */
 			queued?: number;
+			/** The queued task the person opened a live talk on; missing for any other. */
+			queuedTask?: number;
 			/** The persistent agent's role it was started for; missing for an ordinary one. */
 			persistent?: string;
 			/** The automation that started it, by its id; missing for one none did. */
@@ -82,7 +85,14 @@ type Said =
 	 * What Auto pick set it to: at its start, or `lifted` when it moved it up
 	 * for what the person said later.
 	 */
-	| { kind: "auto-pick"; pick: AutoPickSet; lifted?: true; at: string }
+	| {
+			kind: "auto-pick";
+			pick: AutoPickSet;
+			lifted?: true;
+			/** For a lift, why it moved; absent on older lines. */
+			why?: LiftReason;
+			at: string;
+	  }
 	/** The person switched Auto pick on or off for the conversation. */
 	| {
 			kind: "auto-pick-switch";
@@ -104,6 +114,8 @@ type Said =
 	| { kind: "held-for-task"; heldForTask: null }
 	/** Read from `queued` in logs written before it was renamed. */
 	| { kind: "queued"; queued: null }
+	/** The queue started the task this live talk was opened on. */
+	| { kind: "queued-task"; queuedTask: null }
 	/** Moved into a task's worktree, or back to the main tree. */
 	| {
 			kind: "task";

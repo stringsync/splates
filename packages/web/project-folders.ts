@@ -197,7 +197,12 @@ function queuedOf(
 ): Queued[] {
 	const order = queueOrder(todos)
 		.filter(
-			(todo) => !conversations.some((each) => each.heldForTask === todo.id),
+			(todo) =>
+				!conversations.some(
+					(each) =>
+						!each.archived &&
+						(each.heldForTask === todo.id || each.queuedTask === todo.id),
+				),
 		)
 		.map((todo) => ({
 			todo,

@@ -2,6 +2,7 @@ import type { Conversation } from "../conversations";
 import { fail } from "../exit";
 import { fileResponse, refuse } from "../server/shared";
 import { CAPTURE_REPORT } from "./capture";
+import { DIAGRAM_REQUEST } from "./diagrams";
 import { viewerOf } from "./viewers";
 
 /**
@@ -39,12 +40,9 @@ export async function artifactResponse(
 			`version ${number} of artifact ${name} is gone: ${version.gone?.why ?? "its file is missing"}`,
 		);
 	}
-	const reporting =
-		new URL(request.url).searchParams.has("select") &&
-		/^text\/html\b/i.test(read.mimeType);
 	const response = fileResponse(
 		request,
-		reporting ? withSelectionReport(read.bytes) : read.bytes,
+		served(read, new URL(request.url).searchParams.has("select")),
 		read.mimeType,
 		{
 			// A version never changes, but its bytes can be deleted.
@@ -74,14 +72,35 @@ export async function artifactResponse(
  */
 const SELECTION_REPORT = `<script>(()=>{const t=()=>{const s=getSelection();const x=s&&s.rangeCount?s.toString().trim():"";let r=null;if(x){const b=s.getRangeAt(0).getBoundingClientRect();r={x:b.left,y:b.top,w:b.width,h:b.height}}parent.postMessage({splates:"selection",text:x.slice(0,2000),rect:r},"*")};document.addEventListener("selectionchange",()=>setTimeout(t,0));addEventListener("scroll",t,true)})()</script>`;
 
-/** `bytes`, a page, with the selection report run at its end. */
-function withSelectionReport(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+/**
+ * The bytes sent for `read`: a page runs the diagram request at its end, and
+ * with `selecting` the selection and capture reports too; anything else is
+ * sent as kept.
+ */
+function served(
+	read: { bytes: Uint8Array; mimeType: string },
+	selecting: boolean,
+): Uint8Array {
+	if (!/^text\/html\b/i.test(read.mimeType)) {
+		return read.bytes;
+	}
+	return withScripts(
+		read.bytes,
+		selecting
+			? DIAGRAM_REQUEST + SELECTION_REPORT + CAPTURE_REPORT
+			: DIAGRAM_REQUEST,
+	);
+}
+
+/** `bytes`, a page, with `scripts` run at its end. */
+function withScripts(
+	bytes: Uint8Array,
+	scripts: string,
+): Uint8Array<ArrayBuffer> {
 	const html = new TextDecoder().decode(bytes);
 	const at = html.toLowerCase().lastIndexOf("</body>");
 	const out =
-		at === -1
-			? html + SELECTION_REPORT + CAPTURE_REPORT
-			: html.slice(0, at) + SELECTION_REPORT + CAPTURE_REPORT + html.slice(at);
+		at === -1 ? html + scripts : html.slice(0, at) + scripts + html.slice(at);
 	return new TextEncoder().encode(out);
 }
 

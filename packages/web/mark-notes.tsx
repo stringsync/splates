@@ -31,8 +31,7 @@ export function MarkList({
 				Marks · {marks.length}
 			</h2>
 			{marks.length === 0 && (
-				// The list's room is held from the start, so drawing the first mark
-				// does not resize the board.
+				// Says where notes will go before the first mark is drawn.
 				<p className="px-0.5 text-sm text-white/50">
 					Notes on what you draw go here.
 				</p>

@@ -152,7 +152,7 @@ export function RunCommandCard({
 				/>
 			)}
 			{choice === null && send !== null ? (
-				<div ref={panel} className="border-t px-4 py-4">
+				<div ref={panel} className="rule-t px-4 py-4">
 					<CardSection
 						label="Anything else section"
 						title="Anything else?"
@@ -175,7 +175,7 @@ export function RunCommandCard({
 			) : choice !== null && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />
 			) : null}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
+			<div className="flex flex-wrap items-center justify-end gap-2 rule-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
 				{choice !== null ? (
 					<span className="flex items-center gap-1 text-xs">
 						{choice === RUN_ALLOWED ? (

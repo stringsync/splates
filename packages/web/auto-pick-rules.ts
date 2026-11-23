@@ -2,6 +2,7 @@ import type {
 	AutoPickAgent,
 	AutoPickRules,
 	AutoPickRulesView,
+	Holdout,
 	Lineup,
 	LineupColor,
 	Pace,
@@ -10,6 +11,7 @@ import type {
 } from "@splates/server/auto-pick";
 import {
 	cellLabel,
+	DEFAULT_HOLDOUT,
 	DEFAULT_PACE,
 	DEFAULT_RULES,
 	LINEUP_COLORS,
@@ -116,6 +118,11 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		return this.draft.pace ?? DEFAULT_PACE;
 	}
 
+	/** Whether a share of tasks starts one difficulty easier, the default's when the rules name none. */
+	get holdout(): Holdout {
+		return this.draft.holdout ?? DEFAULT_HOLDOUT;
+	}
+
 	/** Reads the rules, unless they were read already. */
 	async load(): Promise<void> {
 		if (this.saved !== null) {
@@ -149,6 +156,21 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 	/** How much of a window a pick may use at all, as a whole percent. */
 	setSpentPercent(percent: number): void {
 		this.editPace("spent", percent);
+	}
+
+	setHeldOut(on: boolean): void {
+		this.edit((rules) => ({ ...rules, holdout: { ...this.holdout, on } }));
+	}
+
+	/** The share of tasks held out, as a whole percent. */
+	setHoldoutPercent(percent: number): void {
+		if (Number.isFinite(percent)) {
+			const clamped = Math.min(100, Math.max(0, Math.round(percent)));
+			this.edit((rules) => ({
+				...rules,
+				holdout: { ...this.holdout, share: clamped / 100 },
+			}));
+		}
 	}
 
 	/** The lineup with `id`, if the draft has it. */
@@ -378,7 +400,12 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 				return { ...base, routes: source.routes };
 			}
 			if (section === "settings") {
-				return { ...base, threshold: source.threshold, pace: source.pace };
+				return {
+					...base,
+					threshold: source.threshold,
+					pace: source.pace,
+					holdout: source.holdout,
+				};
 			}
 			if (section.cells !== undefined) {
 				const routes = structuredClone(base.routes);

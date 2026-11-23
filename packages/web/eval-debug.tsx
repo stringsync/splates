@@ -1,43 +1,96 @@
+import { makeAssistantDataUI } from "@assistant-ui/react";
+import type { Tool } from "@splates/server/conversations";
 import type { EvalDetail, EvalStep } from "@splates/server/evals/browser";
 import { targetName } from "@splates/server/evals/browser";
-import { ChevronRightIcon } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import { ClockIcon, WrenchIcon } from "lucide-react";
 import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#web/components/ui/collapsible.tsx";
+	createContext,
+	type JSX,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
+import { flushSync } from "react-dom";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { evalRun } from "./api";
-import { CardSection } from "./card-section";
 import { StillWaiting } from "./countdown";
-import { StatusChip, spent } from "./eval-status";
-import { EvalReply } from "./evals-reply";
+import {
+	checkStep,
+	durationLabel,
+	EvalJudgment,
+	JudgeBox,
+} from "./eval-judgment";
+import { StatusChip } from "./eval-status";
+import { Markdown } from "./markdown";
+import { RecordedThread, recordedTurn } from "./recorded-thread";
+import { RouteTrail } from "./route-trail";
+import { TopBar } from "./top-bar";
+import type { Work } from "./work";
+import { type RecordedCall, type RecordedWork, WorkRow } from "./work-row";
 
-/**
- * One run opened to see why it went as it did: what it asked, what broke if
- * it broke, each code check, the judge's verdict and reason, the reply drawn
- * as the cards a person would meet, and every step the agent took.
- */
-export function EvalDebug({ id }: { id: string }): JSX.Element {
+// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
+export function EvalDebug({
+	id,
+	onEvals,
+	onReport,
+}: {
+	id: string;
+	onEvals: () => void;
+	onReport: () => void;
+}): JSX.Element {
 	const [run, setRun] = useState<EvalDetail | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	useEffect(() => {
-		setRun(null);
-		evalRun(id).then(setRun, (failed: unknown) =>
-			setError(failed instanceof Error ? failed.message : String(failed)),
+		let current = true;
+		void evalRun(id).then(
+			(loaded) => {
+				if (current) {
+					setRun(loaded);
+				}
+			},
+			(failed: unknown) => {
+				if (current) {
+					setError(failed instanceof Error ? failed.message : String(failed));
+				}
+			},
 		);
+		return () => {
+			current = false;
+		};
 	}, [id]);
+	const batch = run?.batch;
 	return (
-		<section aria-label="eval run" className="flex min-w-0 flex-col gap-5">
-			{error !== null && (
-				<p role="alert" className="text-destructive text-sm">
-					{error}
-				</p>
-			)}
-			{run === null && error === null && <RunSkeleton />}
-			{run !== null && <Run run={run} />}
+		<section aria-label="evals" className="flex min-w-0 flex-col gap-6">
+			<TopBar
+				title={
+					<RouteTrail
+						items={[
+							{ label: "Evals", onClick: onEvals },
+							{
+								label:
+									batch === undefined
+										? "Report"
+										: `${batch.title} ×${batch.cells}`,
+								onClick: onReport,
+							},
+							{ label: "Run" },
+						]}
+					/>
+				}
+			/>
+			<section
+				aria-label="eval run"
+				className="mx-auto flex w-full max-w-[40rem] min-w-0 flex-col gap-3 pb-6"
+			>
+				{error !== null && (
+					<p role="alert" className="text-destructive text-sm">
+						{error}
+					</p>
+				)}
+				{run === null && error === null && <RunSkeleton />}
+				{run !== null && <Run run={run} />}
+			</section>
 		</section>
 	);
 }
@@ -66,167 +119,194 @@ function RunSkeleton(): JSX.Element {
 	);
 }
 
+const RecordedWorkContext = createContext<RecordedWork | null>(null);
+
+const EvalWorkUI = makeAssistantDataUI<{ work: Work }>({
+	name: "work",
+	render: ({ data }) => {
+		const recorded = useContext(RecordedWorkContext);
+		return (
+			<WorkRow work={data.work} {...(recorded === null ? {} : { recorded })} />
+		);
+	},
+});
+
 function Run({ run }: { run: EvalDetail }): JSX.Element {
+	const harness = run.harness !== undefined;
+	const { messages, calls } = useMemo(() => {
+		const records = new Map<string, RecordedCall>();
+		const tools = harness
+			? []
+			: run.transcript.flatMap((step, index) => {
+					if (step.kind !== "tool") {
+						return [];
+					}
+					const id = stepId(index);
+					const checks = run.checks.filter(
+						(check) => checkStep(check, run)?.index === index,
+					);
+					records.set(id, {
+						elapsed: durationLabel(step.milliseconds),
+						annotation:
+							checks.length === 0
+								? null
+								: checks.map((check) => (
+										<JudgeBox
+											key={check.id}
+											tone="fail"
+											title={
+												<>
+													Judged: <code>{check.id}</code> failed here
+												</>
+											}
+										>
+											<div className="px-3 py-2">
+												<Markdown text={`**Expected** · ${check.about}`} />
+												<Markdown text={check.step?.observed ?? ""} />
+											</div>
+										</JudgeBox>
+									)),
+					});
+					return [asTool(step, id)];
+				});
+		return {
+			calls: records,
+			messages: recordedTurn(
+				run.id,
+				run.input,
+				tools,
+				harness ? "" : run.reply,
+				tools.length > 0 || (!harness && run.phases?.agentMs !== undefined),
+			),
+		};
+	}, [run, harness]);
+	const [open, setOpen] = useState(() =>
+		run.checks.some((check) => checkStep(check, run) !== undefined),
+	);
+	const recorded = {
+		calls,
+		open,
+		onOpenChange: setOpen,
+		elapsed: durationLabel(run.phases?.agentMs),
+	};
+	const jumpTo = (index: number) => {
+		flushSync(() => setOpen(true));
+		const row = document.getElementById(stepId(index));
+		row?.focus({ preventScroll: true });
+		row?.scrollIntoView({ block: "nearest" });
+	};
+	const setup = durationLabel(run.phases?.setupMs);
 	return (
 		<>
-			<header className="flex flex-col gap-1">
-				<span className="flex flex-wrap items-center gap-2">
-					<StatusChip status={run.status} />
-					<h2 className="font-medium">{run.scenario}</h2>
-					<span className="text-muted-foreground text-sm">
-						on {targetName(run.target)}
-						{run.repetition > 0 && `, repetition ${run.repetition + 1}`}
+			<header className="flex flex-wrap items-center gap-x-2 gap-y-1">
+				{harness ? (
+					<span className="inline-flex h-5 items-center gap-1 rounded-full bg-muted px-2 font-medium text-muted-foreground text-xs">
+						<WrenchIcon aria-hidden className="size-3" /> harness
 					</span>
-				</span>
-				<p className="text-muted-foreground text-xs">
-					{[
-						run.aspect,
-						run.score === undefined ? "" : `score ${run.score.toFixed(2)}`,
-						spent(run),
-					]
-						.filter((part) => part !== "")
-						.join(" · ")}
-				</p>
-				<p className="text-sm">{run.requirement}</p>
-				{run.reason !== undefined && run.error === undefined && (
-					<p className="text-sm">{run.reason}</p>
-				)}
-				{run.url !== undefined && (
-					<a
-						href={run.url}
-						target="_blank"
-						rel="noreferrer"
-						className="text-sm underline"
-					>
-						Open in its framework
-					</a>
-				)}
-			</header>
-			{run.error !== undefined && (
-				<p role="alert" className="text-destructive text-sm">
-					The run broke before it could be graded: {run.error}
-				</p>
-			)}
-			{run.input !== "" && (
-				<Part title="Asked">
-					<pre className="whitespace-pre-wrap text-sm">{run.input}</pre>
-				</Part>
-			)}
-			{run.checks.length > 0 && (
-				<Part
-					title={`Checks: ${run.checks.filter((check) => check.pass).length} of ${run.checks.length} pass`}
-				>
-					<ul className="flex flex-col gap-1 text-sm">
-						{run.checks.map((check) => (
-							<li key={check.id} className="flex flex-wrap items-center gap-2">
-								<StatusChip status={check.pass ? "pass" : "fail"} />
-								<span className="font-medium">{check.id}</span>
-								<span className="text-muted-foreground">{check.about}</span>
-								{check.error !== undefined && (
-									<span className="text-destructive text-xs">
-										{check.error}
-									</span>
-								)}
-							</li>
-						))}
-					</ul>
-				</Part>
-			)}
-			{run.judge !== null && (
-				<Part title="Judge">
-					<div className="flex flex-col gap-1 text-sm">
-						<span className="flex items-center gap-2">
-							<StatusChip status={run.judge.pass ? "pass" : "fail"} />
-							{run.judge.reason}
-							{run.judge.judge !== undefined && (
-								<span className="text-muted-foreground text-xs">
-									judged by {run.judge.judge}
-								</span>
-							)}
-						</span>
-						{run.rubric !== null && (
-							<p className="text-muted-foreground text-xs">
-								Asked: {run.rubric}
-							</p>
-						)}
-					</div>
-				</Part>
-			)}
-			<Part title="Reply">
-				{run.reply === "" ? (
-					<p className="text-muted-foreground text-sm">No reply.</p>
 				) : (
-					<EvalReply text={run.reply} />
+					<StatusChip status={run.status} />
 				)}
-			</Part>
-			<Part title={`Transcript: ${run.transcript.length} steps`}>
-				<ol className="flex flex-col gap-2 text-xs">
-					{run.transcript.map((step, index) => (
-						// Steps are only ever appended, so their place is their identity.
-						// biome-ignore lint/suspicious/noArrayIndexKey: see above
-						<Step key={index} step={step} />
-					))}
-				</ol>
-			</Part>
+				<h2 className="font-semibold wrap-anywhere">{run.scenario}</h2>
+				<span className="text-muted-foreground text-xs wrap-anywhere">
+					{targetName(run.target)}
+					{run.repetition > 0 && ` · repetition ${run.repetition + 1}`}
+				</span>
+			</header>
+			{harness ? (
+				<JudgeBox
+					tone="neutral"
+					title={
+						run.harness === "skipped"
+							? "Skipped after a harness error"
+							: "Never reached the agent"
+					}
+					meta={durationLabel(run.milliseconds)}
+				>
+					<div className="px-3 py-2">
+						<Markdown text={run.error ?? run.reason ?? ""} />
+						<p>This run is left out of pass rates.</p>
+					</div>
+				</JudgeBox>
+			) : (
+				setup !== undefined && (
+					<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+						<ClockIcon aria-hidden className="size-3.5" /> Sandbox ready in{" "}
+						{setup}
+					</p>
+				)
+			)}
+			<div className={harness ? "opacity-55" : undefined}>
+				<RecordedWorkContext.Provider value={recorded}>
+					<RecordedThread messages={messages}>
+						<EvalWorkUI />
+					</RecordedThread>
+				</RecordedWorkContext.Provider>
+			</div>
+			{harness ? (
+				<p className="text-muted-foreground text-xs">
+					The agent was not started.
+				</p>
+			) : (
+				<>
+					{run.reply === "" && (
+						<p className="text-muted-foreground text-xs">No reply.</p>
+					)}
+					<EvalJudgment run={run} onStep={jumpTo} />
+				</>
+			)}
+			{run.url !== undefined && (
+				<a
+					href={run.url}
+					target="_blank"
+					rel="noreferrer"
+					className="w-fit text-sm underline"
+				>
+					Open in its framework
+				</a>
+			)}
 		</>
 	);
 }
 
-/** One step: the agent's words, or a tool call folded to its input with what came back inside. */
-function Step({ step }: { step: EvalStep }): JSX.Element {
-	if (step.kind === "text") {
-		return <li className="whitespace-pre-wrap text-sm">{step.text}</li>;
-	}
-	return (
-		<li>
-			<Collapsible className="rounded border px-2 py-1">
-				<CollapsibleTrigger className="group flex w-full items-start gap-1 rounded py-1 text-left font-mono hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-					<ChevronRightIcon
-						aria-hidden="true"
-						className="size-3.5 shrink-0 transition-transform group-aria-expanded:rotate-90 motion-reduce:transition-none"
-					/>
-					<span className="min-w-0 whitespace-pre-wrap break-all">
-						<span className="font-medium">{step.name}</span> {shown(step)}
-					</span>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<pre
-						className={cn(
-							"mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-all",
-							step.output === null && "text-muted-foreground",
-						)}
-					>
-						{step.output ?? "(no result)"}
-					</pre>
-				</CollapsibleContent>
-			</Collapsible>
-		</li>
-	);
+function stepId(index: number): string {
+	return `eval-step-${index}`;
 }
 
-/** A tool call's input as one line: a shell command as written, anything else as its JSON. */
-function shown(step: Extract<EvalStep, { kind: "tool" }>): string {
+function asTool(step: Extract<EvalStep, { kind: "tool" }>, id: string): Tool {
+	const input = shortInput(step.input);
+	return {
+		type: "tool",
+		id,
+		title: input === "" ? step.name : `${step.name}: ${input}`,
+		status: "completed",
+		kind: null,
+		command: null,
+		target: null,
+		output: [step.input, step.output].filter(Boolean).join("\n\n"),
+		edits: [],
+		paths: [],
+		parent: null,
+		at: null,
+		until: null,
+		flags: [],
+		decision: null,
+	};
+}
+
+function shortInput(input: string): string {
 	try {
-		const input = JSON.parse(step.input) as { command?: unknown };
-		if (typeof input.command === "string") {
-			return input.command;
+		const value = JSON.parse(input) as unknown;
+		if (value !== null && typeof value === "object") {
+			const args = Object.values(value);
+			if (args.length === 0) {
+				return "";
+			}
+			if (args.length === 1 && typeof args[0] === "string") {
+				return args[0];
+			}
 		}
 	} catch {
-		return step.input;
+		return input;
 	}
-	return step.input;
-}
-
-function Part({
-	title,
-	children,
-}: {
-	title: string;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<CardSection label={title} title={title}>
-			{children}
-		</CardSection>
-	);
+	return input;
 }

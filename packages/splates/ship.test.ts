@@ -34,7 +34,7 @@ test("a skill with no version to stamp is refused", () => {
 	);
 });
 
-test("splates counts unshipped commits since its package last changed version", async () => {
+test("splates counts unshipped commits since its newest release tag", async () => {
 	const commands: string[] = [];
 	const count = await splatesShip.unshipped?.({
 		sh: async (command: string) => {
@@ -43,7 +43,7 @@ test("splates counts unshipped commits since its package last changed version", 
 		},
 	});
 	expect(count).toBe(5);
-	expect(commands[0]).toContain("-- 'splates/packages/splates/package.json'");
+	expect(commands[0]).toContain("'refs/tags/@stringsync/splates@*'");
 	expect(commands[0]).toContain(
 		"'splates/packages/splates' 'splates/packages/server' 'splates/packages/web'",
 	);

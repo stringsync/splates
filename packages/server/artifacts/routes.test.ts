@@ -5,6 +5,7 @@ import { Conversations } from "../conversations";
 import { dev } from "../server";
 import { json } from "../server/testing";
 import { Testing } from "../testing";
+import { DIAGRAM_REQUEST } from ".";
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
@@ -53,6 +54,9 @@ describe("dev artifacts", () => {
 				);
 
 			const [page, notes] = [await at("page.html"), await at("notes ü.pdf")];
+			// A page asks its frame to draw its D2 diagrams; anything else is sent as kept.
+			expect(await page.clone().text()).toBe(`<p>one</p>${DIAGRAM_REQUEST}`);
+			expect(await notes.clone().text()).toBe("%PDF");
 			expect({
 				disposition: page.headers.get("content-disposition"),
 				referrer: page.headers.get("referrer-policy"),

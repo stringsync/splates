@@ -1,6 +1,12 @@
 import { CAP_PREFIX } from "../agents";
 import type { Limit, Setting } from "../conversations";
-import { type AgentPick, modelOption, type RosterAgent } from "../models";
+import {
+	type AgentPick,
+	antigravityLimitsForModel,
+	isAntigravity,
+	modelOption,
+	type RosterAgent,
+} from "../models";
 import { type Catalog, inputKey } from "../prices";
 import { cellLabel, DEFAULT_PACE } from "./cells";
 import {
@@ -15,6 +21,7 @@ import {
 } from "./classes";
 import type { Classification } from "./classify";
 import { type Avoided, avoidedBy } from "./health";
+import type { HeldOut } from "./holdout";
 import { type AutoPickRules, type Lineup, lineupFor } from "./rules";
 
 /**
@@ -66,6 +73,8 @@ export interface AutoPickDecision {
 	clarity?: ClarityId | null;
 	/** Why, in short lines the page can show, the pick first. */
 	reasons: string[];
+	/** Set when the holdout started it one difficulty easier than judged, as an experiment. */
+	holdout?: HeldOut;
 }
 
 /** What a decision reads besides the task's classification. */
@@ -143,6 +152,34 @@ export function decideDeeper(
 }
 
 /**
+ * A pick for the work of `set` taken one depth easier, as a holdout starts
+ * it: the lineup of its kind at that depth, saying `why`. Null when the
+ * depth is unsure or shallow already, so there is none easier.
+ */
+export function decideEasier(
+	input: DecideContext,
+	set: {
+		kind: KindId | null;
+		depth: DepthId | null;
+		clarity?: ClarityId | null;
+	},
+	why: string,
+): AutoPickDecision | null {
+	const at = DEPTHS.findIndex((each) => each.id === set.depth);
+	const easier = at > 0 ? DEPTHS[at - 1] : undefined;
+	if (easier === undefined) {
+		return null;
+	}
+	return choose(
+		input,
+		set.kind,
+		easier.id,
+		`${why}, so ${easier.label.toLowerCase()}`,
+		set.clarity,
+	);
+}
+
+/**
  * The lineup of `kind` at `depth`, or `lineup` when given, and the first of
  * its picks with plan left.
  */
@@ -205,11 +242,13 @@ function choose(
 			return [];
 		}
 		const { model: _, ...rest } = pick;
-		const limits = (input.limits[agent.id] ?? []).filter(
-			(each) =>
-				!each.window.startsWith(CAP_PREFIX) ||
-				each.window === `${CAP_PREFIX}${model ?? ""}`,
-		);
+		const limits = isAntigravity(agent)
+			? antigravityLimitsForModel(input.limits[agent.id] ?? [], model)
+			: (input.limits[agent.id] ?? []).filter(
+					(each) =>
+						!each.window.startsWith(CAP_PREFIX) ||
+						each.window === `${CAP_PREFIX}${model ?? ""}`,
+				);
 		const candidate = {
 			pick: model === undefined ? rest : { ...rest, model },
 			agent,
@@ -446,7 +485,10 @@ function pressed(
 	now: Date,
 ): { used: number; window: string } | undefined {
 	return limits
-		.filter((each) => !(Date.parse(each.resets) <= now.getTime()))
+		.filter(
+			(each) =>
+				each.resets === null || !(Date.parse(each.resets) <= now.getTime()),
+		)
 		.reduce<{ used: number; window: string } | undefined>(
 			(most, each) =>
 				most === undefined || each.used > most.used
@@ -477,7 +519,8 @@ function fastest(
 	return limits
 		.flatMap((each) => {
 			const length = lengthOf(each.window);
-			const resets = Date.parse(each.resets);
+			const resets =
+				each.resets === null ? Number.NaN : Date.parse(each.resets);
 			if (length === null || !(resets > now.getTime())) {
 				return [];
 			}
@@ -522,11 +565,19 @@ const UNITS: Record<string, number> = {
 
 /**
  * A window's length in milliseconds from its name, as Claude names them
- * (`five_hour`, `seven_day_opus`) and Codex's that splates names
- * (`300_minutes`); null for a name that gives none.
+ * (`five_hour`, `seven_day_opus`), Codex's that splates names (`300_minutes`),
+ * and Antigravity's grouped windows (`Gemini Models · Five Hour`, `Weekly`);
+ * null for a name that gives none.
  */
 function lengthOf(window: string): number | null {
-	const [count, unit] = window.toLowerCase().split("_");
+	const suffix = window.split(" · ").at(-1)?.trim().toLowerCase() ?? "";
+	if (suffix === "weekly") {
+		return UNITS.week ?? null;
+	}
+	if (suffix === "daily") {
+		return UNITS.day ?? null;
+	}
+	const [count, unit] = suffix.split(/[_\s-]+/);
 	const times = /^\d+$/.test(count ?? "") ? Number(count) : COUNTS[count ?? ""];
 	const each = UNITS[unit?.replace(/s$/, "") ?? ""];
 	return times === undefined || each === undefined || times === 0

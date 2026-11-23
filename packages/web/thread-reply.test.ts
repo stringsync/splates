@@ -18,6 +18,35 @@ describe("thread-reply", () => {
 		expect(beforeCard("1. first\n2. second")).toBe("1. first\n2. second");
 	});
 
+	test("folds a plan into the questions that decide it", () => {
+		const parts = replied(
+			[
+				"## 📝 Plan: retry scans",
+				"",
+				"### Approach",
+				"",
+				"1. Retry in the worker.",
+				"",
+				"1. Do you approve retrying scans?",
+				"   - (a) Yes, approve it",
+				"   - (b) No",
+			].join("\n"),
+			true,
+			{ task: null },
+		);
+		expect(parts.map((part) => part.type)).toEqual(["data-questions"]);
+		expect((parts[0] as { data: { plan: unknown } }).data.plan).toEqual({
+			title: "retry scans",
+			body: "### Approach\n\n1. Retry in the worker.",
+		});
+	});
+
+	test("leaves a plan no questions follow as its text", () => {
+		expect(
+			replied("## 📝 Plan: retry scans\n\nBody.", true, { task: null }),
+		).toEqual([{ type: "text", text: "## 📝 Plan: retry scans\n\nBody." }]);
+	});
+
 	test("holds a card back while the agent writes", () => {
 		const turn = { task: null };
 		expect(replied("## 🔐 Permission: run command: x", false, turn)).toEqual(

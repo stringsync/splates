@@ -92,6 +92,14 @@ describe("EvalRun", () => {
 		expect(server.started[0]).toMatchObject({ reps: 5 });
 		run.dispose();
 	});
+	it("ticks only the first saved agent when the card names no Agents line", async () => {
+		const run = EvalRun.of(proposal(), { server, timer });
+
+		await run.load();
+
+		expect(run.picked).toEqual([{ agent: "claude", model: "opus" }]);
+		run.dispose();
+	});
 	it("ticks only the agents the card names and flags the ones not saved", async () => {
 		const run = EvalRun.of(
 			{ ...proposal(), evals: { ...ASK, agents: ["codex", "claude:gone"] } },
@@ -174,7 +182,7 @@ describe("EvalRun", () => {
 		expect(server.started).toEqual([
 			{
 				...ASK,
-				agents: [{ agent: "claude", model: "opus" }],
+				agents: [{ agent: "claude", model: "opus" }, { agent: "codex" }],
 				conversation: "c-1",
 				budget: { usd: 10 },
 			},

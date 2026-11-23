@@ -1,5 +1,10 @@
 export { AGY_CLI, agyInstalled } from "./antigravity";
 export { antigravityLimits, isAntigravity } from "./antigravity-limits";
+export {
+	antigravityLimitsForModel,
+	antigravityModelInGroup,
+	currentAntigravityLimits,
+} from "./antigravity-quota";
 export { codexLimits, isCodex } from "./codex-limits";
 export {
 	effortSettings,
@@ -17,6 +22,7 @@ export {
 	kimiUsageIn,
 	kimiUsagePath,
 } from "./kimi-usage";
+export type { LimitPeak } from "./limits";
 export { Limits } from "./limits";
 export {
 	modelOption,

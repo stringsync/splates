@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { SERVING } from "@splates/server/server";
 import { Testing } from "@splates/server/testing";
 import type { SpawnOptions } from "core/system";
+import { FakeTimer } from "core/time/testing";
 import { splates } from "./splates";
 
 /**
@@ -53,14 +54,22 @@ describe("splates cli", () => {
 	});
 
 	it("reads the machine and says whether it is busy, with no server", async () => {
-		await splates.run(deps, ["machine", "--json"]);
+		const machineTimer = new FakeTimer();
+		const machineDeps = { ...deps, machineTimer };
+		const json = splates.run(machineDeps, ["machine", "--json"]);
+		expect(machineTimer.timeouts.map(({ delay }) => delay.ms)).toEqual([1000]);
+		machineTimer.fireTimeouts();
+		await json;
 
 		const reading = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(typeof reading.busy).toBe("boolean");
 		expect(reading.cores).toBeGreaterThan(0);
 		expect(reading.cpu).toBeGreaterThanOrEqual(0);
 
-		await splates.run(deps, ["machine"]);
+		const human = splates.run(machineDeps, ["machine"]);
+		expect(machineTimer.timeouts.map(({ delay }) => delay.ms)).toEqual([1000]);
+		machineTimer.fireTimeouts();
+		await human;
 		expect(String(env.log.entries.at(-1)?.message)).toMatch(
 			/^(not )?busy: CPU \d+%, memory \d+%, load [\d.]+ on \d+ cores/,
 		);

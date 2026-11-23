@@ -41,7 +41,11 @@ export async function antigravityLimits(deps: {
 	}
 }
 
-/** Quota groups from `agy --print /usage --output-format json`. */
+/**
+ * Quota groups from `agy --print /usage --output-format json`, one window per
+ * model: buckets for one model's levels ("Gemini 4 Neon (High)") fold into the
+ * most used of them. A reset at the 1970 epoch is agy's placeholder for none.
+ */
 export function antigravityLimitsIn(payload: unknown, at: string): Limit[] {
 	const root = record(payload);
 	const command = record(root?.command);
@@ -53,7 +57,7 @@ export function antigravityLimitsIn(payload: unknown, at: string): Limit[] {
 	) {
 		return [];
 	}
-	const limits: Limit[] = [];
+	const limits = new Map<string, Limit>();
 	for (const entry of groups) {
 		const group = record(entry);
 		if (
@@ -80,15 +84,22 @@ export function antigravityLimitsIn(payload: unknown, at: string): Limit[] {
 			) {
 				continue;
 			}
-			limits.push({
-				window: `${group.name} · ${name.replace(/ Limit Remaining$/, "")}`,
-				used: 1 - remaining,
-				resets: new Date(reset).toISOString(),
-				at,
-			});
+			const window = `${group.name} · ${name
+				.replace(/ Limit Remaining$/, "")
+				.replace(/ \([^)]*\)$/, "")}`;
+			const used = 1 - remaining;
+			const known = limits.get(window);
+			if (known === undefined || used > known.used) {
+				limits.set(window, {
+					window,
+					used,
+					resets: Date.parse(reset) <= 0 ? null : new Date(reset).toISOString(),
+					at,
+				});
+			}
 		}
 	}
-	return limits;
+	return [...limits.values()];
 }
 
 function record(value: unknown): Record<string, unknown> | null {

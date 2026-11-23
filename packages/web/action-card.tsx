@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, type Tone } from "./card-shell";
@@ -85,6 +86,9 @@ export function ActionCard({
 			setRunning(false);
 		}
 	};
+	const hasAbove =
+		body !== "" ||
+		(children !== undefined && children !== null && children !== false);
 	return (
 		<CardShell
 			label={label}
@@ -94,7 +98,12 @@ export function ActionCard({
 		>
 			{body !== "" && <CardBody text={body} />}
 			{children}
-			<div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
+			<div
+				className={cn(
+					"flex flex-wrap items-center justify-end gap-2 px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full",
+					hasAbove && "rule-t",
+				)}
+			>
 				{gone === null && !done && note !== undefined && (
 					<span className="mr-auto text-muted-foreground text-xs">{note}</span>
 				)}

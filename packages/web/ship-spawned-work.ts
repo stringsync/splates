@@ -90,6 +90,7 @@ export function spawnedWork({
 		const conversation = live.find(
 			(talk) =>
 				talk.heldForTask === each.todo ||
+				talk.queuedTask === each.todo ||
 				(record?.takenBy != null &&
 					(talk.task === record.takenBy || talk.lastTask === record.takenBy)),
 		);

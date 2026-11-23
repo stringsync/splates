@@ -26,6 +26,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
+import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { useConversationIndex } from "./conversation-index";
@@ -221,11 +222,14 @@ function AssigneeItems({
 	assignee,
 	onPick,
 	label,
+	auto = false,
 }: {
 	assignee: AgentPick | null;
 	onPick: (pick: AgentPick | null) => void;
 	/** What the items are for, above them. */
 	label?: string;
+	/** Whether no agent means Auto pick, picking for each run, rather than any agent. */
+	auto?: boolean;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	if (context === null) {
@@ -250,8 +254,16 @@ function AssigneeItems({
 				checked={is(null)}
 				onCheckedChange={() => onPick(null)}
 			>
-				Any agent
+				{auto ? (
+					<>
+						<AutoIcon colored />
+						{AUTO_PICK_NAME}
+					</>
+				) : (
+					"Any agent"
+				)}
 			</DropdownMenuCheckboxItem>
+			{auto && <DropdownMenuSeparator />}
 			{dispatch.agents.map((each) =>
 				(each.models ?? []).length === 0 ? (
 					<DropdownMenuCheckboxItem
@@ -344,10 +356,16 @@ export function AssigneeMenu({
 	assignee,
 	onPick,
 	className,
+	auto = false,
+	label = "Assign to",
 }: {
 	assignee: AgentPick | null;
 	onPick: (pick: AgentPick | null) => void;
 	className?: string;
+	/** Whether no agent means Auto pick, picking for each run, rather than any agent. */
+	auto?: boolean;
+	/** What the menu's items are for, above them. */
+	label?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	if (context === null) {
@@ -369,19 +387,30 @@ export function AssigneeMenu({
 					/>
 				}
 			>
-				{assignee === null ? (
-					<UserIcon data-icon="inline-start" />
-				) : (
+				{assignee !== null ? (
 					<AgentMark
 						agent={assignee.agent}
 						name={context.dispatch.agentName(assignee.agent)}
 					/>
+				) : auto ? (
+					<AutoIcon colored className="size-3.5" />
+				) : (
+					<UserIcon data-icon="inline-start" />
 				)}
-				{assignee === null ? "Any agent" : context.dispatch.pickName(assignee)}
+				{assignee !== null
+					? context.dispatch.pickName(assignee)
+					: auto
+						? AUTO_PICK_NAME
+						: "Any agent"}
 				<ChevronDownIcon />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className={cn("w-52", touchItems)}>
-				<AssigneeItems assignee={assignee} onPick={onPick} label="Assign to" />
+				<AssigneeItems
+					assignee={assignee}
+					onPick={onPick}
+					label={label}
+					auto={auto}
+				/>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

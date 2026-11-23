@@ -1,3 +1,4 @@
+import type { CompleteAttachment } from "@assistant-ui/react";
 import { EyeIcon, PencilIcon } from "lucide-react";
 import { createContext, type JSX, use } from "react";
 import {
@@ -15,6 +16,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { SEEN } from "./conversation-feed";
 import { type Shown, useLightbox, useSendBack } from "./lightbox";
 import { outsideCode } from "./markdown";
 
@@ -28,6 +30,32 @@ export interface Sent {
 
 /** The files the message being drawn carries, in the order it holds them. */
 export const SentAttachments = createContext<readonly Sent[]>([]);
+
+/**
+ * The files a message holds, where the page loads each from. An image kept as
+ * a file, for an agent that sees no images, still counts as an image, as the
+ * composer named it.
+ */
+export function sentOf(
+	attachments: readonly CompleteAttachment[] | undefined = [],
+): Sent[] {
+	return attachments.flatMap((attachment) =>
+		(attachment.content ?? []).flatMap((part) =>
+			part.type === "image" || part.type === "file"
+				? [
+						{
+							src: part.type === "image" ? part.image : part.data,
+							name: attachment.name,
+							type: SEEN.includes(attachment.contentType ?? "")
+								? "image"
+								: attachment.type,
+							contentType: attachment.contentType,
+						},
+					]
+				: [],
+		),
+	);
+}
 
 /** Where an SVG is kept, which cannot be marked up. */
 const SVG = /\.svg$/i;

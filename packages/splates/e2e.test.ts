@@ -3,9 +3,20 @@ import { afterAll, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { FakeAgent } from "@splates/server/agents/testing";
+import { Conversations } from "@splates/server/conversations";
+import { dev } from "@splates/server/server";
 import { Testing } from "@splates/server/testing";
+import {
+	LOCAL_WORKER,
+	UnixWorkerSocket,
+	WorkerDaemon,
+	workerSocketPath,
+} from "@splates/server/workers";
 import { ensure } from "core/assert";
 import { color } from "core/log";
+import { OpenPortProvider } from "core/system";
+import { Duration, SystemTimer, timeouts } from "core/time";
 
 // Every test here drives real git in a repo of its own, dozens of processes
 // each: fast alone, but starved past bun's 5s default when the whole suite
@@ -408,6 +419,67 @@ describe.concurrent("splates", () => {
 		expect((await cli.rows()).map((row) => row.task)).toEqual(["alpha"]);
 	});
 
+	it("wakes a signal subscriber when a rig fires from main", async () => {
+		await using env = await Testing.open();
+		const name = "vexml.rule-review-submitted";
+		const payload = { sitting: 2 };
+		const { woken, server, worker, running } = await signalWorld(
+			env,
+			name,
+			payload,
+		);
+		try {
+			const url = `http://127.0.0.1:${server.port}`;
+			const post = (path: string, body: object) =>
+				fetch(`${url}${path}`, {
+					method: "POST",
+					headers: { origin: url, "content-type": "application/json" },
+					body: JSON.stringify(body),
+				});
+			const conversation = await post("/api/conversations", { agent: "fake" });
+			expect(conversation.status).toBe(200);
+			const { id } = (await conversation.json()) as { id: string };
+			const path = `/api/conversations/${id}`;
+			const wait = await post(`${path}/signal-wait`, {
+				name,
+				description: "The review inbox has been submitted",
+				timeout: "1h",
+				since: "1m",
+			});
+			expect(await wait.json()).toMatchObject({ state: "waiting" });
+
+			const started = await post("/api/rigs/start", {
+				group: "review",
+				rig: "inbox",
+				tree: "main",
+			});
+			expect(started.status).toBe(200);
+			expect(
+				await timeouts.race(
+					new SystemTimer(),
+					woken.promise,
+					Duration.secs(10),
+				),
+				"The signal subscriber should wake",
+			).toBe(true);
+			expect(await woken.promise).toContain(`[SPLATES SIGNAL ${name}]`);
+			const shown = await fetch(`${url}${path}`);
+			expect(await shown.json()).toMatchObject({
+				signals: [
+					{
+						name,
+						state: "raised",
+						raise: { by: "rig:review/inbox@main", payload },
+					},
+				],
+			});
+		} finally {
+			await worker.disposeAsync();
+			await server.disposeAsync();
+			await running;
+		}
+	});
+
 	it("leaves records a newer splates wrote alone", async () => {
 		await using cli = await setup();
 		const { env, splates } = cli;
@@ -430,6 +502,72 @@ describe.concurrent("splates", () => {
 		expect(await env.readRecord("tasks/1.md")).toBeNull();
 	});
 });
+
+/**
+ * A server with a fake agent that resolves `woken` with its first turn, a
+ * worker, and a rig that fires `name` with `payload` from main. Not a
+ * `beforeEach`: the tests run concurrently, so state shared through the
+ * describe would race.
+ */
+const signalWorld = async (
+	env: Awaited<ReturnType<typeof Testing.open>>,
+	name: string,
+	payload: object,
+) => {
+	const argv = [
+		"bun",
+		await cli(),
+		"signal",
+		"fire",
+		name,
+		"--data",
+		JSON.stringify(payload),
+	];
+	await env.fs.write(
+		join(env.root, "splates.config.ts"),
+		'export default { rigs: ["bun ./rig.ts"] };\n',
+	);
+	await env.fs.write(
+		join(env.root, "rig.ts"),
+		`if (process.argv[2] === "describe") {
+			console.log(JSON.stringify({
+				name: "review", label: "Review",
+				rigs: [{ name: "inbox", label: "Inbox", exposure: "none" }],
+			}));
+		} else {
+			delete process.env.SPLATES_CONVERSATION;
+			delete process.env.ARBOR_CONVERSATION;
+			process.env.SPLATES_HOME = ${JSON.stringify(env.splatesHome)};
+			process.exit(Bun.spawnSync(${JSON.stringify(argv)}, { stdout: "inherit", stderr: "inherit" }).exitCode);
+		}`,
+	);
+	const agent = new FakeAgent();
+	const woken = Promise.withResolvers<string>();
+	agent.turn = async (_client, _session, text) => {
+		woken.resolve(text);
+		return "end_turn";
+	};
+	const socket = workerSocketPath(env.ps);
+	const server = await dev(env, {
+		ports: OpenPortProvider.any(),
+		workerSocket: socket,
+		conversations: ({ dir, storage }) =>
+			new Conversations(
+				`${dir}/conversations`,
+				[{ id: "fake", name: "Fake", argv: ["fake-acp"] }],
+				{
+					storage: storage.within("conversations"),
+					launch: agent.launch,
+				},
+			),
+	});
+	const worker = new WorkerDaemon(
+		{ where: socket, dial: () => UnixWorkerSocket.connect(socket) },
+		{ id: LOCAL_WORKER, ps: env.ps, fs: env.fs, log: env.log },
+	);
+	const running = worker.run();
+	return { woken, server, worker, running };
+};
 
 // Bundled once for the file: each run then loads one file rather than
 // transpiling hundreds, which halves the CPU of the ~50 runs here.

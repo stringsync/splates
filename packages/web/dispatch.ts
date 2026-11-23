@@ -67,11 +67,14 @@ export class Dispatch {
 	}
 
 	/**
-	 * The conversation the queue holds for queued task `id`, waiting for
-	 * an agent until the queue starts it, with what it needs, as `on` says.
+	 * The conversation the queue holds or the person opened for queued task `id`,
+	 * waiting for an agent until the queue starts it, with what it needs, as `on` says.
 	 */
 	heldFor(id: number): Needing[] {
-		return this.listed((conversation) => conversation.heldForTask === id);
+		return this.listed(
+			(conversation) =>
+				conversation.heldForTask === id || conversation.queuedTask === id,
+		);
 	}
 
 	/** The listed conversations `which` keeps, newest first, with what each needs. */
@@ -195,16 +198,33 @@ export class Dispatch {
 	}
 
 	/**
-	 * Starts a conversation about blocked queued task `id` from what the person
-	 * wrote there, as `begin` does, with `pick` or the first agent: it talks
-	 * about the task and takes none of it. Answers its address once started.
+	 * Starts a live conversation on queued task `id` from what the person wrote
+	 * there, with `pick` or the first agent: it stays linked to the queued task
+	 * in place until the queue starts it and hands it the worktree.
 	 */
-	talk(id: number, words: string, pick?: AgentPick): Promise<string> {
-		return this.beginWith(
-			pick ?? { agent: agentFor(NEW, this.agents, this.conversations) },
-			null,
-			`${talkReference(id)}\n\n${words}`,
-		);
+	async talk(
+		id: number,
+		words: string,
+		pick?: AgentPick,
+		{ title, files = [] }: { title?: string; files?: readonly File[] } = {},
+	): Promise<string> {
+		const chosen = pick ?? {
+			agent: agentFor(NEW, this.agents, this.conversations),
+		};
+		const left = settingsFor(chosen.agent, this.agents, this.conversations);
+		const started = await startConversation(chosen.agent, null, {
+			settings: {
+				...Object.fromEntries(left.map((each) => [each.id, each.current])),
+				...effortSettings(chosen.effort, left),
+			},
+			model: chosen.model,
+			assigned: pick !== undefined,
+			queuedTask: id,
+			title,
+		});
+		const text =
+			words === "" ? talkReference(id) : `${talkReference(id)}\n\n${words}`;
+		return this.send(started, text, files);
 	}
 
 	/**
@@ -274,10 +294,14 @@ export class Dispatch {
 	 * Shows `started` and sends it `text`, showing as sent at once and kept
 	 * in its thread as unsent when refused; answers its address.
 	 */
-	private send(started: ConversationState, text: string): string {
+	private send(
+		started: ConversationState,
+		text: string,
+		files: readonly File[] = [],
+	): string {
 		this.feed.put(started);
-		const sending = this.feed.send(started.id, text);
-		void promptConversation(started.id, text, [], false, sending.id)
+		const sending = this.feed.send(started.id, text, [...files]);
+		void promptConversation(started.id, text, [...files], false, sending.id)
 			.then((state) => this.feed.answered(started.id, sending, state))
 			.catch((error: unknown) => this.feed.refused(started.id, sending, error));
 		return started.id;

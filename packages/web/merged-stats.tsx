@@ -49,13 +49,21 @@ export function useLanded(
  */
 export function MergedStats({
 	landed,
+	ruled = true,
 }: {
 	landed: Landed | null;
+	ruled?: boolean;
 }): JSX.Element | null {
-	return landed === null ? null : <Went landed={landed} />;
+	return landed === null ? null : <Went landed={landed} ruled={ruled} />;
 }
 
-function Went({ landed }: { landed: Landed }): JSX.Element {
+function Went({
+	landed,
+	ruled,
+}: {
+	landed: Landed;
+	ruled: boolean;
+}): JSX.Element {
 	const facts = mergedFacts(landed);
 	// A removed task never went through the gate, so it has none to report.
 	const removed = landed.outcome.ended === "removed";
@@ -63,6 +71,7 @@ function Went({ landed }: { landed: Landed }): JSX.Element {
 		<CardSection
 			label="stats"
 			title="Stats"
+			ruled={ruled}
 			className="px-4 text-xs last:pb-5"
 			peek={
 				<span className="text-sm">

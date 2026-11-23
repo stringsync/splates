@@ -9,11 +9,55 @@ question, and code waits for the answer Yes. The same goes when the user asks
 what you think, and for a task the queue started: a non-trivial one waits on
 its question with no one present, as a task waiting on questions does.
 
-A plan is the task's `## Before` and `## After` told briefly: what you would
-build and why, the one line, and a picture when the change needs one (see
-[Showing the change](#showing-the-change)). Write `## Before` and `## After`
-in `SPLATES.md` first, then the reply from them. It carries no title card:
-plain prose, then one questions card.
+A plan is a **plan card**: a `## 📝 Plan: <title>` heading, the plan under
+it in Markdown, and its questions after it, the approval question last.
+Use this card for all proposal approvals. Write `## Before`
+and `## After` in `SPLATES.md` first. The plan card exists to get a decision,
+so it holds only what could change the user's answer, in this shape and no
+other (not your harness's plan mode, whatever its sections):
+
+- `**Goal:**` one sentence on the problem it solves or why it is worth
+  doing, read back from the request, so a misunderstanding shows at once.
+  It never restates After.
+- `**After:**` one sentence on what the user will meet once it lands,
+  phrased as a change, so no Before line is needed.
+- `**Approach:**` at most two sentences on the how the user could disagree
+  with: the mechanism, the place it lives. A call that could go either way
+  is a question with your pick, not a sentence here.
+- `**Hard to undo:**` one line, only when something is (a migration, a
+  public API, a deploy, data that is written or deleted); otherwise leave it
+  out.
+- The picture, when the change needs one (see
+  [Showing the change](#showing-the-change)): the before and after it shows
+  stand in for any Before line.
+
+Keep its prose (pictures and questions aside) near 120 words and never over
+200. Leave out step lists, file and function names, context, the request
+restated, verification and anything the picture shows: the steps go under
+`## Next` in `SPLATES.md` and the detail in its sections, which a full plan
+draws on. A Done or Merged report says what changed, not how.
+
+```markdown
+## 📝 Plan: retry failed upload scans
+
+**Goal:** A scan that fails once leaves an upload stuck, and support cannot see why.
+**After:** Failed scans retry three times, then land in a failures table support can read.
+**Approach:** The worker retries with backoff and sends a scan that still fails to a dead-letter queue, which writes the failures table.
+**Hard to undo:** a migration adds the failures table.
+
+<the D2 before and after>
+
+1. Should a failed scan notify the uploader?
+   - (a) Only after the last retry (chosen)
+   - (b) Every time
+2. Do you approve retrying failed upload scans with a dead-letter queue?
+   - (a) Yes, approve it
+   - (b) No
+```
+
+The page draws it as one card: the plan, headed as a question for the user
+is, then its questions, the approval as its decision. Its questions belong
+to it: never send a plan card and a second questions card in one reply.
 
 **Start low-effort, easily reversible tasks without asking permission.**
 A typo, a small fix, or a rename the compiler checks, for example, needs no
@@ -23,8 +67,8 @@ visible. Say so in one line, such as `Small and easy to revert: building
 directly.`, then proceed. Tasks that take substantial effort or are hard to
 reverse still need the approval question.
 
-**The approval question.** The reply ends with one ordinary questions card
-(see [Questions](questions.md)) whose last question is exactly this. Never
+**The approval question.** The plan card ends with its questions, numbered
+as any (see [Questions](questions.md)), whose last is exactly this. Never
 recommend Yes or No on it: mark neither choice `(chosen)`, so both stay
 unchecked and the user decides:
 
@@ -47,9 +91,12 @@ last question on the card; any other question comes before it.
 
 It is the only question you wait on: write no code until it is answered Yes.
 Every other call the plan rests on that the user has not settled goes in the
-same card as questions 2, 3 and so on, each with your pick, and you carry on
-with that pick once the approval is Yes. Send no second questions card, and no
-run-command, queue or other card in the same turn.
+plan card's questions before it, each with your pick, and you carry on with
+that pick once the approval is Yes, so approving with your picks is one
+answer. Send no second questions card, and no run-command, queue or other card
+in the same turn. A call that would change the whole plan (which of several
+mockup variants to build, say) is asked first, in a questions card of its own
+with no plan, and the plan card follows its answer.
 
 **Before you write one, decide whether it needs a picture.** Any visible
 frontend change, and any backend change across several services, tables or
@@ -57,60 +104,28 @@ flows, is planned with attached images, never in text alone: capture them
 first, as [Showing the change](#showing-the-change) says, then write the
 reply. A text description or ASCII sketch does not stand in for them.
 
-## Plan page or text plan
+## When the user requests a full plan
 
-A **plan page** is one self-contained HTML file (inline CSS and script, nothing
-loaded) kept with `splates artifact add plan.html`. It holds `Before` and
-`After`, the mockups, D2 diagrams (the page draws a fenced `d2` block), and
-anything to click through. The page shows it as a live thumbnail on the
-approval question that names it, opening in the lightbox with the questions
-under it.
-
-**Write a plan page, not a text plan, when** the user asks for a plan, or the
-change touches UI, spans several services or tables, or will take several
-commits. Below that, the plan stays text.
-
-- **Above the threshold the page replaces the text plan.** Do not write the
-  plan twice: the reply is one line on the change, then the one questions
-  card, whose approval question carries a `Plan: plan.html` line (the artifact's
-  name) right under it, before its choices:
-
-  ```markdown
-  Retrying failed upload scans needs a queue, a table and a worker change.
-
-  1. Do you approve retrying failed upload scans with a dead-letter queue?
-     Plan: plan.html
-     - (a) Yes, approve it
-     - (b) No
-  ```
-
-  Build the page first (capture and embed mockups into it as images or inline
-  HTML), `splates artifact add` it, then write the reply. Mockup variants
-  still go to the user as variants, in the page or, when the user is to pick,
-  as attached images under each choice of a question. A new version of the
-  plan is `splates artifact add` of the same name.
-- **Below it the text plan stays**, with the approval question as above. The
-  page adds a last choice itself, `Request a full plan`, so do not write it.
-  When the answer is that choice, write the plan page as above and ask the
-  approval question again, with its `Plan:` line; it is no Yes and no No, and
-  no code is written.
+The page adds a `Request a full plan` choice. When the user chooses it,
+send the plan card again with the fuller plan in its body. Include the steps,
+files and detail from `SPLATES.md` without the short plan's word limit. Wait
+for approval before writing code.
 
 ## Showing the change
 
 A plan shows what it would change, in a picture, when the change is
-big enough to need one (in a plan page, put the pictures in the page; the
-rest of this section is what they show): a backend change touching more than one service,
+big enough to need one: a backend change touching more than one service,
 table or flow, and any visible frontend change. A small change needs none.
 
 - **Backend: a D2 diagram.** Write the D2 source (a sequence, flow, data or
   state diagram, whichever the change is) in a fenced `d2` block in the
-  plan itself, under a short heading for what it shows. The page draws it
+  plan card itself,
+  under a short heading for what it shows. The page draws it
   as an SVG only when the fence is tagged exactly `d2`; an untagged one stays
   plain code. It needs no `d2` binary, render script, screenshot or attach; invalid
   source shows as a code block, so check the syntax. A plan for such a
   change is not ready until its diagram is in it, so do not send it as text
-  alone. Keep the sections beside it in the same order each time (`Flow`,
-  `Data`, `Risks`), each a few lines, so the page can fold them later.
+  alone. It goes after the plan's lines, with no sections of prose beside it.
 
   ````markdown
   ### Flow
@@ -159,14 +174,18 @@ diagram of today's flow, drawn from the code (find it with `git grep`, not a tru
 no before, so say so). The after is the intent: the planned diagram, or the
 mockup. Label each `Before` and `After`, and label a mock as a mock.
 
-End your turn after the approval question. A turn holds the plan and its one
-questions card, nothing after it.
+End your turn after the approval question. A turn holds the plan card and
+its questions, nothing after it.
 
 A Yes on the approval question, or a reply of "approve" or `[SPLATES APPROVE]`
 (which an old proposal card still sends), means go ahead as planned, taking in
 each answer to the other questions, after `splates add` when no task is under
 way. A No, or an answer with words that change the plan, means take that in
-and plan again.
+and plan again. The page offers Approve, or words under the question sent with
+no choice picked: read those words for what they decide. They may approve with
+a note (`approve, but keep the limit in config`), which is a Yes with that
+taken in, or ask for changes, which is a plan again; when they leave it
+unclear, plan again with them taken in.
 
 **A Yes carries the pictures into the task.** On approval, before any code,
 make sure the task's `SPLATES.md` holds what was approved: `## Before` and

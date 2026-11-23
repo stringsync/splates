@@ -67,6 +67,7 @@ export type {
 	Edit,
 	Field,
 	Image,
+	LiftReason,
 	Limit,
 	Message,
 	Part,

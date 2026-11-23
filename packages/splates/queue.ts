@@ -1,6 +1,8 @@
 import { tasksNamed } from "@splates/server/board";
 import { refuseGroomer } from "@splates/server/conversations";
 import {
+	changeChainBudget,
+	parseTokens,
 	queueAdd,
 	queueList,
 	queueMove,
@@ -38,13 +40,49 @@ splatesQueue
 		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "queue add");
+		const by = await refuseAgentQueue(ctx.service, "queue add", {
+			ids: opts.ids,
+			projects: ctx.projects,
+			log: ctx.log,
+			fs: ctx.fs,
+			send: ctx.fetch,
+		});
 		await refuseGroomer(ctx.service, "queue add");
 		await ctx.journal.record(
 			"queue add",
 			await here(ctx),
-			() => queueAdd(ctx, opts.ids),
+			() => queueAdd(ctx, opts.ids, { by }),
 			(queued) => ({ tasks: tasksNamed(queued) }),
+		);
+	});
+
+splatesQueue
+	.command("budget")
+	.use(repository({ needs: "tasks" }))
+	.description(
+		"for an agent: apply the person's answer to the out-of-budget question, adding tokens to its task chain's budget or stopping auto-queue for the chain; the person sets the default budget in Settings",
+	)
+	.option("add", z.string(), {
+		default: "",
+		description: "tokens to add, such as 2M, 500k or 2500000",
+	})
+	.option("stop", z.boolean(), {
+		default: false,
+		description: "stop auto-queue for this chain, back to queue cards",
+	})
+	.action(async (opts, ctx) => {
+		if ((opts.add === "") === !opts.stop) {
+			throw new Error("give --add <tokens> or --stop, one of them");
+		}
+		await changeChainBudget(
+			ctx.service,
+			opts.stop ? { stop: true } : { add: parseTokens(opts.add) },
+			{
+				projects: ctx.projects,
+				log: ctx.log,
+				fs: ctx.fs,
+				send: ctx.fetch,
+			},
 		);
 	});
 
@@ -56,7 +94,7 @@ splatesQueue
 		description: "task numbers",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "queue remove");
+		await refuseAgentQueue(ctx.service, "queue remove");
 		await ctx.journal.record(
 			"queue remove",
 			await here(ctx),
@@ -76,7 +114,7 @@ splatesQueue
 		description: "where in the queue to put it, from 1",
 	})
 	.action(async (opts, ctx) => {
-		refuseAgentQueue(ctx.service, "queue move");
+		await refuseAgentQueue(ctx.service, "queue move");
 		return queueMove(ctx, opts.id, opts.position);
 	});
 
@@ -95,7 +133,7 @@ for (const command of ["pause", "resume"] as const) {
 				"the `splates server` to ask, a URL such as http://localhost:4310; by default the one from SPLATES_DEV",
 		})
 		.action(async (opts, ctx) => {
-			refuseAgentQueue(ctx.service, `queue ${command}`);
+			await refuseAgentQueue(ctx.service, `queue ${command}`);
 			await setQueuePaused({
 				dev: opts.dev,
 				paused: command === "pause",

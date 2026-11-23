@@ -1,5 +1,16 @@
 import type { ConversationState, Limit } from "@splates/server/conversations";
+import {
+	antigravityLimitsForModel,
+	currentAntigravityLimits,
+} from "@splates/server/models/browser";
+import { GaugeIcon } from "lucide-react";
 import type { JSX } from "react";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTitle,
+	PopoverTrigger,
+} from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { AgentChoice } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
@@ -20,6 +31,37 @@ const WINDOWS: [string, string][] = [
  */
 const UNSHOWN = new Set(["seven_day_overage_included"]);
 
+const QUOTA_COLUMNS =
+	"grid-cols-[max-content_1fr_3rem_14rem] max-md:grid-cols-[max-content_1fr_3rem]";
+
+export function AgentQuotas({
+	agents,
+	conversations,
+}: {
+	agents: AgentChoice[];
+	conversations: ConversationState[];
+}): JSX.Element | null {
+	const groups = quotaByAgent(agents, conversations);
+	if (groups.length === 0) {
+		return null;
+	}
+	return (
+		<div className="@container/quotas">
+			<div
+				className={cn(
+					"grid grid-cols-[max-content_1fr_3rem_5rem] gap-x-3 gap-y-4",
+					"@min-[40rem]/quotas:grid-cols-[max-content_1fr_3rem_14rem]",
+					"max-md:grid-cols-[max-content_1fr_3rem]",
+				)}
+			>
+				{groups.map(({ title, limits }) => (
+					<PlanLimits key={title} title={title} limits={limits} sharedColumns />
+				))}
+			</div>
+		</div>
+	);
+}
+
 /**
  * How much of the plan's windows is used and when each starts over, beside
  * Pick back up: yellow from 80% used, red from 90%. Shows nothing for an
@@ -30,15 +72,24 @@ export function PlanLimits({
 	title = "Plan limits",
 	className,
 	aligned = false,
+	paced = false,
+	sharedColumns = false,
 }: {
 	limits: Limit[];
 	className?: string;
+	/**
+	 * Puts each window's burn rate before its reset time, and beside the
+	 * title a pace icon when a window will run out before it resets.
+	 */
+	paced?: boolean;
 	/**
 	 * Lays the rows out in `METER_COLUMNS`, each reset under its bar, so the
 	 * bars line up with the page's other meters. On mobile the numbers sit
 	 * above a full-width bar, with the reset time beneath it.
 	 */
 	aligned?: boolean;
+	/** Inherits the columns shared by the quota groups in AgentQuotas. */
+	sharedColumns?: boolean;
 	/** What the list is headed, like the agent whose plan it is. */
 	title?: string;
 }): JSX.Element | null {
@@ -51,27 +102,36 @@ export function PlanLimits({
 			aria-label={
 				title === "Plan limits" ? "plan limits" : `${title} plan limits`
 			}
-			className={cn("mt-4 flex flex-col gap-1 px-2", className)}
+			className={cn(
+				"mt-4 gap-y-1 px-2",
+				sharedColumns
+					? "col-span-full grid grid-cols-subgrid"
+					: "flex flex-col",
+				className,
+			)}
 		>
-			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+			<h3 className="col-span-full flex items-center gap-1 pl-3 font-medium text-muted-foreground text-xs">
 				{title}
+				{paced && <QuotaWarning limits={limits} now={now} />}
 			</h3>
 			{/* Budget meters get their own full-width row on mobile. */}
 			<ul
 				className={cn(
 					"grid gap-x-3",
-					aligned
-						? cn(METER_COLUMNS, "max-md:gap-y-2")
-						: "grid-cols-[max-content_1fr_3rem_14rem] max-md:grid-cols-[max-content_1fr_3rem]",
+					sharedColumns
+						? "col-span-full grid-cols-subgrid"
+						: aligned
+							? cn(METER_COLUMNS, "max-md:gap-y-2")
+							: paced
+								? "grid-cols-[max-content_1fr_3rem_17rem] max-md:grid-cols-[max-content_1fr_3rem]"
+								: QUOTA_COLUMNS,
 				)}
 			>
 				{limits.map((limit) => {
-					const resets = Date.parse(limit.resets);
-					// Past its reset, it has started over since the agent said.
-					const over = resets <= now;
-					const used = over ? 0 : Math.min(Math.max(limit.used, 0), 1);
-					const tone = toneOf(used);
-					const name = nameOf(limit.window);
+					const { name, used, tone, reset, countdown, pace } = limitRow(
+						limit,
+						now,
+					);
 					return (
 						<li
 							key={limit.window}
@@ -107,16 +167,29 @@ export function PlanLimits({
 								{Math.round(used * 100)}%
 							</span>
 							<span
+								title={sharedColumns ? reset : undefined}
 								className={cn(
 									"text-muted-foreground text-xs",
+									sharedColumns && "whitespace-nowrap",
 									aligned
 										? "col-span-2 col-start-2 max-md:col-span-full max-md:col-start-1"
 										: "max-md:col-span-full",
 								)}
 							>
-								{over
-									? `reset ${clock(resets, now)}`
-									: `resets ${clock(resets, now)}, in ${until(resets, now)}`}
+								{sharedColumns ? (
+									<>
+										<span className="@min-[40rem]/quotas:hidden">
+											{countdown}
+										</span>
+										<span className="hidden @min-[40rem]/quotas:inline">
+											{reset}
+										</span>
+									</>
+								) : paced ? (
+									pacedReset({ pace, reset })
+								) : (
+									reset
+								)}
 							</span>
 						</li>
 					);
@@ -160,6 +233,49 @@ export function limitsOf(
 	});
 }
 
+/** Returns each provider's shortest reported quota for display, grouped by reset schedule. */
+export function quotaByAgent(
+	agents: AgentChoice[],
+	conversations: ConversationState[],
+): { title: string; limits: Limit[] }[] {
+	const groups = new Map<number, Limit[]>();
+	for (const agent of agents) {
+		const known = limitsOf(agents, conversations, agent.id).flatMap((each) => {
+			const length = lengthOf(each.window);
+			return length === null ? [] : [{ each, length }];
+		});
+		if (known.length === 0) {
+			continue;
+		}
+		const shortest = Math.min(...known.map((one) => one.length));
+		const fullest = known
+			.filter((one) => one.length === shortest)
+			.reduce((best, one) => (one.each.used > best.each.used ? one : best));
+		groups.set(shortest, [
+			...(groups.get(shortest) ?? []),
+			{ ...fullest.each, window: agent.name },
+		]);
+	}
+	return [...groups.entries()]
+		.sort(([one], [other]) => one - other)
+		.map(([length, limits]) => ({
+			title: `${scheduleName(length)} quota`,
+			limits,
+		}));
+}
+
+/** What a window length is called: `5-hour`, `Weekly`, `30-day`. */
+function scheduleName(length: number): string {
+	if (length === 7 * DAY_MS) {
+		return "Weekly";
+	}
+	return length % DAY_MS === 0
+		? `${length / DAY_MS}-day`
+		: length % HOUR === 0
+			? `${length / HOUR}-hour`
+			: `${Math.round(length / 60_000)}-minute`;
+}
+
 /** When the newest of `limits` was said, as epoch ms; null when none says. */
 export function saidAt(limits: Limit[]): number | null {
 	const times = limits.flatMap((each) =>
@@ -192,7 +308,7 @@ function nameOf(window: string): string {
 	}
 	const minutes = Number(/^(\d+)_minutes$/.exec(window)?.[1]);
 	if (!Number.isFinite(minutes) || minutes <= 0) {
-		return window;
+		return window.replace(/ · Five Hour$/, " · 5-hour");
 	}
 	return minutes % 1440 === 0
 		? `${minutes / 1440}-day`
@@ -236,19 +352,183 @@ function until(at: number, now: number): string {
 	return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 }
 
-/** Shows the selected Antigravity model's most-used allowance as one row. */
-export function antigravityModelLimits(
+const HOUR = 3_600_000;
+const DAY_MS = 24 * HOUR;
+
+/** How long a window runs from start to reset, in ms; null when unknown. */
+export function lengthOf(window: string): number | null {
+	if (window === "five_hour" || / · Five Hour$/i.test(window)) {
+		return 5 * HOUR;
+	}
+	if (window.startsWith("seven_day") || / · Weekly$/i.test(window)) {
+		return 7 * DAY_MS;
+	}
+	if (window === "month") {
+		return 30 * DAY_MS;
+	}
+	const minutes = Number(/^(\d+)_minutes$/.exec(window)?.[1]);
+	return Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : null;
+}
+
+/**
+ * The share of a window's run that must pass before its burn rate shows, so
+ * a heavy first hour does not read as a week's pace.
+ */
+const SETTLED = 0.1;
+
+/**
+ * How fast `limit` is being used, as its average since the window began, and
+ * when it runs out at that pace if that comes before it resets. Null for a
+ * window of unknown length, past its reset, or in its first tenth.
+ */
+export function paceOf(
+	limit: Limit,
+	now: number,
+): { perHour: number; label: string; runsOut: number | null } | null {
+	const length = lengthOf(limit.window);
+	const resets = limit.resets === null ? null : Date.parse(limit.resets);
+	if (length === null || resets === null || resets <= now) {
+		return null;
+	}
+	const said = limit.at === null ? now : Date.parse(limit.at);
+	const elapsed = said - (resets - length);
+	if (!Number.isFinite(elapsed) || elapsed < length * SETTLED) {
+		return null;
+	}
+	const used = Math.min(Math.max(limit.used, 0), 1);
+	const perHour = (used / elapsed) * HOUR;
+	const out =
+		used >= 1 || perHour <= 0 ? null : said + ((1 - used) / perHour) * HOUR;
+	return {
+		perHour,
+		label:
+			length < DAY_MS
+				? `${percent(perHour)}/h`
+				: `${percent(perHour * 24)}/day`,
+		runsOut: out !== null && out < resets ? out : null,
+	};
+}
+
+/** A rate as a whole percent, `<1%` below one. */
+function percent(share: number): string {
+	const whole = Math.round(share * 100);
+	return whole < 1 ? "<1%" : `${whole}%`;
+}
+
+/** A row's reset line with its burn rate before it, when it has one. */
+export function pacedReset({
+	pace,
+	reset,
+}: {
+	pace: string;
+	reset: string;
+}): string {
+	return pace === "" || reset === "" ? reset : `${pace} · ${reset}`;
+}
+
+/**
+ * The window of `limits` that runs out first at its current pace, of those
+ * that run out before they reset, with when it runs out and resets; null
+ * when none does.
+ */
+export function firstRunOut(
 	limits: Limit[],
-	model: string,
-): Limit[] {
-	const key = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-	const matching = limits.filter(
-		(limit) =>
-			key(
-				limit.window.replace(/^All Models · /, "").replace(/ \([^)]*\)$/, ""),
-			) === key(model),
+	now: number,
+): { limit: Limit; out: number; resets: number } | null {
+	const all = limits.flatMap((limit) => {
+		const out = paceOf(limit, now)?.runsOut;
+		return out == null || limit.resets === null
+			? []
+			: [{ limit, out, resets: Date.parse(limit.resets) }];
+	});
+	return all.sort((one, other) => one.out - other.out)[0] ?? null;
+}
+
+/**
+ * A quiet gauge icon, shown when a window of `limits` runs out before it
+ * resets at its current pace, that opens a popover naming the first to run
+ * out, its pace, and when it runs out and resets; nothing otherwise.
+ */
+export function QuotaWarning({
+	limits,
+	now,
+	className,
+}: {
+	limits: Limit[];
+	now: number;
+	className?: string;
+}): JSX.Element | null {
+	const first = firstRunOut(limits, now);
+	if (first === null) {
+		return null;
+	}
+	const name = nameOf(first.limit.window);
+	const pace = paceOf(first.limit, now)?.label;
+	return (
+		<Popover>
+			<PopoverTrigger
+				aria-label="quota pace"
+				className={cn(
+					"inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground data-popup-open:bg-muted",
+					className,
+				)}
+			>
+				<GaugeIcon aria-hidden className="size-3.5" />
+			</PopoverTrigger>
+			<PopoverContent align="end" className="w-64 gap-1 text-xs">
+				<PopoverTitle className="flex items-center gap-1.5 text-xs">
+					<GaugeIcon aria-hidden className="size-3.5 text-muted-foreground" />
+					{name} is running ahead
+				</PopoverTitle>
+				<p className="leading-snug">
+					{pace === undefined ? "" : `At ${pace}, `}
+					{name} runs out ~{clock(first.out, now)}, before its{" "}
+					{clock(first.resets, now)} reset.
+				</p>
+				<p className="text-muted-foreground">
+					Pace is the average since the window began.
+				</p>
+			</PopoverContent>
+		</Popover>
 	);
-	const most = matching.reduce<Limit | null>(
+}
+
+/** A limit's display name, share used (0 once past reset), tone, burn rate and reset line. */
+export function limitRow(
+	limit: Limit,
+	now: number,
+): {
+	name: string;
+	used: number;
+	tone: "warning" | "destructive" | null;
+	/** The burn rate, `25%/h` or `12%/day`; empty when it does not show. */
+	pace: string;
+	reset: string;
+	countdown: string;
+} {
+	const resets = limit.resets === null ? null : Date.parse(limit.resets);
+	// Past its reset, it has started over since the agent said.
+	const over = resets !== null && resets <= now;
+	const used = over ? 0 : Math.min(Math.max(limit.used, 0), 1);
+	const remaining = resets === null || over ? "" : `in ${until(resets, now)}`;
+	return {
+		name: nameOf(limit.window),
+		used,
+		tone: toneOf(used),
+		pace: paceOf(limit, now)?.label ?? "",
+		countdown: over ? "reset" : remaining,
+		reset:
+			resets === null
+				? ""
+				: over
+					? `reset ${clock(resets, now)}`
+					: `resets ${clock(resets, now)}, ${remaining}`,
+	};
+}
+
+/** Collapses legacy Enterprise per-model buckets into one row at the highest usage. */
+function collapsedAntigravity(limits: Limit[]): Limit[] {
+	const most = limits.reduce<Limit | null>(
 		(best, limit) => (best === null || limit.used > best.used ? limit : best),
 		null,
 	);
@@ -260,4 +540,22 @@ export function antigravityModelLimits(
 					window: "Antigravity quota",
 				},
 			];
+}
+
+/** Antigravity's plan windows for Billing. */
+export function antigravityPlanLimits(limits: Limit[]): Limit[] {
+	const current = currentAntigravityLimits(limits);
+	return current.kind === "grouped"
+		? current.limits
+		: collapsedAntigravity(current.limits);
+}
+
+/** Antigravity's plan windows for `model` on the new-conversation screen and conversation widget. */
+export function antigravityModelLimits(
+	limits: Limit[],
+	model: string,
+): Limit[] {
+	const current = currentAntigravityLimits(limits);
+	const matched = antigravityLimitsForModel(limits, model);
+	return current.kind === "grouped" ? matched : collapsedAntigravity(matched);
 }

@@ -29,6 +29,8 @@ import { Shell } from "./terminal";
 process.env.GIT_CONFIG_GLOBAL = "/dev/null";
 process.env.GIT_CONFIG_NOSYSTEM = "1";
 
+type PrepareSeed = (testing: Testing) => Promise<void>;
+
 /**
  * A throwaway git repo with one commit on `main`, holding every dependency an
  * splates command runs against, wired to it. A command takes the whole thing as
@@ -130,6 +132,7 @@ export class Testing implements AsyncDisposable {
 
 			afterBump: null,
 			ships: [],
+			rigs: [],
 			on: {},
 			queueLoad: null,
 			autoAllowBusyRuns: false,
@@ -277,6 +280,7 @@ export class Testing implements AsyncDisposable {
 	static async open({
 		init = true,
 		alongside,
+		prepareSeed,
 	}: {
 		init?: boolean;
 		/**
@@ -284,10 +288,17 @@ export class Testing implements AsyncDisposable {
 		 * its splates home and so its registry, as two projects on one machine do.
 		 */
 		alongside?: Testing;
+		/** A shared callback adds commits to the seed before each test copies it. */
+		prepareSeed?: PrepareSeed;
 	} = {}): Promise<Testing> {
+		const seed = await seeded(prepareSeed);
 		const base = await realpath(await mkdtemp(join(tmpdir(), "splates-")));
 		const testing = new Testing(base, alongside);
-		await cp(await seeded(), testing.root, { recursive: true });
+		await cp(seed, testing.root, { recursive: true });
+		if (prepareSeed) {
+			// Git's copied index still records the source files' stat data.
+			await testing.gitCli(testing.root, "update-index", "--refresh");
+		}
 		// So a command run here finds the very database `storage` is.
 		await testing.fs.mkdir(testing.splatesHome, { recursive: true });
 		const registry = await testing.fs
@@ -437,8 +448,8 @@ export class Testing implements AsyncDisposable {
 		return this.disposeAsync();
 	}
 
-	/** Makes the repo every test starts from, with one commit on `main`. */
-	static async seed(base: string): Promise<void> {
+	/** Makes the seed repo, starting with one commit on `main`. */
+	static async seed(base: string, prepareSeed?: PrepareSeed): Promise<void> {
 		const testing = new Testing(base);
 		const { root } = testing;
 		await testing.fs.mkdir(root);
@@ -447,34 +458,51 @@ export class Testing implements AsyncDisposable {
 		await testing.gitCli(root, "config", "user.name", "splates");
 		await testing.gitCli(root, "config", "commit.gpgsign", "false");
 		await testing.commit(root, "README.md", "seed\n", "seed");
+		await prepareSeed?.(testing);
 	}
 }
 
-/** Where the seeded repo lives: made at the first test, gone after the last. */
-// vet-ignore tests-own-their-state: each test copies it, so none shares the repo itself
-let template: Promise<string> | null = null;
+/** Each preparation callback gets its own template, including the default seed. */
+// vet-ignore tests-own-their-state: each test copies its template into a separate repository
+const templates = new Map<PrepareSeed | undefined, Promise<string>>();
 
 /**
- * The seeded repo, made once per test file and copied for each test: its six
+ * The seeded repo, made once and copied for each test: its six initial
  * git spawns were most of what a concurrent suite spent, and with several
  * test runs at once, enough to time the slowest tests out.
  */
-async function seeded(): Promise<string> {
-	template ??= (async () => {
-		const base = await realpath(await mkdtemp(join(tmpdir(), "splates-seed-")));
-		await Testing.seed(base);
-		return base;
-	})();
+async function seeded(prepareSeed?: PrepareSeed): Promise<string> {
+	let template = templates.get(prepareSeed);
+	if (!template) {
+		template = (async () => {
+			const base = await realpath(
+				await mkdtemp(join(tmpdir(), "splates-seed-")),
+			);
+			try {
+				await Testing.seed(base, prepareSeed);
+				return base;
+			} catch (error) {
+				await rm(base, { recursive: true, force: true });
+				throw error;
+			}
+		})();
+		templates.set(prepareSeed, template);
+	}
 	return join(await template, "repo");
 }
 
 // registered here, outside any describe, so it runs once the importing file's
 // tests are done
 afterAll(async () => {
-	if (template !== null) {
-		await rm(await template, { recursive: true, force: true });
-		template = null;
-	}
+	const seeds = await Promise.allSettled(templates.values());
+	templates.clear();
+	await Promise.all(
+		seeds.flatMap((seed) =>
+			seed.status === "fulfilled"
+				? [rm(seed.value, { recursive: true, force: true })]
+				: [],
+		),
+	);
 });
 
 /** A pid for another agent that is still running: pid 1 always exists. */

@@ -31,6 +31,8 @@ describe("QueueRunner", () => {
 	let paused: boolean;
 	/** Whether the machine's load holds the queue back. */
 	let overloaded: boolean;
+	/** Whether the quota reserve holds agent-queued tasks. */
+	let reserved: boolean;
 	/** The deferred tasks sent back to their conversations, by id. */
 	let resumed: number[];
 
@@ -65,6 +67,10 @@ describe("QueueRunner", () => {
 			held,
 			paused: () => paused,
 			overloaded: () => overloaded,
+			reserve: async () =>
+				reserved
+					? { reserve: 0.25, agents: [], frees: "2026-11-23T15:00:00Z" }
+					: null,
 			log: new MemoryLogger(),
 			timer,
 		});
@@ -78,6 +84,7 @@ describe("QueueRunner", () => {
 		timer = new FakeTimer();
 		paused = false;
 		overloaded = false;
+		reserved = false;
 		resumed = [];
 		starting = async (each) => {
 			await (await deps.tasks.find(each.queued.id)).take(each.task);
@@ -210,6 +217,31 @@ describe("QueueRunner", () => {
 		await runner.sweep();
 		await settled();
 		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+	});
+
+	it("holds an agent-queued task inside the quota reserve, never the person's, and starts it once a window frees up", async () => {
+		await taskAdd(deps, "Mine", null, { assignee: { agent: "claude" } });
+		await taskAdd(deps, "Theirs", null, { assignee: { agent: "claude" } });
+		await queueAdd(deps, [1]);
+		await queueAdd(deps, [2], {
+			by: {
+				by: "agent",
+				conversation: "c1",
+				task: null,
+				root: { conversation: "c0", task: null },
+			},
+		});
+		reserved = true;
+
+		await runner.sweep();
+		await settled();
+		expect(started.map(({ queued }) => queued.id)).toEqual([1]);
+		expect([...runner.holds().keys()]).toEqual([2]);
+
+		reserved = false;
+		await gapPasses();
+		expect(started.map(({ queued }) => queued.id)).toEqual([1, 2]);
+		expect(runner.holds().size).toBe(0);
 	});
 
 	it("starts nothing while the machine is overloaded, saying so, and starts on the sweep after the load falls", async () => {
@@ -600,6 +632,38 @@ describe("QueueRunner", () => {
 		await settled();
 
 		expect(started).toHaveLength(1);
+	});
+
+	it("keeps a live talk conversation through blocking and hands the task to it on start", async () => {
+		await taskAdd(deps, "Blocker first", null);
+		await taskAdd(deps, "Follow-up", null, { blockedBy: [1] });
+		await queueAdd(deps, [2]);
+		held.held.push({
+			id: "live-1",
+			queued: 2,
+			agent: "codex",
+			createdAt: "2026-10-19T12:00:00.000Z",
+			handed: false,
+			live: true,
+		});
+
+		await runner.sweep();
+		expect(held.dropped).toEqual([]);
+		expect(held.spots.has("live-1")).toBe(false);
+		expect(started).toEqual([]);
+
+		// Unblock task 2; the queue should start it in live-1 on codex without holding a second conversation.
+		await taskUpdate(deps, 2, { removeBlockedBy: [1] });
+		await runner.sweep();
+
+		expect(held.dropped).toEqual([]);
+		expect(held.held.map(({ id }) => id)).toEqual(["live-1"]);
+		expect(started).toHaveLength(1);
+		expect(started[0]).toMatchObject({
+			queued: { id: 2 },
+			held: "live-1",
+			pick: { agent: "codex" },
+		});
 	});
 });
 

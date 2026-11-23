@@ -10,10 +10,11 @@ import type { SecretStores } from "../creds";
 import type { TranscriberFor } from "../dictate";
 import type { ClockShelf } from "../hooks";
 import type { Needing } from "../plans";
-import type { PortOwners, Slot } from "../ports";
+import type { PortOwners, RigProxyTargets, Slot } from "../ports";
 import type { Everywhere, Projects } from "../projects";
 import type { Format, Journal, Repository } from "../records";
 import type { ReplicaStatus } from "../replica";
+import type { RigSlots } from "../rigs";
 import type { Waiting } from "../ship";
 import type { SignalFunction, SignalRaise } from "../signals";
 import type { Snapshot } from "../tasks";
@@ -85,6 +86,10 @@ export interface DevContext {
 	 * a test of one project, none is read.
 	 */
 	readonly boards?: ElsewhereBoards;
+	/** The ports host a tunnel-exposed run's remote links go through, as `<animal>.<base>`; absent or null for none. */
+	readonly portsBase?: string | null;
+	/** Animal slots assigned to tunnel-exposed rigs; absent, each project uses its own pool. */
+	readonly rigSlots?: RigSlots;
 	/** What starts a ship's steps on a worker and takes them back after a restart; absent, each is a child of this server. */
 	readonly shipLauncher?: Launcher;
 	/** What a run-evals card may name, for the watch that bounces one that cannot run; absent, as in a test of one project, none is checked. */
@@ -116,8 +121,8 @@ export interface Served extends AsyncResource {
 	journal: Journal;
 	format: Format;
 	conversations: Conversations | null;
-	/** Lets go of the ship steps a worker runs for a restart to take back; whether there were any. */
-	detachShips: () => Promise<boolean>;
+	/** Lets go of the ship steps and rig runs a worker runs for a restart to take back; whether there were any. */
+	detachWork: () => Promise<boolean>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	/** The signal functions its `splates.config.ts` declares. */
@@ -156,6 +161,8 @@ export interface Served extends AsyncResource {
 	lanes: () => Promise<LaneRecord[]>;
 	/** Its tasks' worktrees and agents, whose processes' ports are the tasks'. */
 	portOwners: () => Promise<PortOwners>;
+	/** Its live tunnel-exposed rig routes and ports excluded from splates's proxy. */
+	rigProxyTargets: () => RigProxyTargets;
 	events: Handler;
 	/**
 	 * Tells `heard` of each move its pages would hear, listening as a page
@@ -195,6 +202,19 @@ export interface Served extends AsyncResource {
 	moveInQueue: Handler;
 	/** Tries a queued task's refused start again. */
 	retryQueued: Handler;
+	/** Reads this project's agent auto-queue settings. */
+	readAgentSettings: Handler;
+	/** Reads which agent-queued tasks wait for the quota reserve, by task id. */
+	quotaReserveHolds: Handler;
+	/** Saves this project's agent auto-queue settings (user page only). */
+	saveAgentSettings: Handler;
+	/** Decides whether an agent conversation may run `splates queue add`. */
+	authorizeAgentQueue: Handler;
+	/** Adds to the asking agent's chain budget, or stops auto for the chain. */
+	changeChainBudget: Handler;
+	/** Reads what each agent-queued task chain has spent, by root conversation. */
+	chainSpends: Handler;
+	readChain: Handler;
 	addLane: Handler;
 	addBoard: Handler;
 	renameBoard: Handler;
@@ -205,12 +225,24 @@ export interface Served extends AsyncResource {
 	dropBoard: Handler;
 	removeQueued: Handler;
 	restoreQueued: Handler;
+	/** The rigs the `rigs` commands declare, their runs, and where they may start. */
+	rigs: Handler;
+	/** Starts a run of a rig. */
+	rigStart: Handler;
+	/** Stops a run, or dismisses an exited one. */
+	rigStop: Handler;
+	/** A run's log after a line. */
+	rigLog: Handler;
+	/** Saves or drops a preset of a rig's options. */
+	rigPresets: Handler;
 	/** The targets the `ships` commands serve. */
 	shipTargets: Handler;
 	/** Each target's unshipped commit count, read apart from the targets. */
 	shipUnshipped: Handler;
 	/** Each target's current version, read apart from the targets. */
 	shipCurrent: Handler;
+	/** The versions each target may ship, read apart from the targets. */
+	shipVersions: Handler;
 	/** Composes picked targets of the `ships` commands into one plan. */
 	shipPlan: Handler;
 	/** Every ship run, or, posted from the page, a new one started. */

@@ -6,6 +6,7 @@ import {
 	decide,
 	decideWithout,
 } from "./decide";
+import { holdBack } from "./holdout";
 import type { Attribution } from "./jev";
 import type { JudgeFor } from "./judge";
 import type { AutoPicked } from "./record";
@@ -32,6 +33,7 @@ export async function decideFor({
 	judge,
 	who,
 	context,
+	task,
 }: {
 	subject: string;
 	detail: string;
@@ -41,10 +43,20 @@ export async function decideFor({
 	/** Whose work the judgment is, for the spend ledger. */
 	who?: Partial<Attribution>;
 	context: DecideContext;
+	/**
+	 * The task's number, when the words are a task's: a task the holdout
+	 * takes in starts one difficulty easier. A judge that said nothing leaves
+	 * the depth unsure, which is never held out.
+	 */
+	task?: number;
 }): Promise<Judged> {
+	const decided = (classification: Classification): AutoPickDecision => {
+		const decision = decide({ ...context, classification });
+		return task === undefined ? decision : holdBack(decision, context, task);
+	};
 	if (cached !== null) {
 		return {
-			decision: decide({ ...context, classification: cached }),
+			decision: decided(cached),
 			classification: cached,
 			judged: true,
 		};
@@ -58,10 +70,7 @@ export async function decideFor({
 	});
 	return classified.ok
 		? {
-				decision: decide({
-					...context,
-					classification: classified.classification,
-				}),
+				decision: decided(classified.classification),
 				classification: classified.classification,
 				judged: true,
 			}

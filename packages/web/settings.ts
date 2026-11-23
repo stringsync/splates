@@ -10,6 +10,7 @@ export const CATEGORIES = [
 	"Startup",
 	"Editor",
 	"Notifications",
+	"Agents",
 	"Updates",
 	"Shortcuts",
 	"Canned replies",
@@ -30,18 +31,6 @@ const notifications: Allowance = {
 		"Notifications are blocked: allow them for this page in the browser's settings.",
 };
 
-/** The accents the page can wear, each a palette in styles.css. */
-export const ACCENTS = [
-	{ value: "graphite", label: "Graphite" },
-	{ value: "teal", label: "Teal" },
-	{ value: "indigo", label: "Indigo" },
-	{ value: "violet", label: "Violet" },
-	{ value: "blue", label: "Blue" },
-	{ value: "green", label: "Green" },
-	{ value: "amber", label: "Amber" },
-	{ value: "rose", label: "Rose" },
-] as const satisfies readonly Choice[];
-
 /** Every setting, in the order the dialog shows them. */
 export const SETTINGS = {
 	"startup.welcome": {
@@ -61,15 +50,6 @@ export const SETTINGS = {
 			{ value: "light", label: "Light" },
 			{ value: "dark", label: "Dark" },
 		],
-	},
-	"appearance.accent": {
-		category: "Appearance",
-		title: "Accent",
-		description:
-			"The color of buttons, switches, focus, and whatever is selected.",
-		default: "graphite",
-		choices: ACCENTS,
-		swatches: true,
 	},
 	"conversation.widgets": {
 		category: "Appearance",
@@ -279,8 +259,6 @@ export interface Definition {
 	default: boolean | number | string;
 	/** What a string can be, in the order the dialog offers them. */
 	choices?: readonly Choice[];
-	/** Show each choice as a swatch of the accent it names. */
-	swatches?: boolean;
 	/** What a number counts, and the least it can be. */
 	unit?: string;
 	min?: number;

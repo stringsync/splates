@@ -276,9 +276,33 @@ describe("App's budget", () => {
 					settings: [],
 					limits: [
 						{
+							window: "All Models · Gemini 4 Neon",
+							used: 0.9,
+							resets: null,
+							at: new Date(Date.now() - 60_000).toISOString(),
+						},
+						{
 							window: "Gemini Models · Weekly",
 							used: 0.25,
 							resets: new Date(Date.now() + 86_400_000).toISOString(),
+							at: new Date().toISOString(),
+						},
+						{
+							window: "Gemini Models · Five Hour",
+							used: 0.1,
+							resets: new Date(Date.now() + 3_600_000).toISOString(),
+							at: new Date().toISOString(),
+						},
+						{
+							window: "Claude and GPT models · Weekly",
+							used: 0,
+							resets: new Date(Date.now() + 86_400_000).toISOString(),
+							at: new Date().toISOString(),
+						},
+						{
+							window: "Claude and GPT models · Five Hour",
+							used: 0.05,
+							resets: new Date(Date.now() + 3_600_000).toISOString(),
 							at: new Date().toISOString(),
 						},
 					],
@@ -291,6 +315,16 @@ describe("App's budget", () => {
 		const antigravity = await waitFor(() =>
 			view.getByRole("region", { name: "Antigravity plan limits" }),
 		);
+		expect(
+			within(antigravity)
+				.getAllByRole("listitem")
+				.map((item) => item.getAttribute("aria-label")),
+		).toEqual([
+			"Gemini Models · 5-hour",
+			"Gemini Models · Weekly",
+			"Claude and GPT models · 5-hour",
+			"Claude and GPT models · Weekly",
+		]);
 		expect(
 			within(antigravity).getByRole("listitem", {
 				name: "Gemini Models · Weekly",

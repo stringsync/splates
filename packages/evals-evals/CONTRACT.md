@@ -78,17 +78,24 @@ line yet is pending:
 {"cell": "c1", "status": "pass", "score": 0.9, "reason": "...", "tokens": 1200, "costUsd": 0.04, "milliseconds": 8000, "url": "https://...", "detail": "c1.json"}
 ```
 
-Only `cell` and `status` are required. `url` links to the framework's own
+Only `cell` and `status` are required. An optional `phases` object (`{setupMs?, agentMs?, judgeMs?}`, milliseconds for sandbox setup, the agent session, and code checks plus judge; a phase the cell never reached is absent) says where a cell's time went; readers that do not know it ignore it. An optional `harness` field (`"error"` or `"skipped"`) may accompany `status: "error"` with a one-line `reason` when the harness itself broke on the cell (agent failed to start, empty transcript, auth or model error) or skipped it after an earlier harness error on the same target; readers that do not know `harness` ignore it and still read the cell as `error`. `url` links to the framework's own
 viewer. `detail` names a JSON file in the batch directory the page opens a
 cell with, every field optional: `input`, `rubric`, `reply`, `checks`
-(`{id, about, pass, error?}`), `judge` (`{pass, reason, judge?}`, `judge` naming who judged, like `claude:sonnet`) and `transcript`
-(`{kind: "text", text}` or `{kind: "tool", name, input, output}` steps) and
+(`{id, about, pass, error?, step?}`), `judge` (`{pass, reason, judge?}`, `judge` naming who judged, like `claude:sonnet`) and `transcript`
+(`{kind: "text", text}` or `{kind: "tool", name, input, output, milliseconds?}` steps) and
 `repo`, optional and absent in older batches: `{bundle, diff?}` naming files
 in the batch directory that hold the repo the run ended with, so a code check
 can be re-run on it later. `bundle` is `git bundle create --all` (restore
 with `git clone`), `diff` the uncommitted work as `git diff HEAD --binary`
 (apply with `git apply`), left out when there was none. The commands a check
 saw are rebuilt from the transcript.
+
+A tool's `milliseconds` is its recorded elapsed time. Omit it when the
+runner has no timing. A failed check can include `step: {index, observed}`
+when one step explains the failure. The index is zero-based in the full
+transcript, including text steps, and `observed` describes what the step did.
+Scenario checks can return `{pass: false, step}` to cite the step, or `false`
+when the failure has no step, such as when an expected action never ran.
 
 ## Commands (2026-10-26)
 

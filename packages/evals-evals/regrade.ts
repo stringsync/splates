@@ -18,7 +18,12 @@ import {
 } from "./judge";
 import { restoreRun } from "./keep";
 import { revisionOf } from "./revision";
-import type { Outcome, Repo, Scenario } from "./scenario";
+import {
+	evaluateCheck,
+	type Outcome,
+	type Repo,
+	type Scenario,
+} from "./scenario";
 
 /**
  * Re-grades the batch in `dir` with `current` scenarios' checks (and the judge
@@ -66,7 +71,13 @@ export async function regradeBatch(
 			continue;
 		}
 		if (line.status === "error") {
-			skip("the run errored, so it has nothing to grade");
+			skip(
+				line.harness === "skipped"
+					? "the run was skipped after an earlier harness error"
+					: line.harness === "error"
+						? "the harness errored on the run, so it has nothing to grade"
+						: "the run errored, so it has nothing to grade",
+			);
 			continue;
 		}
 		report.now ??= await revisionOf(found.dir);
@@ -99,11 +110,7 @@ export async function regradeBatch(
 					continue;
 				}
 				try {
-					checks.push({
-						id: check.id,
-						about: check.about,
-						pass: await check.test(outcome),
-					});
+					checks.push(await evaluateCheck(check, outcome));
 				} catch (error) {
 					if (error instanceof NoRepo) {
 						unchecked.push(check.id);

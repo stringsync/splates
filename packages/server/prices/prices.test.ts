@@ -76,6 +76,19 @@ describe("prices", () => {
 		expect(catalogKey("kimi", "kimi-code/future")).toBeNull();
 	});
 
+	it("finds Antigravity's Gemini and Claude models, leaving uncataloged ids null", () => {
+		expect(catalogKey("antigravity", "gemini-4-hydrogen")).toBe(
+			"google/gemini-4-hydrogen",
+		);
+		expect(catalogKey("antigravity", "gemini-4-neon")).toBe(
+			"google/gemini-4-neon",
+		);
+		expect(catalogKey("antigravity", "claude-opus-5-5")).toBe(
+			"anthropic/claude-opus-5-5",
+		);
+		expect(catalogKey("antigravity", "gpt-oss-120b-medium")).toBeNull();
+	});
+
 	it("finds Claude's models for their inputs by their roster name", () => {
 		expect(inputKey("claude", "opus", "Opus 5.5")).toBe(
 			"anthropic/claude-opus-5-5",

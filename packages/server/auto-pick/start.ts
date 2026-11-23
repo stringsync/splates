@@ -57,14 +57,9 @@ export type AutoPickStart = (
 ) => Promise<Conversation>;
 
 /**
- * Starts a conversation on what Auto pick decides for a task, through
- * `start`, which knows the tree it runs in. It answers before the judge does,
- * on the lineup for a task of no sure kind, so the page opens the
- * thread at once; the agent opens on the decision, which a prompt said
- * meanwhile waits on. A task whose words the judge read before is decided on
- * what it said then. Keeps the decision on the task's record, logs it in the
- * conversation as splates's own line, and, with no judge to ask, asks once
- * on the Creds page for the key one needs.
+ * Opens a conversation through `start` without waiting for the judge to
+ * answer. The agent starts once `picking` resolves to its agent, model, and
+ * settings. A task with a matching prior judgment reuses that judgment.
  */
 export async function startAutoPick({
 	project,
@@ -103,6 +98,8 @@ export async function startAutoPick({
 	const { offered } = context;
 	const cached = record === null ? null : cachedFor(record, key);
 
+	// Use the unclassified lineup for the pending conversation when there is
+	// no cached judgment. Prompts sent meanwhile wait for picking to finish.
 	const fallback =
 		cached === null
 			? decideWithout({ ...context, reason: "the judge has yet to answer" })
@@ -118,6 +115,7 @@ export async function startAutoPick({
 				? {}
 				: { task: "task" in target ? target.task : `#${target.todo}` },
 		context,
+		...(record === null ? {} : { task: record.id }),
 	});
 	const opened = ({ pick }: AutoPickDecision): Picked<string> => ({
 		agent: pick.agent,
@@ -222,9 +220,9 @@ function wordsOfMessage(message: string): { subject: string; detail: string } {
 }
 
 /**
- * Keeps `picked` on task `id`'s record and logs it in `conversation`, when
- * there is one, before its agent opens, asking once for the judge's key
- * unless it `judged`. Each failure is logged, so neither stops the start.
+ * Saves the pick for a task and announces it in the conversation, if supplied.
+ * Pass `null` for the conversation when saving a pick ahead of a start.
+ * Failures are logged and the caller can proceed with the pick.
  */
 export async function settle(
 	project: Project,
@@ -339,6 +337,9 @@ export async function journalPick(
 						likeliest(DEPTHS, classification.depth),
 					],
 		lifted: lifted ?? null,
+		...(picked.holdout === undefined || lifted !== undefined
+			? {}
+			: { held: { from: picked.holdout.from, undo: picked.holdout.undo } }),
 	});
 }
 

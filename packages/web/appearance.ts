@@ -7,13 +7,11 @@ import type { Settings } from "./settings";
 const THEME_COLORS = { light: "#f3f4f7", dark: "#1d1f23" } as const;
 
 /**
- * Keeps `root` wearing the theme and accent `settings` hold: shadcn's theme
- * keys dark mode off a `dark` class, and styles.css keys each accent's palette
- * off `data-accent`. On System, the class follows `device`, including when it
- * switches at sunset with the page open. The `theme-color` meta under `root`,
- * when there is one, takes the theme's background, and so does the launch
- * image `draw` makes for an `apple-touch-startup-image` link. Returns what
- * stops it.
+ * Keeps `root` wearing the theme `settings` hold, following `device` on System,
+ * including when it switches at sunset with the page open. The `theme-color`
+ * meta under `root`, when there is one, takes the theme's background, and so
+ * does the launch image `draw` makes for an `apple-touch-startup-image` link.
+ * Returns what stops it.
  */
 export function followAppearance(
 	settings: Settings,
@@ -39,7 +37,6 @@ export function followAppearance(
 				launch.setAttribute("href", image);
 			}
 		}
-		root.dataset.accent = settings.get("appearance.accent");
 	};
 	apply();
 	device.addEventListener("change", apply);

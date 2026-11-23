@@ -1,5 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import {
+	type PlanCard,
 	type Review,
 	type Stretch,
 	stretches,
@@ -162,6 +163,12 @@ function withoutQuestionsTitle(text: string): string {
 		.trimEnd();
 }
 
+/** A plan as the markdown it was written in. */
+function planText({ title, body }: PlanCard): string {
+	const heading = title === "" ? "## 📝 Plan" : `## 📝 Plan: ${title}`;
+	return body === "" ? heading : `${heading}\n\n${body}`;
+}
+
 /** The reply's turn: the task it ran in, null where the log cannot say. */
 export interface Turn {
 	task: string | null;
@@ -208,6 +215,7 @@ export function replied(
 							escalation: escalatedIn(heading),
 							demo,
 							task: turn.task,
+							plan: before?.type === "plan" ? before.plan : null,
 						} satisfies QuestionsData,
 					},
 				];
@@ -230,8 +238,16 @@ export function replied(
 						data: { permission: stretch.permission },
 					},
 				];
+			case "queued":
+				return [{ type: "data-queued", data: { queued: stretch.queued } }];
 			case "steps":
 				return [{ type: "data-steps", data: { steps: stretch.steps } }];
+			case "plan":
+				// The questions after it decide it, so it is their card's body;
+				// with none, it reads as what it was written as.
+				return after?.type === "questions"
+					? []
+					: [{ type: "text", text: planText(stretch.plan) }];
 			default:
 				return stretch satisfies never;
 		}

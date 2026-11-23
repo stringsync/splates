@@ -105,6 +105,7 @@ export function conversation(
 		autoPick: null,
 		automatic: false,
 		heldForTask: null,
+		queuedTask: null,
 		unread: false,
 		seen: 0,
 		read: null,

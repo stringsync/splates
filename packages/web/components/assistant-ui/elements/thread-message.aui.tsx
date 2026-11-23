@@ -24,8 +24,10 @@ import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 
 export const ThreadMessage: FC = () => {
-	const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
-		useContext(ThreadComponentsContext);
+	const {
+		AssistantMessage: AssistantMessageComponent = AssistantMessage,
+		UserMessage: UserMessageComponent = UserMessage,
+	} = useContext(ThreadComponentsContext);
 	const role = useAuiState((s) => s.message.role);
 	const isEditing = useAuiState((s) => s.message.composer.isEditing);
 	const isSpoken = useAuiState((s) => s.message.metadata.modality === "voice");
@@ -37,7 +39,7 @@ export const ThreadMessage: FC = () => {
 		return <SpokenMessage />;
 	}
 	if (role === "user") {
-		return <UserMessage />;
+		return <UserMessageComponent />;
 	}
 	return <AssistantMessageComponent />;
 };

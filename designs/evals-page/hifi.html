@@ -1,0 +1,166 @@
+<!doctype html><meta charset="utf-8"><title>Evals run page: hi-fi</title><style>
+/* biome-ignore-all lint/style/noDescendingSpecificity: a static mock sheet whose rules are read top to bottom */
+:root{--background:oklch(.968 .004 264);--foreground:oklch(.255 .014 264);--card:oklch(.993 .002 264);--muted:oklch(.928 .006 264);
+--muted-foreground:oklch(.52 .014 264);--brand:oklch(.32 .014 264);--brand-foreground:oklch(.97 .004 264);
+--destructive:oklch(.577 .215 27.3);--success:oklch(.6 .15 152);--warning:oklch(.666 .157 58.3);--info:oklch(.588 .158 241.966);
+--harness:oklch(.55 .03 264);--border:oklch(.885 .007 264);--input:oklch(.86 .008 264)}
+*{box-sizing:border-box;margin:0}
+body{font-family:"Inter Variable",Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;background:#d9dbe0;color:var(--foreground);padding:24px;
+ -webkit-font-smoothing:antialiased;font-size:14px;display:flex;flex-direction:column;gap:28px;width:max-content}
+.frame{width:780px;background:var(--background);border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0/.12)}
+.top{height:46px;display:flex;align-items:center;gap:6px;padding:0 16px;font-size:14px;color:var(--muted-foreground)}
+.top b{color:var(--foreground);font-weight:500}
+.col{width:672px;margin:0 auto;padding:4px 0 24px;display:flex;flex-direction:column;gap:14px}
+.mocklabel{position:absolute;right:14px;top:12px;font-size:11px;font-weight:600;letter-spacing:.06em;color:oklch(.55 .15 300);text-transform:uppercase}
+.frame{position:relative}
+.dim{color:var(--muted-foreground)}.sm{font-size:12.5px}.xs{font-size:11.5px}.b{font-weight:600}.m{font-weight:500}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.row{display:flex;align-items:center;gap:8px}.grow{flex:1;min-width:0}.r{margin-left:auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.pad{padding:12px 14px}
+.sep>*+*{border-top:1px solid var(--border)}
+h2{font-size:17px;font-weight:600}
+h3{font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+svg.i{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.s{width:13px;height:13px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:1px 7px;border-radius:999px;font-weight:500;white-space:nowrap;background:var(--muted);color:var(--muted-foreground)}
+.pill.pass{background:color-mix(in oklab,var(--success) 16%,var(--card));color:oklch(.45 .12 152)}
+.pill.fail{background:color-mix(in oklab,var(--destructive) 13%,var(--card));color:oklch(.5 .18 27)}
+.pill.harness{background:var(--card);border:1px dashed var(--harness);color:var(--harness)}
+.pill.stale{background:color-mix(in oklab,var(--warning) 16%,var(--card));color:oklch(.5 .13 58)}
+.pill.pend{background:var(--card);border:1px solid var(--input)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.dot.pass{background:var(--success)}.dot.fail{background:var(--destructive)}.dot.harness{border:1.5px dashed var(--harness)}.dot.pend{border:1.5px solid var(--input)}.dot.never{background:var(--muted)}.dot.stale{background:var(--warning)}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--muted);gap:2px}
+.bar i{display:block;height:100%}
+.bar .pass{background:var(--success)}.bar .fail{background:var(--destructive)}.bar .stale{background:var(--warning)}.bar .harness{background:repeating-linear-gradient(135deg,var(--harness) 0 3px,var(--muted) 3px 6px)}.bar .never{background:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted-foreground)}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend b{color:var(--foreground);font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:8px;font-size:12.5px;font-weight:500;border:1px solid var(--input);background:var(--card);white-space:nowrap}
+.btn.pri{background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)}
+.chipf{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;font-size:12.5px;border:1px solid var(--input);background:var(--card)}
+.chipf.on{background:var(--brand);color:var(--brand-foreground);border-color:var(--brand)}
+.chipf b{font-weight:600}
+.cb{display:inline-block;width:15px;height:15px;border:1px solid var(--input);border-radius:4px;background:var(--card);flex:none}
+.cells{display:inline-flex;gap:2px;flex-wrap:wrap}
+.cells i{width:8px;height:8px;border-radius:2px;display:block}
+.cells .pass{background:var(--success)}.cells .fail{background:var(--destructive)}.cells .harness{background:var(--card);outline:1px dashed var(--harness);outline-offset:-1px}.cells .pend{background:var(--muted)}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px dashed var(--harness);background:var(--card);font-size:13px}
+.banner.bad{border:1px solid color-mix(in oklab,var(--destructive) 35%,var(--card));background:color-mix(in oklab,var(--destructive) 5%,var(--card))}
+table{border-collapse:collapse;width:100%}
+td,th{white-space:nowrap;padding:8px 10px;text-align:left;font-size:13px;vertical-align:middle}
+th{font-size:11.5px;font-weight:500;color:var(--muted-foreground)}
+tr+tr td{border-top:1px solid var(--border)}
+.tile{flex:1;padding:10px 12px}
+.tile .n{font-size:20px;font-weight:600;line-height:1.2}
+.step{display:flex;gap:10px;padding:8px 12px;font-size:13px;align-items:flex-start}
+.step .k{width:22px;text-align:right;color:var(--muted-foreground);font-size:12px;padding-top:1px;flex:none}
+.step.bad{background:color-mix(in oklab,var(--destructive) 6%,var(--card));box-shadow:inset 3px 0 0 var(--destructive)}
+.phases{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.phases i{display:block;height:100%}
+.ph-setup{background:oklch(.78 .05 264)}.ph-agent{background:var(--info)}.ph-judge{background:oklch(.56 .17 300)}
+.sq{width:9px;height:9px;border-radius:2px;display:inline-block}
+.quote{border-left:3px solid var(--border);padding:2px 0 2px 10px;font-size:13px;line-height:1.5}
+.side{width:230px;flex:none}
+.reason{font-size:12.5px;color:var(--muted-foreground);line-height:1.4}
+.reason em{font-style:normal;color:oklch(.5 .18 27)}
+.cap{font-size:13px;font-weight:600;color:oklch(.35 .01 264);margin-bottom:8px}
+</style>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute"><defs>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+<symbol id="wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="note" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z"/></symbol>
+</defs></svg>
+
+<style>
+/* biome-ignore-all lint/style/noDescendingSpecificity: a static mock sheet whose rules are read top to bottom */
+.pair{display:flex;gap:24px;align-items:flex-start}
+.phone{width:390px;background:var(--background);border-radius:22px;overflow:hidden;box-shadow:0 2px 12px rgb(0 0 0/.12);position:relative}
+.phone .col{width:auto;padding:4px 14px 20px}
+.phone .top{padding:0 14px}
+.frame .col{width:640px}
+.cap2{font-size:13px;font-weight:600;color:oklch(.35 .01 264);margin-bottom:8px}
+.col{gap:12px}
+.ub{align-self:flex-end;background:var(--muted);border-radius:16px;padding:9px 14px;font-size:14px;line-height:1.5;max-width:85%}
+.txt{font-size:14px;line-height:1.55}
+.worked{font-size:12.5px;color:var(--muted-foreground);display:flex;align-items:center;gap:4px}
+.used{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:3px 0 3px 18px;min-width:0}
+.used b{font-weight:500}
+.used .a{color:oklch(.4 .012 264);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.used .d{margin-left:auto;color:var(--muted-foreground);font-size:12.5px;flex:none}
+.sys{font-size:12.5px;color:var(--muted-foreground);display:flex;gap:6px;align-items:center}
+.jc{border:1px solid var(--border);background:var(--card);border-radius:12px;overflow:hidden;font-size:13.5px}
+.jc .h{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:12.5px;color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+.jc .h b{color:var(--foreground);font-weight:600}
+.jc .c{display:flex;gap:8px;padding:8px 12px;align-items:flex-start;line-height:1.45}
+.jc .c+.c{border-top:1px solid var(--border)}
+.jc.bad{border-color:color-mix(in oklab,var(--destructive) 55%,var(--card))}
+.jc.good{border-color:color-mix(in oklab,var(--success) 55%,var(--card))}
+.pill.harness{border:none;background:var(--muted);color:var(--muted-foreground)}
+.pin{margin:6px 0}
+.ok{color:oklch(.45 .12 152)}.no{color:oklch(.5 .18 27)}
+</style><body><div class="pair" id="v-fail"><div><div class="cap2">Phone</div><div class="phone"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill fail">fail</span><span class="b" style="font-size:16px">clock-for-later</span><span class="sm dim">claude sonnet</span></div>
+<div class="sys"><svg aria-hidden="true" class="i s"><use href="#clock"/></svg>Sandbox ready in 4.1s</div>
+<div class="ub">Remind me in 2 days to delete the <span class="mono">legacy-export</span> flag, and check then whether anything still reads it.</div>
+<div>
+ <div class="worked"><svg aria-hidden="true" class="i s"><use href="#down"/></svg>Worked 8.0s</div>
+ <div class="used"><b>Used</b><span class="a">Skill: splates</span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">1s</span></div>
+ <div class="used"><b>Used</b><span class="a">ToolSearch: CronCreate</span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">1s</span></div>
+ <div class="used"><b>Used</b><span class="a">CronCreate: <span class="mono">7 9 22 11 *</span></span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">2s</span></div>
+ <div class="jc bad pin"><div class="h"><svg aria-hidden="true" class="i s no" style=""><use href="#x"/></svg><b>Judged: <span class="mono">clock</span> failed here</b></div><div class="c"><div>Wanted <span class="mono">splates signal wait</span> on <span class="mono">clock.in</span>; a session cron dies with the session.</div></div></div>
+</div>
+<div class="txt">I've set a reminder for Nov 22 at about 9:07am. When it fires, I'll search the repo for anything still reading <span class="mono">legacy-export</span>, including the <span class="mono">legacy_export</span> and <span class="mono">legacyExport</span> spellings. I'll report what I find and ask before deleting the flag.</div>
+<div class="jc bad"><div class="h"><svg aria-hidden="true" class="i s no" style=""><use href="#x"/></svg><b>Judged: 1 of 3 checks failed</b><span style="margin-left:auto">1.6s · $0.13 total</span></div>
+ <div class="c"><svg aria-hidden="true" class="i s no" style="margin-top:2px"><use href="#x"/></svg><div><b class="mono" style="font-size:12.5px">clock</b> <span class="dim">ran <span class="mono">splates signal wait</span> on a clock call</span><div class="xs no">failed at CronCreate ↑</div></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">no-timer</b> <span class="dim">ran no sleep, at or cron</span></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">flag-kept</b> <span class="dim">left the flag in place for now</span></div></div>
+</div></div></div></div><div><div class="cap2">Desktop</div><div class="frame"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill fail">fail</span><span class="b" style="font-size:16px">clock-for-later</span><span class="sm dim">claude sonnet</span></div>
+<div class="sys"><svg aria-hidden="true" class="i s"><use href="#clock"/></svg>Sandbox ready in 4.1s</div>
+<div class="ub">Remind me in 2 days to delete the <span class="mono">legacy-export</span> flag, and check then whether anything still reads it.</div>
+<div>
+ <div class="worked"><svg aria-hidden="true" class="i s"><use href="#down"/></svg>Worked 8.0s</div>
+ <div class="used"><b>Used</b><span class="a">Skill: splates</span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">1s</span></div>
+ <div class="used"><b>Used</b><span class="a">ToolSearch: CronCreate</span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">1s</span></div>
+ <div class="used"><b>Used</b><span class="a">CronCreate: <span class="mono">7 9 22 11 *</span></span><svg aria-hidden="true" class="i s dim"><use href="#chev"/></svg><span class="d">2s</span></div>
+ <div class="jc bad pin"><div class="h"><svg aria-hidden="true" class="i s no" style=""><use href="#x"/></svg><b>Judged: <span class="mono">clock</span> failed here</b></div><div class="c"><div>Wanted <span class="mono">splates signal wait</span> on <span class="mono">clock.in</span>; a session cron dies with the session.</div></div></div>
+</div>
+<div class="txt">I've set a reminder for Nov 22 at about 9:07am. When it fires, I'll search the repo for anything still reading <span class="mono">legacy-export</span>, including the <span class="mono">legacy_export</span> and <span class="mono">legacyExport</span> spellings. I'll report what I find and ask before deleting the flag.</div>
+<div class="jc bad"><div class="h"><svg aria-hidden="true" class="i s no" style=""><use href="#x"/></svg><b>Judged: 1 of 3 checks failed</b><span style="margin-left:auto">1.6s · $0.13 total</span></div>
+ <div class="c"><svg aria-hidden="true" class="i s no" style="margin-top:2px"><use href="#x"/></svg><div><b class="mono" style="font-size:12.5px">clock</b> <span class="dim">ran <span class="mono">splates signal wait</span> on a clock call</span><div class="xs no">failed at CronCreate ↑</div></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">no-timer</b> <span class="dim">ran no sleep, at or cron</span></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">flag-kept</b> <span class="dim">left the flag in place for now</span></div></div>
+</div></div></div></div></div><div class="pair" id="v-pass"><div><div class="cap2">Phone</div><div class="phone"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill pass">pass</span><span class="b" style="font-size:16px">wait-on-npm-release</span><span class="sm dim">claude sonnet</span></div>
+<div class="sys"><svg aria-hidden="true" class="i s"><use href="#clock"/></svg>Sandbox ready in 3.8s</div>
+<div class="ub">Once mdom 2.4.0 is on npm, bump vexml to it.</div>
+<div>
+ <div class="worked"><svg aria-hidden="true" class="i s"><use href="#chev"/></svg>Worked 9.2s</div>
+</div>
+<div class="txt">I'm waiting on the <span class="mono">mdom.released</span> signal (up to 5h) and will bump vexml once 2.4.0 lands.</div>
+<div class="jc good"><div class="h"><svg aria-hidden="true" class="i s ok" style=""><use href="#check"/></svg><b>Judged: 2 of 2 checks passed</b><span style="margin-left:auto">1.2s · $0.09 total</span></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">signal-wait</b> <span class="dim">waited on a named signal with --timeout and --description</span></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">no-poll</b> <span class="dim">never polled the registry</span></div></div>
+</div></div></div></div><div><div class="cap2">Desktop</div><div class="frame"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill pass">pass</span><span class="b" style="font-size:16px">wait-on-npm-release</span><span class="sm dim">claude sonnet</span></div>
+<div class="sys"><svg aria-hidden="true" class="i s"><use href="#clock"/></svg>Sandbox ready in 3.8s</div>
+<div class="ub">Once mdom 2.4.0 is on npm, bump vexml to it.</div>
+<div>
+ <div class="worked"><svg aria-hidden="true" class="i s"><use href="#chev"/></svg>Worked 9.2s</div>
+</div>
+<div class="txt">I'm waiting on the <span class="mono">mdom.released</span> signal (up to 5h) and will bump vexml once 2.4.0 lands.</div>
+<div class="jc good"><div class="h"><svg aria-hidden="true" class="i s ok" style=""><use href="#check"/></svg><b>Judged: 2 of 2 checks passed</b><span style="margin-left:auto">1.2s · $0.09 total</span></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">signal-wait</b> <span class="dim">waited on a named signal with --timeout and --description</span></div></div>
+ <div class="c"><svg aria-hidden="true" class="i s ok" style="margin-top:2px"><use href="#check"/></svg><div><b class="mono" style="font-size:12.5px">no-poll</b> <span class="dim">never polled the registry</span></div></div>
+</div></div></div></div></div><div class="pair" id="v-harness"><div><div class="cap2">Phone</div><div class="phone"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill harness"><svg aria-hidden="true" class="i s"><use href="#wrench"/></svg>harness</span><span class="b" style="font-size:16px">already-happened-since</span><span class="sm dim">kimi k3.1-pro</span></div>
+<div class="jc hz"><div class="h"><svg aria-hidden="true" class="i s" style="color:var(--harness)"><use href="#wrench"/></svg><b>Never reached the agent</b><span style="margin-left:auto">3m 0s</span></div>
+ <div class="c"><div>Sandbox setup timed out at 3m while running <span class="mono">splates init</span>. This run says nothing about the skill; it is left out of pass rates.</div></div></div>
+<div class="ub" style="opacity:.55">When the npm release may already be out, wait on it reaching back to before you started.</div>
+<div class="sys">The agent was not started.</div></div></div></div><div><div class="cap2">Desktop</div><div class="frame"><div class="mocklabel">Mock</div><div class="top">Evals <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> signals ×4 <svg aria-hidden="true" class="i s"><use href="#chev"/></svg> <b>Run</b></div><div class="col"><div class="row"><span class="pill harness"><svg aria-hidden="true" class="i s"><use href="#wrench"/></svg>harness</span><span class="b" style="font-size:16px">already-happened-since</span><span class="sm dim">kimi k3.1-pro</span></div>
+<div class="jc hz"><div class="h"><svg aria-hidden="true" class="i s" style="color:var(--harness)"><use href="#wrench"/></svg><b>Never reached the agent</b><span style="margin-left:auto">3m 0s</span></div>
+ <div class="c"><div>Sandbox setup timed out at 3m while running <span class="mono">splates init</span>. This run says nothing about the skill; it is left out of pass rates.</div></div></div>
+<div class="ub" style="opacity:.55">When the npm release may already be out, wait on it reaching back to before you started.</div>
+<div class="sys">The agent was not started.</div></div></div></div></div></body>

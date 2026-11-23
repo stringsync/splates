@@ -20,12 +20,14 @@ import { useHeldKey, useShortcutLabel } from "./hooks/use-shortcut";
 import { NewConversation } from "./new-conversation-button";
 import { NextWaiting } from "./next-waiting";
 import { OrphansDot, orphanCount } from "./orphans";
+import { pageArea } from "./page-areas";
 import { navPage, PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
 import { SetupDot } from "./setup-state";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
+import { useAutoPickImprovements } from "./use-auto-pick-improvements";
 import {
 	useShipFailed,
 	useShipRecapReady,
@@ -90,6 +92,7 @@ export function AppNav({
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
 	const asking = useShipsWaiting().length;
+	const improvements = useAutoPickImprovements()?.count ?? 0;
 	const shipsRunning = useShipsRunning();
 	const recapReady = useShipRecapReady();
 	const shipFailed = useShipFailed();
@@ -97,6 +100,7 @@ export function AppNav({
 		<TabsTrigger
 			key={value}
 			value={value === navPage(page) ? page : value}
+			data-page-area={pageArea(value).area}
 			onClick={() => {
 				// A tab for the page already open fires no change, so Rec, whose
 				// History and sessions sit under it, goes back to its start here.
@@ -108,11 +112,11 @@ export function AppNav({
 			// Folded, a tab stays mounted, so it still answers to its shortcut.
 			hidden={!pagesShown}
 			className={cn(
-				"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary",
+				"h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-(--area-hue)",
 				// Marked too while a page under it is open.
 				value !== page &&
 					value === navPage(page) &&
-					"group-data-[variant=line]/tabs-list:bg-accent [&_svg]:text-primary",
+					"group-data-[variant=line]/tabs-list:bg-accent [&_svg]:text-(--area-hue)",
 			)}
 		>
 			<span className="relative flex">
@@ -146,6 +150,15 @@ export function AppNav({
 					aria-label="Ship succeeded, recap unread"
 					className="size-4 !text-green-600"
 				/>
+			)}
+			{value === "auto-pick" && improvements > 0 && (
+				<span
+					role="status"
+					aria-label={`${improvements} possible ${improvements === 1 ? "improvement" : "improvements"}`}
+					className="rounded-full bg-warning px-1.5 font-medium text-background text-xs tabular-nums"
+				>
+					{improvements}
+				</span>
 			)}
 			{value === "ships" && asking > 0 && (
 				<span

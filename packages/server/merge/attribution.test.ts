@@ -34,12 +34,15 @@ const GATE =
 	'bun test --timeout 30000 --reporter=junit --reporter-outfile="$SPLATES_TEST_REPORT"';
 
 describe("merge failure attribution", () => {
+	async function prepareGateSeed(deps: Testing) {
+		await deps.commit(deps.root, "checks.test.ts", CHECK, "add checks");
+		await deps.commit(deps.root, "mode.txt", "good", "good mode");
+	}
+
 	let deps: Testing;
 	let tree: string;
 	beforeEach(async () => {
-		deps = await Testing.open();
-		await deps.commit(deps.root, "checks.test.ts", CHECK, "add checks");
-		await deps.commit(deps.root, "mode.txt", "good", "good mode");
+		deps = await Testing.open({ prepareSeed: prepareGateSeed });
 		await add(deps, "alpha");
 		tree = (await deps.service.find("alpha")).path;
 		await deps.finish(tree);

@@ -7,45 +7,10 @@ import type { ConnectedWorker } from "../workers";
 import { PortSocket } from "./socket";
 import { type PortOwners, type TaskPort, taskPorts } from "./task-ports";
 
-/** One task port, with where to open it. */
-export interface PortLink extends TaskPort {
-	/** On this machine. */
-	local: string;
-	/** Through the saved base host, behind Access; null with none saved. */
-	remote: string | null;
-}
-
 /**
- * How long one look at the workers' ports serves: a dev server's page asks
- * for many modules at once, and each would otherwise read the process table.
- */
-const FRESH = Duration.secs(2);
-
-/** Headers a hop sets for itself, never passed on. */
-const HOP_HEADERS = [
-	"connection",
-	"keep-alive",
-	"proxy-connection",
-	"transfer-encoding",
-	"upgrade",
-	"te",
-	"trailer",
-];
-
-/** What a WebSocket client sets itself on the way to the task's server. */
-const SOCKET_HEADERS = [
-	"sec-websocket-key",
-	"sec-websocket-version",
-	"sec-websocket-extensions",
-	"sec-websocket-protocol",
-];
-
-/**
- * The ports each task's processes listen on, read on this machine's worker,
- * as VS Code finds the ports to forward: each open on this machine's
- * loopback, and, under a saved base host, served at `<task>-<port>.<base>`
- * to whoever Cloudflare Access lets in, and never without it. DNS and TLS
- * for the base are the operator's.
+ * Lists and proxies each task's listening ports and tunnel-exposed rigs under
+ * a saved base host behind Cloudflare Access. Call `claim` before page routes
+ * so matching hosts are proxied and other hosts fall through.
  */
 export class DevTaskPorts implements Claimer {
 	private looked: { at: Duration; ports: Promise<TaskPort[]> } | null = null;
@@ -57,6 +22,8 @@ export class DevTaskPorts implements Claimer {
 			worker: () => ConnectedWorker;
 			/** Each served project's worktrees and agents. */
 			owners: () => Promise<PortOwners>;
+			/** Active tunnel-exposed rig routes and excluded rig ports; empty when absent. */
+			rigs?: () => Promise<RigProxyTargets>;
 			/** `<task>-<port>.<base>` is a task port's; null for none. */
 			base: string | null;
 			/** What lets a request reach a task port, which none does without. */
@@ -110,29 +77,46 @@ export class DevTaskPorts implements Claimer {
 		if (verified.refused !== undefined) {
 			return refuse(403, "forbidden", verified.refused);
 		}
-		const named = /^([a-z0-9][a-z0-9-]*)-(\d+)$/.exec(label);
-		if (named === null) {
-			return refuse(
-				404,
-				"not_found",
-				`'${label}' names no task port: open <task>-<port>.${this.deps.base}`,
-			);
-		}
-		const task = named[1] as string;
-		const port = Number(named[2]);
-		const found =
-			(await this.look(false)).find(
-				(each) => each.task === task && each.port === port,
-			) ??
-			(await this.look(true)).find(
-				(each) => each.task === task && each.port === port,
-			);
-		if (found === undefined) {
-			return refuse(
-				404,
-				"not_found",
-				`task '${task}' serves nothing on port ${port} now`,
-			);
+		const rigTargets = (await this.deps.rigs?.()) ?? null;
+		const rig = rigTargets?.routes.find((each) => each.label === label);
+		let port: number;
+		let source: string;
+		if (rig !== undefined) {
+			port = rig.port;
+			source = `rig '${rig.run}'`;
+		} else {
+			const named = /^([a-z0-9][a-z0-9-]*)-(\d+)$/.exec(label);
+			if (named === null) {
+				return refuse(
+					404,
+					"not_found",
+					`'${label}' names no task port or rig: open <task>-<port>.${this.deps.base}`,
+				);
+			}
+			const task = named[1] as string;
+			port = Number(named[2]);
+			if (rigTargets?.excluded.has(port)) {
+				return refuse(
+					404,
+					"not_found",
+					`task '${task}' serves nothing on port ${port} now`,
+				);
+			}
+			const found =
+				(await this.look(false)).find(
+					(each) => each.task === task && each.port === port,
+				) ??
+				(await this.look(true)).find(
+					(each) => each.task === task && each.port === port,
+				);
+			if (found === undefined) {
+				return refuse(
+					404,
+					"not_found",
+					`task '${task}' serves nothing on port ${port} now`,
+				);
+			}
+			source = `task '${task}'`;
 		}
 		const url = new URL(request.url);
 		const target = `${LOOPBACK}:${port}${url.pathname}${url.search}`;
@@ -192,7 +176,7 @@ export class DevTaskPorts implements Claimer {
 			return refuse(
 				502,
 				"error",
-				`task '${task}' did not answer on port ${port}: ${error instanceof Error ? error.message : String(error)}`,
+				`${source} did not answer on port ${port}: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
 	}
@@ -221,7 +205,10 @@ export class DevTaskPorts implements Claimer {
 
 	/** The ports tasks serve, tied to them by the worker's own processes. */
 	private async read(): Promise<TaskPort[]> {
-		const owners = await this.deps.owners();
+		const [owners, rigTargets] = await Promise.all([
+			this.deps.owners(),
+			this.deps.rigs?.() ?? Promise.resolve(null),
+		]);
 		const worker = this.deps.worker();
 		// One that is away would hold its answer until it is back.
 		if (!worker.connected) {
@@ -241,10 +228,13 @@ export class DevTaskPorts implements Claimer {
 		}
 		const on = <Each extends { worker: string }>(each: Each) =>
 			each.worker === worker.id;
-		return taskPorts(table, listening, {
+		const ports = taskPorts(table, listening, {
 			worktrees: owners.worktrees.filter(on),
 			agents: owners.agents.filter(on),
 		});
+		return rigTargets === null || rigTargets.excluded.size === 0
+			? ports
+			: ports.filter((each) => !rigTargets.excluded.has(each.port));
 	}
 
 	private link({ task, port }: TaskPort): PortLink {
@@ -317,6 +307,24 @@ export async function portOwnersOf(
 	return owners;
 }
 
+/** Every served project's live tunnel-exposed rig routes and excluded rig ports. */
+export async function rigProxyTargetsOf(
+	served: Map<string, Promise<Served>>,
+): Promise<RigProxyTargets> {
+	const routes: RigProxyRoute[] = [];
+	const excluded = new Set<number>();
+	for (const settled of await Promise.allSettled(served.values())) {
+		if (settled.status === "fulfilled") {
+			const targets = settled.value.rigProxyTargets();
+			routes.push(...targets.routes);
+			for (const port of targets.excluded) {
+				excluded.add(port);
+			}
+		}
+	}
+	return { routes, excluded };
+}
+
 /** What answers a task port's request before the page's routes do. */
 export interface Claimer {
 	/** Its answer to `request`, or null to leave it to the route. */
@@ -327,8 +335,8 @@ export interface Claimer {
 }
 
 /**
- * `routes`, each handler asking `claimer` first: Bun matches a route by its
- * path alone, so a task port's `/` would otherwise reach the page's.
+ * Wraps every route handler in `routes` so `claimer.claim` answers matching
+ * hosts before the route handler runs.
  */
 export function claimedFirst<Routes extends Record<string, unknown>>(
 	routes: Routes,
@@ -355,3 +363,53 @@ export function claimedFirst<Routes extends Record<string, unknown>>(
 		]),
 	) as Routes;
 }
+
+/** One task port, with where to open it. */
+export interface PortLink extends TaskPort {
+	/** On this machine. */
+	local: string;
+	/** Through the saved base host, behind Access; null with none saved. */
+	remote: string | null;
+}
+
+/** One live tunnel-exposed rig port routed under `--ports-host`. */
+export interface RigProxyRoute {
+	/** Subdomain label under `--ports-host`, as `cat` or `cat-api`. */
+	label: string;
+	/** Loopback port the rig listens on. */
+	port: number;
+	/** Run identifier for diagnostics, as `fixture/echo@main`. */
+	run: string;
+}
+
+/** Active tunnel-exposed rig routes and ports that must never be proxied. */
+export interface RigProxyTargets {
+	routes: RigProxyRoute[];
+	/** Ports owned by `none` or `self` rigs, excluded from `<task>-<port>`. */
+	excluded: Set<number>;
+}
+
+/**
+ * How long one look at the workers' ports serves: a dev server's page asks
+ * for many modules at once, and each would otherwise read the process table.
+ */
+const FRESH = Duration.secs(2);
+
+/** Headers a hop sets for itself, never passed on. */
+const HOP_HEADERS = [
+	"connection",
+	"keep-alive",
+	"proxy-connection",
+	"transfer-encoding",
+	"upgrade",
+	"te",
+	"trailer",
+];
+
+/** What a WebSocket client sets itself on the way to the task's server. */
+const SOCKET_HEADERS = [
+	"sec-websocket-key",
+	"sec-websocket-version",
+	"sec-websocket-extensions",
+	"sec-websocket-protocol",
+];

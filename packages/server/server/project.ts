@@ -2,7 +2,14 @@
 import type { Resource } from "core/disposable";
 import { UuidProvider } from "core/id";
 import { Debouncer, SystemTimer, SystemWallClock } from "core/time";
-import { AutoPickRoutes, lifting, QueueAutoPick } from "../auto-pick";
+import { launcherOf, launch as launchHere } from "../agents/process";
+import {
+	AutoPickRoutes,
+	contextOf,
+	lifting,
+	QueueAutoPick,
+	reserveHold,
+} from "../auto-pick";
 import type { TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks, SignalTasks } from "../board";
 import { loadConfig } from "../config";
@@ -12,7 +19,6 @@ import {
 	JournalEvents,
 	NoopConversations,
 	SERVER_TOLD,
-	textOf,
 } from "../conversations";
 import { CredRoutes } from "../creds";
 import { fail } from "../exit";
@@ -23,8 +29,24 @@ import {
 	taskNumberReference,
 	waitsOnYou,
 } from "../plans";
-import { QUEUE_SWEEP, QueueCapacity, QueueRunner } from "../queue";
+import {
+	AgentChainStore,
+	AgentQueueLedgerStore,
+	AgentQueueRoutes,
+	AgentQueueSettingsStore,
+	QUEUE_SWEEP,
+	QueueCapacity,
+	QueueRunner,
+} from "../queue";
 import { Replicator } from "../replica";
+import {
+	type KeptRun,
+	RigCommands,
+	type RigPresets,
+	RigRoutes,
+	RigRuns,
+	type RunTree,
+} from "../rigs";
 import {
 	GitRunCheckouts,
 	ShellStepProcesses,
@@ -49,6 +71,7 @@ import { heldFor } from "./held";
 import { MergeRoutes } from "./merges";
 import type { DevContext, Project, Served } from "./project-types";
 import { ProjectWatch, SETTLE } from "./project-watch";
+import { ShipFixFollowUp } from "./ship-fix-follow-up";
 
 /**
  * Everything one project's page talks to: its records, its stream of
@@ -77,6 +100,9 @@ export async function serveProject(
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
 	let queueRunner: QueueRunner | null = null;
+	const agentSettings = new AgentQueueSettingsStore(
+		storage.document("agent-queue.json"),
+	);
 	let unwatchRoom: (() => void) | null = null;
 	let starting = Promise.resolve();
 	const automations = new Automations(
@@ -154,6 +180,19 @@ export async function serveProject(
 			overloaded: async () =>
 				capacity.overloaded(project.config.queueLoad, await machine.read()),
 			capacity: () => capacity.reading,
+			reserve: async (queued) => {
+				const { quotaReserve } = await agentSettings.read();
+				const now = new Date();
+				const context = await contextOf(project, conversations, now);
+				return reserveHold({
+					reserve: quotaReserve,
+					named: queued.assignee,
+					rules: context.rules,
+					runnable: context.runnable,
+					limits: context.limits,
+					now,
+				});
+			},
 			log,
 		});
 		const unwatch = context.onWorkerRoom(() => void queueRunner?.sweep());
@@ -219,6 +258,51 @@ export async function serveProject(
 		project.ps,
 		service.git.root,
 	);
+	const rigCommands = new RigCommands(
+		// Read from the main tree each time, as the ship commands are.
+		async () => {
+			try {
+				return (await loadConfig(service.git.root)).rigs ?? [];
+			} catch {
+				return project.config.rigs ?? [];
+			}
+		},
+		project.ps,
+		service.git.root,
+	);
+	const rigTrees = async (): Promise<RunTree[]> => [
+		{ name: "main", path: service.git.root },
+		...(await service.list())
+			.filter((each) => each.exists)
+			.map(({ task, path }) => ({ name: task, path })),
+	];
+	const rigRuns = new RigRuns({
+		listing: () => rigRoutes.listing(),
+		trees: rigTrees,
+		// On the worker, whose stop ends everything a run started, and which
+		// keeps a run going while this server restarts.
+		launcher: context.shipLauncher ?? launcherOf(launchHere),
+		kept: storage.document<KeptRun[]>("rig-runs.json"),
+		slots: context.rigSlots,
+		ps: project.ps,
+		base: context.portsBase ?? null,
+		get serverUrl() {
+			return context.url;
+		},
+	});
+	void rigRuns
+		.resume()
+		.catch((error: unknown) =>
+			log.error(
+				`splates server could not take back the rig runs: ${String(error)}`,
+			),
+		);
+	const rigRoutes = new RigRoutes({
+		commands: rigCommands,
+		trees: rigTrees,
+		presets: storage.document<RigPresets>("rig-presets.json"),
+		runs: rigRuns,
+	});
 	const shipComposer = new ShipComposer(shipCommands);
 	const shipCards =
 		conversations === null
@@ -285,31 +369,15 @@ export async function serveProject(
 				// A turn that ends with the task still on the board and untaken
 				// means the agent gave up without saying so: ask it once to merge
 				// or remove with a reason, then let the ship try the step itself.
-				const untaken = async () =>
-					(await project.tasks.stored()).some(
-						(each) => each.id === task && each.takenBy === null,
-					);
-				void (async () => {
-					await conversation.prompt(
-						`${taskNumberReference(task)}\n\nThis task fixes a step of a ship the user started: its words say how to read the run and try the step again. Once the task merges, the ship retries the step by itself; removing it hands the step back to the user.`,
-						[],
-					);
-					if (!(await untaken())) {
-						return;
-					}
-					await conversation.prompt(
-						`Your turn ended and task #${task} is still untaken, so the ship is waiting on it. Either take it (\`splates add --task ${task}\`) and fix the step, or, when nothing in code needs fixing, remove the task with \`--reason blocked\` and say in the reason exactly what the user has to do (for example, ship a version to staging first, then Retry).`,
-						[],
-					);
-					if (!(await untaken())) {
-						return;
-					}
-					const said = conversation.state.messages
-						.filter((each) => each.role === "agent")
-						.at(-1);
-					const note = said === undefined ? "" : textOf(said).trim();
-					await shipFixes.abandoned(task, note === "" ? undefined : note);
-				})().catch((error: unknown) => log.error(String(error)));
+				void new ShipFixFollowUp({
+					untaken: async (id) =>
+						(await project.tasks.stored()).some(
+							(each) => each.id === id && each.takenBy === null,
+						),
+					abandoned: (id, note) => shipFixes.abandoned(id, note),
+				})
+					.run(conversation, task)
+					.catch((error: unknown) => log.error(String(error)));
 			},
 			ended: async (task) => {
 				if ((await project.tasks.stored()).some((each) => each.id === task)) {
@@ -362,6 +430,16 @@ export async function serveProject(
 			boards: context.boards,
 			root: service.git.root,
 		}),
+		quotaReserveHolds: async () =>
+			Response.json(Object.fromEntries(queueRunner?.holds().entries() ?? [])),
+		...new AgentQueueRoutes(
+			project,
+			listed,
+			agentSettings,
+			new AgentQueueLedgerStore(storage.document("agent-queue-counts.json")),
+			new AgentChainStore(storage.document("agent-queue-chains.json")),
+			() => new Set(queueRunner?.holds().keys() ?? []),
+		),
 		...new CredRoutes(project, watch, async (name, payload) => {
 			await context.raiseSignal?.(`${await slug()}/${name}`, "creds", payload);
 		}),
@@ -369,6 +447,11 @@ export async function serveProject(
 		...automations.routes,
 		...new ShipPlanRoutes(shipCommands),
 		...new ShipRunRoutes(shipEngine, shipComposer, shipFixes),
+		rigs: rigRoutes.rigs,
+		rigStart: rigRoutes.start,
+		rigStop: rigRoutes.stop,
+		rigLog: rigRoutes.log,
+		rigPresets: rigRoutes.presets,
 		sendToAgent: async (subject: string, text: string) => {
 			if (conversations === null) {
 				throw new Error("conversations are off");
@@ -505,19 +588,26 @@ export async function serveProject(
 			worktrees: (await service.list())
 				.filter((each) => each.exists)
 				.map(({ task, path }) => ({ task, path, worker: LOCAL_WORKER })),
-			agents: ((await conversations?.list()) ?? []).flatMap(
-				({ state, pid, handle }) =>
-					state.task !== null && pid !== null
-						? [
-								{
-									task: state.task,
-									pid,
-									worker: handle?.worker ?? LOCAL_WORKER,
-								},
-							]
-						: [],
-			),
+			agents: [
+				...rigRuns.owners().map((each) => ({
+					...each,
+					worker: LOCAL_WORKER,
+				})),
+				...((await conversations?.list()) ?? []).flatMap(
+					({ state, pid, handle }) =>
+						state.task !== null && pid !== null
+							? [
+									{
+										task: state.task,
+										pid,
+										worker: handle?.worker ?? LOCAL_WORKER,
+									},
+								]
+							: [],
+				),
+			],
 		}),
+		rigProxyTargets: () => rigRuns.proxyTargets(),
 		events: async () => watch.events(),
 		listen: (heard) => {
 			const board = watch.listen(() => heard.board());
@@ -530,8 +620,13 @@ export async function serveProject(
 			};
 		},
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
-		detachShips: () => shipEngine.detachAsync(),
+		detachWork: async () => {
+			const rigs = await rigRuns.detach();
+			const ships = await shipEngine.detachAsync();
+			return rigs || ships;
+		},
 		async disposeAsync() {
+			rigRuns.dispose();
 			await conflicts.disposeAsync();
 			shipCards?.dispose();
 			runWatch.dispose();

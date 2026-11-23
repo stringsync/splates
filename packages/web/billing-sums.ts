@@ -1,4 +1,4 @@
-import type { SpendTotal } from "@splates/server/spend";
+import type { PlanView, SpendTotal } from "@splates/server/spend";
 import { createContext, useContext } from "react";
 
 /** The currency the Billing page's amounts are in. */
@@ -98,6 +98,16 @@ export const sum = (rows: readonly Sum[]): Sum => ({
  */
 export const whole = (row: Sum): number => row.billed + row.expected;
 
+/** What the same usage would cost at API list prices: billed API charges plus plan use priced at API rates. */
+export const apiTotal = (row: Sum): number => row.billed + row.equivalent;
+
+/** Formats an amount in `currency`, keeping cents when non-whole or `cents` is set. */
+export const formatMoney = (
+	amount: number,
+	currency: string,
+	cents = false,
+): string => money(amount, currency, cents);
+
 /** One provider's spend in the range, with its services, the costliest first. */
 export interface ProviderSpend extends Sum {
 	provider: string;
@@ -105,22 +115,31 @@ export interface ProviderSpend extends Sum {
 }
 
 /**
- * The report's services on the bill grouped by provider, the costliest
- * provider first; a service that only priced plan use is left out.
+ * The report's services grouped by provider, the costliest actual bill first
+ * (then highest API-equivalent value), including plan providers with API usage
+ * even before their renewal lands in the range.
  */
 export function byProvider(services: readonly SpendTotal[]): ProviderSpend[] {
 	const grouped = new Map<string, SpendTotal[]>();
-	for (const row of services.filter((each) => whole(each) > 0)) {
+	for (const row of services.filter(
+		(each) => whole(each) > 0 || each.equivalent > 0,
+	)) {
 		const provider = row.provider ?? "";
 		grouped.set(provider, [...(grouped.get(provider) ?? []), row]);
 	}
 	return [...grouped]
 		.map(([provider, rows]) => ({
 			provider,
-			services: [...rows].sort((one, other) => whole(other) - whole(one)),
+			services: [...rows].sort(
+				(one, other) =>
+					whole(other) - whole(one) || other.equivalent - one.equivalent,
+			),
 			...sum(rows),
 		}))
-		.sort((one, other) => whole(other) - whole(one));
+		.sort(
+			(one, other) =>
+				whole(other) - whole(one) || other.equivalent - one.equivalent,
+		);
 }
 
 /** One day of the chart: each provider's spend that day, none where it spent nothing. */
@@ -167,6 +186,42 @@ export function projected(spent: number, now: number): number | null {
 	return elapsed < DAY ? null : (spent * (end - start)) / elapsed;
 }
 
+/**
+ * What each provider's plans and subscriptions add to this month's projection:
+ * charges already made plus those still to come, biggest first.
+ */
+export function plansInProjection(
+	services: readonly SpendTotal[],
+	upcoming: readonly SpendTotal[],
+): { provider: string; amount: number }[] {
+	const by = new Map<string, number>();
+	for (const each of [...services, ...upcoming]) {
+		if (each.expected > 0) {
+			const provider = each.provider ?? "";
+			by.set(provider, (by.get(provider) ?? 0) + each.expected);
+		}
+	}
+	return [...by]
+		.map(([provider, amount]) => ({ provider, amount }))
+		.sort((one, other) => other.amount - one.amount);
+}
+
+/** Providers with plan usage in the range but no plan set or detected, so no fee in the projection. */
+export function missingPlans(
+	services: readonly SpendTotal[],
+	plans: readonly PlanView[],
+): string[] {
+	return plans
+		.filter(
+			(plan) =>
+				plan.source === "none" &&
+				services.some(
+					(each) => each.provider === plan.provider && each.equivalent > 0,
+				),
+		)
+		.map((plan) => plan.provider);
+}
+
 /** The last day of the month `now` falls in, as `Oct 31`. */
 export function monthEnd(now: number): string {
 	const date = new Date(now);
@@ -193,6 +248,7 @@ const ORDER = [
 	"openai",
 	"cloudflare",
 	"typesafe",
+	"antigravity",
 ];
 
 export function colorOf(provider: string): string {
@@ -208,6 +264,7 @@ const NAMES: Record<string, string> = {
 	openai: "OpenAI",
 	cloudflare: "Cloudflare",
 	typesafe: "TypeSafe",
+	antigravity: "Antigravity",
 };
 
 /** A provider's name as people write it. */

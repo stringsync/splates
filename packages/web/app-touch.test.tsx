@@ -70,6 +70,7 @@ describe("App on a touch device", () => {
 			"Startup",
 			"Editor",
 			"Notifications",
+			"Agents",
 			"Updates",
 			"Canned replies",
 		]);

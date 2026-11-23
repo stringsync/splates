@@ -60,19 +60,30 @@ describe("App's billing spend", () => {
 		testing.dispose();
 	});
 
-	it("totals the bill, plan use at API prices apart, and opens a provider onto its services", async () => {
+	it("totals the bill, compares actual against API prices, and opens a provider onto its plan and model services", async () => {
+		testing.spendReport.services[0] = {
+			provider: "claude",
+			service: "opus",
+			period: null,
+			billed: 0,
+			equivalent: 500,
+			expected: 0,
+		};
 		const view = await testing.open();
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		await waitFor(() => view.getByLabelText("range"));
 		await waitFor(() => view.getByText("Updated", { exact: false }));
-		expect(view.getByLabelText("total").textContent).toContain("$203");
-		expect(view.getByText(/\$12\.50 of plan use at API prices/)).toBeTruthy();
+		const total = view.getByLabelText("total");
+		expect(total.textContent).toContain("$203");
+		expect(total.textContent).toContain("Actual bill vs. API list prices");
+		expect(total.textContent).toContain("$503.00");
+		expect(total.textContent).toContain("Saving $300.00");
 		expect(view.queryByText("Max 20x plan")).toBeNull();
 		fireEvent.click(view.getByRole("button", { name: /Claude/ }));
 		expect(view.getByText("Max 20x plan")).toBeTruthy();
-		expect(view.queryByText("opus")).toBeNull();
+		expect(view.getByText("opus")).toBeTruthy();
 		expect(view.getAllByText("expected").length).toBeGreaterThan(0);
 	});
 

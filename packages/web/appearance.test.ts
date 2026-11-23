@@ -69,23 +69,8 @@ describe("followAppearance", () => {
 		followAppearance(settings, root, media, draw);
 		expect(link.getAttribute("href")).toBe("data:image/png;#f3f4f7");
 
-		await settings.set("appearance.accent", "rose");
 		set(true);
 		expect(link.getAttribute("href")).toBe("data:image/png;#1d1f23");
 		expect(drawn).toEqual(["#f3f4f7", "#1d1f23"]);
-	});
-
-	it("wears the accent set, and stops once told to", async () => {
-		const settings = new Settings(localStorage);
-		const root = document.createElement("html");
-		const stop = followAppearance(settings, root, device().media);
-		expect(root.dataset.accent).toBe("graphite");
-
-		await settings.set("appearance.accent", "rose");
-		expect(root.dataset.accent).toBe("rose");
-
-		stop();
-		await settings.set("appearance.accent", "violet");
-		expect(root.dataset.accent).toBe("rose");
 	});
 });

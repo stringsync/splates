@@ -134,6 +134,12 @@ export class LeftRunning implements Resource {
 			if (each.pid !== undefined || each.command === null) {
 				return false;
 			}
+			// What Antigravity backgrounds runs as some step of its command line
+			// (`bin/mono fix` as `bun .../index.ts fix`), which no text matches:
+			// a process left beside one of its tasks is that task's.
+			if (this.host.state.agent === "antigravity") {
+				return each.state === "running";
+			}
 			const said = plain(each.command).slice(0, 60);
 			return said !== "" && running.includes(said);
 		});

@@ -1,13 +1,5 @@
 import { EllipsisVerticalIcon } from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from "react";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { createPortal } from "react-dom";
 import {
 	DropdownMenu,
@@ -22,9 +14,21 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWide } from "./app-nav";
+import { useFit } from "./bar-fit";
 import { RefreshStatus } from "./freshness";
+import { pageArea } from "./page-areas";
+import { DesktopPageHeaderBand, PhonePageHeaderBand } from "./page-header-band";
+import type { Page } from "./page-route";
 import { ProjectSwitcher } from "./projects";
 import { RestartButton } from "./restart-button";
+
+/** Area identity handed to `TopBar` by the desktop and phone shells. */
+export interface PageAreaFrame {
+	/** The active page, for its color, icon, description, and layout width. */
+	page: Page;
+	/** Desktop only: adds left clearance for the fixed `SidebarHead` while the sidebar is hidden. */
+	sidebarHidden?: boolean;
+}
 
 /** What the page's shell gives every bar under it. */
 export interface BarFrame {
@@ -33,7 +37,7 @@ export interface BarFrame {
 	 * out to draw the bar in place.
 	 */
 	slot?: HTMLElement | null;
-	/** A phone shows its page hierarchy below the project bar. */
+	/** A phone shows its page header below the project bar. */
 	titleSlot?: HTMLElement | null;
 	/** Said after every title: outdated or a restart under way. */
 	status?: ReactNode;
@@ -51,14 +55,17 @@ export interface BarFrame {
 	badge?: ReactNode;
 	/**
 	 * The project's name, which a phone's bar of the project's own, as a
-	 * conversation's, puts under its title as a switcher.
+	 * conversation's, puts under its title as a switcher, and full page headers
+	 * show in their scope pill.
 	 */
 	project?: string;
 	/**
-	 * Leaves the title out, as a phone's page bar does, which the project
-	 * heads instead, with the page title in its own row.
+	 * Leaves the title out of `slot`, as a phone's project bar does, putting
+	 * the page header in `titleSlot` underneath.
 	 */
 	untitled?: boolean;
+	/** Active page area for the integrated atmospheric header band. */
+	area?: PageAreaFrame;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -68,6 +75,9 @@ export function TopBar({
 	leading,
 	title,
 	detail,
+	description,
+	badge,
+	tabs,
 	actions = [],
 	project: named = false,
 	className,
@@ -77,6 +87,12 @@ export function TopBar({
 	title: ReactNode;
 	/** After the title, smaller, as the branch a conversation runs on. */
 	detail?: ReactNode;
+	/** Replaces the page area's default description; pass null to omit it. */
+	description?: ReactNode;
+	/** Optional opaque pill shown beside the title (defaults to the area's scope pill on full headers). */
+	badge?: ReactNode;
+	/** Sub-page tabs docked flush onto the header's neutral bottom hairline. */
+	tabs?: ReactNode;
 	actions?: BarAction[];
 	/** Whether a phone names the project under the title: a conversation's bar. */
 	project?: boolean;
@@ -93,6 +109,20 @@ export function TopBar({
 		menu !== null || kept.length > 0,
 	);
 	const folded = [...shown.slice(fit), ...kept];
+	const area = frame?.area ? pageArea(frame.area.page) : null;
+	const styled = area !== null && title !== "";
+	const resolvedDescription =
+		description !== undefined ? description : (area?.description ?? null);
+	const resolvedBadge =
+		badge !== undefined
+			? badge
+			: area !== null && !area.compact && area.scope !== null
+				? area.scope === "everywhere"
+					? "All projects"
+					: frame?.project
+						? `Project · ${frame.project}`
+						: "Project"
+				: null;
 	// The project's line under the title, with the detail on it.
 	const project = named && !wide ? frame?.project : undefined;
 	const pageTitle =
@@ -105,6 +135,42 @@ export function TopBar({
 		);
 	const heading = frame?.untitled === true ? null : pageTitle;
 	const below = project !== undefined;
+	const controls = (
+		<>
+			<div
+				ref={restart}
+				className="flex w-20 shrink-0 items-center justify-end max-md:empty:hidden md:w-24"
+			>
+				{frame?.dot !== undefined ? (
+					<RestartButton wide={wide} update={frame.dot} />
+				) : (
+					<RefreshStatus updating={frame?.refreshing} />
+				)}
+			</div>
+			{(folded.length > 0 || menu !== null) && (
+				<Kebab actions={folded} menu={menu} wide={wide} />
+			)}
+			{shown.slice(0, fit).map((action) => (
+				<ActionButton key={action.label} action={action} wide={wide} />
+			))}
+			{/* Every action and the kebab, unseen, to tell how wide each is. */}
+			<div
+				ref={measure}
+				aria-hidden
+				inert
+				className="pointer-events-none invisible absolute top-0 left-0 flex gap-1"
+			>
+				{shown.map((action) => (
+					<span key={action.label} className={buttonClass(action, wide)}>
+						<Face action={action} />
+					</span>
+				))}
+				<span className={buttonClass(null, wide)}>
+					<EllipsisVerticalIcon />
+				</span>
+			</div>
+		</>
+	);
 	const row = (
 		<>
 			{leading && frame?.badge ? (
@@ -152,41 +218,41 @@ export function TopBar({
 						{frame?.status}
 					</div>
 				</div>
-				<div
-					ref={restart}
-					className="flex w-20 shrink-0 items-center justify-end max-md:empty:hidden md:w-24"
-				>
-					{frame?.dot !== undefined ? (
-						<RestartButton wide={wide} update={frame.dot} />
-					) : (
-						<RefreshStatus updating={frame?.refreshing} />
-					)}
-				</div>
-				{(folded.length > 0 || menu !== null) && (
-					<Kebab actions={folded} menu={menu} wide={wide} />
-				)}
-				{shown.slice(0, fit).map((action) => (
-					<ActionButton key={action.label} action={action} wide={wide} />
-				))}
-				{/* Every action and the kebab, unseen, to tell how wide each is. */}
-				<div
-					ref={measure}
-					aria-hidden
-					inert
-					className="pointer-events-none invisible absolute top-0 left-0 flex gap-1"
-				>
-					{shown.map((action) => (
-						<span key={action.label} className={buttonClass(action, wide)}>
-							<Face action={action} />
-						</span>
-					))}
-					<span className={buttonClass(null, wide)}>
-						<EllipsisVerticalIcon />
-					</span>
-				</div>
+				{controls}
 			</div>
 		</>
 	);
+
+	const desktopBand =
+		styled && area !== null && frame?.untitled !== true ? (
+			<DesktopPageHeaderBand
+				area={area}
+				title={title}
+				badge={resolvedBadge}
+				description={resolvedDescription}
+				detail={detail}
+				status={frame?.status}
+				tabs={tabs}
+				controls={controls}
+				sidebarHidden={frame?.area?.sidebarHidden}
+				roomRef={room}
+				titledRef={titled}
+				detailedRef={detailed}
+				statedRef={stated}
+			/>
+		) : null;
+
+	const phoneBand =
+		styled && area !== null && frame?.untitled === true ? (
+			<PhonePageHeaderBand
+				area={area}
+				title={title}
+				badge={resolvedBadge}
+				description={resolvedDescription}
+				tabs={tabs}
+			/>
+		) : null;
+
 	if (frame?.slot !== undefined) {
 		// Nothing until the shell's row is there to take it.
 		if (frame.slot === null) {
@@ -194,8 +260,9 @@ export function TopBar({
 		}
 		return (
 			<>
-				{createPortal(row, frame.slot)}
-				{frame.titleSlot && createPortal(pageTitle, frame.titleSlot)}
+				{createPortal(desktopBand ?? row, frame.slot)}
+				{frame.titleSlot &&
+					createPortal(phoneBand ?? pageTitle, frame.titleSlot)}
 				{frame.bannerSlot != null &&
 					frame.banner !== undefined &&
 					createPortal(frame.banner, frame.bannerSlot)}
@@ -213,6 +280,7 @@ export function TopBar({
 			>
 				{row}
 			</header>
+			{tabs}
 			{frame?.banner}
 		</>
 	);
@@ -280,106 +348,6 @@ export function BarButton({
 			{children}
 		</button>
 	);
-}
-
-/** Room a title keeps before actions fold away for it, in pixels. */
-const TITLE_ROOM = 128;
-/** The gap between a bar's items, `gap-1`. */
-const GAP = 4;
-
-/**
- * How many of `count` actions fit beside the title and the status, measured
- * from an unseen copy of them each time the bar, its title, its detail, its
- * status, Update or its actions change size: all when they do, or
- * as many as leave room for the kebab, the detail, the status, Restart to
- * update, and `TITLE_ROOM` of the title, or the whole title when shorter.
- */
-function useFit(
-	count: number,
-	menu: boolean,
-): {
-	room: React.RefObject<HTMLDivElement | null>;
-	titled: React.RefObject<HTMLDivElement | null>;
-	detailed: React.RefObject<HTMLDivElement | null>;
-	stated: React.RefObject<HTMLDivElement | null>;
-	restart: React.RefObject<HTMLDivElement | null>;
-	measure: React.RefObject<HTMLDivElement | null>;
-	fit: number;
-} {
-	const room = useRef<HTMLDivElement>(null);
-	const titled = useRef<HTMLDivElement>(null);
-	const detailed = useRef<HTMLDivElement>(null);
-	const stated = useRef<HTMLDivElement>(null);
-	const restart = useRef<HTMLDivElement>(null);
-	const measure = useRef<HTMLDivElement>(null);
-	const [fit, setFit] = useState(count);
-	const fitRef = useRef<() => void>(() => {});
-	fitRef.current = () => {
-		const into = room.current;
-		const copies = measure.current;
-		if (into === null || copies === null) {
-			return;
-		}
-		// Not laid out, as before the page shows: nothing to fold for.
-		if (into.clientWidth === 0) {
-			setFit(count);
-			return;
-		}
-		const widths = [...copies.children].map(
-			(each) => (each as HTMLElement).offsetWidth,
-		);
-		const kebab = (widths.pop() ?? 0) + GAP;
-		// What the title would take untruncated: its heading's whole width.
-		const heading = titled.current?.firstElementChild;
-		const title = Math.min(heading?.scrollWidth ?? 0, TITLE_ROOM);
-		// The detail and the status keep their whole widths.
-		const detail = detailed.current?.offsetWidth ?? 0;
-		const status = stated.current?.offsetWidth ?? 0;
-		// Update never folds, so keeps its whole width too.
-		const restarting = restart.current?.offsetWidth ?? 0;
-		const space =
-			into.clientWidth -
-			title -
-			(detail > 0 ? detail + 8 : 0) -
-			(status > 0 ? status + 8 : 0) -
-			(restarting > 0 ? restarting + GAP : 0);
-		const across = (first: number) =>
-			widths.slice(0, first).reduce((sum, width) => sum + width + GAP, 0);
-		let shown = count;
-		while (
-			shown > 0 &&
-			across(shown) + (menu || shown < count ? kebab : 0) > space
-		) {
-			shown -= 1;
-		}
-		setFit(shown);
-	};
-	useLayoutEffect(() => fitRef.current());
-	useLayoutEffect(() => {
-		const resized = new ResizeObserver(() => fitRef.current());
-		for (const each of [
-			room.current,
-			titled.current,
-			detailed.current,
-			stated.current,
-			restart.current,
-			measure.current,
-		]) {
-			if (each !== null) {
-				resized.observe(each);
-			}
-		}
-		return () => resized.disconnect();
-	}, []);
-	return {
-		room,
-		titled,
-		detailed,
-		stated,
-		restart,
-		measure,
-		fit: Math.min(fit, count),
-	};
 }
 
 function buttonClass(action: BarAction | null, wide: boolean): string {
@@ -526,4 +494,5 @@ function Kebab({
  * How tall a conversation's page is beside a sidebar: the screen, less the
  * bar above it and the padding below.
  */
-export const BELOW_BAR = "h-[calc(100dvh-var(--top-bar-height)-1rem)]";
+export const BELOW_BAR =
+	"h-[calc(100dvh-var(--page-header-height,var(--top-bar-height))-1rem)]";

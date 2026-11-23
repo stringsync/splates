@@ -172,7 +172,6 @@ describe("App's Auto pick setup", () => {
 		await press(
 			view.getByRole("switch", {
 				name: /^Pass over a pick whose plan/,
-				hidden: true,
 			}),
 		);
 		expect(slack).toHaveProperty("disabled", true);
@@ -190,9 +189,7 @@ describe("App's Auto pick setup", () => {
 		};
 		testing.reply = { ...VIEW, rules: edited };
 
-		await press(
-			view.getByRole("button", { name: "Apply settings", hidden: true }),
-		);
+		await press(view.getByRole("button", { name: "Apply settings" }));
 
 		expect(puts()).toEqual([["PUT", { rules: edited }]]);
 	});

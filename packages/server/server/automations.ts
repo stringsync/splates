@@ -1,4 +1,5 @@
 import type { Resource } from "core/disposable";
+import { startAutoPick } from "../auto-pick";
 import {
 	type Conversation,
 	type Conversations,
@@ -355,21 +356,50 @@ export class Automations implements Resource {
 		const { ps, service, log } = this.#project;
 		const root = service.git.root;
 		const begin = async (
-			pick: AgentPick,
+			pick: AgentPick | null,
 			prompt: string,
-			{ persistent, automation }: { persistent?: string; automation?: string },
+			{
+				persistent,
+				automation,
+				words,
+			}: {
+				persistent?: string;
+				automation?: string;
+				/** What Auto pick judges, for no `pick`: the hook's own prompt. */
+				words?: string;
+			},
 		): Promise<void> => {
-			const offered = (await conversations.settings())[pick.agent] ?? [];
-			const conversation = await conversations.start(pick.agent, {
+			const opts = {
 				task: null,
 				cwd: root,
-				model: pick.model,
-				settings: pickSettings(pick.effort, offered),
 				assigned: true,
 				automatic: true,
 				...(persistent === undefined ? {} : { persistent }),
 				...(automation === undefined ? {} : { automation }),
-			});
+			};
+			const conversation =
+				pick === null
+					? await startAutoPick({
+							project: this.#project,
+							conversations,
+							slug: this.#slug,
+							target: { words: words ?? prompt },
+							start: (agent, { model, settings, picking }) =>
+								conversations.start(agent, {
+									...opts,
+									model,
+									settings,
+									picking,
+								}),
+						})
+					: await conversations.start(pick.agent, {
+							...opts,
+							model: pick.model,
+							settings: pickSettings(
+								pick.effort,
+								(await conversations.settings())[pick.agent] ?? [],
+							),
+						});
 			void conversation
 				.prompt(prompt, [], undefined, { told: SERVER_TOLD })
 				.then(() =>
@@ -404,9 +434,11 @@ export class Automations implements Resource {
 					}
 				},
 				agent: (hook, fired, id) =>
-					begin(hook, `${referenceOf(fired)}\n\n${hook.prompt}`, {
-						automation: id,
-					}),
+					begin(
+						hook.agent === undefined ? null : { ...hook, agent: hook.agent },
+						`${referenceOf(fired)}\n\n${hook.prompt}`,
+						{ automation: id, words: hook.prompt },
+					),
 				// Not awaited: the groomer works down the backlog turn by turn,
 				// while the hooks after it run.
 				groom: async (hook) => {

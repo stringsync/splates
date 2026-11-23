@@ -155,7 +155,17 @@ export function ReportCard({
 							)
 						)}
 						{held !== null && <HeldBlockers task={held} />}
-						{(merged || removed) && <MergedStats landed={landed} />}
+						{(merged || removed) && (
+							<MergedStats
+								landed={landed}
+								ruled={
+									merged
+										? record !== null ||
+											(landed?.outcome.outcome?.trim() ?? "") !== ""
+										: text !== "" || held !== null
+								}
+							/>
+						)}
 						<CardArchive report={report} unmerge={merged} />
 					</>
 				)}

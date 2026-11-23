@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { byNamespace } from "./eval-improve";
 
 /** Repetitions a run card starts with, as the loop's first round does. */
-export const DEFAULT_REPS = 3;
+export const DEFAULT_REPS = 1;
 
 /** The plan to accept: the agents left on, and the repetitions. */
 export type RunChoice = {

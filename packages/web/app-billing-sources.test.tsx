@@ -129,4 +129,105 @@ describe("App's billing sources", () => {
 		await waitFor(() => view.getByText("2 new charges"));
 		expect(view.queryByText("Pull failed")).toBeNull();
 	});
+
+	it("shows agent plans in Billing sources and saves and clears a manual Antigravity plan", async () => {
+		const claudePlan = {
+			provider: "claude" as const,
+			source: "detected" as const,
+			service: "Max 5x plan",
+			amount: 100,
+			currency: "USD",
+			renewalDay: 18,
+			hasDetected: true,
+		};
+		testing.billingView = {
+			...testing.billingView,
+			currency: "USD",
+			plans: [
+				claudePlan,
+				{
+					provider: "antigravity",
+					source: "none",
+					service: null,
+					amount: null,
+					currency: null,
+					renewalDay: null,
+					hasDetected: false,
+				},
+			],
+		};
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
+		);
+		await waitFor(() => view.getByText("Plan detected"));
+		expect(
+			view.getByText(/Max 5x plan · \$100\/mo · renews on day 18/),
+		).toBeTruthy();
+		expect(view.getByText("Plan not detected")).toBeTruthy();
+
+		fireEvent.click(view.getByRole("button", { name: "Set Antigravity plan" }));
+		fireEvent.change(view.getByLabelText("Antigravity monthly price"), {
+			target: { value: "20" },
+		});
+		fireEvent.change(view.getByLabelText("Antigravity renewal day"), {
+			target: { value: "5" },
+		});
+		testing.billingView = {
+			...testing.billingView,
+			plans: [
+				claudePlan,
+				{
+					provider: "antigravity",
+					source: "manual",
+					service: "Monthly plan",
+					amount: 20,
+					currency: "USD",
+					renewalDay: 5,
+					hasDetected: false,
+				},
+			],
+		};
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Save" })),
+		);
+		await waitFor(() => view.getByText("Plan set"));
+		expect(view.getByText(/\$20\/mo · renews on day 5/)).toBeTruthy();
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/billing/plan",
+			method: "PUT",
+			body: JSON.stringify({
+				provider: "antigravity",
+				amount: 20,
+				renewalDay: 5,
+			}),
+		});
+
+		fireEvent.click(
+			view.getByRole("button", { name: "Edit Antigravity plan" }),
+		);
+		testing.billingView = {
+			...testing.billingView,
+			plans: [
+				claudePlan,
+				{
+					provider: "antigravity",
+					source: "none",
+					service: null,
+					amount: null,
+					currency: null,
+					renewalDay: null,
+					hasDetected: false,
+				},
+			],
+		};
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Clear" })),
+		);
+		await waitFor(() => view.getByText("Plan not detected"));
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/billing/plan?provider=antigravity",
+			method: "DELETE",
+		});
+	});
 });

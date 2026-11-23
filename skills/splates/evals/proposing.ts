@@ -4,6 +4,26 @@ import { deliveredImages } from "./delivery";
 import { splatesSandbox } from "./sandbox";
 import type { Scenario } from "./scenario";
 
+/** The plan card's body with fences and images taken out: the prose the word budget counts. */
+export function planProse(body: string): string {
+	return body
+		.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, "")
+		.replace(/<pre[\s\S]*?<\/pre>/g, "")
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, "");
+}
+
+/** Whether a plan body has the prescribed shape: Goal, After and Approach lines, no step list, at most 200 words of prose. */
+export function shortPlan(body: string): boolean {
+	const prose = planProse(body);
+	const has = (label: string) =>
+		new RegExp(`^\\*\\*${label}:\\*\\*\\s*\\S`, "m").test(prose);
+	const listed = /^\s*(?:[-*+]|\d+[.)])\s+\S/m.test(prose);
+	const words = prose.split(/\s+/).filter((word) => /\w/.test(word)).length;
+	return (
+		has("Goal") && has("After") && has("Approach") && !listed && words <= 200
+	);
+}
+
 const aspect = "proposing";
 
 /** Whether a reply holds one questions card ending in the approval question. */
@@ -44,14 +64,25 @@ const notBuilt: Check = {
 		!commands.some((command) => /\bsplates\s+merge\b/.test(command)),
 };
 
-const planPage: Check = {
-	id: "plan-page",
+/** Whether a reply opens a plan card the questions after it decide. */
+const planCard: Check = {
+	id: "plan-card",
 	about:
-		"ran `splates artifact add` on an HTML file and the approval question has a `Plan: <name>.html` line",
-	test: ({ commands, reply }) =>
-		commands.some((command) =>
-			/\bsplates["']?\s+artifact\s+add\b.*\.html?\b/.test(command),
-		) && /^\s*Plan:\s*`?[^`\s]+\.html?`?\s*$/im.test(reply),
+		"the reply holds a `## 📝 Plan:` card followed by its questions, the approval question last",
+	test: ({ reply }) => {
+		const cards = stretches(reply).filter((each) => each.type !== "text");
+		return cards[0]?.type === "plan" && cards[1]?.type === "questions";
+	},
+};
+
+const short: Check = {
+	id: "short-plan",
+	about:
+		"the plan card holds **Goal:**, **After:** and **Approach:** lines, no step list, and at most 200 words of prose",
+	test: ({ reply }) =>
+		stretches(reply).some(
+			(each) => each.type === "plan" && shortPlan(each.plan.body),
+		),
 };
 
 const uploadService = `export async function upload(file: Uint8Array): Promise<string> {
@@ -77,11 +108,11 @@ const settingsPage = `<!doctype html>
 /** A plan shows its change in a picture, as the skill's Showing the change asks. */
 export const scenarios: Scenario[] = [
 	{
-		id: `${aspect}/plan-page-over-threshold`,
+		id: `${aspect}/plan-card-over-threshold`,
 		aspect,
 		initialized: true,
 		requirement:
-			"A change spanning several services and tables is planned as a plan page: an HTML artifact kept with `splates artifact add`, named on the approval question's `Plan:` line, with the reply holding one line and that question instead of a written plan.",
+			"A change spanning several services and tables is planned as a short plan card: `## 📝 Plan:`, Goal, After and Approach lines (Hard to undo when something is) with a D2 diagram and no step list, at most 200 words of prose, then its questions, the approval question last.",
 		seed: async (repo) => {
 			await repo.write("src/upload.ts", uploadService);
 			await repo.write(
@@ -93,28 +124,28 @@ export const scenarios: Scenario[] = [
 			"What do you think about retrying failed upload scans, with a dead-letter queue and a new failures table the support team can read? Plan it, don't build it.",
 		checks: [
 			titled,
-			planPage,
+			planCard,
+			short,
 			{
-				id: "plan-not-written-twice",
-				about:
-					"the reply's prose is short: the plan is in the page, not the text",
+				id: "diagrammed",
+				about: "the plan, in the reply or its page, draws the flow in D2",
 				test: ({ reply }) =>
-					reply.replace(/```[\s\S]*?```/g, "").split("\n").length < 25,
+					/^```d2[ \t]*$/m.test(reply) || /\bPlan:\s*\S+\.html?/i.test(reply),
 			},
 			notBuilt,
 		],
 		judgeWith: "claude:sonnet",
 		judge:
-			"Is the reply a short line on the change plus an approval question that names a plan page, with no full plan written out in the reply? Answer yes or no.",
+			"Does the plan say how the change gets done, not only what will be different once it is done, and does its Goal line give the reason for the change rather than restating its After line? Answer yes or no.",
 		limits: { turns: 40, minutes: 20 },
 		followUp: { turns: 3, done: proposed },
 	},
 	{
-		id: `${aspect}/plan-page-for-ui`,
+		id: `${aspect}/plan-card-for-ui`,
 		aspect,
 		initialized: true,
 		requirement:
-			"A visible frontend change is planned as a plan page too, not a text plan.",
+			"A visible frontend change is planned as a plan card with its mockup attached, in the markdown or a plan page.",
 		seed: async (repo) => {
 			await repo.write("settings.html", settingsPage);
 		},
@@ -122,7 +153,17 @@ export const scenarios: Scenario[] = [
 			"What do you think about adding a theme picker with light, dark and system options to the settings screen? Propose it, don't build it.",
 		checks: [
 			titled,
-			planPage,
+			planCard,
+			short,
+			{
+				id: "mocked",
+				about: "attached a mockup image, or kept a plan page holding it",
+				test: ({ commands, reply }) =>
+					deliveredImages(reply).length > 0 ||
+					commands.some((command) =>
+						/\bsplates["']?\s+artifact\s+add\b.*\.html?\b/.test(command),
+					),
+			},
 			{
 				id: "kept-clean",
 				about: "left the repo's files unchanged",
@@ -139,13 +180,13 @@ export const scenarios: Scenario[] = [
 		aspect,
 		initialized: true,
 		requirement:
-			"When the user answers an approval question with `Request a full plan`, the agent writes a plan page and asks the approval question again with a `Plan:` line, writing no code.",
+			"When the user answers an approval question with `Request a full plan`, the agent sends the plan card again with a fuller plan, markdown unless it needs something dynamic, writing no code.",
 		seed: async (repo) => {
 			await repo.write("src/upload.ts", uploadService);
 		},
 		message:
 			"Earlier you proposed renaming the `id` local in upload() to `uploadId` and asked:\n\n1. Do you approve renaming the `id` local in upload() to `uploadId`?\n   - (a) Yes, approve it\n   - (b) No\n   - (c) Request a full plan\n\n1. c. Don't build it yet.",
-		checks: [titled, planPage, notBuilt],
+		checks: [titled, planCard, notBuilt],
 		limits: { turns: 40, minutes: 20 },
 	},
 	{
@@ -213,8 +254,12 @@ export const scenarios: Scenario[] = [
 				test: ({ reply }) => {
 					const cards = stretches(reply);
 					const asked = cards.filter((each) => each.type === "questions");
+					// A plan card heads its questions, so it is no second card.
 					const other = cards.filter(
-						(each) => each.type !== "text" && each.type !== "questions",
+						(each) =>
+							each.type !== "text" &&
+							each.type !== "questions" &&
+							each.type !== "plan",
 					);
 					const first = asked[0];
 					return (

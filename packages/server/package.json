@@ -51,6 +51,8 @@
 		"./push/browser": "./push/browser.ts",
 		"./rec": "./rec/index.ts",
 		"./rec/browser": "./rec/browser.ts",
+		"./rigs": "./rigs/index.ts",
+		"./rigs/browser": "./rigs/browser.ts",
 		"./ports": "./ports/index.ts",
 		"./prices": "./prices/index.ts",
 		"./probe-runtime": "./probe-runtime.ts",

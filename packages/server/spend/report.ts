@@ -81,7 +81,15 @@ export async function spendReport(
 	let currency = "USD";
 	let rateDate: string | null = null;
 	let rateError: string | null = null;
-	if (rates !== undefined && rates.currency !== "USD") {
+	const needsConversion =
+		rates !== undefined &&
+		(rates.currency !== "USD" ||
+			[...inRange, ...ahead].some(
+				(entry) =>
+					entry.original !== undefined &&
+					entry.original.currency !== rates.currency,
+			));
+	if (needsConversion) {
 		try {
 			const converted: SpendEntry[] = [];
 			for (const entry of [...inRange, ...ahead]) {

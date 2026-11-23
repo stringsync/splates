@@ -11,6 +11,7 @@ import {
 	second,
 	Testing,
 	turn,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -291,19 +292,19 @@ describe("App's artifacts", () => {
 		);
 		expect(within(lightbox).queryByText("Which backfill?")).toBeNull();
 		expect(within(lightbox).getAllByRole("listitem")).toHaveLength(1);
-		await act(async () => fireEvent.click(within(lightbox).getByText("No")));
+		// Decided from the card's footer: the question takes words, not choices.
+		expect(within(lightbox).queryByText("No")).toBeNull();
+		await typeIn(
+			within(lightbox).getByRole("textbox", { name: "Answer to 2" }),
+			"Approve, with an index.",
+		);
 		await act(async () =>
 			fireEvent.click(within(lightbox).getByRole("button", { name: "close" })),
 		);
-		const approval = view.getByRole("listitem", { name: "question 2" });
-		expect(
-			within(approval)
-				.getByRole("button", { name: /No/ })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
-		await act(async () =>
-			fireEvent.click(within(approval).getByText("Yes, approve it")),
-		);
+		// What was written there is the card's: Reject stays visible and Approve switches to Send.
+		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
 		await act(async () => fireEvent.click(tile));
 		lightbox = view.getByRole("dialog", { name: "plan.html" });
 		await act(async () =>
@@ -313,15 +314,12 @@ describe("App's artifacts", () => {
 				}),
 			),
 		);
-		expect(
-			within(lightbox)
-				.getByRole("button", { name: /Yes, approve it/ })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
+		const words = within(lightbox).getByRole("textbox", {
+			name: "Answer to 2",
+		});
+		expect(words.textContent).toBe("Approve, with an index.");
 		// The question is the page's own, not the frame's.
-		expect(frame.contains(within(lightbox).getByText("Yes, approve it"))).toBe(
-			false,
-		);
+		expect(frame.contains(words)).toBe(false);
 		// Its footer goes back to the card's questions rather than sending.
 		expect(within(lightbox).queryByRole("button", { name: "Send" })).toBeNull();
 		await act(async () =>
@@ -425,7 +423,7 @@ describe("App's artifacts", () => {
 			},
 		);
 
-		await waitFor(() => view.getByText("Request a full plan"));
+		await waitFor(() => view.getByText("Request full plan"));
 		const tile = await waitFor(() =>
 			view.getByRole("button", { name: "open plan" }),
 		);
@@ -491,12 +489,248 @@ describe("App's artifacts", () => {
 			]),
 		]);
 
-		await waitFor(() => view.getByText("Request a full plan"));
+		await waitFor(() => view.getByText("Request full plan"));
 		expect(view.getByText("No full plan")).toBeTruthy();
 		expect(view.queryByRole("button", { name: "open plan" })).toBeNull();
 	});
 
+	const planned = turn([
+		[
+			"## 📝 Plan: rename the Stop button",
+			"",
+			"### Approach",
+			"",
+			"Rename it Pause.",
+			"",
+			"1. Do you approve renaming the Stop button?",
+			"   - (a) Yes, approve it",
+			"   - (b) No",
+		].join("\n"),
+	]);
+	it("renders consecutive plan fields as separate paragraphs", async () => {
+		const view = await testing.openConversations([
+			turn([
+				[
+					"## 📝 Plan: try a cheaper lineup",
+					"",
+					"**Goal:** Find cells that can use a cheaper lineup.",
+					"**After:** Some tasks start one lineup down.",
+					"**Approach:** Record `holdout: true` on the outcome.",
+					"**Hard to undo:** A migration records the outcome.",
+					"",
+					"1. Do you approve trying a cheaper lineup?",
+					"   - (a) Yes, approve it",
+					"   - (b) No",
+				].join("\n"),
+			]),
+		]);
+
+		await waitFor(() => view.getByText("Awaiting approval"));
+		const paragraphs = ["Goal:", "After:", "Approach:", "Hard to undo:"].map(
+			(label) => view.getByText(label).closest("p"),
+		);
+		expect(paragraphs.every((paragraph) => paragraph !== null)).toBe(true);
+		expect(new Set(paragraphs).size).toBe(paragraphs.length);
+		expect(view.getByText("holdout: true").tagName).toBe("CODE");
+	});
+
+	const prompts = () =>
+		testing
+			.posted("/api/conversations/c1/prompt")
+			.map((post) => (post.body as { text: string }).text);
+
+	it("heads a plan's questions with the plan and approves it from the footer", async () => {
+		const view = await testing.openConversations([planned]);
+
+		await waitFor(() => view.getByText("Plan: rename the Stop button"));
+		expect(view.getByText("Awaiting approval")).toBeTruthy();
+		expect(view.getByText("Rename it Pause.")).toBeTruthy();
+		expect(view.getByText("Anything else?")).toBeTruthy();
+		expect(
+			view.queryByText("Do you approve renaming the Stop button?"),
+		).toBeNull();
+		// The plan is in the card: no tile for the task's record, and Reject + Request full plan sit in the footer.
+		expect(view.queryByText("No full plan")).toBeNull();
+		expect(
+			view.getByRole("button", { name: "Request full plan" }),
+		).toBeTruthy();
+		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Yes, approve it");
+	});
+
+	it("switches Approve to Send without implicit approval when Anything else has text", async () => {
+		const view = await testing.openConversations([planned]);
+
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "Anything else" }),
+		);
+		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
+		await typeIn(box, "Approve, but call it Hold.");
+		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Approve, but call it Hold.");
+		expect(prompts()[0]).not.toContain("Yes, approve it");
+	});
+
+	it("switches back to Approve when Anything else is cleared", async () => {
+		const view = await testing.openConversations([planned]);
+
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "Anything else" }),
+		);
+		await typeIn(box, "Call it Hold.");
+		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
+		await typeIn(box, "");
+		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
+	});
+
+	it("rejects a plan card even when a question was only typed in a preceding question", async () => {
+		const view = await testing.openConversations([
+			turn([
+				[
+					"## 📝 Plan: rename the Stop button",
+					"",
+					"### Approach",
+					"",
+					"Rename it Pause.",
+					"",
+					"1. Should the shortcut change too?",
+					"   - (a) Keep Esc (chosen)",
+					"   - (b) Use Space",
+					"2. Do you approve renaming the Stop button?",
+					"   - (a) Yes, approve it",
+					"   - (b) No",
+				].join("\n"),
+			]),
+		]);
+
+		const q1Box = await waitFor(() =>
+			view.getByRole("textbox", { name: "Answer to 1" }),
+		);
+		await typeIn(q1Box, "Why not keep Esc only while running?");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Reject" })),
+		);
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Why not keep Esc only while running?");
+		expect(prompts()[0]).toContain("No");
+		expect(prompts()[0]).not.toContain("Yes, approve it");
+	});
+
+	it("approves on Enter in a plan card's Anything else box when empty, and sends feedback when text is present", async () => {
+		const view = await testing.openConversations([planned]);
+
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "Anything else" }),
+		);
+		await act(async () =>
+			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
+		);
+		expect(prompts()).toEqual([]);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Yes, approve it");
+	});
+
+	it("sends feedback on Enter in a plan card's Anything else box when text is present", async () => {
+		const view = await testing.openConversations([planned]);
+
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "Anything else" }),
+		);
+		await typeIn(box, "Call it Hold instead.");
+		await act(async () =>
+			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
+		);
+		expect(prompts()).toEqual([]);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Call it Hold instead.");
+		expect(prompts()[0]).not.toContain("Yes, approve it");
+	});
+
 	// vet-ignore simple-test-setup: one artifact of each kind is what this test alone opens
+	it("keeps Reject and Request full plan in the ellipsis menu beside Approve on a phone", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([planned]);
+
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: /plan for you/ }),
+		);
+		expect(
+			within(sheet).queryByRole("button", { name: "Request full plan" }),
+		).toBeNull();
+		expect(within(sheet).queryByRole("button", { name: "Reject" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "More actions" }),
+			),
+		);
+		expect(view.getByRole("menuitem", { name: "Reject" })).toBeTruthy();
+		const item = await waitFor(() =>
+			view.getByRole("menuitem", { name: "Request full plan" }),
+		);
+		await act(async () => fireEvent.click(item));
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Request a full plan");
+	});
+
+	it("rejects from the ellipsis menu beside Approve on a phone", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([planned]);
+
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: /plan for you/ }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "More actions" }),
+			),
+		);
+		const reject = await waitFor(() =>
+			view.getByRole("menuitem", { name: "Reject" }),
+		);
+		await act(async () => fireEvent.click(reject));
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("No");
+		expect(prompts()[0]).not.toContain("Yes, approve it");
+	});
+
+	it("switches Approve to Send without implicit approval on a phone when Anything else has text", async () => {
+		resize(390, 844);
+		const view = await testing.openConversations([planned]);
+
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: /plan for you/ }),
+		);
+		const box = within(sheet).getByRole("textbox", { name: "Anything else" });
+		await typeIn(box, "Looks good, ship it.");
+		expect(within(sheet).queryByRole("button", { name: "Approve" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toContain("Looks good, ship it.");
+		expect(prompts()[0]).not.toContain("Yes, approve it");
+	});
+
 	it("opens an image or a recording in the lightbox among the others beside it, and downloads anything else", async () => {
 		const { view } = await opened([
 			artifact("a.png", [version(1, 10, "image/png")]),

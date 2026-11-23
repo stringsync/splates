@@ -113,7 +113,8 @@ export type Tone =
 	| "destructive"
 	| "info"
 	| "eval"
-	| "steps";
+	| "steps"
+	| "plan";
 
 export const TONES: Record<
 	Tone,
@@ -156,6 +157,12 @@ export const TONES: Record<
 		header: "bg-purple-500/15",
 		icon: "text-purple-400 dark:text-purple-300",
 		focus: "focus-within:border-purple-500/50 focus-within:ring-purple-500/15",
+	},
+	// Plans are indigo: proposals awaiting approval.
+	plan: {
+		header: "bg-indigo-500/15",
+		icon: "text-indigo-600 dark:text-indigo-300",
+		focus: "focus-within:border-indigo-500/50 focus-within:ring-indigo-500/15",
 	},
 };
 
@@ -226,7 +233,7 @@ function Header({
 		<div
 			className={cn(
 				// Tighter in a narrow thread, as on a phone.
-				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:px-3 @max-md:py-2",
+				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:items-start @max-md:px-3 @max-md:py-2",
 				ruled && (folded ? "group-data-[open]/card:border-b" : "border-b"),
 				TONES[tone].header,
 			)}
@@ -234,8 +241,12 @@ function Header({
 			{folded && (
 				<ChevronRightIcon className="size-4 text-muted-foreground transition-transform duration-150 group-data-[open]/card:rotate-90" />
 			)}
-			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-			<span className="font-medium text-[13px]">{title}</span>
+			<Icon className={cn("size-4 shrink-0 @max-md:mt-px", TONES[tone].icon)} />
+			{/* Narrow, the title takes the row beside its icon and wraps under
+			    itself, rather than dropping below the icon whole. */}
+			<span className="font-medium text-[13px] @max-md:min-w-0 @max-md:flex-1 @max-md:basis-0">
+				{title}
+			</span>
 			{/* In a narrow thread the chips take a row of their own beneath, so
 			    the aside stays beside the title rather than wrapping alone. */}
 			{task !== undefined && (
@@ -297,32 +308,44 @@ const READOUTS = new Set([
 export function CardBody({
 	text,
 	lead = false,
+	follows = false,
 	className,
 }: {
 	text: string;
 	/** Whether its first paragraph leads, set in a heavier weight. */
 	lead?: boolean;
+	/** Whether it comes after other blocks, so its first heading is ruled too. */
+	follows?: boolean;
 	className?: string;
 }): JSX.Element {
 	const blocks = blocksOf(text);
 	if (blocks.some((block) => READOUTS.has(block.kind))) {
 		return (
-			<div className={cn("flex flex-col divide-y", className)}>
-				{blocks.map((block, i) => (
-					<div
-						// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
-						key={i}
-						className={
-							block.kind === "markdown" ? "" : "px-4 py-3 @max-md:px-3"
-						}
-					>
-						{block.kind === "markdown" ? (
-							<CardBody text={block.text} lead={lead && i === 0} />
-						) : (
-							<BlockView block={block} lead={false} />
-						)}
-					</div>
-				))}
+			<div
+				className={cn(
+					"flex flex-col gap-3 px-4 py-3.5 text-sm leading-relaxed @max-md:px-3 @max-md:py-2.5",
+					className,
+				)}
+			>
+				{blocks.map((block, i) =>
+					block.kind === "markdown" ? (
+						<CardBody
+							// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
+							key={i}
+							text={block.text}
+							lead={lead && i === 0}
+							follows={i > 0}
+							className="p-0 @max-md:p-0"
+						/>
+					) : (
+						<BlockView
+							// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
+							key={i}
+							block={block}
+							lead={false}
+						/>
+					),
+				)}
 			</div>
 		);
 	}
@@ -338,7 +361,11 @@ export function CardBody({
 			)}
 		>
 			{cut.lead !== "" && (
-				<CardMarkdown text={cut.lead} lead={lead} className="p-0 @max-md:p-0" />
+				<CardMarkdown
+					text={cut.lead}
+					lead={lead}
+					className="p-0 pb-5 @max-md:p-0 @max-md:pb-5"
+				/>
 			)}
 			{cut.parts.map((part, i) => (
 				<CardSection
@@ -346,7 +373,7 @@ export function CardBody({
 					key={i}
 					label={part.title}
 					title={part.title}
-					ruled={cut.lead !== "" || i > 0}
+					ruled={follows || cut.lead !== "" || i > 0}
 				>
 					{part.body !== "" && (
 						<CardMarkdown text={part.body} className="p-0 @max-md:p-0" />

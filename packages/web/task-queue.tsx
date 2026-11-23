@@ -1,7 +1,9 @@
 import { age } from "@splates/server/age";
+import type { ReserveHold } from "@splates/server/auto-pick/browser";
 import type { TaskRecord } from "@splates/server/board";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { AgentQueuedMark } from "./agent-queued-mark";
 import {
 	blockedFix,
 	blockedQueue,
@@ -13,6 +15,7 @@ import { Board } from "./board";
 import { Card } from "./card";
 import { QueueColumn } from "./queue-column";
 import { QueueEmpty } from "./queue-rows";
+import { ReserveLine, useQuotaReserve } from "./quota-reserve";
 
 /** Lists the queued tasks that can start, numbered in start order. Pass `shown` to filter what is listed. */
 export function QueuedColumn({
@@ -24,6 +27,7 @@ export function QueuedColumn({
 	staleness: number;
 }): JSX.Element {
 	const { todos } = useContext(Board);
+	const holds = useQuotaReserve();
 	const places = upNext(todos).flatMap((todo, at) =>
 		shown(todo) ? [{ todo, place: at + 1 }] : [],
 	);
@@ -44,7 +48,16 @@ export function QueuedColumn({
 								staleness={staleness}
 								step={place}
 								listed
-								detail={waited(todo)}
+								detail={
+									<>
+										<AgentQueuedMark todo={todo} />
+										{holds[todo.id] === undefined ? (
+											waited(todo)
+										) : (
+											<ReserveLine hold={holds[todo.id] as ReserveHold} />
+										)}
+									</>
+								}
 							/>
 						</li>
 					))}

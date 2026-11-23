@@ -72,11 +72,13 @@ export { similarTasks, similarWarning } from "./similar-warning";
 export type { Started, StoredTask } from "./store";
 export { queuedOf, startedOf, TaskStore } from "./store";
 export type {
+	ChainRoot,
 	ClosesOn,
 	Firing,
 	GoneBlocker,
 	Landed,
 	LandedBlocker,
+	QueuedBy,
 	Task,
 	TaskRecord,
 	TaskStage,

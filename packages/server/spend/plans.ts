@@ -15,6 +15,119 @@ export interface Expected {
 	currency: string;
 }
 
+/** Agent providers whose monthly subscription fee can be detected or configured on Billing. */
+export const PLAN_PROVIDERS = [
+	"claude",
+	"codex",
+	"kimi",
+	"antigravity",
+] as const;
+
+export type PlanProvider = (typeof PLAN_PROVIDERS)[number];
+
+/** A monthly plan fee saved on this machine for an agent provider. */
+export interface PlanOverride {
+	amount: number;
+	/** Day of the month the plan renews (1–31). */
+	renewalDay: number;
+	currency: string;
+}
+
+/** How one agent provider's plan appears on the Billing page. */
+export interface PlanView {
+	provider: PlanProvider;
+	source: "detected" | "manual" | "none";
+	service: string | null;
+	amount: number | null;
+	currency: string | null;
+	renewalDay: number | null;
+	/** Whether an auto-detected plan exists underneath, so clearing a manual override falls back to it. */
+	hasDetected: boolean;
+}
+
+/** Turns a saved monthly plan override into a recurring {@link Plan}. */
+export function planFromOverride(
+	provider: PlanProvider,
+	override: PlanOverride,
+): Plan {
+	const day = String(
+		Math.min(Math.max(Math.round(override.renewalDay), 1), 31),
+	).padStart(2, "0");
+	return {
+		provider,
+		service: "Monthly plan",
+		amount: override.amount,
+		currency: override.currency,
+		everyMonths: 1,
+		// January always has 31 days, so any renewal day 1–31 anchors cleanly for renewals().
+		since: `2000-01-${day}T00:00:00.000Z`,
+	};
+}
+
+/** Combines auto-detected plans with manual per-provider overrides, overrides taking precedence. */
+export function mergePlans(
+	detected: readonly Plan[],
+	overrides: Partial<Record<PlanProvider, PlanOverride>>,
+): Plan[] {
+	const merged: Plan[] = [];
+	for (const plan of detected) {
+		const provider = plan.provider as PlanProvider;
+		if (overrides[provider] === undefined) {
+			merged.push(plan);
+		}
+	}
+	for (const provider of PLAN_PROVIDERS) {
+		const override = overrides[provider];
+		if (override !== undefined) {
+			merged.push(planFromOverride(provider, override));
+		}
+	}
+	return merged;
+}
+
+/** Builds the Billing page's plan rows for every agent provider, in fixed order. */
+export function planViews(
+	detected: readonly Plan[],
+	overrides: Partial<Record<PlanProvider, PlanOverride>>,
+): PlanView[] {
+	return PLAN_PROVIDERS.map((provider) => {
+		const found = detected.find((each) => each.provider === provider);
+		const override = overrides[provider];
+		if (override !== undefined) {
+			return {
+				provider,
+				source: "manual",
+				service: "Monthly plan",
+				amount: override.amount,
+				currency: override.currency,
+				renewalDay: override.renewalDay,
+				hasDetected: found !== undefined,
+			};
+		}
+		if (found !== undefined) {
+			const day = Number(found.since.slice(8, 10));
+			return {
+				provider,
+				source: "detected",
+				service: found.service,
+				amount: found.amount,
+				currency: found.currency,
+				renewalDay: Number.isFinite(day) && day >= 1 && day <= 31 ? day : null,
+				hasDetected: true,
+			};
+		}
+		return {
+			provider,
+			source: "none",
+			service: null,
+			amount: null,
+			currency: null,
+			renewalDay: null,
+			hasDetected: false,
+		};
+	});
+}
+
 /** A plan and how much it charges each renewal. */
 export interface Plan {
 	provider: string;

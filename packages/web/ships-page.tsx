@@ -8,6 +8,7 @@ import {
 	shipRuns,
 	shipTargets,
 	shipUnshipped,
+	shipVersions,
 	startShip,
 } from "./api/ship";
 import { Button } from "./components/ui/button";
@@ -68,6 +69,7 @@ export function ShipsPage({
 		failed,
 		unshipped,
 		current,
+		shippable,
 		counting,
 		readingVersion,
 		picks,
@@ -109,6 +111,10 @@ export function ShipsPage({
 		shipCurrent().then(
 			(versions) => flow.versioned(versions),
 			() => flow.versioned({}),
+		);
+		shipVersions().then(
+			(versions) => flow.shippables(versions),
+			() => flow.shippables({}),
 		);
 		// Only the run under way is read up front; past runs wait for a tap.
 		const readUnderWay = (opening: boolean) => {
@@ -239,18 +245,6 @@ export function ShipsPage({
 				}
 			/>
 			<div className={cn(PLANNER_COLUMN, "gap-5")}>
-				{stage.at === "pick" && (
-					<ShipHeading
-						title="Pick what to ship"
-						line={
-							listing?.targets.some((each) => each.plan.versioned)
-								? "Tick each target to ship and choose its bump or version."
-								: listing?.targets.some((each) => each.plan.bump !== undefined)
-									? "Tick each target to ship and choose its bump."
-									: "Tick each target to ship."
-						}
-					/>
-				)}
 				{stage.at === "needed" && (
 					<ShipHeading
 						title="Ship these first?"
@@ -302,6 +296,7 @@ export function ShipsPage({
 								unshipped={unshipped}
 								loadingDetails={counting || readingVersion}
 								current={current}
+								shippable={shippable}
 								picks={picks}
 								onPicks={(picks) => flow.pick(picks)}
 							/>

@@ -1,4 +1,5 @@
 import type { AgentRun } from "./agents";
+import type { EvalCheck, EvalCheckStep, EvalStep } from "./contract";
 
 /**
  * One eval: a repo seeded for it, the person's message, the skill requirement
@@ -33,14 +34,40 @@ export interface ScenarioFollowUp {
 	done?: (run: AgentRun) => boolean;
 }
 
-/** A plain question of the outcome, true when it holds. */
+/** A question of the outcome, optionally citing a transcript step on failure. */
 export interface Check {
 	id: string;
 	/** What it checks, in words, shown beside its result. */
 	about: string;
 	/** True for a check that needs a task board or server: regrading cannot re-run it, so it keeps the result it had. */
 	live?: boolean;
-	test: (outcome: Outcome) => boolean | Promise<boolean>;
+	test: (outcome: Outcome) => CheckVerdict | Promise<CheckVerdict>;
+}
+
+export type CheckVerdict =
+	| boolean
+	| { pass: true }
+	| { pass: false; step?: EvalCheckStep };
+
+/** Evaluate a check against the same full transcript that will be saved. */
+export async function evaluateCheck(
+	check: Check,
+	outcome: Outcome,
+): Promise<EvalCheck> {
+	const verdict = await check.test(outcome);
+	const pass = typeof verdict === "boolean" ? verdict : verdict.pass;
+	const result = { id: check.id, about: check.about, pass };
+	const step =
+		typeof verdict !== "boolean" && !verdict.pass ? verdict.step : undefined;
+	if (
+		step !== undefined &&
+		Number.isInteger(step.index) &&
+		step.index >= 0 &&
+		step.index < outcome.transcript.length
+	) {
+		return { ...result, step };
+	}
+	return result;
 }
 
 /** How far one run may go before it is stopped. */
@@ -60,9 +87,7 @@ export interface Repo {
 }
 
 /** One step of what the agent did: something it said, or a tool it called and what came back. */
-export type Step =
-	| { kind: "text"; text: string }
-	| { kind: "tool"; name: string; input: string; output: string | null };
+export type Step = EvalStep;
 
 /** What a run left: the agent's words and steps, and the repo as it ended. */
 export interface Outcome {

@@ -113,7 +113,14 @@ export const Conversations = memo(function Conversations({
 	const { agents } = useReactive(feed, (feed) => ({ agents: feed.agents }), [
 		"changed",
 	]);
-	const shown = useConversation(feed, open);
+	const queuedId = queuedIn(open);
+	const queuedTalk =
+		queuedId === null
+			? null
+			: (conversations.find(
+					(each) => !each.archived && each.queuedTask === queuedId,
+				) ?? null);
+	const shown = useConversation(feed, queuedTalk?.id ?? open);
 	const shownTask =
 		shown === null
 			? null
@@ -152,6 +159,25 @@ export const Conversations = memo(function Conversations({
 				}
 			},
 			openTask: setOpenedTask,
+			openQueuedConversation: (
+				id: number,
+				task: string | null,
+				saved: string | null,
+			) => {
+				const conversation = feed.conversations.find((each) =>
+					saved !== null
+						? each.id === saved
+						: !each.archived &&
+							(each.queuedTask === id ||
+								each.heldForTask === id ||
+								(task !== null && each.task === task)),
+				);
+				if (conversation === undefined) {
+					return false;
+				}
+				onOpen(conversation.id);
+				return true;
+			},
 			openTodos: onTodos,
 			openLane: onLane,
 			tasks: tasks.map((each) => each.task),
@@ -168,7 +194,9 @@ export const Conversations = memo(function Conversations({
 			boards,
 			elsewhere,
 			drafts,
+			feed,
 			tasks,
+			onOpen,
 			onTodos,
 			onLane,
 			refusedTodos,
@@ -249,12 +277,13 @@ export const Conversations = memo(function Conversations({
 							terminals.close(open);
 						}}
 					/>
-				) : queuedIn(open) !== null ? (
+				) : queuedId !== null && queuedTalk === null ? (
 					<QueuedTask
 						key={open}
-						id={queuedIn(open) as number}
+						id={queuedId}
 						onBack={phone ? () => onOpen(null) : null}
 						onLeft={() => onOpen(null, "replace")}
+						onStarted={(id) => onOpen(id, "replace")}
 					/>
 				) : shelled !== null ? (
 					shelledIn === null ? (

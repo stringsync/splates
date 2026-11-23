@@ -1,4 +1,5 @@
 import type { Answer, Question } from "@splates/server/plans";
+import { chainSpendOf } from "@splates/server/queue/browser";
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
 import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
 import {
@@ -8,6 +9,7 @@ import {
 } from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { CardBox } from "./card-box";
+import { ChainMeter } from "./chain-meter";
 import { ChoiceBody, HowToPick, WhyLine, WhySwitch } from "./choice-body";
 import type { Files } from "./files";
 import { Markdown } from "./markdown";
@@ -25,6 +27,8 @@ export function QuestionCard({
 	files = null,
 	plan = null,
 	headed = true,
+	decided = false,
+	dictationOwner,
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -45,6 +49,10 @@ export function QuestionCard({
 	plan?: ReactNode;
 	/** Whether to show its heading; false where the panel around it does. */
 	headed?: boolean;
+	/** Whether it is the plan's approval, decided from the card's footer. */
+	decided?: boolean;
+	/** Stable dictation owner id when a parent watches this question's take. */
+	dictationOwner?: string;
 }): JSX.Element {
 	const { number, text, size, body, pick } = asked;
 	// The agent's recommendation first, each keeping its letter.
@@ -53,6 +61,10 @@ export function QuestionCard({
 		...asked.choices.filter((choice) => !choice.chosen),
 	];
 	const said: Answer = answer ?? UNANSWERED;
+	// The plan's approval, decided from the card's footer: no choices here,
+	// only the words that request changes or approve with a note. Once sent,
+	// what was picked shows as on any question.
+	const deciding = decided && live;
 	// The choice the arrows move from, and Tab lands on: the first picked.
 	const [at, setAt] = useState(() =>
 		Math.max(
@@ -61,6 +73,7 @@ export function QuestionCard({
 		),
 	);
 	const [reasons, setReasons] = useState(false);
+	const spend = chainSpendOf(text, body);
 	const reasoned = choices.some((choice) => choice.why !== "");
 	const toggle = (key: string) => {
 		const on = said.picks.includes(key);
@@ -143,6 +156,7 @@ export function QuestionCard({
 					roomy ? "gap-4" : "gap-3",
 				)}
 			>
+				{spend !== null && <ChainMeter spend={spend} />}
 				{(headed || body !== "" || plan !== null) && (
 					<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
 						{headed && (
@@ -150,7 +164,11 @@ export function QuestionCard({
 								<p
 									className={cn(
 										"flex-1 leading-snug",
-										roomy ? "font-semibold text-lg" : "font-medium text-sm",
+										roomy
+											? "font-semibold text-lg"
+											: deciding
+												? "font-semibold text-base"
+												: "font-medium text-sm",
 									)}
 								>
 									<Markdown text={text} inline />
@@ -172,7 +190,7 @@ export function QuestionCard({
 						)}
 					</div>
 				)}
-				{pick === "order" ? (
+				{deciding ? null : pick === "order" ? (
 					<Ranking
 						asked={asked}
 						answer={said}
@@ -284,11 +302,16 @@ export function QuestionCard({
 				{live ? (
 					<CardBox
 						roomy={roomy}
-						data-stop={choices.length === 0 ? number : undefined}
+						dictationOwner={dictationOwner}
+						data-stop={choices.length === 0 || deciding ? number : undefined}
 						aria-label={`Answer to ${number}`}
 						value={said.words}
 						placeholder={
-							choices.length > 0 ? "Add a note (optional)" : "Your answer"
+							deciding
+								? "Request changes, or leave a note…"
+								: choices.length > 0
+									? "Add a note (optional)"
+									: "Your answer"
 						}
 						onValue={(words) => onAnswer({ ...said, words })}
 						files={files}
@@ -296,7 +319,7 @@ export function QuestionCard({
 						className={
 							roomy
 								? // A typed answer is the screen's whole point; a note an aside.
-									choices.length === 0
+									choices.length === 0 || deciding
 									? "min-h-32"
 									: "min-h-12"
 								: "min-h-9 pointer-coarse:min-h-11"

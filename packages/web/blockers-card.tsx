@@ -95,18 +95,26 @@ export function DeferredBody({
 		listed(group).map((blocker) => (
 			<BlockerRow key={`task:${blocker.id}`} blocker={blocker} />
 		));
+	const hasWhy = deferred !== undefined && deferred.why !== "";
+	const hasBody = hasWhy || blockers.length > 0;
 	return (
 		<div className="flex flex-col text-sm">
-			{deferred !== undefined && (
+			{hasWhy && (
 				<p className="px-4 py-3 leading-relaxed @max-md:px-3 @max-md:py-2.5">
 					{deferred.why}
 				</p>
 			)}
-			<ol aria-label="blockers" className="flex flex-col">
+			<ol
+				aria-label="blockers"
+				className={cn(
+					"flex flex-col",
+					!hasWhy && "[&>li:first-child]:border-t-0 [&>li:first-child]:bg-none",
+				)}
+			>
 				{rows("needs you")}
 				{rows("in progress")}
 				{foldDone ? (
-					<li className="border-foreground/10 border-t px-4 py-2 text-muted-foreground text-xs @max-md:px-3">
+					<li className="rule-t px-4 py-2 text-muted-foreground text-xs @max-md:px-3">
 						<CheckIcon
 							aria-hidden
 							className="me-2 inline size-3.5 text-success"
@@ -120,7 +128,10 @@ export function DeferredBody({
 			{legacy.length > 0 && (
 				<ul
 					aria-label="older notes"
-					className="flex flex-col gap-1 border-foreground/10 border-t px-4 py-2.5 text-muted-foreground text-xs @max-md:px-3"
+					className={cn(
+						"flex flex-col gap-1 px-4 py-2.5 text-muted-foreground text-xs @max-md:px-3",
+						hasBody && "rule-t",
+					)}
 				>
 					{legacy.map((blocker) => (
 						<li
@@ -135,7 +146,12 @@ export function DeferredBody({
 					))}
 				</ul>
 			)}
-			<div className="flex flex-wrap items-center gap-2 border-foreground/10 border-t bg-muted/40 px-4 py-2 @max-md:px-3">
+			<div
+				className={cn(
+					"flex flex-wrap items-center gap-2 bg-muted/40 px-4 py-2 @max-md:px-3",
+					(hasBody || legacy.length > 0) && "border-foreground/10 border-t",
+				)}
+			>
 				<p className="min-w-0 flex-1 text-muted-foreground text-xs">
 					{task.takenBy !== null ? (
 						<>
@@ -254,7 +270,7 @@ function BlockerRow({ blocker }: { blocker: TaskBlocker }): JSX.Element {
 	return (
 		<li
 			className={cn(
-				"flex items-center gap-3 border-foreground/10 border-t px-4 py-2 @max-md:px-3",
+				"flex items-center gap-3 rule-t px-4 py-2 @max-md:px-3",
 				group === "done" && "text-muted-foreground",
 			)}
 		>

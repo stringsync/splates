@@ -31,7 +31,9 @@ it("opens the chooser each time Boards is opened", async () => {
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	expect(view.getAllByRole("heading", { name: "Boards" })).toHaveLength(1);
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 0 tasks" })),
+		fireEvent.click(
+			view.getByRole("button", { name: "Product 0 tasks · 0 queued" }),
+		),
 	);
 	await waitFor(() => view.getByRole("navigation", { name: "Breadcrumb" }));
 	expect(
@@ -46,7 +48,9 @@ it("opens the chooser each time Boards is opened", async () => {
 		fireEvent.click(view.getByRole("tab", { name: "Boards" })),
 	);
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
-	expect(view.getByRole("button", { name: "Product 0 tasks" })).toBeTruthy();
+	expect(
+		view.getByRole("button", { name: "Product 0 tasks · 0 queued" }),
+	).toBeTruthy();
 });
 
 it("switches away from a populated board without following an unassigned task back to it", async () => {
@@ -59,7 +63,9 @@ it("switches away from a populated board without following an unassigned task ba
 	});
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 1 task" })),
+		fireEvent.click(
+			view.getByRole("button", { name: "Product 1 task · 0 queued" }),
+		),
 	);
 	await waitFor(() => view.getByRole("button", { name: "Product actions" }));
 	await act(async () =>
@@ -67,7 +73,9 @@ it("switches away from a populated board without following an unassigned task ba
 	);
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Default 0 tasks" })),
+		fireEvent.click(
+			view.getByRole("button", { name: "Default 0 tasks · 0 queued" }),
+		),
 	);
 	await waitFor(() => view.getByRole("button", { name: "Default actions" }));
 	expect(location.search).toBe("?board=1");
@@ -81,7 +89,9 @@ it("adds a lane to the board being viewed", async () => {
 	});
 	await waitFor(() => view.getByRole("region", { name: "Boards" }));
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "Product 1 task" })),
+		fireEvent.click(
+			view.getByRole("button", { name: "Product 1 task · 0 queued" }),
+		),
 	);
 	await act(async () =>
 		fireEvent.click(

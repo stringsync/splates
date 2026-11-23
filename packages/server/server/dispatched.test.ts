@@ -133,6 +133,42 @@ describe("dev dispatched", () => {
 		}
 	});
 
+	it("hands a queued task to a live conversation opened on that queued task", async () => {
+		await taskAdd(deps, "Alpha", null);
+		await queueAdd(deps, [1]);
+		const live = await conversations.start("fake", {
+			task: null,
+			cwd: deps.service.git.root,
+			queuedTask: 1,
+			title: "Alpha",
+		});
+		await add(deps, "alpha", {
+			tasks: [1],
+			dispatch: { agent: "fake", held: live.id },
+			agents: [ROSTERED],
+		});
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			expect(await told.promise).toContain("[SPLATES TASK alpha]");
+
+			expect(
+				(await conversations.list()).map(({ state }) => ({
+					id: state.id,
+					task: state.task,
+					queuedTask: state.queuedTask,
+					archived: state.archived,
+				})),
+			).toEqual([
+				{ id: live.id, task: "alpha", queuedTask: null, archived: false },
+			]);
+		} finally {
+			await server.disposeAsync();
+		}
+	});
+
 	it("starts the rest when one task's agent cannot start, trying that one again next time", async () => {
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },

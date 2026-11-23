@@ -136,4 +136,41 @@ describe("A conversation held for a queued task", () => {
 			"/repo-splates/totals",
 		]);
 	});
+
+	it("opens a live queuedTask conversation immediately, replays queuedTask, and clears it on release", async () => {
+		const conversation = await conversations.start("fake", {
+			task: null,
+			cwd: "/repo",
+			queuedTask: 9,
+			title: "Polish review layout",
+		});
+		await until(conversation, "idle");
+		expect(conversation.held).toBe(false);
+		expect(conversation.state).toMatchObject({
+			heldForTask: null,
+			queuedTask: 9,
+			title: "Polish review layout",
+		});
+		expect(agent.launched.map(({ cwd }) => cwd)).toEqual(["/repo"]);
+
+		await conversation.stop();
+		await conversations.disposeAsync();
+		conversations = open();
+		const read = await conversations.find(conversation.id);
+		expect(read.state.queuedTask).toBe(9);
+
+		read.release("polish", "/repo-splates/totals");
+		expect(read.state).toMatchObject({
+			task: "polish",
+			heldForTask: null,
+			queuedTask: null,
+			queue: null,
+		});
+		await read.stop();
+		await conversations.disposeAsync();
+		conversations = open();
+		expect(
+			(await conversations.find(conversation.id)).state.queuedTask,
+		).toBeNull();
+	});
 });
