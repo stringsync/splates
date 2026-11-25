@@ -102,15 +102,6 @@ export async function queueTodo(
 	});
 }
 
-/** Records `answer` to question `index` of todo `id`'s deferral. */
-export async function answerDeferral(
-	id: number,
-	index: number,
-	answer: string,
-): Promise<void> {
-	await sendJson(`/api/todos/${id}/deferral/answer`, "PUT", { index, answer });
-}
-
 /** Tries queued todo `id`'s start again, after its start was refused. */
 export async function retryQueuedStart(id: number): Promise<void> {
 	await send(`/api/todos/${id}/retry`, {});

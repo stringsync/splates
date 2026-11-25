@@ -11,6 +11,7 @@ import {
 	lanes,
 } from "./lanes";
 import type { TaskRecord } from "./task";
+import type { LaneQueueOptions } from "./task-lanes";
 import type { Tasks } from "./tasks";
 
 export interface LaneListOptions {
@@ -226,17 +227,19 @@ export function laneUpdated(
  * change it is: the queue starts each once nothing blocks it, and a task put
  * in the lane later waits to be queued itself. With `queued` false, takes
  * each of the lane's queued tasks nobody has taken back out. Gives back the
- * tasks it queued or took out.
+ * tasks it queued or took out. `opts` names who queued them and limits
+ * which, for an agent allowed only the tasks it asked for.
  */
 export async function laneQueue(
 	{ tasks, log, journal }: { tasks: Tasks; log: Logger; journal: Journal },
 	id: number,
 	queued: boolean,
+	opts: LaneQueueOptions = {},
 ): Promise<TaskRecord[]> {
 	const { lane: record, changed } = await journal.record(
 		queued ? "queue add" : "queue remove",
 		null,
-		() => tasks.queueLane(id, queued),
+		() => tasks.queueLane(id, queued, opts),
 		(done) => ({
 			tasks: done.changed.map(({ id, subject }) => ({ id, subject })),
 		}),

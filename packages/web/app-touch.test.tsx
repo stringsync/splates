@@ -52,7 +52,7 @@ describe("App on a touch device", () => {
 		).toEqual([
 			"main",
 			"Terminal",
-			"Put back on boardkeeps chat",
+			"Hand to a new agent",
 			"Show timestamps",
 			"Archive",
 		]);

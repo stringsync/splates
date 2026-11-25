@@ -202,14 +202,17 @@ export async function restartConversation(
 }
 
 /**
- * Takes conversation `id` off its task, its agent stopped, and answers the
- * prompt that has the next agent claim the task.
+ * Hands conversation `id` off to another agent: stops and archives it (moving
+ * it off its task when on one), and answers its updated state along with the
+ * prompt that tells the next agent where to pick up.
  */
-export async function handOffConversation(id: string): Promise<string> {
-	const { prompt } = (await send(`/api/conversations/${id}/hand-off`, {})) as {
+export async function handOffConversation(
+	id: string,
+): Promise<{ state?: ConversationState; prompt: string }> {
+	return (await send(`/api/conversations/${id}/hand-off`, {})) as {
+		state?: ConversationState;
 		prompt: string;
 	};
-	return prompt;
 }
 
 /**

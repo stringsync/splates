@@ -17,18 +17,13 @@ describe("the permanent Backlog lane", () => {
 		expect((await deps.tasks.find(task.id)).lane).toBe(BACKLOG_LANE);
 	});
 
-	it("holds a new task as ungroomed until it is placed or the groomer claims it", async () => {
+	it("holds a new task as ungroomed until it is placed", async () => {
 		await using deps = await Testing.open();
 		const task = await deps.tasks.add("rough", null);
 		expect(task.lane).toBe(BACKLOG_LANE);
 		expect(ungroomed(task.state)).toBe(true);
-		expect(await task.groom("groomer")).toBe(true);
-		expect(ungroomed((await deps.tasks.find(task.id)).state)).toBe(false);
 		const named = await deps.tasks.add("named", null, { lane: BACKLOG_LANE });
 		expect(ungroomed(named.state)).toBe(true);
-		expect(
-			ungroomed({ lane: BACKLOG_LANE, takenBy: null, grooming: "placed" }),
-		).toBe(true);
 		const lane = await deps.tasks.addLane("Editor");
 		await deps.tasks.arrange(task.id, lane.id);
 		expect((await deps.tasks.find(task.id)).lane).toBe(lane.id);

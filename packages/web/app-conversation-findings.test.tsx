@@ -68,7 +68,7 @@ describe("App's report card", () => {
 		expect(within(document.body).getByText("Logs.")).toBeTruthy();
 	});
 
-	it("draws readouts in a Done card's body", async () => {
+	it("leaves a status-led table in a Done card as a plain table", async () => {
 		await testing.openConversations([
 			conversation({
 				title: "Audit",
@@ -80,17 +80,17 @@ describe("App's report card", () => {
 							"",
 							"All clear.",
 							"",
-							"```stats",
-							"Failing: 0",
-							"```",
+							"| | Check |",
+							"| --- | --- |",
+							"| ✅ | Lint |",
 						].join("\n"),
 					),
 				],
 			}),
 		]);
 		await waitFor(() => {
-			expect(within(document.body).getByText("Failing")).toBeTruthy();
+			expect(within(document.body).getByText("Lint")).toBeTruthy();
 		});
-		expect(within(document.body).getByText("All clear.")).toBeTruthy();
+		expect(within(document.body).getByText("✅")).toBeTruthy();
 	});
 });

@@ -62,8 +62,10 @@ describe("App's queued rows in the sidebar", () => {
 
 		expect(rows.map((row) => row.textContent)).toEqual([
 			"Waits for an agentWaiting for an agent · 1 in line",
-			"Needs the thirdBlocked · waits on #3",
+			"Needs the thirdWaiting on blockers · #3",
 		]);
+		expect(queue.querySelectorAll(".lucide-hourglass")).toHaveLength(2);
+		expect(queue.querySelector(".lucide-ban")).toBeNull();
 		expect(within(queue).queryByText("Not queued yet")).toBeNull();
 	});
 
@@ -92,8 +94,8 @@ describe("App's queued rows in the sidebar", () => {
 			lanes: [],
 		});
 		const queue = await view.findByRole("list", { name: /queue$/ });
-		expect(within(queue).getByText("Blocked · waits on #3")).toBeTruthy();
-		expect(within(queue).getByText("Blocked · waits on #1")).toBeTruthy();
+		expect(within(queue).getByText("Waiting on blockers · #3")).toBeTruthy();
+		expect(within(queue).getByText("Waiting on blockers · #1")).toBeTruthy();
 		expect(within(queue).queryByText(/Waiting for an agent/)).toBeNull();
 	});
 

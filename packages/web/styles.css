@@ -405,7 +405,6 @@
 /* Integrated full-bleed page header band (Variant A): neutral bottom hairline,
    top-left area glow and opaque surfaces. */
 .page-header-band {
-	position: relative;
 	overflow: hidden;
 	background: var(--background);
 	border-bottom: 1px solid var(--border);

@@ -9,7 +9,13 @@ import {
 	splatesHome,
 } from "../models";
 import { FsStorage } from "../storage";
-import { SavedPortsHost, SavedTunnel } from "../tunnel";
+import {
+	type AccessConfig,
+	SavedPortsHost,
+	SavedTunnel,
+	type TunnelConfig,
+	type TunnelWildcard,
+} from "../tunnel";
 import type { SplatesDeps } from "./runtime-deps";
 
 /** The roster saved for this machine. */
@@ -59,4 +65,54 @@ export async function seeded(
 	return (await roster.agents()).filter(
 		(each) => !RETIRED_AGENTS.includes(each.id),
 	);
+}
+
+/**
+ * Picks the base host and Access config for task ports and tunnel-exposed rigs:
+ * an explicit `--ports-host` flag or saved `ports.json` wins, `--ports-host none`
+ * turns it off, and otherwise the main machine server falls back to the saved
+ * tunnel's wildcard zone (`*.<zone>` behind `splates-slots`).
+ */
+export async function resolvePortsTarget(
+	opts: PortsTargetOptions,
+): Promise<{ portsHost: string | null; portsAccess: AccessConfig | null }> {
+	const explicit =
+		opts.portsFlag === undefined ? opts.savedPortsHost : opts.portsFlag;
+	if (explicit !== null) {
+		return { portsHost: explicit, portsAccess: null };
+	}
+	if (
+		opts.portsFlag === null ||
+		opts.slotServer ||
+		opts.workerless ||
+		opts.flagged ||
+		opts.access === null ||
+		opts.tunnel === null
+	) {
+		return { portsHost: null, portsAccess: null };
+	}
+	const wildcard = await opts.ensureWildcard();
+	if (wildcard === null) {
+		return { portsHost: null, portsAccess: null };
+	}
+	return {
+		portsHost: wildcard.base,
+		portsAccess: {
+			issuer: opts.access.issuer,
+			aud: wildcard.aud,
+			extraAuds: [opts.access.aud],
+		},
+	};
+}
+
+/** Inputs to {@link resolvePortsTarget}. */
+export interface PortsTargetOptions {
+	portsFlag: string | null | undefined;
+	savedPortsHost: string | null;
+	slotServer: boolean;
+	workerless: boolean;
+	flagged: boolean;
+	access: AccessConfig | null;
+	tunnel: TunnelConfig | null;
+	ensureWildcard: () => Promise<TunnelWildcard | null>;
 }

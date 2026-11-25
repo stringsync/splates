@@ -73,19 +73,40 @@ describe("Restarting a conversation's agent, or handing its task off", () => {
 		expect(conversation.state.task).toBe("login");
 	});
 
-	it("hands its task off: stops the agent, moves it to the main tree, and answers the prompt for the next one", async () => {
+	it("hands its task off: stops and archives the origin, moves it off the task, and answers the prompt for the next one", async () => {
 		const conversation = await working();
 
 		const prompt = await conversation.handOff();
 
 		expect(conversation.state.status).toBe("stopped");
+		expect(conversation.state.archived).toBe(true);
 		expect(conversation.state.task).toBeNull();
 		expect(conversation.state.lastTask).toBe("login");
 		expect(prompt).toStartWith("[SPLATES TASK login]\n\n");
 		expect(prompt).toContain(`${DIR}/${conversation.id}/transcript.md`);
 	});
 
-	it("refuses either for a conversation in no task", async () => {
+	it("hands a non-task conversation off: stops and archives it and answers a transcript prompt", async () => {
+		const conversation = await conversations.start("fake", {
+			task: null,
+			cwd: "/repo",
+		});
+		await until(conversation, "idle");
+		await conversation.prompt("Explore the architecture");
+		await until(conversation, "idle");
+
+		const prompt = await conversation.handOff();
+
+		expect(conversation.state.status).toBe("stopped");
+		expect(conversation.state.archived).toBe(true);
+		expect(conversation.state.task).toBeNull();
+		expect(prompt).toContain(
+			"This conversation continues one handed off from another agent.",
+		);
+		expect(prompt).toContain(`${DIR}/${conversation.id}/transcript.md`);
+	});
+
+	it("refuses restart for a conversation in no task and refuses handOff when archived", async () => {
 		const conversation = await conversations.start("fake", {
 			task: null,
 			cwd: "/repo",
@@ -93,6 +114,7 @@ describe("Restarting a conversation's agent, or handing its task off", () => {
 		await until(conversation, "idle");
 
 		expect(conversation.restart()).rejects.toThrow(/in no task/);
-		expect(conversation.handOff()).rejects.toThrow(/in no task/);
+		await conversation.archive();
+		expect(conversation.handOff()).rejects.toThrow(/archived/);
 	});
 });

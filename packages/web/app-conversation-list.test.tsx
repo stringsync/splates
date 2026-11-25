@@ -73,7 +73,7 @@ describe("App's conversation list", () => {
 		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
 	});
 
-	it("lists a persistent agent among the rest by recency, before the feed of every project comes", async () => {
+	it("lists an automation among the rest by recency, before the feed of every project comes", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -83,8 +83,8 @@ describe("App's conversation list", () => {
 				}),
 				conversation({
 					id: "g1",
-					title: "Groomer",
-					persistent: "groomer",
+					title: "Review",
+					automation: "a2",
 					createdAt: "2026-10-11T10:01:00.000Z",
 				}),
 			],
@@ -96,7 +96,7 @@ describe("App's conversation list", () => {
 			within(within(nav).getByRole("list", { name: "conversation list" }))
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Fix loginmain", "Groomermain"]);
+		).toEqual(["Fix loginmain", "Reviewmain"]);
 		expect(within(nav).queryByRole("separator")).toBeNull();
 	});
 

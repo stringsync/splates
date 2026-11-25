@@ -69,6 +69,8 @@ export interface Details {
 	 * for a subagent; null for an agent outside the page.
 	 */
 	takenBy: string | null;
+	/** Whether an agent queued it on its own; absent for any other. */
+	autoQueued?: boolean;
 	worktree: string;
 	lease: "held" | "stale" | "none";
 	/** Where its merge stands before landing: waiting its turn, or testing; null with none under way. */
@@ -202,6 +204,7 @@ export class TaskDetails {
 			base: worktree.base,
 			caller: worktree.caller,
 			takenBy: worktree.takenBy,
+			...(state?.autoQueued === true ? { autoQueued: true } : {}),
 			worktree: worktree.path,
 			lease: worktree.leaseStatus,
 			gate: worktree.gate,

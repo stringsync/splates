@@ -13,6 +13,7 @@ const grid: EvalGrid = {
 	cells: 2,
 	tokens: null,
 	costUsd: null,
+	results: [],
 	grid: [],
 };
 

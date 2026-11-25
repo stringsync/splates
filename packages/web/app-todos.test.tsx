@@ -21,7 +21,7 @@ describe("App's todos", () => {
 		testing.dispose();
 	});
 
-	it("lists todos as cards with a preview and badges, leaving out where they came from", async () => {
+	it("lists todos as plain cards, leaving out their detail, files and where they came from", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({
@@ -45,10 +45,9 @@ describe("App's todos", () => {
 		const cards = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent);
-		expect(cards[0]).toContain("more to say");
 		expect(cards[0]).toContain("#1");
-		expect(view.getByTitle("files").textContent).toBe("2 files");
-		expect(view.getAllByTitle("stale")).toHaveLength(1);
+		expect(cards[0]).not.toContain("more to say");
+		expect(view.queryByTitle("files")).toBeNull();
 	});
 
 	it("says a Backlog one is in Backlog in its dialog, not a step of a sequence", async () => {

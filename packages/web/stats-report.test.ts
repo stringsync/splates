@@ -178,6 +178,7 @@ describe("StatsReport", () => {
 				previous: null,
 				models: [],
 				devices: [],
+				boards: [],
 				projects: [],
 
 				since: null,
@@ -278,6 +279,7 @@ const stats: Stats = {
 		{ device: "both", ...bar("", { merged: 1 }) },
 		{ device: null, ...bar("", { merged: 1 }) },
 	],
+	boards: [],
 	projects: [{ project: "/Users/me/wren", ...bar("", { merged: 1 }) }],
 
 	since: "2026-08-25T10:00:00.000Z",

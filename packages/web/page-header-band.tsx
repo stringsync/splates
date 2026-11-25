@@ -50,14 +50,10 @@ export function DesktopPageHeaderBand({
 			<div className={cn("relative", sidebarHidden && "pl-(--top-bar-start)")}>
 				<div
 					className={cn(
-						"mx-auto w-full min-w-0",
+						"w-full min-w-0",
 						area.compact
 							? "px-5 py-4"
-							: cn(
-									"px-4 pt-[18px]",
-									tabs ? "pb-0" : "pb-[18px]",
-									area.columnClass,
-								),
+							: cn("px-4 pt-[18px]", tabs ? "pb-0" : "pb-[18px]"),
 					)}
 				>
 					<div

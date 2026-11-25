@@ -32,12 +32,12 @@ describe("App's queue", () => {
 	}
 
 	/** The Backlog cards, top first, as text. */
-	const cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
+	const _cards = (view: Awaited<ReturnType<Testing["open"]>>) =>
 		within(view.getByRole("list", { name: "Backlog tasks", hidden: true }))
 			.getAllByRole("listitem", { hidden: true })
 			.map((card) => card.textContent ?? "");
 
-	it("badges each waiting card with its stage, and a queued one with its place", async () => {
+	it("strips each queued or running card in a color, and leaves a waiting one plain", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "loose", position: 1 }),
@@ -64,20 +64,22 @@ describe("App's queue", () => {
 					stage: "available",
 				}),
 			],
+			tasks: [details({ task: "beta" })],
 		});
 
 		const cards = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
-		expect(cards[0]).toContain("Available");
-		expect(cards[0]).toContain("Auto pick");
-		expect(cards[1]).toContain("Available");
-		expect(cards[1]).not.toContain("Auto pick");
-		expect(cards[2]).toContain("Queued · 1");
-		expect(cards[3]).toContain("Queued · 2");
-		expect(cards[4]).not.toMatch(/Available|Queue/);
-		expect(cards[5]).toContain("Available");
-		expect(cards[5]).toContain("Auto pick");
+		const badges = within(view.getByRole("list", { name: "Backlog tasks" }))
+			.getAllByRole("listitem")
+			.map(
+				(card) =>
+					card.querySelector("[data-status]")?.getAttribute("data-status") ??
+					null,
+			);
+		// A waiting card has no badge, a queued one Queued, one under way Running.
+		expect(badges).toEqual([null, null, "queued", "queued", "running", null]);
+		expect(cards.join("")).not.toContain("Auto pick");
 	});
 
 	it("counts a lane's todos by stage in its header, leaving out the stages it has none in", async () => {
@@ -144,20 +146,10 @@ describe("App's queue", () => {
 		expect(testing.posted("/api/todos/1/queued")).toEqual([
 			{ method: "PUT", body: { queued: true } },
 		]);
-		expect(
-			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
-		).toBeNull();
 		await serve({
 			todos: [todo({ id: 1, subject: "retry the upload", stage: "queued" })],
 		});
-		await waitFor(() =>
-			expect(
-				view.getByRole("img", {
-					name: "Queued, 1 in line for an agent",
-					hidden: true,
-				}),
-			).toBeTruthy(),
-		);
+		await waitFor(() => expect(view.getByLabelText("Unqueue #1")).toBeTruthy());
 		await act(async () => testing.release());
 		testing.holdWrites();
 		await act(async () =>
@@ -182,9 +174,6 @@ describe("App's queue", () => {
 		await serve({ todos: [todo({ id: 1, subject: "retry the upload" })] });
 
 		await waitFor(() => expect(dialog.textContent).toContain("Available"));
-		expect(
-			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
-		).toBeNull();
 	});
 
 	it("queues a card blocked by tasks not queued as Blocked, its button queuing them at once with Undo", async () => {
@@ -215,10 +204,9 @@ describe("App's queue", () => {
 			view
 				.getByRole("button", { name: /^bill for them/ })
 				.closest("li") as HTMLElement;
-		await waitFor(() => expect(card().textContent).toContain("Blocked"));
-		expect(
-			view.queryByRole("img", { name: /in line for an agent/, hidden: true }),
-		).toBeNull();
+		await waitFor(() =>
+			expect(within(card()).getByText("Blocked")).toBeTruthy(),
+		);
 
 		await act(async () =>
 			fireEvent.click(
@@ -234,7 +222,6 @@ describe("App's queue", () => {
 		await waitFor(() => expect(card().textContent).toContain("Queued #1, #2"));
 		expect(testing.posted("/api/todos/1/queued")).toHaveLength(1);
 		expect(testing.posted("/api/todos/2/queued")).toHaveLength(1);
-		expect(card().textContent).not.toContain("Blocked");
 
 		await act(async () =>
 			fireEvent.click(within(card()).getByRole("button", { name: "Undo" })),
@@ -283,19 +270,14 @@ describe("App's queue", () => {
 			view
 				.getByRole("button", { name: new RegExp(`^${subject}`) })
 				.closest("li") as HTMLElement;
-		expect(
-			within(card("invoice")).getByRole("button", { name: "Queue 1 blocker" }),
-		).toBeTruthy();
-		expect(
-			within(card("email invoices")).getByRole("button", {
-				name: "Blocked with #2",
-			}),
-		).toBeTruthy();
+		expect(within(card("invoice")).getByText("Blocked")).toBeTruthy();
+		expect(within(card("email invoices")).getByText("Queued")).toBeTruthy();
+		expect(card("email invoices").textContent).not.toContain("Blocked with");
 		const lane = view.getByRole("region", { name: "Billing", hidden: true });
 		expect(lane.textContent).toContain("2 blocked");
 	});
 
-	it("lists a blocked task's chain in its dialog, and notes a removed blocker on its card", async () => {
+	it("lists a blocked task's chain in its dialog", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "store licenses" }),
@@ -335,11 +317,6 @@ describe("App's queue", () => {
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		const old = view
-			.getByRole("button", { name: /^old one/ })
-			.closest("li") as HTMLElement;
-		expect(old.textContent).toContain("#9 gone was removed without merging");
-		expect(within(old).queryByRole("button", { name: /Drop link/ })).toBeNull();
 	});
 
 	it("offers neither in the dialog of a todo under way", async () => {
@@ -364,7 +341,7 @@ describe("App's queue", () => {
 		expect(view.queryByRole("region", { name: "Queue" })).toBeNull();
 	});
 
-	it("marks a queued card as waiting for an agent, in start order, a blocked one after its blocker", async () => {
+	it("strips a queued card gray, even one waiting on a queued blocker, and one under way blue", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({
@@ -384,22 +361,17 @@ describe("App's queue", () => {
 					takenBy: "beta",
 				}),
 			],
+			tasks: [details({ task: "beta" })],
 		});
 
-		const marks = within(view.getByRole("list", { name: "Backlog tasks" }))
+		const badges = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
 			.map(
 				(card) =>
-					within(card)
-						.queryByRole("img", { name: /in line for an agent/ })
-						?.getAttribute("aria-label") ?? null,
+					card.querySelector("[data-status]")?.getAttribute("data-status") ??
+					null,
 			);
-		expect(marks).toEqual([
-			"Queued, 2 in line for an agent",
-			"Queued, 1 in line for an agent",
-			null,
-			null,
-		]);
+		expect(badges).toEqual(["queued", "queued", null, "running"]);
 	});
 
 	it("keeps an unqueued todo queued when the server refuses, saying why", async () => {
@@ -414,7 +386,7 @@ describe("App's queue", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Unqueue #1" })),
 		);
-		expect(cards(view)[0]).toContain("Queued · 1");
+		expect(view.getByLabelText("Unqueue #1")).toBeTruthy();
 
 		testing.refuseWrites = {
 			reason: "not_found",
@@ -422,7 +394,7 @@ describe("App's queue", () => {
 		};
 		await act(async () => testing.release());
 
-		await waitFor(() => expect(cards(view)[0]).toContain("Queued · 1"));
+		await waitFor(() => expect(view.getByLabelText("Unqueue #1")).toBeTruthy());
 		expect(view.getByRole("alert").textContent).toBe(
 			"Not unqueued: task 1 is not in the queue",
 		);

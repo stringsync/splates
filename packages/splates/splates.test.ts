@@ -235,20 +235,12 @@ describe("splates cli", () => {
 			"It needs the new client.",
 			"--blocked-by",
 			"1",
-			"--ask",
-			"Keep the retry for old clients?",
-			"--waiting-on",
-			"an upstream release",
 		]);
 
 		await splates.run(deps, ["task", "show", "3"]);
 		expect(env.out()).toContain("task 3 retry on 413");
 		expect(env.out()).toContain("It needs the new client.");
 		expect(env.out()).toContain("[ ] #1 build the client (available)");
-		expect(env.out()).toContain(
-			"[ ] the person: Keep the retry for old clients? (open)",
-		);
-		expect(env.out()).toContain("[ ] an upstream release (open)");
 	});
 
 	it("links every task a repeated or comma-listed --blocked-by names", async () => {

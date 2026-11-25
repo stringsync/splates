@@ -3,6 +3,7 @@ import { earlyWarningOf, warningLines } from "./early-warning";
 import { evalsDoneOf } from "./evals-done";
 import { queueStartOf, startLine } from "./queue-start";
 import type { Named, SplatesEventView, Words } from "./splates-event";
+import { waitOutcome } from "./wait-request";
 
 type ServerBoard = Pick<BoardContext, "lanes" | "todos">;
 
@@ -55,24 +56,6 @@ export function serverToldLines(
 			),
 		];
 	}
-	const groom = GROOM.exec(text);
-	if (groom !== null) {
-		const id = Number(groom[1]);
-		return [
-			view(
-				[
-					"Groom",
-					{
-						kind: "todo",
-						id,
-						subject: board.todos.find((todo) => todo.id === id)?.subject ?? "",
-					},
-				],
-				at,
-				text,
-			),
-		];
-	}
 	const sort = SORT.exec(text);
 	if (sort !== null) {
 		const todos = (sort[1] ?? "").split(" ").map((each) => {
@@ -92,6 +75,17 @@ export function serverToldLines(
 	const task = TASK.exec(text);
 	if (task !== null) {
 		return [view(["Started", { kind: "task", task: task[1] ?? "" }], at, text)];
+	}
+	const outcome = waitOutcome(text);
+	if (outcome !== null) {
+		const detail = excerpt(outcome);
+		return [
+			view(
+				[detail === "" ? "Wait finished" : `Wait finished: ${detail}`],
+				at,
+				text,
+			),
+		];
 	}
 	return [view([`Told agent “${excerpt(text)}”`], at, text)];
 }
@@ -115,12 +109,20 @@ export function handOffLines(
 	at: string | null,
 ): SplatesEventView[] | null {
 	const task = handOffOf(text);
-	return task === null ? null : [handOffLine("Handoff", task, at, text)];
+	if (task !== null) {
+		return [handOffLine("Handoff", task, at, text)];
+	}
+	return isConversationHandOff(text) ? [view(["Handoff"], at, text)] : null;
 }
 
 /** The task a restart or handoff prompt continues, or null for another message. */
 export function handOffOf(text: string): string | null {
 	return HAND_OFF.exec(text)?.[1] ?? null;
+}
+
+/** Whether `text` is a server-generated non-task conversation handoff prompt. */
+export function isConversationHandOff(text: string): boolean {
+	return CONVERSATION_HAND_OFF.test(text);
 }
 
 function handOffLine(
@@ -142,8 +144,9 @@ function view(
 
 const HAND_OFF =
 	/^\[SPLATES TASK (\S+)\]\n\nThe agent before you on this task stopped without handing it over, so its SPLATES\.md may be behind\./u;
+const CONVERSATION_HAND_OFF =
+	/^This conversation continues one handed off from another agent\./u;
 const AUTOMATION = /^\[SPLATES EVENT ([^\]\n]+)\]/u;
 const SCHEDULE = /^\[SPLATES SCHEDULE ([^\]\n]+)\]/u;
-const GROOM = /^\[SPLATES GROOM #(\d+)\]\s*$/u;
 const SORT = /^\[SPLATES SORT ((?:#\d+)(?: #\d+)*)\]\s*$/u;
 const TASK = /^\[SPLATES TASK ([^\]\s]+)\]/u;

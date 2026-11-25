@@ -15,8 +15,11 @@ const ABOUT =
  */
 export function EvalAgentsView({
 	editor,
+	about = ABOUT,
 }: {
 	editor: EvalAgentsEditor;
+	/** What the list is for, under its title. */
+	about?: string;
 }): JSX.Element {
 	const { picks, problem, loaded, saving } = useReactive(
 		editor,
@@ -32,7 +35,7 @@ export function EvalAgentsView({
 	useEffect(() => void editor.load(), [editor]);
 	return (
 		<div {...pendingRow(saving, shown, "flex flex-col")}>
-			<EvalSection label="eval agents" title="Agents" about={ABOUT} defaultOpen>
+			<EvalSection label="eval agents" title="Agents" about={about} defaultOpen>
 				{problem !== null && (
 					<p role="alert" className="text-destructive text-sm">
 						{problem}

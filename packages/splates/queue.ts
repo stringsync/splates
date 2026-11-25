@@ -1,5 +1,4 @@
 import { tasksNamed } from "@splates/server/board";
-import { refuseGroomer } from "@splates/server/conversations";
 import {
 	changeChainBudget,
 	parseTokens,
@@ -47,7 +46,6 @@ splatesQueue
 			fs: ctx.fs,
 			send: ctx.fetch,
 		});
-		await refuseGroomer(ctx.service, "queue add");
 		await ctx.journal.record(
 			"queue add",
 			await here(ctx),

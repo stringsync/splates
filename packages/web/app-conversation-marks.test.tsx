@@ -11,6 +11,7 @@ import {
 	message,
 	newestFirst,
 	openRow,
+	resize,
 	second,
 	Testing,
 	waitFor,
@@ -25,6 +26,7 @@ describe("App's marks on its agents", () => {
 	});
 
 	afterEach(() => {
+		resize(1024, 768);
 		cleanup();
 		testing.dispose();
 	});
@@ -87,7 +89,7 @@ Cap upload retries
 			["Asks", "waiting on you"],
 			["Runs", "working"],
 			["Rests", null],
-			["Broke", "waiting on you"],
+			["Broke", "disconnected"],
 			["alpha", null],
 		]);
 	});
@@ -328,7 +330,7 @@ Cap upload retries
 		expect(rows(view)).toEqual([
 			["Answered", "unread"],
 			["Landed", null],
-			["Broke", "waiting on you"],
+			["Broke", "disconnected"],
 			["Runs", "working"],
 		]);
 		expect(
@@ -402,5 +404,239 @@ Cap upload retries
 			}),
 		).toBeTruthy();
 		expect(document.title).toBe("(1) wren");
+	});
+
+	it("marks stopped and failed agents with a gray unplugged icon in the sidebar and inbox", async () => {
+		localStorage.clear();
+		testing.everywhere = [
+			{
+				project: "zebra",
+				repo: "zebra",
+				root: "/code/zebra",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				worktreeRoot: "/code/worktrees",
+				lanesTaken: {},
+				conversations: [
+					conversation({
+						id: "z1",
+						title: "Zebra stopped",
+						status: "stopped",
+					}),
+				],
+			},
+			{
+				project: "wren",
+				repo: "wren",
+				root: "/repo",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				worktreeRoot: "/code/worktrees",
+				lanesTaken: {},
+				conversations: [],
+			},
+		];
+		const shared = [
+			conversation({
+				id: "c1",
+				title: "Idle stopped",
+				status: "stopped",
+				stoppedIdle: "2026-10-14T10:00:00.000Z",
+				pinned: true,
+			}),
+			conversation({
+				id: "c2",
+				title: "Restart stopped",
+				status: "stopped",
+			}),
+			conversation({
+				id: "c3",
+				title: "Crashed",
+				status: "failed",
+				error: "exited with code 1",
+			}),
+			conversation({
+				id: "c4",
+				title: "Connected",
+				status: "idle",
+			}),
+			conversation({
+				id: "c5",
+				title: "Merged stopped",
+				status: "stopped",
+				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
+			}),
+		];
+
+		const unplugged = (marks: HTMLElement[]) =>
+			marks.map((mark) => {
+				const icon = mark.querySelector(".lucide-unplug");
+				const classes = icon?.getAttribute("class") ?? "";
+				return (
+					icon !== null &&
+					classes.includes("text-muted-foreground") &&
+					!classes.includes("text-warning")
+				);
+			});
+
+		const desktop = await testing.openConversations(newestFirst(shared), null, {
+			tasks: [],
+		});
+		const sidebar = within(agentList(desktop));
+		const sidebarMarks = await sidebar.findAllByRole("status", {
+			name: "disconnected",
+		});
+		// Idle stopped, Restart stopped, Crashed, and Zebra stopped.
+		expect(unplugged(sidebarMarks)).toEqual([true, true, true, true]);
+		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
+		expect(
+			sidebar
+				.getByLabelText("Pinned")
+				.getAttribute("class")
+				?.split(" ")
+				.includes("mr-2"),
+		).toBe(true);
+
+		desktop.unmount();
+		resize(390, 844);
+		const phone = await testing.openConversations(newestFirst(shared), null, {
+			tasks: [],
+		});
+		const inbox = within(phone.getByRole("region", { name: "inbox" }));
+		const inboxMarks = await inbox.findAllByRole("status", {
+			name: "disconnected",
+		});
+		expect(unplugged(inboxMarks)).toEqual([true, true, true, true]);
+		expect(inbox.getByRole("img", { name: "merged" })).toBeTruthy();
+	});
+
+	it("shows a gray hourglass ahead of disconnected for waiting conversations in the sidebar and inbox", async () => {
+		localStorage.clear();
+		const deadline = new Date(Date.now() + 4 * 3_600_000).toISOString();
+		const signalWait = {
+			id: "w1",
+			name: "mdom.released",
+			description: "mdom",
+			state: "waiting" as const,
+			startedAt: "2026-10-14T10:00:00.000Z",
+			deadline,
+			since: null,
+		};
+		testing.everywhere = [
+			{
+				project: "zebra",
+				repo: "zebra",
+				root: "/code/zebra",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				worktreeRoot: "/code/worktrees",
+				lanesTaken: {},
+				conversations: [
+					conversation({
+						id: "z1",
+						title: "Zebra waiting",
+						status: "stopped",
+						signals: [signalWait],
+					}),
+				],
+			},
+			{
+				project: "wren",
+				repo: "wren",
+				root: "/repo",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				worktreeRoot: "/code/worktrees",
+				lanesTaken: {},
+				conversations: [],
+			},
+		];
+		const shared = [
+			conversation({
+				id: "c1",
+				title: "Signal stopped",
+				status: "stopped",
+				stoppedIdle: "2026-10-14T10:00:00.000Z",
+				pinned: true,
+				signals: [signalWait],
+			}),
+			conversation({
+				id: "c2",
+				title: "Task wait stopped",
+				status: "stopped",
+				messages: [message("agent", "Waiting.\n[SPLATES WAIT task upstream]")],
+			}),
+			conversation({
+				id: "c3",
+				title: "Deferred stopped",
+				status: "stopped",
+				messages: [
+					message(
+						"agent",
+						"## ⏸ Deferred upload-retry: waiting on #812\n\nWaiting.",
+					),
+				],
+			}),
+			conversation({
+				id: "c4",
+				title: "Idle stopped",
+				status: "stopped",
+			}),
+		];
+
+		const grayHourglass = (marks: HTMLElement[]) =>
+			marks.map((mark) => {
+				const icon = mark.querySelector(".lucide-hourglass");
+				const classes = icon?.getAttribute("class") ?? "";
+				return (
+					icon !== null &&
+					classes.includes("text-muted-foreground") &&
+					!classes.includes("text-warning")
+				);
+			});
+
+		const desktop = await testing.openConversations(newestFirst(shared), null, {
+			tasks: [],
+		});
+		const sidebar = within(agentList(desktop));
+		const waitingSidebar = await sidebar.findAllByRole("status", {
+			name: "waiting",
+		});
+		// Signal stopped, Task wait stopped, and Zebra waiting.
+		expect(grayHourglass(waitingSidebar)).toEqual([true, true, true]);
+		expect(
+			grayHourglass([sidebar.getByRole("img", { name: "deferred" })]),
+		).toEqual([true]);
+		expect(
+			sidebar.getAllByRole("status", { name: "disconnected" }),
+		).toHaveLength(1);
+		expect(
+			sidebar
+				.getByLabelText("Pinned")
+				.getAttribute("class")
+				?.split(" ")
+				.includes("mr-2"),
+		).toBe(true);
+
+		desktop.unmount();
+		resize(390, 844);
+		const phone = await testing.openConversations(newestFirst(shared), null, {
+			tasks: [],
+		});
+		const inbox = within(phone.getByRole("region", { name: "inbox" }));
+		const waitingInbox = await inbox.findAllByRole("status", {
+			name: "waiting",
+		});
+		expect(grayHourglass(waitingInbox)).toEqual([true, true, true]);
+		expect(
+			grayHourglass([inbox.getByRole("img", { name: "deferred" })]),
+		).toEqual([true]);
+		expect(inbox.getAllByRole("status", { name: "disconnected" })).toHaveLength(
+			1,
+		);
 	});
 });

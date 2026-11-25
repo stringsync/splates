@@ -3,7 +3,6 @@ export {
 	described,
 	hookAdd,
 	hookEdit,
-	hookGroomer,
 	hookLabel,
 	hookList,
 	hookPause,
@@ -14,7 +13,6 @@ export {
 export type { HookChange } from "./edit";
 export type { TaskEvent, TaskEventName } from "./events";
 export { TASK_EVENTS, taskEventsOf } from "./events";
-export { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 export type { ClockShelf } from "./migrate-schedules";
 export { migrateSchedules } from "./migrate-schedules";
 export { BY_HAND, runsNow } from "./now";
@@ -33,6 +31,7 @@ export type { SchedulerDeps } from "./scheduler";
 export { Scheduler } from "./scheduler";
 export type { Automation, Hook, Hooks, TaskFilter, Trigger } from "./store";
 export {
+	evalBudgetNamed,
 	eventNamed,
 	fromHooks,
 	HookStore,

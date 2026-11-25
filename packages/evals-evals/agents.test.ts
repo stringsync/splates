@@ -1,8 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
+	AGENTS,
 	commandFor,
 	commandsOf,
 	DEFAULT_MINUTES,
+	readAntigravity,
 	readClaude,
 	readCodex,
 	readKimi,
@@ -254,6 +258,70 @@ describe("agents", () => {
 			"--model",
 			"kimi-code/k3.1-pro",
 			"--prompt",
+			"Hi.",
+		]);
+	});
+
+	it("reads Antigravity's captured stream-json fixture, errors, and builds its headless command", () => {
+		const raw = readFileSync(
+			join(import.meta.dir, "fixtures/antigravity-stream.jsonl"),
+			"utf8",
+		);
+		const lines = raw
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+		const run = readAntigravity(lines);
+
+		expect(AGENTS).toContain("antigravity");
+		expect(run.reply).toBe("done\n");
+		expect(commandsOf(run.transcript)).toEqual(["echo hi"]);
+		expect(run.transcript).toEqual([
+			{
+				kind: "tool",
+				name: "run_command",
+				input: '{"CommandLine":"echo hi"}',
+				output:
+					"Created At: 2026-11-23T20:42:03-05:00\nCompleted At: 2026-11-23T20:42:03-05:00\nCommand exited with code 0.\n\nCommand output:\nhi\r\n",
+				milliseconds: 35,
+			},
+			{ kind: "text", text: "done\n" },
+		]);
+		expect(run).toMatchObject({
+			turns: 1,
+			tokens: 17558,
+			usd: null,
+			error: null,
+		});
+		expect(
+			readAntigravity([
+				{
+					event: "result",
+					result: {
+						status: "ERROR",
+						response: "",
+						error: "invalid model selection",
+						num_turns: 0,
+					},
+				},
+			]).error,
+		).toBe("antigravity: invalid model selection");
+
+		const { argv, format } = commandFor(
+			{ agent: "antigravity", model: "gemini-3.8-flash", effort: "low" },
+			"Hi.",
+		);
+		expect(format).toBe("antigravity");
+		expect(argv).toContain("--output-format");
+		expect(argv).toContain("stream-json");
+		expect(argv).toContain("--dangerously-skip-permissions");
+		expect(argv).toContain("--disable-slash-commands");
+		expect(argv.slice(-6)).toEqual([
+			"--model",
+			"gemini-3.8-flash",
+			"--effort",
+			"low",
+			"--print",
 			"Hi.",
 		]);
 	});

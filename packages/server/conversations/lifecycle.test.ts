@@ -381,20 +381,6 @@ describe("Conversation lifecycle", () => {
 		expect(reread[0]?.state.read).toBe(count);
 	});
 
-	it("stays read as a persistent agent's turns end", async () => {
-		const conversation = await conversations.start("fake", {
-			task: null,
-			cwd: "/repo",
-			persistent: "groomer",
-		});
-		await until(conversation, "idle");
-
-		await conversation.prompt("[SPLATES GROOM #4]");
-		await until(conversation, "idle");
-
-		expect(conversation.state.unread).toBe(false);
-	});
-
 	it("is pinned until unpinned, and reads it back", async () => {
 		const conversation = await started();
 		expect(conversation.state.pinned).toBe(false);

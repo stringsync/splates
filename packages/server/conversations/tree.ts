@@ -3,9 +3,16 @@ import type { WorktreeService } from "../tasks";
 
 /**
  * Where a conversation runs: its task's name, the tree, the branch the task
- * was cut from and the conversation whose agent added it.
+ * was cut from, the conversation whose agent added it and whether an agent
+ * queued it on its own.
  */
-export type Tree = [string | null, string, string | null, string | null];
+export type Tree = [
+	string | null,
+	string,
+	string | null,
+	string | null,
+	boolean,
+];
 
 /**
  * Where a conversation for `task` runs: its worktree, or the main tree for
@@ -25,5 +32,6 @@ export async function treeOf(
 		worktree?.path ?? service.git.root,
 		worktree?.base ?? null,
 		worktree?.caller ?? null,
+		worktree?.state?.autoQueued === true,
 	];
 }

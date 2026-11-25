@@ -4,6 +4,7 @@ import type { AgentPick } from "../models";
 import type { TaskEventName } from "./events";
 import {
 	type Automation,
+	evalBudgetNamed,
 	type Hook,
 	invokesNamed,
 	lanesNamed,
@@ -28,6 +29,8 @@ export interface HookChange {
 	invokes: string;
 	prompt: string;
 	run: string;
+	/** Pre-approved eval budget in dollars per firing, `none` to clear; "" to leave it. */
+	evalBudget?: string;
 	/** The agent to run in place of the one it runs, when given; null for Auto pick. */
 	pick?: AgentPick | null;
 }
@@ -94,22 +97,32 @@ function retriggered(trigger: Trigger, change: HookChange): Trigger {
 		: { event: base.event, filter, ...every_ };
 }
 
-function rehooked(hook: Hook, { run, prompt, pick }: HookChange): Hook {
+function rehooked(
+	hook: Hook,
+	{ run, prompt, pick, evalBudget = "" }: HookChange,
+): Hook {
 	if (run !== "") {
-		if (pick !== undefined || prompt !== "") {
+		if (pick !== undefined || prompt !== "" || evalBudget !== "") {
 			fail("usage", "--run goes alone: a shell command runs no agent", {});
 		}
 		return { kind: "run", command: run };
 	}
-	if (pick === undefined && prompt === "") {
+	if (pick === undefined && prompt === "" && evalBudget === "") {
 		return hook;
 	}
 	if (hook.kind === "agent") {
-		const { kind: _, prompt: was, ...ran } = hook;
+		const { kind: _, prompt: was, evalBudget: wasBudget, ...ran } = hook;
+		const nextBudget =
+			evalBudget === ""
+				? wasBudget
+				: evalBudget === "none"
+					? undefined
+					: evalBudgetNamed(evalBudget);
 		return {
 			kind: "agent",
 			prompt: prompt === "" ? was : prompt,
 			...(pick === undefined ? ran : (pick ?? {})),
+			...(nextBudget === undefined ? {} : { evalBudget: nextBudget }),
 		};
 	}
 	if (prompt === "") {
@@ -119,5 +132,14 @@ function rehooked(hook: Hook, { run, prompt, pick }: HookChange): Hook {
 			{},
 		);
 	}
-	return { kind: "agent", prompt, ...(pick ?? {}) };
+	const nextBudget =
+		evalBudget === "" || evalBudget === "none"
+			? undefined
+			: evalBudgetNamed(evalBudget);
+	return {
+		kind: "agent",
+		prompt,
+		...(pick ?? {}),
+		...(nextBudget === undefined ? {} : { evalBudget: nextBudget }),
+	};
 }

@@ -157,7 +157,7 @@ describe("App's conversation header", () => {
 		).toEqual([
 			"main",
 			"Terminal⌃`",
-			"Put back on boardkeeps chat",
+			"Hand to a new agent",
 			"Show timestamps",
 			"Archive⌥⌘⌫",
 		]);
@@ -283,71 +283,6 @@ describe("App's conversation header", () => {
 		} finally {
 			setSystemTime();
 		}
-	});
-
-	it("defers what the person last asked from under Pause, stopping the turn so the agent saves its work", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Fix login", status: "running" }),
-		]);
-		const actions = view.getByRole("navigation", { name: "actions" });
-
-		await act(async () =>
-			fireEvent.click(
-				within(actions).getByRole("button", { name: /^Put back on board/ }),
-			),
-		);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1),
-		);
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
-		]);
-	});
-
-	it("offers Put back on board whether or not the agent is working, though not while it checkpoints", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				id: "c1",
-				title: "Fix login",
-				messages: [message("user", "Fix the login form")],
-			}),
-		]);
-		const actions = () => view.getByRole("navigation", { name: "actions" });
-		const defer = () =>
-			within(actions()).queryByRole("button", { name: /^Put back on board/ });
-
-		await act(async () => fireEvent.click(defer() as HTMLElement));
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "[SPLATES DEFER]" } },
-		]);
-
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Fix login",
-				status: "stopped",
-				checkpoint: "done",
-				messages: [
-					message("user", "Fix the login form"),
-					message("user", "[SPLATES CHECKPOINT]"),
-					message("agent", "Checkpointed."),
-				],
-			}),
-		);
-		expect(
-			within(actions()).getByRole("button", { name: "Resume" }),
-		).toBeTruthy();
-		expect(defer()).toBeTruthy();
-
-		await testing.say(
-			conversation({
-				id: "c1",
-				title: "Fix login",
-				status: "running",
-				checkpoint: "asked",
-			}),
-		);
-		expect(defer()).toBeNull();
 	});
 
 	it("resumes an agent from the actions card once the person's last word paused it", async () => {

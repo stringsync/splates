@@ -21,8 +21,8 @@ export function queueIsSettled(
 
 /** Whether `line` titles a permission card. */
 export function asksPermission(line: string): boolean {
-	return [PERMISSION, EVALS_PERMISSION, RUN_PERMISSION].some((each) =>
-		each.test(line),
+	return [PERMISSION, EVALS_PERMISSION, BUDGET_PERMISSION, RUN_PERMISSION].some(
+		(each) => each.test(line),
 	);
 }
 
@@ -34,6 +34,32 @@ export function permissionOf(
 	const permission = PERMISSION.exec(line);
 	const evals = EVALS_PERMISSION.exec(line);
 	const run = RUN_PERMISSION.exec(line);
+	const budget = BUDGET_PERMISSION.exec(line);
+	if (budget !== null) {
+		let usd: number | null = null;
+		let round: number | null = null;
+		const prose = body.split("\n").filter((each) => {
+			const asks = BUDGET_ASKS.exec(each);
+			if (asks !== null) {
+				usd = Number(asks[1]);
+				return false;
+			}
+			const most = BUDGET_ROUND.exec(each);
+			if (most !== null) {
+				round = Number(most[1]);
+				return false;
+			}
+			return true;
+		});
+		return {
+			action: "eval-budget",
+			lane: null,
+			tasks: [],
+			title: budget[1] || null,
+			body: prose.join("\n").replace(/^\n+|\s+$/g, ""),
+			budget: { usd, round },
+		};
+	}
 	if (run !== null) {
 		const rows = body.split("\n");
 		const at = rows.findIndex((each) => RUN_COMMAND.test(each));
@@ -61,6 +87,7 @@ export function permissionOf(
 		let baseline: string | null = null;
 		let reps: number | undefined;
 		let agents: string[] | undefined;
+		let leftOut: EvalLeftOut[] | undefined;
 		const prose = body.split("\n").filter((each) => {
 			const scenario = EVAL_PROBE.exec(each);
 			if (scenario !== null) {
@@ -77,6 +104,14 @@ export function permissionOf(
 				agents = Array.from(
 					(named[1] as string).matchAll(/`([^`\s]+)`/g),
 					(one) => one[1] as string,
+				);
+				return false;
+			}
+			const out = EVAL_LEFT_OUT.exec(each);
+			if (out !== null) {
+				leftOut = Array.from(
+					(out[1] as string).matchAll(EVAL_LEFT_OUT_ONE),
+					(one) => ({ agent: one[1] as string, round: Number(one[2]) }),
 				);
 				return false;
 			}
@@ -99,6 +134,7 @@ export function permissionOf(
 				baseline,
 				...(reps === undefined ? {} : { reps }),
 				...(agents === undefined ? {} : { agents }),
+				...(leftOut === undefined ? {} : { leftOut }),
 			},
 		};
 	}
@@ -127,10 +163,11 @@ export function permissionOf(
  */
 export interface PermissionProposal {
 	/**
-	 * What it asks: queue work, remove a lane with its tasks, run evals, or
-	 * run a heavy command, the whole test suite among them.
+	 * What it asks: queue work, remove a lane with its tasks, run evals, an
+	 * eval budget for the conversation's rounds, or run a heavy command, the
+	 * whole test suite among them.
 	 */
-	action: "queue" | "remove-lane" | "run-evals" | "run-command";
+	action: "queue" | "remove-lane" | "run-evals" | "eval-budget" | "run-command";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
@@ -146,6 +183,8 @@ export interface PermissionProposal {
 	body: string;
 	/** For `run-evals`: what to run, from the card's scenario list. */
 	evals?: EvalAsk;
+	/** For `eval-budget`: the dollars it asks and the most a round may cost. */
+	budget?: EvalBudgetAsk;
 	/** For `run-command`: the command to run, from the first backticked line. */
 	command?: string;
 	/** For `run-command`: the card's `Reason:` word, `busy` only when the machine's load is the sole reason to ask, else `cost` or `risk`. */
@@ -159,7 +198,8 @@ export interface PermissionProposal {
  * `` Baseline: `rev` `` line and how many times to run each cell, as a
  * `Repetitions: <n>` line, and optionally the agents to run on, as an
  * `Agents:` line of backticked `agent:model@effort` targets, so the person
- * need not leave out the ones that need no rerun.
+ * need not leave out the ones that need no rerun, and optionally those it
+ * left out after they passed, as a `` Left out: `codex` (round 1) `` line.
  */
 export interface EvalAsk {
 	skill: string;
@@ -169,6 +209,28 @@ export interface EvalAsk {
 	reps?: number;
 	/** The saved agents to run on, as `agent:model@effort`; every saved agent when absent. */
 	agents?: string[];
+	/** The agents the asking agent left out of this round, each with the round it passed in. */
+	leftOut?: EvalLeftOut[];
+}
+
+/**
+ * The budget a `## 🔐 Permission: eval budget: <what for>` card asks for the
+ * conversation's eval rounds: an `Asks: $10` line (`+$5` reads the same), and
+ * optionally a `Round: up to $2.40` line for the most one round may cost.
+ */
+export interface EvalBudgetAsk {
+	/** Dollars asked; null when the card has no `Asks:` line. */
+	usd: number | null;
+	/** The most one round may cost, in dollars; null when not said. */
+	round: number | null;
+}
+
+/** An agent left out of a round because it passed in an earlier one. */
+export interface EvalLeftOut {
+	/** As `agent:model@effort`. */
+	agent: string;
+	/** The round it passed in, counting from 1. */
+	round: number;
 }
 
 const EVALS_PERMISSION =
@@ -177,7 +239,15 @@ const EVALS_PERMISSION =
 const EVAL_PROBE = /^[-*][ \t]+`([^`\s]+)`(?:[ \t].*)?$/;
 const EVAL_BASELINE = /^Baseline:[ \t]*`([^`\s]+)`[ \t]*$/;
 const EVAL_AGENTS = /^Agents:[ \t]*(`[^`\s]+`(?:,?[ \t]*`[^`\s]+`)*)[ \t]*$/;
+const EVAL_LEFT_OUT =
+	/^Left out:[ \t]*(`[^`\s]+`[ \t]*\(round[ \t]+\d+\)(?:,?[ \t]*`[^`\s]+`[ \t]*\(round[ \t]+\d+\))*)[ \t]*$/;
+const EVAL_LEFT_OUT_ONE = /`([^`\s]+)`[ \t]*\(round[ \t]+(\d+)\)/g;
 const EVAL_REPS = /^Repetitions:[ \t]*(\d+)[ \t]*$/;
+const BUDGET_PERMISSION =
+	/^## 🔐 Permission: eval budget(?::[ \t]*(.*?))?[ \t]*$/;
+const BUDGET_ASKS = /^Asks:[ \t]*\+?\$[ \t]*(\d+(?:\.\d{1,2})?)[ \t]*$/;
+const BUDGET_ROUND =
+	/^Round:[ \t]*(?:up to[ \t]*)?\$[ \t]*(\d+(?:\.\d+)?)[ \t]*$/i;
 const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$/;
 /** A run-command card's command: a line that is one code span. */
 /** A run-command card's `Reason: busy` line: one word, on a line of its own. */

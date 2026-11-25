@@ -26,3 +26,24 @@ test("definition carries prompt, check ids and abouts, and judge", () => {
 test("no checks or judge gives an empty list and no judge", () => {
 	expect(definitionOf(base)).toEqual({ prompt: "do it", checks: [] });
 });
+
+test("environment and example are carried when set", () => {
+	const example = [
+		{ kind: "tool", name: "Bash", input: "splates add x", does: "Starts it" },
+		{ kind: "text", text: "done" },
+	] as const;
+	expect(definitionOf({ ...base, environment: "A repo", example })).toEqual({
+		prompt: "do it",
+		checks: [],
+		environment: "A repo",
+		example,
+	});
+});
+
+test("priority is carried when set", () => {
+	expect(definitionOf({ ...base, priority: "high" })).toEqual({
+		prompt: "do it",
+		checks: [],
+		priority: "high",
+	});
+});

@@ -10,19 +10,22 @@ import {
 	type ContractResult,
 	RESULTS_FILE,
 } from "../contract";
+import { planUsd, recentCosts } from "../estimate";
 import { fingerprintOf } from "../fingerprint";
 import { checkLabel, copyRun } from "../labels";
 import { formatReport, regradeBatch } from "../regrade";
 import { revisionOf } from "../revision";
 import { type Cell, runBatch } from "../run";
+import { specTitleOf } from "../scenario";
 import { discover, discoverLabels, type Found, problems } from "./discover";
+import { type FilterOptions, filterScenarios, matchesSpec } from "./filter";
 import { definitionOf } from "./list-entry";
 
 const HELP = `evals: run the eval scenarios kept beside each skill, like a linter.
 
 Scenarios are <project>/skills/<skill>/evals/*.ts, each exporting \`scenarios\`.
 
-  list [--json]            every scenario by skill: id, requirement; JSON lines with --json
+  list [selection] [--json] every scenario by skill: group, sentence; JSON lines with --json
   check [--judge]          validates every scenario, and re-grades every labelled run with
                            today's code checks, failing where a verdict disagrees with its
                            label; no model, but --judge re-runs the judge on labelled runs
@@ -31,7 +34,7 @@ Scenarios are <project>/skills/<skill>/evals/*.ts, each exporting \`scenarios\`.
   label <batch> <run> --skill <name> --expect pass|fail --why <text> [--name <dir>]
                            copies a stored run, scrubbed of secrets, into the skill's
                            evals/labels/ and prints the label to export as \`labels\`
-  plan [selection] [--json] runs a selection comes to, and at most what it costs
+  plan [selection] [--json] runs a selection comes to, picked spec sentences, and estimated cost
   run  [selection]         runs it into a new batch-* directory (costs tokens)
   regrade <batch-dir> [--judge] [--out <dir>]
                            re-runs today's code checks on a stored batch's runs and lists
@@ -42,16 +45,17 @@ Scenarios are <project>/skills/<skill>/evals/*.ts, each exporting \`scenarios\`.
 
 Selection:
   --skill <name>           a skill, repeatable; all when none
-  --scenario <id>          a scenario, repeatable; all when none
+  --group <path>           a spec group or nested group path, repeatable
+  -t, --test-name-pattern <pattern>
+                           word or regex match against spec sentences and groups, repeatable
+  --spec <sentence>        an exact spec sentence (or full title / hidden key), repeatable
+  --scenario <id>          a scenario id, repeatable; all when none
   --agent <agent[:model][@effort]>
-                           claude, codex, opencode or kimi, repeatable; claude when none
+                           claude, codex, opencode, kimi or antigravity, repeatable; claude when none
   --reps <n>               runs of each, 1 by default
   --parallel <n>           runs at once, 8 by default
   --directory <dir>        where batches go, ~/.splates/evals by default
   --root <dir>             where to look for scenarios, this checkout by default`;
-
-/** What each run may spend at most, agent and judge together. */
-const RUN_USD = 1.05;
 
 /** `claude:sonnet@high` as a pick. */
 export function pickOf(text: string): AgentPick {
@@ -72,12 +76,9 @@ export function select(
 	found: readonly Found[],
 	skills: readonly string[],
 	ids: readonly string[],
+	opts: Omit<FilterOptions, "skills" | "ids"> = {},
 ): Found[] {
-	return found.filter(
-		(each) =>
-			(skills.length === 0 || skills.includes(each.skill)) &&
-			(ids.length === 0 || ids.includes(each.scenario.id)),
-	);
+	return filterScenarios(found, { ...opts, skills, ids });
 }
 
 /** One cell for each scenario, agent and repetition. */
@@ -106,6 +107,14 @@ async function main(argv: string[]): Promise<number> {
 		options: {
 			skill: { type: "string", multiple: true, default: [] },
 			scenario: { type: "string", multiple: true, default: [] },
+			group: { type: "string", multiple: true, default: [] },
+			"test-name-pattern": {
+				type: "string",
+				short: "t",
+				multiple: true,
+				default: [],
+			},
+			spec: { type: "string", multiple: true, default: [] },
 			agent: { type: "string", multiple: true, default: [] },
 			reps: { type: "string", default: "1" },
 			parallel: { type: "string", default: "8" },
@@ -206,27 +215,41 @@ async function main(argv: string[]): Promise<number> {
 		return 2;
 	}
 	const found = await discover(resolve(values.root));
+	const filterOpts: FilterOptions = {
+		skills: values.skill,
+		ids: values.scenario,
+		groups: values.group,
+		patterns: [...values["test-name-pattern"], ...rest],
+		specs: values.spec,
+	};
 	if (command === "list") {
+		const listed = filterScenarios(found, filterOpts);
 		const hashes = new Map<string, string>();
-		for (const each of found) {
-			const { id, aspect, requirement } = each.scenario;
+		for (const each of listed) {
+			const { id, aspect, requirement, sentence, groups } = each.scenario;
 			let skillHash = hashes.get(each.dir);
 			if (skillHash === undefined) {
 				skillHash = (await revisionOf(each.dir)).skillHash;
 				hashes.set(each.dir, skillHash);
 			}
 			const fingerprint = fingerprintOf(each.scenario, skillHash);
+			const groupLabel =
+				groups && groups.length > 0 ? groups.join(" > ") : aspect;
 			console.log(
 				values.json
 					? JSON.stringify({
 							case: id,
-							group: aspect,
-							about: requirement,
+							group: groupLabel,
+							...(groups && groups.length > 0 ? { groups: [...groups] } : {}),
+							...(sentence === undefined ? {} : { sentence }),
+							about: specTitleOf(each.scenario),
 							skill: each.skill,
 							fingerprint,
 							...definitionOf(each.scenario),
 						})
-					: [each.skill, id, requirement, fingerprint].join("\t"),
+					: sentence !== undefined
+						? [each.skill, groupLabel, sentence, fingerprint].join("\t")
+						: [each.skill, id, requirement, fingerprint].join("\t"),
 			);
 		}
 		return 0;
@@ -264,26 +287,42 @@ async function main(argv: string[]): Promise<number> {
 	const unknownSkills = values.skill.filter(
 		(name) => !found.some((each) => each.skill === name),
 	);
-	if (unknown.length > 0 || unknownSkills.length > 0) {
+	const unknownSpecs = values.spec.filter(
+		(spec) => !found.some((each) => matchesSpec(each.scenario, spec)),
+	);
+	if (
+		unknown.length > 0 ||
+		unknownSkills.length > 0 ||
+		unknownSpecs.length > 0
+	) {
 		console.error(
-			`no scenario or skill ${[...unknown, ...unknownSkills].join(", ")}`,
+			`no scenario, spec or skill ${[...unknown, ...unknownSpecs, ...unknownSkills].join(", ")}`,
 		);
 		return 2;
 	}
 	const agents = (values.agent.length === 0 ? ["claude"] : values.agent).map(
 		pickOf,
 	);
+	const selected = filterScenarios(found, filterOpts);
 	const cells = cellsOf(
-		select(found, values.skill, values.scenario),
+		selected,
 		agents,
 		Math.max(1, Number(values.reps) || 1),
 	);
 	if (command === "plan") {
-		const usd = Number((cells.length * RUN_USD).toFixed(2));
+		const usd = planUsd(
+			cells.map((cell) => cell.agent.agent),
+			await recentCosts(values.directory),
+		);
+		const specs = selected.map((each) => specTitleOf(each.scenario));
 		console.log(
 			values.json
-				? JSON.stringify({ cells: cells.length, usd })
-				: `runs ${cells.length}\nusd ${usd.toFixed(2)}`,
+				? JSON.stringify({ cells: cells.length, usd, specs })
+				: [
+						`runs ${cells.length}`,
+						`usd ${usd.toFixed(2)}`,
+						...specs.map((sentence) => `- ${sentence}`),
+					].join("\n"),
 		);
 		return 0;
 	}
@@ -294,7 +333,7 @@ async function main(argv: string[]): Promise<number> {
 		parallel: Number(values.parallel) || 8,
 		landed: (result) =>
 			console.log(
-				`${result.status}\t${result.scenario.id}\t${result.agent.agent}${result.error === null ? "" : `\t${result.error}`}`,
+				`${result.status}\t${result.scenario.sentence ?? result.scenario.id}\t${result.agent.agent}${result.error === null ? "" : `\t${result.error}`}`,
 			),
 	});
 	console.log(`batch ${batch}`);
@@ -359,7 +398,7 @@ async function shown(
 			: [
 					`revision: ${revision.commit ?? "no commit"}  skill ${revision.skillHash.slice(0, 12)}  scenarios ${revision.scenarioHash.slice(0, 12)}`,
 				]),
-		`${statusLabel}  ${cell.case}  ${cell.target.agent ?? ""} ${cell.target.model}`.trimEnd(),
+		`${statusLabel}  ${cell.sentence ?? cell.case}  ${cell.target.agent ?? ""} ${cell.target.model}`.trimEnd(),
 		line.reason === undefined ? "" : `reason: ${line.reason}`,
 		line.phases === undefined
 			? ""

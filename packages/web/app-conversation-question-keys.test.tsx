@@ -55,6 +55,14 @@ describe("App's question card keys", () => {
 	const card = (view: ConversationsView, question: string) =>
 		view.getByRole("listitem", { name: `question ${question}` });
 
+	/** Shows every question down the card, as it shows one at a time. */
+	const showAll = async (view: ConversationsView) => {
+		const all = await waitFor(() =>
+			view.getByRole("button", { name: "Show all" }),
+		);
+		await act(async () => fireEvent.click(all));
+	};
+
 	it("answers by keyboard alone: letters pick, Enter goes on, and sends from anything else", async () => {
 		const view = await testing.openConversations([asking()]);
 		const first = await waitFor(() =>
@@ -149,6 +157,7 @@ describe("App's question card keys", () => {
 
 	it("scrolls the whole next question into view on Enter, clear of the composer", async () => {
 		const view = await testing.openConversations([asking()]);
+		await showAll(view);
 		const first = await waitFor(() =>
 			within(card(view, "1")).getByRole("button", { name: /Todos/ }),
 		);
@@ -181,6 +190,10 @@ describe("App's question card keys", () => {
 
 	it("sends with ⌘Enter from any question", async () => {
 		const view = await testing.openConversations([asking()]);
+		const step = await waitFor(() =>
+			view.getByRole("button", { name: /^question 3,/ }),
+		);
+		await act(async () => fireEvent.click(step));
 		const note = await waitFor(() =>
 			within(card(view, "3")).getByRole("textbox"),
 		);
@@ -199,6 +212,7 @@ describe("App's question card keys", () => {
 
 	it("keeps a note that starts like a choice as typed, picking nothing", async () => {
 		const view = await testing.openConversations([asking()]);
+		await showAll(view);
 		const second = await waitFor(() => card(view, "2"));
 		const note = within(second).getByRole("textbox");
 

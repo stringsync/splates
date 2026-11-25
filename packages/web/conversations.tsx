@@ -226,13 +226,32 @@ export const Conversations = memo(function Conversations({
 	useRead(shown);
 	// What a new conversation starts with. Its picks are for one agent's
 	// settings, and its draft for one tree, so it starts over for another.
+	// Once open, keep its picked agent steady so background conversations
+	// (such as automations or enqueued tasks) never switch or reset the view.
+	const onNew = startsOne(open) || open === null;
+	const auto = startsAuto(open);
+	const resolvedAgent = agentFor(open, agents, conversations);
+	const routeKey = onNew ? `${auto}/${open ?? ""}` : null;
+	const [latched, setLatched] = useState<{
+		route: string | null;
+		agent: string;
+	}>(() => ({ route: routeKey, agent: resolvedAgent }));
+	const startAgent =
+		latched.route === routeKey &&
+		latched.agent !== "" &&
+		agents.some((each) => each.id === latched.agent)
+			? latched.agent
+			: resolvedAgent;
+	if (latched.route !== routeKey || latched.agent !== startAgent) {
+		setLatched({ route: routeKey, agent: startAgent });
+	}
 	const starting = {
 		drafts,
 		tasks,
 		feed,
 		agents,
-		agent: agentFor(open, agents, conversations),
-		auto: startsAuto(open),
+		agent: startAgent,
+		auto,
 		task: taskFor(open),
 		model: modelFor(open),
 		identity: draftFor(open),
@@ -247,7 +266,7 @@ export const Conversations = memo(function Conversations({
 			}
 		},
 	};
-	const startKey = `${starting.auto}/${starting.agent}/${starting.task}/${starting.model}/${starting.identity}/${startsOne(open)}`;
+	const startKey = `${starting.auto}/${starting.auto ? "" : starting.agent}/${starting.task}/${starting.model}/${starting.identity}/${startsOne(open)}`;
 
 	return (
 		<Board value={board}>

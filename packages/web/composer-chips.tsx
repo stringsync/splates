@@ -46,12 +46,17 @@ export function serialize(item: TriggerItem): string {
 }
 /**
  * An `[SPLATES ...]` directive, a `#` or `@` reference, or an attachment's
- * `[Image 2]` or `[File 1]`, in a line.
+ * `[Image 2]` or `[File 1]`, in a line. Built lazily to avoid circular-import
+ * TDZ with `./mentioned` and `./attachment-chips`.
  */
-const REFERENCES = new RegExp(
-	`${DIRECTIVES.source}|${NAMING.source}|${ATTACHMENT_REFERENCE.source}`,
-	"gu",
-);
+let referencesPattern: RegExp | undefined;
+function references(): RegExp {
+	referencesPattern ??= new RegExp(
+		`${DIRECTIVES.source}|${NAMING.source}|${ATTACHMENT_REFERENCE.source}`,
+		"gu",
+	);
+	return referencesPattern;
+}
 /** Project slug syntax for a `#` read before projects arrive. */
 const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
 /**
@@ -98,7 +103,7 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 		parse: (text) => {
 			const segments: Segment[] = [];
 			let at = 0;
-			for (const found of text.matchAll(REFERENCES)) {
+			for (const found of text.matchAll(references())) {
 				const [whole, before = "", sign, called = "", attachment] = found;
 				if (attachment !== undefined) {
 					if (found.index > at) {

@@ -78,6 +78,7 @@ const stats: Stats = {
 	},
 	models: [],
 	devices: [],
+	boards: [],
 	projects: [],
 	since: null,
 	skill: [],

@@ -76,6 +76,10 @@ export interface ContractCell {
 	case: string;
 	/** What the page groups cases under. */
 	group?: string;
+	/** Enclosing spec group path, outermost first, when written as a spec. */
+	groups?: string[];
+	/** Spec sentence from `it(...)`, when written as a spec. */
+	sentence?: string;
 	/** What the case asks, in words. */
 	about?: string;
 	target: ContractTarget;
@@ -129,6 +133,7 @@ export interface ContractResult {
 /** What a result's `detail` file holds, every field optional. */
 export interface ContractDetail {
 	input?: string;
+	detail?: string;
 	rubric?: string;
 	reply?: string;
 	checks?: EvalCheck[];

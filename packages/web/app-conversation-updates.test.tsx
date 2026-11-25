@@ -43,6 +43,11 @@ describe("App's question cards when splates tells the agent of a task's end", ()
 		view = await testing.openConversations([
 			conversation({ title: "Header", messages: asked }),
 		]);
+		// A desktop shows one question at a time: turn to the second.
+		const next = await waitFor(() =>
+			view.getByRole("button", { name: /^Next$/ }),
+		);
+		await act(async () => fireEvent.click(next));
 		await waitFor(second);
 		await act(async () =>
 			fireEvent.click(
@@ -72,6 +77,11 @@ describe("App's question cards when splates tells the agent of a task's end", ()
 
 	it("answers them where the agent asks them again, with what was written", async () => {
 		await act(async () => testing.say(told(message("agent", report))));
+		// Asked again, it opens on its first question.
+		const next = await waitFor(() =>
+			view.getByRole("button", { name: /^Next$/ }),
+		);
+		await act(async () => fireEvent.click(next));
 
 		await waitFor(() =>
 			expect(view.getAllByRole("button", { name: "Send" })).toHaveLength(1),

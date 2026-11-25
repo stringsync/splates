@@ -63,14 +63,11 @@ export function Cards({
 	todos,
 	label,
 	staleness,
-	steps,
 	coming,
 }: {
 	todos: TaskRecord[];
 	label: string;
 	staleness: number;
-	/** Number the cards, as a lane's steps are. */
-	steps: boolean;
 	/**
 	 * A card from another column is over this one but none of its cards, so
 	 * it lands at the bottom: a line there says so, as one above a card does.
@@ -88,13 +85,8 @@ export function Cards({
 				aria-label={label}
 				className="-mx-1 flex min-h-2 flex-col gap-1.5 overflow-y-auto px-1 py-0.5"
 			>
-				{todos.map((todo, i) => (
-					<Sortable
-						key={todo.id}
-						todo={todo}
-						staleness={staleness}
-						step={steps ? i + 1 : undefined}
-					/>
+				{todos.map((todo) => (
+					<Sortable key={todo.id} todo={todo} staleness={staleness} />
 				))}
 				{coming && (
 					<li

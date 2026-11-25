@@ -62,7 +62,7 @@ export function useKnown(here: string): Known {
 }
 
 /**
- * Who started a conversation splates started on its own: the groomer, an
+ * Who started a conversation splates started on its own: an
  * automation or a hook; nothing for one the page does not hold.
  */
 function startedBy(
@@ -71,15 +71,12 @@ function startedBy(
 	if (conversation === undefined) {
 		return undefined;
 	}
-	if (conversation.persistent !== undefined) {
-		return conversation.persistent;
-	}
 	return conversation.automation !== undefined ? "automation" : "hook";
 }
 
 /**
  * Lists the agents running that splates started on its own (automations,
- * hooks and the groomer, in any project); open or stop each from its card.
+ * hooks, in any project); open or stop each from its card.
  */
 export function Running({
 	held,

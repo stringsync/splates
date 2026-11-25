@@ -124,14 +124,14 @@ describe("App's Blocked card", () => {
 		).toBeNull();
 	});
 
-	it("does not say every blocker is done while something outside splates is still open", async () => {
+	it("lists an older deferral's outside wait as a note that holds nothing back", async () => {
 		const { card } = await openCard(deferring, {
 			todos: board.todos.filter((each) => each.id !== 812),
 			lanes: [],
 		});
 		expect(card.textContent).toContain("an upstream release");
-		expect(card.textContent).not.toContain("Every blocker is done.");
-		expect(card.textContent).toContain("Every task blocker is done.");
+		expect(card.textContent).toContain("Every blocker is done.");
+		expect(card.textContent).not.toContain("nothing detects yet");
 	});
 
 	it("marks the row with the warning triangle only while a blocker needs queuing", async () => {
@@ -150,7 +150,8 @@ describe("App's Blocked card", () => {
 		const quiet = await waitFor(() =>
 			queuedAll.view.getByRole("img", { name: "deferred" }),
 		);
-		expect(quiet.innerHTML).toContain("lucide-ban");
+		expect(quiet.innerHTML).toContain("lucide-hourglass");
+		expect(queuedAll.view.getByText("Waiting on blockers")).toBeTruthy();
 	});
 
 	it("offers no archive bar for a blocked task, whose conversation the menu archives", async () => {

@@ -1,12 +1,19 @@
 import type { EvalScenario } from "./launch";
+import { DEFAULT_PASS, standingOf } from "./pass-rule";
 import type {
 	EvalCell,
 	EvalGrid,
 	EvalScenarioState,
+	EvalScenarioStatus,
 	EvalScenarioTarget,
 } from "./types";
 
-/** Where each of `scenarios` stands against the saved `grids`, for the Evals page to list. */
+/**
+ * Where each of `scenarios` stands against the saved `grids`, for the Evals
+ * page to list. Each agent is judged on its last `of` graded runs of the spec
+ * across every batch, against the spec's pass rule; errored and pending runs
+ * say nothing of the skill and are left out.
+ */
 export function scenarioStates(
 	scenarios: EvalScenario[],
 	grids: EvalGrid[],
@@ -15,47 +22,90 @@ export function scenarioStates(
 		second.startedAt.localeCompare(first.startedAt),
 	);
 	return scenarios.map((scenario) => {
-		for (const grid of newestFirst) {
-			const landed = grid.grid.filter(
+		const latest = newestFirst.find((grid) =>
+			grid.grid.some(
 				(cell) => cell.scenario === scenario.id && cell.run !== null,
-			);
-			if (landed.length > 0) {
-				return stateOf(scenario, grid.startedAt, landed);
-			}
+			),
+		);
+		if (latest === undefined) {
+			return {
+				scenario: scenario.id,
+				state: "never-run",
+				targets: [],
+				lastRunAt: null,
+				run: null,
+				batch: null,
+			};
 		}
-		return {
-			scenario: scenario.id,
-			state: "never-run",
-			targets: [],
-			lastRunAt: null,
-			run: null,
-		};
+		return stateOf(scenario, latest, newestFirst);
 	});
 }
 
 function stateOf(
 	scenario: EvalScenario,
-	startedAt: string,
-	landed: EvalCell[],
+	latest: EvalGrid,
+	newestFirst: EvalGrid[],
 ): EvalScenarioState {
+	const rule = scenario.pass ?? DEFAULT_PASS;
+	const landed = latest.grid.filter(
+		(cell) => cell.scenario === scenario.id && cell.run !== null,
+	);
 	const failed = landed.find(
 		(cell) => cell.run?.status === "fail" || cell.run?.status === "error",
 	);
-	const targets: EvalScenarioTarget[] = [];
+	// Graded outcomes per agent, oldest first, over every batch on the checkout's skill.
+	const outcomes = new Map<string, boolean[]>();
 	for (const cell of landed) {
-		let entry = targets.find((each) => each.target === cell.target);
-		if (entry === undefined) {
-			entry = { target: cell.target, passed: 0, total: 0 };
-			targets.push(entry);
-		}
-		entry.total += 1;
-		entry.passed += cell.run?.status === "pass" ? 1 : 0;
+		outcomes.set(cell.target, []);
 	}
+	for (const grid of [...newestFirst].reverse()) {
+		const baselines = new Set(
+			grid.targets
+				.filter((target) => target.skill !== null)
+				.map((target) => target.key),
+		);
+		for (const cell of grid.grid) {
+			if (cell.scenario !== scenario.id || baselines.has(cell.target)) {
+				continue;
+			}
+			const mine = outcomes.get(cell.target);
+			if (mine !== undefined && gradedOf(cell) !== null) {
+				mine.push(gradedOf(cell) === true);
+			}
+		}
+	}
+	const targets: EvalScenarioTarget[] = [...outcomes].map(
+		([target, graded]) => {
+			const { standing, passed, window } = standingOf(graded, rule);
+			return {
+				target,
+				passed,
+				total: window,
+				standing,
+				need: rule.need,
+				of: rule.of,
+			};
+		},
+	);
+	const state: EvalScenarioStatus = targets.some(
+		(each) => each.standing === "fail",
+	)
+		? "failing"
+		: targets.some((each) => each.standing === "needs-runs")
+			? "needs-runs"
+			: "passing";
 	return {
 		scenario: scenario.id,
-		state: failed !== undefined ? "failing" : "passing",
+		state,
 		targets,
-		lastRunAt: startedAt,
+		lastRunAt: latest.startedAt,
 		run: (failed ?? landed[0])?.run?.id ?? null,
+		batch: latest.id,
 	};
+}
+
+/** Whether a landed run passed (true) or failed (false); null when it says nothing of the skill. */
+function gradedOf(cell: EvalCell): boolean | null {
+	const status = cell.run?.status;
+	return status === "pass" ? true : status === "fail" ? false : null;
 }

@@ -42,6 +42,11 @@ describe("App's open conversation when the sidebar updates", () => {
 			}),
 			conversation({ id: "c2", title: "Other", messages: [] }),
 		]);
+		// A desktop shows one question at a time: turn to the second.
+		const next = await waitFor(() =>
+			view.getByRole("button", { name: /^Next$/ }),
+		);
+		await act(async () => fireEvent.click(next));
 		await waitFor(second);
 		await act(async () =>
 			fireEvent.click(
@@ -131,15 +136,15 @@ describe("App's open conversation when the sidebar updates", () => {
 			...more,
 		});
 
-	for (const [name, more] of [
-		["a read mark", { read: 1, unread: true }],
-		["a task taken", { task: "alpha" }],
-	] as const) {
-		it(`keeps its place through ${name}`, async () => {
-			await act(async () => testing.say(own(more) as never));
-			expect(kept()).toEqual(["bA badge"]);
-		});
-	}
+	it("keeps its place through a read mark", async () => {
+		await act(async () => testing.say(own({ read: 1, unread: true }) as never));
+		expect(kept()).toEqual(["bA badge"]);
+	});
+
+	it("keeps its place through a task taken", async () => {
+		await act(async () => testing.say(own({ task: "alpha" }) as never));
+		expect(kept()).toEqual(["bA badge"]);
+	});
 
 	it("keeps its place when a new conversation arrives", async () => {
 		await act(async () =>

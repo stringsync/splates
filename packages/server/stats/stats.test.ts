@@ -147,6 +147,36 @@ describe("summarize", () => {
 		]);
 	});
 
+	it("counts tasks per bar by board, the busiest first, keeping each board's latest name", () => {
+		const splates = { id: 3, name: "splates" };
+		const stats = summarize(
+			[
+				ended({ endedAt: "2026-10-14T00:30:00.000Z", board: splates }),
+				ended({
+					endedAt: "2026-10-14T06:30:00.000Z",
+					board: { id: 3, name: "splates web" },
+				}),
+				ended({ endedAt: "2026-10-14T06:40:00.000Z", board: null }),
+				ended({ endedAt: "2026-10-14T06:50:00.000Z" }),
+				ended({
+					endedAt: "2026-10-14T07:00:00.000Z",
+					board: splates,
+					project: "/other",
+				}),
+			],
+			{ now, period: "1d", project: "/repo" },
+		);
+
+		// A bar an hour from 13:00 the day before: midnight is bar 11, 06:00 bar 17.
+		const bars = (counts: Record<number, number>) =>
+			Array.from({ length: 24 }, (_, index) => counts[index] ?? 0);
+		expect(stats.boards).toEqual([
+			{ board: 3, name: "splates web", ended: bars({ 11: 1, 17: 1 }) },
+			{ board: "none", name: null, ended: bars({ 17: 1 }) },
+			{ board: "unknown", name: null, ended: bars({ 17: 1 }) },
+		]);
+	});
+
 	it("narrows every figure to one project but keeps every project listed", () => {
 		const stats = summarize(
 			[

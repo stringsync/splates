@@ -1,17 +1,16 @@
 import type { TaskRecord } from "@splates/server/board";
 import { BotIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { agentQueuedBy, chainWords, useChainSpends } from "./agent-queued-mark";
+import { agentQueuedBy } from "./agent-queued-mark";
 import { Board } from "./board";
 
-/** The "Queued by <task> · chain X of Y" banner on the page of an agent-queued task. */
+/** The "Queued by <task>" banner on the page of an agent-queued task. */
 export function AgentQueuedBanner({
 	todo,
 }: {
 	todo: TaskRecord;
 }): JSX.Element | null {
 	const board = useContext(Board);
-	const spends = useChainSpends();
 	const by = agentQueuedBy(todo);
 	if (by === null) {
 		return null;
@@ -38,8 +37,7 @@ export function AgentQueuedBanner({
 						</button>
 					) : (
 						name
-					)}{" "}
-					· {chainWords(spends[by.root.conversation])}
+					)}
 				</p>
 			</div>
 		</section>

@@ -23,6 +23,8 @@ export {
 } from "./needs";
 export type {
 	EvalAsk,
+	EvalBudgetAsk,
+	EvalLeftOut,
 	PermissionProposal,
 } from "./permission";
 export { queueIsSettled } from "./permission";
@@ -50,13 +52,13 @@ export {
 	BLOCKERS_CLEARED,
 	CHECKPOINT,
 	continuedReference,
-	DEFER,
+	conversationHandOffReference,
 	DICTATED,
 	DIRECTIVES,
 	directive,
+	EVAL_BUDGET_APPROVED,
 	evalsDoneReference,
 	eventReference,
-	groomReference,
 	handOffReference,
 	isUpdate,
 	leadingDirectives,

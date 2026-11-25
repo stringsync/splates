@@ -1,7 +1,7 @@
 import type { Answer, Question } from "@splates/server/plans";
 import { chainSpendOf } from "@splates/server/queue/browser";
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
-import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
+import { type JSX, type KeyboardEvent, useState } from "react";
 import {
 	Tooltip,
 	TooltipContent,
@@ -25,9 +25,7 @@ export function QuestionCard({
 	onNext,
 	roomy = false,
 	files = null,
-	plan = null,
 	headed = true,
-	decided = false,
 	dictationOwner,
 }: {
 	asked: Question;
@@ -45,12 +43,8 @@ export function QuestionCard({
 	roomy?: boolean;
 	/** Where what is attached to its answer goes; null where a reply carries none. */
 	files?: Files | null;
-	/** The plan it asks to approve, shown under its words; null for none. */
-	plan?: ReactNode;
 	/** Whether to show its heading; false where the panel around it does. */
 	headed?: boolean;
-	/** Whether it is the plan's approval, decided from the card's footer. */
-	decided?: boolean;
 	/** Stable dictation owner id when a parent watches this question's take. */
 	dictationOwner?: string;
 }): JSX.Element {
@@ -61,10 +55,6 @@ export function QuestionCard({
 		...asked.choices.filter((choice) => !choice.chosen),
 	];
 	const said: Answer = answer ?? UNANSWERED;
-	// The plan's approval, decided from the card's footer: no choices here,
-	// only the words that request changes or approve with a note. Once sent,
-	// what was picked shows as on any question.
-	const deciding = decided && live;
 	// The choice the arrows move from, and Tab lands on: the first picked.
 	const [at, setAt] = useState(() =>
 		Math.max(
@@ -157,18 +147,14 @@ export function QuestionCard({
 				)}
 			>
 				{spend !== null && <ChainMeter spend={spend} />}
-				{(headed || body !== "" || plan !== null) && (
+				{(headed || body !== "") && (
 					<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
 						{headed && (
 							<div className="flex items-start gap-2">
 								<p
 									className={cn(
 										"flex-1 leading-snug",
-										roomy
-											? "font-semibold text-lg"
-											: deciding
-												? "font-semibold text-base"
-												: "font-medium text-sm",
+										roomy ? "font-semibold text-lg" : "font-medium text-sm",
 									)}
 								>
 									<Markdown text={text} inline />
@@ -185,12 +171,9 @@ export function QuestionCard({
 								)}
 							/>
 						)}
-						{plan !== null && (
-							<div className={roomy ? "pt-2 pb-1" : "pt-1.5"}>{plan}</div>
-						)}
 					</div>
 				)}
-				{deciding ? null : pick === "order" ? (
+				{pick === "order" ? (
 					<Ranking
 						asked={asked}
 						answer={said}
@@ -303,15 +286,11 @@ export function QuestionCard({
 					<CardBox
 						roomy={roomy}
 						dictationOwner={dictationOwner}
-						data-stop={choices.length === 0 || deciding ? number : undefined}
+						data-stop={choices.length === 0 ? number : undefined}
 						aria-label={`Answer to ${number}`}
 						value={said.words}
 						placeholder={
-							deciding
-								? "Request changes, or leave a note…"
-								: choices.length > 0
-									? "Add a note (optional)"
-									: "Your answer"
+							choices.length > 0 ? "Add a note (optional)" : "Your answer"
 						}
 						onValue={(words) => onAnswer({ ...said, words })}
 						files={files}
@@ -319,7 +298,7 @@ export function QuestionCard({
 						className={
 							roomy
 								? // A typed answer is the screen's whole point; a note an aside.
-									choices.length === 0 || deciding
+									choices.length === 0
 									? "min-h-32"
 									: "min-h-12"
 								: "min-h-9 pointer-coarse:min-h-11"

@@ -169,6 +169,37 @@ describe("Access", () => {
 		await verify();
 		expect(fetched).toHaveLength(2);
 	});
+
+	it("accepts tokens matching an extra AUD while rejecting unknown AUDs", async () => {
+		const jwk = await crypto.subtle.exportKey("jwk", keys.publicKey);
+		const verifier = new Access(
+			{ ...config, extraAuds: ["wildcard-aud"] },
+			{
+				clock: new FakeWallClock(NOW),
+				fetch: (async () =>
+					Response.json({
+						keys: [{ ...jwk, kid: "k1" }],
+					})) as unknown as typeof fetch,
+			},
+		);
+
+		expect(
+			await verifier.verify(
+				asked({
+					"cf-access-jwt-assertion": await token({ aud: ["wildcard-aud"] }),
+				}),
+			),
+		).toMatchObject({ identity: { sub: "user-1" } });
+		expect(
+			(
+				await verifier.verify(
+					asked({
+						"cf-access-jwt-assertion": await token({ aud: ["other-aud"] }),
+					}),
+				)
+			).refused,
+		).toContain("another Access application");
+	});
 });
 
 describe("HostGate with Access", () => {

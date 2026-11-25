@@ -3,8 +3,12 @@ import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import { body, type Handler } from "../server/shared";
 import { NATIVE_AGENTS } from "./agents";
-import type { EvalBudget } from "./budget";
-import type { EvalCommands, EvalLaunches, EvalLaunchSpec } from "./launch";
+import type {
+	EvalCommands,
+	EvalLaunches,
+	EvalLaunchSpec,
+	EvalScenario,
+} from "./launch";
 import { EvalStore } from "./store";
 
 /** Where a conversation works, for a run its card starts to use the code there. */
@@ -55,6 +59,21 @@ export class EvalLaunchRoutes {
 		);
 	};
 
+	/** Single listed scenarios in run order (priority, never run, oldest last run); `?conversation=` lists its worktree's, `?agent=` scopes last run to that agent. */
+	readonly order: Handler = async (request) => {
+		const scenarios = (await (
+			await this.scenarios(request)
+		).json()) as EvalScenario[];
+		const commands = await this.commands(request);
+		const agent = new URL(request.url).searchParams.get("agent");
+		return Response.json(
+			await new EvalStore(commands.results).order(
+				scenarios,
+				agent === "" ? null : agent,
+			),
+		);
+	};
+
 	/** The free plan for the body's cases and agents: what the run would reserve. */
 	readonly plan: Handler = async (request) => {
 		const commands = await this.runnable(request);
@@ -67,53 +86,17 @@ export class EvalLaunchRoutes {
 		);
 	};
 
-	/** Starts the run a card's Run button asks for, the person's alone to press, and answers with its launch. */
-	readonly start: Handler = async (request) => {
-		const commands = await this.runnable(request);
-		// A request's body reads once, so the spec and its key share one read.
-		const sent = await body(request);
-		const spec = this.spec(sent);
-		const { key } = sent;
-		if (typeof key !== "string" || key === "") {
-			fail("usage", "a run names its card by `key`", {});
-		}
-		const conversation = this.conversation(sent);
-		if (conversation !== null && sent.budget != null) {
-			// Each run has its own budget: pressing Run sets it.
-			const { usd } = sent.budget as Partial<EvalBudget>;
-			if (typeof usd !== "number") {
-				fail("usage", "a budget names its `usd`", {});
-			}
-			await this.launches.budgets.set(conversation, { usd });
-		}
-		return Response.json(
-			await this.launches.start(commands, {
-				...spec,
-				key,
-				conversation,
-				// The conversation's task worktree, so a run checks the change it makes.
-				cwd: await this.cwdOf(conversation),
-			}),
-		);
-	};
-
-	/** `?conversation=` names the conversation; the budget of its latest run and what that run has spent. */
-	readonly budget: Handler = async (request) => {
+	/** `?key=` names the card, or `?batch=` the batch it writes; null when it has no run here. */
+	readonly read: Handler = async (request) => {
 		const commands = await this.commands(request);
-		const conversation = new URL(request.url).searchParams.get("conversation");
-		if (conversation === null || conversation === "") {
-			fail("usage", "a budget names its `conversation`", {});
-		}
+		// A report knows its batch, not the card that started it.
+		const batch = new URL(request.url).searchParams.get("batch");
 		return Response.json(
-			await this.launches.budgetStatus(commands, conversation),
+			batch !== null && batch !== ""
+				? await this.launches.ofBatch(commands, batch)
+				: await this.launches.get(commands, this.key(request)),
 		);
 	};
-
-	/** `?key=` names the card; null when it has no run here. */
-	readonly read: Handler = async (request) =>
-		Response.json(
-			await this.launches.get(await this.commands(request), this.key(request)),
-		);
 
 	/** Stops the run `?key=` names. */
 	readonly stop: Handler = async (request) =>

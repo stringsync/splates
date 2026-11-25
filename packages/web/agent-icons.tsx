@@ -5,7 +5,7 @@ import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 import { ANTIGRAVITY_MARKUP, ANTIGRAVITY_PATH } from "./antigravity-brand";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import { automated, evaluating, shipped } from "./conversation-rows";
+import { automated, evaluated, evaluating, shipped } from "./conversation-rows";
 
 /** Google Gemini's sparkle, from Simple Icons (CC0). */
 const GEMINI_PATH =
@@ -52,7 +52,7 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
-	if (evaluating(conversation)) {
+	if (evaluated(conversation) || evaluating(conversation)) {
 		return (
 			<FlaskConicalIcon
 				role="img"

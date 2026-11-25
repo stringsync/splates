@@ -2,6 +2,7 @@ import type { TaskRecord } from "@splates/server/board";
 import { type JSX, useContext } from "react";
 import { Board } from "./board";
 import { Markdown } from "./markdown";
+import { planParts } from "./task-plan-parts";
 
 /**
  * A task as a card: its number, lane, subject and what it asks. It leaves out
@@ -10,7 +11,7 @@ import { Markdown } from "./markdown";
 export function TaskCard({ todo }: { todo: TaskRecord }): JSX.Element {
 	const { lanes } = useContext(Board);
 	const lane = lanes.find((each) => each.id === todo.lane)?.name;
-	const detail = todo.text.trim();
+	const detail = goalFirst(todo.text.trim());
 	return (
 		<article
 			aria-label={`Task #${todo.id}`}
@@ -30,4 +31,21 @@ export function TaskCard({ todo }: { todo: TaskRecord }): JSX.Element {
 			</div>
 		</article>
 	);
+}
+
+/**
+ * Older tasks written with `## Before` and `## After` still lead with their
+ * goal on a task card, without showing Before and After headings.
+ */
+function goalFirst(text: string): string {
+	if (text === "") {
+		return "";
+	}
+	const parts = planParts(text);
+	if (parts.before === "" && parts.goal === "") {
+		return text;
+	}
+	return [parts.goal, parts.before, parts.steps, parts.notes]
+		.filter((each) => each !== "")
+		.join("\n\n");
 }

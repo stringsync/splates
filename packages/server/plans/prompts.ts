@@ -51,14 +51,6 @@ export function signalReference(
 	return `[SPLATES EVENT signal ${name}] raised by ${by}; payload: ${JSON.stringify(payload ?? null)}`;
 }
 
-/**
- * What tells the project's groomer to groom ungroomed Backlog task `id`, which
- * `splates server` claimed for it: the splates skill says what it means.
- */
-export function groomReference(id: number): string {
-	return `[SPLATES GROOM #${id}]`;
-}
-
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;
@@ -76,18 +68,6 @@ export function demoReference(task: string, point: DemoPoint): string {
 }
 
 /**
- * What asks an agent to take merged `task` back off its base, as the merged
- * card's Unmerge sends, with what the person wrote in its dialog after it:
- * the splates skill says what it means, checking first that it can be undone.
- */
-export function unmergeReference(task: string, note: string): string {
-	const said = note.trim();
-	return said === ""
-		? `[SPLATES UNMERGE ${task}]`
-		: `[SPLATES UNMERGE ${task}]\n\n${said}`;
-}
-
-/**
  * What a chat with an agent takes to mean "claim `task` and carry on with
  * it" from an agent that stopped on it without handing it over, whose last
  * turns are at `transcript`.
@@ -96,6 +76,14 @@ export function handOffReference(task: string, transcript: string): string {
 	return `${taskReference(task)}
 
 The agent before you on this task stopped without handing it over, so its SPLATES.md may be behind. What it said and did last is in ${transcript}: read its end before going on.`;
+}
+
+/**
+ * What opens a conversation handed off from another agent in no task, whose
+ * last turns are at `transcript`.
+ */
+export function conversationHandOffReference(transcript: string): string {
+	return `This conversation continues one handed off from another agent. What was said and done last is in ${transcript}: read its end before going on.`;
 }
 
 /**
@@ -128,7 +116,7 @@ export function configChangeReference(task: string, change: string): string {
  * done; never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|GROOM #\d+|SORT(?: #\d+)+|LANES DONE)\]$/.test(
+	return /^\[SPLATES (?:(?:REPORT|IDLE) [^\]]+|TASK (?:DONE|OPEN|ADDED) #\d+|SORT(?: #\d+)+|LANES DONE)\]$/.test(
 		directive(text),
 	);
 }
@@ -183,6 +171,11 @@ export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
 export const AUTO_ALLOWED = "Auto-allowed by splates";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
 
+/** What an agent hears when the person approves its eval budget card, the amount and what is left on the next line. */
+export const EVAL_BUDGET_APPROVED = "[SPLATES EVAL BUDGET APPROVED]";
+/** What an agent hears when the person declines its eval budget card. */
+export const EVAL_BUDGET_DECLINED = "[SPLATES EVAL BUDGET DECLINED]";
+
 /**
  * What tells an agent the person granted its task another round of merge
  * attempts, as `splates retry` does, from its retry card or the refused
@@ -193,14 +186,6 @@ export const RETRIED = "[SPLATES RETRIED]";
 
 /** Tells an agent the person answered Yes to its approval question. */
 export const APPROVE = "[SPLATES APPROVE]";
-
-/**
- * What asks an agent to make the request after it a queued task rather than do it,
- * or, alone, to make the person's message before it one, with what it did on
- * it since, and stop, as the composer's Defer offers: the splates skill says
- * what it means.
- */
-export const DEFER = "[SPLATES DEFER]";
 
 /** Appended to a dictated message for the agent alone, warning it of misheard words. */
 export const DICTATED =

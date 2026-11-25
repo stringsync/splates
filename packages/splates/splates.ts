@@ -3,7 +3,6 @@
 import { agents } from "@splates/server/agents";
 import { attach } from "@splates/server/artifacts";
 import { commaList } from "@splates/server/comma-list";
-import { refuseGroomer } from "@splates/server/conversations";
 import { exits, fail } from "@splates/server/exit";
 import { DEFAULT_COUNT, log as showLog } from "@splates/server/log";
 import { merge, mergeOnServer } from "@splates/server/merge";
@@ -208,7 +207,6 @@ splates
 			"with --agent: the conversation `splates server`'s queue held for the queued task, which takes the task rather than a new one",
 	})
 	.action(async (opts, ctx) => {
-		await refuseGroomer(ctx.service, "add");
 		if (
 			opts.agent === "" &&
 			(opts.model !== "" ||
@@ -348,7 +346,6 @@ splates
 			"squash the task's commits into one with this message before landing, saying what the base gains in at least 5 characters",
 	})
 	.action(async (opts, ctx) => {
-		await refuseGroomer(ctx.service, "merge");
 		const task = await here(ctx);
 		// Filled by `merge` as it learns each; a refusal keeps what it had.
 		const facts: Partial<Facts["merge"]> = {};
@@ -447,14 +444,6 @@ splates
 		description:
 			"with --reason blocked: the tasks it waits on to merge, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project",
 	})
-	.repeated("ask", z.string(), {
-		description:
-			"with --reason blocked: a question only the person can answer, in the skill's question format; repeat the flag for each",
-	})
-	.repeated("waiting-on", z.string(), {
-		description:
-			"with --reason blocked: something outside splates it waits on, such as a key or an upstream release; repeat the flag for each",
-	})
 	.option("detail", z.string(), {
 		default: "",
 		description:
@@ -478,8 +467,6 @@ splates
 						why: opts.why,
 						blockedBy,
 						blockedElsewhere,
-						questions: opts.ask,
-						outside: opts["waiting-on"],
 						detail: opts.detail === "" ? undefined : opts.detail,
 					},
 				}),
@@ -655,7 +642,7 @@ splates
 	.command("attach")
 	.use(repository({ needs: "own" }))
 	.description(
-		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/splates, which the `splates server` page shows inline; from a conversation (its $SPLATES_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed; those the task's final SPLATES.md shows are copied to keep with its finished record. A task holds at most attachmentCapacity bytes; with no files, lists what it holds. A file the user will come back for on its own is an artifact instead (`splates artifact add`)",
+		"store screenshots and recordings for this task's questions to show, or with no task open (outside a task worktree, no --task) for the conversation to show, which needs its $SPLATES_CONVERSATION or --conversation: prints the path each was stored at, under .git/splates, which the `splates server` page shows inline; from a conversation (its $SPLATES_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed; those the task's final SPLATES.md shows are copied to keep with its finished record. A task holds at most attachmentCapacity bytes; with no files, lists what it holds. A file the user will come back for on its own is an artifact instead (`splates artifact add`)",
 	)
 	.arg("files", z.string(), {
 		default: "",

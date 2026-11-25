@@ -13,46 +13,51 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 });
 
-it("lists scenarios worst first with what each tests and a summary", async () => {
+it("lists specs as sentences under their suite and group, every group its own card", async () => {
 	serve([]);
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+		<EvalScenarioTable file="suite" agents={agents()} feed={feed} />,
 	);
-	await unfold(view);
 	await waitFor(() =>
-		expect(view.getByText("0 of 2 scenarios passing")).toBeTruthy(),
+		expect(view.getByText("0 of 3 specs passing")).toBeTruthy(),
 	);
-	expect(view.getByText("About one")).toBeTruthy();
-	expect(view.queryByRole("columnheader", { name: /claude/ })).toBeNull();
-	expect(view.getByLabelText("Group a").textContent).toContain(
-		"0 of 2 passing",
-	);
-	const names = view
-		.getAllByRole("button", { name: /^Details of/ })
-		.map((button) => button.textContent);
-	expect(names).toEqual(["one", "two"]);
-	fireEvent.click(view.getByRole("button", { name: /Passing/ }));
-	expect(view.getByText("No scenario matches this filter.")).toBeTruthy();
+	expect(view.getByRole("button", { name: "does one" })).toBeTruthy();
+	expect(view.queryByText("a/one")).toBeNull();
+	expect(view.queryByText("Long requirement")).toBeNull();
+	expect(view.getByRole("button", { name: "does three" })).toBeTruthy();
+	fireEvent.click(view.getByRole("button", { name: "Show only failing" }));
+	expect(view.queryByRole("button", { name: "does two" })).toBeNull();
+});
+
+it("lists the eval files as rows opening their own pages, with no specs or Run button", async () => {
+	serve([]);
+	const view = render(<EvalScenarioTable agents={agents()} feed={feed} />);
+	const row = await waitFor(() => view.getByRole("link", { name: /suite/ }));
+	expect(row.getAttribute("href")).toBe("#evals/file/suite");
+	expect(row.textContent).toContain("3 specs");
+	expect(
+		view.getByRole("img", { name: "1 failing, 0 passing, 2 not run" }),
+	).toBeTruthy();
+	expect(view.queryByRole("button", { name: "does one" })).toBeNull();
+	expect(view.queryByRole("button", { name: "Pick specs to run" })).toBeNull();
 });
 
 it("reviews the selected scenarios before starting, and starts each", async () => {
 	const posts: string[] = [];
 	serve(posts);
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+		<EvalScenarioTable file="suite" agents={agents()} feed={feed} />,
 	);
 	fireEvent.click(
-		await waitFor(() =>
-			view.getByRole("checkbox", { name: "Select all scenarios" }),
-		),
+		await waitFor(() => view.getByRole("checkbox", { name: "Select suite" })),
 	);
-	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	fireEvent.click(view.getByRole("button", { name: "Review 3 specs" }));
 	expect(view.queryByLabelText("Budget in dollars")).toBeNull();
 	expect(view.queryByLabelText("Run repetitions")).toBeNull();
 	expect(view.getByText(/Accepting creates 1 conversation,/)).toBeTruthy();
 	expect(posts).toEqual([]);
 	fireEvent.click(view.getByRole("button", { name: "Back" }));
-	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	fireEvent.click(view.getByRole("button", { name: "Review 3 specs" }));
 	fireEvent.click(view.getByRole("button", { name: "Accept and start evals" }));
 	await waitFor(() =>
 		expect(posts.filter((post) => post.includes('"words"'))).toHaveLength(1),
@@ -61,65 +66,53 @@ it("reviews the selected scenarios before starting, and starts each", async () =
 		.filter((post) => post.includes('"words"'))
 		.map((post) => JSON.parse(post).words);
 	expect(plans).toHaveLength(1);
-	expect(plans[0]).toContain("[SPLATES EVAL LOOP scenarios a/one a/two]");
+	expect(plans[0]).toContain(
+		"[SPLATES EVAL LOOP scenarios a/one a/two a/three]",
+	);
 	expect(plans[0]).not.toContain("Budget");
 	expect(plans[0]).not.toContain("Repetitions:");
 	expect(plans[0]).toContain("Agents: `claude:opus@high`");
 });
 
-it("opens a row to its prompt, how it is judged and its last run, with history folded", async () => {
+it("opens a spec to its proposal card's environment, example and checks, with a link to its runs", async () => {
 	serve([]);
-	const read = globalThis.fetch;
-	globalThis.fetch = (async (input, init) =>
-		String(input).includes("/api/evals/run")
-			? Response.json({
-					id: "batch-1#r1",
-					status: "fail",
-					target: {
-						agent: "claude",
-						model: "opus",
-						effort: "high",
-						skill: null,
-					},
-					input: "Merge this for me",
-					rubric: "Did it merge?",
-					checks: [{ id: "c", about: "merge ran", pass: false }],
-					judge: { pass: false, reason: "skipped merge" },
-				})
-			: read(input, init)) as typeof fetch;
-	const opened: string[] = [];
 	const view = render(
-		<EvalScenarioTable
-			agents={agents()}
-			onOpenBatch={(batch) => opened.push(batch)}
-			feed={feed}
-		/>,
+		<EvalScenarioTable file="suite" agents={agents()} feed={feed} />,
 	);
-	await unfold(view);
 	fireEvent.click(
-		await waitFor(() => view.getByRole("button", { name: "Details of a/one" })),
+		await waitFor(() => view.getByRole("button", { name: "does one" })),
 	);
-	await waitFor(() => expect(view.getByText("Merge this for me")).toBeTruthy());
-	expect(view.getByText("Did it merge?")).toBeTruthy();
-	expect(view.getByText("merge ran")).toBeTruthy();
-	expect(view.getByText("on claude opus high")).toBeTruthy();
-	expect(view.queryByText("Latest report")).toBeNull();
-	fireEvent.click(view.getByRole("button", { name: "Open report" }));
-	expect(opened).toEqual(["batch-1"]);
-	fireEvent.click(view.getByRole("button", { name: "History" }));
-	expect(view.getByRole("button", { name: "Hide history" })).toBeTruthy();
+	const environment = view.getByRole("region", { name: "Environment" });
+	// One line of words and code, not a stack of them.
+	expect(environment.querySelector("p")?.textContent).toBe(
+		"A repo with users.ts",
+	);
+	const example = view.getByRole("figure", { name: "Example conversation" });
+	expect(example.textContent).toContain("Do one");
+	expect(example.textContent).toContain("Starts the task");
+	expect(example.textContent).toContain("Here is the plan");
+	expect(view.getByText("Asks first")).toBeTruthy();
+	expect(view.getByText("Checks · 2")).toBeTruthy();
+	expect(view.getByText("Is the plan short?")).toBeTruthy();
+	expect(view.queryByText("baseline 1b72136")).toBeNull();
+	expect(
+		view
+			.getByRole("link", { name: /All runs on its test page/ })
+			.getAttribute("href"),
+	).toBe("#evals/batch-1/test/a%2Fone/batch-1%23r1");
+	expect(view.getByText(/^Last run /)).toBeTruthy();
 });
 
-it("says a scenario never run has nothing to show yet", async () => {
+it("says a spec no batch ran has nothing to show yet", async () => {
 	serve([]);
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+		<EvalScenarioTable file="suite" agents={agents()} feed={feed} />,
 	);
-	await unfold(view);
 	fireEvent.click(
-		await waitFor(() => view.getByRole("button", { name: "Details of a/two" })),
+		await waitFor(() => view.getByRole("button", { name: "does two" })),
 	);
-	expect(view.getByText(/This has not run yet/)).toBeTruthy();
+	expect(view.getByText("Not run yet.")).toBeTruthy();
+	expect(view.queryByRole("link", { name: /All runs/ })).toBeNull();
 });
 
 const feed = {
@@ -130,14 +123,6 @@ const feed = {
 	answered: () => undefined,
 	refused: () => undefined,
 } as unknown as ConversationFeed;
-
-/** Groups start folded: opens group a so its scenarios show. */
-async function unfold(view: ReturnType<typeof render>): Promise<void> {
-	const fold = await waitFor(() => view.getByLabelText("Fold a"));
-	if (fold.getAttribute("aria-expanded") === "false") {
-		fireEvent.click(fold);
-	}
-}
 
 function agents(): EvalAgentsEditor {
 	return new EvalAgentsEditor({
@@ -160,8 +145,36 @@ function serve(posts: string[]): void {
 		}
 		if (url.includes("/api/evals/scenarios")) {
 			return Response.json([
-				{ id: "a/one", skill: "a", group: null, about: "About one" },
-				{ id: "a/two", skill: "a", group: null, about: null },
+				{
+					id: "a/one",
+					group: null,
+					about: "Long requirement",
+					sentence: "does one",
+					groups: ["suite", "failing group"],
+					prompt: "Do one",
+					checks: [{ id: "c", about: "Asks first" }],
+					judge: "Is the plan short?",
+					judgeWith: "claude:sonnet",
+					environment: "A repo with `users.ts`",
+					example: [
+						{ kind: "tool", name: "Bash", input: "x", does: "Starts the task" },
+						{ kind: "text", text: "Here is the plan" },
+					],
+				},
+				{
+					id: "a/two",
+					group: null,
+					about: null,
+					sentence: "does two",
+					groups: ["suite", "failing group"],
+				},
+				{
+					id: "a/three",
+					group: null,
+					about: null,
+					sentence: "does three",
+					groups: ["suite", "quiet group"],
+				},
 			]);
 		}
 		if (url.includes("/api/evals/states")) {
@@ -169,9 +182,13 @@ function serve(posts: string[]): void {
 				{
 					scenario: "a/one",
 					state: "failing",
-					targets: [{ target: "claude:opus@high", passed: 2, total: 3 }],
+					targets: [
+						{ target: "claude/opus@high", passed: 2, total: 3 },
+						{ target: "claude/opus@high @1b72136f7", passed: 0, total: 3 },
+					],
 					lastRunAt: "2026-01-01T00:00:00Z",
 					run: "batch-1#r1",
+					batch: "batch-1",
 				},
 			]);
 		}
@@ -205,14 +222,13 @@ it("opens an existing scenario loop rather than offering another run", async () 
 	} as ConversationState;
 	const view = render(
 		<EvalScenarioTable
+			file="suite"
 			agents={agents()}
-			onOpenBatch={() => {}}
 			feed={{ ...feed, conversations: [conversation] } as ConversationFeed}
 		/>,
 	);
-	await unfold(view);
 	const button = await waitFor(() =>
-		view.getByRole("button", { name: "Open loop for a/two" }),
+		view.getByRole("button", { name: "Open loop for does two" }),
 	);
 	expect(button.textContent).toContain("Loop running");
 	fireEvent.click(button);
@@ -241,14 +257,13 @@ it("resolves a run loop to its scenario and shows that it waits on the user", as
 	} as ConversationState;
 	const view = render(
 		<EvalScenarioTable
+			file="suite"
 			agents={agents()}
-			onOpenBatch={() => {}}
 			feed={{ ...feed, conversations: [conversation] } as ConversationFeed}
 		/>,
 	);
-	await unfold(view);
 	const button = await waitFor(() =>
-		view.getByRole("button", { name: "Open loop for a/two" }),
+		view.getByRole("button", { name: "Open loop for does two" }),
 	);
 	expect(button.textContent).toContain("Waiting on you");
 	fireEvent.click(button);
@@ -281,12 +296,11 @@ it("tracks a loop becoming idle and then archived through feed updates", async (
 		},
 	} as unknown as ConversationFeed;
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={live} />,
+		<EvalScenarioTable file="suite" agents={agents()} feed={live} />,
 	);
-	await unfold(view);
 	await waitFor(() =>
 		expect(
-			view.getByRole("button", { name: "Open loop for a/two" }).textContent,
+			view.getByRole("button", { name: "Open loop for does two" }).textContent,
 		).toContain("Loop running"),
 	);
 	act(() => {
@@ -294,14 +308,14 @@ it("tracks a loop becoming idle and then archived through feed updates", async (
 		changed();
 	});
 	expect(
-		view.getByRole("button", { name: "Open loop for a/two" }).textContent,
+		view.getByRole("button", { name: "Open loop for does two" }).textContent,
 	).toContain("Waiting on you");
 	act(() => {
 		live.conversations = [{ ...conversation, archived: true }];
 		changed();
 	});
 	expect(
-		view.queryByRole("button", { name: "Open loop for a/two" }),
+		view.queryByRole("button", { name: "Open loop for does two" }),
 	).toBeNull();
 });
 
@@ -330,19 +344,14 @@ it("ignores finished loops and directives quoted in later messages", () => {
 	).toBeNull();
 });
 
-it("folds a namespace card away and picks all of it with its checkbox", async () => {
+it("picks all of a group with its checkbox", async () => {
 	serve([]);
 	const view = render(
-		<EvalScenarioTable agents={agents()} onOpenBatch={() => {}} feed={feed} />,
+		<EvalScenarioTable file="suite" agents={agents()} feed={feed} />,
 	);
-	await waitFor(() => view.getByLabelText("Fold a"));
-	expect(view.queryByLabelText("Details of a/one")).toBeNull();
-	fireEvent.click(view.getByLabelText("Fold a"));
-	expect(view.getByLabelText("Details of a/one")).toBeTruthy();
-	fireEvent.click(view.getByLabelText("Fold a"));
-	expect(view.queryByLabelText("Details of a/one")).toBeNull();
-	fireEvent.click(view.getByLabelText("Select group a"));
-	expect(view.getByRole("button", { name: "Review 2 scenarios" })).toBeTruthy();
+	await waitFor(() => view.getByRole("button", { name: "does one" }));
+	fireEvent.click(view.getByRole("checkbox", { name: "Select failing group" }));
+	expect(view.getByRole("button", { name: "Review 2 specs" })).toBeTruthy();
 });
 
 it("reads a loop over several scenarios", () => {

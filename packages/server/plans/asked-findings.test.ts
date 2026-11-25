@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { stretches } from "./asked";
 
 describe("stretches' findings reports", () => {
-	it("keeps a report's ### sections and fenced readouts inside it, to the next ## heading", () => {
+	it("keeps a report's ### sections and fenced blocks inside it, to the next ## heading", () => {
 		const text = [
 			"Here is the health check.",
 			"",

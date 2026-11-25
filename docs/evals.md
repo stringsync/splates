@@ -98,9 +98,28 @@ cell with, every field optional: `input`, `rubric`, `reply`, `checks`
 (`{kind: "text", text}` or `{kind: "tool", name, input, output}` steps).
 
 `<results>/<batch>/remarks.md` is optional: a person's or agent's commentary on the
-batch, as Markdown: what failed and why, what held up, any special circumstance. The report and the run card show it, and it stays with
-the batch. `splates evals remarks <batch-dir> <file>` writes it, replacing any
-earlier remarks.
+batch, as Markdown: what failed and why, what held up, any special circumstance. The report shows it, and it stays with
+the batch. A `Diagnosis:` list in it gives each distinct failure, the runs
+that failed that way, its check, its causes (`harness`, `judge`, `skill` or
+`eval`, an eval written wrong) and one sentence each on why, what the agent
+did (`Step <n>`, counted from 1) and a proposed or applied remedy:
+
+```markdown
+Diagnosis:
+- run-017, run-019 asks-through-creds: skill
+  - Why: The creds trigger names tokens and keys but not webhook URLs.
+  - Did: Step 2 asked for the webhook URL in chat.
+  - Proposed remedy: Name webhook URLs in the creds trigger.
+```
+
+The batch API (`/api/evals/batch`) serves, per test and target, passes over
+graded runs (errored runs are not graded), the first failing run, and the
+failed runs grouped by diagnosis: errored runs no entry names count as the
+harness's, and failed runs none names as not yet diagnosed.
+`splates evals remarks <batch-dir> <file>` writes the remarks, replacing any
+earlier ones, and refuses another cause, a line longer than one sentence, or
+a run or check the batch does not have. Older remarks with a `Faults:` list,
+one `- <run>: <layers>` item per failed run, still read.
 
 ## From Inspect
 

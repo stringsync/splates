@@ -38,6 +38,8 @@ export interface RigRunsDeps {
 	kept: Document<KeptRun[]>;
 	/** Animal slots assigned to tunnel-exposed rigs; defaults to an isolated pool. */
 	slots?: RigSlots;
+	/** Called after a tunnel-exposed run claims an animal slot (e.g. to clear stale slot DNS). */
+	onSlotClaimed?: (slot: RunSlot) => Promise<void>;
 	/** A port free now, one per port a rig declares; {@link freePort} by default. */
 	freePort?: () => Promise<number>;
 	/** Runs a command health check. */
@@ -114,6 +116,7 @@ export class RigRuns {
 					slotKey(group.name, rig.name, tree.path),
 					tree.path,
 				);
+				await this.#deps.onSlotClaimed?.(slot).catch(() => {});
 			} catch (error) {
 				throw new RunRefused(
 					error instanceof Error ? error.message : String(error),
@@ -206,6 +209,9 @@ export class RigRuns {
 							each.tree.path,
 						)
 						.catch(() => null));
+				if (slot !== null) {
+					await this.#deps.onSlotClaimed?.(slot).catch(() => {});
+				}
 			}
 			const held: Held = {
 				id: each.id,

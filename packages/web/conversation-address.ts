@@ -185,12 +185,20 @@ export function settingsFor(
 /**
  * `conversations` with those started on an assignment last, since what a
  * todo assigned is no pick of the person's: those count only for an agent
- * never started otherwise.
+ * never started otherwise. Conversations started by automations or held /
+ * auto-queued for tasks never count as the person's pick.
  */
 function picked(conversations: ConversationState[]): ConversationState[] {
+	const own = conversations.filter(
+		(each) =>
+			!each.automatic &&
+			each.automation === undefined &&
+			each.heldForTask === null &&
+			each.lastAutoQueued !== true,
+	);
 	return [
-		...conversations.filter((each) => !each.assigned),
-		...conversations.filter((each) => each.assigned),
+		...own.filter((each) => !each.assigned),
+		...own.filter((each) => each.assigned),
 	];
 }
 

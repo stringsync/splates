@@ -240,24 +240,8 @@ export function useQueuedTaskInThread(
 				) ?? null);
 	const pending = usePendingSnapshot(todo === null ? "" : `todo:${todo.id}`);
 	if (todo === null) {
-		// Once an agent-queued task runs, its conversation still says who queued it.
-		const running =
-			conversation.task === null
-				? undefined
-				: todos.find(
-						(each) =>
-							each.takenBy === conversation.task &&
-							each.queuedBy?.by === "agent",
-					);
-		return {
-			todoId: null,
-			actions: [],
-			before:
-				running === undefined ? undefined : (
-					<AgentQueuedBanner todo={running} />
-				),
-			signal: null,
-		};
+		// A running agent-queued task's conversation shows its chain banner instead.
+		return { todoId: null, actions: [], before: undefined, signal: null };
 	}
 	return {
 		todoId: todo.id,

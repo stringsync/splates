@@ -1,6 +1,7 @@
+import "./testing-dom";
 import { afterEach, expect, it } from "bun:test";
 import { EvalsPage } from "./evals-page";
-import { cleanup, fireEvent, render, waitFor } from "./testing";
+import { act, cleanup, fireEvent, render, waitFor } from "./testing";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -24,6 +25,20 @@ it("opens on the planner, with a History row naming the runs kept", async () => 
 	expect(view.queryByText(/Step 1 of 3/)).toBeNull();
 });
 
+it("shows an Eval agents row that opens the saved agents", async () => {
+	serve();
+	const view = render(
+		<EvalsPage
+			open={{ batch: null, run: null, plan: null }}
+			onOpen={() => {}}
+		/>,
+	);
+	const row = await view.findByRole("button", { name: /Eval agents/ });
+	await act(async () => fireEvent.click(row));
+	const dialog = await waitFor(() => view.getByRole("dialog"));
+	expect(dialog.textContent).toContain("Saved eval agents");
+});
+
 it("lists past runs one line each at #evals/history and opens a run's report", async () => {
 	serve();
 	const opened: (string | null)[] = [];
@@ -37,8 +52,6 @@ it("lists past runs one line each at #evals/history and opens a run's report", a
 	);
 	const run = await waitFor(() => view.getByRole("button", { name: /1 cell/ }));
 	expect(run.textContent).toContain("$0.20");
-	// Its budget and tokens are on the report, not the row.
-	expect(view.queryByText(/of \$10\.00/)).toBeNull();
 	fireEvent.click(view.getByRole("button", { name: "Failed" }));
 	expect(view.getByText("No failed runs.")).toBeTruthy();
 	fireEvent.click(view.getByRole("button", { name: "Passed" }));
@@ -61,11 +74,6 @@ function serve(): void {
 					tokens: 200,
 					costUsd: 0.2,
 					conversation: "loop",
-					budget: {
-						budget: { usd: 10 },
-						spentUsd: 1.25,
-						tokens: 1200,
-					},
 				},
 			]);
 		}
@@ -82,7 +90,40 @@ function serve(): void {
 	}) as typeof fetch;
 }
 
-it("reviews the chosen scenarios from the pinned bar and goes back from it", async () => {
+it("has no budget row: each conversation's agent asks for its own", async () => {
+	serve();
+	const view = render(
+		<EvalsPage
+			open={{ batch: null, run: null, plan: null }}
+			onOpen={() => {}}
+		/>,
+	);
+	await view.findByRole("button", { name: /Eval agents/ });
+
+	expect(view.queryByRole("button", { name: /^Budget/ })).toBeNull();
+});
+
+it("opens an eval file on its own page, under Evals, without the History and agents rows", async () => {
+	serve();
+	const view = render(
+		<EvalsPage
+			open={{ batch: null, run: null, plan: null, file: "a" }}
+			onOpen={() => {}}
+		/>,
+	);
+	await waitFor(() =>
+		expect(view.getByRole("checkbox", { name: "Select a" })).toBeTruthy(),
+	);
+	expect(view.getByRole("button", { name: "Evals" })).toBeTruthy();
+	expect(
+		view
+			.getByRole("navigation", { name: "Breadcrumb" })
+			.querySelector("[aria-current=page]")?.textContent,
+	).toBe("a");
+	expect(view.queryByRole("link", { name: /History/ })).toBeNull();
+});
+
+it("reviews the chosen specs from the pinned bar and goes back from it", async () => {
 	serve();
 	const feed = {
 		conversations: [],
@@ -90,18 +131,16 @@ it("reviews the chosen scenarios from the pinned bar and goes back from it", asy
 	} as unknown as import("./conversation-feed").ConversationFeed;
 	const view = render(
 		<EvalsPage
-			open={{ batch: null, run: null, plan: null }}
+			open={{ batch: null, run: null, plan: null, file: "a" }}
 			onOpen={() => {}}
 			feed={feed}
 		/>,
 	);
 	fireEvent.click(
-		await waitFor(() =>
-			view.getByRole("checkbox", { name: "Select all scenarios" }),
-		),
+		await waitFor(() => view.getByRole("checkbox", { name: "Select a" })),
 	);
-	fireEvent.click(view.getByRole("button", { name: "Review 2 scenarios" }));
+	fireEvent.click(view.getByRole("button", { name: "Review 2 specs" }));
 	expect(view.getByText(/Accepting creates 1 conversation,/)).toBeTruthy();
 	fireEvent.click(view.getByRole("button", { name: "Back" }));
-	expect(view.getByRole("button", { name: "Review 2 scenarios" })).toBeTruthy();
+	expect(view.getByRole("button", { name: "Review 2 specs" })).toBeTruthy();
 });

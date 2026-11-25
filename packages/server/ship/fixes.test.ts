@@ -20,7 +20,9 @@ describe("ShipFixes", () => {
 		expect(added?.subject).toBe(
 			"The ship step publish of lib passes, and the ship carries on",
 		);
-		expect(added?.text).toContain("## Before");
+		expect(added?.text).not.toContain("## Before");
+		expect(added?.text).not.toContain("## After");
+		expect(added?.text).toContain("Step `publish` of lib (Publish lib) passes");
 		expect(added?.text).toContain("npm said 403");
 		expect(added?.text).toContain(
 			"3. `publish`: Publish lib (after test) ← failed",
@@ -51,6 +53,8 @@ describe("ShipFixes", () => {
 		expect(state.targets[0]?.recap).toEqual({ task: 7, at: 1000 });
 		const [added] = desk.added;
 		expect(added?.subject).toContain("lib");
+		expect(added?.text).not.toContain("## Before");
+		expect(added?.text).not.toContain("## After");
 		expect(added?.text).toContain("npm said 403");
 		expect(added?.text).toContain("still failing");
 		expect(added?.text).toContain("against the usual");

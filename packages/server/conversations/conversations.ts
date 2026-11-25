@@ -260,16 +260,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			);
 	}
 
-	/**
-	 * The newest conversation started for persistent agent `role`, archived
-	 * or not, or null before one started.
-	 */
-	async persistent(role: string): Promise<Conversation | null> {
-		return (
-			(await this.list()).find(({ state }) => state.persistent === role) ?? null
-		);
-	}
-
 	/** `id`, as a page picked it for a new conversation: a UUID none has. */
 	private unused(id: string): string {
 		if (!UUID.test(id)) {
@@ -331,8 +321,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			queuedTask?: number;
 			/** What to call it until its agent names it. */
 			title?: string;
-			/** The persistent agent's role it is started for, as `"groomer"`. */
-			persistent?: string;
 			/** The automation that starts it, by its id. */
 			automation?: string;
 			/** The ship whose adoption task it runs, by its id. */

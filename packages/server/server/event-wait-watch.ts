@@ -79,7 +79,7 @@ export class EventWaitWatch implements AsyncResource {
 				for (const conversation of await this.deps.conversations.list()) {
 					const { state } = conversation;
 					const request = eventWaitOf(state.messages.at(-1));
-					if (state.archived || state.status !== "idle" || request === null) {
+					if (state.archived || !canResumeWait(state) || request === null) {
 						continue;
 					}
 					const key = `${state.id}:${state.messages.length}`;
@@ -119,7 +119,7 @@ export class EventWaitWatch implements AsyncResource {
 					if (
 						this.disposed ||
 						current.archived ||
-						current.status !== "idle" ||
+						!canResumeWait(current) ||
 						key !== `${current.id}:${current.messages.length}` ||
 						current.messages.at(-1) !== state.messages.at(-1)
 					) {
@@ -168,4 +168,15 @@ export class EventWaitWatch implements AsyncResource {
 		this.interval?.dispose();
 		await this.running;
 	}
+}
+
+/** Whether an idle or idle-stopped conversation can still be resumed by its event wait. */
+function canResumeWait(state: {
+	status: string;
+	checkpoint?: string | null;
+}): boolean {
+	return (
+		(state.status === "idle" || state.status === "stopped") &&
+		state.checkpoint == null
+	);
 }

@@ -218,9 +218,9 @@ describe("needs", () => {
 			subject: null,
 			evals: true,
 		});
+		// The card starts by itself within the eval budget, so it never waits on the person.
 		expect(need(null, { ...running, evaluating: undefined })).toMatchObject({
-			kind: "waiting",
-			why: "ask",
+			kind: "idle",
 		});
 	});
 

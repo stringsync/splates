@@ -327,15 +327,7 @@ export function fixText(
 	const show = `splates ships show ${state.id} --target ${target.name} --step ${step.id}`;
 	const retry = `splates ships retry ${state.id} --target ${target.name} --step ${step.id}`;
 	return [
-		"## Before",
-		"",
-		`The ship run ${state.id} stopped: step \`${step.id}\` of ${target.name} (${step.does}) failed.`,
-		"",
-		"## After",
-		"",
-		`The step passes once this fix merges: the ship retries it by itself and carries on.`,
-		"",
-		"## Details",
+		`Step \`${step.id}\` of ${target.name} (${step.does}) passes once this fix merges, so ship run ${state.id} retries it by itself and carries on.`,
 		"",
 		"This task belongs to a ship the user started. Fix what made the step fail and land it with `splates merge`; the ship takes the commit it lands as into the run's own checkout, which stays on the commit the ship started on, and retries the step once it merges, with no press from the user. When code cannot fix it (a missing token, a sign-in only the user can do), remove the task with `--reason blocked` saying why: the step then waits for the user. Never start a ship or bump a version further.",
 		"",
@@ -450,17 +442,9 @@ export function recapText(
 	}
 	const failing = target.steps.some((step) => step.status === "failed");
 	return [
-		"## Before",
-		"",
-		`The ship run ${state.id} shipped ${target.name}${target.released === undefined ? "" : ` ${target.released}`} with ${flagged.length === 1 ? "a step" : `${flagged.length} steps`} worth a look.`,
-		"",
-		"## After",
-		"",
 		failing
-			? `The cause of what failed or ran slow in ${target.name} is found and fixed in the code, so the next ship goes clean.`
-			: `The cause of what ran slow or needed a retry in ${target.name} is found, and fixed when code can fix it.`,
-		"",
-		"## Details",
+			? `Find and fix what failed or ran slow in ${target.name} during ship run ${state.id}${target.released === undefined ? "" : ` (${target.released})`}, so the next ship goes clean.`
+			: `Find and fix what ran slow or needed a retry in ${target.name} during ship run ${state.id}${target.released === undefined ? "" : ` (${target.released})`}, when code can fix it.`,
 		"",
 		"This task comes from a ship's recap, which the user sent to you. Nothing is waiting on it: the ship is over. Investigate each flagged step below; fix what code can fix and land it with `splates merge`. When nothing needs changing (a flaky registry, a slow network), remove the task with `--reason nothing` saying what you found. Never start a ship.",
 		"",

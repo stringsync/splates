@@ -2,26 +2,23 @@ import type { ConversationState } from "@splates/server/conversations";
 import type {
 	EvalScenario,
 	EvalScenarioState,
-	EvalScenarioStatus,
 } from "@splates/server/evals/browser";
-import type { AgentPick } from "@splates/server/models";
-import { ChevronDownIcon, ChevronRightIcon, PlayIcon } from "lucide-react";
+import { CheckIcon, CircleDashedIcon, PlayIcon, XIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { loopLabel } from "./eval-loops";
-import { ScenarioDetails } from "./eval-scenario-details";
-import { STATE_LABEL, shortNameOf } from "./eval-scenarios";
+import { EvalChecks, EvalEnvironment, EvalExample } from "./eval-proposal-card";
+import { needsRunsCount, passRateOf, titleOf } from "./eval-scenarios";
+import { Markdown } from "./markdown";
 import { ago } from "./plan-limits";
 
-const STATE_TONE: Record<EvalScenarioStatus, string> = {
-	failing: "bg-destructive/15 text-destructive",
-	"never-run": "bg-muted text-muted-foreground",
-	passing: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-};
-
-/** One scenario in the table: pick it, open its details, run it or open its loop. */
+/**
+ * One spec in the list: its sentence and pass rate, picked with its checkbox.
+ * Opening it shows what the spec is, as its proposal card drew it, with a
+ * link to its latest batch's test page.
+ */
 export function EvalScenarioRow({
 	scenario,
 	state,
@@ -29,8 +26,6 @@ export function EvalScenarioRow({
 	isOpen,
 	loop,
 	now,
-	saved,
-	onOpenBatch,
 	onPick,
 	onOpen,
 	onOpenLoop,
@@ -39,75 +34,60 @@ export function EvalScenarioRow({
 	state: EvalScenarioState;
 	isPicked: boolean;
 	isOpen: boolean;
-	/** The conversation already working this scenario's loop, if any. */
+	/** The conversation already working this spec's loop, if any. */
 	loop: ConversationState | undefined;
 	now: number;
-	saved: readonly AgentPick[];
-	onOpenBatch: (batch: string) => void;
 	onPick: () => void;
 	onOpen: () => void;
 	onOpenLoop: () => void;
 }): JSX.Element {
+	const title = titleOf(scenario);
+	const rate = passRateOf(state);
 	return (
 		<>
-			<div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-3.5 py-3 hover:bg-accent/30">
+			<div
+				className={cn(
+					"flex items-center gap-x-2.5 border-t py-2 pr-3.5 hover:bg-accent/30",
+					"pl-3.5",
+					isOpen && "bg-muted/30",
+				)}
+			>
 				<Checkbox
-					aria-label={`Select ${scenario.id}`}
+					aria-label={`Select ${title}`}
 					checked={isPicked}
 					onCheckedChange={() => onPick()}
 				/>
-				<div className="min-w-0 flex-1">
-					<button
-						type="button"
-						aria-expanded={isOpen}
-						aria-label={`Details of ${scenario.id}`}
-						onClick={onOpen}
-						className="flex items-center gap-1 text-left font-medium break-words"
-					>
-						{isOpen ? (
-							<ChevronDownIcon className="size-3.5" />
-						) : (
-							<ChevronRightIcon className="size-3.5" />
-						)}
-						{shortNameOf(scenario.id)}
-					</button>
-					{scenario.about !== null && (
-						<p
-							className={cn(
-								"mt-0.5 ml-[1.125rem] text-muted-foreground text-xs",
-								!isOpen && "line-clamp-2",
-							)}
-						>
-							{scenario.about}
-						</p>
-					)}
-				</div>
-				<span
-					className={cn(
-						"inline-flex h-5 items-center rounded-full px-2 font-medium text-xs whitespace-nowrap",
-						STATE_TONE[state.state],
-					)}
+				<button
+					type="button"
+					aria-expanded={isOpen}
+					aria-label={title}
+					onClick={onOpen}
+					className="flex min-w-0 flex-1 items-center gap-2.5 text-left text-sm"
 				>
-					{STATE_LABEL[state.state]}
-				</span>
-				<span
-					title={
-						state.lastRunAt === null
-							? undefined
-							: new Date(state.lastRunAt).toLocaleString()
-					}
-					className="w-16 text-muted-foreground text-xs whitespace-nowrap"
-				>
-					{state.lastRunAt === null
-						? "never"
-						: ago(Date.parse(state.lastRunAt), now)}
-				</span>
+					<StateMark state={state} />
+					<Markdown text={title} inline unlinked />
+				</button>
+				{state.state === "needs-runs" ? (
+					<span className="flex shrink-0 flex-col items-end text-right text-warning text-xs leading-tight tabular-nums whitespace-nowrap sm:flex-row sm:gap-1">
+						<span>needs runs</span>
+						<span>
+							<span aria-hidden className="hidden sm:inline">
+								·{" "}
+							</span>
+							{needsRunsCount(state)}
+						</span>
+					</span>
+				) : (
+					<span className="text-muted-foreground text-xs tabular-nums whitespace-nowrap">
+						{rate === null ? "not run" : `${rate}%`}
+					</span>
+				)}
 				{loop !== undefined && (
 					<Button
 						size="sm"
 						variant="outline"
 						className="min-h-9 md:min-h-8"
-						aria-label={`Open loop for ${scenario.id}`}
+						aria-label={`Open loop for ${title}`}
 						onClick={onOpenLoop}
 					>
 						<PlayIcon />
@@ -115,16 +95,92 @@ export function EvalScenarioRow({
 					</Button>
 				)}
 			</div>
-			{isOpen && (
-				<div className="border-t bg-muted/30 px-3.5 py-3">
-					<ScenarioDetails
-						scenario={scenario}
-						state={state}
-						saved={saved}
-						onOpenBatch={onOpenBatch}
-					/>
-				</div>
-			)}
+			{isOpen && <SpecDetail scenario={scenario} state={state} now={now} />}
 		</>
 	);
+}
+
+function StateMark({ state }: { state: EvalScenarioState }): JSX.Element {
+	if (state.state === "failing") {
+		return (
+			<XIcon
+				aria-label="failing"
+				className="size-4 shrink-0 text-destructive"
+			/>
+		);
+	}
+	if (state.state === "needs-runs") {
+		return (
+			<CircleDashedIcon
+				aria-label="needs runs"
+				className="size-4 shrink-0 text-warning"
+			/>
+		);
+	}
+	if (state.state === "passing") {
+		return (
+			<CheckIcon
+				aria-label="passing"
+				className="size-4 shrink-0 text-success"
+			/>
+		);
+	}
+	return <span aria-hidden className="size-4 shrink-0" />;
+}
+
+/**
+ * What an opened spec shows, drawn with the proposal card's own sections: its
+ * environment, its example (the prompt and any sketched good reply) and its
+ * checks, then a link to its runs on the test page and when it last ran.
+ */
+function SpecDetail({
+	scenario,
+	state,
+	now,
+}: {
+	scenario: EvalScenario;
+	state: EvalScenarioState;
+	now: number;
+}): JSX.Element {
+	const checks = (scenario.checks ?? []).map((check) => check.about);
+	return (
+		<div
+			className={cn(
+				"flex flex-col gap-4 bg-muted/30 pt-1 pr-3.5 pb-3.5 text-[15px] text-foreground leading-relaxed",
+				"pl-[3.75rem]",
+			)}
+		>
+			{scenario.environment !== undefined && (
+				<EvalEnvironment text={scenario.environment} />
+			)}
+			{scenario.prompt !== undefined && (
+				<EvalExample message={scenario.prompt} turns={scenario.example ?? []} />
+			)}
+			<EvalChecks
+				checks={checks}
+				judge={scenario.judge ?? null}
+				judgedBy={scenario.judgeWith ?? null}
+			/>
+			<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t pt-3 text-[12.5px]">
+				{state.batch != null && (
+					<a
+						className="text-info"
+						href={testAddress(state.batch, scenario.id, state.run)}
+					>
+						All runs on its test page ›
+					</a>
+				)}
+				<span className="text-muted-foreground">
+					{state.lastRunAt === null
+						? "Not run yet."
+						: `Last run ${ago(Date.parse(state.lastRunAt), now)}`}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+/** The test page of a spec in its latest batch, on the run to open there. */
+function testAddress(batch: string, id: string, run: string | null): string {
+	return `#evals/${encodeURIComponent(batch)}/test/${encodeURIComponent(id)}${run === null ? "" : `/${encodeURIComponent(run)}`}`;
 }

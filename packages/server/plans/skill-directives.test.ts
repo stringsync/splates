@@ -4,7 +4,6 @@ import {
 	APPROVE,
 	BLOCKERS_CLEARED,
 	CHECKPOINT,
-	groomReference,
 	MERGE,
 	RECONNECT,
 	RESUME,
@@ -32,7 +31,6 @@ describe("the splates skill's Directives table", () => {
 				RUN_ALLOWED,
 				RUN_DENIED,
 				RETRIED,
-				groomReference(0).replace("0", "N"),
 				"[SPLATES SIGNAL <name>]",
 				"[SPLATES EVAL LOOP <run>]",
 			].toSorted(),
@@ -45,10 +43,10 @@ async function rows(): Promise<string[]> {
 	const skill = await Bun.file(
 		join(import.meta.dir, "../../../skills/splates/SKILL.md"),
 	).text();
-	const section = skill.slice(
-		skill.indexOf("## Directives\n"),
-		skill.indexOf("## Workflow\n"),
-	);
+	const start = skill.indexOf("## Directives\n");
+	const nextHeading = skill.indexOf("\n## ", start + 1);
+	const section =
+		nextHeading === -1 ? skill.slice(start) : skill.slice(start, nextHeading);
 	return [...section.matchAll(/^\| `(\[SPLATES [^\]]+\])` *\|/gm)].map(
 		(row) => row[1] as string,
 	);

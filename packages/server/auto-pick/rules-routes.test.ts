@@ -52,6 +52,13 @@ describe("dev's Auto pick rules", () => {
 						models: [
 							{ id: "big", name: "Big" },
 							{ id: "small", name: "Small" },
+							{
+								id: "gemini-3.8-flash",
+								name: "Gemini 3.8 Flash",
+								provider: "google",
+								speed: "fast",
+								costRank: 1,
+							},
 						],
 						efforts: null,
 					},
@@ -129,5 +136,13 @@ const ROSTERED = {
 	models: [
 		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
 		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+		{
+			id: "gemini-3.8-flash",
+			name: "Gemini 3.8 Flash",
+			strengths: "everyday work",
+			cost: "low",
+			speed: "fast",
+			costRank: 1,
+		},
 	],
 };

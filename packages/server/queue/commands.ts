@@ -200,9 +200,10 @@ export interface AgentQueueCheckOptions {
 
 /**
  * Call it first in a command that changes the queue: it lets a person through,
- * refuses every agent queue command other than `queue add`, and for `queue add`
- * asks `splates server` whether this project's setting and per-conversation
- * cap allow the agent to queue `ids`, returning who queued them.
+ * refuses every agent queue command other than `queue add` and `lane queue`,
+ * and for those asks `splates server` whether this project's setting and
+ * per-conversation cap allow the agent to queue `ids` (a lane's waiting tasks
+ * for `lane queue`, all or none), returning who queued them.
  */
 export async function refuseAgentQueue(
 	service: Pick<WorktreeService, "ps"> & Partial<Pick<WorktreeService, "git">>,
@@ -215,7 +216,7 @@ export async function refuseAgentQueue(
 	if (asking === undefined) {
 		return { by: "person" };
 	}
-	if (command !== "queue add") {
+	if (command !== "queue add" && command !== "lane queue") {
 		fail(
 			"usage",
 			`an agent does not change the queue, so it runs no \`splates ${command}\`: \`splates task add\` the work and end your reply with a queue card for the person to queue it`,

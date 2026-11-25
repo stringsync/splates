@@ -6,7 +6,7 @@ import { type Signals, signals } from "./api/signals";
 /** How often the nav and the Signals page ask what signals stand. */
 const EVERY = Duration.secs(10);
 
-const NONE: Signals = { signals: [], subscribers: 0 };
+const NONE: Signals = { signals: [], hidden: [], subscribers: 0 };
 
 /** Every signal on the server, asked every few seconds while anything listens. */
 export function useSignals(): Signals & { read: () => Promise<void> } {

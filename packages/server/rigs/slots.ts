@@ -28,6 +28,8 @@ export interface RigSlotsDeps {
 	/** Held while claiming so concurrent starts never take the same animal. */
 	lock: Lock;
 	pool?: readonly Slot[];
+	/** Animal words currently held elsewhere (such as active `--slot` dev servers). */
+	reserved?: () => Promise<ReadonlySet<string>>;
 }
 
 /**
@@ -110,17 +112,25 @@ export class RigSlots {
 		await lock.acquire();
 		try {
 			const claims = await this.read();
+			const reserved = (await this.deps.reserved?.()) ?? new Set<string>();
 			const owned = pool.find(({ word }) => claims[word]?.key === key);
-			if (owned !== undefined) {
+			if (owned !== undefined && !reserved.has(owned.word)) {
 				if (claims[owned.word]?.tree !== tree) {
 					await this.write({ ...claims, [owned.word]: { key, tree } });
 				}
 				return owned;
 			}
 			const next = { ...claims };
+			if (owned !== undefined) {
+				delete next[owned.word];
+			}
 			const holders: string[] = [];
 			for (const slot of pool) {
-				const holder = claims[slot.word];
+				if (reserved.has(slot.word)) {
+					holders.push(`  ${slot.word}: held by a dev slot`);
+					continue;
+				}
+				const holder = next[slot.word];
 				if (holder !== undefined && (await exists(holder.tree))) {
 					holders.push(`  ${slot.word}: ${holder.key}`);
 					continue;
@@ -139,6 +149,19 @@ export class RigSlots {
 		} finally {
 			await lock.release();
 		}
+	}
+
+	/** Words currently held by a rig on a tree that still exists. */
+	async heldWords(): Promise<Set<string>> {
+		const { exists } = this.deps;
+		const claims = await this.read();
+		const held = new Set<string>();
+		for (const [word, claim] of Object.entries(claims)) {
+			if (await exists(claim.tree)) {
+				held.add(word);
+			}
+		}
+		return held;
 	}
 
 	/** Releases any animal slot held by `key`; answers whether one was freed. */

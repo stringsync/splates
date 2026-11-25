@@ -329,6 +329,43 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads an eval budget permission with what it asks and a round's ceiling", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: eval budget: the asking specs",
+				"",
+				"Two asking specs fail on codex and kimi.",
+				"",
+				"Asks: $10",
+				"Round: up to $2.40",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "permission",
+				permission: {
+					action: "eval-budget",
+					lane: null,
+					tasks: [],
+					title: "the asking specs",
+					body: "Two asking specs fail on codex and kimi.",
+					budget: { usd: 10, round: 2.4 },
+				},
+			},
+		]);
+	});
+
+	it("reads an eval budget card asking for more, with no round said", () => {
+		const found = stretches(
+			["## 🔐 Permission: eval budget", "", "Asks: +$5"].join("\n"),
+		);
+
+		expect(found).toMatchObject([
+			{ permission: { title: null, budget: { usd: 5, round: null } } },
+		]);
+	});
+
 	it("reads a run evals card's Repetitions line", () => {
 		const found = stretches(
 			[
@@ -361,6 +398,34 @@ describe("stretches", () => {
 				permission: {
 					body: "",
 					evals: { agents: ["claude:haiku@high", "codex"] },
+				},
+			},
+		]);
+	});
+
+	it("reads a run evals card's Left out line, keeping it out of the body", () => {
+		const found = stretches(
+			[
+				"## 🔐 Permission: run evals splates: rerun the failing model",
+				"",
+				"- `decisions/local-choice`",
+				"",
+				"Agents: `codex`",
+				"Left out: `claude:haiku@high` (round 1), `gemini` (round 2)",
+			].join("\n"),
+		);
+
+		expect(found).toMatchObject([
+			{
+				permission: {
+					body: "",
+					evals: {
+						agents: ["codex"],
+						leftOut: [
+							{ agent: "claude:haiku@high", round: 1 },
+							{ agent: "gemini", round: 2 },
+						],
+					},
 				},
 			},
 		]);

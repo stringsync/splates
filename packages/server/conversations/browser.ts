@@ -10,7 +10,6 @@
 export { eventWaitOf } from "./event-wait";
 export { paused, textOf } from "./messages";
 export {
-	grooms,
 	lanesOf,
 	namedForTask,
 	nameOf,

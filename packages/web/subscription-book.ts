@@ -6,6 +6,7 @@ import {
 	pauseAutomation,
 	automations as readAutomations,
 	removeAutomation,
+	runAutomation,
 } from "./automations-api";
 import { refusalOf } from "./refusal";
 
@@ -39,6 +40,7 @@ export interface ProjectAutomationsApi {
 		id: string,
 		paused: boolean,
 	) => Promise<AutomationRow[]>;
+	run: (project: string, id: string) => Promise<AutomationRow[]>;
 }
 
 const API: ProjectAutomationsApi = {
@@ -49,6 +51,7 @@ const API: ProjectAutomationsApi = {
 		editAutomation(id, trigger, hook, name, project),
 	remove: (project, id) => removeAutomation(id, project),
 	pause: (project, id, paused) => pauseAutomation(id, paused, project),
+	run: (project, id) => runAutomation(id, project),
 };
 
 /**
@@ -108,6 +111,13 @@ export class SubscriptionBook implements Eventful<SubscriptionBookEvents> {
 	): Promise<boolean> {
 		return this.#change(project, paused ? "Not paused" : "Not resumed", () =>
 			this.api.pause(project, row.id, paused),
+		);
+	}
+
+	/** Runs one now; its run is listed once the server answers. */
+	run(project: string, row: AutomationRow): Promise<boolean> {
+		return this.#change(project, "Not run", () =>
+			this.api.run(project, row.id),
 		);
 	}
 

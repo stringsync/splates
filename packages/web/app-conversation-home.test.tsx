@@ -718,6 +718,73 @@ describe("App's conversation home", () => {
 			).getByLabelText("Codex"),
 		).toBeTruthy();
 	});
+
+	it("keeps the open new conversation screen mounted and untouched when an automation enqueues a task", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					agent: "claude",
+					assigned: true,
+					title: "Auto-picked",
+				}),
+			],
+			null,
+		);
+		await openHome();
+		const section = view.getByRole("region", { name: "new conversation" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "draft in progress");
+
+		await testing.say(
+			conversation({
+				id: "c2",
+				agent: "codex",
+				assigned: true,
+				automatic: true,
+				heldForTask: 42,
+				title: "#42 Enqueued by automation",
+			}),
+		);
+
+		expect(view.getByRole("region", { name: "new conversation" })).toBe(
+			section,
+		);
+		expect(
+			within(
+				view.getByText("Start a conversation with")
+					.parentElement as HTMLElement,
+			).getByLabelText("Claude"),
+		).toBeTruthy();
+		expect(box.textContent).toContain("draft in progress");
+	});
+
+	it("keeps the Auto pick new conversation screen mounted when a conversation arrives on another agent", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", agent: "claude", title: "Earlier" })],
+			null,
+		);
+		await act(async () => {
+			location.hash = "#conversations/new/auto";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		const section = view.getByRole("region", { name: "new conversation" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "still typing");
+
+		await testing.say(
+			conversation({
+				id: "c2",
+				agent: "codex",
+				title: "Background task",
+			}),
+		);
+
+		expect(view.getByRole("region", { name: "new conversation" })).toBe(
+			section,
+		);
+		expect(box.textContent).toContain("still typing");
+	});
 });
 
 /** Opens the new conversation screen with no agent picked, as ⌥⌘N does. */

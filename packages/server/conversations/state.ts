@@ -56,6 +56,11 @@ export interface ConversationState {
 	 * the page still nests it under that one; null for none.
 	 */
 	lastCaller: string | null;
+	/**
+	 * Whether an agent queued `lastTask` on its own, kept once it merges so the
+	 * page still shows the robot badge; absent for none.
+	 */
+	lastAutoQueued?: true;
 	/** What the agent calls it, once it says. */
 	title: string | null;
 	/** What the person renamed it to, over the agent's title. */
@@ -89,13 +94,6 @@ export interface ConversationState {
 	 * is not archived.
 	 */
 	archivedWith: string | null;
-	/**
-	 * Archived resting: a persistent agent's run that ended with its role
-	 * still on, the next run to start afresh in a new conversation. The
-	 * newest of its role holds the role's row while no run is on, as a
-	 * placeholder. Absent or false otherwise.
-	 */
-	resting?: boolean;
 	/** Kept atop the list, archived or not, until unpinned. */
 	pinned: boolean;
 	/**
@@ -207,6 +205,8 @@ export interface ConversationState {
 	 * once it is done: set by the server while it runs, kept in no log.
 	 */
 	evaluating?: true;
+	/** A run its `run evals` card started has ever begun in it, kept in its log. */
+	evaluated?: true;
 	/**
 	 * Set when this is only a summary, as a listing sends every conversation:
 	 * read `GET /api/conversations/<id>` for its tool calls, thoughts and
@@ -214,16 +214,9 @@ export interface ConversationState {
 	 */
 	summary?: true;
 	/**
-	 * The role of a persistent agent, as `"groomer"`: splates starts one
-	 * conversation for the role per run, each with a fresh context, and
-	 * keeps the role's row atop the list, archiving each run as it ends.
-	 * Absent for an ordinary conversation.
-	 */
-	persistent?: string;
-	/**
 	 * The person's automation that started it, by its id, as an agent hook
 	 * on a task event or a schedule, run by hand or not, so the page lists it
-	 * with the persistent agents. Absent for any other.
+	 * among the automations. Absent for any other.
 	 */
 	automation?: string;
 	/**

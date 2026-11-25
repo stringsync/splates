@@ -62,4 +62,22 @@ describe("RigSlots", () => {
 		expect(await slots.release("vexml/dev@/repo")).toBe(false);
 		expect(await slots.claim("vexml/dev@/trees/a", "/trees/a")).toEqual(CAT);
 	});
+
+	it("skips words reserved by dev slots and reports live held words", async () => {
+		const live = new Set(["/repo", "/trees/a"]);
+		const reserved = new Set(["cat"]);
+		const slots = RigSlots.in(new MemoryStorage(), {
+			exists: async (path) => live.has(path),
+			reserved: async () => reserved,
+			pool: POOL,
+		});
+
+		expect(await slots.claim("vexml/dev@/repo", "/repo")).toEqual(BEE);
+		expect([...(await slots.heldWords())]).toEqual(["bee"]);
+
+		// If bee becomes reserved too, claiming again moves to cat once cat is free.
+		reserved.delete("cat");
+		reserved.add("bee");
+		expect(await slots.claim("vexml/dev@/repo", "/repo")).toEqual(CAT);
+	});
 });

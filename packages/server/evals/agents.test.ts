@@ -54,6 +54,16 @@ describe("EvalAgentsStore", () => {
 		expect(await store.agents()).toEqual([{ agent: "codex" }]);
 	});
 
+	it("saves an Antigravity pick with its model and thinking level", async () => {
+		const agents = [
+			{ agent: "antigravity", model: "gemini-3.8-flash", effort: "high" },
+		];
+
+		await store.save(agents);
+
+		expect(await store.agents()).toEqual(agents);
+	});
+
 	it("refuses the same pick twice", async () => {
 		expect(
 			store.save([

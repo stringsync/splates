@@ -119,7 +119,7 @@ async function removeTunnel(
 	log.info(`${color.green("deleted")} tunnel for ${record.host}`);
 }
 
-/** Deletes the proxied CNAME routing `record.host` to its tunnel; answers the account it is in. */
+/** Deletes the proxied CNAME routing `record.host` (and for a machine tunnel, `*.<zone>`) to its tunnel; answers the account it is in. */
 async function removeRoute(
 	cloudflare: CloudflareTunnels,
 	record: TunnelRecord,
@@ -128,13 +128,19 @@ async function removeRoute(
 	const { api } = cloudflare;
 	const zone = await cloudflare.findZone(record.host);
 	const target = `${record.tunnel}.cfargotunnel.com`;
-	const routes = await api.list(
-		`/zones/${zone.id}/dns_records?name.exact=${encodeURIComponent(record.host)}`,
-		DnsRecord,
-	);
-	for (const route of routes.filter((each) => each.content === target)) {
-		await gone(api, `/zones/${zone.id}/dns_records/${route.id}`);
-		log.info(`${color.green("deleted")} the record routing ${record.host}`);
+	const hosts =
+		record.account === undefined
+			? [record.host, `*.${zone.name}`]
+			: [record.host];
+	for (const host of hosts) {
+		const routes = await api.list(
+			`/zones/${zone.id}/dns_records?name.exact=${encodeURIComponent(host)}`,
+			DnsRecord,
+		);
+		for (const route of routes.filter((each) => each.content === target)) {
+			await gone(api, `/zones/${zone.id}/dns_records/${route.id}`);
+			log.info(`${color.green("deleted")} the record routing ${host}`);
+		}
 	}
 	return { account: zone.account.id };
 }

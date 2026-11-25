@@ -211,6 +211,115 @@ export function readKimi(lines: Record<string, unknown>[]): AgentRun {
 	return run;
 }
 
+/**
+ * Antigravity's `--print --output-format stream-json`: incremental `step_update`
+ * events for assistant text deltas and tool calls, then a final `result` with
+ * reply, turns, usage and any error.
+ */
+export function readAntigravity(lines: Record<string, unknown>[]): AgentRun {
+	const transcript: Step[] = [];
+	const textSteps = new Map<number, Extract<Step, { kind: "text" }>>();
+	const toolSteps = new Map<number, Extract<Step, { kind: "tool" }>>();
+	const run: AgentRun = {
+		reply: "",
+		transcript,
+		usd: null,
+		tokens: null,
+		turns: null,
+		error: null,
+	};
+	for (const line of lines) {
+		if (line.event === "step_update") {
+			const update = (line.step_update ?? {}) as Record<string, unknown>;
+			const index =
+				typeof update.step_index === "number" ? update.step_index : -1;
+			if (update.step_type === "agent_response") {
+				const delta =
+					typeof update.text_delta === "string" ? update.text_delta : "";
+				const full = typeof update.text === "string" ? update.text : "";
+				if (delta !== "") {
+					const existing = textSteps.get(index);
+					if (existing !== undefined) {
+						existing.text += delta;
+					} else {
+						const step: Extract<Step, { kind: "text" }> = {
+							kind: "text",
+							text: delta,
+						};
+						textSteps.set(index, step);
+						transcript.push(step);
+					}
+				} else if (full !== "" && !textSteps.has(index)) {
+					const step: Extract<Step, { kind: "text" }> = {
+						kind: "text",
+						text: full,
+					};
+					textSteps.set(index, step);
+					transcript.push(step);
+				}
+			} else if (update.step_type === "tool") {
+				const info = (update.tool_info ?? {}) as Record<string, unknown>;
+				const name = String(update.tool_name ?? info.name ?? "tool");
+				const input = JSON.stringify(info.parameters ?? {});
+				const output =
+					typeof info.output === "string"
+						? info.output
+						: typeof info.error === "string"
+							? info.error
+							: null;
+				const milliseconds = secondsToMilliseconds(update.duration_seconds);
+				const existing = toolSteps.get(index);
+				if (existing !== undefined) {
+					existing.name = name;
+					if (info.parameters !== undefined) {
+						existing.input = input;
+					}
+					if (output !== null) {
+						existing.output = output;
+					}
+					if (milliseconds !== undefined) {
+						existing.milliseconds = milliseconds;
+					}
+				} else {
+					const step: Extract<Step, { kind: "tool" }> = {
+						kind: "tool",
+						name,
+						input,
+						output,
+						...(milliseconds === undefined ? {} : { milliseconds }),
+					};
+					toolSteps.set(index, step);
+					transcript.push(step);
+				}
+			}
+		} else if (line.event === "result") {
+			const result = (line.result ?? {}) as Record<string, unknown>;
+			run.reply = typeof result.response === "string" ? result.response : "";
+			run.turns = numberOr(result.num_turns);
+			const usage = (result.usage ?? {}) as Record<string, unknown>;
+			run.tokens = sum([
+				usage.input_tokens,
+				usage.output_tokens,
+				usage.thinking_tokens,
+				usage.cache_read_tokens,
+			]);
+			if (
+				(typeof result.error === "string" && result.error !== "") ||
+				(result.status !== undefined && result.status !== "SUCCESS")
+			) {
+				run.error =
+					typeof result.error === "string" && result.error !== ""
+						? `antigravity: ${result.error}`
+						: `antigravity ended: ${String(result.status)}`;
+			}
+		}
+	}
+	if (run.reply === "") {
+		run.reply = lastText(transcript);
+	}
+	return run;
+}
+
 /** Each shell command a transcript ran, as the agent wrote it. */
 export function commandsOf(transcript: readonly Step[]): string[] {
 	return transcript.flatMap((step) => {
@@ -227,6 +336,10 @@ export function commandsOf(transcript: readonly Step[]): string[] {
 		if (step.name === "Bash") {
 			const input = JSON.parse(step.input) as { command?: unknown };
 			return typeof input.command === "string" ? [input.command] : [];
+		}
+		if (step.name === "run_command") {
+			const input = JSON.parse(step.input) as { CommandLine?: unknown };
+			return typeof input.CommandLine === "string" ? [input.CommandLine] : [];
 		}
 		return [];
 	});
@@ -270,6 +383,13 @@ function elapsedMilliseconds(start: unknown, end: unknown): number | undefined {
 		end >= start
 	) {
 		return end - start;
+	}
+	return undefined;
+}
+
+function secondsToMilliseconds(seconds: unknown): number | undefined {
+	if (typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
+		return Math.round(seconds * 1000);
 	}
 	return undefined;
 }

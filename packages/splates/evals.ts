@@ -1,15 +1,24 @@
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
+	diagnosesOf,
 	EvalAgentsStore,
+	EvalLaunches,
+	type EvalQuota,
+	EvalStore,
+	evalQuota,
+	faultsOf,
 	type InspectLog,
 	inspectBatch,
+	projectEvalCommands,
 	REMARKS_FILE,
 	targetOf,
 	writeImported,
 } from "@splates/server/evals";
 import { fail } from "@splates/server/exit";
-import { splatesHome } from "@splates/server/models";
-import type { SplatesDeps } from "@splates/server/server";
+import { Limits, splatesHome } from "@splates/server/models";
+import { repository } from "@splates/server/records";
+import { rosterOf, type SplatesDeps } from "@splates/server/server";
+import { FsStorage } from "@splates/server/storage";
 import { cli } from "core/cmd";
 import { color } from "core/log";
 import { z } from "zod";
@@ -52,7 +61,7 @@ splatesEvals
 splatesEvals
 	.command("remarks")
 	.description(
-		"attach remarks on a batch to it, as Markdown from <file>: what failed and why, what held up, any special circumstance, replacing earlier remarks: the Evals page shows them on the batch's report and its run card, and they stay for anyone viewing the batch later",
+		"attach the eval lead's remarks on a batch to it, as Markdown from <file>, replacing earlier remarks: what held up and any special circumstance, then a `Diagnosis:` list with one entry per distinct failure, `- <run>[, <run>...] <check>: <causes>` (causes from harness, judge, skill, eval; an agent's one-off slip takes none and is said in the Why) with indented `- Why:` (required), `- Did: Step <n> ...` (steps counted from 1) and `- Proposed remedy:` or `- Applied remedy:` lines, each one sentence; it refuses another cause, a longer line, or a run or check the batch does not have. Older remarks with a `Faults:` list of `- <run>: <layers>` still read. Eval cards show each failure with its diagnosis, the rest of the remarks go to the batch's report, and they stay for anyone viewing the batch later",
 	)
 	.arg("batch-dir", z.string(), {
 		description:
@@ -68,16 +77,37 @@ splatesEvals
 		if (!(await ctx.fs.exists(file))) {
 			fail("not_found", `no file at ${file}`, { file });
 		}
-		await ctx.fs.write(join(dir, REMARKS_FILE), await ctx.fs.read(file));
+		const remarks = await ctx.fs.read(file);
+		let problem: string | null;
+		try {
+			faultsOf(remarks);
+			problem = await unknownIn(dir, diagnosesOf(remarks) ?? []);
+		} catch (error) {
+			problem = (error as Error).message;
+		}
+		if (problem !== null) {
+			fail("usage", problem, { file });
+		}
+		await ctx.fs.write(join(dir, REMARKS_FILE), remarks);
 		ctx.log.info(`${color.green("attached")} remarks to ${dir}`);
 	});
 
 splatesEvals
 	.command("agents")
 	.description(
-		"print the saved eval agents, one `agent:model@effort` target per line: copy them verbatim into the `Agents:` line of a run evals card, and name no other",
+		"print the saved eval agents, one `agent:model@effort` target per line: copy them verbatim into the `Agents:` line of a run evals card, and name no other; `--quota` adds the share of quota each has left, as its agent last reported it",
 	)
-	.action(async (_opts, ctx) => {
+	.option("quota", z.boolean(), {
+		default: false,
+		description:
+			"after each target, its headroom (the share left in its longest window) and the share left in each window it draws from, with when that window resets",
+	})
+	.option("json", z.boolean(), {
+		default: false,
+		description:
+			"with --quota: emit JSON objects with target, headroom and windows",
+	})
+	.action(async (opts, ctx) => {
 		const store = new EvalAgentsStore(
 			`${splatesHome(ctx.ps)}/eval-agents.json`,
 			ctx.fs,
@@ -89,8 +119,76 @@ splatesEvals
 			);
 			return;
 		}
-		for (const pick of agents) {
-			ctx.log.info(targetOf(pick));
+		if (!opts.quota) {
+			for (const pick of agents) {
+				ctx.log.info(targetOf(pick));
+			}
+			return;
+		}
+		const home = splatesHome(ctx.ps);
+		const limits = await new Limits(
+			new FsStorage(home, ctx.fs).document("limits.json"),
+		).all();
+		const roster = await rosterOf(ctx).agents();
+		const now = Date.now();
+		const quotas = agents.map((pick) =>
+			evalQuota(
+				pick,
+				roster.find((each) => each.id === pick.agent),
+				limits[pick.agent] ?? [],
+				now,
+			),
+		);
+		if (opts.json) {
+			ctx.log.info(JSON.stringify(quotas));
+			return;
+		}
+		for (const quota of quotas) {
+			ctx.log.info(quotaLine(quota));
+		}
+	});
+
+splatesEvals
+	.command("order")
+	.use(repository({ needs: "read" }))
+	.description(
+		"list single eval scenarios in run order (highest priority first, then never run, then oldest last run), using the project's evals.list and saved run history",
+	)
+	.option("agent", z.string().optional(), {
+		description: "scope last-run time to runs on this agent",
+	})
+	.option("json", z.boolean(), {
+		default: false,
+		description: "emit JSON objects with priority and lastRunAt",
+	})
+	.action(async (opts, ctx) => {
+		const commands = projectEvalCommands(
+			ctx.ps,
+			ctx.git.root,
+			ctx.config.evals,
+		);
+		if (commands === null) {
+			fail("not_found", "this project names no evals in splates.config.ts", {});
+		}
+		if (commands.list === null) {
+			fail(
+				"not_found",
+				"this project names no evals.list in splates.config.ts",
+				{},
+			);
+		}
+		const launches = new EvalLaunches(ctx.ps, ctx.machine);
+		const scenarios = await launches.scenarios(commands);
+		const ordered = await new EvalStore(commands.results).order(
+			scenarios,
+			opts.agent ?? null,
+		);
+		if (opts.json) {
+			ctx.log.info(JSON.stringify(ordered));
+			return;
+		}
+		for (const each of ordered) {
+			ctx.log.info(each.id);
 		}
 	});
 
@@ -123,4 +221,64 @@ async function dumped(ctx: SplatesDeps, file: string): Promise<string> {
 		});
 	}
 	return stdout;
+}
+
+/** What a diagnosis names that the batch in `dir` lacks: a run, a run that did not fail, or a check its run does not have; null when nothing. */
+async function unknownIn(
+	dir: string,
+	diagnoses: NonNullable<ReturnType<typeof diagnosesOf>>,
+): Promise<string | null> {
+	const store = new EvalStore(dirname(dir));
+	const grid = await store.grid(basename(dir));
+	if (grid === null) {
+		return null;
+	}
+	const cells = new Map(
+		grid.grid.flatMap((cell) =>
+			cell.run === null
+				? []
+				: [[cell.run.id.slice(cell.run.id.lastIndexOf("#") + 1), cell.run]],
+		),
+	);
+	for (const diagnosis of diagnoses) {
+		for (const run of diagnosis.runs) {
+			const found = cells.get(run);
+			if (found === undefined) {
+				return `${run} is no finished run of this batch: name runs as its results do, as run-017`;
+			}
+			if (found.status === "pass") {
+				return `${run} passed: diagnose only runs that failed or errored`;
+			}
+			if (found.status !== "fail" || diagnosis.check === "judge") {
+				continue;
+			}
+			const detail = await store.run(found.id).catch(() => null);
+			const checks = detail?.checks.map((each) => each.id) ?? [];
+			if (checks.length > 0 && !checks.includes(diagnosis.check)) {
+				return `${run} has no check ${diagnosis.check}: name one of ${checks.join(", ")}, or judge`;
+			}
+		}
+	}
+	return null;
+}
+
+/** `claude:sonnet  41% left; five_hour 25% (resets 2026-11-25 14:40); seven_day 41% (resets 2026-11-28 20:00)` */
+function quotaLine(quota: EvalQuota): string {
+	if (quota.headroom === null && quota.windows.length === 0) {
+		return `${quota.target}  quota unknown: its agent has not reported any`;
+	}
+	const percent = (share: number): string => `${Math.round(share * 100)}%`;
+	const head =
+		quota.headroom === null
+			? "headroom unknown"
+			: `${percent(quota.headroom)} left`;
+	const windows = quota.windows.map(
+		(each) =>
+			`${each.window} ${percent(each.left)}${
+				each.resets === null
+					? ""
+					: ` (resets ${each.resets.slice(0, 16).replace("T", " ")})`
+			}`,
+	);
+	return [`${quota.target}  ${head}`, ...windows].join("; ");
 }

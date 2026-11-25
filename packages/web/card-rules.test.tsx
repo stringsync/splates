@@ -48,21 +48,12 @@ test("the merged card has one rule between Before, After and Checks each", () =>
 	expect(ruled(container)).toEqual(["after", "checks"]);
 });
 
-test("a card whose only readout is a d2 diagram draws the diagram, not plain code", () => {
+test("a card body draws a d2 fence as a diagram, not plain code", () => {
 	const { container } = render(
 		<CardBody text={"Flow:\n\n```d2\na -> b\n```"} />,
 	);
 	// The diagram view's source fallback carries a border; markdown code does not.
 	expect(container.querySelector("pre.border")).not.toBeNull();
-});
-
-test("a card body with prose and an inline readout draws no divider between them", () => {
-	const { container } = render(
-		<CardBody text={"Lead.\n\n> ℹ️ Note.\n\nAfter."} />,
-	);
-	expect(
-		container.querySelectorAll(".divide-y, .border-t, .rule-y, .rule-t"),
-	).toHaveLength(0);
 });
 
 test("a Ready to merge card joins summary and details without a divider between them", () => {

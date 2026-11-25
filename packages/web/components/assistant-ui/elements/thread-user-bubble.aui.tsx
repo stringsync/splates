@@ -25,7 +25,7 @@ export const RecordedUserMessage: FC = () => (
 		<div
 			className={cn(
 				USER_BUBBLE,
-				"max-w-[85%] rounded-2xl border-0 px-3.5 py-2 text-sm leading-relaxed",
+				"max-w-[85%] rounded-2xl border-0 px-3.5 py-2 leading-relaxed",
 			)}
 		>
 			<MessagePrimitive.Parts components={{ Text: RecordedUserText }} />

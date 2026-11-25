@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { evalCardRefusal } from "./eval-card-watch";
+import type { Message } from "../conversations";
+import { evalCardRefusal, messageKey } from "./eval-card-watch";
 
 const refs = { scenarios: ["a/one", "a/two"], agents: ["claude:sonnet"] };
 
@@ -33,5 +34,31 @@ describe("evalCardRefusal", () => {
 				{ scenarios: null, agents: [] },
 			),
 		).toBeNull();
+	});
+});
+
+describe("messageKey", () => {
+	const said = (role: "user" | "agent", queued = false): Message => ({
+		role,
+		parts: [],
+		plan: null,
+		at: null,
+		until: null,
+		...(queued ? { queued: true as const } : {}),
+	});
+
+	it("is the message's place among those sent, as the page numbers them", () => {
+		const card = said("agent");
+		const messages = [said("user"), said("user", true), said("agent"), card];
+
+		expect(messageKey(messages, card, { heldForTask: null })).toBe("2");
+	});
+
+	it("counts the held prompt the page shows first", () => {
+		const card = said("agent");
+
+		expect(messageKey([said("user"), card], card, { heldForTask: 3 })).toBe(
+			"2",
+		);
 	});
 });

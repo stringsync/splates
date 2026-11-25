@@ -298,20 +298,20 @@ function RigGroup({
 	running: number;
 	onStart: (rig: Rig) => void;
 }): JSX.Element {
-	const count = group.rigs.length;
 	return (
 		<section
 			aria-label={`rigs of ${group.label ?? group.name}`}
 			className="overflow-hidden rounded-xl border bg-card shadow-xs"
 		>
-			<header className="flex items-baseline gap-2.5 border-b px-4 py-3">
-				<h3 className="font-mono font-semibold text-sm">
+			<header className="flex items-baseline gap-2.5 border-b bg-muted px-4 py-3">
+				<h3 className="font-bold font-mono text-[15px]">
 					{group.label ?? group.name}
 				</h3>
-				<span className="text-muted-foreground text-xs">
-					{count} {count === 1 ? "rig" : "rigs"}
-					{running > 0 && ` · ${running} running`}
-				</span>
+				{running > 0 && (
+					<span className="text-muted-foreground text-xs">
+						{running} running
+					</span>
+				)}
 			</header>
 			<ul className="divide-y">
 				{group.rigs.map((rig) => (

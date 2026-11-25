@@ -35,36 +35,6 @@ describe("App's blockers in other projects", () => {
 		testing.dispose();
 	});
 
-	it("says on a card what it waits on there, and what there waits on it", async () => {
-		const view = await testing.open({
-			todos: [waiting({ id: 7 })],
-			elsewhere: {
-				blockers: { 7: [{ ...LOCALE, slug: "wren", status: "queued" }] },
-				following: {
-					7: [
-						{
-							blocker: 7,
-							project: "/repos/shop",
-							slug: "shop",
-							id: 12,
-							subject: "Checkout in euros",
-							stage: "available",
-						},
-					],
-				},
-			},
-		});
-
-		const list = await waitFor(() =>
-			view.getByRole("list", { name: "Backlog tasks" }),
-		);
-		const waits = within(list).getByTitle("#404 in wren, another project");
-		expect(waits.getAttribute("href")).toContain("project=wren");
-		expect(list.textContent).toContain("waits on");
-		expect(list.textContent).toContain("queued");
-		within(list).getByTitle("#12 in shop, another project");
-	});
-
 	it("links a deferral's blocker there and resumes without it", async () => {
 		const deferring = conversation({
 			title: "Deferring",

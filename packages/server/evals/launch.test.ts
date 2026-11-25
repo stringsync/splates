@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { eventually } from "../server/testing";
 import { Testing } from "../testing";
@@ -58,6 +58,18 @@ describe("EvalLaunches", () => {
 		]);
 	});
 
+	it("names a listed spec's file from the project's root, absolute or relative, with its absolute path to open", async () => {
+		const at = join(await realpath(commands.root), "evals", "refunds.ts");
+		const listed = await launches.scenarios({
+			...commands,
+			list: `printf '%s\\n' '{"case":"a","file":"${at}"}' '{"case":"b","file":"evals/refunds.ts"}'`,
+		});
+		expect(listed.map(({ file, fileAt }) => ({ file, fileAt }))).toEqual([
+			{ file: "evals/refunds.ts", fileAt: at },
+			{ file: "evals/refunds.ts", fileAt: at },
+		]);
+	});
+
 	it("tells the run its cases, targets and repetitions, and finds the batch it writes", async () => {
 		await launches.start(commands, {
 			...spec,
@@ -103,6 +115,119 @@ describe("EvalLaunches", () => {
 		expect(finished[0]?.conversation).toBe("c-1");
 		expect(finished[0]?.results).toBe(commands.results);
 		expect(finished[0]?.launch.batch).toBe("nightly");
+	});
+
+	it("sums what each conversation's rounds cost from their batches", async () => {
+		const fixture = join(deps.root, "fixture");
+		await Bun.write(
+			join(fixture, "batch.json"),
+			JSON.stringify({
+				format: "splates-evals/1",
+				startedAt: "2026-11-24T00:00:00.000Z",
+				cells: [{ id: "c1", case: "refunds/partial", target: { model: "m" } }],
+			}),
+		);
+		await Bun.write(
+			join(fixture, "results.jsonl"),
+			`${JSON.stringify({ cell: "c1", status: "pass", costUsd: 1.25 })}\n`,
+		);
+		const costly = {
+			...commands,
+			run: `mkdir -p "$SPLATES_EVALS_RESULTS/round-$$" && cp ${fixture}/* "$SPLATES_EVALS_RESULTS/round-$$/"`,
+		};
+		await launches.start(costly, { ...spec, conversation: "c-1" });
+		await done(launches, costly);
+		await launches.start(costly, {
+			...spec,
+			key: "card-2",
+			conversation: "c-1",
+		});
+		expect(
+			await eventually(
+				async () => (await launches.get(costly, "card-2"))?.status === "done",
+				2_000,
+			),
+		).toBe(true);
+
+		expect((await launches.costs()).get("c-1")).toEqual({
+			usd: 2.5,
+			last: "2026-11-24T00:00:00.000Z",
+		});
+		expect((await launches.costs("c-2")).get("c-2")).toBeUndefined();
+		// Rounds before the first approval never count against the budget.
+		await launches.rounds.answer("c-1", "b-1", 10, "2026-11-24T00:00:00.000Z");
+		await launches.rounds.answer(
+			"c-1",
+			"b-2",
+			null,
+			"2026-11-25T00:00:00.000Z",
+		);
+		expect(await launches.budget("c-1")).toEqual({
+			usd: 10,
+			spent: 2.5,
+			answers: { "b-1": 10, "b-2": null },
+		});
+		await launches.rounds.answer("c-2", "b-3", 5, "2026-11-25T00:00:00.000Z");
+		expect(await launches.budget("c-2")).toEqual({
+			usd: 5,
+			spent: 0,
+			answers: { "b-3": 5 },
+		});
+	});
+
+	it("refuses a second answer to a budget card, or an amount that is no budget", async () => {
+		await launches.rounds.answer("c-9", "b-1", 5, "2026-11-24T00:00:00.000Z");
+
+		expect(
+			launches.rounds.answer("c-9", "b-1", 5, "2026-11-24T00:00:00.000Z"),
+		).rejects.toThrow("already answered");
+		expect(
+			launches.rounds.answer("c-9", "b-2", -1, "2026-11-24T00:00:00.000Z"),
+		).rejects.toThrow("dollar amount");
+		expect((await launches.budget("c-9")).usd).toBe(5);
+	});
+
+	it("seeds an automation eval budget onto one conversation, combining with hand top-ups", async () => {
+		await launches.rounds.seed("c-auto", 2, "2026-11-24T00:00:00.000Z", {
+			id: "7",
+			name: "Spend unused quota",
+		});
+		// Idempotent for the same automation on the same conversation.
+		await launches.rounds.seed("c-auto", 2, "2026-11-24T00:00:01.000Z", {
+			id: "7",
+			name: "Spend unused quota",
+		});
+		expect(await launches.budget("c-auto")).toEqual({
+			usd: 2,
+			spent: 0,
+			answers: {},
+			seeded: { usd: 2, automation: "7", name: "Spend unused quota" },
+		});
+		await launches.rounds.answer(
+			"c-auto",
+			"b-topup",
+			5,
+			"2026-11-24T01:00:00.000Z",
+		);
+		expect(await launches.budget("c-auto")).toEqual({
+			usd: 7,
+			spent: 0,
+			answers: { "b-topup": 5 },
+			seeded: { usd: 2, automation: "7", name: "Spend unused quota" },
+		});
+		// Nothing carries over to another conversation.
+		expect(await launches.budget("c-other")).toEqual({
+			usd: 0,
+			spent: 0,
+			answers: {},
+		});
+	});
+
+	it("marks a round the server started within the conversation's budget as auto", async () => {
+		const launch = await launches.start(commands, { ...spec, auto: true });
+
+		expect(launch.auto).toBe(true);
+		expect((await launches.get(commands, "card-1"))?.auto).toBe(true);
 	});
 
 	it("tells the conversation a run it stopped ended, so its agent is not left waiting", async () => {
@@ -234,6 +359,11 @@ describe("EvalLaunches", () => {
 			batch: "second",
 			output: "resumed",
 		});
+		expect(await launches.ofBatch(commands, "second")).toMatchObject({
+			key: "card-1",
+			status: "done",
+		});
+		expect(await launches.ofBatch(commands, "none")).toBeNull();
 		expect(await eventually(async () => finished.length === 1, 2_000)).toBe(
 			true,
 		);

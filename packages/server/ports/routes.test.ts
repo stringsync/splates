@@ -70,7 +70,7 @@ describe("DevTaskPorts", () => {
 			said += decoder.decode(chunk.value, { stream: true });
 		}
 		reader.releaseLock();
-		appPort = Number(/(\d+)\s*$/.exec(said.trim())?.[1]);
+		appPort = Number(/(\d+)\s*$/.exec(Bun.stripANSI(said).trim())?.[1]);
 		fake = await FakeAccess.make();
 		rigTargets = { routes: [], excluded: new Set() };
 		ports = new DevTaskPorts({
@@ -261,5 +261,5 @@ const server = Bun.serve({
 	},
 	websocket: { message(socket, message) { socket.send("echo " + message); } },
 });
-console.log(server.port);
+process.stdout.write(String(server.port) + "\\n");
 `;

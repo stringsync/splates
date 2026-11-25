@@ -56,10 +56,11 @@ describe.concurrent("TaskStore", () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null, { lane: "new" });
 		await add(deps, "dark", { tasks: [1] });
+		const blocker = await deps.tasks.add("Build the client", null);
 
 		await remove(deps, "dark", {
 			reason: "blocked",
-			deferral: { why: "It needs a key.", outside: ["a key"] },
+			deferral: { why: "It needs the client.", blockedBy: [blocker.id] },
 		});
 
 		const record = await stored(deps, 1);

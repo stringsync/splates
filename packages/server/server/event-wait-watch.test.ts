@@ -43,6 +43,15 @@ test("task completion wakes once, including an already completed task after rest
 	expect(setup.said).toEqual(["[SPLATES WAIT COMPLETE]\n\nTask other merged."]);
 });
 
+test("task completion wakes an idle-stopped conversation", async () => {
+	const setup = fixture("[SPLATES WAIT task other]");
+	setup.conversation.state.status = "stopped";
+	setup.finish();
+	const watch = setup.watch();
+	await watch.sweep();
+	expect(setup.said).toEqual(["[SPLATES WAIT COMPLETE]\n\nTask other merged."]);
+});
+
 test("busy readings reset the continuous idle period", async () => {
 	const setup = fixture("[SPLATES WAIT machine idle 10s]");
 	const watch = setup.watch();

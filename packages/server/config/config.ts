@@ -222,7 +222,7 @@ export interface Config {
 	 * examples, poll }`: `args` are fields as `{ type, description, optional }`,
 	 * `main` the field a plain value maps to, `poll` a `{ interval, script }` run
 	 * with the arguments as JSON in `$SPLATES_ARGS` while something waits. The
-	 * prefixes clock., task. and machine. are reserved.
+	 * prefixes clock., task., machine. and quota. are reserved.
 	 */
 	signals: Record<string, SignalFunction>;
 }

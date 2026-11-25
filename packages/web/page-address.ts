@@ -157,7 +157,11 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	 * for null. The batch `plan` opens the plan of the scenario or scenarios
 	 * `run` instead.
 	 */
-	openEval(batch: string | null, run: string | string[] | null = null): void {
+	openEval(
+		batch: string | null,
+		run: string | string[] | null = null,
+		test: string | null = null,
+	): void {
 		this.attempt(() => {
 			this.page = "evals";
 			this.evals =
@@ -167,6 +171,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 							batch,
 							run: batch === null || Array.isArray(run) ? null : run,
 							plan: null,
+							...(batch !== null && test !== null ? { test } : {}),
 						};
 			this.move(evalsAddress(this.evals));
 		});
@@ -483,15 +488,41 @@ export interface EvalsOpen {
 	run: string | null;
 	/** The scenarios whose run is being planned; null for none. */
 	plan: string[] | null;
+	/** The scenario whose test page is open in `batch`, with `run` picked on it; absent for none. */
+	test?: string;
+	/** The eval file whose specs are open, as listed (its path, or its suite for a spec listed with no file); absent for the list of files. */
+	file?: string;
 }
 
 // Retain the reserved word to recognize old bookmarks.
 const PLAN = "plan";
 
+/** The word an eval file's page is addressed under, `#evals/file/<file>`. */
+const FILE = "file";
+
+/** The address of the Evals page of eval file `file`. */
+export function evalFileAddress(file: string): string {
+	return `#evals/${FILE}/${encodeURIComponent(file)}`;
+}
+
 const NO_EVALS: EvalsOpen = { batch: null, run: null, plan: null };
 
-/** The batch and run `#evals/<batch>[/<run>]` opens, or the plan `#evals/plan/<scenario>[,<scenario>…]`. */
+/** The batch and run `#evals/<batch>[/<run>]` opens, the test page `#evals/<batch>/test/<scenario>[/<run>]`, an eval file's page `#evals/file/<file>`, or the plan `#evals/plan/<scenario>[,<scenario>…]`. */
 function evalsIn(hash: string): EvalsOpen {
+	const [, file] = hash.match(/^#evals\/file\/([^/]+)$/) ?? [];
+	if (file !== undefined) {
+		return { ...NO_EVALS, file: decodeURIComponent(file) };
+	}
+	const [, inBatch, scenario, picked] =
+		hash.match(/^#evals\/([^/]+)\/test\/([^/]+)(?:\/(.+))?$/) ?? [];
+	if (inBatch !== undefined && scenario !== undefined) {
+		return {
+			batch: decodeURIComponent(inBatch),
+			run: picked === undefined ? null : decodeURIComponent(picked),
+			plan: null,
+			test: decodeURIComponent(scenario),
+		};
+	}
 	const [, batch, run] = hash.match(/^#evals\/([^/]+)(?:\/(.+))?$/) ?? [];
 	if (batch === undefined) {
 		return NO_EVALS;
@@ -510,7 +541,20 @@ function evalsIn(hash: string): EvalsOpen {
 }
 
 /** The address of the Evals page with `open` open. */
-function evalsAddress({ batch, run, plan, tab }: EvalsOpen): string {
+function evalsAddress({
+	batch,
+	run,
+	plan,
+	tab,
+	test,
+	file,
+}: EvalsOpen): string {
+	if (file !== undefined) {
+		return evalFileAddress(file);
+	}
+	if (batch !== null && test !== undefined) {
+		return `#evals/${encodeURIComponent(batch)}/test/${encodeURIComponent(test)}${run === null ? "" : `/${encodeURIComponent(run)}`}`;
+	}
 	if (tab !== undefined) {
 		return `#evals/${tab}`;
 	}

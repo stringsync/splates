@@ -575,6 +575,8 @@ export interface TaskState {
 	rescued?: unknown[];
 	/** The last Auto pick for it, beside what it was queued as; for reading only. */
 	autoPick?: AutoPicked;
+	/** Whether an agent queued it on its own, read from its queued record; never written back. */
+	autoQueued?: true;
 }
 
 /**

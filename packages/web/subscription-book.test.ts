@@ -76,5 +76,6 @@ function api(
 			);
 			return held[project] ?? [];
 		},
+		run: read,
 	};
 }

@@ -54,6 +54,18 @@ export const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 /** The longest a wait may last. */
 export const LONGEST_WAIT_MS = RETENTION_MS;
 
+/** How long a signal sits with nothing listening and nothing able to fire it before cleanup hides it. */
+export const IDLE_MS = 24 * 60 * 60 * 1000;
+
+/** How long a signal cleanup hid stays revivable before it is forgotten. */
+export const REVIVABLE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** A signal cleanup hid: when, and what it meant, for listing and reviving it. */
+export interface SweptSignal {
+	at: string;
+	description?: string;
+}
+
 /** The shortest gap a probe may keep between its runs. */
 export const PROBE_FLOOR_MS = 30_000;
 

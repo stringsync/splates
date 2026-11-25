@@ -1,4 +1,5 @@
 import {
+	type BoardSeries,
 	combine,
 	type PeriodId,
 	type Stats,
@@ -190,6 +191,18 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		return this.stats === null
 			? null
 			: flowRates(this.stats, this.period, this.buckets);
+	}
+
+	/** Tasks ended bar by bar by board, the board with the most first. */
+	get boards(): BoardSeries[] {
+		// A stand-in server can leave these out.
+		return this.stats?.boards ?? [];
+	}
+
+	/** Tasks ended in the as long a span before; null for all time or until loaded. */
+	get endedBefore(): number | null {
+		const previous = this.stats?.previous ?? null;
+		return previous === null ? null : previous.merged + previous.removed;
 	}
 
 	get models(): Row[] {

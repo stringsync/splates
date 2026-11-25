@@ -68,6 +68,37 @@ describe("Opening complete conversation history", () => {
 		},
 	);
 
+	it("shows the task chain only after the conversation loads", async () => {
+		testing.agentChain = {
+			name: "Parent task",
+			root: { conversation: "parent", title: "Parent task" },
+			spent: 0,
+			budget: 5000,
+			stopped: false,
+			nodes: [
+				{
+					id: 1,
+					title: "History",
+					status: "running",
+					parent: null,
+					conversation: "c1",
+					tokens: 0,
+				},
+			],
+		};
+		const view = await testing.openConversations([listed(whole)]);
+		const thread = within(view.getByRole("region", { name: "History" }));
+		await waitFor(
+			() => expect(thread.getByText("Loading conversation")).toBeTruthy(),
+			{ timeout: 2000 },
+		);
+		expect(thread.queryByRole("status", { name: "task chain" })).toBeNull();
+		await act(async () => release());
+		const banner = await thread.findByRole("status", { name: "task chain" });
+		expect(banner.textContent).toContain("Queued by Parent task");
+		expect(thread.getByText("Finished reading")).toBeTruthy();
+	});
+
 	it.each([503, 404])(
 		"offers a retry after history returns %s and distinguishes empty history",
 		async (status) => {

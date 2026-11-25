@@ -1,11 +1,12 @@
 export type {
+	Approval,
 	Ending,
 	PlanCard,
 	Review,
 	Stretch,
 	TaskReport,
 } from "./asked";
-export { stretches } from "./asked";
+export { approvalOf, stretches } from "./asked";
 export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
 export {
@@ -28,10 +29,12 @@ export {
 	BLOCKERS_CLEARED,
 	CHECKPOINT,
 	configChangeReference,
-	DEFER,
+	conversationHandOffReference,
 	DIRECTIVES,
 	demoReference,
 	directive,
+	EVAL_BUDGET_APPROVED,
+	EVAL_BUDGET_DECLINED,
 	handOffReference,
 	isUpdate,
 	leadingDirectives,
@@ -46,7 +49,6 @@ export {
 	taskNumberReference,
 	taskReference,
 	UNTRIAGED,
-	unmergeReference,
 } from "./prompts";
 export type { QueuedCard, QueuedTask } from "./queued";
 export type { Answer } from "./reply";

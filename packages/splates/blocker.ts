@@ -5,7 +5,6 @@ import {
 	sinceNeedsSignal,
 } from "@splates/server/board";
 import { pickScope } from "@splates/server/config";
-import { refuseGroomer } from "@splates/server/conversations";
 import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
 import { cli } from "core/cmd";
@@ -37,7 +36,6 @@ splatesBlocker
 			"with --closes-on: also take a firing from before now: how long ago (30m, 2h, 1d) or an ISO time",
 	})
 	.action(async (opts, ctx) => {
-		await refuseGroomer(ctx.service, "blocker add");
 		sinceNeedsSignal(opts["closes-on"], opts.since);
 		const from = await here(ctx);
 		const folder = await folderOf(ctx);

@@ -14,18 +14,10 @@ export function protectBacklog(id: number): void {
 	}
 }
 
-/** The `grooming` value of a task put in Backlog by hand; `ungroomed` treats it as never groomed. */
-export const LEGACY_PLACED = "placed";
-
-/** Whether `task` waits in Backlog for the groomer: untaken and never groomed. */
+/** Whether `task` waits in Backlog to be groomed: untaken, and placed in no lane. */
 export function ungroomed(task: {
 	lane: number | null;
 	takenBy: string | null;
-	grooming?: string;
 }): boolean {
-	return (
-		task.lane === BACKLOG_LANE &&
-		task.takenBy === null &&
-		(task.grooming === undefined || task.grooming === LEGACY_PLACED)
-	);
+	return task.lane === BACKLOG_LANE && task.takenBy === null;
 }

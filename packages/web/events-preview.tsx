@@ -4,6 +4,7 @@ import { Button } from "#web/components/ui/button.tsx";
 import type { Settings } from "./settings";
 import { SplatesEvent } from "./splates-event";
 import { type FixtureItem, fixtureThread } from "./splates-event-fixtures";
+import { WaitEvent } from "./wait-event";
 
 /** The address that opens the preview in place of the app. */
 export const EVENTS_PREVIEW = "#events-preview";
@@ -64,5 +65,14 @@ function Item({ item }: { item: FixtureItem }): JSX.Element {
 			return <p className="px-2 leading-relaxed">{item.text}</p>;
 		case "event":
 			return <SplatesEvent event={item.event} />;
+		case "wait":
+			return (
+				<WaitEvent
+					directive={item.directive}
+					wait={item.wait}
+					at={item.at}
+					outcome={item.outcome}
+				/>
+			);
 	}
 }

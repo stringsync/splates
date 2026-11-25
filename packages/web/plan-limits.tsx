@@ -12,6 +12,7 @@ import {
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { AgentMark } from "./agent-icons";
 import type { AgentChoice } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
@@ -54,8 +55,8 @@ export function AgentQuotas({
 					"max-md:grid-cols-[max-content_1fr_3rem]",
 				)}
 			>
-				{groups.map(({ title, limits }) => (
-					<PlanLimits key={title} title={title} limits={limits} sharedColumns />
+				{groups.map((group) => (
+					<PlanLimits key={group.title} {...group} sharedColumns />
 				))}
 			</div>
 		</div>
@@ -74,8 +75,11 @@ export function PlanLimits({
 	aligned = false,
 	paced = false,
 	sharedColumns = false,
+	marks,
 }: {
 	limits: Limit[];
+	/** The agent whose mark leads each limit's name, by index; none when omitted. */
+	marks?: string[];
 	className?: string;
 	/**
 	 * Puts each window's burn rate before its reset time, and beside the
@@ -127,7 +131,8 @@ export function PlanLimits({
 								: QUOTA_COLUMNS,
 				)}
 			>
-				{limits.map((limit) => {
+				{limits.map((limit, index) => {
+					const mark = marks?.[index];
 					const { name, used, tone, reset, countdown, pace } = limitRow(
 						limit,
 						now,
@@ -142,10 +147,14 @@ export function PlanLimits({
 							)}
 						>
 							<span
-								className={
-									aligned ? "min-w-0 break-words" : "whitespace-nowrap"
-								}
+								className={cn(
+									aligned ? "min-w-0 break-words" : "whitespace-nowrap",
+									mark !== undefined && "flex items-center gap-1.5",
+								)}
 							>
+								{mark !== undefined && (
+									<AgentMark agent={mark} className="size-4 shrink-0" />
+								)}
 								{name}
 							</span>
 							<Meter
@@ -237,8 +246,8 @@ export function limitsOf(
 export function quotaByAgent(
 	agents: AgentChoice[],
 	conversations: ConversationState[],
-): { title: string; limits: Limit[] }[] {
-	const groups = new Map<number, Limit[]>();
+): { title: string; limits: Limit[]; marks: string[] }[] {
+	const groups = new Map<number, { limits: Limit[]; marks: string[] }>();
 	for (const agent of agents) {
 		const known = limitsOf(agents, conversations, agent.id).flatMap((each) => {
 			const length = lengthOf(each.window);
@@ -251,16 +260,18 @@ export function quotaByAgent(
 		const fullest = known
 			.filter((one) => one.length === shortest)
 			.reduce((best, one) => (one.each.used > best.each.used ? one : best));
-		groups.set(shortest, [
-			...(groups.get(shortest) ?? []),
-			{ ...fullest.each, window: agent.name },
-		]);
+		const group = groups.get(shortest) ?? { limits: [], marks: [] };
+		groups.set(shortest, {
+			limits: [...group.limits, { ...fullest.each, window: agent.name }],
+			marks: [...group.marks, agent.id],
+		});
 	}
 	return [...groups.entries()]
 		.sort(([one], [other]) => one - other)
-		.map(([length, limits]) => ({
+		.map(([length, { limits, marks }]) => ({
 			title: `${scheduleName(length)} quota`,
 			limits,
+			marks,
 		}));
 }
 

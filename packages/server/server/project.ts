@@ -60,7 +60,7 @@ import {
 } from "../ship";
 import { BudgetRoutes } from "../stats";
 import type { Details } from "../tasks";
-import { startDispatched, TaskRoutes } from "../tasks";
+import { settleTaken, startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, Machine, OsSensors } from "../workers";
 import { Automations } from "./automations";
 import { BusyRunWatch } from "./busy-run-watch";
@@ -116,6 +116,7 @@ export async function serveProject(
 			);
 		},
 		() => context.clockShelf?.(),
+		context.seedEvalBudget,
 	);
 	// Tasks that close on a signal subscribe to it, so a probe on it keeps
 	// running, and end as merged when it fires.
@@ -133,6 +134,9 @@ export async function serveProject(
 		queueRunner = QueueRunner.watch({
 			queued: () => project.tasks.stored(),
 			settle: async () => {
+				// A task whose worktree already finished leaves the board even if its
+				// merge or remove process was interrupted before board cleanup ran.
+				await settleTaken(project.tasks, service);
 				// A blocker in another project that merged there lets its task go on.
 				if (context.boards !== undefined) {
 					await new ElsewhereLinks(project.tasks).settle(context.boards);
@@ -284,6 +288,7 @@ export async function serveProject(
 		launcher: context.shipLauncher ?? launcherOf(launchHere),
 		kept: storage.document<KeptRun[]>("rig-runs.json"),
 		slots: context.rigSlots,
+		onSlotClaimed: context.onRigSlotClaimed,
 		ps: project.ps,
 		base: context.portsBase ?? null,
 		get serverUrl() {

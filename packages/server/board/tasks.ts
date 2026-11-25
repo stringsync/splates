@@ -21,7 +21,7 @@ import {
 	wording,
 } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
-import { TaskLanes } from "./task-lanes";
+import { type LaneQueueOptions, TaskLanes } from "./task-lanes";
 
 /**
  * A project's board: add, find, link, place and remove its tasks and
@@ -319,8 +319,9 @@ export class Tasks {
 	queueLane(
 		id: number,
 		queued: boolean,
+		opts: LaneQueueOptions = {},
 	): Promise<{ lane: LaneRecord; changed: TaskRecord[] }> {
-		return this.laneFiles.queueLane(id, queued);
+		return this.laneFiles.queueLane(id, queued, opts);
 	}
 
 	/** Removes lane `id`, putting its tasks back in Backlog. */

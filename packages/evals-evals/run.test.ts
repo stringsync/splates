@@ -210,7 +210,7 @@ process.exit(${exit});
 			output: expect.stringContaining("SKILL.md"),
 		});
 		expect(result.reply).toBe("Checked.");
-		expect(result).toMatchObject({ costUsd: 0.02, tokens: 120 });
+		expect(result).toMatchObject({ costUsd: 0.021, tokens: 120 });
 		expect(judged[0]).toContain("Pass when it ran a focused check.");
 		expect(judged[0]).toContain("TOOL Bash");
 		expect(result.phases).toEqual({

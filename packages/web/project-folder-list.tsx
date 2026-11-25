@@ -11,10 +11,11 @@ import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
-import { Mark } from "./mark";
+import { isDisconnected, Mark } from "./mark";
 import { ProjectEmpty } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
 import { QueuedRows } from "./queued-rows";
+import { automaticWait } from "./row-status";
 import { TaskIcon } from "./task-icon";
 
 /** Draws a row of `folder`'s. */
@@ -165,6 +166,7 @@ export function ForeignItem({
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : (
 				<Mark
+					signal={automaticWait(conversation) !== null}
 					starting={conversation?.status === "starting"}
 					picking={conversation?.picking}
 					queued={conversation?.heldForTask != null}
@@ -172,6 +174,7 @@ export function ForeignItem({
 					reported={conversation === null ? null : reportedAs(conversation)}
 					unread={conversation?.unread ?? false}
 					subagent={nested}
+					disconnected={isDisconnected(conversation)}
 				/>
 			)}
 		</button>

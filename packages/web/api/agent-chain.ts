@@ -1,5 +1,5 @@
 import type { ChainView } from "@splates/server/queue/browser";
-import { ApiError, answered, scoped, sendJson } from "./request";
+import { ApiError, answered, scoped } from "./request";
 
 /** The task chain `conversation` belongs to, or null when no agent-queued task hangs from it. */
 export async function readAgentChain(
@@ -13,12 +13,4 @@ export async function readAgentChain(
 	}
 	const chain = (await response.json()) as ChainView | null;
 	return chain !== null && Array.isArray(chain.nodes) ? chain : null;
-}
-
-/** Stops auto-queue for the chain `conversation` belongs to. */
-export async function stopAgentChain(conversation: string): Promise<void> {
-	await sendJson("/api/queue/agent-budget", "POST", {
-		conversation,
-		stop: true,
-	});
 }

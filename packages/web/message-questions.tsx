@@ -90,6 +90,7 @@ export function MessageQuestions({
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
 				paged={sheeted}
+				stepped
 			/>
 		</Sheeted>
 	);

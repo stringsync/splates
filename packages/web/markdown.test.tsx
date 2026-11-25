@@ -64,6 +64,23 @@ describe("Markdown", () => {
 		expect(
 			[...container.querySelectorAll("td")].map((cell) => cell.textContent),
 		).toEqual(["1", "2"]);
+		expect(
+			new Set(
+				[...container.querySelectorAll("[data-slot]")].map((each) =>
+					each.getAttribute("data-slot"),
+				),
+			),
+		).toEqual(
+			new Set([
+				"table-container",
+				"table",
+				"table-header",
+				"table-body",
+				"table-row",
+				"table-head",
+				"table-cell",
+			]),
+		);
 	});
 
 	it("renders a fenced block as code, verbatim", () => {

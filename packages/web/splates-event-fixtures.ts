@@ -1,15 +1,24 @@
 import type { Named, SplatesEventView } from "./splates-event";
+import type { WaitRequest } from "./wait-request";
 
 /** One thing in the fixture thread: a turn of the person's or the agent's, or splates's. */
 export type FixtureItem =
 	| { kind: "user"; text: string }
 	| { kind: "agent"; text: string }
-	| { kind: "event"; event: SplatesEventView };
+	| { kind: "event"; event: SplatesEventView }
+	| {
+			kind: "wait";
+			directive: string;
+			wait: WaitRequest;
+			at: string;
+			outcome: string | null;
+	  };
 
 /**
  * A thread showing each kind of event, timed from `now`: plain ones, a merge
  * that failed and one that landed, a wait still counting and one that timed
- * out, a requested cred, and a groom's burst of todo updates as one.
+ * out, a requested cred, a groom's burst of todo updates as one, and an
+ * agent's wait on a task, still running, and on an idle machine, ended.
  */
 export function fixtureThread(now: number): FixtureItem[] {
 	const at = (mins: number) => new Date(now + mins * 60_000).toISOString();
@@ -79,6 +88,20 @@ export function fixtureThread(now: number): FixtureItem[] {
 				at: at(-1),
 				deadline: { until: at(9) },
 			},
+		},
+		{
+			kind: "wait",
+			directive: "[SPLATES WAIT task desktop-card-pager]",
+			wait: { type: "task", task: "desktop-card-pager" },
+			at: at(-36),
+			outcome: null,
+		},
+		{
+			kind: "wait",
+			directive: "[SPLATES WAIT machine idle 2m]",
+			wait: { type: "idle", duration: "2m" },
+			at: at(-12),
+			outcome: "The machine has stayed idle for 2m.",
 		},
 		{
 			kind: "event",

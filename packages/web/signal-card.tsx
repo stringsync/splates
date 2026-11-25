@@ -104,41 +104,32 @@ export function SignalBar({
 	return (
 		<section
 			data-card
+			title={wait.description === "" ? undefined : wait.description}
 			className="@container relative flex items-center gap-3 overflow-hidden rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
 		>
-			<Icon className={cn("size-4 shrink-0", tone)} />
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="flex items-center gap-2">
-					<span
-						title={`signal ${wait.name}`}
-						className="flex min-w-0 items-baseline font-mono text-sm"
-					>
-						{namespace !== leaf && (
-							<span className="min-w-0 truncate text-muted-foreground">
-								{namespace}.
-							</span>
-						)}
-						<span className="shrink-0">{leaf}</span>
-					</span>
-					{more > 0 && (
-						<span className="shrink-0 text-muted-foreground text-xs">
-							+{more}
-						</span>
-					)}
-					{waiting && (
-						<span
-							className={cn(
-								"shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-[11px]",
-								broken ? "bg-warning/15 text-warning" : "bg-info/15 text-info",
-							)}
-						>
-							{broken ? "Check failing" : "Waiting"}
-						</span>
-					)}
+			{waiting && !broken ? (
+				<PulsingDot />
+			) : (
+				<Icon className={cn("size-4 shrink-0", tone)} />
+			)}
+			<span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+				<span className="shrink-0">
+					{broken ? "Check failing for" : waiting ? "Waiting for" : "Signal"}
 				</span>
-				{wait.description !== "" && (
-					<span className="truncate text-muted-foreground text-xs">
-						{wait.description}
+				<span
+					title={`signal ${wait.name}`}
+					className="flex min-w-0 items-baseline font-mono text-sm"
+				>
+					{namespace !== leaf && (
+						<span className="min-w-0 truncate text-muted-foreground">
+							{namespace}.
+						</span>
+					)}
+					<span className="shrink-0">{leaf}</span>
+				</span>
+				{more > 0 && (
+					<span className="shrink-0 text-muted-foreground text-xs">
+						+{more}
 					</span>
 				)}
 			</span>
@@ -162,6 +153,16 @@ export function SignalBar({
 				View
 			</a>
 		</section>
+	);
+}
+
+/** The blue dot, pulsing, that leads a bar while its wait runs. */
+export function PulsingDot(): JSX.Element {
+	return (
+		<span
+			aria-hidden
+			className="mx-[3px] size-2.5 shrink-0 animate-pulse rounded-full bg-info ring-4 ring-info/25 motion-reduce:animate-none"
+		/>
 	);
 }
 

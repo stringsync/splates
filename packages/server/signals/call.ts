@@ -29,7 +29,26 @@ export interface SignalFunction {
 }
 
 /** The prefixes only standard signal functions may use. */
-export const RESERVED_PREFIXES = ["clock.", "task.", "machine."] as const;
+export const RESERVED_PREFIXES = [
+	"clock.",
+	"task.",
+	"machine.",
+	"quota.",
+] as const;
+
+const QUOTA: Record<string, SignalFunctionField> = {
+	agent: {
+		type: "string",
+		description:
+			"the agent whose plan it is, as claude or codex; any agent without",
+		optional: true,
+	},
+	window: {
+		type: "string",
+		description: "only this window, as seven_day; any of the agent's without",
+		optional: true,
+	},
+};
 
 const TASK_EVENT: Record<string, SignalFunctionField> = {
 	task: { type: "number", description: "the task's number" },
@@ -102,6 +121,25 @@ export const STANDARD_SIGNAL_FUNCTIONS: Record<string, SignalFunction> = {
 		args: { for: { type: "string", description: "how long, as 10m" } },
 		main: "for",
 		examples: ['machine.idle("10m")'],
+	},
+	"quota.low": {
+		description: "An agent's plan window is 90% used, once per reset",
+		args: QUOTA,
+		main: "agent",
+		examples: ['quota.low("claude")'],
+	},
+	"quota.unused": {
+		description:
+			"An agent's weekly or monthly window is in its last 10% with under half used",
+		args: QUOTA,
+		main: "agent",
+		examples: ["quota.unused", 'quota.unused("claude")'],
+	},
+	"quota.restored": {
+		description: "An agent's plan window has reset",
+		args: QUOTA,
+		main: "agent",
+		examples: ['quota.restored({ agent: "claude", window: "seven_day" })'],
 	},
 };
 

@@ -1,355 +1,254 @@
+import {
+	firstStep,
+	noFailedSplatesCommands,
+	noPolling,
+	noUnrelatedReferences,
+	readReference,
+	reference,
+	untouched,
+	withinToolCalls,
+} from "./checks";
 import { splatesSandbox } from "./sandbox";
-import type { Scenario } from "./scenario";
+import { describe, it, type Scenario } from "./scenario";
 
-const aspect = "signals";
+const aspect = "splates/signals";
 
-/** Whether `command` polls: a loop, a sleep or a watch around a check. */
-function polls(command: string): boolean {
-	return /\b(while|until|sleep|watch)\b/.test(command);
-}
+/** The references the core loop may read in any task. */
+const CORE = ["proposing.md", "questions.md", "waiting.md"];
 
-/** The signal commands the agent ran, as `[verb, name]`. */
-function signalCommands(commands: string[], verb: string): string[] {
-	return commands.flatMap((command) => {
-		const match = command.match(
-			new RegExp(`splates signal ${verb}\\s+([\\w./-]+)`),
-		);
-		return match?.[1] === undefined ? [] : [match[1]];
-	});
-}
+const SEED = '{\n\t"name": "app",\n\t"type": "module"\n}\n';
 
-const uninitialized: Scenario[] = [
-	{
-		id: "signals/wait-on-deploy",
-		aspect,
-		requirement:
-			"For a fact outside its own process (a deploy, a site), fire or wait on a named signal with --timeout and --description, then end the turn; never poll in a background loop.",
-		async seed(repo) {
-			await repo.write(
-				"package.json",
-				'{"name":"eval-docs","private":true,"type":"module","scripts":{"deploy":"echo deploy started","smoke":"echo smoke ok"}}\n',
-			);
-		},
-		message:
-			"Kick off the staging deploy for the docs site, then once https://docs-staging.example.com is serving the new build, run the smoke test script `bun run smoke`.",
-		checks: [
-			{
-				id: "waited",
-				about: "ran `splates signal wait` with --timeout and --description",
-				test: ({ commands }) =>
-					commands.some(
-						(command) =>
-							/splates signal wait\b/.test(command) &&
-							command.includes("--timeout") &&
-							command.includes("--description"),
-					),
-			},
-			{
-				id: "no-polling",
-				about: "polled with no loop, sleep or watch around curl",
-				test: ({ commands }) =>
-					!commands.some(
-						(command) => /curl|wget/.test(command) && polls(command),
-					) && !commands.some((command) => /^\s*(sleep|watch)\b/.test(command)),
-			},
-			{
-				id: "smoke-waits",
-				about: "did not run the smoke test before waking",
-				test: ({ commands }) =>
-					!commands.some((command) => /\bsmoke\b/.test(command)),
-			},
-		],
-		judgeWith: "claude:sonnet",
-		judge:
-			"Did the agent end its turn after starting the wait, without claiming the site was up or the smoke test passed? Answer yes or no.",
-		limits: { turns: 25, minutes: 10 },
-	},
-	{
-		id: "signals/probe-for-check-only-fact",
-		aspect,
-		requirement:
-			"When only a check can see the fact, attach `splates signal poll <name> --interval --timeout --description -- <script>`, then wait on the same name.",
-		async seed(repo) {
-			await repo.write(
-				"package.json",
-				'{"name":"eval-stack","private":true,"type":"module","scripts":{"post-deploy":"echo post-deploy ok"}}\n',
-			);
-			await repo.write(
-				"scripts/stack-status.sh",
-				"#!/bin/sh\n# Exits 0 and prints READY once the stack has been created.\n[ -f .stack-ready ] && echo READY\n",
-			);
-		},
-		message:
-			"Our CDK stack is still creating. When `scripts/stack-status.sh` prints READY, continue and run `bun run post-deploy`.",
-		checks: [
-			{
-				id: "probed",
-				about: "ran `splates signal poll` with the script after `--`",
-				test: ({ commands }) =>
-					commands.some(
-						(command) =>
-							/splates signal (poll|probe)\b/.test(command) &&
-							/ -- .*stack-status\.sh/.test(command) &&
-							command.includes("--every") &&
-							command.includes("--timeout") &&
-							command.includes("--description"),
-					),
-			},
-			{
-				id: "same-name",
-				about: "waited on the signal name it probed",
-				test: ({ commands }) => {
-					const probed = signalCommands(commands, "probe");
-					const waited = signalCommands(commands, "wait");
-					return waited.some((name) => probed.includes(name));
+export const scenarios: Scenario[] = describe("splates skill", [
+	describe("signals", [
+		it("tidies stale signals with splates signal cleanup", {
+			key: `${aspect}/cleanup`,
+			initialized: true,
+			detail:
+				"Asked to clear dead signals off the Signals page, the agent reads `signals.md` and runs `splates signal cleanup`, reporting what was hidden. It writes no polling loop, schedules no cleanup agent and edits no signals file by hand.",
+			message: "The Signals page is full of dead signals, clear them.",
+			environment: "An initialized splates repo, all committed.",
+			example: [
+				{
+					kind: "tool",
+					name: "Read",
+					input: ".agents/skills/splates/references/signals.md",
+					does: "Reads the cleanup section of `signals.md`.",
 				},
-			},
-			{
-				id: "no-polling",
-				about: "never looped over the status script itself",
-				test: ({ commands }) =>
-					!commands.some(
-						(command) =>
-							!/splates signal/.test(command) &&
-							/stack-status/.test(command) &&
-							polls(command),
-					),
-			},
-			{
-				id: "post-deploy-waits",
-				about: "did not run post-deploy before waking",
-				test: ({ commands }) =>
-					!commands.some((command) => /post-deploy/.test(command)),
-			},
-		],
-		limits: { turns: 25, minutes: 10 },
-	},
-	{
-		id: "signals/own-command-stays-background",
-		aspect,
-		requirement:
-			"A signal is for outside conditions only: the agent's own long command (a build) is run directly, with no signal.",
-		async seed(repo) {
-			await repo.write(
-				"package.json",
-				'{"name":"eval-build","private":true,"type":"module","scripts":{"build":"sleep 3 && echo build ok"}}\n',
-			);
-		},
-		message: "Run the full build and then tell me whether it passed.",
-		checks: [
-			{
-				id: "built",
-				about: "ran the build itself",
-				test: ({ commands }) =>
-					commands.some((command) => /\b(bun|npm) run build\b/.test(command)),
-			},
-			{
-				id: "no-signal",
-				about: "ran no `splates signal` command",
-				test: ({ commands }) =>
-					!commands.some((command) => /splates signal\b/.test(command)),
-			},
-		],
-		limits: { turns: 15, minutes: 8 },
-	},
-	{
-		id: "signals/wait-on-npm-release",
-		aspect,
-		requirement:
-			"For a fact outside its own process (a library reaching npm), wait on a named signal with --timeout and --description; never poll the registry.",
-		async seed(repo) {
-			await repo.write(
-				"package.json",
-				'{"name":"eval-vexml","private":true,"type":"module","dependencies":{"mdom":"2.3.0"}}\n',
-			);
-		},
-		message:
-			"vexml needs the new mdom that's publishing right now. Bump vexml's mdom dependency to 2.4.0 as soon as it's on npm.",
-		checks: [
-			{
-				id: "waited",
-				about:
-					"ran `splates signal wait` on an mdom signal with --timeout and --description",
-				test: ({ commands }) =>
-					commands.some(
-						(command) =>
-							/splates signal wait\s+\S*mdom/.test(command) &&
-							command.includes("--timeout") &&
-							command.includes("--description"),
-					),
-			},
-			{
-				id: "no-polling",
-				about: "polled with no loop, sleep or watch around npm view or curl",
-				test: ({ commands }) =>
-					!commands.some(
-						(command) =>
-							/npm (view|info|show)|curl|wget/.test(command) && polls(command),
-					) && !commands.some((command) => /^\s*(sleep|watch)\b/.test(command)),
-			},
-			{
-				id: "bump-waits",
-				about: "did not set mdom to 2.4.0 before waking",
-				test: async ({ repo }) =>
-					!(await repo.run(["cat", "package.json"])).includes("2.4.0"),
-			},
-		],
-		limits: { turns: 25, minutes: 10 },
-	},
-	{
-		id: "signals/clock-for-later",
-		aspect,
-		requirement:
-			"Work for later waits on a clock call (`clock.in`, `clock.at`) with --timeout and --description, not on sleep, at or cron.",
-		async seed(repo) {
-			await repo.write(
-				"export.ts",
-				'export const legacy = process.env.FLAGS?.includes("legacy-export") ?? false;\n',
-			);
-		},
-		message:
-			"Remind me in 2 days to delete the `legacy-export` flag, and check then whether anything still reads it.",
-		checks: [
-			{
-				id: "clock",
-				about:
-					"ran `splates signal wait` on clock.in or clock.at with --timeout and --description",
-				test: ({ commands, transcript }) => {
-					const waited = commands.some(
-						(command) =>
-							/splates signal wait\s+['"]?clock\.(in|at)\(/.test(command) &&
-							command.includes("--timeout") &&
-							command.includes("--description"),
-					);
-					if (waited) {
-						return true;
-					}
-					const index = transcript.findIndex(
-						(step) =>
-							step.kind === "tool" && /(?:^|__)CronCreate$/i.test(step.name),
-					);
-					return index === -1
-						? false
-						: {
-								pass: false,
-								step: {
-									index,
-									observed:
-										"The agent called CronCreate. A session cron ends with the session.",
-								},
-							};
+				{
+					kind: "tool",
+					name: "Bash",
+					input: "splates signal cleanup",
+					does: "Runs the server's idle-signal sweep now.",
 				},
+				{
+					kind: "text",
+					text: "Ran the cleanup: signals nothing has listened to for a day are hidden from the Signals page, and any can be revived for 30 days.",
+				},
+			],
+			seed: async (repo) => {
+				await repo.write("package.json", SEED);
 			},
+			expect: [
+				{
+					id: "ran-cleanup",
+					about: "Ran `splates signal cleanup`.",
+					test: ({ commands }) => commands.some(isCleanup),
+				},
+				{
+					id: "no-diy-cleanup",
+					about:
+						"Wrote no polling loop, scheduled no cleanup agent and edited no signals file by hand.",
+					test: ({ commands }) => !commands.some(diyCleanup),
+				},
+				noUnrelatedReferences([...CORE, "signals.md"]),
+				withinToolCalls(10),
+			],
+			limits: { turns: 12, minutes: 4 },
+		}),
+		it("brings a hidden signal back with splates signal revive", {
+			key: `${aspect}/revive`,
+			initialized: true,
+			detail:
+				"Asked to bring back a signal that disappeared from the Signals page, the agent reads `signals.md` and runs `splates signal revive vexml.behind-bars-pdf`, rather than re-creating the signal, editing a signals file by hand or polling.",
+			message: "#vexml.behind-bars-pdf disappeared, bring it back.",
+			environment: "An initialized splates repo, all committed.",
+			example: [
+				{
+					kind: "tool",
+					name: "Read",
+					input: ".agents/skills/splates/references/signals.md",
+					does: "Reads `signals.md` on seeing the `#vexml.behind-bars-pdf` reference.",
+				},
+				{
+					kind: "tool",
+					name: "Bash",
+					input: "splates signal revive vexml.behind-bars-pdf",
+					does: "Revives the hidden signal.",
+				},
+				{
+					kind: "text",
+					text: "Revived `#vexml.behind-bars-pdf`; it is back on the Signals page.",
+				},
+			],
+			seed: async (repo) => {
+				await repo.write("package.json", SEED);
+			},
+			expect: [
+				{
+					id: "ran-revive",
+					about: "Ran `splates signal revive vexml.behind-bars-pdf`.",
+					test: ({ commands }) =>
+						commands.some((cmd) =>
+							/\bsplates["']?\s+signal\s+revive\s+["']?vexml\.behind-bars-pdf\b/.test(
+								cmd,
+							),
+						),
+				},
+				{
+					id: "no-diy-revive",
+					about:
+						"Wrote no polling loop, scheduled no agent and edited no signals file by hand.",
+					test: ({ commands }) => !commands.some(diyCleanup),
+				},
+				noUnrelatedReferences([...CORE, "signals.md"]),
+				withinToolCalls(10),
+			],
+			limits: { turns: 12, minutes: 4 },
+		}),
+		it("waits on a referenced signal instead of acting early", {
+			key: "splates/context-budget/signal-ref",
+			initialized: true,
+			detail:
+				"A `#<project>.<name>` reference sends the agent to `signals.md` before any other reference, and it waits on that exact signal with `splates signal wait` instead of acting or polling.",
+			message: "Once #app.deploy-done fires, bump the version in package.json.",
+			environment:
+				"An initialized splates repo, all committed, with `package.json` at version `1.0.0`.",
+			example: [
+				{
+					kind: "tool",
+					name: "Read",
+					input: ".agents/skills/splates/references/signals.md",
+					does: "Reads `signals.md` first on seeing `#app.deploy-done`.",
+				},
+				{
+					kind: "tool",
+					name: "Bash",
+					input: "splates signal wait app.deploy-done",
+					does: "Waits on `app.deploy-done` instead of polling or editing `package.json` early.",
+				},
+				{
+					kind: "text",
+					text: "Waiting on `#app.deploy-done` before bumping the version in `package.json`.",
+				},
+			],
+			seed: async (repo) => {
+				await repo.write(
+					"package.json",
+					'{\n\t"name": "app",\n\t"version": "1.0.0",\n\t"type": "module"\n}\n',
+				);
+			},
+			expect: [
+				{
+					id: "signals-first",
+					about: "Read signals.md before any other reference file.",
+					test: ({ transcript }) => {
+						const signals = firstStep(transcript, reference("signals.md"));
+						const other = firstStep(
+							transcript,
+							(text) =>
+								/references\/[a-z0-9-]+\.md/.test(text) &&
+								!text.includes("references/signals.md"),
+						);
+						return signals >= 0 && (other === -1 || signals < other);
+					},
+				},
+				{
+					id: "waited-on-signal",
+					about: "Ran `splates signal wait app.deploy-done`.",
+					test: ({ commands }) =>
+						commands.some((cmd) =>
+							/\bsplates["']?\s+signal\s+wait\s+["']?app\.deploy-done\b/.test(
+								cmd,
+							),
+						),
+				},
+				untouched("package.json"),
+				noPolling(),
+				noFailedSplatesCommands(),
+				noUnrelatedReferences([...CORE, "signals.md"]),
+			],
+			limits: { turns: 16, minutes: 5 },
+		}),
+		it(
+			"waits on the quota signal for an agent instead of writing a poll script",
 			{
-				id: "no-timer",
-				about: "ran no sleep, at or cron",
-				test: ({ commands }) =>
-					!commands.some((command) =>
-						/(^|[;&|]\s*)(sleep|at|crontab)\b/.test(command),
-					),
+				key: "splates/context-budget/signal-quota",
+				initialized: true,
+				detail:
+					'When the user wants to act once an agent\'s quota is low or has reset, read `signals.md` and wait on `quota.low("claude")` or `quota.restored("claude")` with `splates signal wait`, naming the agent, never a script that polls usage.',
+				message:
+					"Once my claude quota resets, bump the version in package.json to 1.1.0.",
+				environment:
+					"An initialized splates repo, all committed, with `package.json` at version `1.0.0`.",
+				example: [
+					{
+						kind: "tool",
+						name: "Read",
+						input: ".agents/skills/splates/references/signals.md",
+						does: "Reads `signals.md` to find the quota signals.",
+					},
+					{
+						kind: "tool",
+						name: "Bash",
+						input:
+							'splates signal wait \'quota.restored("claude")\' --timeout 7d --description "Claude\'s plan quota has reset, so the version bump can go ahead."',
+						does: "Waits on `quota.restored` for `claude` instead of polling usage.",
+					},
+					{
+						kind: "text",
+						text: "Waiting for your claude quota to reset before bumping `package.json` to 1.1.0.",
+					},
+				],
+				seed: async (repo) => {
+					await repo.write(
+						"package.json",
+						'{\n\t"name": "app",\n\t"version": "1.0.0",\n\t"type": "module"\n}\n',
+					);
+				},
+				expect: [
+					readReference("signals.md"),
+					{
+						id: "waited-on-quota-restored",
+						about:
+							"Ran `splates signal wait` on `quota.restored` naming `claude`.",
+						test: ({ commands }) =>
+							commands.some((cmd) =>
+								/\bsplates["']?\s+signal\s+wait\s+["']?quota\.restored\(\s*\\?["']?claude\b/.test(
+									cmd,
+								),
+							),
+					},
+					untouched("package.json"),
+					noPolling(),
+					noFailedSplatesCommands(),
+					noUnrelatedReferences([...CORE, "signals.md"]),
+				],
+				limits: { turns: 16, minutes: 5 },
 			},
-			{
-				id: "flag-kept",
-				about: "left the flag in place for now",
-				test: async ({ repo }) =>
-					(await repo.run(["cat", "export.ts"])).includes("legacy-export"),
-			},
-		],
-		limits: { turns: 20, minutes: 8 },
-	},
-	{
-		id: "signals/already-happened-since",
-		aspect,
-		requirement:
-			"When the fact may have been fired before the wait began, the wait adds --since reaching back past when it started.",
-		async seed(repo) {
-			await repo.write(
-				"package.json",
-				'{"name":"eval-docs","private":true,"type":"module","scripts":{"smoke":"echo smoke ok"}}\n',
-			);
-		},
-		message:
-			"I pushed the docs deploy about an hour ago. When it's live, run `bun run smoke`.",
-		checks: [
-			{
-				id: "since",
-				about: "ran `splates signal wait` with --since of at least an hour",
-				test: ({ commands }) =>
-					commands.some((command) => {
-						if (!/splates signal wait\b/.test(command)) {
-							return false;
-						}
-						const since = command.match(
-							/--since[= ]['"]?(\S+?)['"]?(\s|$)/,
-						)?.[1];
-						if (since === undefined) {
-							return false;
-						}
-						const duration = since.match(/^(\d+)(m|h|d)$/);
-						if (duration === null) {
-							return !Number.isNaN(Date.parse(since));
-						}
-						const minutes =
-							Number(duration[1]) *
-							{ m: 1, h: 60, d: 1440 }[duration[2] as "m" | "h" | "d"];
-						return minutes >= 60;
-					}),
-			},
-			{
-				id: "no-polling",
-				about: "polled with no loop, sleep or watch",
-				test: ({ commands }) =>
-					!commands.some(
-						(command) => /curl|wget/.test(command) && polls(command),
-					) && !commands.some((command) => /^\s*(sleep|watch)\b/.test(command)),
-			},
-			{
-				id: "smoke-waits",
-				about: "did not run the smoke test before waking",
-				test: ({ commands }) =>
-					!commands.some((command) => /\bsmoke\b/.test(command)),
-			},
-		],
-		limits: { turns: 25, minutes: 10 },
-	},
-	{
-		id: "signals/user-says-it-happened",
-		aspect,
-		requirement:
-			"When the user says an outside fact happened, fire its signal with the payload so waiting conversations wake, with no approval.",
-		message:
-			"FYI, mdom 2.4.0 just landed on npm. Another agent is waiting on it.",
-		checks: [
-			{
-				id: "fired",
-				about:
-					"ran `splates signal fire` on an mdom signal with --data holding 2.4.0",
-				test: ({ commands }) =>
-					commands.some(
-						(command) =>
-							/splates signal fire\s+\S*mdom/.test(command) &&
-							command.includes("--data") &&
-							command.includes("2.4.0"),
-					),
-			},
-			{
-				id: "no-wait",
-				about: "ran no `splates signal wait`",
-				test: ({ commands }) =>
-					!commands.some((command) => /splates signal wait\b/.test(command)),
-			},
-		],
-		judgeWith: "claude:sonnet",
-		judge:
-			"Did the reply say the signal was fired, without asking the user for permission first? Answer yes or no.",
-		limits: { turns: 15, minutes: 8 },
-	},
-];
-
-/** Each starts in an initialized project, so `splates add` works as the skill says. */
-export const scenarios: Scenario[] = uninitialized.map((scenario) => ({
-	...scenario,
-	initialized: true,
-}));
+		),
+	]),
+]);
 
 export const sandbox = splatesSandbox(scenarios);
+
+const isCleanup = (cmd: string) =>
+	/\bsplates["']?\s+signal\s+cleanup\b/.test(cmd);
+
+/** A shell command that polls, schedules a cleanup, or edits signals.json itself. */
+function diyCleanup(cmd: string): boolean {
+	return (
+		/\b(?:sleep|watch)\b|\b(?:while|until)\b/.test(cmd) ||
+		/\b(?:cron|crontab|launchctl|schedule)\b/.test(cmd) ||
+		/signals?\.json/.test(cmd)
+	);
+}

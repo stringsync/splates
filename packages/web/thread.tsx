@@ -20,6 +20,7 @@ import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import { useAged } from "./aged";
 import { FailedUI } from "./agent-failed";
 import { AgentQueuedUI } from "./agent-queued-card";
+import { AgentWaitBar } from "./agent-wait-bar";
 import {
 	ArchiveBar,
 	ArchiveConversation,
@@ -35,7 +36,7 @@ import { AskPanel } from "./ask-panel";
 import { BackgroundCard, BackgroundUI } from "./background";
 import { BlockedPanel } from "./blocked-panel";
 import { ReplyContext } from "./card-reply";
-import { ChainBar, ChainCard } from "./chain-card";
+import { ChainBanner } from "./chain-card";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -51,6 +52,7 @@ import { useNameOf } from "./conversation-names";
 import { DemoUI } from "./demo-cards";
 import { HiddenTalkTask } from "./directives";
 import type { Drafts } from "./drafts";
+import { EvalBudgetBanner } from "./eval-budget-banner";
 import { EvalsConversation } from "./evals-card";
 import { EventUI } from "./event-lines";
 import { useTouch } from "./hooks/use-touch";
@@ -64,11 +66,11 @@ import { PermissionUI } from "./permission-card";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { EdgeSwipe } from "./phone-swipe";
 import { ProbeCards, ProbeUI } from "./probe-card";
-import { useArchiveAfterPutBack, usePutBack } from "./put-back";
 import { QueueSummaryFor } from "./queue-summary-card";
 import { heldEdits, queueKeyDown, useQueueEdits } from "./queued";
 import { useQueuedTaskInThread } from "./queued-task";
 import { QuotaCard } from "./quota-card";
+import { QuotaHandoffBar } from "./quota-handoff-bar";
 import { useReferences } from "./references";
 import { ReferencesCard } from "./references-card";
 import { Refusal } from "./refusal";
@@ -91,7 +93,6 @@ import { WaitBar, WaitSight } from "./wait-bar";
 import {
 	CompactionUI,
 	InterruptedUI,
-	RestedUI,
 	StoppedUI,
 	TreesContext,
 	WorkUI,
@@ -240,13 +241,11 @@ function Conversation({
 		busy: queueBusy,
 	} = useQueueEdits(id, runtime, section, refused);
 	const touch = useTouch();
-	const { putBack, awaiting } = usePutBack(conversation, refused);
 	const { actions, archive } = useThreadActions(
 		conversation,
 		task,
 		refused,
 		onLeft,
-		putBack,
 	);
 	const [details, setDetails] = useState(false);
 	const where = useWhereAction({
@@ -290,7 +289,6 @@ function Conversation({
 		last?.ending === "deferred" ? null : last,
 		fileAway,
 	);
-	useArchiveAfterPutBack(awaiting, last, fileAway);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	const queuedTask = useQueuedTaskInThread(conversation, refused);
@@ -388,7 +386,6 @@ function Conversation({
 													<BackgroundUI />
 													<SignalUI />
 													<ProbeUI />
-													<RestedUI />
 													<InterruptedUI />
 													<FailedUI />
 													<EvalsConversation value={id}>
@@ -426,7 +423,20 @@ function Conversation({
 																							? undefined
 																							: null
 																					}
-																					before={queuedTask.before}
+																					before={
+																						<>
+																							{summary !== true && (
+																								<ChainBanner
+																									conversation={id}
+																									onOpen={onOpen}
+																								/>
+																							)}
+																							<EvalBudgetBanner
+																								conversation={id}
+																							/>
+																							{queuedTask.before}
+																						</>
+																					}
 																					controls={
 																						<ThreadControls
 																							conversation={conversation}
@@ -443,12 +453,7 @@ function Conversation({
 																							{queuedTask.signal}
 																							<NeedsYouBar />
 																							<WaitBar />
-																							{onBack !== null && (
-																								<ChainBar
-																									conversation={id}
-																									onOpen={onOpen}
-																								/>
-																							)}
+																							<AgentWaitBar />
 																							<Refusal
 																								refusal={refusal}
 																								className="px-2"
@@ -456,6 +461,12 @@ function Conversation({
 																							{offer !== null && barred && (
 																								<ArchiveBar offer={offer} />
 																							)}
+																							<QuotaHandoffBar
+																								conversation={conversation}
+																								agent={agent}
+																								feed={feed}
+																								refused={refused}
+																							/>
 																							<PendingRow
 																								messages={agedSending}
 																								held={queued}
@@ -499,11 +510,6 @@ function Conversation({
 							onClose={widgets.close}
 							actions={where === null ? actions : [where, ...actions]}
 						>
-							<ChainCard
-								conversation={id}
-								open={widgets.open}
-								onOpen={onOpen}
-							/>
 							<QuotaCard
 								conversation={conversation}
 								agent={agent}

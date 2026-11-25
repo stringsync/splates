@@ -26,13 +26,13 @@ export function AgentQueuedCard({ queued }: { queued: Queued }): JSX.Element {
 	const holds = useQuotaReserve();
 	const count = queued.tasks.length;
 	return (
-		<div className="@container rounded-xl border bg-card text-sm">
-			<div className="flex flex-col @md:flex-row">
-				<div className="flex shrink-0 items-center gap-2 rule-b [--rule-inset:0.75rem] px-3 py-2 font-medium text-muted-foreground @md:my-2 @md:border-r @md:border-b-0 @md:bg-none @md:py-0">
+		<div className="@container my-3 rounded-xl border bg-card text-sm">
+			<div className="flex flex-col">
+				<div className="flex shrink-0 items-center gap-2 rule-b [--rule-inset:0.75rem] px-3 py-2 font-medium text-muted-foreground">
 					<BotIcon aria-hidden className="size-4 text-primary" />
 					{count} {count === 1 ? "task" : "tasks"} queued
 				</div>
-				<ul className="min-w-0 flex-1 rule-y [--rule-inset:0.75rem]">
+				<ul className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] rule-y [--rule-inset:0.75rem]">
 					{queued.tasks.map((task) => {
 						const todo = board.todos.find((each) => each.id === task.id);
 						const saved =
@@ -52,42 +52,44 @@ export function AgentQueuedCard({ queued }: { queued: Queued }): JSX.Element {
 						return (
 							<li
 								key={task.id}
-								className="flex min-h-11 items-center justify-between gap-2 px-3 py-1.5"
+								className="col-span-3 grid min-h-11 grid-cols-subgrid items-center gap-x-3 px-3 py-1.5"
 							>
-								<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-									<span className="min-w-0 wrap-anywhere">
-										<span className="text-muted-foreground">#{task.id}</span>{" "}
-										{task.subject}
-									</span>
+								<span className="min-w-0 wrap-anywhere">
+									<span className="text-muted-foreground">#{task.id}</span>{" "}
+									{task.subject}
+								</span>
+								<span>
 									{status !== null && (
 										<Badge variant="secondary">{status}</Badge>
 									)}
-								</div>
-								{(todo !== undefined || saved !== undefined) && (
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => {
-											const name = todo?.takenBy ?? saved?.task ?? null;
-											if (
-												board.openQueuedConversation?.(
-													task.id,
-													name,
-													saved?.conversation ?? null,
-												)
-											) {
-												return;
-											}
-											if (name === null) {
-												board.open(task.id);
-											} else {
-												board.openTask(name);
-											}
-										}}
-									>
-										View
-									</Button>
-								)}
+								</span>
+								<span className="justify-self-end">
+									{(todo !== undefined || saved !== undefined) && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => {
+												const name = todo?.takenBy ?? saved?.task ?? null;
+												if (
+													board.openQueuedConversation?.(
+														task.id,
+														name,
+														saved?.conversation ?? null,
+													)
+												) {
+													return;
+												}
+												if (name === null) {
+													board.open(task.id);
+												} else {
+													board.openTask(name);
+												}
+											}}
+										>
+											View
+										</Button>
+									)}
+								</span>
 							</li>
 						);
 					})}
@@ -97,9 +99,9 @@ export function AgentQueuedCard({ queued }: { queued: Queued }): JSX.Element {
 	);
 }
 
-function queuedStatus(todo: TaskRecord): string {
+function queuedStatus(todo: TaskRecord): string | null {
 	if (todo.takenBy !== null) {
-		return "running";
+		return null;
 	}
 	return todo.stage === "queued" ? "queued" : "unqueued";
 }

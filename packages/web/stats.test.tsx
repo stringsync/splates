@@ -37,6 +37,7 @@ describe("StatsPage", () => {
 				{ model: null, ...tally },
 			],
 			devices: [{ device: "phone", ...tally }],
+			boards: [],
 			projects: [{ project: "/repo", ...tally }],
 			since: "2026-09-28T10:00:00.000Z",
 			skill: [],
@@ -88,12 +89,62 @@ describe("StatsPage", () => {
 		]);
 	});
 
+	it("charts tasks by board after time per task, with a legend and each bar's boards", async () => {
+		const stats: Stats = {
+			buckets: [
+				{ start: "2026-10-14T00:00:00.000Z", ...tally, merged: 3 },
+				{ start: "2026-10-14T01:00:00.000Z", ...tally, merged: 0 },
+			],
+			previous: { ...tally, merged: 1 },
+			models: [{ model: "Opus 5.5", ...tally }],
+			devices: [],
+			boards: [
+				{ board: 3, name: "splates", ended: [2, 0] },
+				{ board: "unknown", name: null, ended: [1, 0] },
+			],
+			projects: [],
+			since: "2026-09-28T10:00:00.000Z",
+			skill: [],
+			baselines: [],
+		};
+		const page = render(
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
+		);
+
+		const chart = await waitFor(() =>
+			page.getByRole("figure", {
+				name: "Tasks ended over the period by board",
+			}),
+		);
+		expect(
+			page
+				.getAllByRole("figure")
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual([
+			"Cost per task over the period",
+			"Time per task over the period",
+			"Tasks ended over the period by board",
+		]);
+		expect(
+			Array.from(chart.querySelectorAll("li"), (each) => each.textContent),
+		).toEqual(["splates", "Unknown"]);
+		expect(chart.textContent).toContain("3 tasks in the last day");
+		expect(chart.textContent).toContain("up from 1 the day before");
+		expect(
+			chart.querySelector('[aria-label$=": splates 2, Unknown 1"]'),
+		).not.toBeNull();
+		expect(
+			chart.querySelector('[aria-label$=": no tasks ended"]'),
+		).not.toBeNull();
+	});
+
 	it("says when the selected period has no tasks", async () => {
 		const stats: Stats = {
 			buckets: [],
 			previous: null,
 			models: [],
 			devices: [],
+			boards: [],
 			projects: [],
 			since: "2026-09-28T10:00:00.000Z",
 			skill: [],
@@ -111,6 +162,7 @@ describe("StatsPage", () => {
 			previous: null,
 			models: [],
 			devices: [],
+			boards: [],
 			projects: [],
 
 			since: null,
@@ -131,6 +183,7 @@ describe("StatsPage", () => {
 			previous: null,
 			models: [],
 			devices: [],
+			boards: [],
 			projects: [],
 
 			since: "2026-10-12T10:00:00.000Z",

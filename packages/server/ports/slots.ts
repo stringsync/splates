@@ -34,6 +34,8 @@ export interface SlotsDeps {
 	/** Held while claiming, so two trees starting together get a word each. */
 	lock: Lock;
 	pool?: readonly { word: string; emoji: string }[];
+	/** Animal words currently held elsewhere (such as tunnel-exposed rigs). */
+	reserved?: () => Promise<ReadonlySet<string>>;
 }
 
 /**
@@ -55,12 +57,16 @@ export class Slots {
 	) {}
 
 	/** The machine's slots, read from inside a slot's server too. */
-	static ofMachine({ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger }): Slots {
+	static ofMachine(
+		{ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger },
+		opts: MachineSlotsOptions = {},
+	): Slots {
 		const home = ps.env(MACHINE_HOME) ?? splatesHome(ps);
 		return Slots.in(FsStorage.ofMachine({ fs, ps, log, home }), {
 			home,
 			fs,
 			ps,
+			reserved: opts.reserved,
 		});
 	}
 
@@ -96,13 +102,22 @@ export class Slots {
 		await lock.acquire();
 		try {
 			const claims = await this.read();
+			const reserved = (await this.deps.reserved?.()) ?? new Set<string>();
 			const held = pool.find(({ word }) => claims[word] === tree);
-			if (held !== undefined) {
+			if (held !== undefined && !reserved.has(held.word)) {
 				return held;
+			}
+			const next = { ...claims };
+			if (held !== undefined) {
+				delete next[held.word];
 			}
 			const holders: string[] = [];
 			for (const slot of pool) {
-				const holder = claims[slot.word];
+				if (reserved.has(slot.word)) {
+					holders.push(`  ${slot.word}: held by a rig`);
+					continue;
+				}
+				const holder = next[slot.word];
 				if (holder !== undefined && (await this.owns(holder))) {
 					holders.push(`  ${slot.word}: ${holder}`);
 					continue;
@@ -114,7 +129,7 @@ export class Slots {
 					);
 					continue;
 				}
-				await this.write({ ...claims, [slot.word]: tree });
+				await this.write({ ...next, [slot.word]: tree });
 				return slot;
 			}
 			throw new Error(
@@ -127,6 +142,16 @@ export class Slots {
 		} finally {
 			await lock.release();
 		}
+	}
+
+	/** Words currently held by an owned worktree or a live `--slot` server. */
+	async heldWords(): Promise<Set<string>> {
+		const held = await this.status();
+		return new Set(
+			held
+				.filter((each) => !each.orphaned || each.pid !== null)
+				.map((each) => each.slot.word),
+		);
 	}
 
 	/** The slot's home, its `SPLATES_HOME`: `~/.splates/slots/<word>`. */
@@ -364,4 +389,10 @@ export interface Held {
 	 * Only an orphan's server is any agent's to stop, by `prune`.
 	 */
 	orphaned: boolean;
+}
+
+/** Options for {@link Slots.ofMachine}. */
+export interface MachineSlotsOptions {
+	/** Animal words currently held elsewhere (such as tunnel-exposed rigs). */
+	reserved?: () => Promise<ReadonlySet<string>>;
 }

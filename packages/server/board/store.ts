@@ -209,4 +209,5 @@ const STARTED = {
 	machine: true,
 	stranded: true,
 	rescued: true,
+	autoQueued: true,
 } satisfies Record<keyof Started, true>;

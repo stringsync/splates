@@ -5,7 +5,7 @@ groomed once it sits in a lane: no other task asks it, what blocks it is
 linked, and it is placed. Whoever writes a task grooms it as they add it with
 `splates task add`, which puts it in a lane (Backlog by default), or,
 knowing too little of it, `splates task defer`s it to Backlog, rough. An
-ungroomed Backlog task is groomed later, by the project's groomer or the agent that
+ungroomed Backlog task is groomed later, by an automation the user set up for it or the agent that
 starts it, which `splates task update N --lane <n>` places. Nothing records
 that it was groomed, so a task can stop being groomed whenever the board or
 the code changes; its lane is all there is. Linking and placing are in
@@ -18,13 +18,23 @@ Leave the project's name out of its subject and slug. Write its detail as a goal
 
 Before `splates task add`, check none already asks it (see One that already
 asks it), give it `--blocked-by` for each task whose code it needs or whose
-files it changes, read from `splates task list` and `splates list --files`,
-and `--lane` when it builds on a lane's work (see Lanes in [queue.md](queue.md)). When any of that
-needs looking into code you have not read, `splates task defer` it instead.
+files it changes, read from `splates task list` and `splates list --files`.
+Read `splates board list` and `splates lane list` and choose where the task
+fits (see Lanes and Boards in [queue.md](queue.md)). Pass `--lane <n>` when
+adding it. For a new lane, create it on the fitting board first, or use
+`--lane new` and move the resulting lane there with
+`splates lane update <n> --board <n>`. Use Backlog only when nothing fits.
+When you need more context before you can groom the task, use
+`splates task defer` and let the Backlog groomer pick it up.
+
+For a new task you start with `splates add`, make the same board and lane
+choice. Use the task number shown by `splates show <task>` and place it
+promptly with `splates task update N --lane <n>`. Leave it in Backlog when
+nothing fits.
 
 ## Grooming a task you start
 
-A task in Backlog the groomer has not had its turn on, which `splates task show N` shows as `groomed: no`,
+A task in Backlog that no automation has groomed, which `splates task show N` shows as `groomed: no`,
 is groomed once, by the agent that starts it, before any work on it. One in
 a lane (`groomed: yes`) was groomed when it was written: start work on it.
 
@@ -33,11 +43,14 @@ a lane (`groomed: yes`) was groomed when it was written: start work on it.
    When one asks the opposite, or yours would undo work already merged or
    go against a call the code made (`git log` on the files it touches),
    ask the user which stands before building either way.
-2. **Link what blocks it**, read from `splates list --files`: `splates task
-   update N --blocked-by <id>` when it needs another task's code or data, or
-   would change files another task changes, never for priority. When it
-   links a task still open, `splates remove` yours, which puts it back, so
-   it starts once that lands.
+2. **Link what blocks it**, read from `splates list --files` and
+   `splates task list`: run `splates task update N --blocked-by <id>` when it
+   needs another task's code or data, or would change a file another open or
+   active task already changes (never for priority). Do **not** work alongside
+   that task or edit code: place N with `--lane` and run
+   `splates remove <task> --reason blocked --blocked-by <id> --why "<short reason>"`
+   on the worktree you started, which puts N back on the board untaken so it
+   starts once the blocker lands.
 3. **Ask what the user's answer would change**, in your reply, as
    [questions.md](questions.md) says, each conflict from step 1 among them, and
    each question its detail holds under `#### Questions from grooming` or
@@ -62,24 +75,20 @@ reading it again.
 - **Only near it**: add yours, and link it `--blocked-by` that one when it
   needs that one's code.
 
-## The project's groomer
+## Grooming a task an automation hands you
 
-`[SPLATES GROOM #N]` comes from `splates server`: you are the project's
-groomer, and task N waits in Backlog for you to organize. splates
-claimed it for you, and tells you of the next once your turn ends, one
-directive a turn, in this same conversation. When Backlog holds no more ungroomed tasks,
-splates archives the conversation and stops you; the next run starts a
-conversation of its own, with a fresh context.
+An automation on `task.created` (`[SPLATES EVENT task.created #N]`) can tell you to groom the task just added: task N waits in Backlog for you to organize. Each firing is one conversation about one task.
 
-You organize tasks and never do them. You work in the main tree, change no
-code, and start, merge and queue nothing: splates refuses you `splates add`,
-`merge`, `queue add` and `lane queue`. Each task is a little reading and a
+You organize the task and never do it. You work in the main tree, change no
+code, and start, merge and queue nothing. It is a little reading and a
 few `splates task` commands, then your turn ends.
 
-1. **Look at it.** `splates task show N`. When it is gone, taken, or
-   `groomed: yes`, it is in a lane and someone made its calls first: leave it. Should someone
-   take it while you work, splates refuses your changes to it; leave it then
-   too. When its detail holds `#### Questions from grooming`, a groomer
+1. **Look at it.** `splates task show N`. When it is gone or `groomed: yes`,
+   it is in a lane and someone made its calls first: leave it. When it is
+   taken, an agent is already on it, so change nothing about the task but its
+   place: skip to step 5, place it on the right lane and board as there, and
+   reply as usual. Should splates refuse that, or someone take it while you
+   work, leave it. When its detail holds `#### Questions from grooming`, a groomer
    before you asked them: those the user has answered since, in this
    conversation or in its detail, fold into it and go on; while any is open,
    keep those questions in its detail and place it in a named lane below.
@@ -131,7 +140,7 @@ few `splates task` commands, then your turn ends.
 
 ### Conflicts and open questions
 
-The groomer makes every call a revert would undo itself. It asks the user,
+You make every call a revert would undo itself. It asks the user,
 and records the questions while still placing it in a named lane, when N:
 
 - asks the opposite of another task, open or under way;
@@ -145,7 +154,7 @@ still unclear), and ask the user as numbered questions
 in your reply, as [questions.md](questions.md) says, naming the task or commit
 each conflict is with. You have no `SPLATES.md`, so write the same questions
 into its detail under a `#### Questions from grooming` heading, keeping the
-rest, so they outlive this conversation: a later groomer, or the agent that
+rest, so they outlive this conversation: a later groomer or the agent that
 starts it, finds them there. Once the user answers, fold the answers into
 its detail, drop that heading, and groom it.
 
@@ -169,17 +178,16 @@ Reading the board whole, as step 5 has you, shows what to prune:
    in your reply. When unsure, leave it and ask the user as a numbered
    question, as Conflicts and open questions says.
 
-Change nothing else: no position, and no task taken, which splates refuses
-you. No queue card either: the user queues lanes from the board. Never
-leave a processed task in Backlog: create a named lane when none fits,
-including for tasks awaiting answers. Backlog is only the intake for tasks
-that have not yet been organized.
+Change nothing else (no position, no task taken, no queue card, and never leave
+a processed task in Backlog).
 
 ### Replying
 
-Reply with one line per task on where it went, such as `#12: in lane 3
-Stats, blocked by #9`, `#13: folded into #8`, `#14: split into #15 and
-#16`, `#17: in lane 6 Clarification, with the questions below`, `#18 and #19: into new
-lane 4 Auto pick`, `lane 5 Old tests: removed, empty`, `#20: removed, already merged in a1b2c3d`, then those questions, and nothing
-more, then end your turn. Never wait, sleep or poll for the next task:
-splates tells you.
+Reply with exactly one short line per task on where it went, for example
+`#12: in lane 3 Stats, blocked by #9`, `#13: folded into #8`, `#14: split
+into #15 and #16`, `#17: in lane 6 Clarification, with the questions below`,
+`#18 and #19: into new lane 4 Auto pick`, `lane 5 Old tests: removed, empty`,
+or `#20: removed, already merged in a1b2c3d`, followed only by any numbered
+questions for the user, and nothing else (no extra sentences explaining why
+or repeating notes already saved in the task detail). End your turn; never
+wait, sleep or poll for the next task.

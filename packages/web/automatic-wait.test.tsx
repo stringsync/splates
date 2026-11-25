@@ -5,7 +5,7 @@ import { cleanup, conversation, message, render } from "./testing";
 
 afterEach(cleanup);
 
-it("keeps task waits working until the server replies", () => {
+it("keeps task waits active when idle or idle-stopped until the server replies", () => {
 	const waiting = conversation({
 		messages: [
 			message(
@@ -15,6 +15,13 @@ it("keeps task waits working until the server replies", () => {
 		],
 	});
 	expect(automaticWait(waiting)).toBe("Waiting for dependency");
+	expect(automaticWait({ ...waiting, status: "stopped" })).toBe(
+		"Waiting for dependency",
+	);
+	expect(automaticWait({ ...waiting, status: "failed" })).toBeNull();
+	expect(
+		automaticWait({ ...waiting, status: "stopped", checkpoint: "done" }),
+	).toBeNull();
 	expect(
 		automaticWait({
 			...waiting,
@@ -44,10 +51,14 @@ it("gives questions priority over an automatic wait and completion", () => {
 	expect(view.container.querySelector(".animate-spin")).toBeNull();
 });
 
-it("spins for an automatic continuation even with an unread wait announcement", () => {
-	const view = render(<Mark signal unread need={{ kind: "idle" }} />);
-	expect(view.getByRole("status", { name: "working" })).toBeTruthy();
-	expect(view.container.querySelector(".animate-spin")).not.toBeNull();
+it("shows a gray hourglass for an automatic wait even when unread or disconnected", () => {
+	const view = render(
+		<Mark signal unread disconnected need={{ kind: "idle" }} />,
+	);
+	const mark = view.getByRole("status", { name: "waiting" });
+	expect(mark.querySelector(".lucide-hourglass")).not.toBeNull();
+	expect(mark.querySelector(".lucide-unplug")).toBeNull();
+	expect(view.container.querySelector(".animate-spin")).toBeNull();
 });
 
 it("leaves a background-only idle conversation static", () => {

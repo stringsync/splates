@@ -7,11 +7,21 @@ import type { EvalCheck, EvalCheckStep, EvalStep } from "./contract";
  * concrete, a judge's rubric for behaviour.
  */
 export interface Scenario {
-	/** `aspect/name`, as a run card lists it. */
+	/** `aspect/name`, or a stable hidden key for specs. */
 	id: string;
 	aspect: string;
-	/** What the skill asks of the agent here, in words; the judge reads it. */
+	/** What the skill asks of the agent here, in words; the judge reads it on legacy scenarios. */
 	requirement: string;
+	/** Spec sentence from `it(...)`, when written as a spec. */
+	sentence?: string;
+	/** Enclosing `describe(...)` group path, outermost first, when written as a spec. */
+	groups?: readonly string[];
+	/** Optional detailed context for the judge; falls back to `sentence` plus its checks when absent. */
+	detail?: string;
+	/** One line on the repo and state the scenario starts from, backticks as code. */
+	environment?: string;
+	/** A sketched good reply, shown beside the spec; `does` is plain English, backticks as code. */
+	example?: readonly ExampleStep[];
 	/** Adds what the scenario needs to the minimal repo, before the seed commit. */
 	seed?: (repo: Repo) => Promise<void>;
 	/** Leaves uncommitted work in the repo, after the seed commit. */
@@ -24,8 +34,40 @@ export interface Scenario {
 	/** The judge for this scenario's rubric, as `claude:<model>[@<effort>]`, over the run's. */
 	judgeWith?: string;
 	limits?: Limits;
+	/** Which scenarios run first when a budget cannot run them all; unset is `normal`. */
+	priority?: Priority;
 	/** Off by default. On opencode, a turn that ends without a final answer is resumed, up to `turns` more times. */
 	followUp?: ScenarioFollowUp;
+}
+
+/** How soon a scenario runs when a budget cannot run them all. */
+export type Priority = "high" | "normal" | "low";
+
+/** One step of a sketched good reply: a tool call or a text reply. */
+export type ExampleStep =
+	| { kind: "tool"; name: string; input?: string; does?: string }
+	| { kind: "text"; text: string };
+
+/** What the judge reads as the skill requirement: `detail`, else `sentence` plus its checks, else `requirement`. */
+export function judgeDetailOf(scenario: Scenario): string {
+	if (scenario.detail !== undefined && scenario.detail.trim() !== "") {
+		return scenario.detail;
+	}
+	if (scenario.sentence !== undefined) {
+		const checks = (scenario.checks ?? [])
+			.map((each) => each.about.trim())
+			.filter((each) => each !== "");
+		if (checks.length === 0) {
+			return scenario.sentence;
+		}
+		return `${scenario.sentence}\nChecks:\n${checks.map((each) => `- ${each}`).join("\n")}`;
+	}
+	return scenario.requirement;
+}
+
+/** The human-readable title of a scenario: its spec sentence when present, else its requirement. */
+export function specTitleOf(scenario: Scenario): string {
+	return scenario.sentence ?? scenario.requirement;
 }
 
 export interface ScenarioFollowUp {

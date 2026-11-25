@@ -53,11 +53,17 @@ Prints one JSON object on stdout and exits 0:
   for one port, `["web"]`.
 - `exposure` sets how splates exposes its ports (optional; defaults to
   `"tunnel"`):
-  - `"tunnel"`: exposed through splates's `--ports-host` on a persistent
-    animal slot (`cat`, `bee`, `dog`, …) claimed per rig and tree (including
-    `main`): `https://<animal>.<base>` for the main port and
-    `https://<animal>-<port>.<base>` for extra ports. A rig keeps the same
-    animal across restarts until its tree directory is removed.
+  - `"tunnel"`: exposed on a persistent animal slot (`cat`, `bee`, `dog`, …)
+    claimed per rig and tree (including `main`), behind Cloudflare Access:
+    `https://<animal>.<base>` for the main port and
+    `https://<animal>-<port>.<base>` for extra ports. A machine with
+    `splates tunnel setup` automatically provisions wildcard DNS and Access
+    on its tunnel's zone (`*.<zone>`) so tunnel rigs work without setting
+    `--ports-host`; `--ports-host <base>` overrides the domain and
+    `--ports-host none` turns it off. Animal words are coordinated with
+    `splates server --slot` so rigs and dev slots never collide, and a rig
+    keeps the same animal across restarts until its tree directory is
+    removed.
   - `"none"`: local only; never exposed through splates's ports host.
   - `"self"`: the rig exposes itself and reports its public URL on stdout
     (see below); splates never proxies it through `--ports-host` and shows the

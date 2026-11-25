@@ -287,11 +287,14 @@ export class ConversationRoutes {
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { task, from, base: sent } = await body(request);
-		const [named, cwd, recorded, caller] = await this.treeFor(task);
+		const [named, cwd, recorded, caller, autoQueued] = await this.treeFor(task);
 		const base = typeof sent === "string" ? sent : recorded;
 		const leaving = from === undefined || from === conversation.state.task;
 		if (leaving && !(await this.isPartOf(base, conversation.state.task))) {
 			conversation.move(named, cwd, base, caller);
+			if (named !== null) {
+				conversation.markAutoQueued(autoQueued);
+			}
 		}
 		return Response.json(conversation.state);
 	};

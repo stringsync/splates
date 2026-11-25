@@ -278,25 +278,6 @@ describe("dev conversations", () => {
 		expect(agent.killed).toBe(1);
 	});
 
-	// vet-ignore simple-test-setup: only the server's automations start a persistent agent, never the page, so this one starts it directly.
-	it("archives a persistent agent's conversation like any other", async () => {
-		const groomer = await conversations.start("fake", {
-			task: null,
-			cwd: deps.service.git.root,
-			persistent: "groomer",
-		});
-
-		const archived = await json(
-			port,
-			`/api/conversations/${groomer.id}/archived`,
-			"PUT",
-			{ archived: true },
-		);
-
-		expect(archived.status).toBe(200);
-		expect(groomer.state.archived).toBe(true);
-	});
-
 	// vet-ignore simple-test-setup: only this test's turn runs a tool, which the summary drops
 	it.each([false, true])(
 		"lists a summary with archived=%s, and serves it whole",
@@ -340,21 +321,17 @@ describe("dev conversations", () => {
 		},
 	);
 
-	it("serves a page with its diagram request, and a selection report only when asked with ?select", async () => {
+	it("serves a page with its diagram request", async () => {
 		const { id, conversation } = await opened();
 		await conversation.artifacts.add({
-			name: "plan.html",
+			name: "page.html",
 			mimeType: "text/html",
-			bytes: new TextEncoder().encode("<body><p>plan</p></body>"),
+			bytes: new TextEncoder().encode("<body><p>page</p></body>"),
 		});
-		const base = `/api/conversations/${id}/artifacts/plan.html/1`;
+		const base = `/api/conversations/${id}/artifacts/page.html/1`;
 		const plain = await (await get(port, base)).text();
-		const asked = await (await get(port, `${base}?select`)).text();
 
-		expect(plain).toBe(`<body><p>plan</p>${DIAGRAM_REQUEST}</body>`);
-		expect(asked).toContain("<p>plan</p><script>");
-		expect(asked).toContain('splates:"selection"');
-		expect(asked.endsWith("</body>")).toBe(true);
+		expect(plain).toBe(`<body><p>page</p>${DIAGRAM_REQUEST}</body>`);
 	});
 
 	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {

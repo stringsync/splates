@@ -313,46 +313,6 @@ export class BoardRoutes {
 		return Response.json(task?.state ?? found.state);
 	};
 
-	/**
-	 * Records the person's answer, `{answer}`, to question `{index}` of the
-	 * task's deferral, which adds it to the task's detail.
-	 */
-	readonly answerDeferred = async (request: Request): Promise<Response> => {
-		const { journal, tasks } = this.#project;
-		const found = await this.taskAt(request);
-		const { index, answer } = await body(request);
-		if (
-			typeof index !== "number" ||
-			typeof answer !== "string" ||
-			!answer.trim()
-		) {
-			fail(
-				"usage",
-				"say which question and the answer, as `index` and `answer`",
-			);
-		}
-		const task = await recordUpdate(journal, tasks, found.id, () =>
-			found.answer(index, answer),
-		);
-		this.#watch.tick();
-		return Response.json(task.state);
-	};
-
-	/** Marks what the task's deferral waits on outside splates, `{index}`, as done. */
-	readonly doneOutside = async (request: Request): Promise<Response> => {
-		const { journal, tasks } = this.#project;
-		const found = await this.taskAt(request);
-		const { index } = await body(request);
-		if (typeof index !== "number") {
-			fail("usage", "say which blocker is done, as `index`");
-		}
-		const task = await recordUpdate(journal, tasks, found.id, () =>
-			found.outsideDone(index),
-		);
-		this.#watch.tick();
-		return Response.json(task.state);
-	};
-
 	/** Moves a queued task to `{position}` in the queue, from 1 for the next to start. */
 	readonly moveInQueue = async (request: Request): Promise<Response> => {
 		const found = await this.taskAt(request);

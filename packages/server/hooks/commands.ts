@@ -1,8 +1,7 @@
 import { color, type Logger } from "core/log";
 import { fail } from "../exit";
-import { type AgentPick, pickLabel } from "../models";
+import { pickLabel } from "../models";
 import { changed, type HookChange } from "./edit";
-import { GROOMER_AUTOMATION } from "./groomer";
 import type { Automation, Hook, HookStore, Trigger } from "./store";
 
 /** What the hook commands work with. */
@@ -46,13 +45,9 @@ export async function hookEdit(
 ): Promise<void> {
 	const was = (await hooks.read()).find((each) => each.id === id);
 	if (was === undefined || was.source !== undefined) {
-		fail(
-			"usage",
-			id === GROOMER_AUTOMATION
-				? "the groomer changes through `splates hook groomer --agent`"
-				: `no automation ${id}: \`splates hook list\` numbers yours`,
-			{ id },
-		);
+		fail("usage", `no automation ${id}: \`splates hook list\` numbers yours`, {
+			id,
+		});
 	}
 	const { trigger, hook } = changed(was, change);
 	const edited = await hooks.edit(id, trigger, hook);
@@ -71,19 +66,6 @@ export async function hookRemove(
 			: gone
 					.map((each) => `${color.green("unhooked")} ${described(each)}`)
 					.join("\n"),
-	);
-}
-
-/** Turns the groomer on as `pick`, or off for null, then says so. */
-export async function hookGroomer(
-	{ hooks, log }: HookDeps,
-	pick: AgentPick | null,
-): Promise<void> {
-	const set = await hooks.groomer(pick);
-	log.info(
-		set === null
-			? `${color.green("groomer off")}: \`splates server\` retires its conversation`
-			: `${color.green("groomer on")} ${described(set)}`,
 	);
 }
 
@@ -143,11 +125,14 @@ export function triggerLabel(trigger: Trigger): string {
 /** `hook` in a few words. */
 export function hookLabel(hook: Hook): string {
 	switch (hook.kind) {
-		case "agent":
-			return `tell ${hook.agent === undefined ? "Auto pick" : pickLabel({ ...hook, agent: hook.agent })}: ${hook.prompt}`;
+		case "agent": {
+			const budget =
+				hook.evalBudget === undefined
+					? ""
+					: ` (eval budget $${Number.isInteger(hook.evalBudget) ? hook.evalBudget : hook.evalBudget.toFixed(2)})`;
+			return `tell ${hook.agent === undefined ? "Auto pick" : pickLabel({ ...hook, agent: hook.agent })}${budget}: ${hook.prompt}`;
+		}
 		case "run":
 			return `run \`${hook.command}\``;
-		case "groom":
-			return `groom ungroomed Backlog tasks with ${pickLabel(hook)}`;
 	}
 }

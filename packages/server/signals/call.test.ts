@@ -50,6 +50,20 @@ describe("callOf", () => {
 		expect(() => callOf("clock.soon(1)", signalFunctions)).toThrow();
 		expect(() => callOf("clock.in(1", signalFunctions)).toThrow();
 	});
+	test("quota signal functions accept bare calls for any agent or narrow by agent and window", () => {
+		expect(callOf("quota.unused", signalFunctions).canonical).toBe(
+			"quota.unused",
+		);
+		expect(callOf('quota.unused("claude")', signalFunctions).canonical).toBe(
+			'quota.unused({ agent: "claude" })',
+		);
+		expect(
+			callOf(
+				'quota.unused({ agent: "claude", window: "seven_day" })',
+				signalFunctions,
+			).canonical,
+		).toBe('quota.unused({ agent: "claude", window: "seven_day" })');
+	});
 	test("rejects declared signal functions on reserved prefixes", () => {
 		expect(() =>
 			checkSignalFunctions({ "clock.x": { description: "d" } }),

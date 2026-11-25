@@ -1,4 +1,5 @@
 import type { EvalCheck, EvalStep, EvalVerdict } from "@evals/evals/contract";
+import type { Cause, Did, Remedy } from "./diagnosis";
 
 export type { EvalCheck, EvalStep, EvalVerdict } from "@evals/evals/contract";
 
@@ -21,8 +22,6 @@ export interface EvalTarget {
 export interface EvalBatch {
 	/** Conversation that launched this batch, when known by this server. */
 	conversation?: string;
-	/** Current totals across that conversation’s rounds. */
-	budget?: import("./budget").EvalBudgetStatus;
 	/** Its directory under the results directory. */
 	id: string;
 	/** The skill it ran, or a framework batch's title, when it says. */
@@ -63,6 +62,10 @@ export interface EvalCell {
 	scenario: string;
 	aspect: string;
 	requirement: string;
+	/** The `describe` subject the scenario's `it` sentence continues ("splates skill"), when it is written as a spec. */
+	subject?: string;
+	/** The spec's `it(...)` sentence, when it is written as one. */
+	sentence?: string;
 	target: string;
 	repetition: number;
 	/** What its verdict depended on when it ran, as its framework hashed it; absent when the batch says none. */
@@ -76,6 +79,43 @@ export interface EvalGrid extends EvalBatch {
 	grid: EvalCell[];
 	/** An agent's or person's commentary on the batch (`remarks.md` in its directory), as Markdown; absent until it does. */
 	remarks?: string;
+	/** Each test's runs per target, with its failures and their diagnoses, in plan order. */
+	results: EvalTestResult[];
+}
+
+/** One test's landed runs on one target, as a card's Results and Where it failed show them. */
+export interface EvalTestResult {
+	scenario: string;
+	/** `EvalTarget.key`. */
+	target: string;
+	passed: number;
+	/** Runs that passed or failed; errored runs are not graded and not counted. */
+	graded: number;
+	/** Runs the harness broke on before grading. */
+	errored: number;
+	/** The run to show first: the earliest failed run, else the earliest errored one; null when none did. */
+	firstFailed: string | null;
+	/** Its failed and errored runs, grouped by what they came down to. */
+	failures: EvalFailure[];
+}
+
+/**
+ * Runs of a test on a target that went wrong the same way: one entry of the
+ * eval lead's diagnosis, the harness errors (known without one), or the
+ * failed runs nothing diagnoses yet.
+ */
+export interface EvalFailure {
+	/** `diagnosed` from the remarks, `harness` for errored runs none diagnoses, `undiagnosed` for failed runs none does. */
+	kind: "diagnosed" | "harness" | "undiagnosed";
+	/** Run ids (`EvalRun.id`), earliest repetition first. */
+	runs: string[];
+	/** The failed check's id, or `judge`; null unless diagnosed. */
+	check: string | null;
+	causes: Cause[];
+	/** One sentence on why; null unless diagnosed. */
+	why: string | null;
+	did: Did | null;
+	remedy: Remedy | null;
 }
 
 /** A run opened: what it asked, each check, the judge's verdict and what the agent did. */
@@ -105,18 +145,30 @@ export interface EvalDetail extends EvalRun {
 }
 
 /**
- * Where a scenario stands: `failing` when its latest batch has a run that
- * failed or errored, `never-run` with no landed run in any batch, else `passing`.
+ * Where a scenario stands, from each agent's last graded runs against the
+ * spec's pass rule: `failing` when an agent cannot reach a pass in its
+ * window, `needs-runs` when none failed so but one has too few passes yet,
+ * `never-run` with no landed run in any batch, else `passing`.
  */
-export type EvalScenarioStatus = "failing" | "never-run" | "passing";
+export type EvalScenarioStatus =
+	| "failing"
+	| "needs-runs"
+	| "never-run"
+	| "passing";
 
 /** One agent's runs of a scenario in its latest batch. */
 export interface EvalScenarioTarget {
 	/** `EvalTarget.key`. */
 	target: string;
+	/** Passes among its last graded runs of the spec, at most the rule's window. */
 	passed: number;
-	/** Runs that landed, so `2/3` is `passed` of `total`. */
+	/** Those graded runs, so `2/3` is `passed` of `total`. */
 	total: number;
+	/** How that window stands against the spec's rule. */
+	standing: "pass" | "fail" | "needs-runs";
+	/** Passes the spec needs on this agent, and the window they are counted in. */
+	need: number;
+	of: number;
 }
 
 /** A scenario's state, as the Evals page reads it. */
@@ -129,4 +181,6 @@ export interface EvalScenarioState {
 	lastRunAt: string | null;
 	/** The run to open: the first that failed in the latest batch, else its first; null when never run. */
 	run: string | null;
+	/** The latest batch that ran it, which its test page opens; null when never run. */
+	batch?: string | null;
 }

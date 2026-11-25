@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { cleanup, fireEvent, render } from "./testing-library";
+import { cleanup, render } from "./testing-library";
 import { WaitEvent } from "./wait-event";
 
 describe("wait event", () => {
 	afterEach(cleanup);
 
-	it("folds the request into a line that shows and hides its card", () => {
+	it("is one line saying what it waits on, with no card to open", () => {
 		const view = render(
 			<WaitEvent
 				directive="[SPLATES WAIT machine idle 2m]"
@@ -15,14 +15,10 @@ describe("wait event", () => {
 			/>,
 		);
 		expect(view.getByText(/Waiting on/)).toBeTruthy();
-		expect(view.queryByText("Still waiting")).toBeNull();
-		fireEvent.click(view.getByRole("button", { name: "Show" }));
-		expect(view.getByText("Still waiting")).toBeTruthy();
-		fireEvent.click(view.getByRole("button", { name: "Hide" }));
-		expect(view.queryByText("Still waiting")).toBeNull();
+		expect(view.queryByRole("button", { name: "Show" })).toBeNull();
 	});
 
-	it("says it finished, with the server's outcome, once the wait ended", () => {
+	it("says it finished, with the server's outcome on hover, once the wait ended", () => {
 		const view = render(
 			<WaitEvent
 				directive="[SPLATES WAIT machine idle 2m]"
@@ -32,7 +28,8 @@ describe("wait event", () => {
 			/>,
 		);
 		expect(view.getByText(/Finished waiting on/)).toBeTruthy();
-		fireEvent.click(view.getByRole("button", { name: "Show" }));
-		expect(view.getByText("The machine has stayed idle.")).toBeTruthy();
+		expect(
+			view.container.querySelector("[title*='The machine has stayed idle.']"),
+		).toBeTruthy();
 	});
 });

@@ -56,8 +56,17 @@ describe("App's question cards", () => {
 	const card = (view: ConversationsView, question: string) =>
 		view.getByRole("listitem", { name: `question ${question}` });
 
+	/** Shows every question down the card, as it shows one at a time. */
+	const showAll = async (view: ConversationsView) => {
+		const all = await waitFor(() =>
+			view.getByRole("button", { name: "Show all" }),
+		);
+		await act(async () => fireEvent.click(all));
+	};
+
 	it("shows each question as a card, the text around them as written", async () => {
 		const view = await testing.openConversations([asking()]);
+		await showAll(view);
 
 		const cards = await waitFor(() =>
 			view.getByRole("list", { name: "questions" }),
@@ -223,6 +232,7 @@ describe("App's question cards", () => {
 			"Also the footer.",
 		].join("\n");
 		const view = await testing.openConversations([asking()]);
+		await showAll(view);
 		await waitFor(() => card(view, "2"));
 		const choice = async (question: string, name: string) =>
 			act(async () =>
@@ -279,6 +289,7 @@ describe("App's question cards", () => {
 		Object.assign(globalThis, { jest });
 		jest.useFakeTimers();
 		const view = await testing.openConversations([asking()]);
+		await showAll(view);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
 			fireEvent.click(

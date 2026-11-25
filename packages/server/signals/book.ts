@@ -1,7 +1,13 @@
 import { fail } from "../exit";
 import type { Document } from "../storage";
 import type { SignalClock } from "./clock-schedule";
-import { RETENTION_MS, type SignalProbe, type SignalRaise } from "./types";
+import {
+	RETENTION_MS,
+	REVIVABLE_MS,
+	type SignalProbe,
+	type SignalRaise,
+	type SweptSignal,
+} from "./types";
 
 /** `signals.json`: each signal's raises of the last week, oldest first, and its probe. */
 interface File {
@@ -11,6 +17,8 @@ interface File {
 	/** Signals that remove themselves once fired. */
 	once?: string[];
 	removed?: string[];
+	/** Signals cleanup hid while nothing listened to them, kept for a while so they can be revived. */
+	swept?: Record<string, SweptSignal>;
 	/** Signal functions that have supplied waits, for restart reconciliation. */
 	families?: string[];
 	/** Each signal's probe, on or ended in the last week. */
@@ -52,6 +60,60 @@ export class SignalBook {
 	/** Signals removed by expiration, hidden until raised again. */
 	async removed(): Promise<string[]> {
 		return (await this.file.read())?.removed ?? [];
+	}
+
+	/** Signals cleanup hid in the last 30 days, by name. */
+	async swept(): Promise<Record<string, SweptSignal>> {
+		return this.#revivable((await this.file.read())?.swept);
+	}
+
+	/** Hides `signals` as cleaned up, keeping their raises so they can be revived. */
+	async sweep(
+		signals: { name: string; description?: string }[],
+	): Promise<void> {
+		if (signals.length === 0) {
+			return;
+		}
+		const at = new Date(this.now()).toISOString();
+		await this.file.update((current) => {
+			const swept = this.#revivable(current?.swept);
+			for (const each of signals) {
+				swept[each.name] = {
+					at,
+					...(each.description === undefined
+						? {}
+						: { description: each.description }),
+				};
+			}
+			return { ...current, raises: current?.raises ?? {}, swept };
+		});
+	}
+
+	/** Brings back a signal cleanup or expiration hid; whether it was hidden. */
+	async revive(name: string): Promise<boolean> {
+		let found = false;
+		await this.file.update((current) => {
+			const swept = this.#revivable(current?.swept);
+			found = name in swept || (current?.removed ?? []).includes(name);
+			delete swept[name];
+			return {
+				...current,
+				raises: current?.raises ?? {},
+				swept,
+				removed: current?.removed?.filter((each) => each !== name),
+			};
+		});
+		return found;
+	}
+
+	/** `swept` without the signals hidden longer than they stay revivable. */
+	#revivable(
+		swept: Record<string, SweptSignal> | undefined,
+	): Record<string, SweptSignal> {
+		const floor = new Date(this.now() - REVIVABLE_MS).toISOString();
+		return Object.fromEntries(
+			Object.entries(swept ?? {}).filter(([, each]) => each.at >= floor),
+		);
 	}
 
 	/** Sets or clears a signal's removal deadline. */
@@ -131,9 +193,12 @@ export class SignalBook {
 				}
 			}
 			raises[name] = [...(raises[name] ?? []), raise];
+			const swept = this.#revivable(current?.swept);
+			delete swept[name];
 			return {
 				...current,
 				raises,
+				swept,
 				removed: current?.removed?.filter((each) => each !== name),
 			};
 		});

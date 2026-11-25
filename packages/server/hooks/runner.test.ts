@@ -4,7 +4,6 @@ import { taskAdd } from "../board";
 import { queueAdd } from "../queue";
 import { Testing } from "../testing";
 import type { TaskEvent, TaskEventName } from "./events";
-import { GROOMER_TRIGGER } from "./groomer";
 import { type Fired, fireTaskEvent } from "./runner";
 import { RunStore } from "./runs";
 import type { Automation } from "./store";
@@ -34,9 +33,6 @@ describe("fireTaskEvent", () => {
 				},
 				agent: async (hook, fired) => {
 					ran.push(`${hook.agent}: ${hook.prompt} ${said(fired)}`);
-				},
-				groom: async (hook) => {
-					ran.push(`groom with ${hook.agent}`);
 				},
 			},
 			log: new MemoryLogger(),
@@ -129,6 +125,11 @@ describe("fireTaskEvent", () => {
 				{ event: "task.created", filter: { stages: ["running"] } },
 				{ kind: "run", command: "never" },
 			),
+			automation(
+				"4",
+				{ event: "task.created", filter: { lanes: [0] } },
+				{ kind: "run", command: "in Backlog" },
+			),
 		];
 		await add("One");
 		await add("Two");
@@ -137,21 +138,10 @@ describe("fireTaskEvent", () => {
 		await fireOn("task.created", 1, 2);
 		await fireOn("task.queued", 1, 2);
 
-		expect(ran).toEqual(["queued task.queued #2"]);
-	});
-
-	it("wakes the groomer for each task added", async () => {
-		automations = [
-			automation("groomer", GROOMER_TRIGGER, {
-				kind: "groom",
-				agent: "claude",
-			}),
-		];
-
-		await fireOn("task.created", 1);
-		await fireOn("task.created", 2);
-
-		expect(ran).toEqual(["groom with claude", "groom with claude"]);
+		expect(ran).toEqual([
+			"in Backlog task.created #1 #2",
+			"queued task.queued #2",
+		]);
 	});
 
 	it("runs nothing paused, and keeps each run with what it failed on", async () => {

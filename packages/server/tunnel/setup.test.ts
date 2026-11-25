@@ -19,7 +19,9 @@ describe("tunnelSetup", () => {
 		expect(cloudflare.changes).toEqual([
 			"POST /accounts/acct/cfd_tunnel",
 			"POST /zones/zone-example.com/dns_records",
+			"POST /zones/zone-example.com/dns_records",
 			"POST /accounts/acct/access/policies",
+			"POST /accounts/acct/access/apps",
 			"POST /accounts/acct/access/apps",
 		]);
 		const [tunnel] = cloudflare.tunnels;
@@ -31,14 +33,26 @@ describe("tunnelSetup", () => {
 				content: `${tunnel?.id}.cfargotunnel.com`,
 				proxied: true,
 			},
+			{
+				type: "CNAME",
+				name: "*.example.com",
+				content: `${tunnel?.id}.cfargotunnel.com`,
+				proxied: true,
+			},
 		]);
 		expect(cloudflare.policies).toMatchObject([
 			{ decision: "allow", include: [{ email: { email: "me@example.com" } }] },
 		]);
-		const [app] = cloudflare.apps;
+		const [app, wildcardApp] = cloudflare.apps;
 		expect(app).toMatchObject({
 			type: "self_hosted",
 			domain: "splates.example.com",
+			policies: [{ id: cloudflare.policies[0]?.id, precedence: 1 }],
+		});
+		expect(wildcardApp).toMatchObject({
+			type: "self_hosted",
+			name: "splates-slots",
+			domain: "*.example.com",
 			policies: [{ id: cloudflare.policies[0]?.id, precedence: 1 }],
 		});
 		expect(await saved.read()).toEqual({
@@ -46,6 +60,7 @@ describe("tunnelSetup", () => {
 			team: "team",
 			aud: app?.aud ?? "",
 			tunnel: tunnel?.id ?? "",
+			wildcard: { base: "example.com", aud: wildcardApp?.aud ?? "" },
 		});
 		expect(store.values.get(TUNNEL_TOKEN)).toBe(`token-of-${tunnel?.id}`);
 		expect(await creds.kept()).toContainEqual({
@@ -70,7 +85,7 @@ describe("tunnelSetup", () => {
 			`PUT /accounts/acct/access/policies/${cloudflare.policies[0]?.id}`,
 		]);
 		expect(cloudflare.tunnels).toHaveLength(1);
-		expect(cloudflare.apps).toHaveLength(1);
+		expect(cloudflare.apps).toHaveLength(2);
 	});
 
 	it("moves a route from another tunnel, and refuses any other record", async () => {

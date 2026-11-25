@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { callOf, STANDARD_SIGNAL_FUNCTIONS } from "../signals/call";
 import { MemoryStorage } from "../storage/testing";
-import { HookStore } from "./store";
+import { GROOM_PROMPT, HookStore } from "./store";
 
 describe("HookStore", () => {
 	it("numbers each automation, and takes them away by number or by event", async () => {
@@ -61,49 +61,51 @@ describe("HookStore", () => {
 		expect((await hooks.read())[0]).not.toHaveProperty("name");
 	});
 
-	it("turns the groomer on and off as built-in automation groomer, keeping its pause", async () => {
-		const hooks = new HookStore(new MemoryStorage());
-		await hooks.add({ event: "task.created" }, { kind: "run", command: "x" });
-
-		await hooks.groomer({ agent: "claude", model: "sonnet" });
-		await hooks.pause("groomer", true);
-		await hooks.groomer({ agent: "codex" });
-		expect((await hooks.read()).at(-1)).toMatchObject({
-			id: "groomer",
-			source: "builtin",
-			trigger: { event: "task.created" },
-			hook: { kind: "groom", agent: "codex" },
-			paused: true,
-		});
-
-		// Its event's hooks go without it; numbering skips it.
-		await hooks.remove("task.created");
-		await hooks.add({ every: "1h" }, { kind: "run", command: "y" });
-		expect((await hooks.read()).map(({ id }) => id)).toEqual(["groomer", "1"]);
-		await hooks.groomer(null);
-		expect((await hooks.read()).map(({ id }) => id)).toEqual(["1"]);
-	});
-
-	it("wakes a groomer saved before its trigger changed as it is now", async () => {
+	it("turns a stored built-in groomer into a regular automation on a task added", async () => {
 		const storage = new MemoryStorage();
 		await storage.document("hooks.json").write({
 			automations: [
 				{
+					id: "1",
+					trigger: { every: "1h" },
+					hook: { kind: "run", command: "x" },
+					createdAt: "2026-10-01T00:00:00.000Z",
+				},
+				{
 					id: "groomer",
 					trigger: { event: "task.created", filter: { stages: ["available"] } },
-					hook: { kind: "groom", agent: "claude" },
+					hook: { kind: "groom", agent: "claude", model: "sonnet" },
 					createdAt: "2026-10-01T00:00:00.000Z",
+					paused: true,
 					source: "builtin",
 				},
 			],
 		});
 
-		expect((await new HookStore(storage).read())[0]?.trigger).toEqual({
-			event: "task.created",
+		const hooks = new HookStore(storage);
+		const [, groomer] = await hooks.read();
+		expect(groomer).toEqual({
+			id: "2",
+			name: "Groom",
+			trigger: { event: "task.created" },
+			hook: {
+				kind: "agent",
+				prompt: GROOM_PROMPT,
+				agent: "claude",
+				model: "sonnet",
+			},
+			createdAt: "2026-10-01T00:00:00.000Z",
+			paused: true,
 		});
+		await hooks.edit(
+			"2",
+			{ event: "task.created" },
+			{ kind: "run", command: "y" },
+		);
+		expect((await hooks.read()).map(({ id }) => id)).toEqual(["1", "2"]);
 	});
 
-	it("ignores retired notes automations while keeping the groomer", async () => {
+	it("ignores retired notes automations while converting the groomer", async () => {
 		const storage = new MemoryStorage();
 		await storage.document("hooks.json").write({
 			automations: [
@@ -128,23 +130,19 @@ describe("HookStore", () => {
 		});
 		expect(await new HookStore(storage).read()).toMatchObject([
 			{
-				id: "groomer",
-				hook: { kind: "groom" },
+				id: "1",
+				hook: { kind: "agent", agent: "claude" },
 				trigger: { event: "task.created" },
 			},
 		]);
 	});
 
-	it("asks one on a schedule, or the groomer, to run now, refusing one on another event", async () => {
+	it("asks one on a schedule to run now, refusing one on another event", async () => {
 		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
 		await hooks.add({ event: "task.done" }, { kind: "run", command: "ship" });
-		await hooks.groomer({ agent: "claude" });
 
 		expect(await hooks.request("1")).toMatchObject({
-			requestedAt: expect.any(String),
-		});
-		expect(await hooks.request("groomer")).toMatchObject({
 			requestedAt: expect.any(String),
 		});
 		expect(hooks.request("2")).rejects.toThrow(
@@ -243,15 +241,11 @@ describe("HookStore", () => {
 		});
 	});
 
-	it("refuses to edit the groomer, one that is none, or to a trigger that will not read", async () => {
+	it("refuses to edit one that is none, or to a trigger that will not read", async () => {
 		const hooks = new HookStore(new MemoryStorage());
 		await hooks.add({ every: "1h" }, { kind: "run", command: "tidy" });
-		await hooks.groomer({ agent: "claude" });
 		const run = { kind: "run", command: "x" } as const;
 
-		expect(hooks.edit("groomer", { every: "1h" }, run)).rejects.toThrow(
-			"no automation groomer",
-		);
 		expect(hooks.edit("7", { every: "1h" }, run)).rejects.toThrow(
 			"no automation 7",
 		);

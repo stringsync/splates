@@ -8,7 +8,12 @@ import { AgentConnection, endBackground, fold } from "../agents";
 import { Artifacts, applyArtifact } from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
-import { handOffReference, RECONNECT, taskReference } from "../plans";
+import {
+	conversationHandOffReference,
+	handOffReference,
+	RECONNECT,
+	taskReference,
+} from "../plans";
 import type { SignalProbe, SignalRaise, SignalWait } from "../signals/types";
 import type { Grant } from "../workers";
 import { answerWords } from "./answered";
@@ -352,7 +357,6 @@ export class Conversation
 			heldForTask,
 			queuedTask,
 			title = null,
-			persistent,
 			automation,
 			ship,
 		}: Opening,
@@ -380,9 +384,6 @@ export class Conversation
 		state.heldForTask = heldForTask ?? null;
 		state.queuedTask = queuedTask ?? null;
 		state.title = title;
-		if (persistent !== undefined) {
-			state.persistent = persistent;
-		}
 		if (automation !== undefined) {
 			state.automation = automation;
 		}
@@ -406,7 +407,6 @@ export class Conversation
 			...(skill === null ? {} : { skill }),
 			...(heldForTask === undefined ? {} : { heldForTask }),
 			...(queuedTask === undefined ? {} : { queuedTask }),
-			...(persistent === undefined ? {} : { persistent }),
 			...(automation === undefined ? {} : { automation }),
 			...(ship === undefined ? {} : { ship }),
 		});
@@ -742,6 +742,18 @@ export class Conversation
 	}
 
 	/**
+	 * Notes whether an agent queued the task it is in on its own, so the
+	 * robot badge outlives the task's record.
+	 */
+	markAutoQueued(autoQueued: boolean): void {
+		if ((this.state.lastAutoQueued === true) === autoQueued) {
+			return;
+		}
+		this.log.write({ kind: "auto-queued", autoQueued });
+		this.set({ lastAutoQueued: autoQueued ? true : undefined });
+	}
+
+	/**
 	 * Holds it for its queued task, out of the line for a place, until
 	 * `release` gives it the task: what is said to it meanwhile waits for
 	 * its agent, as while any agent starts. A stopped one, as a held one
@@ -908,23 +920,35 @@ export class Conversation
 	}
 
 	/**
-	 * Lets go of its task for another agent to take on: stops its agent and
-	 * moves it to the main tree, where it resumes if prompted again, and
-	 * answers the prompt that has the next agent claim the task, with what
-	 * this one said last kept for it to read.
+	 * Hands this conversation off to another agent: keeps its transcript, stops
+	 * its agent, moves it off its task when on one, and archives it so it is not
+	 * restarted by mistake. Answers the prompt that tells the next agent where
+	 * to pick up.
 	 */
 	async handOff(): Promise<string> {
-		const task = this.onTask("hand off");
+		const { task, archived } = this.state;
+		if (archived) {
+			fail(
+				"usage",
+				`conversation ${this.id} is archived: cannot hand off an archived conversation`,
+				{ conversation: this.id },
+			);
+		}
 		const { root } = this.deps;
-		if (root === null) {
+		if (task !== null && root === null) {
 			fail("usage", `conversation ${this.id} has no main tree to move to`, {
 				conversation: this.id,
 			});
 		}
 		const transcript = await this.files.keepTranscript(this.state.messages);
 		await this.stop();
-		this.move(null, root);
-		return handOffReference(task, transcript);
+		if (task !== null && root !== null) {
+			this.move(null, root);
+		}
+		await this.archive();
+		return task === null
+			? conversationHandOffReference(transcript)
+			: handOffReference(task, transcript);
 	}
 
 	/** Its task, for `doing` that needs one; refused when it is in none. */
@@ -1021,20 +1045,16 @@ export class Conversation
 
 	/**
 	 * Stops it and puts it away, off the list of conversations; `with`, the
-	 * conversation whose archiving takes it along, which brings it back;
-	 * `rest`, a persistent agent's run ended with its role still on.
+	 * conversation whose archiving takes it along, which brings it back.
 	 * Its artifacts keep only what their panel shows.
 	 */
-	async archive(
-		withConversation?: string,
-		{ rest = false }: { rest?: boolean } = {},
-	): Promise<void> {
+	async archive(withConversation?: string): Promise<void> {
 		await this.stop();
 		// What it left running in its task's worktree, reparented away from it.
 		if (this.state.task !== null && this.dir !== null) {
 			await this.deps.machine.stopUnder(this.dir).catch(() => {});
 		}
-		await put(this, { archived: true, with: withConversation, rest });
+		await put(this, { archived: true, with: withConversation });
 		await this.artifacts.archive();
 	}
 
@@ -1176,6 +1196,10 @@ export class Conversation
 		}
 		if (running) {
 			this.state.evaluating = true;
+			if (this.state.evaluated !== true) {
+				this.log.write({ kind: "evaluated" });
+				this.state.evaluated = true;
+			}
 		} else {
 			delete this.state.evaluating;
 		}
@@ -1500,8 +1524,6 @@ interface Opening {
 	queuedTask?: number;
 	/** What to call it until its agent names it. */
 	title?: string | null;
-	/** The persistent agent's role it is started for, as `"groomer"`. */
-	persistent?: string;
 	/** The automation that starts it, by its id. */
 	automation?: string;
 	/** The ship whose adoption task it runs, by its id. */

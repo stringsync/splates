@@ -12,8 +12,9 @@ task rather than landing it and queuing the remainder as a follow-up; stop only
 to ask a decision of the user or, when blocked, to defer. A queued follow-up is
 for work outside the After, never for finishing it.
 When what remains is several tasks, add a lane of them (see
-[queue.md](queue.md), Asking the user to queue) and end your reply with its
-queue card; merge only once the After is true or rewritten to what landed.
+[queue.md](queue.md), Asking the user to queue) and queue it yourself when
+Queueing a lane on your own allows it, or end your reply with its queue card;
+merge only once the After is true or rewritten to what landed.
 
 - **Merge** work you verified yourself, its result pictures under `## After` and other evidence under `## Verification`
   (see SPLATES.md in the skill). This is the default, and the usual end of a small change.
@@ -23,7 +24,7 @@ queue card; merge only once the After is true or rewritten to what landed.
   migration, data written, anything sent outside the repo), or when
   an unchecked step under `## Next` asks to show the user before merging.
   The demo is the user's chance to step in before it lands: their feedback decides whether it merges. Leave
-  something to look at (step 1 of [When you cannot go on](questions.md#when-you-cannot-go-on)), send the Ready to
+  something to look at (step 1 of [When you cannot go on](waiting.md#when-you-cannot-go-on)), send the Ready to
   merge report (see [Reporting](reporting.md)), which is the whole request, and end your turn.
 
 For any review, keep an unchecked `- [ ] Show the user before merging`
@@ -62,73 +63,25 @@ already carries out. Check each against the code or `git log`, not its title
 alone. Leave a task you only suspect is done, and ask about it as a numbered
 question; never remove one that is started, since its agent owns it.
 
+If the merged change touched a skill, agent guide, prompt, or other AI-facing
+behavior in any project (and was not itself an eval-only task), create and
+queue a specific follow-up task to author an eval for it before sending your
+merge report (see [queue.md](queue.md), Auto-queueing an eval for AI changes).
+
 ## When a merge fails
 
-A `checks_failed` is the same for the checks that run before any test (lint,
-typecheck): read the output the same way, and fix it as for `tests_failed`.
+`checks_failed` (lint, typecheck) and `tests_failed` print the failure output (up to 400 lines, plus the full log path when truncated). Read it (and the log file when truncated) before anything else; never ask the user to run the gate.
 
-A `tests_failed` shows the gate's output whole up to 400 lines, or its first 100
-and last 300 with a note of what it left out, and names the file holding all
-of it. That output is the whole failure, typecheck and lint errors included:
-read it, and the file when it was cut, before anything else. Never ask the user
-to run the gate for you to see why it failed.
+A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit the gate ran on. When the base moved, `tests_failed` lists the newly landed commits touching the failing files first: read those before the test, reproduce locally (`bun test <paths>`), fix, commit, and merge again. On a batch `tests_failed`, the refusal names the stack commit if the failure only reproduces with the batch. If `splates server` restarts mid-merge, keep waiting for it to reconnect rather than merging again.
 
-A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit
-the gate ran on. When the base moved since your last rebase, a `tests_failed`
-lists the commits that landed, each with the task it came from, those touching
-the failing tests, what they import or your files first: read those before the
-test, since a change that just landed is the likeliest cause. Then reproduce
-the failure there (`bun test <paths>` on the failing files), fix, commit and
-merge again.
+- **`timeout`:** the gate hit its deadline without spending an attempt, so merge again.
+- **`blocked` (`index.lock`):** wait for the live Git operation to finish and merge again; never delete a live lock.
+- **`conflict`:** resolve the conflict in the worktree, `git add`, `git rebase --continue`, and merge again right away. Conflicts are expected: say nothing of them in `SPLATES.md`, a report, or a task. (A failed rebase with no unmerged paths is `merge_failed`, not `conflict`.)
+- **Recording failures:** note what `tests_failed` or `merge_failed` broke under the `## Next` step it concerns when needed to resume; otherwise commits and chat hold it.
 
-Under `splates server`, `splates merge` hands the merge to the server, which
-runs it in your worktree with the server's own merge code and prints back
-what it says; the command still waits in the foreground and ends as the
-merge does. With no server to reach, or a central remote, it merges itself. A server that
-restarts mid-merge runs it again once the waiting command reconnects, so
-keep waiting rather than merging again.
+### Exhausted merge attempts (`budget_exhausted`)
 
-Merges waiting for the gate at once are gated as one batch: the first to
-go stacks the others' branches on its own, runs the gate once and lands
-them all, so a merge that queued may land without a gate of its own. A
-`tests_failed` from a batch says which tasks it was gated with and leaves
-your branch rebased on the base alone; it is yours only when the failing
-tests first fail with your commits in the stack, and the refusal then names
-the stack commit to reproduce on when the files pass alone. The rest of a
-failing batch is gated again without the culprit, charged nothing.
-
-A gate that runs past its deadline is killed, and merge stops as `timeout`
-without spending an attempt: merge again. The deadline is 3 minutes when
-the gate's workers and the machine's load fit its cores, and up to 6 when
-they oversubscribe them, so a slow gate under load finishes once rather
-than being killed into the same load again. An existing Git `index.lock`
-stops merge as `blocked` without spending an attempt. Wait for its owner to finish and merge again; never delete a lock
-held by a live operation. A failed rebase with no unmerged paths is
-`merge_failed`, not a content `conflict`.
-
-Each `merge_failed` spends one of the task's merge attempts. A `conflict`
-spends none of them: conflicts have their own larger budget,
-`mergeConflictCount` (10), and run out to `budget_exhausted` the same way.
-The merge after a conflict waits ahead of the line, so merge again as soon
-as it is resolved.
-A `tests_failed` spends one only when the failing test files passed on the
-exact base commit and failed again with the task, and the failure repeats the
-last: the same base commit, or the same failing tests on any base. A failure
-against a base you were never gated on is new information and spends none. Trunk-red and environment
-failures hold the merge without charging; fix what the output names before
-retrying. Bun JUnit reports enable selective attribution; missing reports,
-unsupported runners, and inconclusive retests hold without charging. A flake
-can land only after the complete gate passes again. Conflicts are expected: resolve them and say
-nothing of them, in `SPLATES.md`, a report or a task. Write what each
-`tests_failed` or `merge_failed` failed on under the `## Next` step it concerns
-when needed to resume it; otherwise the conversation and commits hold it.
-When `merge` stops on `budget_exhausted`, ask the user for more attempts
-with a run-command card naming `splates retry <task>`, which the page shows
-as a retry card the user grants with a tap. Never run `splates retry`
-yourself: the attempts are the user's to give, and the page runs it. Under
-the command, a `- ` line per attempt on what it failed on (the check that
-broke, the tree in the way, or that it conflicted), then one on what would
-get it through, and end your turn:
+When `splates merge` stops on `budget_exhausted`, ask the user for more attempts with a run-command card naming `` `splates retry <task>` `` (which the page shows as a Grant button). Never run `splates retry` yourself. Under the command, put a `- ` bullet per attempt on what it failed on, then one on what will get it through, and end your turn (no `Reason:` line):
 
 ```markdown
 ## 🔐 Permission: run command: more merge attempts for upload-413
@@ -140,42 +93,4 @@ get it through, and end your turn:
 - Rebasing once more onto the new upload client gets it through.
 ```
 
-`[SPLATES RETRIED]` means the user granted them, from your card or from the
-refused merge's Grant, so it may come before you ask: merge again. A Deny
-(`[SPLATES RUN DENIED]`) means `splates remove <task> --reason redo` with a
-task added for the redo, unless the user's note says otherwise.
-
-## Unmerging
-
-`[SPLATES UNMERGE <task>]` asks you to take merged `<task>` back off its
-base, as the merged card's Unmerge sends once the user confirms; anything
-they wrote in its dialog follows it, as their word on why or what to keep.
-A merge lands as one commit, so undoing it is a revert, never a reset or a
-rewrite of the base's history:
-
-1. `splates add unmerge-<task> --goal "Revert <task> from <base>"`, then
-   `splates show <task>` for its base and the commit it landed as.
-2. Check that it can be undone before you revert anything:
-   - what landed since (`git log <commit>..<base>`) and touches the same
-     files or calls what it added, which a revert would break or conflict
-     with;
-   - whether it went out in a release (`git tag --contains <commit>`, or a
-     ship since), which a revert takes out of the next one but never
-     unpublishes;
-   - whether it did anything outside the code that the revert leaves done:
-     a migration that ran, data written or reshaped, state or settings on
-     the machine, anything sent to another service.
-3. When all of it is clear, `git revert --no-edit <commit>` in the worktree,
-   run the project's checks, commit, and land it with
-   `splates merge --message "<task>'s change comes back out: <why>"`; then
-   report it as any merge, saying in its line what is gone again.
-4. When any of it is not, revert nothing yet: ask, a question saying what
-   would stay done or break and the choices you see (revert with the work
-   after it adjusted, revert only part, or undo it by hand with a forward
-   fix), and go on from the answer. A later task that builds on it is one
-   to name, never to revert along with it unasked.
-
-A test that flakes in two merges within a week is quarantined: a gate it alone fails lands anyway, noted as a flake, and the Stats page lists it. A fix task is created after recurrence on an independent task within seven days.
-Failures from one gate are grouped, existing incidents receive the latest
-evidence, and closed failures are not recreated for seven days. Inconclusive
-failures remain on the merge attempt rather than creating backlog tasks.
+`[SPLATES RETRIED]` means the user granted more attempts (from your card or the refused merge's Grant): merge again right away. `[SPLATES RUN DENIED]` means `splates remove <task> --reason redo` with a task added for the redo, unless the user's note says otherwise.

@@ -22,14 +22,14 @@ describe("App's todo edits", () => {
 		testing.dispose();
 	});
 
-	it("renders a todo's detail as markdown, on its card and when opened", async () => {
+	it("renders a todo's detail as markdown when opened, and not on its card", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 4, subject: "write docs", text: "start with **the CLI**" }),
 			],
 		});
 
-		expect(view.getByText("the CLI").tagName).toBe("STRONG");
+		expect(view.queryByText("the CLI")).toBeNull();
 		await act(async () => fireEvent.click(view.getByText("write docs")));
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByText("the CLI").tagName).toBe("STRONG");
@@ -130,7 +130,7 @@ describe("App's todo edits", () => {
 				}),
 			],
 		});
-		expect(view.getByTitle("files").textContent).toBe("2 files");
+		expect(view.queryByTitle("files")).toBeNull();
 
 		await act(async () => fireEvent.click(view.getByText("fix the chart")));
 		const save = await waitFor(() =>

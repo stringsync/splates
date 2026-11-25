@@ -53,5 +53,9 @@ describe("quota per agent, grouped by schedule", () => {
 			],
 			["Weekly quota", [["Codex", 0.5]]],
 		]);
+		expect(groups.map((group) => group.marks)).toEqual([
+			["claude", "antigravity"],
+			["codex"],
+		]);
 	});
 });

@@ -7,6 +7,9 @@ import type { Git } from "../git";
 import type { WorktreeService } from "../tasks";
 import { type Attachments, readFiles } from "./attachments";
 
+/** The folder name, which no task slug can be, for files attached with no task. */
+const NO_TASK = "_no-task";
+
 export interface AttachOptions {
 	/** Task whose files these are. Defaults to the one `cwd` is a worktree for. */
 	task?: string;
@@ -41,30 +44,35 @@ export async function attach(
 	{ task, remove = [], conversation: given }: AttachOptions = {},
 ): Promise<string[]> {
 	const { service, git, log } = deps;
-	const name = task || service.taskFor(await git.currentBranch(cwd));
-	if (!name) {
+	const taskName = task || service.taskFor(await git.currentBranch(cwd));
+	if (taskName) {
+		const found = await service.find(taskName);
+		if (!found.state) {
+			fail("not_found", `no task named '${taskName}' to attach files to`, {
+				task: taskName,
+			});
+		}
+	}
+	if (!taskName && !given && (await service.conversation()) === undefined) {
 		fail(
 			"usage",
-			"not in a task worktree: pass --task <name> to attach from elsewhere",
+			"no task is open and this is not a `splates server` conversation: pass --conversation <id> to keep the files with a conversation, or --task <name> to attach to a task",
 		);
-	}
-	const found = await service.find(name);
-	if (!found.state) {
-		fail("not_found", `no task named '${name}' to attach files to`, {
-			task: name,
-		});
 	}
 	// An agent outside any conversation keeps its files with the task.
 	const conversation =
 		given || (await service.conversation()) !== undefined
 			? await conversationOf(service, given ?? "")
 			: undefined;
+	// With no task, the files stay with the conversation alone.
+	const name = taskName || NO_TASK;
+	const label = taskName || "this conversation";
 	const folders = await service.filesOf(name);
 	const held = (await Promise.all(folders.map((each) => each.held()))).flat();
 	if (paths.length === 0 && remove.length === 0) {
 		log.info(
 			[
-				`${name} holds ${held.length} file${held.length === 1 ? "" : "s"}`,
+				`${label} holds ${held.length} file${held.length === 1 ? "" : "s"}`,
 				...held.map((file) => `  ${file.path}  ${megabytes(file.bytes)}`),
 			].join("\n"),
 		);
@@ -78,7 +86,7 @@ export async function attach(
 	if (unknown !== undefined) {
 		fail(
 			"not_found",
-			`'${name}' holds no file '${unknown}': nothing was changed`,
+			`'${label}' holds no file '${unknown}': nothing was changed`,
 			{ task: name, file: unknown },
 		);
 	}
@@ -97,7 +105,7 @@ export async function attach(
 	if (total > capacity) {
 		fail(
 			"too_large",
-			`that would have '${name}' hold ${megabytes(total)} of files, past its ${megabytes(capacity)}: nothing was changed. Remove files no question shows with --remove, or attach a shorter recording`,
+			`that would have '${label}' hold ${megabytes(total)} of files, past its ${megabytes(capacity)}: nothing was changed. Remove files no question shows with --remove, or attach a shorter recording`,
 			{ task: name, bytes: total, capacity },
 		);
 	}
@@ -133,7 +141,7 @@ export async function attach(
 	const stored = await own.store(added);
 	log.info(
 		[
-			`${color.green("attached")} ${stored.length} file${stored.length === 1 ? "" : "s"} to ${name}, holding ${megabytes(total)} of ${megabytes(capacity)}`,
+			`${color.green("attached")} ${stored.length} file${stored.length === 1 ? "" : "s"} to ${label}, holding ${megabytes(total)} of ${megabytes(capacity)}`,
 			...stored.map((path) => `  ${path}`),
 			...(remove.length === 0 ? [] : [`  removed ${remove.length}`]),
 			...(stored.length === 0

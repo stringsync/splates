@@ -17,17 +17,16 @@ import { cn } from "#web/lib/utils.ts";
 import { ENDINGS, TONES } from "./card-shell";
 import { lastReport } from "./conversation-names";
 import { tierOf } from "./event-tier";
-import { UnmergeIt } from "./unmerge-it";
 
 /**
  * Putting the conversation away once its last word reports a task that is
- * over: the report card offers it, and the bar above the composer does while
- * the card's button is out of sight.
+ * over: the report card offers it, and the bar above the composer does once
+ * the card has scrolled out of sight.
  */
 interface ArchiveOffer {
 	report: TaskReport;
 	archive: () => void;
-	/** Says whether the card's button is in sight in the thread. */
+	/** Says whether any part of the report card is in sight in the thread. */
 	sight: (seen: boolean) => void;
 }
 
@@ -41,12 +40,9 @@ export const ArchiveOfferProvider = ArchiveOfferContext.Provider;
  */
 export const ArchiveConversation = createContext<(() => void) | null>(null);
 
-/** How much of the card's button must show for it to stand in for the bar. */
-const IN_VIEW = 0.5;
-
 /**
  * The report to offer archiving the conversation from, and whether the bar
- * offers it: the card's own button stands in for the bar while in sight.
+ * offers it: the card stands in for the bar while any of it is in sight.
  */
 export function useArchiveOffer(
 	report: TaskReport | null,
@@ -98,30 +94,24 @@ export function useArchivable(report: TaskReport): boolean {
  */
 export function CardArchive({
 	report,
-	unmerge = false,
 }: {
 	report: TaskReport;
-	/** Whether to offer Unmerge beside Archive, for a merge. */
-	unmerge?: boolean;
 }): JSX.Element | null {
 	const offer = useContext(ArchiveOfferContext);
-	const button = useRef<HTMLButtonElement>(null);
+	const footer = useRef<HTMLElement>(null);
 	const offered = useArchivable(report);
 	const sight = offered ? (offer?.sight ?? null) : null;
 	useEffect(() => {
-		const element = button.current;
+		const element = footer.current?.closest("[data-card]") ?? footer.current;
 		if (element === null || sight === null) {
 			return;
 		}
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const latest = entries.at(-1);
-				if (latest !== undefined) {
-					sight(latest.intersectionRatio >= IN_VIEW);
-				}
-			},
-			{ threshold: IN_VIEW },
-		);
+		const observer = new IntersectionObserver((entries) => {
+			const latest = entries.at(-1);
+			if (latest !== undefined) {
+				sight(latest.isIntersecting);
+			}
+		});
 		observer.observe(element);
 		return () => {
 			observer.disconnect();
@@ -132,10 +122,11 @@ export function CardArchive({
 		return null;
 	}
 	return (
-		<footer className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-2.5">
-			{unmerge && <UnmergeIt task={report.task} className="mr-auto" />}
+		<footer
+			ref={footer}
+			className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-2.5"
+		>
 			<Button
-				ref={button}
 				size="sm"
 				variant="outline"
 				onClick={offer.archive}
@@ -150,8 +141,8 @@ export function CardArchive({
 
 /**
  * A bar above the composer while the conversation's last word is the report
- * of a task that is over and its card's Archive is out of sight, offering to
- * put the conversation away. It goes as the conversation carries on.
+ * of a task that is over and its card is out of sight, offering to put the
+ * conversation away. It goes as the conversation carries on.
  */
 export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	const { report, archive } = offer;

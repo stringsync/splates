@@ -1,4 +1,10 @@
 import { evalsDoneReference } from "../plans";
+import {
+	type AgentCoverage,
+	nextAgents,
+	type ScenarioCoverage,
+	SKIP_AFTER_PASS,
+} from "./coverage";
 import { targetName } from "./target";
 import type { EvalCell, EvalDetail, EvalGrid, EvalStatus } from "./types";
 
@@ -15,11 +21,14 @@ const TALLY: EvalStatus[] = ["pass", "fail", "error", "unreadable", "pending"];
  * failed, the checks and the judge's reason that held it back, its reply cut
  * short and how to show it in full; then the runs that errored, apart, since
  * an error is never the skill's. `details` are the runs that did not pass,
- * opened.
+ * opened. `covered` is how the batch's scenarios cover the agents saved on
+ * the Evals page, over every batch: it closes the report with each one's
+ * standing and the agents the next run names, or that every one passed.
  */
 export function evalsDonePrompt(
 	grid: EvalGrid,
 	details: readonly EvalDetail[],
+	covered: readonly ScenarioCoverage[] = [],
 ): string {
 	const tally = TALLY.filter((status) => grid.tally[status])
 		.map((status) => `${grid.tally[status]} ${status}`)
@@ -83,7 +92,54 @@ The run your run evals card asked for is done: ${grid.cells} ${grid.cells === 1 
 
 ${table.join("\n")}
 ${sections.length === 0 ? "\nEvery run passed." : `\n${sections.join("\n\n")}`}
-`;
+${covered.length === 0 ? "" : `\n${coverageSection(covered)}\n`}`;
+}
+
+/**
+ * Each scenario's standing on each saved agent, then the `Agents:` line the
+ * next run card copies: failing agents first, then those never run, leaving
+ * out any that passed within the scenario's last runs; or, once every saved
+ * agent passed every scenario, that the loop can stop.
+ */
+function coverageSection(covered: readonly ScenarioCoverage[]): string {
+	const agents = covered[0]?.agents.map((each) => each.agent) ?? [];
+	const table = [
+		`| Scenario | ${agents.map((agent) => `\`${agent}\``).join(" | ")} |`,
+		`| --- |${" --- |".repeat(agents.length)}`,
+		...covered.map(
+			(scenario) =>
+				`| \`${scenario.scenario}\` | ${scenario.agents.map(standing).join(" | ")} |`,
+		),
+	];
+	const next = nextAgents(covered);
+	const unpassed = covered.flatMap((scenario) =>
+		scenario.agents
+			.filter((each) => each.state !== "passed")
+			.map((each) => `\`${scenario.scenario}\` on \`${each.agent}\``),
+	);
+	const advice =
+		unpassed.length === 0 && next.length === 0
+			? "Every saved agent has passed every scenario here: the loop can stop."
+			: [
+					`The next run card names these agents, failing first, leaving out any that passed within the scenario's last ${SKIP_AFTER_PASS} runs:\n\nAgents: ${next.map((agent) => `\`${agent}\``).join(", ")}\n`,
+					unpassed.length === 0
+						? "Every saved agent has passed: this run only confirms passes the changes since could have broken."
+						: `Not yet passed: ${unpassed.join(", ")}. The loop goes on until these pass or the user declines more eval budget; if it stops first, the final report names them.`,
+				].join("\n");
+	return `Coverage of the saved eval agents, over every batch:\n\n${table.join("\n")}\n\n${advice}`;
+}
+
+function standing(each: AgentCoverage): string {
+	switch (each.state) {
+		case "never-run":
+			return "never run";
+		case "needs-runs":
+			return "needs runs";
+		case "failing":
+			return each.lastPass === null ? "failing, never passed" : "failing";
+		case "passed":
+			return `passed ${each.runsSincePass === 0 ? "this run" : `${each.runsSincePass} ${each.runsSincePass === 1 ? "run" : "runs"} ago`}${each.skip ? ", skip next" : ", rerun next"}`;
+	}
 }
 
 /**

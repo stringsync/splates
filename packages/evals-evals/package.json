@@ -5,13 +5,16 @@
 	"exports": {
 		"./agents": "./agents.ts",
 		"./contract": "./contract.ts",
+		"./estimate": "./estimate.ts",
 		"./judge": "./judge.ts",
 		"./keep": "./keep.ts",
 		"./labels": "./labels.ts",
 		"./run": "./run.ts",
 		"./sandbox": "./sandbox.ts",
 		"./scenario": "./scenario.ts",
-		"./loop": "./loop.ts"
+		"./spec": "./spec.ts",
+		"./loop": "./loop.ts",
+		"./order": "./order.ts"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"

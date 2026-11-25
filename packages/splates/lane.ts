@@ -9,7 +9,6 @@ import {
 	laneUpdated,
 	recordLaneRemove,
 } from "@splates/server/board";
-import { refuseGroomer } from "@splates/server/conversations";
 import { refuseAgentQueue, sayUnqueuedBlockers } from "@splates/server/queue";
 import { repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
@@ -105,15 +104,39 @@ splatesLane
 	.command("queue")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open; one blocked by a task outside the queue waits queued until that is queued too, as the command names; a task put in the lane later is queued on its own. Backlog can be queued as a lane",
+		"queue every task in a lane now, once: the queue starts each once nothing it is blocked by is open; one blocked by a task outside the queue waits queued until that is queued too, as the command names; a task put in the lane later is queued on its own. Backlog can be queued as a lane. An agent may run it when the project's Agents setting and its conversation's cap allow every waiting task, all or none",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",
 	})
 	.action(async (opts, ctx) => {
-		await refuseAgentQueue(ctx.service, "lane queue");
-		await refuseGroomer(ctx.service, "lane queue");
-		const queued = await laneQueue(ctx, opts.lane, true);
+		// An agent may queue only the tasks the server allowed, under its own
+		// name so they count against its cap and chain: those waiting now.
+		const waiting = (await ctx.tasks.all())
+			.map((task) => task.state)
+			.filter(
+				(state) =>
+					state.lane === opts.lane &&
+					state.takenBy === null &&
+					state.stage === "available",
+			)
+			.map((state) => state.id);
+		const by =
+			waiting.length === 0
+				? undefined
+				: await refuseAgentQueue(ctx.service, "lane queue", {
+						ids: waiting,
+						projects: ctx.projects,
+						log: ctx.log,
+						fs: ctx.fs,
+						send: ctx.fetch,
+					});
+		const queued = await laneQueue(
+			ctx,
+			opts.lane,
+			true,
+			by === undefined || by.by === "person" ? {} : { by, only: waiting },
+		);
 		await sayUnqueuedBlockers(
 			ctx,
 			queued.map((task) => task.id),

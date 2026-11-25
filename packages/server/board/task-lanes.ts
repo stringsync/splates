@@ -2,9 +2,19 @@ import { fail } from "../exit";
 import { BACKLOG_LANE, protectBacklog } from "./backlog";
 import { type BoardRecord, boardsOf, DEFAULT_BOARD } from "./boards";
 import { aptName, type LaneRecord, named, settle } from "./lanes";
+import type { QueuedBy } from "./queued-by";
+import type { TaskStore } from "./store";
 import { enqueued, type TaskRecord, unqueued } from "./task";
 import { parseTaskFile, TASK_FILE } from "./task-file";
 import type { Tasks } from "./tasks";
+
+/** How `queueLane` queues: who it says queued the tasks, and which alone it may queue. */
+export interface LaneQueueOptions {
+	/** Who queued them, the lane itself when unset. */
+	by?: QueuedBy;
+	/** The only task ids it may queue, as an agent was allowed to; every waiting task when unset. */
+	only?: readonly number[];
+}
 
 /**
  * Creates, changes and removes the lanes of a `Tasks`, moves tasks between
@@ -157,6 +167,7 @@ export class TaskLanes {
 	async queueLane(
 		id: number,
 		queued: boolean,
+		opts: LaneQueueOptions = {},
 	): Promise<{ lane: LaneRecord; changed: TaskRecord[] }> {
 		return this.tasks.locked(async () => {
 			const states = await this.tasks.stored();
@@ -167,8 +178,12 @@ export class TaskLanes {
 				if (state.lane !== id || state.takenBy !== null) {
 					continue;
 				}
-				if (queued && state.stage === "available") {
-					const next = enqueued(state, { by: "lane", lane: id });
+				if (
+					queued &&
+					state.stage === "available" &&
+					(opts.only === undefined || opts.only.includes(state.id))
+				) {
+					const next = enqueued(state, opts.by ?? { by: "lane", lane: id });
 					changed.push((await this.tasks.save(next)).state);
 				} else if (!queued && state.stage === "queued") {
 					changed.push((await this.tasks.save(unqueued(state))).state);
@@ -402,12 +417,7 @@ export class TaskLanes {
 	 * default one alone, which every lane is on.
 	 */
 	async boards(): Promise<BoardRecord[]> {
-		const raw = await this.tasks.store.records.read("boards").catch(() => null);
-		try {
-			return boardsOf(raw === null ? null : JSON.parse(raw));
-		} catch {
-			return boardsOf(null);
-		}
+		return storedBoards(this.tasks.store);
 	}
 
 	/** Starts a board called `name`, after the others. */
@@ -475,27 +485,8 @@ export class TaskLanes {
 	}
 
 	/** The lane records in `file`, none when it is missing or will not parse. */
-	private async read(file: string): Promise<LaneRecord[]> {
-		const raw =
-			(await this.tasks.store.records.read(file).catch(() => null)) ?? "[]";
-		try {
-			const parsed: unknown = JSON.parse(raw);
-			if (Array.isArray(parsed)) {
-				// Only the fields lanes have, so one they no longer have, such as
-				// the agent one was once assigned, goes the next time they are written.
-				return parsed
-					.filter(
-						(each) =>
-							Number.isInteger(each?.id) && typeof each?.name === "string",
-					)
-					.map(({ id, name, board }) => ({
-						id,
-						name,
-						board: Number.isInteger(board) ? board : DEFAULT_BOARD,
-					}));
-			}
-		} catch {}
-		return [];
+	private read(file: string): Promise<LaneRecord[]> {
+		return storedLanes(this.tasks.store, file);
 	}
 
 	/**
@@ -578,4 +569,65 @@ function laneName(name: string, others: LaneRecord[]): string {
 		);
 	}
 	return trimmed;
+}
+
+/** The project's boards as stored, in order, the default one always among them. */
+export async function storedBoards(store: TaskStore): Promise<BoardRecord[]> {
+	const raw = await store.records.read("boards").catch(() => null);
+	try {
+		return boardsOf(raw === null ? null : JSON.parse(raw));
+	} catch {
+		return boardsOf(null);
+	}
+}
+
+/** The lane records in `file`, none when it is missing or will not parse. */
+export async function storedLanes(
+	store: TaskStore,
+	file: string,
+): Promise<LaneRecord[]> {
+	const raw = (await store.records.read(file).catch(() => null)) ?? "[]";
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (Array.isArray(parsed)) {
+			// Only the fields lanes have, so one they no longer have, such as
+			// the agent one was once assigned, goes the next time they are written.
+			return parsed
+				.filter(
+					(each) =>
+						Number.isInteger(each?.id) && typeof each?.name === "string",
+				)
+				.map(({ id, name, board }) => ({
+					id,
+					name,
+					board: Number.isInteger(board) ? board : DEFAULT_BOARD,
+				}));
+		}
+	} catch {}
+	return [];
+}
+
+/**
+ * The board lane `lane` is on, as it is called now, or as it was when the
+ * lane was dropped; null for no lane, or one no longer on any board.
+ */
+export async function boardOfLane(
+	store: TaskStore,
+	lane: number | null,
+): Promise<BoardRecord | null> {
+	if (lane === null) {
+		return null;
+	}
+	const record = [
+		...(await storedLanes(store, "lanes")),
+		...(await storedLanes(store, "ended-lanes")),
+	].find((each) => each.id === lane);
+	if (record === undefined) {
+		return null;
+	}
+	return (
+		(await storedBoards(store)).find(
+			(each) => each.id === (record.board ?? DEFAULT_BOARD),
+		) ?? null
+	);
 }

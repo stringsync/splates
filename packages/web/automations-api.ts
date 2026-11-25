@@ -1,6 +1,4 @@
 import type { AutomationRow, Hook, Trigger } from "@splates/server/hooks";
-import { GROOMER_AUTOMATION } from "@splates/server/hooks/browser";
-import type { AgentPick } from "@splates/server/models";
 import { ApiError, answered, scoped, send, sendJson } from "./api";
 
 /** Every automation set for this project, the checked-in ones too. */
@@ -55,17 +53,6 @@ export async function editAutomation(
 	);
 }
 
-/** Sets the agent the groomer runs as, turning it on when it is off. */
-export async function groomAutomation(
-	pick: AgentPick,
-): Promise<AutomationRow[]> {
-	return rows(
-		await sendJson(`/api/automations/${GROOMER_AUTOMATION}`, "PUT", {
-			hook: pick,
-		}),
-	);
-}
-
 /** Takes away the person's automation `id`. */
 export async function removeAutomation(
 	id: string,
@@ -92,8 +79,15 @@ export async function pauseAutomation(
 }
 
 /** Runs automation `id` now, answering once it started, its run listed. */
-export async function runAutomation(id: string): Promise<AutomationRow[]> {
-	return rows(await send(`/api/automations/${id}/run`, { method: "POST" }));
+export async function runAutomation(
+	id: string,
+	project: string | null = null,
+): Promise<AutomationRow[]> {
+	return rows(
+		await send(scoped(`/api/automations/${id}/run`, project), {
+			method: "POST",
+		}),
+	);
 }
 
 function rows(body: unknown): AutomationRow[] {

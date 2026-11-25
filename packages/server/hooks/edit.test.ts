@@ -28,6 +28,15 @@ describe("changed", () => {
 		).toThrow("one of them");
 	});
 
+	it("narrows the event to Backlog, lane 0, refusing a negative lane", () => {
+		expect(
+			changed(NOTIFY, { ...NONE, stage: "any", lane: "0" }).trigger,
+		).toEqual({ event: "task.created", filter: { lanes: [0] } });
+		expect(() => changed(NOTIFY, { ...NONE, lane: "-1" })).toThrow(
+			"no list of lane numbers",
+		);
+	});
+
 	it("sets an event to run on every Nth match, `any` taking that away", () => {
 		expect(changed(NOTIFY, { ...NONE, invokes: "10" }).trigger).toEqual({
 			event: "task.created",
@@ -88,6 +97,44 @@ describe("changed", () => {
 			changed(command, { ...NONE, prompt: "hi", pick: { agent: "claude" } })
 				.hook,
 		).toEqual({ kind: "agent", prompt: "hi", agent: "claude" });
+	});
+
+	it("sets, preserves and clears a pre-approved eval budget on an agent hook", () => {
+		const budgeted = changed(NOTIFY, { ...NONE, evalBudget: "2" }).hook;
+		expect(budgeted).toEqual({
+			kind: "agent",
+			prompt: "say hi",
+			agent: "claude",
+			model: "sonnet",
+			evalBudget: 2,
+		});
+		const kept = changed(
+			{ ...NOTIFY, hook: budgeted },
+			{ ...NONE, prompt: "say bye" },
+		).hook;
+		expect(kept).toEqual({
+			kind: "agent",
+			prompt: "say bye",
+			agent: "claude",
+			model: "sonnet",
+			evalBudget: 2,
+		});
+		const cleared = changed(
+			{ ...NOTIFY, hook: budgeted },
+			{ ...NONE, evalBudget: "none" },
+		).hook;
+		expect(cleared).toEqual({
+			kind: "agent",
+			prompt: "say hi",
+			agent: "claude",
+			model: "sonnet",
+		});
+		expect(() =>
+			changed(NOTIFY, { ...NONE, run: "notify", evalBudget: "2" }),
+		).toThrow("--run goes alone");
+		expect(() => changed(NOTIFY, { ...NONE, evalBudget: "0" })).toThrow(
+			"no eval budget",
+		);
 	});
 });
 

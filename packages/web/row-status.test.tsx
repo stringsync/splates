@@ -78,9 +78,10 @@ describe("statusOf", () => {
 		});
 	});
 
-	it("says what it waits on and for how long", () => {
+	it("says what it waits on and for how long, even once idle-stopped", () => {
 		const row: Needing = {
 			conversation: conversation({
+				status: "stopped",
 				signals: [
 					{
 						id: "w",
@@ -100,5 +101,33 @@ describe("statusOf", () => {
 		expect(statusOf(row, "alpha", "main").text).toBe(
 			"Waiting on mdom.released · 5h left",
 		);
+	});
+
+	it("says a deferred task is waiting on blockers", () => {
+		const row: Needing = {
+			conversation: conversation({
+				messages: [
+					message(
+						"agent",
+						"## ⏸ Deferred upload-retry: waiting on #812\n\nNeeds the new client.",
+					),
+				],
+			}),
+			task: null,
+			need: { kind: "idle" },
+		};
+
+		expect(
+			statusOf(row, "alpha", "main", null, false, { left: 1, total: 2 }),
+		).toEqual({
+			text: "Waiting on blockers · 1 of 2 left · waiting on #812",
+			label: "Waiting on blockers",
+			urgent: false,
+		});
+		expect(statusOf(row, "alpha", "main")).toEqual({
+			text: "Waiting on blockers · waiting on #812",
+			label: "Waiting on blockers",
+			urgent: false,
+		});
 	});
 });

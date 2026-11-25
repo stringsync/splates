@@ -1,7 +1,6 @@
 import type { Conversation } from "../conversations";
 import { fail } from "../exit";
 import { fileResponse, refuse } from "../server/shared";
-import { CAPTURE_REPORT } from "./capture";
 import { DIAGRAM_REQUEST } from "./diagrams";
 import { viewerOf } from "./viewers";
 
@@ -9,8 +8,7 @@ import { viewerOf } from "./viewers";
  * Serves one version of an artifact of `conversation`, from `/api/conversations/
  * <id>/artifacts/<name>/<version>`. A name or version it lacks is a 404
  * `not_found`, and one whose bytes were deleted a 404 `gone`, which the page
- * shows as a placeholder. Add `?select` to a page to have it report what the
- * person selects in it to the frame around it.
+ * shows as a placeholder.
  */
 export async function artifactResponse(
 	request: Request,
@@ -40,15 +38,10 @@ export async function artifactResponse(
 			`version ${number} of artifact ${name} is gone: ${version.gone?.why ?? "its file is missing"}`,
 		);
 	}
-	const response = fileResponse(
-		request,
-		served(read, new URL(request.url).searchParams.has("select")),
-		read.mimeType,
-		{
-			// A version never changes, but its bytes can be deleted.
-			"cache-control": "private, no-cache",
-		},
-	);
+	const response = fileResponse(request, served(read), read.mimeType, {
+		// A version never changes, but its bytes can be deleted.
+		"cache-control": "private, no-cache",
+	});
 	response.headers.set(
 		"content-security-policy",
 		artifactPolicy(read.mimeType),
@@ -65,31 +58,14 @@ export async function artifactResponse(
 }
 
 /**
- * What a page framed for commenting runs besides its own: it tells its
- * frame's parent what the person has selected, as text and where it sits in
- * the frame, so the sheet can offer Comment. The page is sandboxed with no
- * origin, so it can only say this and never read the comments.
+ * The bytes sent for `read`: a page runs the diagram request at its end;
+ * anything else is sent as kept.
  */
-const SELECTION_REPORT = `<script>(()=>{const t=()=>{const s=getSelection();const x=s&&s.rangeCount?s.toString().trim():"";let r=null;if(x){const b=s.getRangeAt(0).getBoundingClientRect();r={x:b.left,y:b.top,w:b.width,h:b.height}}parent.postMessage({splates:"selection",text:x.slice(0,2000),rect:r},"*")};document.addEventListener("selectionchange",()=>setTimeout(t,0));addEventListener("scroll",t,true)})()</script>`;
-
-/**
- * The bytes sent for `read`: a page runs the diagram request at its end, and
- * with `selecting` the selection and capture reports too; anything else is
- * sent as kept.
- */
-function served(
-	read: { bytes: Uint8Array; mimeType: string },
-	selecting: boolean,
-): Uint8Array {
+function served(read: { bytes: Uint8Array; mimeType: string }): Uint8Array {
 	if (!/^text\/html\b/i.test(read.mimeType)) {
 		return read.bytes;
 	}
-	return withScripts(
-		read.bytes,
-		selecting
-			? DIAGRAM_REQUEST + SELECTION_REPORT + CAPTURE_REPORT
-			: DIAGRAM_REQUEST,
-	);
+	return withScripts(read.bytes, DIAGRAM_REQUEST);
 }
 
 /** `bytes`, a page, with `scripts` run at its end. */

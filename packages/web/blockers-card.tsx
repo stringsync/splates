@@ -75,7 +75,7 @@ export function DeferredBody({
 					task,
 					board.todos,
 					board.elsewhere?.blockers[task.id],
-				).filter((each) => each.kind !== "task" && !cleared(each));
+				).filter((each) => each.kind !== "task");
 	const unqueued = blockers.filter(
 		(each) =>
 			each.project === undefined &&
@@ -164,8 +164,6 @@ export function DeferredBody({
 								{task.takenBy}
 							</button>
 						</>
-					) : left === 0 && legacy.length > 0 ? (
-						"Every task blocker is done. It still waits on what is listed above, which nothing detects yet."
 					) : left === 0 ? (
 						"Every blocker is done."
 					) : count > 0 ? (
@@ -204,9 +202,11 @@ export function DeferredBody({
  * Whether the task a conversation set aside as blocked waits on a blocker
  * nobody has queued, which the person has to queue for it to start.
  */
-export function useBlockedNeedsYou(conversation: ConversationState): boolean {
+export function useBlockedNeedsYou(
+	conversation: ConversationState | null,
+): boolean {
 	const board = useContext(Board);
-	const last = lastReport(conversation);
+	const last = conversation === null ? null : lastReport(conversation);
 	const task =
 		last?.ending === "deferred" ? deferredTask(board.todos, last.task) : null;
 	if (task === null || task.takenBy !== null) {

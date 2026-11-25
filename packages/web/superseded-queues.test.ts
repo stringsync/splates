@@ -33,6 +33,28 @@ describe("supersedeQueues", () => {
 			folded([card({ lane: 3 }), card({ lane: 3, action: "remove-lane" })]),
 		).toEqual([false, false]);
 	});
+
+	test("numbers run-evals rounds and marks earlier rounds", () => {
+		const ask: Partial<PermissionProposal> = {
+			action: "run-evals",
+			evals: { skill: "splates", scenarios: ["a"], baseline: null },
+		};
+		const out = supersedeQueues([card(ask), card(ask)]);
+		const partData = (index: number) =>
+			(
+				out[index]?.content as
+					| {
+							data: { evalRound?: number; earlierEvalRound?: boolean };
+					  }[]
+					| undefined
+			)?.[0]?.data;
+		const first = partData(0);
+		const second = partData(1);
+		expect(first?.evalRound).toBe(1);
+		expect(first?.earlierEvalRound).toBe(true);
+		expect(second?.evalRound).toBe(2);
+		expect(second?.earlierEvalRound).toBeUndefined();
+	});
 });
 
 function card(over: Partial<PermissionProposal>): ThreadMessageLike {

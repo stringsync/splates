@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { taskAdd, taskUpdate } from "../board";
+import { laneQueue, taskAdd, taskUpdate } from "../board";
 import { Testing } from "../testing";
 import {
 	queueAdd,
@@ -198,5 +198,43 @@ describe("queue commands", () => {
 
 		await queueAdd(deps, [1], { by });
 		expect((await deps.tasks.find(1)).state.queuedBy).toEqual(agentBy);
+	});
+
+	it("lets an agent queue a lane's waiting tasks only, as itself, once the server allows them", async () => {
+		await using deps = await Testing.open();
+		const lane = await deps.tasks.addLane("Export");
+		await deps.tasks.add("Writer", null, { lane: lane.id });
+		await deps.tasks.add("Endpoint", null, { lane: lane.id });
+		deps.proc.env.SPLATES_CONVERSATION = "c-root";
+		deps.proc.env.SPLATES_DEV = "http://localhost:4310";
+		const agentBy = {
+			by: "agent" as const,
+			conversation: "c-root",
+			task: null,
+			root: { conversation: "c-root", task: null },
+		};
+		let asked: unknown;
+		const by = await refuseAgentQueue(deps.service, "lane queue", {
+			ids: [1, 2],
+			log: deps.log,
+			send: async (_url, init) => {
+				asked = JSON.parse(String(init?.body));
+				return Response.json({
+					allowed: true,
+					by: agentBy,
+					level: "safe",
+					queued: 2,
+					cap: 5,
+				});
+			},
+		});
+		expect(asked).toEqual({ conversation: "c-root", ids: [1, 2] });
+
+		// A task added after the server allowed the lane is not queued with it.
+		await deps.tasks.add("Button", null, { lane: lane.id });
+		const queued = await laneQueue(deps, lane.id, true, { by, only: [1, 2] });
+		expect(queued.map((task) => task.id)).toEqual([1, 2]);
+		expect((await deps.tasks.find(1)).state.queuedBy).toEqual(agentBy);
+		expect((await deps.tasks.find(3)).state.stage).toBe("available");
 	});
 });

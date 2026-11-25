@@ -2,48 +2,29 @@ import type { TaskStage } from "@splates/server/board";
 import type { Hook, Trigger } from "@splates/server/hooks";
 import { TASK_EVENTS, type TaskEventName } from "@splates/server/hooks/browser";
 import { useReactive } from "core/react";
-import { type FormEvent, type JSX, useContext, useState } from "react";
+import { type FormEvent, type JSX, useContext, useId } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import {
 	NativeSelect,
 	NativeSelectOption,
 } from "#web/components/ui/native-select.tsx";
-import { Textarea } from "#web/components/ui/textarea.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AutomationDraft, type When } from "./automation-draft";
+import type { AutomationDraft, When } from "./automation-draft";
 import { Lanes } from "./conversation-names";
 import { AssigneeMenu } from "./dispatching";
+import { MarkdownEditor } from "./markdown-editor";
 import { PHONE_HEADING } from "./phone-rows";
 import { Refusal, useRefusal } from "./refusal";
 import { useSignals } from "./use-signals";
 
 const STAGES: TaskStage[] = ["available", "queued", "running"];
 
-/** The form that adds an automation, clearing what was typed once it is added. */
-export function AddForm({
-	onAdd,
-}: {
-	onAdd: (trigger: Trigger, hook: Hook, name: string) => Promise<boolean>;
-}): JSX.Element {
-	const [draft] = useState(() => new AutomationDraft());
-	return (
-		<AutomationForm
-			draft={draft}
-			title="Add an automation"
-			submit="Add"
-			onSubmit={(trigger, hook, name) =>
-				void onAdd(trigger, hook, name).then((added) => {
-					if (added) {
-						draft.added();
-					}
-				})
-			}
-		/>
-	);
-}
-
-/** The form that adds or edits an automation: its trigger, then what it runs. */
+/**
+ * The form that adds or edits a subscription: what sets it off (a signal,
+ * a task event or a schedule), then what it runs. In a dialog, pass `bare`
+ * for no border or heading of its own.
+ */
 export function AutomationForm({
 	draft,
 	title,
@@ -51,6 +32,10 @@ export function AutomationForm({
 	onSubmit,
 	onCancel,
 	signal,
+	bare = false,
+	projects = [],
+	project = "",
+	onProject,
 }: {
 	/** Set when the trigger is fixed to this signal: the form then has no "When" to choose. */
 	signal?: string;
@@ -59,7 +44,16 @@ export function AutomationForm({
 	submit: string;
 	onSubmit: (trigger: Trigger, hook: Hook, name: string) => void;
 	onCancel?: () => void;
+	/** Drawn without its own border and heading, as inside a dialog that has them. */
+	bare?: boolean;
+	/** The projects it can belong to; the picker shows only with several. */
+	projects?: string[];
+	/** The project it belongs to. */
+	project?: string;
+	/** Picks the project; without it the project is fixed, as when editing. */
+	onProject?: (project: string) => void;
 }): JSX.Element {
+	const suggestions = useId();
 	const lanes = useContext(Lanes);
 	const { signals } = useSignals();
 	const names = signals.map((each) => each.name);
@@ -74,6 +68,7 @@ export function AutomationForm({
 		kind,
 		pick,
 		prompt,
+		evalBudget,
 		command,
 	} = useReactive(draft, (draft) => draft.fields, ["changed"]);
 	const { refusal, refuse } = useRefusal();
@@ -92,15 +87,31 @@ export function AutomationForm({
 		<form
 			aria-label={title.toLowerCase()}
 			onSubmit={submitted}
-			className="flex flex-col gap-3 rounded-xl border p-3"
+			className={cn("flex flex-col gap-3", !bare && "rounded-xl border p-3")}
 		>
-			<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			{!bare && (
+				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>{title}</h2>
+			)}
 			<Input
 				aria-label="Name"
 				placeholder="Name (optional)"
 				value={name}
 				onChange={(change) => draft.set("name", change.target.value)}
 			/>
+			{projects.length > 1 && (
+				<NativeSelect
+					aria-label="Project"
+					value={project}
+					disabled={onProject === undefined}
+					onChange={(change) => onProject?.(change.target.value)}
+				>
+					{projects.map((each) => (
+						<NativeSelectOption key={each} value={each}>
+							Project {each}
+						</NativeSelectOption>
+					))}
+				</NativeSelect>
+			)}
 			{signal !== undefined ? (
 				<p className="text-muted-foreground text-sm">
 					When <code className="font-mono">{signal}</code> is raised
@@ -185,24 +196,24 @@ export function AutomationForm({
 							/>
 						</>
 					) : when === "signal" ? (
-						<NativeSelect
-							aria-label="Signal"
-							required
-							value={schedule}
-							onChange={(change) => draft.set("schedule", change.target.value)}
-						>
-							<NativeSelectOption value="">Choose a signal</NativeSelectOption>
-							{schedule !== "" && !names.includes(schedule) && (
-								<NativeSelectOption value={schedule}>
-									{schedule}
-								</NativeSelectOption>
-							)}
-							{names.map((each) => (
-								<NativeSelectOption key={each} value={each}>
-									{each}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
+						<>
+							<Input
+								aria-label="Signal"
+								required
+								list={suggestions}
+								className="min-w-0 flex-1 basis-60 font-mono"
+								placeholder='mdom.released or clock.in("2 days")'
+								value={schedule}
+								onChange={(change) =>
+									draft.set("schedule", change.target.value)
+								}
+							/>
+							<datalist id={suggestions}>
+								{names.map((each) => (
+									<option key={each} value={each} />
+								))}
+							</datalist>
+						</>
 					) : (
 						<Input
 							aria-label="Schedule"
@@ -236,13 +247,31 @@ export function AutomationForm({
 				)}
 			</div>
 			{kind === "agent" ? (
-				<Textarea
-					aria-label="Prompt"
-					required
-					placeholder="What the agent is told, after what set it off"
-					value={prompt}
-					onChange={(change) => draft.set("prompt", change.target.value)}
-				/>
+				<>
+					<MarkdownEditor
+						label="Prompt"
+						required
+						placeholder="What the agent is told, after what set it off"
+						value={prompt}
+						onChange={(value) => draft.set("prompt", value)}
+					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<Input
+							aria-label="Eval budget in dollars"
+							inputMode="decimal"
+							className="w-60 tabular-nums"
+							placeholder="Eval budget $ (optional)"
+							title="Pre-approved eval budget in dollars for each firing; nothing carries over"
+							value={evalBudget}
+							onChange={(change) =>
+								draft.set("evalBudget", change.target.value)
+							}
+						/>
+						<span className="text-muted-foreground text-xs">
+							Pre-approved per firing; nothing carries over.
+						</span>
+					</div>
+				</>
 			) : (
 				<Input
 					aria-label="Command"
@@ -253,12 +282,19 @@ export function AutomationForm({
 				/>
 			)}
 			<Refusal refusal={refusal} />
-			<div className="flex gap-2">
+			<div
+				className={cn("flex gap-2", bare && "flex-row-reverse justify-start")}
+			>
 				<Button type="submit" size="sm">
 					{submit}
 				</Button>
 				{onCancel !== undefined && (
-					<Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+					<Button
+						type="button"
+						size="sm"
+						variant={bare ? "outline" : "ghost"}
+						onClick={onCancel}
+					>
 						Cancel
 					</Button>
 				)}

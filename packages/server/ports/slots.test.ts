@@ -202,4 +202,28 @@ describe("Slots", () => {
 		expect(slotOf("fox")?.emoji).toBe("🦊");
 		expect(slotOf("yak")).toBeNull();
 	});
+
+	it("skips words reserved by rigs and reports held words", async () => {
+		const fs = new FakeFs();
+		const ps = new FakePs();
+		await fs.mkdir("/trees/one");
+		const reserved = new Set(["cat"]);
+		const slots = new Slots(
+			new FsStorage("/home/.splates", fs).document("slots.json"),
+			{
+				home: "/home/.splates",
+				fs,
+				ps,
+				lock: new MemoryLock(),
+				pool,
+				reserved: async () => reserved,
+			},
+		);
+
+		expect(await slots.claim("/trees/one")).toEqual({
+			word: "bee",
+			emoji: "🐝",
+		});
+		expect([...(await slots.heldWords())]).toEqual(["bee"]);
+	});
 });

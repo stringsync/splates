@@ -46,6 +46,41 @@ describe("signals page", () => {
 		});
 	});
 
+	it("cleans up idle signals and revives a hidden one", async () => {
+		const calls: string[] = [];
+		let hidden = [{ name: "mono.old.poll", at: new Date().toISOString() }];
+		globalThis.fetch = (async (input: Request | string | URL) => {
+			const url =
+				typeof input === "object" && "url" in input ? input.url : input;
+			calls.push(String(url));
+			if (String(url).includes("/cleanup")) {
+				return Response.json({ removed: ["mono.a", "mono.b"] });
+			}
+			if (String(url).includes("/revive")) {
+				hidden = [];
+				return Response.json({ name: "mono.old.poll", revived: true });
+			}
+			return Response.json({ signals: SIGNALS, hidden, subscribers: 0 });
+		}) as unknown as typeof fetch;
+		const page = render(
+			<SignalsPage
+				onOpen={() => {}}
+				opens={{ todo: () => {}, task: () => {} }}
+			/>,
+		);
+		await page.findByRole("region", { name: "project mono" });
+		fireEvent.click(page.getByRole("button", { name: "Clean up idle" }));
+		expect(await page.findByText("Hid 2 idle signals.")).toBeTruthy();
+		fireEvent.click(await page.findByRole("button", { name: /Hidden \(1\)/ }));
+		fireEvent.click(
+			await page.findByRole("button", { name: "Revive mono.old.poll" }),
+		);
+		await waitFor(() =>
+			expect(page.queryByRole("region", { name: "hidden signals" })).toBeNull(),
+		);
+		expect(calls.some((each) => each.includes("/revive"))).toBe(true);
+	});
+
 	it("lists each signal in its project's card, a family folded to one row that opens to its signals", async () => {
 		const page = render(
 			<SignalsPage

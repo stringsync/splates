@@ -97,10 +97,17 @@ export function problems(found: readonly Found[]): string[] {
 			out.push(`${at}: id also declared in ${before.file}`);
 		}
 		seen.set(scenario.id, each);
-		if (!scenario.id.startsWith(`${scenario.aspect}/`)) {
+		if (
+			scenario.sentence === undefined &&
+			!scenario.id.startsWith(`${scenario.aspect}/`)
+		) {
 			out.push(`${at}: id should be ${scenario.aspect}/<name>`);
 		}
-		if (scenario.requirement.trim() === "") {
+		if (scenario.sentence !== undefined) {
+			if (scenario.sentence.trim() === "") {
+				out.push(`${at}: sentence is empty`);
+			}
+		} else if (scenario.requirement.trim() === "") {
 			out.push(`${at}: requirement is empty`);
 		}
 		if (scenario.message.trim() === "") {

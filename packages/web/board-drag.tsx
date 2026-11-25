@@ -109,13 +109,6 @@ export function BoardDrag({
 					<Card
 						todo={lifted}
 						staleness={staleness}
-						step={
-							lifted.lane === null
-								? undefined
-								: todos
-										.filter((other) => other.lane === lifted.lane)
-										.findIndex((other) => other.id === lifted.id) + 1
-						}
 						className="rotate-2 cursor-grabbing shadow-lg"
 					/>
 				)}

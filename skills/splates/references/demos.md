@@ -5,7 +5,9 @@
 **Deliver screenshots before asking for visual review.** A tool preview is
 visible to you, not automatically to the user. Run `splates attach <file>`,
 then copy the image Markdown it prints into your reply, outside a code block.
-Use the stored path it returns, not the original capture path. For task
+It works with no task open: it keeps the file with your conversation, and
+when `$SPLATES_CONVERSATION` is not set (it fails with `usage` then), pass
+`--conversation <id>` so the first try succeeds. Use the stored path it returns, not the original capture path. For task
 evidence, put the same image under `## After` in `SPLATES.md`.
 A filename, plain link or “see screenshot” does not deliver an image. If
 attachment fails, report the failure rather than claiming the user can see it.
@@ -46,53 +48,41 @@ where they would read as questions.
 
 ## Hosting a demo
 
-When the user asked to try a change, make that cheap: run it
-for them where they can open it (a dev server on throwaway data that shows
-each case, never their own), and give them a demo (see [Demos](demos.md)). Run splates in a
-throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
-stays out of the user's `splates server` project list. Start the server from your
-worktree, then `splates ports <task>` prints each port it listens on with two
-links: its remote one, `https://<task>-<port>.<base>` behind the user's
-Access, when `splates server --ports-host` saved a base, and its local one on
-your machine, which a worker whose server runs elsewhere has only for its
-own ports. Give the user both, the remote one first, in
-the demo's line on where to open it; the task's dialog on the page lists
-them too. When `splates tunnel status`
-shows a tunnel, `splates server --slot` from your worktree does both and prints a
-`https://<word>.<zone>` the user can open on their phone too: give them that.
-Your worktree keeps its slot until the task merges or is removed, which stops
-its server; that stops nothing else, so before merging, stop every process
-you started in the worktree yourself, such as a dev server in the background. Every other slot is another task's: never kill its server or edit
-`~/.splates/slots.json`, even when it looks left behind. When none is free, run
-`splates slots prune`, which frees only those no task holds any more, and
+When the user asks to try a change, run it where they can open it: a dev
+server on throwaway data that shows each case, never their own. Run splates in
+a throwaway repository with `SPLATES_HOME` set to a throwaway directory, so it
+stays out of the user's project list. Start the server from your worktree,
+then `splates ports <task>` prints each port's remote link
+(`https://<task>-<port>.<base>`, when a ports host is saved) and local link:
+give both, the remote one first, in the demo's line on where to open it. When
+`splates tunnel status` shows a tunnel, `splates server --slot` from your
+worktree does both and prints a `https://<word>.<zone>` link that opens on a
+phone: give that.
+
+The slot is yours until the task merges or is removed, which stops its
+server; stop every other process you started (a background dev server, say)
+before merging. Never kill another slot's server or edit
+`~/.splates/slots.json`; when none is free, run `splates slots prune`, and
 otherwise ask the user.
 
 ## Running a demo
 
 `[SPLATES DEMO <task> <point>]` asks you to show `<task>`, open or finished,
-at one point: `after` its change, as the task dialog's Demo with an agent and
-the merged card's Demo it ask, or, when asked for by hand, `before` it or on
-`main` as it is now. The task dialog's starts a new conversation and the
-merged card's comes to the agent that merged it; either way, read the task
-first with `splates show <task>`, which prints a finished task's facts and
-the `SPLATES.md` it ended on too.
+at `after` its change, or (asked for by hand) `before` it or on `main`. Read
+the task first with `splates show <task>`.
 
 1. `splates add demo-<task>-<point> --goal "Demo <task> at <point>"`, with
-   `--base task/<task>` for `after` while the task is open, so the demo runs
-   in a worktree of its own that nothing landing on main moves.
-2. Move it to the point: for a finished task, `git reset --hard <commit>^`
-   for `before` and `git reset --hard <commit>` for `after`, `<commit>` the
-   one it landed as. `main`, and `before` while the task is open, stay where
-   `splates add` put them. This reset is yours to run: a demo task never
-   merges.
-3. Use the task's Before and After and its code to choose a useful example
-   on throwaway data, and start it where the user can open it (see [Hosting a demo](#hosting-a-demo) on servers and links).
-4. Say in a line what they should see at this point, then give the demo's
-   steps, and talk it through. A fix it turns up is work for the task, while
-   it is open, or for a new task, never for the demo's.
+   `--base task/<task>` for `after` while the task is open.
+2. For a finished task, `git reset --hard <commit>^` for `before` or
+   `git reset --hard <commit>` for `after`, `<commit>` the one it landed as.
+   A demo task never merges.
+3. Pick a useful example from the task's Before, After and code, on throwaway
+   data, and host it as above.
+4. Say in a line what they should see, give the demo's steps, and talk it
+   through. A fix it turns up belongs to the task while it is open, or to a
+   new task, never to the demo's.
 
-The demo stays up until the user archives the conversation, which removes
-the demo task and stops its server and agent.
+The demo stays up until the user archives the conversation.
 
 ## Artifacts
 
@@ -130,7 +120,7 @@ conversation: `$SPLATES_CONVERSATION` from `splates server`, or
 Most files you show are not artifacts: a screenshot that shows a question, an
 image in a report's card, a demo step's image. Each serves the moment it is
 shown in, so it stays inline: `splates attach` it and name it as
-`![what](/abs/path.png)`, as [Questions](questions.md) and [Demos](#demos) say.
+`![what](/abs/path.png)`, as [Visuals](visuals.md) and [Demos](#demos) say.
 Make a file an artifact only when the user would look for it on its own,
 apart from the reply it came in.
 

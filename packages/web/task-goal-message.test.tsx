@@ -31,3 +31,20 @@ test("shows nothing for other text or a task the board lacks", () => {
 	expect(shown("hello", [])).toBe("");
 	expect(shown(START, [])).toBe("");
 });
+
+test("leads with the goal without Before and After headings for legacy task text", () => {
+	const todos = [
+		{
+			id: 7,
+			subject: "Upload retries forever on a 413",
+			text: "## Before\n\nUploads loop forever on a 413.\n\n## After\n\nAn upload stops retrying on a 413.",
+		},
+	] as TaskRecord[];
+	const words = shown(START, todos);
+	expect(words).toContain("An upload stops retrying on a 413.");
+	expect(words).not.toContain("Before");
+	expect(words).not.toContain("After");
+	expect(words.indexOf("An upload stops retrying")).toBeLessThan(
+		words.indexOf("Uploads loop forever"),
+	);
+});

@@ -136,6 +136,15 @@ for (const line of lines) console.log(JSON.stringify(line));
 		expect(out).toContain("Bearer [redacted]");
 	});
 
+	it("leaves ordinary ids ending in sk- alone", () => {
+		const text =
+			"updated-task-abcdefghijklmnopqrstuv and risk-abcdefghijklmnopqrstuv";
+		expect(scrubText(text, {})).toBe(text);
+		expect(scrubText("(sk-abcdefghijklmnopqrstuv)", {})).not.toContain(
+			"sk-abc",
+		);
+	});
+
 	it("refuses to copy a run whose kept repo holds a secret", async () => {
 		expect(
 			copyRun(batch, "run-000", join(directory, "labels", "bad"), {

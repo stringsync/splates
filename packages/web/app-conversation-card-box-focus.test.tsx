@@ -59,6 +59,11 @@ describe("App's card answer box after a take", () => {
 
 	beforeEach(async () => {
 		view = await testing.openConversations([asking]);
+		// Every question down the card, as it shows one at a time.
+		const all = await waitFor(() =>
+			view.getByRole("button", { name: "Show all" }),
+		);
+		await act(async () => fireEvent.click(all));
 		await waitFor(() => card(view, "2"));
 	});
 

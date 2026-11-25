@@ -402,55 +402,27 @@ describe.concurrent("task", () => {
 		expect(deps.out()).toContain("groomed:   yes");
 	});
 
-	it("reports a groomer claim as unfinished and any task in Backlog as ungroomed", async () => {
+	it("reports any untaken task in Backlog as ungroomed", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "awaiting grooming", null);
 		await deps.tasks.add("named Backlog", null, { lane: 0 });
-		await (await deps.tasks.find(1)).groom("groomer-a");
 
-		deps.log.clear();
 		await taskShow(deps, 1);
-		expect(deps.out()).toContain("groomed:   no, groom it before work on it");
-		expect(deps.out()).toContain("grooming:  the groomer has it");
-		deps.log.clear();
 		await taskShow(deps, 2);
-		expect(deps.out()).toContain("groomed:   no, groom it before work on it");
-		expect(deps.out()).not.toContain("grooming:");
-	});
-
-	it("is claimed for one groomer at a time, until a take or a lane ends the claim", async () => {
-		await using deps = await Testing.open();
-		await taskAdd(deps, "rough", null);
-		await taskAdd(deps, "taken", null);
-		await taskAdd(deps, "groomed", null, { lane: "new" });
-		await add(deps, "work", { tasks: [2] });
-		const claim = async (id: number, by: string) =>
-			(await deps.tasks.find(id)).groom(by);
-
-		expect(await claim(1, "groomer-a")).toBe(true);
-		expect(await claim(1, "groomer-a")).toBe(false);
-		expect(await claim(2, "groomer-a")).toBe(false);
-		expect(await claim(3, "groomer-a")).toBe(false);
-		// A groomer since retired gives way to the one on now.
-		expect(await claim(1, "groomer-b")).toBe(true);
-		expect((await deps.tasks.find(1)).state.grooming).toBe("groomer-b");
-
-		await (await deps.tasks.find(1)).take("person");
-		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
-		await (await deps.tasks.find(1)).release();
-		await claim(1, "groomer-b");
-		await taskUpdate(deps, 1, { lane: "new" });
-		expect((await deps.tasks.find(1)).state.grooming).toBeUndefined();
+		expect(
+			deps.out().match(/groomed: {3}no, groom it before work on it/g),
+		).toHaveLength(2);
 	});
 
 	it("puts a deferred task's queued task back on the list", async () => {
 		await using deps = await Testing.open();
 		await taskAdd(deps, "support dark mode", null);
 		await add(deps, "dark", { tasks: [1] });
+		const blocker = await deps.tasks.add("Build the client", null);
 
 		await remove(deps, "dark", {
 			reason: "blocked",
-			deferral: { why: "It needs a key.", outside: ["a key"] },
+			deferral: { why: "It needs the client.", blockedBy: [blocker.id] },
 		});
 
 		expect((await deps.tasks.find(1)).takenBy).toBeNull();

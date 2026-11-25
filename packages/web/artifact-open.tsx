@@ -23,21 +23,6 @@ export type OpenArtifact = (
 
 const Opening = createContext<OpenArtifact | null>(null);
 
-/** The page an approval question's plan names, by its artifact's name. */
-type PlanOf = (name: string) => Shown | null;
-
-const Plans = createContext<PlanOf>(() => null);
-
-/**
- * The current version of the conversation's page artifact `name`, as a plan
- * opens it; null with no name, outside a conversation, or when it is not a
- * page the conversation still holds.
- */
-export function usePlanPage(name: string | null): Shown | null {
-	const of = useContext(Plans);
-	return name === null ? null : of(name);
-}
-
 /**
  * What opens an artifact from its row beside the thread or its chip in a
  * line: the viewer of the conversation it sits in, or, outside one, a
@@ -50,8 +35,7 @@ export function useOpenArtifact(): OpenArtifact {
 /**
  * Wrap a conversation's thread in it so its artifacts open where they are
  * clicked: images and recordings in the lightbox, pages in a sandboxed
- * frame, the rest as downloads. An approval question finds its plan page
- * through it.
+ * frame, the rest as downloads.
  */
 export function ArtifactViewer({
 	conversation,
@@ -98,29 +82,11 @@ export function ArtifactViewer({
 			media.findIndex((each) => each.version === kept),
 		);
 	};
-	const planOf: PlanOf = (name) => {
-		const artifact = artifacts.find(
-			(each) => each.name === name && each.removedAt === null,
-		);
-		const version = artifact?.versions.find(
-			(each) => each.version === artifact.current,
-		);
-		if (
-			version === undefined ||
-			version.gone !== null ||
-			viewerOf(version.mimeType) !== "page"
-		) {
-			return null;
-		}
-		return shown(conversation, { name, version }, false);
-	};
 	return (
 		<Opening.Provider value={open}>
-			<Plans.Provider value={planOf}>
-				{children}
-				{lightbox}
-				<PageViewer page={page} onClose={() => setPage(null)} />
-			</Plans.Provider>
+			{children}
+			{lightbox}
+			<PageViewer page={page} onClose={() => setPage(null)} />
 		</Opening.Provider>
 	);
 }

@@ -4,7 +4,7 @@ import {
 	type PermissionProposal,
 	permissionOf,
 } from "./permission";
-import { dedent, offers, type Question, settled, sized } from "./plan";
+import { offers, type Question, settled, sized } from "./plan";
 import {
 	groupQueued,
 	isQueuedTitle,
@@ -106,7 +106,7 @@ function cut(text: string): Stretch[] {
 		if (ITEM.exec(line)?.[1] !== "1") {
 			continue;
 		}
-		const list = listAt(lines, i);
+		const list = listAt(lines, i, found.at(-1)?.type === "plan");
 		if (list === null) {
 			continue;
 		}
@@ -480,6 +480,7 @@ function endAt(lines: string[], start: number): number {
 function listAt(
 	lines: string[],
 	start: number,
+	planned = false,
 ): { questions: Question[]; end: number } | null {
 	const items: { asked: Question; body: string[] }[] = [];
 	let end = start;
@@ -509,11 +510,13 @@ function listAt(
 	if (!items.every(asks)) {
 		return null;
 	}
-	const questions = items.map(({ asked, body }) =>
-		APPROVAL.test(asked.text)
-			? approving(settled(asked, body))
-			: settled(asked, body),
-	);
+	if (!planned) {
+		return {
+			questions: items.map(({ asked, body }) => settled(asked, body)),
+			end,
+		};
+	}
+	const questions = items.map(({ asked, body }) => settled(asked, body));
 	// The approval question is the one that blocks, so it reads last,
 	// whatever order it was written in. Numbers stay: a reply goes by them.
 	const approval = questions.filter((each) => APPROVAL.test(each.text));
@@ -529,42 +532,36 @@ function listAt(
 /** An approval question: `Do you approve <the change, named>?`. */
 const APPROVAL = /^Do you approve\b/;
 
-/**
- * An approval question with its `Plan: <name>` line taken out of its body as
- * its `plan`. One with no plan offers, after its own choices, to ask for one,
- * unless it already does.
- */
-function approving(asked: Question): Question {
-	const lines = asked.body.split("\n");
-	const at = lines.findIndex((line) => PLAN.test(line));
-	if (at !== -1) {
-		asked.plan = (PLAN.exec(lines[at] as string)?.[1] ?? "").trim();
-		asked.body = dedent(lines.filter((_, index) => index !== at));
-		return asked;
-	}
-	asked.plan = null;
-	if (
-		asked.pick === "one" &&
-		!asked.choices.some((choice) => FULL_PLAN.test(choice.text))
-	) {
-		const last = asked.choices.at(-1)?.key ?? "`";
-		asked.choices.push({
-			key: String.fromCharCode(last.charCodeAt(0) + 1),
-			text: REQUEST_PLAN,
-			body: "",
-			why: "",
-			chosen: false,
-		});
-	}
-	return asked;
+/** A plan's approval question, which the page asks as one checkbox. */
+export interface Approval {
+	/** Its position among the plan's questions: always the last. */
+	at: number;
+	/** The key of its Yes choice, which ticking it picks. */
+	yes: string;
+	/** What it approves: the question with `Do you approve` and `?` dropped. */
+	change: string;
 }
 
-/** The line naming an approval question's plan page: `Plan: plan.html`. */
-const PLAN = /^plan:[ \t]*`?([^`\s]+\.html?)`?[ \t]*$/i;
-const FULL_PLAN = /\bfull plan\b/i;
-
-/** The choice an approval question with no plan adds, asking for one. */
-export const REQUEST_PLAN = "Request a full plan";
+/**
+ * The approval question ending a plan's `questions`, when its last asks
+ * `Do you approve ...?` and offers a Yes; null otherwise.
+ */
+export function approvalOf(questions: Question[]): Approval | null {
+	const at = questions.length - 1;
+	const asked = questions[at];
+	if (asked === undefined || !APPROVAL.test(asked.text)) {
+		return null;
+	}
+	const yes = asked.choices.find((choice) => /^yes\b/i.test(choice.text));
+	if (yes === undefined) {
+		return null;
+	}
+	const change = asked.text
+		.replace(/^Do you approve\s*/, "")
+		.replace(/\?\s*$/, "")
+		.trim();
+	return { at, yes: yes.key, change };
+}
 
 /**
  * Whether an item asks, moving what its line says past its question to the

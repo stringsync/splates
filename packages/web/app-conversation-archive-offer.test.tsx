@@ -155,16 +155,24 @@ describe("App's offer to archive a conversation whose task is over", () => {
 	});
 
 	// vet-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
-	it("leaves the bar out while the report card's own Archive is in sight, which archives too", async () => {
+	it("leaves the bar out until the whole report card is out of sight, while its Archive archives too", async () => {
 		const real = globalThis.IntersectionObserver;
-		// The card's Archive, as the observer last watched it.
+		// The report card, as the observer last watched it.
 		let watched: ((ratio: number) => void) | null = null;
+		const observed: Element[] = [];
 		globalThis.IntersectionObserver = class {
 			constructor(private readonly callback: IntersectionObserverCallback) {}
 			observe(target: Element) {
+				observed.push(target);
 				watched = (ratio) =>
 					this.callback(
-						[{ target, intersectionRatio: ratio } as IntersectionObserverEntry],
+						[
+							{
+								target,
+								isIntersecting: ratio > 0,
+								intersectionRatio: ratio,
+							} as IntersectionObserverEntry,
+						],
 						{} as IntersectionObserver,
 					);
 			}
@@ -184,21 +192,23 @@ describe("App's offer to archive a conversation whose task is over", () => {
 			await waitFor(() => expect(bar()).toBeTruthy());
 			expect(bar()?.textContent).toContain("Done");
 			expect(bar()?.textContent).not.toContain("Merged");
+			const card = view.getByRole("region", { name: "merged header" });
+			expect(observed.at(-1)).toBe(card);
 
 			await scroll(1);
 			expect(bar()).toBeNull();
 
-			await scroll(0.2);
+			// Still hidden while any part of the card remains in view.
+			await scroll(0.1);
+			expect(bar()).toBeNull();
+
+			// Appears once the entire card has scrolled out of view.
+			await scroll(0);
 			expect(bar()).toBeTruthy();
 
 			await scroll(1);
 			await act(async () =>
-				fireEvent.click(
-					within(view.getByRole("region", { name: "merged header" })).getByRole(
-						"button",
-						{ name: "Archive" },
-					),
-				),
+				fireEvent.click(within(card).getByRole("button", { name: "Archive" })),
 			);
 			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 				{ method: "PUT", body: { archived: true } },

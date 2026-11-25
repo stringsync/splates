@@ -1,74 +1,33 @@
-import type { Question } from "@splates/server/plans";
 import {
-	BanIcon,
-	CheckIcon,
 	ChevronLeftIcon,
 	ChevronRightIcon,
-	EllipsisIcon,
-	FileTextIcon,
+	ChevronsRightIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import type { JSX } from "react";
+import { type JSX, useId } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "#web/components/ui/dropdown-menu.tsx";
+import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { touchItems } from "./board";
 import { Refusal } from "./refusal";
 import { label } from "./shortcuts";
 
-/** A plan card's final approval question and its choice keys. */
-export interface PlanDecision {
-	asked: Question;
-	approve: string;
-	reject: string | null;
-	full: string | null;
-}
-
-/**
- * The plan's approval when the card ends with one the footer can decide: the
- * question, its approving and rejecting choice keys, and the one asking for a
- * full plan.
- */
-export function decisionOf(questions: Question[]): PlanDecision | null {
-	const asked = questions.at(-1);
-	if (asked === undefined || asked.plan === undefined || asked.pick !== "one") {
-		return null;
-	}
-	const approve = asked.choices.find((choice) => /^yes\b/i.test(choice.text));
-	if (approve === undefined) {
-		return null;
-	}
-	const reject = asked.choices.find((choice) => /^no\b/i.test(choice.text));
-	const full = asked.choices.find((choice) =>
-		/\bfull plan\b/i.test(choice.text),
-	);
-	return {
-		asked,
-		approve: approve.key,
-		reject: reject?.key ?? null,
-		full: full?.key ?? null,
-	};
-}
-
 /**
  * The action footer for `QuestionCards`, handling both the phone's pinned
- * paging controls and the desktop send / approve bar.
+ * paging controls and the desktop send bar, which turns the questions too
+ * while it shows them one at a time.
  */
 export function QuestionCardsFooter({
 	paging,
+	stepping = false,
+	steppable = false,
+	unanswered = null,
+	onWhole,
 	live,
 	page,
 	sending,
-	decidingHere,
-	decision,
-	sendingFeedback,
 	planned,
+	approval = null,
 	touch,
 	answering,
 	empty,
@@ -76,17 +35,31 @@ export function QuestionCardsFooter({
 	refusal,
 	onTurn,
 	onSend,
-	onDecide,
 }: {
+	/** Whether it is the phone's sheet, one question a screen. */
 	paging: boolean;
+	/** Whether the desktop card shows one question at a time. */
+	stepping?: boolean;
+	/** Whether the desktop card can show one question at a time. */
+	steppable?: boolean;
+	/** The first other question with no answer, by position, or null. */
+	unanswered?: number | null;
+	/** Shows every question down the card, or one at a time again. */
+	onWhole?: (whole: boolean) => void;
 	live: boolean;
 	page: number;
 	sending: boolean;
-	decidingHere: boolean;
-	decision: PlanDecision | null;
-	/** Whether the plan's note box has words, attachments, or an active take. */
-	sendingFeedback: boolean;
 	planned: boolean;
+	/**
+	 * A plan's approval question, asked as one Approved checkbox beside
+	 * Send: ticked, the reply approves; unticked, it sends the rest alone.
+	 */
+	approval?: {
+		/** What it approves. */
+		change: string;
+		approved: boolean;
+		onApprove: (approved: boolean) => void;
+	} | null;
 	touch: boolean;
 	answering: boolean;
 	empty: boolean;
@@ -94,7 +67,6 @@ export function QuestionCardsFooter({
 	refusal: string | null;
 	onTurn: (to: number) => void;
 	onSend: () => void;
-	onDecide: (pick: "approve" | "reject" | "full" | "send") => void;
 }): JSX.Element | null {
 	if (paging) {
 		return (
@@ -103,96 +75,38 @@ export function QuestionCardsFooter({
 				data-pinned
 				className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-3"
 			>
-				{decidingHere && decision !== null ? (
-					decision.reject !== null || decision.full !== null || page > 0 ? (
-						// Approve stays on the right under a right thumb; Reject, Request
-						// full plan and Back live in the ellipsis menu on the left.
-						<div className="flex items-center gap-2">
-							<DropdownMenu>
-								<DropdownMenuTrigger
-									render={
-										<Button
-											variant="outline"
-											className="size-11"
-											aria-label="More actions"
-										/>
-									}
-								>
-									<EllipsisIcon />
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									align="start"
-									side="top"
-									className={`w-60 ${touchItems}`}
-								>
-									{decision.reject !== null && (
-										<DropdownMenuItem onClick={() => onDecide("reject")}>
-											<BanIcon />
-											Reject
-										</DropdownMenuItem>
-									)}
-									{decision.full !== null && (
-										<DropdownMenuItem onClick={() => onDecide("full")}>
-											<FileTextIcon />
-											Request full plan
-										</DropdownMenuItem>
-									)}
-									{page > 0 && (
-										<DropdownMenuItem onClick={() => onTurn(page - 1)}>
-											<ChevronLeftIcon />
-											Back
-										</DropdownMenuItem>
-									)}
-								</DropdownMenuContent>
-							</DropdownMenu>
-							<DecisionButton
-								sending={sendingFeedback}
-								onApprove={() => onDecide("approve")}
-								onSend={() => onDecide("send")}
-								className="h-11 flex-1 text-base"
-							/>
-						</div>
+				{approval !== null && <Approved {...approval} roomy />}
+				<div className="flex items-center gap-3">
+					{page > 0 && (
+						<Button
+							variant="outline"
+							className="h-11 px-4 text-base"
+							onClick={() => onTurn(page - 1)}
+						>
+							<ChevronLeftIcon data-icon="inline-start" />
+							Back
+						</Button>
+					)}
+					{!sending ? (
+						<Button
+							variant="outline"
+							className="h-11 flex-1 border-border bg-white text-base text-black hover:bg-white/90 hover:text-black active:bg-white/80 active:text-black dark:border-border dark:bg-white dark:hover:bg-white/90 dark:active:bg-white/80"
+							onClick={() => onTurn(page + 1)}
+						>
+							Next
+							<ChevronRightIcon data-icon="inline-end" />
+						</Button>
 					) : (
-						<DecisionButton
-							sending={sendingFeedback}
-							onApprove={() => onDecide("approve")}
-							onSend={() => onDecide("send")}
-							className="h-11 w-full text-base"
-						/>
-					)
-				) : (
-					<div className="flex items-center gap-3">
-						{page > 0 && (
-							<Button
-								variant="outline"
-								className="h-11 px-4 text-base"
-								onClick={() => onTurn(page - 1)}
-							>
-								<ChevronLeftIcon data-icon="inline-start" />
-								Back
-							</Button>
-						)}
-						{!sending ? (
-							<Button
-								variant="outline"
-								className="h-11 flex-1 border-border bg-white text-base text-black hover:bg-white/90 hover:text-black active:bg-white/80 active:text-black dark:border-border dark:bg-white dark:hover:bg-white/90 dark:active:bg-white/80"
-								onClick={() => onTurn(page + 1)}
-							>
-								Next
-								<ChevronRightIcon data-icon="inline-end" />
-							</Button>
-						) : (
-							<Button
-								variant="default"
-								className="h-11 flex-1 bg-black text-base text-white hover:bg-black/90 active:bg-black/80"
-								onClick={onSend}
-							>
-								<SendHorizontalIcon data-icon="inline-start" />
-								Send
-							</Button>
-						)}
-					</div>
-				)}
+						<Button
+							variant="default"
+							className="h-11 flex-1 bg-black text-base text-white hover:bg-black/90 active:bg-black/80"
+							onClick={onSend}
+						>
+							<SendHorizontalIcon data-icon="inline-start" />
+							Send
+						</Button>
+					)}
+				</div>
 				<Refusal refusal={refusal} className="text-right" />
 			</footer>
 		);
@@ -208,68 +122,60 @@ export function QuestionCardsFooter({
 			)}
 		>
 			<div className="flex items-center gap-3">
-				{decision === null ? (
-					<>
-						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-							{!touch && (
-								<>
-									<span>
-										<Kbd>↵</Kbd> next
-									</span>
-									<span>
-										<Kbd>{label("Mod+Enter")}</Kbd>{" "}
-										{answering ? "answers" : "sends"}
-									</span>
-								</>
-							)}
-						</p>
-						<Button
-							size="sm"
-							variant="default"
-							disabled={empty && !taking}
-							onClick={onSend}
-						>
-							<SendHorizontalIcon data-icon="inline-start" />
-							<span aria-live="polite">{answering ? "Answer" : "Send"}</span>
-						</Button>
-					</>
+				{approval !== null ? (
+					<Approved {...approval} />
 				) : (
-					<>
-						<div className="flex flex-1 items-center">
-							{decision.full !== null && (
-								<Button
-									size="sm"
-									variant="ghost"
-									className="text-muted-foreground"
-									onClick={() => onDecide("full")}
-								>
-									<FileTextIcon data-icon="inline-start" />
-									Request full plan
-								</Button>
-							)}
-						</div>
-						<div className="flex items-center gap-2">
-							{decision.reject !== null && (
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={() => onDecide("reject")}
-								>
-									<BanIcon
-										data-icon="inline-start"
-										className="text-muted-foreground"
-									/>
-									Reject
-								</Button>
-							)}
-							<DecisionButton
-								sending={sendingFeedback}
-								onApprove={() => onDecide("approve")}
-								onSend={() => onDecide("send")}
-								size="sm"
-							/>
-						</div>
-					</>
+					<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+						{!touch && (
+							<>
+								<span>
+									<Kbd>↵</Kbd> next
+								</span>
+								<span>
+									<Kbd>{label("Mod+Enter")}</Kbd>{" "}
+									{answering ? "answers" : "sends"}
+								</span>
+							</>
+						)}
+					</p>
+				)}
+				{steppable && !stepping && (
+					<Button size="sm" variant="ghost" onClick={() => onWhole?.(false)}>
+						One at a time
+					</Button>
+				)}
+				{stepping && unanswered !== null && (
+					<Button
+						size="sm"
+						variant="ghost"
+						className="text-muted-foreground"
+						onClick={() => onTurn(unanswered)}
+					>
+						Next unanswered
+						<ChevronsRightIcon data-icon="inline-end" />
+					</Button>
+				)}
+				{stepping && page > 0 && (
+					<Button size="sm" variant="outline" onClick={() => onTurn(page - 1)}>
+						<ChevronLeftIcon data-icon="inline-start" />
+						Back
+					</Button>
+				)}
+				{stepping && !sending ? (
+					<Button size="sm" variant="default" onClick={() => onTurn(page + 1)}>
+						Next
+						<ChevronRightIcon data-icon="inline-end" />
+					</Button>
+				) : (
+					<Button
+						size="sm"
+						variant="default"
+						disabled={empty && !taking}
+						onClick={onSend}
+					>
+						<SendHorizontalIcon data-icon="inline-start" />
+						<span aria-live="polite">{answering ? "Answer" : "Send"}</span>
+					</Button>
 				)}
 			</div>
 			<Refusal refusal={refusal} className="text-right" />
@@ -277,48 +183,38 @@ export function QuestionCardsFooter({
 	);
 }
 
-/**
- * Primary CTA for plan cards: approves when the note box is empty, and switches
- * to Send without implicit approval once the user types, attaches, or dictates.
- */
-function DecisionButton({
-	sending,
+/** The Approved checkbox a plan's approval question is asked as. */
+function Approved({
+	change,
+	approved,
 	onApprove,
-	onSend,
-	className,
-	size,
+	roomy = false,
 }: {
-	sending: boolean;
-	onApprove: () => void;
-	onSend: () => void;
-	className?: string;
-	size?: "sm";
+	change: string;
+	approved: boolean;
+	onApprove: (approved: boolean) => void;
+	/** Whether it sits on the phone's sheet, with room for a larger target. */
+	roomy?: boolean;
 }): JSX.Element {
-	if (sending) {
-		return (
-			<Button
-				variant="default"
-				size={size}
-				onClick={onSend}
-				className={className}
-			>
-				<SendHorizontalIcon data-icon="inline-start" />
-				Send
-			</Button>
-		);
-	}
+	const id = useId();
 	return (
-		<Button
-			variant="default"
-			size={size}
-			onClick={onApprove}
+		<div
 			className={cn(
-				"bg-success text-white hover:bg-success/90 active:bg-success/80",
-				className,
+				"flex min-w-0 flex-1 items-start gap-2.5 text-sm",
+				roomy && "py-1",
 			)}
 		>
-			<CheckIcon data-icon="inline-start" />
-			Approve
-		</Button>
+			<Checkbox
+				id={id}
+				aria-label="Approved"
+				checked={approved}
+				onCheckedChange={(checked) => onApprove(checked === true)}
+				className={cn("mt-0.5", roomy && "size-5")}
+			/>
+			<label htmlFor={id} className="min-w-0 cursor-pointer">
+				<span className="font-medium">Approved:</span>{" "}
+				<span className="text-muted-foreground">{change}</span>
+			</label>
+		</div>
 	);
 }

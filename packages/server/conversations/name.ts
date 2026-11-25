@@ -19,8 +19,7 @@ export function nameOf(
 /**
  * The name a conversation has earned, or null: the name the person gave it,
  * else the lanes it was started on, so an orchestrator's follows a lane's
- * renames and keeps them through a task it does itself, else "Groomer" for
- * the project's groomer (see `grooms`), else the task its
+ * renames and keeps them through a task it does itself, else the task its
  * agent holds, so it follows the agent from task to task, or held last, so a
  * finished task keeps its name until the agent takes another, else the
  * agent's title.
@@ -32,7 +31,6 @@ export function realName(
 	return (
 		conversation.name ??
 		lanesNamed(conversation, lanes) ??
-		(grooms(conversation) ? GROOMER : null) ??
 		conversation.lastTask ??
 		conversation.title
 	);
@@ -66,31 +64,6 @@ export function namedForTask(conversation: ConversationState): boolean {
 		(conversation.name === null
 			? lanesOf(conversation).length === 0
 			: conversation.name === conversation.lastTask)
-	);
-}
-
-/** What the project's groomer goes by. */
-const GROOMER = "Groomer";
-
-/** The persistent agent's role the project's groomer is kept for. */
-export const GROOMER_ROLE = "groomer";
-
-/**
- * Whether a conversation is the project's groomer: kept for its role, or,
- * from before persistent agents, opened on `[SPLATES GROOM #N]`.
- */
-export function grooms(conversation: ConversationState): boolean {
-	if (conversation.persistent !== undefined) {
-		return conversation.persistent === GROOMER_ROLE;
-	}
-	const first = conversation.messages
-		.find((message) => message.role === "user")
-		?.parts.find((part) => part.type === "text");
-	return (
-		first?.type === "text" &&
-		leadingDirectives(first.text).directives.some((directive) =>
-			/^\[SPLATES GROOM #\d+\]$/.test(directive),
-		)
 	);
 }
 

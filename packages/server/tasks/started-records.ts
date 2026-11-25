@@ -1,5 +1,7 @@
 import { Attachments } from "../artifacts";
 import {
+	type BoardRecord,
+	boardOfLane,
 	queuedOf,
 	type StoredTask,
 	startedOf,
@@ -24,13 +26,15 @@ export class StartedRecords {
 
 	/**
 	 * What the record of started task `task` says of it as it ends: its
-	 * number, what it was queued as, and the queued tasks it took up; null
+	 * number, what it was queued as, the queued tasks it took up, and the
+	 * board its lane is on (null for one off the list or in no lane); null
 	 * for one with no record.
 	 */
 	async ending(task: string): Promise<{
 		id: number;
 		subject: string;
 		took: { id: number; subject: string }[];
+		board: BoardRecord | null;
 	} | null> {
 		const record = await this.store.find(task);
 		if (record === null) {
@@ -43,6 +47,10 @@ export class StartedRecords {
 			id: record.id,
 			subject: record.listed === false ? "" : record.subject,
 			took,
+			board: await boardOfLane(
+				this.store,
+				record.listed === false ? null : record.lane,
+			),
 		};
 	}
 
@@ -84,7 +92,14 @@ export class StartedRecords {
 		const record =
 			(await this.store.find(state.task)) ?? (await this.numbered(state.task));
 		// Its Auto pick is the record's own, which a stale read must not undo.
-		const { id: _, createdAt, status, autoPick: __, ...started } = state;
+		const {
+			id: _,
+			createdAt,
+			status,
+			autoPick: __,
+			autoQueued: ___,
+			...started
+		} = state;
 		await this.store.write({
 			...queuedOf(record),
 			...(record.listed === false ? { listed: false } : {}),
@@ -203,5 +218,6 @@ function stateOf(record: StoredTask): TaskState {
 		status: record.status ?? "working",
 		createdAt: startedAt,
 		...(record.autoPick === undefined ? {} : { autoPick: record.autoPick }),
+		...(record.queuedBy?.by === "agent" ? { autoQueued: true as const } : {}),
 	};
 }

@@ -37,21 +37,3 @@ export function failed(
 	);
 	return [...thread, { ...own, content: [part] }];
 }
-
-/**
- * `thread` ended with a `data-rested` part on its last reply: a persistent
- * agent's run put away, its context closed, the next run to start afresh.
- */
-export function rested(thread: ThreadMessageLike[]): ThreadMessageLike[] {
-	const last = thread.at(-1);
-	if (last?.role !== "assistant" || typeof last.content === "string") {
-		return thread;
-	}
-	return [
-		...thread.slice(0, -1),
-		{
-			...last,
-			content: [...last.content, { type: "data-rested", data: {} }],
-		},
-	];
-}

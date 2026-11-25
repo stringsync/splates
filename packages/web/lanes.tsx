@@ -1,11 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { LaneState } from "@splates/server/board";
-import {
-	BACKLOG_LANE,
-	elsewhereName,
-	ungroomed,
-} from "@splates/server/board/browser";
+import { BACKLOG_LANE, elsewhereName } from "@splates/server/board/browser";
 import { LockIcon } from "lucide-react";
 import {
 	type JSX,
@@ -26,7 +22,6 @@ import { Board } from "./board";
 import { laneRenamed } from "./board-expectations";
 import { Card } from "./card";
 import { useExpectSnapshot, usePendingSnapshot } from "./expecting";
-import { GroomBacklog } from "./groom-backlog";
 import { Cards, Column } from "./lane-column";
 import { LaneMenu, QueueLaneButton } from "./lane-menu";
 import { PendingSpinner, pendingRow, useShowPending } from "./pending";
@@ -202,11 +197,6 @@ export function Lane({
 									className="mx-1 size-3.5 text-muted-foreground"
 								/>
 							)}
-							{lane.id === BACKLOG_LANE && (
-								<GroomBacklog
-									empty={!lane.todos.some((todo) => ungroomed(todo))}
-								/>
-							)}
 							<LaneMenu
 								lane={lane}
 								lanes={lanes}
@@ -272,7 +262,6 @@ export function Lane({
 					todos={lane.todos}
 					label={`${lane.name} tasks`}
 					staleness={staleness}
-					steps={lane.id !== BACKLOG_LANE}
 					coming={lit && !lane.todos.some((todo) => todo.id === active?.id)}
 				/>
 				<AddTodo lane={lane.id} />
@@ -348,9 +337,9 @@ export function LiftedLane({
 				<StageCounts todos={lane.todos} className="px-1" />
 			)}
 			<ol className="flex flex-col gap-1.5">
-				{lane.todos.map((todo, i) => (
+				{lane.todos.map((todo) => (
 					<li key={todo.id}>
-						<Card todo={todo} staleness={staleness} step={i + 1} />
+						<Card todo={todo} staleness={staleness} />
 					</li>
 				))}
 			</ol>

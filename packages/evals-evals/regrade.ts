@@ -20,6 +20,7 @@ import { restoreRun } from "./keep";
 import { revisionOf } from "./revision";
 import {
 	evaluateCheck,
+	judgeDetailOf,
 	type Outcome,
 	type Repo,
 	type Scenario,
@@ -132,7 +133,7 @@ export async function regradeBatch(
 			if (opts.judge === true && found.scenario.judge !== undefined) {
 				const fresh = await judging(
 					judgePrompt({
-						requirement: found.scenario.requirement,
+						requirement: judgeDetailOf(found.scenario),
 						rubric: found.scenario.judge,
 						message: found.scenario.message,
 						transcript,
@@ -172,9 +173,11 @@ export async function regradeBatch(
 					: [];
 			});
 			if (status !== line.status) {
+				const sentence = found.scenario.sentence ?? cell.sentence;
 				report.flips.push({
 					run: line.cell,
 					scenario: cell.case,
+					...(sentence === undefined ? {} : { sentence }),
 					agent: [cell.target.agent, cell.target.model]
 						.filter((part) => part !== undefined && part !== "")
 						.join(":"),
@@ -226,6 +229,8 @@ export type Verdict3 = "pass" | "fail" | "error";
 export interface Flip {
 	run: string;
 	scenario: string;
+	/** Spec sentence when the scenario was declared with `it(...)`. */
+	sentence?: string;
 	agent: string;
 	was: Verdict3;
 	now: Verdict3;
@@ -316,7 +321,7 @@ export function formatReport(report: RegradeReport): string {
 	];
 	for (const flip of report.flips) {
 		out.push(
-			`${flip.run}\t${flip.scenario}\t${flip.agent}\t${flip.was} -> ${flip.now}\t${[...flip.checks, ...(flip.judge === undefined ? [] : [`judge: ${flip.judge}`])].join("; ")}`,
+			`${flip.run}\t${flip.sentence ?? flip.scenario}\t${flip.agent}\t${flip.was} -> ${flip.now}\t${[...flip.checks, ...(flip.judge === undefined ? [] : [`judge: ${flip.judge}`])].join("; ")}`,
 		);
 	}
 	for (const each of report.unchecked) {

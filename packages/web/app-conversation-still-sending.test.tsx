@@ -142,6 +142,36 @@ describe("App's messages still sending", () => {
 		expect(view.queryByText("Couldn't send")).toBeNull();
 	});
 
+	it("drops a timed-out message's unsent copy once the live stream shows the server has it", async () => {
+		await act(async () => {
+			testing.wall.advance(Duration.secs(30));
+			testing.timer.fireTimeouts();
+		});
+		expect(view.getByText("Couldn't send")).toBeTruthy();
+
+		// The server kept it, for the agent once it is back up.
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				taking: "queue",
+				messages: [
+					message("user", "go"),
+					{
+						...message("user", "and the logout"),
+						queued: true,
+						id: testing.sentId("c1", "and the logout"),
+					},
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Login" });
+		await waitFor(() => expect(view.queryByText("Couldn't send")).toBeNull());
+		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+	});
+
 	it("gives up on a message the live stream reconnects without, with Retry", async () => {
 		// Opened once as the page loaded, then again after a drop.
 		await act(async () => testing.talkStream?.onopen?.());

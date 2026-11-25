@@ -1,101 +1,92 @@
 # Questions and answers
 
-Ask the user whenever their answer would change what you build: one reading
-of an ambiguous ask, a behavior or design they will see, a default they may
-want another way, a call a wrong guess would cost much rework to undo, one
-hard to reverse (a migration, data written, a message sent, anything outside
-the repo), or one that goes against something the user said before. Asking
-is cheap, so when in doubt, ask: the `splates server` page shows your
-questions as a card with your pick already chosen, so the user answers with
-a tap, and you carry on with that pick meanwhile rather than wait.
+## When to ask
 
-Ask for approval of a costly or hard-to-undo change in the
-[plan card](proposing.md). Its last question is
-`Do you approve <the change, named>?`. Wait for Yes before writing code.
-Use a single questions card for standalone questions.
+Ask whenever the user's answer would change what you build: one reading of an
+ambiguous ask, a behavior or design they will see, a default they may want
+another way, a call a wrong guess would cost much rework to undo, one hard to
+reverse (a migration, data written, a message sent, anything outside the
+repo), or one that goes against something the user said before. Asking is
+cheap, so when in doubt, ask: the page shows your questions as a card with
+your pick already chosen, the user answers with a tap, and you carry on with
+that pick meanwhile rather than wait. When an answer overturns a pick you
+built on, redo that part.
 
-This holds in every conversation in a splates repository, with a task open
-or not: a design talk in the main tree asks the same way a task does. A task
-adds nothing to it: the reply is the only record of a question (see In a task).
+Approval of a costly or hard-to-undo change goes in a
+[plan card](proposing.md) (`## 📝 Plan: <title>`), whose last question is
+`Do you approve <the change, named>?`; wait for Yes before writing code. Never
+ask `Do you approve ...?` in a standalone questions card. Standalone questions
+go in a single questions card. This holds in every conversation in a splates
+repository, task open or not.
 
-Make the rest yourself, the calls the user would not care to weigh in on: a
-name only the code reads, a helper's shape, a log line. Take the better pick
-and carry on, saying nothing of it to the user; in a task, write it in a line
-under the `## Next` step it concerns only when whoever resumes the task would
-need it; otherwise the conversation and commits hold it.
+Make the rest yourself, the calls the user would not care to weigh in on (a
+name only the code reads, a helper's shape, a log line), saying nothing of
+them. A small choice that is cheap to undo (a retry count, a timeout, a limit,
+a default between two plausible values, all local to the repo) is one of
+these however many values are open: "when in doubt, ask" does not reach it.
+Pick, never ask it, and in a task note the pick and its alternative in
+`SPLATES.md` (under the `## Next` step it belongs to, or under `## Details` or
+`## Checks`, e.g. `- retry limit 3; 5 is the alternative`), since whoever resumes
+needs to know it was a choice. Note any other call there only when whoever
+resumes would need it.
 
-A small choice that is cheap to undo (a retry count, a timeout, a limit, a
-default between two plausible values, all local to the repo) is one of these,
-however many values are open: "when in doubt, ask" does not reach it. Pick,
-never ask it in the reply as a question, and in a task
-write the pick and the alternative in a line under the `## Next` step it
-belongs to (`- retry limit 3; 5 is the alternative`), since whoever resumes
-needs to know it was a choice.
+Questions also orient the user. When an idea needs explaining, disclose it a
+chunk at a time by asking about it, so the choices themselves give bearings
+("Is the problem the retry or the timeout?", each choice saying what it
+means). When the user seems confused, offer the likely sticking points as
+choices (`- [a]` when more than one can apply) instead of explaining all of
+it. Keep this lean: never ask a question whose answer changes nothing. When the
+user asks to choose between specific options or says to ask before changing
+anything, ask only that decision: do not add a "should we start?" question or
+unasked follow-ups.
 
-Questions also orient the user. Avoid long paragraphs: when an idea needs
-explaining, disclose it a chunk at a time by asking about it, so the user
-gets their bearings from the choices themselves ("Is the problem the retry
-or the timeout?" with each choice saying what it means). When the user seems
-confused, ask what about: offer the likely sticking points as choices
-(`- [a]` when more than one can apply) instead of explaining all of it. Keep
-this lean: a few questions that move the user along, never needless ones
-whose answer changes nothing. The numbered format and the one-card rule below
-still hold, and an orienting question carries on with its pick like any other.
+## Writing the card
 
-Ask in your reply, as [Reporting](reporting.md) says, in the format below and
-nowhere else: a numbered list, a lone question numbered `1.` too, so the page
-shows its question card. Put every question there, even one raised in
-passing: the page shows none asked in prose, a bold line or a "my lean", or
-through your harness's own question tool. When an answer overturns a pick you built on, redo
-that part.
+Ask in your reply, in this format and nowhere else: a numbered list, a lone
+question numbered `1.` too. The page shows no question asked in prose, a bold
+line, a "my lean", or your harness's own question tool, so put every question
+there, even one raised in passing.
 
-Write each question to be answered from the card alone. The user taps on a
-phone and should not have to leave the card to find out what they are
-choosing: put every fact the choice turns on under the question or its
-choices (what each option is, who or what it touches, sizes, dates, the
-tradeoff), the ones you found in the code or docs included. Never send them to
-a file, a diff or an earlier message for it, and never write a question or
-choice that only makes sense with that context in view.
-
-Keep "I" and "you" out of questions and choices. The agent writes the card and
-the user answers it, and the answer returns to the chat in the user's voice, so
-a pronoun can be read as either speaker. Say "we" or name the subject ("the
-agent retries", "the user re-runs"), and write a choice as a bare action or
-outcome: "Yes, keep it for one release", not "I'll keep it" or "You can keep
-it". The same goes for the lines under a question.
-
-Number questions 1, 2, … in the order you write them. A question's line is
-its subject, short enough to scan and ending at its `?`, with nothing after
-it; everything else, the why included, goes in markdown lines indented under
-it, code blocks included. When checking your own work, ask for what is wrong
-rather than a bare yes or no. A yes or no question is a question like any other: ask
-it as a numbered item with `- (a) Yes` and `- (b) No` choices, your pick
-first and marked `(chosen)`, and never as free-form prose or as two named options: a question that reads "Should we X?" has `Yes` and `No` choices even when each answer has a plain consequence. Say what each
-answer does when that is not plain from the question (`- (a) Yes, keep it for
-one release (chosen)`). The user can always add words of their own to any
-answer, so never ask for a reason or a caveat as a second question. When the answer is one of a few, end with
-`- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
-apply. Decide which before writing the choices: ask "could the user sensibly
-want two of these?". A question like "which of these should become tasks?",
-"which should be fixed?" or "which of these are wanted?" over independent items
-is always `- [a]`, never `- (a)`: a pick-one card forces the user to take one
-and drop the rest, and they cannot fix it from the card. Use `- (a)` only for
-alternatives that exclude each other (one design, one default). The `(chosen)`
-mark goes on each choice you would tick, so more than one may carry it. Describe every choice, the one you went with too, and mark that one
-`(chosen)`: never a bare "That". Order the choices first of all by any order
-they already have: variants lettered A, B, C, D (as in lo-fi mockups), steps,
-sizes, a timeline. Then list them in that order, even when your pick is not
-the first, since the pick is marked `(chosen)` wherever it sits. With no
-implicit order, any order works, and putting your pick first is a fine default. When the answer is an order (what lands first, which task
-matters most), end with `- a. ...` lines in the order you would go with: the
-reply lists every letter in the order picked, `4. b, a, c`.
-
-When the pick is a close call, or the user may well want another,
-give a choice a `Why:` line indented under it: one sentence on why you would
-take it, or why not. Any choice can have one, the `(chosen)` one most often;
-leave it off where the choice says it all. The `splates server` page hides every
-`Why:` line until the user asks to see a question's reasons, so they never
-crowd the choices.
+- **Answerable from the card alone.** The user taps on a phone: put every fact
+  the choice turns on (what each option is, who or what it touches, sizes,
+  dates, the tradeoff, what you found in the code) under the question or its
+  choices, not in prose or bulleted tradeoff lists before the card. Never send
+  them to a file, a diff or an earlier message.
+- **No "I" or "you".** The answer returns in the user's voice, so a pronoun
+  can be read as either speaker. Say "we" or name the subject ("the agent
+  retries"), and write a choice as a bare action or outcome: "Yes, keep it for
+  one release", not "I'll keep it". The same goes for lines under a question.
+- **Shape.** Number questions 1, 2, … in the order written. A question's line
+  is its subject, short enough to scan and ending at its `?`, with nothing
+  after it; the why and everything else, code blocks included, go in lines
+  indented under it. When checking your own work, ask what is wrong rather
+  than a bare yes or no.
+- **Yes or no.** A question that reads "Should we X?" has `- (a) Yes` and
+  `- (b) No` choices, even when each answer has a plain consequence, never
+  free-form prose or two named options. Say what each answer does when that is
+  not plain (`- (a) Yes, keep it for one release (chosen)`). The user can add
+  their own words to any answer, so never ask for a reason or caveat as a
+  second question.
+- **One or many.** Decide by asking "could the user sensibly want two of
+  these?". `- (a)` is for alternatives that exclude each other (one design,
+  one default). `- [a]` is for all that apply, and is always the shape for
+  "which of these should become tasks / be fixed / are wanted?" over
+  independent items, since a pick-one card cannot be fixed from the card.
+  When the answer is an order (what lands first), use `- a.` lines in the
+  order you would go with; the reply lists every letter in the order picked
+  (`4. b, a, c`).
+- **Picks.** Always mark a default pick `(chosen)` on every question except a
+  plan's `Do you approve ...?`, even for pure product or user preferences (the
+  user accepts with one tap or picks another). Describe every choice, yours too
+  (never a bare "That"), and mark each one you would tick `(chosen)`, so a
+  multi-select may carry several.
+  Keep any order the choices already have (variants A, B, C, steps, sizes, a
+  timeline) even when your pick is not first; with none, putting your pick
+  first is a fine default.
+- **Why lines.** When the pick is a close call, or the user may well want
+  another, give a choice a `Why:` line indented under it: one sentence on why
+  you would take it, or why not. Leave it off where the choice says it all;
+  the page hides `Why:` lines until asked.
 
 ```markdown
 1. Should the old upload endpoint stay for a release?
@@ -118,107 +109,58 @@ crowd the choices.
    - [c] Check why the fetch is slow
 ```
 
-**Choices the user picks by looking each carry their own image.** Mockup
-variants, a style, a layout, a placement: capture one image per choice and
-indent it under that choice, in every round (lo-fi, hi-fi, a design gate a
-queued task opens with, a design talk with no task). Never describe the
-variants in words and offer to show them later, never put one image above the
-choices, and never leave a choice bare because its mock is not built yet:
-build it, capture it, then ask.
+**Show what can be seen.** When a question is about something visible, put
+an attached image under the question's line, and for choices picked by
+looking (mockup variants, a style, a layout), one image indented under each
+choice, built before asking. [visuals.md](visuals.md) covers capturing,
+attaching and placing them.
 
-Show what a question is about whenever it is something to see: a screenshot,
-or a short recording when it moves or takes steps. Save it outside the
-worktree, `splates attach` it, and name the path it prints as
-`![what](/abs/path.png)`. The `splates server` page shows an attached file inline,
-in `SPLATES.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
-as a video. Only attached files show there, so never point a question at a
-file anywhere else. `splates attach` keeps a file with a task, so a question
-with no task open that needs one to look at starts the task first
-(`splates add`). Attached from a conversation (`splates server` gives its agents
-one; an agent outside it passes `--conversation <id>`), a file stays with it
-past the task, so the question still shows it when the user scrolls back;
-attached outside one, it goes when the task does. Either way, one the
-`SPLATES.md` it ends on shows is copied to keep with the finished task, so
-its record goes on showing it. Such a file is no artifact
-(see [Artifacts](demos.md#artifacts)): it serves the question it is in.
+**Propose an eval as an example.** To ask whether to add an eval, put a
+fenced `eval` block under `Approve eval <id>?` with `Approve`, `Edit` and
+`Drop` choices; the page draws it as the user's message, one good reply
+(its tool calls as rows beside a tool icon, its words in a bubble), and how it
+is graded, folded. No wrong reply is drawn; what is wrong goes in a `check`.
+One `key: value` a line: `group` (the `describe` subject) and `title` (the `it`
+string), which the page joins into one sentence, so write them to read as
+one (`The splates skill` + `skips the plan and says so for a trivial fix`);
+then `you`, then `pass` lines in reply
+order (`pass tool: <Tool> <input>` for a tool call, each followed by a `does:` line saying in plain words what it does, `backticks` for code), then `starts`, a `check` per
+code check, `judge` and `judged by` when not Sonnet.
 
-Put each screenshot in the question it is for, under what it shows: under the
-question's line for what it asks about, or indented under a choice for what
-that choice looks like, which the `splates server` page shows with the choice.
-Never gather them above the questions, or ask about them apart from the
-question they are for.
-
-```markdown
-6. Which style should the action list take?
-   - (a) A rail beside the thread (chosen)
-     ![rail](/abs/path/rail.png)
-   - (b) A bordered panel
-     ![panel](/abs/path/panel.png)
-```
+````markdown
+1. Approve eval `core/trivial-skips-plan`?
+   ```eval
+   group: The splates skill
+   title: skips the plan and says so for a trivial fix
+   you: README.md says 'teh' in the intro, fix it.
+   pass: Small and easy to revert: building directly.
+   pass tool: Bash splates merge --message "Fix the README typo"
+   does: Lands the README fix with `splates merge`.
+   check: No reply holds a Plan card.
+   judge: Does the agent say in one line that it skips a plan?
+   ```
+   - (a) Approve (chosen)
+   - (b) Edit
+   - (c) Drop
+````
 
 ## Reading a reply
 
-The user answers in chat. From the `splates server` page, a reply quotes each
-question it answers, its line in bold (`> **How should …?**`), and answers
-under it: the choices picked as `- (b) <its text>`, numbered in the order
-picked for an order, then any words. Anything else they say comes last, under
+The user answers in chat. From the page, a reply quotes each question it
+answers, its line in bold (`> **How should …?**`), and answers under it: the
+choices picked as `- (b) <its text>`, numbered in the order picked for an
+order, then any words. Anything else they say comes last, under
 `> **Anything else?**`, or as bare words when no question is answered.
-Match each question quote to an open question by its line, whatever its
-number; questions not quoted stay open. When a quote matches no question
-you asked, as one you changed since, ask again rather than guess what it
-answers. Typed by hand, a reply is a list matching your latest
-report: `2.` is its second question, whatever its number when asked, and
-items left out stay open. When a reply does not fit your latest report, ask
-rather than guess. Anything the user says can settle an open question without
-naming it; an answer that is not one you can act on leaves it open, to lead
-your next report. A reply about something you did is an instruction.
 
-## Without a task
+Match each quote to an open question by its line, whatever its number;
+questions not quoted stay open. When a quote matches no question you asked
+(one you changed since, say), ask again rather than guess. Typed by hand, a
+reply is a list matching your latest report: `2.` is its second question, and
+items left out stay open; when it does not fit your latest report, ask rather
+than guess. Anything the user says can settle an open question without naming
+it; an answer you cannot act on leaves it open, to lead your next report. A
+reply about something you did is an instruction.
 
-A conversation with no task, such as a design talk or a question answered
-from the main tree, asks exactly as above, and its answers live in the
-conversation: there is no `SPLATES.md` to record them in. Ask, end your turn,
-and read the user's reply as Reading a reply says. When the talk turns into
-work, `splates add` it: the conversation carries on with the task, so the
-answers already given stay in it, and a question still open stays open.
-
-## In a task
-
-A task asks the same way, once, in the reply: the conversation is the record,
-and `splates merge` refuses while a question card in it has no answer, though
-you carry on with your pick meanwhile and the user can answer in chat while you
-work. A reply in the user's own words answers no card: read it, then ask
-on your next card whatever it left unsettled, which replaces the card it
-replied to. `splates claim` prints the cards still open, for a session that resumes
-the task. Number each reply's questions from 1 as [Reporting](reporting.md)
-says. A plan from before this may have a `## Blocked`; its unchecked questions
-still hold a merge, so check each off as you act on its answer.
-
-An answer can reach you mid-turn, as a message that arrives while you work.
-Read it at the next step rather than at the end, and redo at once what it
-overturns, before building more on the choice. While a question is open, do
-the work it touches last where your plan allows, so an answer that overturns it
-costs little.
-
-### When you cannot go on
-
-When questions are still open once everything else is done, or you cannot go
-on without the user (access, a decision, a test only they can run), stop and
-ask. A secret, such as an API token, is a cred to request instead (see
-[creds.md](creds.md)).
-
-1. Leave something to look at, by **absolute path** (start from
-   `splates path <task>`): for anything visual, a screenshot or recording you
-   `splates attach`. Ask first if producing it is expensive.
-2. Ask them in your reply as [Reporting](reporting.md) says, and end your turn: the page
-   shows you waiting on the user. Do not `splates wait` or poll `SPLATES.md`:
-   answers only come in chat. A new session resumes with `splates claim <task>`.
-
-Never ask whether the work is ready to merge: once the questions are answered
-and the work is done, merge or ask for a review (see [Merge or review](merge.md#merge-or-review)).
-
-When the user asks to see the work before it lands, add an unchecked
-`- [ ] Show the user before merging` step under `## Next` at once, so the
-request outlives your session and holds the merge until they approve. Check
-it off only when the user approves the review.
-
+When an answer arrives mid-turn, `splates claim` lists open cards, or you cannot
+go on without the user, read [waiting.md](waiting.md) (for a Plan card,
+`proposing.md` covers ending the turn).

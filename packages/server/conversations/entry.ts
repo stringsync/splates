@@ -61,8 +61,6 @@ type Said =
 			queued?: number;
 			/** The queued task the person opened a live talk on; missing for any other. */
 			queuedTask?: number;
-			/** The persistent agent's role it was started for; missing for an ordinary one. */
-			persistent?: string;
 			/** The automation that started it, by its id; missing for one none did. */
 			automation?: string;
 			/** The ship whose adoption task it runs, by its id; missing for any other. */
@@ -126,6 +124,8 @@ type Said =
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
 	  }
+	/** Whether an agent queued the task the conversation is in on its own. */
+	| { kind: "auto-queued"; autoQueued: boolean }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
 	/** `at` is missing from logs written before older archived ones were deleted. */
@@ -135,8 +135,6 @@ type Said =
 			at?: string;
 			/** The conversation whose archiving took this one with it. */
 			with?: string;
-			/** Archived resting, as a persistent agent's run that ended with its role still on. */
-			rest?: true;
 	  }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
@@ -144,6 +142,8 @@ type Said =
 	| { kind: "visit"; at: string }
 	| { kind: "reminder"; reminder: Reminder }
 	| { kind: "pin"; pinned: boolean }
+	/** A run its `run evals` card started began in it. */
+	| { kind: "evaluated" }
 	| { kind: "parent"; parent: { id: string | null } }
 	/** `at` is missing from logs written before the page showed how long things took. */
 	| {

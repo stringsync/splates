@@ -63,4 +63,28 @@ describe("stretches, a plan card", () => {
 		const found = stretches("## 📝 Plan\n\nBody.");
 		expect(found[0]?.type === "plan" ? found[0].plan.title : null).toBe("");
 	});
+
+	it("puts a plan card's approval question last", () => {
+		const found = stretches(
+			[
+				"## 📝 Plan: add a new flag",
+				"",
+				"Add the flag.",
+				"",
+				"1. Do you approve a new flag?",
+				"   - (a) Yes, approve it",
+				"   - (b) No",
+				"2. Which name should it take?",
+				"   - (a) quiet",
+				"   - (b) silent",
+			].join("\n"),
+		);
+		const card = found[1];
+		const questions = card?.type === "questions" ? card.questions : [];
+		expect(questions.map((each) => each.number)).toEqual(["2", "1"]);
+		expect(questions[1]?.choices.map((each) => [each.key, each.text])).toEqual([
+			["a", "Yes, approve it"],
+			["b", "No"],
+		]);
+	});
 });

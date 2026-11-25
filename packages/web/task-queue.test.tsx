@@ -68,26 +68,42 @@ describe("Queue page's Queued and Blocked columns", () => {
 			todos: [
 				todo({ id: 1, subject: "store licenses", stage: "available" }),
 				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
+				todo({
+					id: 4,
+					subject: "report them",
+					stage: "queued",
+					blockedBy: [2],
+				}),
 				todo({ id: 3, subject: "free", stage: "queued" }),
 			],
 		});
 
 		expect(names(view)).toEqual(["free"]);
 		const blocked = view.getByRole("region", { name: "Blocked" });
-		expect(within(blocked).getAllByText("check them")).not.toHaveLength(0);
-		expect(within(blocked).getAllByText("needs #1 queued")).not.toHaveLength(0);
+		const rootCard = queueRow(view, "check them", "blocked tasks");
+		const followerCard = queueRow(view, "report them", "blocked tasks");
+		expect(within(rootCard).getByText("Blocked")).toBeTruthy();
+		expect(rootCard.textContent).toContain("(#1)");
+		expect(within(followerCard).getByText("Queued")).toBeTruthy();
+		expect(followerCard.textContent).not.toContain("Blocked with");
 
 		await act(async () =>
 			fireEvent.click(
-				within(blocked).getAllByRole("button", {
+				within(rootCard).getByRole("button", {
 					name: "Queue 1 blocker",
-				})[0] as HTMLElement,
+				}),
 			),
 		);
 		await serve({
 			todos: [
 				todo({ id: 1, subject: "store licenses", stage: "queued" }),
 				todo({ id: 2, subject: "check them", stage: "queued", blockedBy: [1] }),
+				todo({
+					id: 4,
+					subject: "report them",
+					stage: "queued",
+					blockedBy: [2],
+				}),
 				todo({ id: 3, subject: "free", stage: "queued" }),
 			],
 		});
@@ -98,7 +114,12 @@ describe("Queue page's Queued and Blocked columns", () => {
 		expect(testing.posted("/api/todos/1/queued")).toEqual([
 			{ method: "PUT", body: { queued: true } },
 		]);
-		expect(names(view)).toEqual(["store licenses", "check them", "free"]);
+		expect(names(view)).toEqual([
+			"store licenses",
+			"check them",
+			"free",
+			"report them",
+		]);
 	});
 
 	it("shows the tasks at work and what waits next in their own columns", async () => {
@@ -227,5 +248,5 @@ describe("Queue page's Queued and Blocked columns", () => {
 	const names = (view: Awaited<ReturnType<Testing["openTasks"]>>) =>
 		within(view.getByRole("list", { name: "queued tasks" }))
 			.getAllByRole("listitem")
-			.map((row) => row.querySelector("button")?.textContent);
+			.map((row) => row.querySelector("button:not([aria-label])")?.textContent);
 });

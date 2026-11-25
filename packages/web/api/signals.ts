@@ -5,7 +5,16 @@ import { ApiError, answered, scoped, send, sendJson } from "./request";
 /** Every signal on the server, across projects, and how many live subscribers they have. */
 export interface Signals {
 	signals: SignalOverview[];
+	/** Signals cleanup hid, newest first, still revivable. */
+	hidden: HiddenSignal[];
 	subscribers: number;
+}
+
+/** A signal cleanup hid: its name, when (ISO), and its description. */
+export interface HiddenSignal {
+	name: string;
+	at: string;
+	description?: string;
 }
 
 /** Reads every signal with a raise, a probe or a subscriber. */
@@ -21,7 +30,11 @@ export async function signals(): Promise<Signals> {
 			body.message ?? `/api/signals: ${response.status}`,
 		);
 	}
-	return { signals: body.signals, subscribers: body.subscribers ?? 0 };
+	return {
+		signals: body.signals,
+		hidden: body.hidden ?? [],
+		subscribers: body.subscribers ?? 0,
+	};
 }
 
 /** Stops the probe on signal `name`. */
@@ -106,4 +119,17 @@ export async function saveExpiration(
 	expires: string | null,
 ): Promise<void> {
 	await sendJson("/api/signals/expiration", "POST", { name, expires });
+}
+
+/** Hides every idle signal; the names it hid. */
+export async function cleanUpSignals(): Promise<string[]> {
+	const body = (await sendJson("/api/signals/cleanup", "POST", {})) as {
+		removed: string[];
+	};
+	return body.removed;
+}
+
+/** Shows hidden signal `name` again. */
+export async function reviveSignal(name: string): Promise<void> {
+	await sendJson("/api/signals/revive", "POST", { name });
 }

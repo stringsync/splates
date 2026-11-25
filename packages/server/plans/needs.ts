@@ -328,7 +328,8 @@ function askedIn(conversation: ConversationState): Question[] {
 /**
  * What the permission card the agent's last reply still asks for is about.
  * A queue card stops asking once this project's board has its work queued or
- * running; without the board, whether it was acted on is unknown.
+ * running; without the board, whether it was acted on is unknown. A run card
+ * never asks: the server starts it within the conversation's eval budget.
  */
 function permissionIn(
 	conversation: ConversationState,
@@ -339,6 +340,10 @@ function permissionIn(
 			continue;
 		}
 		const { permission } = stretch;
+		// A run card starts by itself within the conversation's eval budget.
+		if (permission.action === "run-evals") {
+			continue;
+		}
 		if (
 			permission.action === "queue" &&
 			permission.project === undefined &&

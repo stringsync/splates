@@ -1,4 +1,4 @@
-import { BanIcon, HourglassIcon } from "lucide-react";
+import { HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { queuedAddress } from "./conversation-address";
@@ -43,13 +43,9 @@ export function QueuedRows({
 						)}
 					>
 						<span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-							{/* Ban for a task held by blockers; the yellow triangle beside
-							    it, when a blocker needs queuing. */}
-							{queued.blockedBy === null ? (
-								<HourglassIcon aria-hidden className="size-4" />
-							) : (
-								<BanIcon aria-hidden className="size-4" />
-							)}
+							{/* Hourglass while waiting for an agent or blockers; the yellow
+							    triangle beside it appears when a blocker needs queuing. */}
+							<HourglassIcon aria-hidden className="size-4" />
 						</span>
 						<span className="flex min-w-0 flex-1 flex-col">
 							<span className="truncate text-sm italic">
@@ -82,6 +78,6 @@ function status(queued: Queued, place: number): string {
 		return `Waiting for an agent · ${place + 1} in line`;
 	}
 	return blockedBy.length === 0
-		? "Blocked"
-		: `Blocked · waits on ${blockedBy.map((id) => `#${id}`).join(", ")}`;
+		? "Waiting on blockers"
+		: `Waiting on blockers · ${blockedBy.map((id) => `#${id}`).join(", ")}`;
 }

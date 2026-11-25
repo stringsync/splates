@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
+	conversationHandOffReference,
 	eventReference,
-	groomReference,
 	handOffReference,
 	scheduleReference,
 	taskReference,
@@ -35,11 +35,7 @@ describe("server-authored message lines", () => {
 		]);
 	});
 
-	it("names the todos a groom asks about, and a sort an older server asked", () => {
-		expect(words(groomReference(7))).toEqual([
-			"Groom",
-			{ kind: "todo", id: 7, subject: "Fix upload" },
-		]);
+	it("names the todos a sort an older server asked about", () => {
 		expect(words("[SPLATES SORT #7 #8]")).toEqual([
 			"Sort",
 			{
@@ -70,6 +66,21 @@ describe("server-authored message lines", () => {
 			{ kind: "task", task: "fix-it" },
 		]);
 		expect(handOffLines(handoff, null)?.[0]?.title).toBe(handoff);
+
+		const chatHandoff = conversationHandOffReference("/tmp/transcript.md");
+		expect(handOffLines(chatHandoff, null)?.[0]?.words).toEqual(["Handoff"]);
+		expect(handOffLines(chatHandoff, null)?.[0]?.title).toBe(chatHandoff);
+	});
+
+	it("words a completed wait as a finished wait with its outcome", () => {
+		expect(
+			words(
+				"[SPLATES WAIT COMPLETE]\n\nThe machine has stayed idle for 60000ms (sampled every 5 seconds).",
+			),
+		).toEqual([
+			"Wait finished: The machine has stayed idle for 60000ms (sampled every 5 seconds)",
+		]);
+		expect(words("[SPLATES WAIT COMPLETE]")).toEqual(["Wait finished"]);
 	});
 
 	it("gives an unrecognized server prompt a line rather than a user bubble", () => {

@@ -1,8 +1,7 @@
 import type {
 	EvalAgentsView,
 	EvalBatch,
-	EvalBudget,
-	EvalBudgetStatus,
+	EvalBudgetView,
 	EvalDetail,
 	EvalGrid,
 	EvalLaunch,
@@ -64,6 +63,43 @@ export async function saveEvalAgents(
 	})) as EvalAgentsView;
 }
 
+/** `conversation`'s eval budget: what its person approved, what its rounds spent, and its cards' answers. */
+export async function evalBudget(
+	conversation: string,
+): Promise<EvalBudgetView> {
+	const path = `/api/evals/budget?conversation=${encodeURIComponent(conversation)}`;
+	const response = await answered(path);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/evals/budget: ${response.status}`);
+	}
+	const read = (await response.json()) as Partial<EvalBudgetView> | null;
+	if (typeof read?.usd !== "number" || typeof read.spent !== "number") {
+		throw new ApiError("error", "/api/evals/budget: not a budget");
+	}
+	return {
+		usd: read.usd,
+		spent: read.spent,
+		answers: read.answers ?? {},
+		...(read.seeded === undefined ? {} : { seeded: read.seeded }),
+	};
+}
+
+/**
+ * Answers `conversation`'s eval budget card `card`: adds `usd` dollars to its
+ * budget, or declines with null. Answers the budget as it now stands.
+ */
+export async function answerEvalBudget(
+	conversation: string,
+	card: string,
+	usd: number | null,
+): Promise<EvalBudgetView> {
+	return (await sendJson("/api/evals/budget", "POST", {
+		conversation,
+		card,
+		usd,
+	})) as EvalBudgetView;
+}
+
 /** What a run of `scenarios` on `agents` would reserve, from the runner's free plan. */
 export async function evalPlan(run: EvalRunAsk): Promise<EvalPlan> {
 	return (await sendJson(scoped("/api/evals/plan"), "POST", run)) as EvalPlan;
@@ -98,17 +134,6 @@ export async function evalStates(): Promise<EvalScenarioState[]> {
 	return (await response.json()) as EvalScenarioState[];
 }
 
-/** Starts the paid run the person asked for, the card `key` naming it. */
-export async function startEvalRun(
-	key: string,
-	run: EvalRunAsk,
-): Promise<EvalLaunch> {
-	return (await sendJson(scoped("/api/evals/launch"), "POST", {
-		...run,
-		key,
-	})) as EvalLaunch;
-}
-
 /** The run of card `key`; null when this server has none for it. */
 export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 	const response = await answered(
@@ -117,22 +142,23 @@ export async function evalLaunch(key: string): Promise<EvalLaunch | null> {
 	if (!response.ok) {
 		throw new ApiError("error", `/api/evals/launch: ${response.status}`);
 	}
-	return (await response.json()) as EvalLaunch | null;
+	const read = (await response.json()) as Partial<EvalLaunch> | null;
+	return read !== null && typeof read.status === "string"
+		? (read as EvalLaunch)
+		: null;
 }
 
-/** Where `conversation`'s budget stands: its latest run's budget and what that run has spent. */
-export async function evalBudget(
-	conversation: string,
-): Promise<EvalBudgetStatus> {
+/** The run writing `batch`, so its report can follow and stop it; null when none here does. */
+export async function evalLaunchOfBatch(
+	batch: string,
+): Promise<EvalLaunch | null> {
 	const response = await answered(
-		scoped(
-			`/api/evals/budget?conversation=${encodeURIComponent(conversation)}`,
-		),
+		scoped(`/api/evals/launch?batch=${encodeURIComponent(batch)}`),
 	);
 	if (!response.ok) {
-		throw new ApiError("error", `/api/evals/budget: ${response.status}`);
+		throw new ApiError("error", `/api/evals/launch: ${response.status}`);
 	}
-	return (await response.json()) as EvalBudgetStatus;
+	return (await response.json()) as EvalLaunch | null;
 }
 
 /** Stops the run of card `key`. */
@@ -154,6 +180,4 @@ export interface EvalRunAsk {
 	reps?: number;
 	/** The conversation whose card asks, told once the run is done, and whose worktree it runs in. */
 	conversation?: string | null;
-	/** The dollars and rounds the conversation may spend; its first run sets them. */
-	budget?: EvalBudget;
 }

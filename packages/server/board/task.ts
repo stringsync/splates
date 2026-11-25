@@ -3,7 +3,6 @@ import type { Attachment, Attachments } from "../artifacts";
 import type { AutoPicked } from "../auto-pick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
-import { BACKLOG_LANE } from "./backlog";
 import type { Deferral, DeferralAsk } from "./deferral";
 import { type ElsewhereBlocker, sameBlocker } from "./elsewhere";
 import { ElsewhereLinks } from "./elsewhere-links";
@@ -90,30 +89,6 @@ export class Task {
 			}
 			return { ...state, takenBy: task };
 		});
-	}
-
-	/**
-	 * Claims it for groomer conversation `by` to groom, saying whether `by`
-	 * now has it: false for one taken, in a lane, or `by`'s already, which
-	 * had its turn on it. Taking it or placing it in a lane ends the claim.
-	 */
-	async groom(by: string): Promise<boolean> {
-		// One compare-and-set under the store's lock; a claim by another
-		// conversation, a groomer since retired, gives way.
-		let claimed = false;
-		await this.tasks.revise(this.id, (state) => {
-			if (
-				state.takenBy !== null ||
-				state.stage !== "available" ||
-				state.lane !== BACKLOG_LANE ||
-				state.grooming === by
-			) {
-				return state;
-			}
-			claimed = true;
-			return { ...state, grooming: by };
-		});
-		return claimed;
 	}
 
 	/**
@@ -256,14 +231,8 @@ export class Task {
 					subject,
 				})),
 			],
-			questions: ask.questions
-				.map((text) => text.trim())
-				.filter(Boolean)
-				.map((text) => ({ text })),
-			outside: ask.outside
-				.map((what) => what.trim())
-				.filter(Boolean)
-				.map((what) => ({ what })),
+			questions: [],
+			outside: [],
 		};
 		return this.tasks.revise(this.id, (state) => ({
 			...state,
@@ -333,50 +302,6 @@ export class Task {
 	}
 
 	/**
-	 * Records the person's answer to question `index` of its deferral, adding
-	 * it to its detail for whoever takes it next.
-	 */
-	answer(index: number, answer: string): Promise<Task> {
-		return this.tasks.revise(this.id, (state) => {
-			const question = deferredAt(state, "questions", index);
-			const deferred = state.deferred as Deferral;
-			const said = answer.trim();
-			return {
-				...state,
-				text: [
-					state.text,
-					`The person answered ${question.text.split("\n")[0]}\n\n${said}`,
-				]
-					.filter(Boolean)
-					.join("\n\n"),
-				deferred: {
-					...deferred,
-					questions: deferred.questions.map((each, i) =>
-						i === index ? { ...each, answer: said } : each,
-					),
-				},
-			};
-		});
-	}
-
-	/** Marks what its deferral waits on outside splates, `index`, as done. */
-	outsideDone(index: number): Promise<Task> {
-		return this.tasks.revise(this.id, (state) => {
-			deferredAt(state, "outside", index);
-			const deferred = state.deferred as Deferral;
-			return {
-				...state,
-				deferred: {
-					...deferred,
-					outside: deferred.outside.map((each, i) =>
-						i === index ? { ...each, done: true as const } : each,
-					),
-				},
-			};
-		});
-	}
-
-	/**
 	 * Removes it for good. `landed` is the commit it merged as, or the firing
 	 * it closed on, written on each task it blocked; without one, it was dropped unmerged, so every
 	 * task that declared it a blocker goes too, and the tasks blocked by those
@@ -405,23 +330,6 @@ export class Task {
 	}
 }
 
-/** Blocker `index` of `kind` in `state`'s deferral, refusing one it does not have. */
-function deferredAt<Kind extends "questions" | "outside">(
-	state: TaskRecord,
-	kind: Kind,
-	index: number,
-): Deferral[Kind][number] {
-	const found = state.deferred?.[kind][index];
-	if (found === undefined) {
-		fail(
-			"not_found",
-			`task ${state.id} has no deferred ${kind === "questions" ? "question" : "outside blocker"} ${index + 1}`,
-			{ number: state.id, index },
-		);
-	}
-	return found;
-}
-
 /** Everything a task holds: its words, place, links and how far it has come. */
 export interface TaskRecord {
 	// One file apiece on disk, so two agents never rewrite one.
@@ -448,8 +356,6 @@ export interface TaskRecord {
 	lane: number | null;
 	/** How far it has come: available, queued or running. */
 	stage: TaskStage;
-	/** The groomer conversation that claimed it, in Backlog untaken; absent for none. */
-	grooming?: string;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
 	/** The other project it was added from; absent for one added here. */
@@ -533,22 +439,14 @@ export function unqueued<T extends TaskRecord>(
  * `running`.
  */
 export function staged(state: TaskRecord, running: boolean): TaskRecord {
-	const { grooming, ...rest } = state;
 	const stage = running
 		? "running"
 		: state.stage === "running"
 			? unqueued(state).stage
 			: state.stage;
 	return {
-		...rest,
+		...state,
 		stage,
-		// A groomer's claim lasts only while the task waits in Backlog untaken.
-		...(grooming !== undefined &&
-		stage === "available" &&
-		state.lane === BACKLOG_LANE &&
-		state.takenBy === null
-			? { grooming }
-			: {}),
 	};
 }
 
@@ -718,7 +616,7 @@ export interface LandedBlocker extends GoneBlocker {
  * whether or not it names an agent, which is picked when it runs otherwise;
  * `queued` for a worker to start; and `running` while an agent works it in
  * a worktree. Whether it was groomed is where it sits: one in Backlog
- * with no groomer's claim still waits for the groomer.
+ * untaken is still to be groomed.
  */
 export type TaskStage = "available" | "queued" | "running";
 

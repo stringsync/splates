@@ -1,9 +1,7 @@
 import { fail } from "../exit";
-import type { AgentPick } from "../models";
 import { body } from "../server/shared";
 import { hookLabel, triggerLabel } from "./commands";
 import type { TaskEventName } from "./events";
-import { GROOMER_AUTOMATION } from "./groomer";
 import type { AutomationRun, RunStore } from "./runs";
 import {
 	type Automation,
@@ -34,7 +32,6 @@ export class AutomationRoutes {
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
 	readonly #all: () => Promise<Automation[]>;
-	readonly #changed: () => void;
 	readonly #run: () => Promise<void>;
 
 	constructor(
@@ -42,15 +39,12 @@ export class AutomationRoutes {
 		runs: RunStore,
 		/** Every automation, the project's checked-in ones too. */
 		all: () => Promise<Automation[]>,
-		/** Told once one is added, edited, removed, paused or resumed here. */
-		changed: () => void = () => {},
 		/** Runs each automation asked to run now; settles once they started. */
 		run: () => Promise<void> = async () => {},
 	) {
 		this.#store = store;
 		this.#runs = runs;
 		this.#all = all;
-		this.#changed = changed;
 		this.#run = run;
 	}
 
@@ -59,47 +53,29 @@ export class AutomationRoutes {
 	readonly addAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook, name } = await body(request);
 		await this.#store.add(triggerIn(trigger), hookIn(hook), nameIn(name));
-		this.#changed();
 		return this.#list();
 	};
 
-	/**
-	 * Edits one of the person's automations or, named `groomer`, sets the
-	 * agent the groomer runs as, turning it on when it is off: its trigger
-	 * and its prompt are splates's own.
-	 */
+	/** Edits one of the person's automations. */
 	readonly editAutomation = async (request: Request): Promise<Response> => {
 		const { trigger, hook, name } = await body(request);
 		const id = idIn(request);
-		if (id === GROOMER_AUTOMATION) {
-			await this.#store.groomer(pickIn(hook));
-		} else {
-			await this.#store.edit(
-				id,
-				triggerIn(trigger),
-				hookIn(hook),
-				nameIn(name),
-			);
-		}
-		this.#changed();
+		await this.#store.edit(id, triggerIn(trigger), hookIn(hook), nameIn(name));
 		return this.#list();
 	};
 
 	readonly removeAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.remove(idIn(request));
-		this.#changed();
 		return this.#list();
 	};
 
 	readonly pauseAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.pause(idIn(request), true);
-		this.#changed();
 		return this.#list();
 	};
 
 	readonly resumeAutomation = async (request: Request): Promise<Response> => {
 		await this.#store.pause(idIn(request), false);
-		this.#changed();
 		return this.#list();
 	};
 
@@ -122,10 +98,10 @@ export class AutomationRoutes {
 	}
 }
 
-/** The person's automation `/api/automations/<id>/...` names, or a built-in one. */
+/** The person's automation `/api/automations/<id>/...` names. */
 function idIn(request: Request): string {
 	const id = new URL(request.url).pathname.split("/")[3] ?? "";
-	if (!/^\d+$/.test(id) && id !== GROOMER_AUTOMATION) {
+	if (!/^\d+$/.test(id)) {
 		fail(
 			"usage",
 			`no automation ${id}: only one of yours changes or runs here`,
@@ -175,23 +151,6 @@ function triggerIn(raw: unknown): Trigger {
 		: { event, filter: narrowed, ...invokes };
 }
 
-/** The agent a request sent a built-in automation to run as, refusing none. */
-function pickIn(raw: unknown): AgentPick {
-	const given = (raw ?? {}) as Record<string, unknown>;
-	if (typeof given.agent !== "string" || given.agent === "") {
-		fail("usage", "pick the agent it runs as", {});
-	}
-	return {
-		agent: given.agent,
-		...(typeof given.model === "string" && given.model !== ""
-			? { model: given.model }
-			: {}),
-		...(typeof given.effort === "string" && given.effort !== ""
-			? { effort: given.effort }
-			: {}),
-	};
-}
-
 /** The name a request sent, if any, refusing one that is no text. */
 function nameIn(raw: unknown): string | undefined {
 	if (raw !== undefined && raw !== null && typeof raw !== "string") {
@@ -215,13 +174,15 @@ function hookIn(raw: unknown): Hook {
 		typeof given.prompt === "string" &&
 		given.prompt.trim() !== ""
 	) {
+		const evalBudget = evalBudgetIn(given.evalBudget);
+		const budgetField = evalBudget === undefined ? {} : { evalBudget };
 		// No agent named runs on Auto pick, which picks the model and effort too.
 		if (
 			given.agent === undefined ||
 			given.agent === null ||
 			given.agent === ""
 		) {
-			return { kind: "agent", prompt: given.prompt };
+			return { kind: "agent", prompt: given.prompt, ...budgetField };
 		}
 		if (typeof given.agent === "string") {
 			return {
@@ -234,6 +195,7 @@ function hookIn(raw: unknown): Hook {
 				...(typeof given.effort === "string" && given.effort !== ""
 					? { effort: given.effort }
 					: {}),
+				...budgetField,
 			};
 		}
 	}
@@ -242,4 +204,17 @@ function hookIn(raw: unknown): Hook {
 		"say what runs: an agent with a prompt, or a shell command",
 		{},
 	);
+}
+
+/** The optional dollar eval budget a request sent, refusing an invalid value. */
+function evalBudgetIn(raw: unknown): number | undefined {
+	if (raw === undefined || raw === null || raw === "") {
+		return undefined;
+	}
+	if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) {
+		fail("usage", "an eval budget is a dollar amount above 0", {
+			evalBudget: raw,
+		});
+	}
+	return Math.round(raw * 100) / 100;
 }

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Outcome } from "@splates/server/stats/browser";
 import {
-	act,
 	cleanup,
 	conversation,
 	fireEvent,
@@ -253,43 +252,5 @@ describe("App's merged card actions", () => {
 		);
 
 		expect(view.queryByRole("button", { name: "Demo it" })).toBeNull();
-	});
-
-	it("asks before unmerging, and sends the conversation's own agent what the person wrote with it", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
-			}),
-		]);
-		const card = view.getByRole("region", { name: "merged header" });
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(card).getByRole("button", { name: "Unmerge" }),
-				),
-			),
-		);
-		const asking = await waitFor(() => view.getByRole("dialog"));
-		expect(within(asking).getByText(/checks first/)).not.toBeNull();
-		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
-
-		fireEvent.change(within(asking).getByRole("textbox"), {
-			target: { value: "It broke the phone layout." },
-		});
-		await act(async () =>
-			fireEvent.click(within(asking).getByRole("button", { name: "Unmerge" })),
-		);
-
-		await waitFor(() =>
-			expect(
-				testing
-					.posted("/api/conversations/c1/prompt")
-					.map((post) => JSON.stringify(post)),
-			).toEqual([
-				expect.stringContaining(
-					"[SPLATES UNMERGE header]\\n\\nIt broke the phone layout.",
-				),
-			]),
-		);
 	});
 });

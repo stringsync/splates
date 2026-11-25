@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
 	commandsOf,
+	readAntigravity,
 	readClaude,
 	readCodex,
 	readKimi,
@@ -9,7 +10,14 @@ import {
 import { codexEvidence } from "./codex-evidence";
 import type { Limits, Step } from "./scenario";
 
-export { commandsOf, readClaude, readCodex, readKimi, readOpenCode };
+export {
+	commandsOf,
+	readAntigravity,
+	readClaude,
+	readCodex,
+	readKimi,
+	readOpenCode,
+};
 
 /** `kimi` as found on the PATH, then `KIMI_PATH`, then the installer's home, ahead of the arguments to run it with. */
 const KIMI_CLI = [
@@ -20,6 +28,15 @@ const KIMI_CLI = [
 	"kimi",
 ];
 
+/** `agy` from `AGY_PATH`, then on the PATH, then the installer's home, ahead of the arguments to run it with. */
+const AGY_CLI = [
+	"sh",
+	"-c",
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: shell syntax, not a template
+	'exec "${AGY_PATH:-$(command -v agy || echo "$HOME/.local/bin/agy")}" "$@"',
+	"agy",
+];
+
 /** An agent a run uses, as the Evals page saves it, with its model and thinking level. */
 export interface AgentPick {
 	agent: string;
@@ -28,7 +45,7 @@ export interface AgentPick {
 }
 
 /** How an agent's output stream is written. */
-export type Format = "claude" | "codex" | "opencode" | "kimi";
+export type Format = "claude" | "codex" | "opencode" | "kimi" | "antigravity";
 
 /** What one agent run came to. */
 export interface AgentRun {
@@ -42,7 +59,7 @@ export interface AgentRun {
 }
 
 /** The agents a run can use. */
-export const AGENTS = ["claude", "codex", "opencode", "kimi"];
+export const AGENTS = ["claude", "codex", "opencode", "kimi", "antigravity"];
 
 const TURNS = 30;
 /** Default per-turn timeout in minutes when a scenario sets no `limits.minutes`. */
@@ -161,6 +178,24 @@ export function commandFor(
 			],
 		};
 	}
+	if (pick.agent === "antigravity") {
+		// Antigravity has no turn or spend cap flag, and no user-settings
+		// exclusion flag; it may live off the PATH, where the roster looks too.
+		return {
+			format: "antigravity",
+			argv: [
+				...AGY_CLI,
+				"--output-format",
+				"stream-json",
+				"--dangerously-skip-permissions",
+				"--disable-slash-commands",
+				...(pick.model === undefined ? [] : ["--model", pick.model]),
+				...(pick.effort === undefined ? [] : ["--effort", pick.effort]),
+				"--print",
+				message,
+			],
+		};
+	}
 	throw new Error(`no eval runner for agent ${pick.agent}`);
 }
 
@@ -242,7 +277,9 @@ async function runTurn(
 				? readCodex(lines)
 				: format === "kimi"
 					? readKimi(lines)
-					: readOpenCode(lines);
+					: format === "antigravity"
+						? readAntigravity(lines)
+						: readOpenCode(lines);
 	if (format === "codex" && code === 0) {
 		const thread = lines.find(
 			(line) => line.type === "thread.started",

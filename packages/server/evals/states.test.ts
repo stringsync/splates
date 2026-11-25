@@ -3,10 +3,16 @@ import { scenarioStates } from "./states";
 import type { EvalCell, EvalGrid } from "./types";
 
 describe("scenarioStates", () => {
-	it("tells failing, never run and passing apart", () => {
+	it("tells failing, needs runs, never run and passing apart", () => {
 		const states = scenarioStates(
 			[list("f", "1"), list("n", "1"), list("s", "2"), list("p", "1")],
 			[
+				grid("2026-01-01", [
+					cell("f", "fail", "1"),
+					cell("s", "pass", "1"),
+					cell("p", "pass", "1", "a"),
+					cell("p", "pass", "1", "b"),
+				]),
 				grid("2026-01-02", [
 					cell("f", "fail", "1"),
 					cell("s", "pass", "1"),
@@ -20,29 +26,43 @@ describe("scenarioStates", () => {
 			"failing",
 			"never-run",
 			"passing",
-			"failing",
+			"needs-runs",
 		]);
 		expect(states[3]?.targets).toEqual([
-			{ target: "a", passed: 1, total: 1 },
-			{ target: "b", passed: 0, total: 1 },
+			{ target: "a", passed: 2, total: 2, standing: "pass", need: 2, of: 3 },
+			{
+				target: "b",
+				passed: 1,
+				total: 2,
+				standing: "needs-runs",
+				need: 2,
+				of: 3,
+			},
 		]);
-		expect(states[3]?.run).toBe("b#pb");
 		expect(states[0]).toMatchObject({ lastRunAt: "2026-01-02" });
+		expect(states[1]?.batch).toBeNull();
 	});
 
-	it("reads the latest batch", () => {
-		const [first, second] = scenarioStates(
+	it("one lucky pass needs runs, and old failures age out of the window", () => {
+		const [lucky, mended] = scenarioStates(
 			[list("x", "9"), list("y", "9")],
 			[
-				grid("2026-01-01", [cell("x", "fail", "9")]),
-				grid("2026-01-02", [
-					cell("x", "pass", "9"),
-					cell("y", "pass", undefined),
-				]),
+				grid("2026-01-01", [cell("x", "fail", "9"), cell("y", "fail", "9")]),
+				grid("2026-01-02", [cell("x", "pass", "9"), cell("y", "fail", "9")]),
+				grid("2026-01-03", [cell("y", "pass", "9"), cell("y", "pass", "9")]),
 			],
 		);
-		expect(first?.state).toBe("passing");
-		expect(second?.state).toBe("passing");
+		expect(lucky?.state).toBe("needs-runs");
+		expect(lucky?.batch).toBe("2026-01-02");
+		expect(mended?.state).toBe("passing");
+	});
+
+	it("uses a spec's own rule", () => {
+		const [one] = scenarioStates(
+			[{ ...list("x", "9"), pass: { need: 1, of: 1 } }],
+			[grid("2026-01-01", [cell("x", "pass", "9")])],
+		);
+		expect(one?.state).toBe("passing");
 	});
 });
 
@@ -83,6 +103,7 @@ function grid(startedAt: string, cells: EvalCell[]): EvalGrid {
 		cells: cells.length,
 		tokens: null,
 		costUsd: null,
+		results: [],
 		grid: cells,
 	};
 }

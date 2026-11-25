@@ -30,6 +30,8 @@ export interface Stats {
 	devices: ({ device: WorkedFrom | null } & Tally)[];
 	/** By the main tree each task in the period was in, the most first. */
 	projects: ({ project: string } & Tally)[];
+	/** Tasks ended in each bar of the period by the board they were queued on, the most first. */
+	boards: BoardSeries[];
 	/** When the first outcome was written, the start of what there is to show. */
 	since: string | null;
 	/**
@@ -39,6 +41,19 @@ export interface Stats {
 	skill: SkillVersion[];
 	/** Each project's recent merged tasks, to hold one against: over the week before now, whatever the period. */
 	baselines: Baseline[];
+}
+
+/**
+ * One board's tasks ended over the period: `board` is its id, `none` for
+ * tasks never queued in a lane, or `unknown` for those that ended before
+ * boards were kept; `name` is what the board was last called, null for the
+ * other two.
+ */
+export interface BoardSeries {
+	board: number | "none" | "unknown";
+	name: string | null;
+	/** How many ended in each bar, as `Stats.buckets` lays them out. */
+	ended: number[];
 }
 
 /** How a group of ended tasks went, summed. */
@@ -215,6 +230,11 @@ export function summarize(
 					);
 				});
 	return {
+		boards: boardSeries(
+			inPeriod,
+			(each) => (floor(Date.parse(each.endedAt)) - first) / bucket,
+			length,
+		),
 		buckets: Array.from({ length }, (_, index) => {
 			const start = first + index * bucket;
 			return {
@@ -240,6 +260,35 @@ export function summarize(
 		skill: rates(judged),
 		baselines: baselines(outcomes, now),
 	};
+}
+
+/** Each board's tasks per bar, `bar` placing each outcome; the board with the most first. */
+function boardSeries(
+	outcomes: Outcome[],
+	bar: (outcome: Outcome) => number,
+	length: number,
+): BoardSeries[] {
+	const series = new Map<BoardSeries["board"], BoardSeries>();
+	for (const each of outcomes) {
+		const board =
+			each.board === undefined
+				? "unknown"
+				: each.board === null
+					? "none"
+					: each.board.id;
+		const found = series.get(board) ?? {
+			board,
+			name: null,
+			ended: Array.from({ length }, () => 0),
+		};
+		// Oldest first, so the name kept is the latest.
+		found.name = each.board?.name ?? null;
+		found.ended[bar(each)] = (found.ended[bar(each)] ?? 0) + 1;
+		series.set(board, found);
+	}
+	const total = (each: BoardSeries) =>
+		each.ended.reduce((sum, count) => sum + count, 0);
+	return [...series.values()].sort((one, other) => total(other) - total(one));
 }
 
 function tally(outcomes: Outcome[]): Tally {

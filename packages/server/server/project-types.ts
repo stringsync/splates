@@ -90,10 +90,18 @@ export interface DevContext {
 	readonly portsBase?: string | null;
 	/** Animal slots assigned to tunnel-exposed rigs; absent, each project uses its own pool. */
 	readonly rigSlots?: RigSlots;
+	/** Called after a tunnel-exposed rig claims an animal slot (e.g. to clear stale slot DNS). */
+	readonly onRigSlotClaimed?: (slot: Slot) => Promise<void>;
 	/** What starts a ship's steps on a worker and takes them back after a restart; absent, each is a child of this server. */
 	readonly shipLauncher?: Launcher;
 	/** What a run-evals card may name, for the watch that bounces one that cannot run; absent, as in a test of one project, none is checked. */
 	evalCards?: EvalCardSource;
+	/** Seeds a pre-approved eval budget onto a conversation started by an automation; absent, none is seeded. */
+	seedEvalBudget?(
+		conversation: string,
+		usd: number,
+		automation: { id: string; name?: string },
+	): Promise<void>;
 	/** What tasks that close on a signal read of it: its raises, and a probe to run on subscribing; absent, as in a test of one project, none close. */
 	signalTasks?: {
 		raises(): Promise<Record<string, SignalRaise[]>>;
@@ -197,8 +205,6 @@ export interface Served extends AsyncResource {
 	arrangeQueued: Handler;
 	assignQueued: Handler;
 	queueQueued: Handler;
-	answerDeferred: Handler;
-	doneOutside: Handler;
 	moveInQueue: Handler;
 	/** Tries a queued task's refused start again. */
 	retryQueued: Handler;

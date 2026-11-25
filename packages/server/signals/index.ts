@@ -21,6 +21,7 @@ export type { PageKill } from "./page-kills";
 export { pageKillRoute } from "./page-kills";
 export type { ProbeAsk, ProbeDeps } from "./probes";
 export { isOn, Probes, payloadOf } from "./probes";
+export { lastUserMessagesOf, QuotaSignals, quotaRaises } from "./quota";
 export type { SignalHome } from "./routes";
 export { raiseIn, SignalRoutes, subscriptionsIn } from "./routes";
 export { durationMs, expirationOf, sinceOf } from "./time";

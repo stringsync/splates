@@ -1,18 +1,6 @@
-import { age } from "@splates/server/age";
 import type { TaskRecord } from "@splates/server/board";
-import {
-	blockerLabel,
-	cleared,
-	deferralBlockers,
-} from "@splates/server/board/browser";
 import { taskNumberReference } from "@splates/server/plans/browser";
-import { isBlocked } from "@splates/server/queue/browser";
-import {
-	CircleAlertIcon,
-	HourglassIcon,
-	InfoIcon,
-	type LucideIcon,
-} from "lucide-react";
+import { CircleAlertIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type HTMLAttributes,
 	type JSX,
@@ -21,38 +9,25 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "#web/components/ui/tooltip.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AUTO_PICK_NAME } from "./auto-brand";
-import { Elsewhere, heldElsewhere } from "./blocked-elsewhere";
-import { BlockedFixButton } from "./blocked-fix";
+import { BlockedFixButton, blockedFix } from "./blocked-fix";
 import { Board, still, touchArea } from "./board";
-import { openForPerson } from "./deferred-body";
-import { OnIt } from "./dispatching";
+import { Dispatching } from "./dispatching";
 import { LaneChip } from "./lane-chip";
-import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
-import { StartAssigned } from "./start-menu";
-import { QueuedMark, QueueToggle, StageBadge, shownStage } from "./todo-queue";
-import { waitLines, waitsOn, waitsShort } from "./waits-on";
+import { QueueToggle, shownStage } from "./todo-queue";
 
 export interface CardProps {
 	todo: TaskRecord;
 	staleness: number;
-	/** Its place in its lane, 1 at the top, when it is in one. */
-	step?: number;
 	pointer?: HTMLAttributes<HTMLElement>;
 	/** The title's keyboard handle for a drag, which the card as a whole has no need of. */
 	grip?: HTMLAttributes<HTMLButtonElement> & {
 		ref?: (element: HTMLElement | null) => void;
 	};
-	/** On the Queue board: names its lane on a chip, without its detail, and cannot be dragged since it stays put. */
+	/** On the Queue board: names its lane below the title, and cannot be dragged since it stays put. */
 	listed?: boolean;
-	/** A fact the card's list adds to its line, as how long it has waited. */
+	/** A fact the card's list adds below the title, as how long it has waited. */
 	detail?: ReactNode;
 	/** Hears which tasks its blocked fix queued, for a list it leaves once unblocked. */
 	onFixed?: (ids: number[]) => void;
@@ -62,7 +37,6 @@ export interface CardProps {
 export function Card({
 	todo,
 	staleness,
-	step,
 	pointer,
 	grip,
 	listed = false,
@@ -74,272 +48,153 @@ export function Card({
 	// Queued, it has a conversation waiting for an agent once it can start,
 	// as one at work has.
 	const held = todo.takenBy === null && todo.stage === "queued";
-	// Queued but stuck until the person queues what it waits on, or drops a
-	// link: its badge says so and its line offers the fix instead.
-	const blocked = held && isBlocked(todo, board.todos);
-	// Named only where the board holds more than one project, or it says nothing.
-	const mixed = new Set(board.todos.map((each) => each.scope)).size > 1;
+	const shown = shownStage(todo, board.todos, board.tasks);
 	const stale =
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
-	// What blocks it that its own lane's order does not already say.
-	const blockers = board.todos.filter(
-		(other) =>
-			todo.blockedBy.includes(other.id) &&
-			(todo.lane === null || other.lane !== todo.lane),
-	);
-	// What a deferral waits on that is no task: the person's answers or something outside.
-	const awaited =
-		todo.deferred === undefined ? [] : openForPerson(todo, board.todos);
-	// Queued, the tasks here it waits on to start, its own lane's included,
-	// named on the card; those removed or elsewhere have badges of their own.
-	const waits = held
-		? waitsOn(todo, board.todos, board.lanes).filter(
-				(wait) => wait.state !== "removed" && wait.state !== "another project",
-			)
-		: [];
-	// The blockers the queue let it go for that still block it, to queue first.
-	const leftFor =
-		todo.stage === "queued"
-			? []
-			: (todo.unqueuedFor ?? []).filter((id) => todo.blockedBy.includes(id));
-	// What stands in its way, most pressing first; the card shows the first and
-	// counts the rest, so a card with several kinds of trouble stays one line.
-	const notes: Note[] = [];
-	const shown = shownStage(todo, board.todos, board.tasks);
-	const deferredOn =
-		todo.takenBy !== null && todo.deferred !== undefined
-			? deferralBlockers(todo, board.todos).filter(
-					(each) => each.kind === "task" && !cleared(each),
-				)
-			: [];
-	if (shown === "blocked" && deferredOn.length > 0) {
-		const text = `Blocked by ${deferredOn.map((each) => (each.kind === "task" ? `#${each.id}` : "")).join(", ")}`;
-		notes.push({
-			key: "deferred",
-			text,
-			Icon: HourglassIcon,
-			lead: "Blocked",
-		});
-	}
-	if (leftFor.length > 0) {
-		const text = `left the queue: queue ${leftFor.map((id) => `#${id}`).join(", ")} first`;
-		notes.push({
-			key: "left",
-			text,
-			Icon: CircleAlertIcon,
-			lead: "left the queue",
-		});
-	}
-	for (const gone of todo.blockersLost ?? []) {
-		const text = `#${gone.id}${gone.subject === "" ? "" : ` ${gone.subject}`} was removed without merging`;
-		notes.push({
-			key: `lost-${gone.id}`,
-			text,
-			short: text,
-			Icon: InfoIcon,
-		});
-	}
-	if (!blocked && waits.length > 0) {
-		notes.push({
-			key: "waits",
-			text: waitLines(waits),
-			short: waitsShort(waits),
-			Icon: HourglassIcon,
-		});
-	} else if (!blocked && blockers.length > 0) {
-		const text = `Blocked by ${blockers.map((other) => blockerLabel(other, board.lanes)).join(", ")}`;
-		notes.push({
-			key: "blocked",
-			text,
-			short: text,
-			Icon: HourglassIcon,
-			lead: "Blocked",
-		});
-	}
-	if (blockers.length === 0 && awaited.length > 0) {
-		const text = `Waiting on ${awaited.map((each) => (each.kind === "question" ? `your answer: ${each.text.split("\n")[0]}` : each.kind === "outside" ? each.what : "")).join("; ")}`;
-		notes.push({
-			key: "awaited",
-			text,
-			short: "Waiting on you",
-			Icon: HourglassIcon,
-			lead: "Waiting",
-		});
-	}
+	// Downstream blocked cards wait on another blocked card's fix, so they
+	// present quietly as Queued rather than repeating Blocked.
+	const fix = held ? blockedFix(todo, board.todos) : null;
+	const badgeStage =
+		shown === "blocked" && fix?.kind === "with" ? "queued" : shown;
+	const badge = STATUS_BADGE[badgeStage];
+	// Cross-lane or unqueued blockers on an available task still show a quiet
+	// warning mark since available cards carry no status badge.
+	const trouble =
+		shown === "available" &&
+		(board.todos.some(
+			(other) =>
+				todo.blockedBy.includes(other.id) &&
+				(todo.lane === null || other.lane !== todo.lane),
+		) ||
+			(todo.unqueuedFor ?? []).some((id) => todo.blockedBy.includes(id)));
 	return (
 		<div
 			{...pointer}
 			className={cn(
 				// A pointer, since a tap opens it; a drag from anywhere still moves it.
-				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border border-border/60 bg-card text-card-foreground transition-colors select-none hover:border-border active:border-border active:bg-muted/50",
-				// Queued, waiting for an agent, or at work, it stands out from the
-				// rest of its lane in the same way.
-				(held || todo.takenBy) &&
-					"border-muted-foreground/60 bg-muted/60 hover:border-muted-foreground active:border-muted-foreground",
+				"group relative flex cursor-pointer touch-manipulation flex-col gap-1.5 rounded-lg border border-transparent bg-card px-2.5 py-2 text-card-foreground shadow-[0_1px_0_rgb(9_30_66/0.25)] transition-colors select-none hover:border-ring/60 active:bg-muted/50",
 				className,
 			)}
 		>
-			{step !== undefined && (
-				<span
-					aria-hidden
-					className="flex w-7 shrink-0 justify-center pt-2.5 text-muted-foreground/70 text-xs tabular-nums"
-				>
-					{step}
+			<div className="flex min-h-5 items-center justify-between gap-2 text-muted-foreground text-xs">
+				<span className="flex min-w-0 items-center gap-1.5">
+					<CopyLink id={todo.id} />
+					{badge !== undefined && (
+						<span
+							data-status={badgeStage}
+							className={cn(
+								"inline-flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-px font-medium text-xs",
+								badge.chip,
+							)}
+						>
+							<span
+								aria-hidden
+								className={cn("size-1.5 shrink-0 rounded-full", badge.dot)}
+							/>
+							{badge.label}
+						</span>
+					)}
+					{trouble && (
+						<CircleAlertIcon
+							aria-label="Needs attention"
+							className="size-3 shrink-0 text-warning"
+						/>
+					)}
 				</span>
-			)}
-			<div
+				<span className="relative flex shrink-0 items-center gap-0.5">
+					<QueueToggle todo={todo} phone={false} />
+					<ViewButton todo={todo} />
+				</span>
+			</div>
+			{/* Stretched over the whole card, so a tap anywhere opens it; the
+			    buttons on top of it keep their own. */}
+			<button
+				type="button"
+				{...grip}
+				onClick={() => board.open(todo.id)}
 				className={cn(
-					// Room on a touch screen for the taller taps of the line below.
-					"flex min-w-0 flex-1 flex-col gap-1 py-2 pointer-coarse:gap-2",
-					step === undefined && "pl-3",
+					"cursor-pointer text-left text-sm wrap-anywhere outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring",
 					stale && "opacity-60",
 				)}
 			>
-				{/* Stretched over the whole card, so a tap anywhere opens it; the
-				    buttons on top of it keep their own. */}
-				<button
-					type="button"
-					{...grip}
-					onClick={() => board.open(todo.id)}
-					className="cursor-pointer text-left font-medium text-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
-				>
-					{todo.subject}
-				</button>
-				{todo.ship !== undefined && (
-					<a href="#ships" className="relative text-muted-foreground text-xs">
-						Ship’s task
-					</a>
-				)}
-				{/* A lane is read down the column, so its cards keep to their
-				    subject; the detail is a tap away. */}
-				{todo.text !== "" && step === undefined && !listed && (
-					<Markdown
-						text={todo.text}
-						preview
-						className="text-muted-foreground text-xs"
-					/>
-				)}
-				{/* One quiet line of what there is to know, in plain text. */}
-				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-					<CopyLink id={todo.id} />
-					{listed && <LaneChip lane={todo.lane} />}
-					{todo.slug !== undefined && (
-						<Chip className="min-w-0 truncate" title="Its slug">
-							{todo.slug}
-						</Chip>
-					)}
-					{mixed && todo.scope !== undefined && (
-						<Chip className="min-w-0 truncate" title="The project it changes">
-							{todo.scope}
-						</Chip>
-					)}
-					{/* A list's column already says where it stands. */}
-					{!listed && <StageBadge todo={todo} />}
-					{/* With no agent named, it runs on whichever is picked then. */}
-					{todo.takenBy === null &&
-						todo.stage === "available" &&
-						todo.assignee === undefined && (
-							<Chip dot="bg-primary">{AUTO_PICK_NAME}</Chip>
-						)}
-					{/* Kept while queued, so its Undo outlives the block it cleared. */}
-					{held && <BlockedFixButton todo={todo} onFixed={onFixed} />}
-					<Elsewhere todo={todo} />
+				{todo.subject}
+			</button>
+			{listed && <LaneChip lane={todo.lane} plain />}
+			{detail !== undefined && detail !== null && (
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
 					{detail}
-					<Notes notes={notes} />
-					{todo.files.length > 0 && (
-						<Chip title="files">
-							{todo.files.length} {todo.files.length === 1 ? "file" : "files"}
-						</Chip>
-					)}
-					{/* Its assigned agent starts it in one tap; one blocked waits. */}
-					{todo.takenBy === null &&
-						todo.assignee &&
-						blockers.length === 0 &&
-						!heldElsewhere(todo) && (
-							<StartAssigned
-								assignment={{ kind: "todo", id: todo.id }}
-								assignee={todo.assignee}
-								quiet
-							/>
-						)}
-					<QueueToggle todo={todo} />
-					{stale && (
-						<Chip dot="bg-warning" title="stale">
-							stale, {age(todo.createdAt)}
-						</Chip>
-					)}
-				</span>
-				<Refusal refusal={board.refusedTodos.get(todo.id)} />
-			</div>
-			<span aria-hidden className="w-7 pointer-coarse:w-10 shrink-0" />
-			{/* An agent at work spins in the top right, on every card the same
-			    place, in the column at its right so the subject keeps its width; a
-			    queued card free to start waits there for one. */}
-			{(todo.takenBy || (held && !listed)) && (
-				<OnIt
-					task={todo.takenBy}
-					queued={held ? todo.id : undefined}
-					spinning
-					className="absolute top-2 right-0 w-7 pointer-coarse:w-10 flex-col"
-				/>
+				</div>
 			)}
-			{!listed && (
-				<QueuedMark
-					todo={todo}
-					className="absolute top-2.5 right-0 w-7 pointer-coarse:w-10 justify-center"
-				/>
-			)}
+			{held && <BlockedFixButton todo={todo} onFixed={onFixed} card />}
+			<Refusal refusal={board.refusedTodos.get(todo.id)} />
 		</div>
 	);
 }
 
-interface Note {
-	key: string;
-	/** The whole of it, for hover and screen readers. */
-	text: string;
-	/** What the card says of it, when `text` is too long for a line. */
-	short?: string;
-	Icon: LucideIcon;
-	/** The first word of the note, shown in the warning color. */
-	lead?: string;
-}
+/** The status badge shown beside the task id at the top of a card; none while available. */
+const STATUS_BADGE: Partial<
+	Record<
+		ReturnType<typeof shownStage>,
+		{ label: string; chip: string; dot: string }
+	>
+> = {
+	running: {
+		label: "Running",
+		chip: "bg-blue-500/15 text-foreground",
+		dot: "bg-blue-500",
+	},
+	queued: {
+		label: "Queued",
+		chip: "bg-foreground/[0.07] text-muted-foreground",
+		dot: "bg-muted-foreground",
+	},
+	blocked: {
+		label: "Blocked",
+		chip: "bg-warning/15 text-foreground",
+		dot: "bg-warning",
+	},
+	stalled: {
+		label: "Stalled",
+		chip: "bg-destructive/15 text-foreground",
+		dot: "bg-destructive",
+	},
+};
 
 /**
- * The one thing most in the card's way, in the warning tone, and how many
- * others there are; every note is in its label, on hover.
+ * Opens the conversation working the task, or the one the queue holds for
+ * it; there is nothing to show without one.
  */
-function Notes({ notes }: { notes: Note[] }): JSX.Element | null {
-	const [first, ...rest] = notes;
-	if (first === undefined) {
+function ViewButton({ todo }: { todo: TaskRecord }): JSX.Element | null {
+	const dispatching = useContext(Dispatching);
+	if (dispatching === null) {
 		return null;
 	}
-	const label = notes.map((note) => note.text).join("\n");
-	const said = first.short ?? first.text;
+	const { dispatch, open } = dispatching;
+	const found =
+		todo.takenBy !== null
+			? dispatch.on(todo.takenBy)
+			: dispatch.heldFor(todo.id);
+	const conversation = found.find(
+		(each) => each.conversation !== null,
+	)?.conversation;
+	if (conversation === undefined || conversation === null) {
+		return null;
+	}
 	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={<span {...still} />}
-				aria-label={label}
-				className="relative inline-flex min-w-0 cursor-default items-center gap-1 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				<first.Icon aria-hidden className="size-3 shrink-0 text-warning" />
-				<span className="truncate" title={first.text}>
-					{first.lead !== undefined && said.startsWith(first.lead) ? (
-						<>
-							<span className="font-semibold text-warning">{first.lead}</span>
-							{said.slice(first.lead.length)}
-						</>
-					) : (
-						said
-					)}
-				</span>
-				{rest.length > 0 && (
-					<span className="shrink-0 tabular-nums">+{rest.length}</span>
-				)}
-			</TooltipTrigger>
-			<TooltipContent className="whitespace-pre-line">{label}</TooltipContent>
-		</Tooltip>
+		<button
+			type="button"
+			aria-label={`View conversation for #${todo.id}`}
+			title="View conversation"
+			onClick={() => open(conversation.id)}
+			{...still}
+			className={cn(
+				"relative inline-flex cursor-pointer items-center justify-center rounded-md p-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+				touchArea,
+			)}
+		>
+			<MessageSquareIcon aria-hidden className="size-3.5" />
+		</button>
 	);
 }
 
@@ -357,7 +212,7 @@ export function CopyLink({ id }: { id: number }): JSX.Element {
 			onClick={() => copy(taskNumberReference(id))}
 			{...still}
 			className={cn(
-				"relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+				"relative -mx-1 inline-flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 				touchArea,
 			)}
 		>

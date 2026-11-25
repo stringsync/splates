@@ -91,7 +91,7 @@ const SpokenMessage: FC = () => {
 			)}
 			<div
 				data-slot="aui_spoken-message-content"
-				className="text-foreground flex items-start gap-2 text-sm leading-relaxed"
+				className="text-foreground flex items-start gap-2 leading-relaxed"
 			>
 				<span className="text-muted-foreground mt-1 shrink-0" aria-hidden>
 					{role === "user" ? (

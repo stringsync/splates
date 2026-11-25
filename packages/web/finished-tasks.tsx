@@ -315,6 +315,7 @@ function FinishedDialog({
 							task={read.task}
 							plan={plan}
 							none="It ended with no SPLATES.md."
+							beforeAfter
 						/>
 					)}
 				</Section>

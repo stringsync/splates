@@ -1,7 +1,7 @@
 import type { TaskRecord } from "@splates/server/board/browser";
 import type { ConversationState } from "@splates/server/conversations";
 import { paused } from "@splates/server/conversations/browser";
-import { DEFER, RESUME } from "@splates/server/plans/browser";
+import { RESUME } from "@splates/server/plans/browser";
 import type { Details } from "@splates/server/tasks";
 import { Duration } from "core/time";
 import {
@@ -19,11 +19,6 @@ import {
 	WalletIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
-import {
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-} from "#web/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import type { Action } from "./actions";
 import { Board } from "./board";
@@ -33,7 +28,6 @@ import {
 	pauseConversation,
 	promptConversation,
 	restartConversation,
-	sendQueuedNow,
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
 import { lastReport } from "./conversation-names";
@@ -61,12 +55,11 @@ export function useThreadActions(
 	task: Details | null,
 	refused: Refuse,
 	onLeft: () => void,
-	putBack?: () => void,
 ): ThreadActions {
 	const { id, archived } = conversation;
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
-	const archive = useArchive(conversation, refused, putBack);
+	const archive = useArchive(conversation, refused);
 	const archiveKey = useShortcutLabel("shortcuts.archive");
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
 	const dispatching = useContext(Dispatching);
@@ -115,6 +108,10 @@ export function useThreadActions(
 								.run("restart", () => restartConversation(id))
 								.catch((error: unknown) => refused("Not restarted", error)),
 					},
+				]
+			: []),
+		...(dispatching !== null && !archived
+			? [
 					{
 						label: "Hand to a new agent",
 						icon: <UserRoundPlusIcon />,
@@ -184,8 +181,7 @@ const PAUSE_WITHIN = Duration.mins(3);
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
  * stopped; once the person's last word paused it, Resume, under a row saying
- * it waits on the worker budget when a hard stop asked it; and Put back on board under
- * them, whether or not the agent is working. While a checkpoint is asked of
+ * it waits on the worker budget when a hard stop asked it. While a checkpoint is asked of
  * it, which it would stop, a row saying it pauses in their place.
  */
 function pauseActions(
@@ -216,46 +212,16 @@ function pauseActions(
 	if (archived || checkpoint === "asked") {
 		return [];
 	}
-	const saveFindings = () =>
-		void writes
-			.run("defer", () =>
-				promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
-			)
-			.catch((error: unknown) => refused("Not saved", error));
-	const defer: Action =
+	const defer: Action[] =
 		onBoard !== null
-			? {
-					label: `On board #${onBoard.id}`,
-					icon: <ListPlusIcon />,
-					pending: writes.pending("defer"),
-					run: null,
-					menu: (
-						<DropdownMenuGroup>
-							<DropdownMenuLabel>On board #{onBoard.id}</DropdownMenuLabel>
-							<DropdownMenuItem onClick={() => openTask(onBoard.id)}>
-								Open task
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={saveFindings}>
-								Save latest findings to it
-							</DropdownMenuItem>
-						</DropdownMenuGroup>
-					),
-				}
-			: {
-					label: "Put back on board",
-					icon: <ListPlusIcon />,
-					// The chat stays open; Archive is its own action and leaves the task be.
-					detail: <span className="text-xs">keeps chat</span>,
-					// Sent now, stopping any turn, so the agent saves its work on the
-					// request rather than finishing it first.
-					pending: writes.pending("defer"),
-					run: () =>
-						void writes
-							.run("defer", () =>
-								promptConversation(id, DEFER).then(() => sendQueuedNow(id)),
-							)
-							.catch((error: unknown) => refused("Not deferred", error)),
-				};
+			? [
+					{
+						label: `On board #${onBoard.id}`,
+						icon: <ListPlusIcon />,
+						run: () => openTask(onBoard.id),
+					},
+				]
+			: [];
 	if (status !== "running") {
 		// Carried on once the budget allows; Resume carries it on now.
 		const waits: Action[] =
@@ -281,12 +247,12 @@ function pauseActions(
 								.run("resume", () => promptConversation(id, RESUME))
 								.catch((error: unknown) => refused("Not resumed", error)),
 					},
-					defer,
+					...defer,
 				]
-			: [defer];
+			: defer;
 	}
 	if (checkpoint !== null) {
-		return [defer];
+		return defer;
 	}
 	return [
 		{
@@ -298,6 +264,6 @@ function pauseActions(
 					.run("pause", () => pauseConversation(id))
 					.catch((error: unknown) => refused("Not paused", error)),
 		},
-		defer,
+		...defer,
 	];
 }

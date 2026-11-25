@@ -15,6 +15,7 @@ export type { ClarityId, DepthId, KindId, TaskClass } from "./classes";
 export {
 	CLARITIES,
 	CLARITY_IDS,
+	CONTEXT_CLASSES,
 	DEPTH_IDS,
 	DEPTHS,
 	KIND_IDS,
@@ -63,7 +64,11 @@ export type {
 	Routes,
 } from "./rules";
 export { AUTO_PICK_RULES, checkRules, lineupFor } from "./rules";
-export type { AutoPickAgent, AutoPickRulesView } from "./rules-routes";
+export type {
+	AutoPickAgent,
+	AutoPickRulesView,
+	PickableModel,
+} from "./rules-routes";
 export { AutoPickRulesRoutes, pickableAgents } from "./rules-routes";
 export type { AutoPickStart, AutoPickTarget, AutoPickWords } from "./start";
 export { contextOf, startAutoPick } from "./start";

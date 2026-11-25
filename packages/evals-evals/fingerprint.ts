@@ -1,34 +1,53 @@
 import { createHash } from "node:crypto";
 import { judgeFor, judgeName, judgePrompt } from "./judge";
-import type { Scenario } from "./scenario";
+import { judgeDetailOf, type Scenario } from "./scenario";
 
 /** Associate a discovered scenario with the helper sources its graders import. */
 export const dependencyFingerprint = new WeakMap<Scenario, readonly string[]>();
 
 /** Fingerprint a scenario, its discovered helpers, the skill, and the judge harness. */
 export function fingerprintOf(scenario: Scenario, skillHash: string): string {
+	const common = {
+		id: scenario.id,
+		message: scenario.message,
+		seed: scenario.seed?.toString() ?? null,
+		change: scenario.change?.toString() ?? null,
+		checks: (scenario.checks ?? []).map((check) => [
+			check.id,
+			check.about,
+			check.test.toString(),
+		]),
+		judge: scenario.judge ?? null,
+		limits: scenario.limits ?? null,
+		followUp: scenario.followUp
+			? [scenario.followUp.turns, scenario.followUp.done?.toString() ?? null]
+			: null,
+	};
 	return digest({
 		skillHash,
 		helpers: dependencyFingerprint.get(scenario) ?? [],
 		judge: judgeHarness(judgeName(judgeFor(scenario))),
-		scenario: {
-			id: scenario.id,
-			aspect: scenario.aspect,
-			requirement: scenario.requirement,
-			message: scenario.message,
-			seed: scenario.seed?.toString() ?? null,
-			change: scenario.change?.toString() ?? null,
-			checks: (scenario.checks ?? []).map((check) => [
-				check.id,
-				check.about,
-				check.test.toString(),
-			]),
-			judge: scenario.judge ?? null,
-			limits: scenario.limits ?? null,
-			followUp: scenario.followUp
-				? [scenario.followUp.turns, scenario.followUp.done?.toString() ?? null]
-				: null,
-		},
+		scenario:
+			scenario.sentence === undefined
+				? {
+						id: common.id,
+						aspect: scenario.aspect,
+						requirement: scenario.requirement,
+						message: common.message,
+						seed: common.seed,
+						change: common.change,
+						checks: common.checks,
+						judge: common.judge,
+						limits: common.limits,
+						followUp: common.followUp,
+					}
+				: {
+						...common,
+						detail:
+							scenario.judge !== undefined
+								? judgeDetailOf(scenario)
+								: (scenario.detail ?? null),
+					},
 	});
 }
 

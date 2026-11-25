@@ -17,11 +17,8 @@ describe("RigRunPage", () => {
 			/>,
 		);
 
-		const open = view.getByRole("link", {
-			name: /Open.*cat\.ports\.example/,
-		});
-		expect(open.getAttribute("href")).toBe("https://cat.ports.example");
-		expect(open.textContent).toContain("😸");
+		expect(view.queryByRole("link", { name: /^Open/ })).toBeNull();
+		expect(view.container.textContent).toContain("😸");
 
 		const local = view.getByRole("link", { name: "127.0.0.1:54321" });
 		expect(local.getAttribute("href")).toBe("http://127.0.0.1:54321");
@@ -51,8 +48,6 @@ describe("RigRunPage", () => {
 			/>,
 		);
 
-		const open = view.getByRole("link", { name: /Open 127\.0\.0\.1:54321/ });
-		expect(open.getAttribute("href")).toBe("http://127.0.0.1:54321");
 		expect(view.queryByText("Public")).toBeNull();
 	});
 
@@ -100,10 +95,6 @@ describe("RigRunPage", () => {
 			/>,
 		);
 
-		const open = ready.getByRole("link", {
-			name: /Open my-rig\.example\.dev/,
-		});
-		expect(open.getAttribute("href")).toBe("https://my-rig.example.dev");
 		expect(
 			ready.getByRole("link", { name: "127.0.0.1:54321" }).getAttribute("href"),
 		).toBe("http://127.0.0.1:54321");
@@ -112,6 +103,28 @@ describe("RigRunPage", () => {
 				.getByRole("link", { name: "my-rig.example.dev" })
 				.getAttribute("href"),
 		).toBe("https://my-rig.example.dev");
+	});
+});
+
+describe("RigRunPage stop", () => {
+	it("pins one solid Stop at the bottom while running, with the rig's links as plain links", () => {
+		let stopped = 0;
+		const view = render(
+			<RigRunPage
+				run={makeRun()}
+				onStop={() => {
+					stopped += 1;
+				}}
+				onAgain={() => {}}
+				api={logApi}
+			/>,
+		);
+
+		expect(view.queryAllByRole("button")).toHaveLength(1);
+		const stop = view.getByRole("button", { name: "Stop" });
+		stop.click();
+		expect(stopped).toBe(1);
+		expect(stop.parentElement?.className).toContain("sticky");
 	});
 });
 

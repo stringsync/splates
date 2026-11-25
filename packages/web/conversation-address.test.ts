@@ -55,4 +55,35 @@ describe("a new conversation", () => {
 		expect(agentFor(NEW, AGENTS, conversations)).toBe("codex");
 		expect(settingsFor("codex", AGENTS, conversations)).toEqual(model("saved"));
 	});
+
+	it("ignores automation, held, and auto-queued conversations when picking the default agent", () => {
+		const conversations = [
+			conversation({
+				id: "c4",
+				agent: "codex",
+				assigned: true,
+				automatic: true,
+				automation: "auto-1",
+			}),
+			conversation({
+				id: "c3",
+				agent: "codex",
+				assigned: true,
+				heldForTask: 12,
+			}),
+			conversation({
+				id: "c2",
+				agent: "codex",
+				assigned: true,
+				lastAutoQueued: true,
+			}),
+			conversation({
+				id: "c1",
+				agent: "claude",
+				assigned: true,
+			}),
+		];
+
+		expect(agentFor(NEW, AGENTS, conversations)).toBe("claude");
+	});
 });

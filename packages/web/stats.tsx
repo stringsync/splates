@@ -3,6 +3,7 @@ import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { quarantined } from "./api";
 import { ReadFailed, ReadingNow } from "./countdown";
+import { TasksByBoard } from "./stats-boards";
 import { BY_MODEL } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
 import { TimePerTask } from "./stats-flow";
@@ -11,21 +12,35 @@ import { TopBar } from "./top-bar";
 
 /** Essential task stats by model over the selected period. */
 export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
-	const { stats, error, empty, period, ended, models, cost, flow } =
-		useReactive(
-			report,
-			(report) => ({
-				stats: report.stats,
-				error: report.error,
-				empty: report.empty,
-				period: report.period,
-				ended: report.ended,
-				models: report.models,
-				cost: report.cost,
-				flow: report.flow,
-			}),
-			["changed"],
-		);
+	const {
+		stats,
+		error,
+		empty,
+		period,
+		ended,
+		models,
+		cost,
+		flow,
+		boards,
+		buckets,
+		endedBefore,
+	} = useReactive(
+		report,
+		(report) => ({
+			stats: report.stats,
+			error: report.error,
+			empty: report.empty,
+			period: report.period,
+			ended: report.ended,
+			models: report.models,
+			cost: report.cost,
+			flow: report.flow,
+			boards: report.boards,
+			buckets: report.buckets,
+			endedBefore: report.endedBefore,
+		}),
+		["changed"],
+	);
 	// Read each time the page is shown: tasks end while it is away.
 	useEffect(() => {
 		void report.refresh();
@@ -76,6 +91,15 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 					{flow !== null && (
 						<TimePerTask
 							rates={flow}
+							period={period}
+							weekly={period.id === "all"}
+						/>
+					)}
+					{boards.length > 0 && (
+						<TasksByBoard
+							boards={boards}
+							buckets={buckets}
+							before={endedBefore}
 							period={period}
 							weekly={period.id === "all"}
 						/>

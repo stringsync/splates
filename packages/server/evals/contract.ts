@@ -54,6 +54,8 @@ export async function contractCells(
 			scenario: cell.case,
 			aspect: cell.group ?? "",
 			requirement: cell.about ?? "",
+			...(cell.groups?.[0] === undefined ? {} : { subject: cell.groups[0] }),
+			...(cell.sentence === undefined ? {} : { sentence: cell.sentence }),
 			target: target.key,
 			repetition: cell.repetition ?? 0,
 			...(cell.fingerprint === undefined

@@ -87,7 +87,7 @@ export function usePageRoute(): PageRoute {
 		openTask: useCallback((name) => address.openTask(name), [address]),
 		openLane: useCallback((id) => address.openLane(id), [address]),
 		openEval: useCallback(
-			(batch, run) => address.openEval(batch, run),
+			(batch, run, test) => address.openEval(batch, run, test),
 			[address],
 		),
 	};
@@ -263,5 +263,9 @@ export interface PageRoute {
 	/** Sets Setup on journey `area` and its `step`, or on the index for a null `area`. */
 	openSetup: (area: string | null, step?: string | null, how?: Move) => void;
 	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
-	openEval: (batch: string | null, run?: string | string[] | null) => void;
+	openEval: (
+		batch: string | null,
+		run?: string | string[] | null,
+		test?: string | null,
+	) => void;
 }

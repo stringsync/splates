@@ -398,6 +398,11 @@ export interface Outcome {
 	waitedMs?: number;
 	/** Why it was removed, when `splates remove --reason` said; null when merged or unsaid. */
 	removedFor?: RemoveReason | null;
+	/**
+	 * The board of the lane it was queued in, as called when it ended; null
+	 * for one never queued in a lane. Absent from older lines.
+	 */
+	board?: { id: number; name: string } | null;
 	/** For a merge, each commit's message it landed, oldest first. Absent from older lines. */
 	commits?: string[];
 	/**

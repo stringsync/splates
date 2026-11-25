@@ -1,236 +1,230 @@
-import type {
-	EvalCell,
-	EvalGrid,
-	EvalStatus,
+import {
+	type EvalGrid,
+	FAULT_LAYERS,
+	type FaultLayer,
+	type Faults,
+	faultsOf,
 } from "@splates/server/evals/browser";
-import { targetName } from "@splates/server/evals/browser";
-import { type JSX, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
+import type { EvalLeftOut } from "@splates/server/plans";
+import type { JSX } from "react";
 import { elapsedMs, formatElapsed, useSecondClock } from "./eval-elapsed";
-import { ORDER, StatusChip } from "./eval-status";
+import {
+	linesOf,
+	remarkList,
+	runningCells,
+	ScenarioSquares,
+	type SquaresState,
+} from "./eval-squares";
 import { Markdown } from "./markdown";
 
-/** Scenario rows a table shows before the rest fold behind a button. */
-const FOLDED_ROWS = 6;
+/** A batch's agents, repetitions and runs: `3 agents · 2 reps · 18 runs`, as a card and report head their squares. */
+export function gridShape(grid: EvalGrid): string {
+	const reps = Math.max(1, ...grid.grid.map((cell) => cell.repetition + 1));
+	const agents = grid.targets.length;
+	const runs = grid.cells;
+	return `${agents} ${agents === 1 ? "agent" : "agents"} · ${reps} ${reps === 1 ? "rep" : "reps"} · ${runs} ${runs === 1 ? "run" : "runs"}`;
+}
 
-/** What a run card keeps once started: every run as a pill, then its cost and remarks, with the report one click away. */
+/** The run's state for its squares. */
+export function squaresState(
+	grid: EvalGrid,
+	running: boolean,
+	stopped: boolean,
+): SquaresState {
+	return { running: runningCells(grid, running), stopped };
+}
+
+/** What sits beside a run's title: runs landed, time, and cost once any. */
+export function progressText(
+	grid: EvalGrid,
+	running: boolean,
+	clock: number,
+): string {
+	const landed = grid.cells - (grid.tally.pending ?? 0);
+	const cost =
+		grid.costUsd === null || grid.costUsd === 0
+			? []
+			: [`$${grid.costUsd.toFixed(2)}${running ? " so far" : ""}`];
+	return [
+		`${landed} of ${grid.cells}`,
+		formatElapsed(elapsedMs(grid, running, clock)),
+		...cost,
+	].join(" · ");
+}
+
+/** A run's progress beside its title, its clock ticking while it runs. */
+export function EvalProgress({
+	grid,
+	running,
+}: {
+	grid: EvalGrid;
+	running: boolean;
+}): JSX.Element {
+	const clock = useSecondClock(running);
+	return (
+		<span
+			role="timer"
+			aria-label="progress"
+			data-testid="eval-timer"
+			className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums"
+		>
+			{progressText(grid, running, clock)}
+		</span>
+	);
+}
+
+/**
+ * A run's results as the conversation keeps them: its shape, a row of squares
+ * per scenario, the summary once it ends, and the report one click away.
+ * Shows no agent's runs apart: those are the report's.
+ */
 export function EvalRunRecord({
 	grid,
 	running,
 	stopped,
-	budget,
+	shape = true,
+	leftOut,
 }: {
 	grid: EvalGrid;
 	running: boolean;
 	stopped: boolean;
-	/** This round's dollar budget, when the card is in a conversation. */
-	budget: number | null;
+	/** Agents the asking agent left out of this round after they passed. */
+	leftOut?: readonly EvalLeftOut[];
+	/** Whether the shape line leads; off where the settings row already says it. */
+	shape?: boolean;
 }): JSX.Element {
-	const [all, setAll] = useState(false);
-	const clock = useSecondClock(running);
-	const now = runningCells(grid, running);
-	const open = (run: string): void => {
-		location.hash = `#evals/${encodeURIComponent(grid.id)}/${encodeURIComponent(run)}`;
-	};
-	const scenarios = [...new Set(grid.grid.map((cell) => cell.scenario))];
-	const shown = all ? scenarios : scenarios.slice(0, FOLDED_ROWS);
-	const pills = (cells: EvalCell[]): JSX.Element => (
-		<span className="flex flex-wrap gap-0.5">
-			{cells.map((cell) => (
-				<Pill
-					key={`${cell.scenario}:${cell.target}:${cell.repetition}`}
-					cell={cell}
-					stopped={stopped}
-					running={now.has(cell)}
-					onOpen={open}
-				/>
-			))}
-		</span>
-	);
-	const landed = grid.cells - (grid.tally.pending ?? 0);
-	const outcomes = ORDER.filter(
-		(each) => each !== "pending" && grid.tally[each],
-	);
-	const cost = `$${(grid.costUsd ?? 0).toFixed(2)}`;
-	const stats: [string, string][] = [
-		["Elapsed", formatElapsed(elapsedMs(grid, running, clock))],
-		[
-			"Cost",
-			budget === null ? cost : `${cost} of $${budget.toFixed(2)} budget`,
-		],
-	];
-	if (running) {
-		stats.unshift(["Landed", `${landed} of ${grid.cells}`]);
-	}
 	return (
 		<div className="flex flex-col gap-2">
-			{scenarios.length <= 1 ? (
-				<ul aria-label="eval runs" className="flex flex-col gap-1.5 text-xs">
-					{grid.targets.map((target) => {
-						const cells = grid.grid.filter(
-							(cell) => cell.target === target.key,
-						);
-						const done = cells.filter((cell) => cell.run !== null).length;
-						return (
-							<li
-								key={target.key}
-								className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-							>
-								<span className="min-w-0 flex-1 break-words text-muted-foreground">
-									{targetName(target)}
-								</span>
-								{pills(cells)}
-								<span className="w-16 text-right tabular-nums">
-									{done} of {cells.length}
-								</span>
-							</li>
-						);
-					})}
-				</ul>
-			) : (
-				<>
-					<ul aria-label="eval runs" className="flex flex-col gap-1.5 text-xs">
-						{shown.map((scenario) => (
-							<li
-								key={scenario}
-								className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
-							>
-								<span className="min-w-0 flex-1 break-words">{scenario}</span>
-								{pills(grid.grid.filter((cell) => cell.scenario === scenario))}
-							</li>
-						))}
-					</ul>
-					{scenarios.length > FOLDED_ROWS && (
-						<Button
-							size="xs"
-							variant="ghost"
-							className="self-start"
-							onClick={() => setAll(!all)}
-						>
-							{all ? "Show fewer" : `Show all ${scenarios.length} scenarios`}
-						</Button>
-					)}
-				</>
+			{shape && (
+				<p className="flex min-h-6 items-center text-muted-foreground text-sm">
+					{gridShape(grid)}
+				</p>
 			)}
-			<div className="flex flex-col gap-2" data-testid="record-cost">
-				{outcomes.length > 0 && (
-					<ul aria-label="outcomes" className="flex flex-wrap gap-x-3 gap-y-1">
-						{outcomes.map((each) => (
-							<li key={each} className="flex items-center gap-1">
-								<StatusChip status={each} />
-								<span className="text-xs tabular-nums">{grid.tally[each]}</span>
-							</li>
-						))}
-					</ul>
+			<ScenarioSquares
+				lines={linesOf(
+					grid.grid,
+					grid.targets.map((target) => target.key),
 				)}
-				<dl className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-					{stats.map(([label, value]) => (
-						<div key={label} className="flex flex-col">
-							<dt className="text-muted-foreground">{label}</dt>
-							<dd className="font-medium tabular-nums">{value}</dd>
-						</div>
-					))}
-				</dl>
-			</div>
-			{grid.remarks !== undefined && !running && (
-				<RemarkList text={grid.remarks} />
-			)}
-			<a
-				href={`#evals/${encodeURIComponent(grid.id)}`}
-				className="text-info text-xs underline"
-			>
-				Open the report
-			</a>
+				state={squaresState(grid, running, stopped)}
+				leftOut={leftOut}
+			/>
+			{!running && <EvalSummary grid={grid} stopped={stopped} />}
 		</div>
 	);
 }
 
-const PILLS: Record<Exclude<EvalStatus, "pending">, string> = {
-	pass: "bg-emerald-500",
-	fail: "bg-destructive",
-	error: "bg-amber-500",
-	unreadable: "bg-destructive",
+/**
+ * An ended run's summary in one line: the passes once, as runs when each
+ * scenario ran once and as scenarios and runs when they differ, then what
+ * else stopped it short. Cost is beside the title already.
+ */
+export function summaryOf(
+	grid: EvalGrid,
+	stopped: boolean,
+	faulted: boolean,
+): string {
+	const byScenario = new Map<string, boolean>();
+	for (const cell of grid.grid) {
+		if (cell.run !== null) {
+			byScenario.set(
+				cell.scenario,
+				(byScenario.get(cell.scenario) ?? true) && cell.run.status === "pass",
+			);
+		}
+	}
+	if (byScenario.size === 0) {
+		return "No run landed.";
+	}
+	const landed = grid.cells - (grid.tally.pending ?? 0);
+	const passed = grid.tally.pass ?? 0;
+	const passing = [...byScenario.values()].filter(Boolean).length;
+	const others = (["error", "unreadable"] as const)
+		.filter((each) => grid.tally[each])
+		.map(
+			(each) =>
+				`${grid.tally[each]} ${each === "error" ? (grid.tally[each] === 1 ? "error" : "errors") : "unreadable"}`,
+		);
+	const parts = [
+		...(stopped ? [`Stopped after ${landed} of ${grid.cells} runs`] : []),
+		byScenario.size === landed
+			? `${passed} of ${landed} passed`
+			: `${passing} of ${byScenario.size} ${byScenario.size === 1 ? "scenario passes" : "scenarios pass"} every run, ${passed} of ${landed} runs`,
+		...others,
+	];
+	return `${parts.join(" · ")}${faulted ? ". Failures by fault:" : "."}`;
+}
+
+/** The faults the remarks name, or null when they name none or are not valid. */
+function faultsIn(grid: EvalGrid): Faults | null {
+	try {
+		return grid.remarks === undefined ? null : faultsOf(grid.remarks);
+	} catch {
+		return null;
+	}
+}
+
+const LAYER_NAME: Record<FaultLayer, string> = {
+	harness: "Harness",
+	judge: "Judge",
+	skill: "Skill",
+	eval: "Eval",
 };
 
-/** One run as a pill: gray while pending, pulsing while it is the one running, hollow when the run stopped before it, else its outcome. */
-function Pill({
-	cell,
-	stopped,
-	running,
-	onOpen,
-}: {
-	cell: EvalCell;
-	stopped: boolean;
-	running: boolean;
-	onOpen: (run: string) => void;
-}): JSX.Element {
-	const status = cell.run?.status ?? "pending";
-	const label = `${cell.scenario} on ${cell.target}, repetition ${cell.repetition + 1}: ${status}`;
-	const base = "size-2.5 rounded-[2px]";
-	if (status === "pending") {
-		return (
-			<span
-				role="img"
-				aria-label={label}
-				title={`${cell.scenario}: ${running ? "running" : status}`}
-				className={cn(
-					base,
-					stopped
-						? "border border-muted-foreground/50"
-						: "bg-muted-foreground/30",
-					running && "animate-pulse bg-muted-foreground/60",
-				)}
-			/>
-		);
-	}
+/** A tile per layer with the failed runs it is blamed for, all alike. */
+export function FaultTiles({ faults }: { faults: Faults }): JSX.Element {
 	return (
-		<button
-			type="button"
-			aria-label={label}
-			title={`${cell.scenario}: ${status}`}
-			onClick={() => onOpen(cell.run?.id ?? "")}
-			className={cn(
-				base,
-				PILLS[status],
-				"focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-			)}
-		/>
+		<ul aria-label="faults" className="grid grid-cols-4 gap-2">
+			{FAULT_LAYERS.map((layer) => (
+				<li
+					key={layer}
+					aria-label={`${LAYER_NAME[layer]}: ${faults.counts[layer]}`}
+					className="flex flex-col items-center rounded-lg border px-2 py-2"
+				>
+					<span className="font-semibold text-lg tabular-nums leading-snug">
+						{faults.counts[layer]}
+					</span>
+					<span className="text-muted-foreground text-sm">
+						{LAYER_NAME[layer]}
+					</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
-/** The cells running now: the first pending one of each agent while the run goes. */
-function runningCells(grid: EvalGrid, running: boolean): Set<EvalCell> {
-	const now = new Set<EvalCell>();
-	if (!running) {
-		return now;
-	}
-	for (const target of grid.targets) {
-		const next = grid.grid.find(
-			(cell) => cell.target === target.key && cell.run === null,
-		);
-		if (next !== undefined) {
-			now.add(next);
-		}
-	}
-	return now;
-}
-
-/** Remarks as a bulleted list: the agent's own list as written, one paragraph of sentences split into items. */
-function RemarkList({ text }: { text: string }): JSX.Element {
-	const written = /^\s*(?:[-*]|\d+\.)\s/mu.test(text);
-	const sentences =
-		text
-			.replace(/\s+/gu, " ")
-			.trim()
-			.match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/gu) ?? [];
-	const list = written
-		? text
-		: sentences.map((sentence) => `- ${sentence.trim()}`).join("\n");
+/**
+ * What an ended run comes to: one line, then the failures per layer at fault.
+ * The report adds the remarks' prose; the run card leaves it to the report.
+ */
+export function EvalSummary({
+	grid,
+	stopped,
+	prose = false,
+}: {
+	grid: EvalGrid;
+	stopped: boolean;
+	/** Shows the remarks beyond their Faults list, as the report does. */
+	prose?: boolean;
+}): JSX.Element {
+	const faults = faultsIn(grid);
+	const failed = (grid.tally.fail ?? 0) > 0;
+	const shown = faults !== null && failed;
+	const rest =
+		grid.remarks === undefined ? "" : (faults?.prose ?? grid.remarks);
 	return (
-		<section aria-label="remarks" className="text-xs">
-			<h3 className="mb-1 font-medium text-muted-foreground">Remarks</h3>
-			<Markdown text={list} />
+		<section
+			aria-label="summary"
+			className="flex flex-col gap-2 border-border/60 border-t pt-2"
+		>
+			<p className="text-muted-foreground text-sm">
+				{summaryOf(grid, stopped, shown)}
+			</p>
+			{shown && <FaultTiles faults={faults} />}
+			{prose && rest !== "" && (
+				<section aria-label="remarks" className="text-sm">
+					<Markdown text={remarkList(rest)} />
+				</section>
+			)}
 		</section>
 	);
 }

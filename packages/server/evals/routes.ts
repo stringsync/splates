@@ -3,11 +3,13 @@ import { resolve, sep } from "node:path";
 import type { Ps } from "core/system";
 import type { EvalsConfig } from "../config";
 import { fail } from "../exit";
+import type { AgentPick } from "../models";
 import type { Handler } from "../server/shared";
-import type { EvalBudgetStatus } from "./budget";
+import { coverage } from "./coverage";
 import { evalsDonePrompt } from "./done";
 import type { EvalCommands } from "./launch";
 import { type EvalBatchOwners, NoopEvalLaunches } from "./noop-eval-launches";
+import type { PassRule } from "./pass-rule";
 import { EvalStore } from "./store";
 
 /**
@@ -34,19 +36,11 @@ export class EvalRoutes {
 		const store = this.storeOf(directory);
 		const batches = await store.batches();
 		const owners = await this.launches.batchConversations(directory);
-		const budgets = new Map<string, EvalBudgetStatus>();
 		for (const batch of batches) {
 			const conversation = owners.get(batch.id);
-			if (conversation === undefined) {
-				continue;
+			if (conversation !== undefined) {
+				batch.conversation = conversation;
 			}
-			let budget = budgets.get(conversation);
-			if (budget === undefined) {
-				budget = await this.launches.budgets.statusOf(conversation, store);
-				budgets.set(conversation, budget);
-			}
-			batch.conversation = conversation;
-			batch.budget = budget;
 		}
 		return Response.json(batches);
 	};
@@ -83,7 +77,11 @@ export class EvalRoutes {
 	 * What tells the agent whose card started batch `id`, in `directory`, that
 	 * it is done, with its report condensed; null when the batch is not there.
 	 */
-	async donePrompt(directory: string, id: string): Promise<string | null> {
+	async donePrompt(
+		directory: string,
+		id: string,
+		rules: ReadonlyMap<string, PassRule> = new Map(),
+	): Promise<string | null> {
 		const store = this.storeOf(directory);
 		const grid = await store.grid(id);
 		if (grid === null) {
@@ -95,9 +93,14 @@ export class EvalRoutes {
 		const details = await Promise.all(
 			missed.map((run) => store.run(run).catch(() => null)),
 		);
+		const scenarios = [...new Set(grid.grid.map((cell) => cell.scenario))];
+		const picks = (await this.opts.agents?.().catch(() => [])) ?? [];
 		return evalsDonePrompt(
 			grid,
 			details.filter((each) => each !== null),
+			picks.length === 0
+				? []
+				: coverage(scenarios, picks, await store.grids(), rules),
 		);
 	}
 
@@ -152,8 +155,10 @@ export function projectEvalCommands(
 }
 
 interface EvalOptions {
-	/** Saved launches linking batches to their conversation budgets. */
+	/** Saved launches linking batches to their conversations. */
 	launches?: EvalBatchOwners;
+	/** The agents saved on the Evals page, whose coverage each round reports; none when absent. */
+	agents?: () => Promise<AgentPick[]>;
 	/** The directory the project `request` names reads its batches from, or null for none. */
 	directory: (request: Request) => Promise<string | null>;
 }

@@ -1,4 +1,4 @@
-export { readAgentChain, stopAgentChain } from "./agent-chain";
+export { readAgentChain } from "./agent-chain";
 export { readAgentSettings, saveAgentSettings } from "./agent-settings";
 export {
 	type Budgets,
@@ -21,25 +21,25 @@ export {
 	saveCred,
 } from "./creds";
 export {
+	answerEvalBudget,
 	type EvalRunAsk,
 	evalAgents,
 	evalBatch,
 	evalBatches,
 	evalBudget,
 	evalLaunch,
+	evalLaunchOfBatch,
 	evalPlan,
 	evalRun,
 	evalScenarios,
 	evalStates,
 	saveEvalAgents,
-	startEvalRun,
 	stopEvalRun,
 } from "./evals";
 export {
 	addBoard,
 	addLane,
 	addTodo,
-	answerDeferral,
 	arrangeTodo,
 	assignTodo,
 	dropBoard,

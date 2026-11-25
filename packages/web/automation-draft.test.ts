@@ -97,4 +97,28 @@ describe("AutomationDraft", () => {
 		expect(draft.fields.pick).toBeNull();
 		expect(draft.made().hook).toEqual({ kind: "agent", prompt: "adopt it" });
 	});
+
+	it("keeps a per-firing eval budget on an agent hook and rejects invalid amounts", () => {
+		const draft = new AutomationDraft();
+		draft.set("prompt", "run evals");
+		draft.set("evalBudget", "$2");
+		const made = draft.made();
+		expect(made.hook).toEqual({
+			kind: "agent",
+			prompt: "run evals",
+			evalBudget: 2,
+		});
+		const edited = AutomationDraft.of({
+			id: "1",
+			createdAt: "",
+			...made,
+		});
+		expect(edited.fields.evalBudget).toBe("2");
+		expect(edited.made().hook).toEqual(made.hook);
+
+		draft.set("evalBudget", "0");
+		expect(() => draft.made()).toThrow("above 0");
+		draft.added();
+		expect(draft.fields.evalBudget).toBe("");
+	});
 });

@@ -1,8 +1,15 @@
 import type { EvalCheck, EvalDetail } from "@splates/server/evals/browser";
 import { Duration } from "core/time";
-import { CheckIcon, WrenchIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	CircleCheckIcon,
+	CircleXIcon,
+	WrenchIcon,
+	XIcon,
+} from "lucide-react";
 import type { JSX, ReactNode } from "react";
-import { cn } from "#web/lib/utils.ts";
+import { CardShell } from "./card-shell";
+import { distinctJudges, JudgedBy, judgeDisplay } from "./eval-judge";
 import { Markdown } from "./markdown";
 
 export function EvalJudgment({
@@ -27,13 +34,13 @@ export function EvalJudgment({
 	const title = !graded
 		? "Run ended before grading finished"
 		: total === 0
-			? `Judged: ${status === "pass" ? "passed" : "failed"}`
-			: `Judged: ${failed || total} of ${total} ${total === 1 ? "check" : "checks"} ${failed ? "failed" : "passed"}`;
+			? `Judged · ${status === "pass" ? "passed" : "failed"}`
+			: `Judged · ${failed || total} of ${total} ${total === 1 ? "check" : "checks"} ${failed ? "failed" : "passed"}`;
 	return (
 		<JudgeBox tone={graded ? status : "neutral"} title={title} meta={meta}>
 			{(run.error ?? run.reason) && (
 				<Markdown
-					className="border-b px-3 py-2 last:border-b-0"
+					className="border-b px-4 py-2 last:border-b-0"
 					text={run.error ?? run.reason ?? ""}
 				/>
 			)}
@@ -42,7 +49,7 @@ export function EvalJudgment({
 					{checks.map((check) => {
 						const step = checkStep(check, run);
 						return (
-							<li key={check.id} className="flex items-start gap-2 px-3 py-2">
+							<li key={check.id} className="flex items-start gap-2 px-4 py-2">
 								<JudgmentIcon
 									tone={check.pass ? "pass" : "fail"}
 									label={check.pass ? "Passed" : "Failed"}
@@ -69,13 +76,20 @@ export function EvalJudgment({
 						);
 					})}
 					{judge !== null && (
-						<li className="flex items-start gap-2 px-3 py-2">
+						<li className="flex items-start gap-2 px-4 py-2">
 							<JudgmentIcon
 								tone={judge.pass ? "pass" : "fail"}
 								label={judge.pass ? "Passed" : "Failed"}
 							/>
 							<div className="min-w-0">
-								<p className="font-medium">{judge.judge ?? "Judge"}</p>
+								{judgeDisplay(judge.judge) === null ? (
+									<p className="font-medium">Judge</p>
+								) : (
+									<JudgedBy
+										judges={distinctJudges([judge.judge])}
+										className="text-sm"
+									/>
+								)}
 								{run.rubric !== null && (
 									<Markdown
 										text={run.rubric}
@@ -89,7 +103,7 @@ export function EvalJudgment({
 				</ul>
 			)}
 			{run.score !== undefined && (
-				<p className="px-3 py-2 text-muted-foreground text-xs">
+				<p className="px-4 py-2 text-muted-foreground text-xs">
 					Score {run.score.toFixed(2)}
 				</p>
 			)}
@@ -116,6 +130,7 @@ export function checkStep(check: EvalCheck, run: EvalDetail) {
 		: undefined;
 }
 
+/** The judge's verdict as a conversation card, its header toned green on a pass and red on a fail. */
 export function JudgeBox({
 	tone,
 	title,
@@ -123,29 +138,38 @@ export function JudgeBox({
 	children,
 }: {
 	tone: Tone;
-	title: ReactNode;
+	title: string;
 	meta?: string | undefined;
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<section
-			className={cn(
-				"min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground text-sm wrap-anywhere",
-				tone === "pass" && "border-success/60",
-				tone === "fail" && "border-destructive/60",
-			)}
-		>
-			<header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-2 text-xs">
-				<JudgmentIcon tone={tone} />
-				<h3 className="min-w-0 font-semibold">{title}</h3>
-				{meta && (
-					<span className="ml-auto text-muted-foreground tabular-nums">
+		<CardShell
+			label={title}
+			Icon={
+				tone === "pass"
+					? CircleCheckIcon
+					: tone === "fail"
+						? CircleXIcon
+						: WrenchIcon
+			}
+			title={title}
+			tone={
+				tone === "pass"
+					? "success"
+					: tone === "fail"
+						? "destructive"
+						: "neutral"
+			}
+			aside={
+				meta ? (
+					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 						{meta}
 					</span>
-				)}
-			</header>
-			{children}
-		</section>
+				) : undefined
+			}
+		>
+			<div className="text-sm wrap-anywhere">{children}</div>
+		</CardShell>
 	);
 }
 

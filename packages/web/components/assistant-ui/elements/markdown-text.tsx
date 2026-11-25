@@ -26,6 +26,14 @@ import remarkGfm from "remark-gfm";
 import { attachmentIn } from "#web/attachment-chips.tsx";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "#web/components/ui/table.tsx";
 import { DiagramView } from "#web/diagram-view.tsx";
 import { DirectiveChip, directiveIn } from "#web/directives.tsx";
 import { useCopyToClipboard } from "#web/hooks/use-copy-to-clipboard.ts";
@@ -379,38 +387,26 @@ const defaultComponents = memoizeMarkdownComponents({
 		/>
 	),
 	table: ({ className, ...props }) => (
-		<div className="aui-md-table-wrapper my-3 overflow-x-auto first:mt-0 last:mb-0">
-			<table
-				className={cn(
-					"aui-md-table w-full border-separate border-spacing-0",
-					className,
-				)}
-				{...props}
-			/>
-		</div>
+		<Table className={cn("aui-md-table my-3", className)} {...props} />
+	),
+	thead: (props) => <TableHeader {...props} />,
+	tbody: (props) => <TableBody {...props} />,
+	tr: ({ className, ...props }) => (
+		<TableRow className={cn("aui-md-tr", className)} {...props} />
 	),
 	th: ({ className, ...props }) => (
-		<th
+		<TableHead
 			className={cn(
-				"aui-md-th bg-muted px-3 py-1.5 text-start font-medium first:rounded-ss-lg last:rounded-se-lg [[align=center]]:text-center [[align=right]]:text-right",
+				"aui-md-th h-auto px-3 py-1.5 [[align=center]]:text-center [[align=right]]:text-right",
 				className,
 			)}
 			{...props}
 		/>
 	),
 	td: ({ className, ...props }) => (
-		<td
+		<TableCell
 			className={cn(
-				"aui-md-td border-muted-foreground/20 border-s border-b px-3 py-1.5 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right",
-				className,
-			)}
-			{...props}
-		/>
-	),
-	tr: ({ className, ...props }) => (
-		<tr
-			className={cn(
-				"aui-md-tr m-0 border-b p-0 first:border-t [&:last-child>td:first-child]:rounded-es-lg [&:last-child>td:last-child]:rounded-ee-lg",
+				"aui-md-td px-3 py-1.5 whitespace-normal [[align=center]]:text-center [[align=right]]:text-right",
 				className,
 			)}
 			{...props}

@@ -21,9 +21,15 @@ export interface Deferral {
 	 * deferred, those of another project with its main tree.
 	 */
 	tasks: GoneBlocker[];
-	/** Questions for the person, each in the skill's question format. */
+	/**
+	 * Questions for the person, from deferrals before only tasks could block
+	 * one: kept as notes, which hold nothing back. Empty for any since.
+	 */
 	questions: DeferredQuestion[];
-	/** What it waits on outside splates: a key, an upstream release. */
+	/**
+	 * What it waited on outside splates, from deferrals before only tasks
+	 * could block one: kept as notes, which hold nothing back. Empty for any since.
+	 */
 	outside: OutsideBlocker[];
 	/**
 	 * Set by `splates blocker add` on the work of a started task: its
@@ -50,8 +56,6 @@ export interface DeferralAsk {
 	blockedBy: number[];
 	/** The tasks of other projects it waits on to merge; none when absent. */
 	blockedElsewhere?: ElsewhereBlocker[];
-	questions: string[];
-	outside: string[];
 }
 
 /** Where one blocker a deferral named stands now. */
@@ -89,10 +93,14 @@ export type TaskBlockerStatus =
 	| "unlinked"
 	| "unknown";
 
-/** Whether a blocker no longer holds the work back. */
+/**
+ * Whether a blocker no longer holds the work back. A question or outside
+ * note never does: nothing can clear one, so only tasks block.
+ */
 export function cleared(blocker: DeferralBlocker): boolean {
-	return !["available", "queued", "working", "open", "unknown"].includes(
-		blocker.status,
+	return (
+		blocker.kind !== "task" ||
+		!["available", "queued", "working", "unknown"].includes(blocker.status)
 	);
 }
 
@@ -187,15 +195,12 @@ export function deferralProblem(ask: Partial<DeferralAsk>): string | null {
 		);
 	}
 	const named =
-		(ask.blockedBy ?? []).length +
-		(ask.blockedElsewhere ?? []).length +
-		(ask.questions ?? []).filter((each) => each.trim() !== "").length +
-		(ask.outside ?? []).filter((each) => each.trim() !== "").length;
+		(ask.blockedBy ?? []).length + (ask.blockedElsewhere ?? []).length;
 	if (named === 0) {
 		missing.push(
 			"name at least one blocker: --blocked-by <task number> for a task that has to merge first (`splates task add` it when there is none yet), or <project>#<number> for one in another project (`splates --project <project> task defer` it when there is none yet); " +
-				'--ask "<question>" for a call only the person can make, in the question format the skill uses (the question ending at its `?`, the why on the next line indented, any `- (a)` choices under it); ' +
-				'--waiting-on "<what>" for something outside splates, such as a key or an upstream release',
+				"for something outside splates, such as an upstream release, add a task that closes when a signal fires (`splates task add --closes-on <signal>`) and block on it; " +
+				"a call only the person can make is a numbered question in your reply, not a blocker",
 		);
 	}
 	if (missing.length === 0) {

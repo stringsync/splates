@@ -26,6 +26,7 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { AutoQueuedBadge } from "./auto-queued-badge";
 import { backgrounded } from "./backgrounded";
 import { useBlockedNeedsYou } from "./blockers-card";
 import { BoardChip } from "./board-chip";
@@ -40,7 +41,7 @@ import { unnamed, useNameOf } from "./conversation-names";
 import { automated, shipped } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect, usePendingConversation } from "./expecting";
-import { Mark } from "./mark";
+import { isDisconnected, Mark } from "./mark";
 import { pendingRow, useShowPending } from "./pending";
 import { useEnding } from "./queued-ending";
 import { stopTurn, useQuiet } from "./quiet";
@@ -54,15 +55,18 @@ export function ItemIcon({
 	conversation,
 	agent,
 	nested = false,
+	autoQueued = false,
 }: {
 	conversation: ConversationState;
 	agent: string;
 	nested?: boolean;
+	/** Whether an agent queued its task on its own, which a robot badge on the corner says. */
+	autoQueued?: boolean;
 }): JSX.Element {
 	return (
 		<span
 			className={cn(
-				"flex shrink-0 items-center justify-center rounded-full bg-muted",
+				"relative flex shrink-0 items-center justify-center rounded-full bg-muted",
 				automated(conversation) && "bg-violet-500/15",
 				shipped(conversation) && "bg-sky-500/15",
 				nested ? "size-6" : "size-7",
@@ -73,6 +77,7 @@ export function ItemIcon({
 				name={agent}
 				className={cn("text-foreground/80", nested ? "size-3.5" : "size-4")}
 			/>
+			{autoQueued && <AutoQueuedBadge small />}
 		</span>
 	);
 }
@@ -142,6 +147,8 @@ export function Item({
 	const { file, confirm } = useArchive(conversation, refuse);
 	const { reported } = useEnding(conversation);
 	const quiet = useQuiet(conversation);
+	const waiting = automaticWait(conversation) !== null;
+	const disconnected = isDisconnected(conversation);
 	const row = { conversation, task, need };
 	const status = useRowStatus(row);
 	const on = boardRef(row);
@@ -193,7 +200,14 @@ export function Item({
 					menu && "pr-20",
 				)}
 			>
-				<ItemIcon conversation={conversation} agent={agent} nested={nested} />
+				<ItemIcon
+					conversation={conversation}
+					agent={agent}
+					nested={nested}
+					autoQueued={
+						task?.autoQueued === true || conversation.lastAutoQueued === true
+					}
+				/>
 				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span className="flex items-center gap-1.5">
 						<span
@@ -242,6 +256,8 @@ export function Item({
 							// no mark, centred where one would be (its size, 8px from the edge).
 							need.kind === "idle" &&
 								!hosting &&
+								!waiting &&
+								!disconnected &&
 								reported === null &&
 								!conversation.unread &&
 								hint === null
@@ -278,7 +294,7 @@ export function Item({
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
 					<Mark
-						signal={automaticWait(conversation) !== null}
+						signal={waiting}
 						queued={conversation?.heldForTask != null}
 						starting={conversation.status === "starting"}
 						picking={conversation.picking}
@@ -289,6 +305,7 @@ export function Item({
 						quiet={quiet}
 						background={backgrounded(conversation)}
 						blockedNeedsYou={blockedNeedsYou}
+						disconnected={disconnected}
 					/>
 				)}
 			</span>

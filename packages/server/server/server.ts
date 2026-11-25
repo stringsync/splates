@@ -9,11 +9,14 @@ import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
 import { Dictations, transcriberFor } from "../dictate";
 import {
+	autoStartEvalCard,
 	EvalAgentsRoutes,
 	EvalAgentsStore,
+	EvalBudgetRoutes,
 	EvalLaunches,
 	EvalLaunchRoutes,
 	EvalRoutes,
+	evalBudgetLine,
 	projectEvalCommands,
 	targetOf,
 } from "../evals";
@@ -25,6 +28,7 @@ import {
 	portOwnersOf,
 	rigProxyTargetsOf,
 	SLOT_POOL,
+	Slots,
 } from "../ports";
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
@@ -35,8 +39,10 @@ import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
 import {
 	Clocks,
 	isOn,
+	lastUserMessagesOf,
 	Probes,
 	pageKillRoute,
+	QuotaSignals,
 	raiseIn,
 	SignalBook,
 	SignalExpiration,
@@ -126,6 +132,8 @@ export async function dev(
 		worker = null,
 		coordinator = null,
 		portsHost = null,
+		portsAccess = null,
+		onRigSlotClaimed,
 		pusher,
 		open: givenOpen,
 		limits: givenLimits,
@@ -156,7 +164,7 @@ export async function dev(
 		);
 	}
 	// A task's server is reached as the page is, so never without Access.
-	if (portsHost !== null && access === null) {
+	if (portsHost !== null && (portsAccess ?? access) === null) {
 		fail(
 			"usage",
 			"task ports need Cloudflare Access in front: give --access-team and --access-aud",
@@ -179,8 +187,10 @@ export async function dev(
 	const served = new Map<string, Promise<Served>>();
 	const replicas = new Replicas(log);
 	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
+	const devSlots = Slots.ofMachine({ fs, ps, log });
 	const rigSlots = RigSlots.in(machineStorage, {
 		exists: (path) => fs.exists(path),
+		reserved: () => devSlots.heldWords(),
 	});
 	const context: DevContext = {
 		replicas,
@@ -213,6 +223,7 @@ export async function dev(
 		boards: new OpenBoards({ fs, ps, log }, projects),
 		portsBase: portsHost,
 		rigSlots,
+		onRigSlotClaimed,
 		shipLauncher: {
 			launch: (argv, cwd, env) => workers.local.launch(argv, cwd, env),
 			resume: (handle, held) => workers.local.resume(handle, held),
@@ -243,6 +254,35 @@ export async function dev(
 					).map(targetOf),
 				};
 			},
+			autoStart: async (project, card) => {
+				const root = project.service.git.root;
+				const commands = projectEvalCommands(
+					ps,
+					root,
+					(await configFiles.read(root)).evals ?? null,
+				);
+				if (commands === null) {
+					return null;
+				}
+				return autoStartEvalCard(
+					{
+						savedAgents: () =>
+							new EvalAgentsStore(
+								`${splatesHome(ps)}/eval-agents.json`,
+								fs,
+							).agents(),
+						launches: evalLaunches,
+					},
+					commands,
+					{
+						...card,
+						cwd:
+							card.cwd !== null && (await fs.exists(card.cwd))
+								? card.cwd
+								: null,
+					},
+				);
+			},
 		},
 		onWorkerRoom: (listener) =>
 			workers.placement.scheduler.events.on("changed", listener),
@@ -251,6 +291,13 @@ export async function dev(
 			await signals.announce(name, by, payload);
 		},
 		clockShelf: () => signalHome.book,
+		seedEvalBudget: (conversation, usd, automation) =>
+			evalLaunches.rounds.seed(
+				conversation,
+				usd,
+				new Date().toISOString(),
+				automation,
+			),
 		signalTasks: {
 			raises: () => signalHome.book.raises(),
 			subscribed: (name) => probes.subscribed(name),
@@ -515,6 +562,8 @@ export async function dev(
 	const evalLaunches = new EvalLaunches(ps, machineStorage);
 	const evals = new EvalRoutes({
 		launches: evalLaunches,
+		agents: () =>
+			new EvalAgentsStore(`${splatesHome(ps)}/eval-agents.json`, fs).agents(),
 		directory: async (request) =>
 			(await evalCommandsOf(request))?.results ?? null,
 	});
@@ -523,7 +572,7 @@ export async function dev(
 	// to take the person through what to do next.
 	const unwatch = evalLaunches.events.on(
 		"finished",
-		({ launch, results, conversation }) => {
+		({ launch, results, conversation, rules }) => {
 			void (async () => {
 				// However the report goes, the run is over: the row stops saying it runs.
 				let ended = false;
@@ -539,7 +588,19 @@ export async function dev(
 					found?.evaluate(false);
 				};
 				try {
-					const text = await evals.donePrompt(results, launch.batch ?? "");
+					const report = await evals.donePrompt(
+						results,
+						launch.batch ?? "",
+						rules,
+					);
+					const budget =
+						report === null || launch.auto !== true
+							? null
+							: await evalLaunches.budget(conversation).catch(() => null);
+					const text =
+						report === null || budget === null
+							? report
+							: `${report}\n\n${evalBudgetLine(budget)}`;
 					let owner = await holding(conversation);
 					if (owner === null) {
 						await everywhere.openAll();
@@ -870,10 +931,44 @@ export async function dev(
 		},
 		probes,
 		now: () => Date.now(),
+		opened: () => allConversations(false),
 	});
+	// Quota as the agents report it, raised as quota.low, quota.unused and quota.restored.
+	const quota = QuotaSignals.start({
+		limits: async () => ({
+			agents: await limits.all(),
+			peaks: await limits.history(),
+		}),
+		lastUserMessages: async () => lastUserMessagesOf(await allConversations()),
+		raise: async (name, payload) => {
+			await signals.announce(name, "splates", payload);
+		},
+		doc: machineStorage.document("quota-signals.json"),
+		log,
+	});
+	disposer.defer(async () => quota.dispose());
 	void signals
 		.reconcileSignalFunctions()
 		.catch((error: unknown) => log.error(String(error)));
+	// Hides signals nothing has listened to for a day: at start, then hourly.
+	const sweepTimer = new SystemTimer();
+	let sweeping: { dispose(): void } | undefined;
+	let sweepStopped = false;
+	const sweepSignals = () => {
+		void signals
+			.sweep()
+			.catch((error: unknown) => log.error(`signal cleanup: ${String(error)}`))
+			.finally(() => {
+				if (!sweepStopped) {
+					sweeping = sweepTimer.setTimeout(sweepSignals, Duration.mins(60));
+				}
+			});
+	};
+	sweepSignals();
+	disposer.defer(async () => {
+		sweepStopped = true;
+		sweeping?.dispose();
+	});
 	// Setup is the machine's, but for the steps that read the repository of
 	// the project the page is on.
 	const setup = new SetupRoutes(async (request) => {
@@ -935,6 +1030,11 @@ export async function dev(
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
 	const autoPickHealth = new HealthRoutes({ fs, home: splatesHome(ps) });
 	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
+	const evalBudgetRoutes = new EvalBudgetRoutes({
+		budget: (id) => evalLaunches.budget(id),
+		rounds: evalLaunches.rounds,
+		now: () => new Date().toISOString(),
+	});
 
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
@@ -942,7 +1042,7 @@ export async function dev(
 		owners: () => portOwnersOf(served),
 		rigs: () => rigProxyTargetsOf(served),
 		base: portsHost,
-		access: gate.access,
+		access: portsAccess === null ? gate.access : new Access(portsAccess),
 		log,
 	});
 
@@ -1061,17 +1161,18 @@ export async function dev(
 						GET: guarded(evalAgents.read),
 						PUT: guarded(evalAgents.save),
 					},
+					"/api/evals/budget": {
+						GET: guarded(evalBudgetRoutes.read),
+						POST: guarded(evalBudgetRoutes.answer),
+					},
 					"/api/evals/batch": guarded(evals.batch),
 					"/api/evals/run": guarded(evals.run),
 					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
 					"/api/evals/states": guarded(evalLaunchRoutes.states),
+					"/api/evals/order": guarded(evalLaunchRoutes.order),
 					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
-					"/api/evals/budget": {
-						GET: guarded(evalLaunchRoutes.budget),
-					},
 					"/api/evals/launch": {
 						GET: guarded(evalLaunchRoutes.read),
-						POST: guarded(evalLaunchRoutes.start),
 						DELETE: guarded(evalLaunchRoutes.stop),
 					},
 					"/api/identity": guarded(async (request) =>
@@ -1299,12 +1400,6 @@ export async function dev(
 					"/api/todos/:id/queued": {
 						PUT: scoped((project) => project.queueQueued),
 					},
-					"/api/todos/:id/deferral/answer": {
-						PUT: scoped((project) => project.answerDeferred),
-					},
-					"/api/todos/:id/deferral/outside": {
-						PUT: scoped((project) => project.doneOutside),
-					},
 					"/api/todos/:id/queue-position": {
 						PUT: scoped((project) => project.moveInQueue),
 					},
@@ -1406,6 +1501,8 @@ export async function dev(
 					"/api/signals": { GET: talk(signals.list) },
 					"/api/signals/raise": { POST: talk(signals.raise) },
 					"/api/signals/expiration": { POST: talk(signals.expiration) },
+					"/api/signals/cleanup": { POST: talk(signals.cleanup) },
+					"/api/signals/revive": { POST: talk(signals.revive) },
 					// A page the system killed says so, for an agent to look into once
 					// it has repeated.
 					"/api/page-kills": {

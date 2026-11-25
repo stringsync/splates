@@ -147,10 +147,13 @@ export function useUndoQueued(): (ids: readonly number[]) => Promise<void> {
 export function BlockedFixButton({
 	todo,
 	onFixed,
+	card = false,
 }: {
 	todo: TaskRecord;
 	/** Hears which tasks its fix queued, for a list the card leaves once it is no longer blocked. */
 	onFixed?: (ids: number[]) => void;
+	/** Renders as a full-width neutral card action, omitting downstream "Blocked with" links. */
+	card?: boolean;
 }): JSX.Element | null {
 	const { todos, lanes, open, refuseTodo } = useContext(Board);
 	const apply = useApplyFix();
@@ -166,7 +169,7 @@ export function BlockedFixButton({
 	}, [done]);
 	if (done !== null) {
 		return (
-			<span className="relative inline-flex items-center gap-1.5 text-foreground">
+			<span className="relative inline-flex items-center gap-1.5 text-foreground text-xs">
 				Queued {done.map((id) => `#${id}`).join(", ")}
 				<button
 					type="button"
@@ -198,6 +201,9 @@ export function BlockedFixButton({
 		return null;
 	}
 	if (fix.kind === "with") {
+		if (card) {
+			return null;
+		}
 		return (
 			<button
 				type="button"
@@ -219,6 +225,7 @@ export function BlockedFixButton({
 			type="button"
 			{...still}
 			disabled={busy}
+			aria-label={fixLabel(fix)}
 			onClick={() => {
 				setBusy(true);
 				void apply(todo, fix)
@@ -237,12 +244,19 @@ export function BlockedFixButton({
 					.finally(() => setBusy(false));
 			}}
 			className={cn(
-				"relative inline-flex cursor-pointer items-center gap-1 rounded-md border border-warning/40 bg-card px-1.5 py-px font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+				card
+					? "relative mt-0.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 font-medium text-foreground text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+					: "relative inline-flex cursor-pointer items-center gap-1 rounded-md border border-warning/40 bg-card px-1.5 py-px font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
 				touchArea,
 			)}
 		>
-			<Icon aria-hidden className="size-3" />
-			{fixLabel(fix)}
+			<Icon aria-hidden className={card ? "size-3.5 shrink-0" : "size-3"} />
+			<span className="shrink-0">{fixLabel(fix)}</span>
+			{card && (
+				<span className="min-w-0 truncate font-normal text-muted-foreground">
+					({fix.chain.map((task) => `#${task.id}`).join(", ")})
+				</span>
+			)}
 		</button>
 	);
 	return (

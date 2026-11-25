@@ -76,6 +76,7 @@ async function startOne(
 			// only hears when it stops.
 			startedBy: worktree.caller,
 		}));
+	conversation.markAutoQueued(worktree.state?.autoQueued === true);
 	const { pending: _, ...settled } = dispatch;
 	await worktree.save({
 		dispatch: { ...settled, conversation: conversation.id },

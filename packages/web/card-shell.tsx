@@ -15,9 +15,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { WIDE } from "./app-nav";
 import { CardSection } from "./card-section";
-import { blocksOf } from "./findings-blocks";
 import { Markdown } from "./markdown";
-import { BlockView } from "./readouts";
 import { TaskOnto } from "./task-onto";
 
 /**
@@ -289,18 +287,6 @@ export function partsOf(text: string): {
 	};
 }
 
-/** The block kinds that are readouts: read-only displays drawn in place of their markdown. */
-const READOUTS = new Set([
-	"stats",
-	"chart",
-	"progress",
-	"steps",
-	"gallery",
-	"diagram",
-	"callout",
-	"status",
-]);
-
 /**
  * Render a card's markdown with its spacing contained. Each heading in it
  * opens and closes the text under it.
@@ -318,37 +304,6 @@ export function CardBody({
 	follows?: boolean;
 	className?: string;
 }): JSX.Element {
-	const blocks = blocksOf(text);
-	if (blocks.some((block) => READOUTS.has(block.kind))) {
-		return (
-			<div
-				className={cn(
-					"flex flex-col gap-3 px-4 py-3.5 text-sm leading-relaxed @max-md:px-3 @max-md:py-2.5",
-					className,
-				)}
-			>
-				{blocks.map((block, i) =>
-					block.kind === "markdown" ? (
-						<CardBody
-							// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
-							key={i}
-							text={block.text}
-							lead={lead && i === 0}
-							follows={i > 0}
-							className="p-0 @max-md:p-0"
-						/>
-					) : (
-						<BlockView
-							// biome-ignore lint/suspicious/noArrayIndexKey: the blocks are static text
-							key={i}
-							block={block}
-							lead={false}
-						/>
-					),
-				)}
-			</div>
-		);
-	}
 	const cut = partsOf(text);
 	if (cut.parts.length === 0) {
 		return <CardMarkdown text={text} lead={lead} className={className} />;

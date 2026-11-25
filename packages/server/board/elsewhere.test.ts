@@ -82,8 +82,6 @@ describe("blockers in other projects", () => {
 				why: "Needs the locale change in wren.",
 				blockedBy: [],
 				blockedElsewhere: [{ project: WIZ, id: 404, subject: "locale" }],
-				questions: [],
-				outside: [],
 			},
 			{ task: "alpha" },
 		);

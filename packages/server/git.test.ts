@@ -127,4 +127,31 @@ describe("Git", () => {
 		await env.gitCli(env.root, "worktree", "remove", "--force", tree);
 		expect(await env.git.diff("main", "feature", tree)).toBeNull();
 	});
+
+	// vet-ignore simple-test-setup: the branch, rename and new files belong only to this case.
+	it("names every path a branch and its worktree touch, a rename as both its paths", async () => {
+		await env.commit(env.root, "old name.txt", "kept\n", "add old");
+		const tree = join(dirname(env.root), "feature");
+		await env.gitCli(env.root, "worktree", "add", "-b", "feature", tree);
+		await env.commit(tree, "committed.txt", "c\n", "commit one");
+		await env.gitCli(tree, "mv", "old name.txt", "new name.txt");
+		await env.fs.write(join(tree, "README.md"), "edited\n");
+		await env.fs.mkdir(join(tree, "dir"));
+		await env.fs.write(join(tree, "dir/fresh.txt"), "fresh\n");
+
+		expect(await env.git.changedFiles("main", "feature", tree)).toEqual([
+			"README.md",
+			"committed.txt",
+			"dir/fresh.txt",
+			"new name.txt",
+			"old name.txt",
+		]);
+		expect(await env.git.changedFiles("main", "feature", null)).toEqual([
+			"committed.txt",
+		]);
+		await env.gitCli(env.root, "worktree", "remove", "--force", tree);
+		expect(await env.git.changedFiles("main", "feature", tree)).toEqual([
+			"committed.txt",
+		]);
+	});
 });

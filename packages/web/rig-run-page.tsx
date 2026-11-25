@@ -9,7 +9,7 @@ import {
 import { type JSX, useEffect, useRef } from "react";
 import { renderAnsiLine } from "./ansi-line";
 import { runLog } from "./api/rigs";
-import { Button, buttonVariants } from "./components/ui/button";
+import { Button } from "./components/ui/button";
 import { cn } from "./lib/utils";
 import { RunStatePill } from "./rig-state";
 import { type RunLogApi, RunLogReader } from "./run-log-reader";
@@ -17,9 +17,9 @@ import { type RunLogApi, RunLogReader } from "./run-log-reader";
 const SERVER: RunLogApi = { runLog };
 
 /**
- * Run `run` on its own page: its state and last health check, a button to
+ * Run `run` on its own page: its state and last health check, a link to
  * open it, its links on this machine and from outside, the options it
- * started with, its log as it comes, and a stop. `onAgain` dismisses it,
+ * started with, its log as it comes, and a pinned stop. `onAgain` dismisses it,
  * exited, and opens the start form again on its tree.
  */
 export function RigRunPage({
@@ -52,7 +52,6 @@ export function RigRunPage({
 	const options = Object.entries(run.values)
 		.map(([name, value]) => `${name}=${value}`)
 		.join(" ");
-	const main = run.ports[0];
 	const exited = run.state === "exited";
 
 	return (
@@ -64,23 +63,6 @@ export function RigRunPage({
 				<RunStatePill state={run.state} exitCode={run.exitCode} />
 				{run.health !== null && <span>{run.health}</span>}
 			</div>
-			{main !== undefined && !exited && (
-				<a
-					href={main.remote ?? main.local}
-					target="_blank"
-					rel="noreferrer"
-					className={cn(buttonVariants(), "h-11 w-full text-[15px]")}
-				>
-					<ExternalLinkIcon />
-					<span className="truncate">
-						Open{" "}
-						{main.remote !== null && run.slot !== null
-							? `${run.slot.emoji} `
-							: ""}
-						{bare(main.remote ?? main.local)}
-					</span>
-				</a>
-			)}
 			<dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-2 text-sm">
 				{run.ports.map((port, index) => (
 					<Links
@@ -118,23 +100,28 @@ export function RigRunPage({
 					lines.map((line) => <LogLine key={line.n} text={line.text} />)
 				)}
 			</div>
-			{exited ? (
-				<div className="flex gap-2">
-					<Button variant="outline" className="h-11 flex-1" onClick={onStop}>
-						<XIcon />
-						Dismiss
+			<div className="sticky bottom-0 flex gap-2 border-t bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+				{exited ? (
+					<>
+						<Button variant="outline" className="h-12 flex-1" onClick={onStop}>
+							<XIcon />
+							Dismiss
+						</Button>
+						<Button className="h-12 flex-1" onClick={onAgain}>
+							<RotateCcwIcon />
+							Start again
+						</Button>
+					</>
+				) : (
+					<Button
+						className="h-12 flex-1 bg-destructive text-[15px] text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
+						onClick={onStop}
+					>
+						<SquareIcon />
+						Stop
 					</Button>
-					<Button className="h-11 flex-1" onClick={onAgain}>
-						<RotateCcwIcon />
-						Start again
-					</Button>
-				</div>
-			) : (
-				<Button variant="outline" block onClick={onStop}>
-					<SquareIcon />
-					Stop
-				</Button>
-			)}
+				)}
+			</div>
 		</section>
 	);
 }
@@ -233,6 +220,10 @@ function PortLink({ href }: { href: string }): JSX.Element {
 			className="min-w-0 truncate underline underline-offset-2"
 		>
 			{bare(href)}
+			<ExternalLinkIcon
+				aria-hidden
+				className="ml-1.5 inline size-3.5 align-[-2px] opacity-60"
+			/>
 		</a>
 	);
 }

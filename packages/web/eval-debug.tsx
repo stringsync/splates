@@ -33,11 +33,9 @@ import { type RecordedCall, type RecordedWork, WorkRow } from "./work-row";
 export function EvalDebug({
 	id,
 	onEvals,
-	onReport,
 }: {
 	id: string;
 	onEvals: () => void;
-	onReport: () => void;
 }): JSX.Element {
 	const [run, setRun] = useState<EvalDetail | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -72,7 +70,6 @@ export function EvalDebug({
 									batch === undefined
 										? "Report"
 										: `${batch.title} ×${batch.cells}`,
-								onClick: onReport,
 							},
 							{ label: "Run" },
 						]}
@@ -131,7 +128,17 @@ const EvalWorkUI = makeAssistantDataUI<{ work: Work }>({
 	},
 });
 
-function Run({ run }: { run: EvalDetail }): JSX.Element {
+/** A run's conversation: the person's message, the agent's tool steps and its reply, with the failed steps annotated. */
+export function RunConversation({
+	run,
+	open,
+	onOpenChange,
+}: {
+	run: EvalDetail;
+	open: boolean;
+	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
+	onOpenChange: (open: boolean) => void;
+}): JSX.Element {
 	const harness = run.harness !== undefined;
 	const { messages, calls } = useMemo(() => {
 		const records = new Map<string, RecordedCall>();
@@ -154,11 +161,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 										<JudgeBox
 											key={check.id}
 											tone="fail"
-											title={
-												<>
-													Judged: <code>{check.id}</code> failed here
-												</>
-											}
+											title={`Judged · ${check.id} failed here`}
 										>
 											<div className="px-3 py-2">
 												<Markdown text={`**Expected** · ${check.about}`} />
@@ -180,15 +183,29 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 			),
 		};
 	}, [run, harness]);
-	const [open, setOpen] = useState(() =>
-		run.checks.some((check) => checkStep(check, run) !== undefined),
-	);
 	const recorded = {
 		calls,
 		open,
-		onOpenChange: setOpen,
+		onOpenChange,
 		elapsed: durationLabel(run.phases?.agentMs),
 	};
+	return (
+		<RecordedWorkContext.Provider value={recorded}>
+			<RecordedThread messages={messages}>
+				<EvalWorkUI />
+			</RecordedThread>
+		</RecordedWorkContext.Provider>
+	);
+}
+
+/** Whether a run's tool steps start open: when a check failed at one. */
+export function startsOpen(run: EvalDetail): boolean {
+	return run.checks.some((check) => checkStep(check, run) !== undefined);
+}
+
+function Run({ run }: { run: EvalDetail }): JSX.Element {
+	const harness = run.harness !== undefined;
+	const [open, setOpen] = useState(() => startsOpen(run));
 	const jumpTo = (index: number) => {
 		flushSync(() => setOpen(true));
 		const row = document.getElementById(stepId(index));
@@ -236,11 +253,7 @@ function Run({ run }: { run: EvalDetail }): JSX.Element {
 				)
 			)}
 			<div className={harness ? "opacity-55" : undefined}>
-				<RecordedWorkContext.Provider value={recorded}>
-					<RecordedThread messages={messages}>
-						<EvalWorkUI />
-					</RecordedThread>
-				</RecordedWorkContext.Provider>
+				<RunConversation run={run} open={open} onOpenChange={setOpen} />
 			</div>
 			{harness ? (
 				<p className="text-muted-foreground text-xs">

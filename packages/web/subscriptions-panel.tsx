@@ -1,47 +1,53 @@
 import type { AutomationRow } from "@splates/server/hooks";
+import { runsNow } from "@splates/server/hooks/browser";
 import { useReactive } from "core/react";
 import {
-	CheckIcon,
-	ClockIcon,
-	InfoIcon,
+	CirclePlayIcon,
 	PauseIcon,
+	PencilIcon,
+	PlayIcon,
 	PlusIcon,
-	TerminalIcon,
-	ZapIcon,
+	XIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AutomationDraft } from "./automation-draft";
-import type { RunOpens } from "./automation-face";
-import { AutomationList } from "./automation-list";
-import { ScheduledAutomations } from "./automations";
+import { AutomationFace, type RunOpens } from "./automation-face";
+import { AutomationForm } from "./automation-form";
 import { ReadFailed, ReadingNow } from "./countdown";
 import { useReading } from "./page-readings";
+import { PHONE_HEADING } from "./phone-rows";
 import { listProjects } from "./project-api";
 import { Refusal } from "./refusal";
 import { type Subscribed, SubscriptionBook } from "./subscription-book";
-import { SubscriptionForm } from "./subscription-form";
 import {
 	countsOf,
 	FILTERS,
+	kindOf,
 	type SubscriptionFilter,
-	type SubscriptionState,
 	stateOf,
 	subscriptionsOf,
+	TRIGGERS,
+	type TriggerFilter,
+	triggerCountsOf,
 } from "./subscription-state";
 
 /**
- * The Subscriptions tab of the Signals page: what runs when a signal
- * fires, a prompt in a fresh conversation or a shell command. Filter by
- * state, make one, edit, pause or remove it.
+ * The Subscriptions tab of the Signals page: what runs when a signal fires,
+ * a task event happens or a schedule comes due, a prompt in a fresh
+ * conversation or a shell command. Filter by state, trigger and project;
+ * make one, edit, run, pause or remove it. The checked-in `on` commands
+ * list after, to read.
  */
 export function SubscriptionsPanel({
 	onCount,
@@ -53,9 +59,6 @@ export function SubscriptionsPanel({
 	onCount?: (count: number) => void;
 }): JSX.Element {
 	const book = useReading("subscriptions", () => new SubscriptionBook());
-	// The picked project's task-event and schedule automations, which the page lists under the signals.
-	const list = useReading("automations", () => new AutomationList());
-	useEffect(() => void list.read(), [list]);
 	const { projects, current } = useProjectSlugs();
 	useEffect(() => {
 		if (projects !== null) {
@@ -68,11 +71,17 @@ export function SubscriptionsPanel({
 		["changed"],
 	);
 	const [filter, setFilter] = useState<SubscriptionFilter>("all");
+	const [trigger, setTrigger] = useState<TriggerFilter>("any");
 	const [project, setProject] = useState<string>(ALL_PROJECTS);
 	const [editing, setEditing] = useState<Subscribed | "new" | null>(null);
 	const [target, setTarget] = useState<string | null>(null);
+	const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
 	const own = useMemo(
 		() => all.filter((each) => subscriptionsOf([each.row]).length > 0),
+		[all],
+	);
+	const checkedIn = useMemo(
+		() => all.filter((each) => each.row.source === "config"),
 		[all],
 	);
 	useEffect(() => {
@@ -90,30 +99,52 @@ export function SubscriptionsPanel({
 			/>
 		);
 	}
-	const inProject =
+	const inProject = (rows: Subscribed[]) =>
 		project === ALL_PROJECTS
-			? own
-			: own.filter((each) => each.project === project);
-	const counts = countsOf(inProject.map((each) => each.row));
-	const visible = inProject.filter(
+			? rows
+			: rows.filter((each) => each.project === project);
+	const mine = inProject(own);
+	const counts = countsOf(mine.map((each) => each.row));
+	const byState = mine.filter(
 		(each) => filter === "all" || stateOf(each.row) === filter,
 	);
+	const triggerCounts = triggerCountsOf(byState.map((each) => each.row));
+	const visible = byState.filter(
+		(each) => trigger === "any" || kindOf(each.row.trigger) === trigger,
+	);
+	const config = inProject(checkedIn);
 	const several = (projects?.length ?? 0) > 1;
 	const open = (next: Subscribed | "new") => {
 		setTarget(
 			next === "new"
 				? project !== ALL_PROJECTS
 					? project
-					: (current ?? projects?.[0] ?? null)
+					: null
 				: next.project,
 		);
 		setEditing(next);
+	};
+	// A new one opened before the projects were listed lands on the shown project once they are.
+	const into = target ?? current ?? projects?.[0] ?? null;
+	const keyOf = (each: Subscribed) => `${each.project}/${each.row.id}`;
+	/** Marks `each` as saving until `change` settles. */
+	const change = (each: Subscribed, change: Promise<boolean>) => {
+		const key = keyOf(each);
+		setSaving((was) => new Set(was).add(key));
+		void change.finally(() =>
+			setSaving((was) => {
+				const next = new Set(was);
+				next.delete(key);
+				return next;
+			}),
+		);
 	};
 	return (
 		<section aria-label="subscriptions" className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<p className="text-muted-foreground text-sm">
-					Run a prompt or command when a signal fires.
+					Run a prompt or command when a signal fires, a task event happens, or
+					a schedule comes due.
 				</p>
 				<Button size="sm" onClick={() => open("new")}>
 					<PlusIcon /> New subscription
@@ -137,85 +168,115 @@ export function SubscriptionsPanel({
 					</select>
 				</label>
 			)}
-			<div role="tablist" aria-label="state" className="flex flex-wrap gap-1">
-				{FILTERS.map((each) => (
-					<button
-						key={each}
-						type="button"
-						role="tab"
-						aria-selected={filter === each}
-						className={cn(
-							"h-9 rounded-md px-3 text-sm capitalize",
-							filter === each
-								? "bg-muted font-medium"
-								: "text-muted-foreground",
-						)}
-						onClick={() => setFilter(each)}
-					>
-						{each} <span className="tabular-nums">{counts[each]}</span>
-					</button>
-				))}
+			<div className="flex flex-col gap-1">
+				<Tabs
+					label="state"
+					tabs={FILTERS.map((each) => ({
+						value: each,
+						label: each,
+						count: counts[each],
+					}))}
+					current={filter}
+					onPick={setFilter}
+					capitalize
+				/>
+				<Tabs
+					label="trigger"
+					tabs={TRIGGERS.map((each) => ({
+						value: each.filter,
+						label: each.label,
+						count: each.filter === "any" ? null : triggerCounts[each.filter],
+					}))}
+					current={trigger}
+					onPick={setTrigger}
+				/>
 			</div>
 			<Refusal refusal={refusal} />
 			{visible.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					{inProject.length === 0
+					{mine.length === 0
 						? "No subscriptions yet."
-						: `No ${filter} subscriptions.`}
+						: "No subscriptions match these filters."}
 				</p>
 			) : (
 				<ul className="flex flex-col gap-3">
 					{visible.map((each) => (
-						<Subscription
-							key={`${each.project}/${each.row.id}`}
+						<SubscriptionCard
+							key={keyOf(each)}
 							row={each.row}
 							project={several ? each.project : null}
+							saving={saving.has(keyOf(each))}
+							opens={opens}
 							onEdit={() => open(each)}
+							onRun={() => change(each, book.run(each.project, each.row))}
 							onPause={(paused) =>
-								void book.pause(each.project, each.row, paused)
+								change(each, book.pause(each.project, each.row, paused))
 							}
-							onRemove={() => void book.remove(each.project, each.row)}
+							onRemove={() => change(each, book.remove(each.project, each.row))}
 						/>
 					))}
 				</ul>
 			)}
-			<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
-				<InfoIcon className="size-3.5" />
+			<p className="text-muted-foreground text-xs">
 				Each prompt run starts a fresh conversation. Commands run in the
-				project.
+				project. A schedule that came due while splates server was down runs
+				once as it starts.
 			</p>
-			<ScheduledAutomations list={list} opens={opens} />
+			{config.length > 0 && (
+				<div className="flex flex-col gap-3">
+					<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+						<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
+							Checked in
+						</h2>
+						<span className="text-muted-foreground text-xs">
+							The `on` commands in splates.config.ts, which run for everyone on
+							the project.
+						</span>
+					</header>
+					<ul className="flex flex-col gap-3">
+						{config.map((each) => (
+							<SubscriptionCard
+								key={keyOf(each)}
+								row={each.row}
+								project={several ? each.project : null}
+								saving={false}
+								opens={opens}
+							/>
+						))}
+					</ul>
+				</div>
+			)}
 			<Dialog
 				open={editing !== null}
 				onOpenChange={(open) => !open && setEditing(null)}
 			>
-				<DialogContent className="max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none">
+				<DialogContent className="max-sm:h-dvh max-sm:max-w-none max-sm:content-start max-sm:overflow-y-auto max-sm:rounded-none sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>
 							{editing === "new" ? "New subscription" : "Edit subscription"}
 						</DialogTitle>
 						<DialogDescription>
-							Choose a signal and what happens when it fires.
+							Choose what sets it off and what happens then.
 						</DialogDescription>
 					</DialogHeader>
-					{editing !== null && target !== null && (
-						<SubscriptionForm
-							key={
-								editing === "new"
-									? "new"
-									: `${editing.project}/${editing.row.id}`
-							}
+					{editing !== null && into !== null && (
+						<AutomationForm
+							key={editing === "new" ? "new" : keyOf(editing)}
+							bare
 							draft={draftOf(editing === "new" ? "new" : editing.row)}
+							title={
+								editing === "new" ? "New subscription" : "Edit subscription"
+							}
 							submit={editing === "new" ? "Create subscription" : "Save"}
 							projects={several ? (projects ?? []) : []}
-							project={target}
+							project={into}
 							onProject={editing === "new" ? setTarget : undefined}
 							onCancel={() => setEditing(null)}
 							onSubmit={(trigger, hook, name) =>
 								void (
 									editing === "new"
-										? book.add(target, trigger, hook, name)
-										: book.edit(target, editing.row, trigger, hook, name)
+										? book.add(into, trigger, hook, name)
+										: book.edit(into, editing.row, trigger, hook, name)
 								).then((saved) => saved && setEditing(null))
 							}
 						/>
@@ -223,6 +284,47 @@ export function SubscriptionsPanel({
 				</DialogContent>
 			</Dialog>
 		</section>
+	);
+}
+
+/** A row of filter tabs, each with how many it shows when `count` is set. */
+function Tabs<Value extends string>({
+	label,
+	tabs,
+	current,
+	onPick,
+	capitalize = false,
+}: {
+	label: string;
+	tabs: { value: Value; label: string; count: number | null }[];
+	current: Value;
+	onPick: (value: Value) => void;
+	capitalize?: boolean;
+}): JSX.Element {
+	return (
+		<div role="tablist" aria-label={label} className="flex flex-wrap gap-1">
+			{tabs.map((each) => (
+				<button
+					key={each.value}
+					type="button"
+					role="tab"
+					aria-selected={current === each.value}
+					className={cn(
+						"h-9 rounded-md px-3 text-sm",
+						capitalize && "capitalize",
+						current === each.value
+							? "bg-muted font-medium"
+							: "text-muted-foreground",
+					)}
+					onClick={() => onPick(each.value)}
+				>
+					{each.label}
+					{each.count !== null && (
+						<span className="tabular-nums"> {each.count}</span>
+					)}
+				</button>
+			))}
+		</div>
 	);
 }
 
@@ -275,107 +377,134 @@ function draftOf(editing: AutomationRow | "new"): AutomationDraft {
 	return draft;
 }
 
-const BADGE: Record<SubscriptionState, string> = {
-	active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-	paused: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-	finished: "bg-muted text-muted-foreground",
-};
-
-function Subscription({
+/**
+ * One subscription: what sets it off, who or what it runs, its prompt as
+ * Markdown, when it last ran, and its buttons; without `onEdit` and the
+ * rest, as for a checked-in one, only to read.
+ */
+function SubscriptionCard({
 	row,
 	project,
+	saving,
+	opens,
 	onEdit,
+	onRun,
 	onPause,
 	onRemove,
 }: {
 	row: AutomationRow;
 	/** The project it belongs to, when the list spans several; else null. */
 	project: string | null;
-	onEdit: () => void;
-	onPause: (paused: boolean) => void;
-	onRemove: () => void;
+	/** Whether a change to it awaits the server. */
+	saving: boolean;
+	opens: RunOpens;
+	onEdit?: () => void;
+	onRun?: () => void;
+	onPause?: (paused: boolean) => void;
+	onRemove?: () => void;
 }): JSX.Element {
-	const [sure, setSure] = useState(false);
+	const [confirmingRemove, setConfirmingRemove] = useState(false);
 	const state = stateOf(row);
-	const signal = "signal" in row.trigger ? row.trigger.signal : "";
-	const Icon = row.finishedAt !== undefined ? ClockIcon : ZapIcon;
 	return (
-		<li className="flex flex-col gap-2 rounded-xl border p-4">
-			<div className="flex items-center gap-3">
-				<span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-					{row.hook.kind === "run" ? (
-						<TerminalIcon className="size-4" />
-					) : (
-						<Icon className="size-4" />
-					)}
-				</span>
-				<span className="min-w-0 flex-1 truncate font-medium">
-					{row.name ?? `Subscription ${row.id}`}
-				</span>
-				<span
-					className={cn(
-						"flex items-center gap-1 rounded-md px-2 py-0.5 text-xs capitalize",
-						BADGE[state],
-					)}
-				>
-					{state === "paused" && <PauseIcon className="size-3" />}
-					{state === "finished" && <CheckIcon className="size-3" />}
-					{state}
-				</span>
-			</div>
-			{project !== null && (
-				<p className="text-muted-foreground text-xs">Project {project}</p>
+		<li
+			aria-label={`subscription ${row.name ?? row.id}`}
+			aria-busy={saving}
+			className={cn(
+				"flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-xs",
+				(state !== "active" || saving) && "opacity-60",
 			)}
-			<p className="text-sm">
-				<span className="text-muted-foreground">On </span>
-				<code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-					{signal}
-				</code>
-			</p>
-			<p className="truncate text-muted-foreground text-sm">{row.does}</p>
-			{row.notice !== undefined && (
-				<p
-					role="status"
-					className="rounded-lg bg-amber-500/10 px-3 py-2 text-amber-800 text-sm dark:text-amber-300"
-				>
-					{row.notice}. Edit the signal to resume.
-				</p>
-			)}
-			<div className="flex flex-wrap items-center gap-1">
-				<span className="text-muted-foreground text-xs">
-					{row.hook.kind === "run" ? "Shell command" : "Prompt"}
-					{row.runs.length > 0 && ` · ${row.runs.length} runs`}
-				</span>
-				<span className="ml-auto flex gap-1">
-					{state !== "finished" && (
-						<Button
-							size="sm"
-							variant="ghost"
-							className="h-11 sm:h-8"
-							onClick={() => onPause(state === "active")}
+		>
+			<AutomationFace
+				row={row}
+				opens={opens}
+				saving={saving}
+				actions={
+					<div className="-my-1 flex shrink-0 items-center">
+						{!saving && onEdit !== undefined && (
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								aria-label="Edit"
+								onClick={onEdit}
+							>
+								<PencilIcon />
+							</Button>
+						)}
+						{onRun !== undefined && runsNow(row) && (
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								aria-label="Run now"
+								title="Run now"
+								onClick={onRun}
+							>
+								<CirclePlayIcon />
+							</Button>
+						)}
+						{onPause !== undefined && state !== "finished" && (
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								aria-label={state === "paused" ? "Resume" : "Pause"}
+								onClick={() => onPause(state === "active")}
+							>
+								{state === "paused" ? <PlayIcon /> : <PauseIcon />}
+							</Button>
+						)}
+						{onRemove !== undefined && (
+							<Button
+								size="icon-sm"
+								variant="ghost"
+								aria-label="Remove"
+								onClick={() => setConfirmingRemove(true)}
+							>
+								<XIcon />
+							</Button>
+						)}
+					</div>
+				}
+			/>
+			{(project !== null || row.notice !== undefined) && (
+				<div className="flex flex-col gap-2 sm:pl-11">
+					{project !== null && (
+						<p className="text-muted-foreground text-xs">Project {project}</p>
+					)}
+					{row.notice !== undefined && (
+						<p
+							role="status"
+							className="rounded-lg bg-amber-500/10 px-3 py-2 text-amber-800 text-sm dark:text-amber-300"
 						>
-							{state === "active" ? "Pause" : "Resume"}
-						</Button>
+							{row.notice}. Edit the signal to resume.
+						</p>
 					)}
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-11 sm:h-8"
-						onClick={onEdit}
-					>
-						Edit
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-11 sm:h-8"
-						onClick={() => (sure ? onRemove() : setSure(true))}
-						onBlur={() => setSure(false)}
-					>
-						{sure ? "Are you sure?" : "Remove"}
-					</Button>
-				</span>
-			</div>
+				</div>
+			)}
+			{onRemove !== undefined && (
+				<Dialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
+					<DialogContent showCloseButton={false}>
+						<DialogHeader>
+							<DialogTitle>Remove this subscription?</DialogTitle>
+							<DialogDescription>
+								Are you sure? It stops running and what sets it off is lost.
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<DialogClose render={<Button variant="outline" />}>
+								Cancel
+							</DialogClose>
+							<Button
+								variant="destructive"
+								onClick={() => {
+									setConfirmingRemove(false);
+									onRemove();
+								}}
+							>
+								Remove
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			)}
 		</li>
 	);
 }

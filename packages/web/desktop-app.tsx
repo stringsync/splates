@@ -43,7 +43,8 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	// Rigs in one column, as on a phone.
 	rigs: "mx-auto w-full min-w-0 max-w-2xl px-4 pt-5 pb-8",
 	rec: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
-	evals: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
+	// Test reports sit beside a run sidebar, so wider than one column.
+	evals: "mx-auto w-full min-w-0 max-w-6xl px-4 pt-5 pb-8",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// A list beside a signal's detail, so wider than one column.
 	signals: "mx-auto w-full min-w-0 max-w-5xl px-4 pt-5 pb-8",
@@ -195,10 +196,7 @@ export function DesktopApp({
 									"sticky top-0 flex h-(--top-bar-height) items-center gap-1 bg-background pr-2 pl-4",
 									!shown && "pl-(--top-bar-start)",
 								)
-							: cn(
-									"page-header-band min-h-(--top-bar-height)",
-									area.compact ? "sticky top-0" : "relative",
-								),
+							: "page-header-band sticky top-0 min-h-(--top-bar-height)",
 					)}
 				/>
 				<div ref={setBannerSlot} className="contents" />

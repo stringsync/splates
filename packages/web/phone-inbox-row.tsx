@@ -2,12 +2,14 @@ import { answersTo, type Needing } from "@splates/server/plans/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { AutoQueuedBadge } from "./auto-queued-badge";
 import { backgrounded } from "./backgrounded";
+import { useBlockedNeedsYou } from "./blockers-card";
 import { BoardChip } from "./board-chip";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { automated, shipped } from "./conversation-rows";
 import { useHeldConversations } from "./handed-out";
-import { Mark } from "./mark";
+import { isDisconnected, Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { useEnding } from "./queued-ending";
 import { useQuiet } from "./quiet";
@@ -46,6 +48,7 @@ export function Row({
 	const name =
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const quiet = useQuiet(conversation);
+	const blockedNeedsYou = useBlockedNeedsYou(conversation);
 	const { text, label } = useRowStatus(row);
 	const on = boardRef(row);
 	const moved = movedAt(row);
@@ -68,7 +71,7 @@ export function Row({
 		>
 			<span
 				className={cn(
-					"flex shrink-0 items-center justify-center rounded-full bg-muted",
+					"relative flex shrink-0 items-center justify-center rounded-full bg-muted",
 					conversation !== null &&
 						automated(conversation) &&
 						"bg-violet-500/15",
@@ -93,6 +96,8 @@ export function Row({
 						)}
 					/>
 				)}
+				{(task?.autoQueued === true ||
+					conversation?.lastAutoQueued === true) && <AutoQueuedBadge />}
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span className="flex items-center gap-2">
@@ -125,6 +130,8 @@ export function Row({
 						subagent={subagent}
 						quiet={quiet}
 						background={conversation != null && backgrounded(conversation)}
+						blockedNeedsYou={blockedNeedsYou}
+						disconnected={isDisconnected(conversation)}
 					/>
 				</span>
 				<span className="flex items-center gap-2">

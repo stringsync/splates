@@ -249,7 +249,7 @@ export class QueueRunner implements Resource {
 	}
 
 	/**
-	 * Sends each deferred task that waited only on tasks, all merged now, back
+	 * Sends each deferred task whose blockers all merged now back
 	 * to the conversation that deferred it, once; answers the ids it holds
 	 * there, which the queue must not also start in a new conversation. One
 	 * whose conversation is gone, or refuses, is left to the queue.

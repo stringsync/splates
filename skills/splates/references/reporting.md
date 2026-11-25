@@ -34,16 +34,23 @@ The task set out to stop uploads retrying a 413.
 
 A task blocked on other work is deferred, not discarded: `splates remove
 <task> --reason blocked`, then the report below, so the user does not read it
-as lost. It keeps `## 🧹 Removed` for work that really ended. The remove
-takes `--why`, what you found that stops the work, and at least one
-blocker: `--blocked-by <n>` for a task that has to merge first, or
-`--waiting-on "<what>"` for something outside splates. Use it only for what no script can check (a key only the user can get); a fact a script can check is waited on with a probe and `splates signal wait`, never `--waiting-on`, which nothing clears. A call that is the
+as lost. (The other remove reasons are `nothing`, `moot`, `superseded`, and
+`redo`, which end the task and report `## 🧹 Removed`.) It keeps `## 🧹 Removed`
+for work that really ended. When a task that took a queued board task waits on
+another task to merge without ending, `splates blocker add <#id | "subject">`
+links the blocker and keeps the conversation open (`splates merge` refuses while
+any blocker is open, and `[SPLATES BLOCKERS CLEARED]` arrives when the last one
+ends; a subject adds a new Backlog task, so end the reply with its queue card).
+The remove takes `--why`, what you found that stops the work, and at least one
+blocker, `--blocked-by <n>`, a task that has to merge first. Something outside
+splates is a task too: `splates task add --closes-on <signal>` one that ends
+when its signal fires (see [signals.md](signals.md)), and block on it. A call that is the
 user's to make is a numbered question in your reply, as in
 [questions.md](questions.md), not a blocker. Add `--detail` to rewrite the task's detail for whoever
-takes it next, as Deferring in [queue.md](queue.md) says. The board task
-keeps all of it, one of its own made for work that took none, and the
-queue starts it in a fresh conversation once it is queued and its tasks
-have merged; nothing comes back to this one. The text after the colon sums
+takes it next, as [queue.md](queue.md) says. The board task
+keeps all of it, one of its own made for work that took none. Once its
+blockers have merged, the queue sends it back to this conversation; only when
+this conversation is gone or refuses does it start in a fresh one. The text after the colon sums
 up the blockers. When the tasks it waits on are on the board, end the reply
 with their queue card, naming them and then the deferred task (see
 [queue.md](queue.md), Asking the user to queue), so one press queues all:
@@ -57,7 +64,24 @@ The task set out to stop uploads retrying a 413; it is back on the board.
 
 `splates queue add 812 813 20`
 
+Why not auto-queued: the Agents setting is Never.
+
 The client and the retry flag land first, then the retry itself.
+```
+
+Work over with no task to merge or remove, such as a question you were
+asked to look into, a setup step or an automation's run, ends on a Done
+report, what came of it after the colon. It too asks and offers nothing, and
+a reply in a talk that carries on is none. Done says nothing is left, so it
+is for a finished answer or a finished step, never for a finding that leaves
+something to do: "I found the bug" with the fix not made ends on the
+finding and a numbered question (`1. Should we fix it this way?`), not Done.
+Without the user's go-ahead on what remains, the request is not complete:
+
+```markdown
+## ✅ Done: two merged tasks reviewed, nothing to fix
+
+Both kept their tests; the notes needed no change.
 ```
 
 An eval loop whose scenario already passed every repetition ends on Done even
@@ -76,23 +100,26 @@ for the scenario and put each agent's pass rate in a table under it (see
 The baseline run found nothing to fix, so no change was made.
 ```
 
-Work over with no task to merge or remove, such as a question you were
-asked to look into, a setup step or an automation's run, ends on a Done
-report, what came of it after the colon. It too asks and offers nothing, and
-a reply in a talk that carries on is none. Done says nothing is left, so it
-is for a finished answer or a finished step, never for a finding that leaves
-something to do: "I found the bug" with the fix not made ends on the
-finding and a numbered question (`1. Should we fix it this way?`), not Done.
-Without the user's go-ahead on what remains, the request is not complete:
+An eval loop that ran rounds lists what worked and what did not under the
+outcome line, as a Checks section, before its `Final batch:` line:
 
 ```markdown
-## ✅ Done: the upload 413s come from the proxy, not the app
+## ✅ Done: asking evals pass on 5 of 6
 
-Its body limit is 1 MB; nothing in this repository needs to change.
+Both pass on every model but codex gpt-5.5, which still skips the alternative.
+
+## Checks
+
+- [x] `no-ask-for-small-calls` on claude sonnet
+  Passed in round 3, once the note rule moved into the main workflow.
+- [ ] `no-ask-for-small-calls` on codex gpt-5.5
+  Still fails after 3 rounds: notes the pick but never its alternative.
+
+Final batch: <batch id>
 ```
 
 When what came of it is something to see, such as a flow you traced, put a
-D2 diagram of it (see [proposing.md](proposing.md), Showing the change) under
+D2 diagram of it (see [visuals.md](visuals.md), Showing the change) under
 the colon line, as a fenced `d2` block, as a before and after when it changed
 anything.
 
@@ -143,8 +170,9 @@ Reply "merge", or say what to change.
 What you may not do yourself, you ask the user to allow with a permission
 card: `## 🔐 Permission: queue lane <n>: <name>`, `## 🔐 Permission: queue
 #<n>, #<n>: <what>` or `## 🔐 Permission: remove lane <n>: <name>`, then the
-command that does it in a code span on its own line, and a line or two on
-what it comes to. The page lists the tasks it queues or removes and gives the
+command that does it in a code span on its own line, for a queue card a
+`Why not auto-queued:` line (see [queue.md](queue.md), Asking the user to queue),
+and a line or two on what it comes to. The page lists the tasks it queues or removes and gives the
 user Now. The queue card ends your reply with work you added (see
 [queue.md](queue.md), Asking the user to queue), after any report, a merge or
 remove report too. Removing a lane takes its tasks with it, kept to restore,
@@ -158,89 +186,62 @@ margin, outside code blocks, wherever you ask it, even a lone one as
 Each item's line ends at its `?`, as under `## Blocked`, its body and choices
 indented under it.
 
-## Readouts
+## Run-command permission card
 
-A report on something that is not a task's end (a check's results, an audit, a
-survey, a comparison) is an ordinary markdown reply: a headline sentence, then
-what helps. It has no card title, and the `splates server` page draws no
-readout in it: a fenced readout there shows as a raw code block. Readouts
-render only in the prose body of a Merged, Done, Removed, Blocked or Permission
-card (Review and Questions cards do not), where they are read-only: they
-display data and take no action. Use none, some or all of them. The example
-shows a Done card carrying them:
+Before a heavy command when `splates machine` says the machine is busy, or
+before any costly, risky, irreversible, or invasive command (however the
+machine is), ask with a run-command permission card: the exact command alone on
+a backticked line, then `Reason: busy`, `Reason: cost`, or `Reason: risk` on
+its own line (`busy` only when machine load is the sole reason; the server may
+auto-allow `Reason: busy` once idle), and under it why you ask and what it adds. For `splates retry <task>` after `budget_exhausted`, omit `Reason:` and use `- ` bullets on what each attempt failed on and what will get it through (see [merge.md](merge.md)). End your turn and run it only on `[SPLATES RUN ALLOWED]` (or plain-text approval).
+
+```markdown
+## 🔐 Permission: run command: build the web app
+
+`bun run build`
+
+Reason: busy
+
+Asking because the machine is busy (CPU 93%); this adds about two minutes of load.
+```
+
+## Steps card
+
+Whenever you ask the user to carry out a sequence of manual actions (click-by-click
+instructions in any app or console, fetching a key, changing settings, even a
+short sequence), use a Steps card, never prose or a bare numbered list:
+`## 📋 Steps: <what it gets done>`, an optional line on why, then one numbered
+step per line with detail and commands indented under it. Keep the list flat
+(never nest sub-steps). Steps end in no `?`; put any question after the card as
+its own numbered list.
+
+The page lets the user check steps off and pop the card out beside another tab,
+so give every step in one card. A pop-out message opens with
+`(From the steps pop-out, on step <n> of <m> of "<title>": <the step>)`: answer
+briefly about that step. Pressing Done sends
+`(Done with the steps "<title>": <k> of <m> checked off)`: verify what you can
+and carry on, without depending on or waiting for it. When a step is wrong or
+missing, resend the entire card under the same title with already-checked steps
+left word for word so their checkmarks stay intact:
 
 ````markdown
-## ✅ Done: test health checked, one test needs a fix
+## 📋 Steps: Rotate the Stripe webhook secret
 
-Pass rate dipped to 98.9%. One test has failed every run since Friday; two others are flaky.
+The secret is rolled in Stripe's dashboard, which only you can reach.
 
-```stats
-Pass rate: 98.9% (-0.7 pts ❌)
-Failing: 1 (+1 ❌)
-Flaky: 2
-Suite time: 4m 12s (-8s ✅)
-```
-
-> ❌ **vexml/render.test.ts** broke in `a1b2c3`; it needs a fix task.
-
-```chart line: Pass rate, last 14 days
-| Day | Rate |
-| --- | --- |
-| Nov 15 | 99.5 |
-| Nov 16 | 98.9 |
-```
-
-```progress
-✅ Pass: 1204
-⚠️ Flaky: 2
-❌ Fail: 1
-```
-
-| | Test | Detail |
-| --- | --- | --- |
-| ❌ | `vexml/render.test.ts` | Failing since a1b2c3, 4 of 4 runs |
-| ⚠️ | `net/sync.test.ts` | Flaky, 2 of 10 runs |
-
-```steps
-✅ Ran the suite 10 times · 41m
-❌ Bisected render.test.ts · a1b2c3
-```
-
-```gallery
-![Failing render](/abs/path/failing.png)
-![Expected render](/abs/path/expected.png)
-```
-
-```d2
-client -> server: request
-server -> db: query
-```
-
-### Details
-
-Logs and longer evidence, folded on the page.
+1. Open Stripe → Developers → Webhooks.
+2. Pick the `net-prod` endpoint and press **Roll secret**.
+3. Store the new secret as a cred:
+   ```
+   splates creds set STRIPE_WEBHOOK_SECRET
+   ```
 ````
 
-- **Headline**: the first paragraph, one or two sentences with the finding.
-- **`stats`**: one `Label: value` a line, an optional change in parentheses;
-  an icon ending the change (✅ good, ⚠️ worse, ❌ bad) colors it.
-- **Callout**: a quote that opens with ✅, ⚠️, ❌ or ℹ️.
-- **`chart line|bar|stacked: <title>`**: its body is a markdown table, the
-  first column the labels and each other column a series (a bar chart draws
-  the first). Use a line for change over time, a bar to compare, stacked for
-  parts of each. One chart carries one measure; split different scales into
-  charts.
-- **`progress`**: `Label: count` lines as parts of a whole; a leading icon
-  gives a part its status color.
-- **Status table**: a table whose first column is a status icon on every row.
-- **`steps`**: what was done, one a line, an optional ` · note`, an icon for
-  the outcome.
-- **`gallery`**: screenshots in a row, one `![caption](/abs/path.png)` a
-  line, paths as `splates attach` prints them; a click enlarges one.
-- **`d2`**: a D2 diagram in a fence tagged exactly `d2` (untagged never renders), drawn as SVG on the page with no `d2` binary
-  needed; invalid source shows as a code block.
-- **`### Details`**: everything after it is folded; put logs and long
-  evidence there, not in the headline.
+## Ordinary reports
 
-Leave out a readout that adds nothing: a table of three rows needs no chart.
-An unknown fence stays a code block. 
+A report on something that is not a task's end (a check's results, an audit, a
+survey, a comparison) is an ordinary markdown reply with no card title: a
+headline sentence with the finding, then what helps. Card bodies are plain
+markdown too: tables, quotes and fences draw as written, except a fence tagged
+exactly `d2` (untagged never renders), which the page draws as a diagram with
+no `d2` binary needed; invalid source shows as a code block.

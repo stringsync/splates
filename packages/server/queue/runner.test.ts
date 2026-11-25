@@ -110,8 +110,6 @@ describe("QueueRunner", () => {
 			{
 				why: "Needs the client.",
 				blockedBy: [blocker.id],
-				questions: [],
-				outside: [],
 			},
 			{ task: "alpha", conversation: "talk" },
 		);

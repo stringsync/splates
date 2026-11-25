@@ -1,4 +1,3 @@
-import { age } from "@splates/server/age";
 import type { TaskRecord } from "@splates/server/board";
 import { BACKLOG_LANE, blockerLabel } from "@splates/server/board/browser";
 import { useReactive } from "core/react";
@@ -36,7 +35,6 @@ import { Refusal, useRefusal } from "./refusal";
 import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 import { planParts } from "./task-plan-parts";
-import { Section, SectionTab, SectionTabs } from "./task-sections";
 import { TodoEditor } from "./todo-editor";
 import { StageChip, shownStage, stageLabel } from "./todo-queue";
 
@@ -68,7 +66,6 @@ export function Edit({
 		}),
 		["changed"],
 	);
-	const [tab, setTab] = useState("overview");
 	// Its step in its lane says more than its place in the whole list. One in
 	// Backlog is in no sequence, so it says only that.
 	const steps = board.todos.filter((other) => other.lane === todo.lane);
@@ -79,7 +76,7 @@ export function Edit({
 			: lane.id === BACKLOG_LANE
 				? "In Backlog"
 				: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;
-	const mentions = useMentions<HTMLInputElement>(editor.subject);
+	const mentions = useMentions<HTMLTextAreaElement>(editor.subject);
 
 	const { refusal, refuse } = useRefusal();
 	const expect = useExpectSnapshot();
@@ -100,89 +97,84 @@ export function Edit({
 	return (
 		<>
 			<DialogHeader className="gap-1.5">
-				<DialogTitle className="flex items-center gap-2 pr-8">
-					<TaskIcon aria-hidden className="size-4 shrink-0" />
+				<DialogTitle className="flex items-start gap-2 pr-8">
+					<TaskIcon aria-hidden className="mt-1 size-4 shrink-0" />
 					<span className="sr-only">Task {todo.id}:</span>
 					<span className="min-w-0 flex-1">
 						<MentionAnchor mentions={mentions}>
-							<input
+							{/* Grows to show the whole subject, which stays one line: Enter
+							    picks a mention or does nothing. */}
+							<textarea
 								ref={mentions.ref}
 								aria-label="subject"
+								rows={1}
 								value={mentions.value}
-								onChange={mentions.onChange}
+								onChange={(event) => {
+									// A pasted line break would split the subject; it reads as a space.
+									event.target.value = event.target.value.replace(
+										/\r?\n/g,
+										" ",
+									);
+									mentions.onChange(event);
+								}}
 								onSelect={mentions.onSelect}
 								onClick={mentions.onClick}
-								onKeyDown={mentions.onKeyDown}
+								onKeyDown={(event) => {
+									if (!mentions.onKeyDown(event) && event.key === "Enter") {
+										event.preventDefault();
+									}
+								}}
 								onPaste={(event) => editor.files.paste(event)}
-								className="-mx-1.5 w-[calc(100%+0.75rem)] rounded-md bg-transparent px-1.5 py-0.5 font-[inherit] outline-none transition-colors hover:bg-muted/50 focus-visible:bg-transparent focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:h-10"
+								className="-mx-1.5 field-sizing-content block w-[calc(100%+0.75rem)] resize-none rounded-md bg-transparent px-1.5 py-0.5 font-[inherit] leading-snug wrap-anywhere outline-none transition-colors hover:bg-muted/50 focus-visible:bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
 							/>
 						</MentionAnchor>
 					</span>
 				</DialogTitle>
-				<div className="flex min-w-0 items-baseline gap-2">
+				<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<StageChip stage={stage}>
 						{stageLabel(todo, board.todos, board.tasks)}
 					</StageChip>
-					<DialogDescription className="min-w-0 text-foreground text-sm">
-						{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
-					</DialogDescription>
-				</div>
-				<p className="flex min-w-0 flex-wrap items-center gap-x-1 text-muted-foreground text-xs tabular-nums">
-					<CopyLink id={todo.id} />
-					<span>
-						{todo.slug !== undefined && ` · ${todo.slug}`}
-						{" · "}
-						added {age(todo.createdAt)} ago
-						{todo.files.length > 0 &&
-							` · ${todo.files.length} file${todo.files.length === 1 ? "" : "s"}`}
+					<span className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+						<CopyLink id={todo.id} />
+						<span aria-hidden>·</span>
+						<DialogDescription className="min-w-0 text-muted-foreground text-xs">
+							{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
+						</DialogDescription>
 					</span>
-				</p>
+				</div>
 			</DialogHeader>
-			<SectionTabs
-				value={tab}
-				onValueChange={setTab}
-				tabs={
-					<>
-						<SectionTab value="overview">Overview</SectionTab>
-						<SectionTab value="details">Details</SectionTab>
-					</>
-				}
-			>
-				<Section value="overview" keepMounted>
-					<div className="flex min-w-0 flex-col gap-3">
-						{restored && (
-							<p className="flex items-center gap-2 text-muted-foreground text-xs">
-								Unsaved changes kept from before
-								<Button
-									size="xs"
-									variant="ghost"
-									onClick={() => editor.discard()}
-									className="pointer-coarse:h-10 pointer-coarse:px-3"
-								>
-									Discard
-								</Button>
-							</p>
-						)}
-						{/* An agent at work, or the conversation held for it once queued. */}
-						{todo.takenBy !== null ? (
-							<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
-						) : (
-							todo.stage === "queued" && (
-								<OnIt
-									task={null}
-									queued={todo.id}
-									variant="rows"
-									className="-mx-2"
-								/>
-							)
-						)}
-						{stage === "blocked" && <BlockedPart todo={todo} />}
-						<Detail editor={editor} />
-						<FileList files={editor.files} />
-						<Dropped names={dropped} />
-					</div>
-				</Section>
-				<Section value="details">
+			<div className="-mx-4 flex min-h-0 flex-col gap-3 overflow-y-auto px-4 pb-1">
+				{restored && (
+					<p className="flex items-center gap-2 text-muted-foreground text-xs">
+						Unsaved changes kept from before
+						<Button
+							size="xs"
+							variant="ghost"
+							onClick={() => editor.discard()}
+							className="pointer-coarse:h-10 pointer-coarse:px-3"
+						>
+							Discard
+						</Button>
+					</p>
+				)}
+				{/* An agent at work, or the conversation held for it once queued. */}
+				{todo.takenBy !== null ? (
+					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
+				) : (
+					todo.stage === "queued" && (
+						<OnIt
+							task={null}
+							queued={todo.id}
+							variant="rows"
+							className="-mx-2"
+						/>
+					)
+				)}
+				{stage === "blocked" && <BlockedPart todo={todo} />}
+				<Detail editor={editor} />
+				<FileList files={editor.files} />
+				<Dropped names={dropped} />
+				<div className="border-t pt-3">
 					<Links todo={todo}>
 						{todo.takenBy === null && (
 							<Property title="Agent">
@@ -200,8 +192,8 @@ export function Edit({
 						)}
 					</Links>
 					<Refusal refusal={refusal} />
-				</Section>
-			</SectionTabs>
+				</div>
+			</div>
 			{confirming && heldBack.length > 0 && (
 				<p className="text-muted-foreground text-sm">
 					Removing this holds{" "}

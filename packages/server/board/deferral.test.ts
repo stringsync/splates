@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { blockersEnded } from "../queue/order";
+import { blockersEnded, resumesItself } from "../queue/order";
 import { Testing } from "../testing";
 import { openBlockers } from "./blocker-gate";
 import { cleared, deferralBlockers, deferralProblem } from "./deferral";
 
 describe("deferral", () => {
-	it("follows each blocker it named, keeping those that cleared", async () => {
+	it("follows each blocker it named, keeping those that cleared, and an older deferral's notes as never blocking", async () => {
 		await using deps = await Testing.open();
 		const merges = await deps.tasks.add("Build the upload client", null);
 		const waits = await deps.tasks.add("Sign the uploads", null);
@@ -14,10 +14,25 @@ describe("deferral", () => {
 			{
 				why: "The fix needs the new client.",
 				blockedBy: [merges.id, waits.id],
-				questions: ["Keep the retry for old clients?"],
-				outside: ["an upstream release"],
 			},
-			{ task: "alpha" },
+			{ task: "alpha", conversation: "talk" },
+		);
+		expect((await deps.tasks.find(deferred.id)).state.deferred).toMatchObject({
+			questions: [],
+			outside: [],
+		});
+		// As a deferral recorded before only tasks could block one.
+		await deps.tasks.revise(deferred.id, (state) =>
+			state.deferred === undefined
+				? state
+				: {
+						...state,
+						deferred: {
+							...state.deferred,
+							questions: [{ text: "Keep the retry for old clients?" }],
+							outside: [{ what: "an upstream release" }],
+						},
+					},
 		);
 		await (await deps.tasks.find(merges.id)).remove("abc123");
 		const blockers = () =>
@@ -50,21 +65,19 @@ describe("deferral", () => {
 		]);
 
 		await (await deps.tasks.find(waits.id)).take("beta");
-		await (await deps.tasks.find(deferred.id)).answer(0, "Yes, one release.");
-		await (await deps.tasks.find(deferred.id)).outsideDone(0);
 
 		expect((await blockers()).map(({ status }) => status)).toEqual([
 			"merged",
 			"working",
-			"answered",
-			"done",
+			"open",
+			"open",
 		]);
 		expect((await blockers()).map(cleared)).toEqual([true, false, true, true]);
-		expect((await deps.tasks.find(deferred.id)).text).toContain(
-			"Yes, one release.",
-		);
-		expect((await deps.tasks.find(deferred.id)).outsideDone(1)).rejects.toThrow(
-			"no deferred outside blocker 2",
+
+		await (await deps.tasks.find(waits.id)).remove("def456");
+		const all = (await deps.tasks.all()).map(({ state }) => state);
+		expect(resumesItself((await deps.tasks.find(deferred.id)).state, all)).toBe(
+			true,
 		);
 	});
 
@@ -78,7 +91,7 @@ describe("deferral", () => {
 	it("asks for a why and a blocker, and is content with both", () => {
 		expect(deferralProblem({})).toContain("--why");
 		expect(deferralProblem({ why: "x" })).toContain("--blocked-by");
-		expect(deferralProblem({ why: "x", questions: ["Which?"] })).toBeNull();
+		expect(deferralProblem({ why: "x", blockedBy: [1] })).toBeNull();
 	});
 
 	it("links a taken task to a blocker, owing its conversation a notice once the blocker merged", async () => {

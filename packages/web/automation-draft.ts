@@ -27,6 +27,8 @@ export interface DraftFields {
 	/** The agent an agent hook runs as; null for Auto pick. */
 	pick: AgentPick | null;
 	prompt: string;
+	/** Pre-approved eval budget in dollars per firing, or "" for none. */
+	evalBudget: string;
 	command: string;
 }
 
@@ -50,6 +52,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 		kind: "agent",
 		pick: null,
 		prompt: "",
+		evalBudget: "",
 		command: "",
 	};
 
@@ -78,9 +81,10 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			fields.kind = "run";
 			fields.command = hook.command;
 		} else if (hook.kind === "agent") {
-			const { kind, prompt, agent, ...rest } = hook;
+			const { kind, prompt, agent, evalBudget, ...rest } = hook;
 			fields.kind = kind;
 			fields.prompt = prompt;
+			fields.evalBudget = evalBudget === undefined ? "" : String(evalBudget);
 			// No agent named runs on Auto pick.
 			fields.pick = agent === undefined ? null : { agent, ...rest };
 		}
@@ -106,6 +110,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			kind,
 			pick,
 			prompt,
+			evalBudget,
 			command,
 		} = this.fields;
 		const filter = {
@@ -123,10 +128,19 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 					: when === "every"
 						? { every: schedule }
 						: { cron: schedule };
+		const budgetText = evalBudget.trim().replace(/^\$/, "");
+		let budgetField: { evalBudget?: number } = {};
+		if (kind === "agent" && budgetText !== "") {
+			const usd = Number(budgetText);
+			if (!Number.isFinite(usd) || usd <= 0) {
+				throw new Error("Eval budget must be a dollar amount above 0");
+			}
+			budgetField = { evalBudget: Math.round(usd * 100) / 100 };
+		}
 		const hook: Hook =
 			kind === "run"
 				? { kind, command }
-				: { kind: "agent", prompt, ...(pick ?? {}) };
+				: { kind: "agent", prompt, ...(pick ?? {}), ...budgetField };
 		return { trigger, hook, name: name.trim() };
 	}
 
@@ -136,6 +150,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			...this.fields,
 			name: "",
 			prompt: "",
+			evalBudget: "",
 			command: "",
 			schedule: "",
 		};

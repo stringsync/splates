@@ -13,7 +13,6 @@ import {
 } from "@splates/server/board";
 import { commaList } from "@splates/server/comma-list";
 import { pickScope } from "@splates/server/config";
-import { refuseGroomer } from "@splates/server/conversations";
 import { fail } from "@splates/server/exit";
 import { OpenBoards, repository } from "@splates/server/records";
 import type { SplatesDeps } from "@splates/server/server";
@@ -198,7 +197,7 @@ function adding(name: string, description: string, groomed: boolean) {
 
 adding(
 	"add",
-	"queue a task to do later and move on, groomed by you: you checked no task already asks it, and linked what blocks it. Without --lane it lands in Backlog, where the groomer places it; run from a worktree, it records the task it came up in",
+	"queue a task to do later and move on, groomed by you: you checked no task already asks it, and linked what blocks it. Without --lane it lands in Backlog, where a grooming automation or the agent that starts it places it; run from a worktree, it records the task it came up in",
 	true,
 );
 
@@ -323,11 +322,6 @@ splatesTask
 			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
 	})
 	.action(async (opts, ctx) => {
-		await refuseGroomer(
-			ctx.service,
-			"task update",
-			await ctx.tasks.find(opts.id),
-		);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
 		sinceNeedsSignal(opts["closes-on"], opts.since);
 		using boards = new OpenBoards(ctx, ctx.projects);
@@ -372,11 +366,6 @@ splatesTask
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "task number" })
 	.action(async (opts, ctx) => {
-		await refuseGroomer(
-			ctx.service,
-			"task remove",
-			await ctx.tasks.find(opts.id),
-		);
 		await ctx.journal.record(
 			"task remove",
 			null,

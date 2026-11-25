@@ -132,3 +132,57 @@ it("draws a fenced d2 block in an assistant message as a diagram, not a code blo
 	);
 	expect(view.container.querySelectorAll("pre.aui-md-pre")).toHaveLength(1);
 });
+
+it("draws a table in a message with the shadcn table components", async () => {
+	const Text: TextMessagePartComponent = (props) => (
+		<MarkdownText {...props} typed={(text) => text} />
+	);
+	const components = {
+		AssistantMessage: () => <MessagePrimitive.Parts components={{ Text }} />,
+	};
+	function View() {
+		const runtime = useExternalStoreRuntime({
+			messages: [
+				{
+					id: "table",
+					role: "assistant",
+					content: [
+						{ type: "text", text: "| a | b |\n| - | - |\n| 1 | 2 |\n" },
+					],
+				},
+			],
+			isRunning: false,
+			convertMessage: (message: ThreadMessageLike) => message,
+			onNew: async () => {},
+		});
+		return (
+			<AssistantRuntimeProvider runtime={runtime}>
+				<Thread components={components} autoFocus={false} />
+			</AssistantRuntimeProvider>
+		);
+	}
+	const { container } = render(<View />);
+	await waitFor(() =>
+		expect(container.querySelector("td")?.textContent).toBe("1"),
+	);
+
+	expect(
+		new Set(
+			[...container.querySelectorAll("table [data-slot], table")]
+				.concat([
+					...container.querySelectorAll('[data-slot="table-container"]'),
+				])
+				.map((each) => each.getAttribute("data-slot")),
+		),
+	).toEqual(
+		new Set([
+			"table",
+			"table-container",
+			"table-header",
+			"table-body",
+			"table-row",
+			"table-head",
+			"table-cell",
+		]),
+	);
+});

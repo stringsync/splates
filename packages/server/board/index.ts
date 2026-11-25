@@ -93,5 +93,6 @@ export {
 export { addedFacts, taskAdd, taskRemove, taskUpdate } from "./task-edit";
 export { decodeTask, encodeTask, TASK_FILE } from "./task-file";
 export { recordUpdate } from "./task-journal";
+export { boardOfLane } from "./task-lanes";
 export { taskList, taskShow } from "./task-list";
 export { Tasks } from "./tasks";

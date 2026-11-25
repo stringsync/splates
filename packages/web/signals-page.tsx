@@ -2,7 +2,9 @@ import { PlusIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { cleanUpSignals } from "./api/signals";
 import type { RunOpens } from "./automation-face";
+import { HiddenSignals } from "./hidden-signals";
 import { RouteTrail } from "./route-trail";
 import { checkFormOf, SignalCheckForm } from "./signal-check-form";
 import { SignalDetail } from "./signal-detail";
@@ -24,7 +26,8 @@ export function SignalsPage({
 	/** Opens the task a subscription's run was for. */
 	opens: RunOpens;
 }): JSX.Element {
-	const { signals, read } = useSignals();
+	const { signals, hidden, read } = useSignals();
+	const [cleaned, setCleaned] = useState<number | null>(null);
 	const at = useSignalsAddress();
 	const [subscriptions, setSubscriptions] = useState<number | null>(null);
 	if (at.check !== null) {
@@ -43,6 +46,20 @@ export function SignalsPage({
 		);
 	}
 	const chosen = signals.find((each) => each.name === at.signal);
+	const cleanUp = (
+		<Button
+			size="sm"
+			variant="outline"
+			className="h-11 sm:h-9"
+			onClick={() => {
+				void cleanUpSignals()
+					.then((names) => setCleaned(names.length))
+					.then(read);
+			}}
+		>
+			Clean up idle
+		</Button>
+	);
 	const newPollScript = (
 		<Button
 			size="sm"
@@ -70,6 +87,25 @@ export function SignalsPage({
 					)}
 				</TabLink>
 			</nav>
+		) : null;
+	const toolbar = (
+		<>
+			{cleanUp}
+			{newPollScript}
+		</>
+	);
+	const hiddenList =
+		at.signal === null && !at.subscriptions ? (
+			<>
+				{cleaned !== null && (
+					<p role="status" className="text-muted-foreground text-sm">
+						{cleaned === 0
+							? "Nothing was idle."
+							: `Hid ${cleaned} idle ${cleaned === 1 ? "signal" : "signals"}.`}
+					</p>
+				)}
+				<HiddenSignals hidden={hidden} onRevived={read} />
+			</>
 		) : null;
 	return (
 		<section aria-label="signals" className="flex min-w-0 flex-col gap-6">
@@ -112,7 +148,7 @@ export function SignalsPage({
 				)
 			) : signals.length === 0 ? (
 				<div className="flex flex-col items-start gap-3">
-					{newPollScript}
+					{toolbar}
 					<p className="text-muted-foreground text-sm">
 						Nothing has been raised, checked or waited on in the last 7 days.
 					</p>
@@ -121,9 +157,10 @@ export function SignalsPage({
 				<SignalIndex
 					signals={signals}
 					address={signalAddress}
-					actions={newPollScript}
+					actions={toolbar}
 				/>
 			)}
+			{hiddenList}
 		</section>
 	);
 }

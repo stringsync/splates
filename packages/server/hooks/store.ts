@@ -12,7 +12,6 @@ import {
 } from "../signals/call";
 import type { Document, Storage } from "../storage";
 import { TASK_EVENTS, type TaskEventName } from "./events";
-import { GROOMER_AUTOMATION, GROOMER_TRIGGER } from "./groomer";
 import { runsNow } from "./now";
 import { scheduleOf } from "./schedule";
 
@@ -22,10 +21,13 @@ import { scheduleOf } from "./schedule";
  * the agent, model and effort for each run from what it is told.
  */
 export type Hook =
-	| ({ kind: "agent"; prompt: string } & Partial<AgentPick>)
-	| { kind: "run"; command: string }
-	/** The project's groomer, told to groom ungroomed Backlog tasks, as built-in automation `groomer` runs. */
-	| ({ kind: "groom" } & AgentPick);
+	| ({
+			kind: "agent";
+			prompt: string;
+			/** Pre-approved eval budget in dollars for each firing, with no carryover. */
+			evalBudget?: number;
+	  } & Partial<AgentPick>)
+	| { kind: "run"; command: string };
 
 /** Which tasks an event hook fires for; a field left out matches any. */
 export interface TaskFilter {
@@ -57,7 +59,7 @@ export type Trigger =
 export interface Automation {
 	/** Its number among the person's, or a name for one splates or the project sets. */
 	id: string;
-	/** What the person calls it; the built-in groomer has none. */
+	/** What the person calls it. */
 	name?: string;
 	trigger: Trigger;
 	hook: Hook;
@@ -75,8 +77,8 @@ export interface Automation {
 	editedAt?: string;
 	/** When the person last asked it to run at once, which `splates server` runs it for once. */
 	requestedAt?: string;
-	/** Where it comes from: the person, by default; the project's config, or splates itself. */
-	source?: "config" | "builtin";
+	/** Where it comes from: the person, by default, or the project's config. */
+	source?: "config";
 }
 
 /**
@@ -110,17 +112,12 @@ export class HookStore {
 		}
 		if ("automations" in parsed && Array.isArray(parsed.automations)) {
 			// Retired notes automations remain harmless in old project records.
-			return (parsed.automations as Automation[])
-				.filter(
-					(each) =>
-						!["notes-gardener", "notes-audit"].includes(each.id) &&
-						(each.hook as { kind: string }).kind !== "garden",
-				)
-				.map((each) =>
-					each.source === "builtin" && each.id === GROOMER_AUTOMATION
-						? { ...each, trigger: GROOMER_TRIGGER }
-						: each,
-				);
+			const kept = (parsed.automations as Automation[]).filter(
+				(each) =>
+					!["notes-gardener", "notes-audit"].includes(each.id) &&
+					(each.hook as { kind: string }).kind !== "garden",
+			);
+			return withoutBuiltIns(kept);
 		}
 		return fromHooks(parsed as Hooks);
 	}
@@ -128,6 +125,7 @@ export class HookStore {
 	/** Adds an automation of `hook` on `trigger`, numbered after the others. */
 	async add(given: Trigger, hook: Hook, name?: string): Promise<Automation> {
 		const trigger = checked(given, this.#functions());
+		const checkedHook = normalizedHook(hook);
 		const createdAt = new Date().toISOString();
 		let added: Automation | undefined;
 		await this.change((automations) => {
@@ -137,7 +135,7 @@ export class HookStore {
 				...named(name),
 				trigger,
 				...this.#familyOf(trigger),
-				hook,
+				hook: checkedHook,
 				createdAt,
 			};
 			return [...automations, added];
@@ -153,12 +151,9 @@ export class HookStore {
 		const event = (TASK_EVENTS as readonly string[]).includes(id);
 		let gone: Automation[] = [];
 		await this.change((automations) => {
-			// The groomer goes only by its own name, never with its event's.
 			gone = automations.filter((each) =>
 				event
-					? "event" in each.trigger &&
-						each.trigger.event === id &&
-						each.source !== "builtin"
+					? "event" in each.trigger && each.trigger.event === id
 					: each.id === id,
 			);
 			return automations.filter((each) => !gone.includes(each));
@@ -169,32 +164,6 @@ export class HookStore {
 			});
 		}
 		return gone;
-	}
-
-	/**
-	 * Turns the groomer on, running as `pick`, or off for null: built-in
-	 * automation `groomer`, which keeps its pause through a change of pick.
-	 * Its trigger and what it is told are splates's own.
-	 */
-	async groomer(pick: AgentPick | null): Promise<Automation | null> {
-		let set: Automation | null = null;
-		await this.change((automations) => {
-			const was = automations.find(({ id }) => id === GROOMER_AUTOMATION);
-			const rest = automations.filter((each) => each !== was);
-			if (pick === null) {
-				return rest;
-			}
-			set = {
-				id: GROOMER_AUTOMATION,
-				trigger: GROOMER_TRIGGER,
-				hook: { kind: "groom", ...pick },
-				createdAt: was?.createdAt ?? new Date().toISOString(),
-				source: "builtin",
-				...(was?.paused === true ? { paused: true } : {}),
-			};
-			return [...rest, set];
-		});
-		return set;
 	}
 
 	/**
@@ -210,6 +179,7 @@ export class HookStore {
 		name?: string,
 	): Promise<Automation> {
 		const trigger = checked(given, this.#functions());
+		const checkedHook = normalizedHook(hook);
 		let found: Automation | undefined;
 		await this.change((automations) =>
 			automations.map((each) => {
@@ -233,7 +203,7 @@ export class HookStore {
 					...named(name),
 					trigger,
 					...this.#familyOf(trigger),
-					hook,
+					hook: checkedHook,
 					...(retriggered ? { editedAt: new Date().toISOString() } : {}),
 				};
 				return found;
@@ -425,13 +395,49 @@ export function invokesNamed(text: string): number {
 	return count;
 }
 
-/** `text` as lane numbers, comma separated, refusing what is none. */
+/** `text` as lane numbers, comma separated, Backlog being 0, refusing what is none. */
 export function lanesNamed(text: string): number[] {
 	const lanes = commaList(text).map(Number);
-	if (lanes.some((lane) => !Number.isInteger(lane) || lane <= 0)) {
+	if (lanes.some((lane) => !Number.isInteger(lane) || lane < 0)) {
 		fail("usage", `'${text}' is no list of lane numbers`, { lane: text });
 	}
 	return lanes;
+}
+
+/** The most one automation firing may pre-approve, in dollars. */
+const MOST_EVAL_BUDGET = 100_000;
+
+/** `text` as a positive dollar eval budget, rounded to cents, refusing what is none. */
+export function evalBudgetNamed(text: string): number {
+	const cleaned = text.trim().replace(/^\$/, "");
+	const amount = Number(cleaned);
+	if (
+		cleaned === "" ||
+		!Number.isFinite(amount) ||
+		amount <= 0 ||
+		amount > MOST_EVAL_BUDGET
+	) {
+		fail("usage", `'${text}' is no eval budget: give a dollar amount above 0`, {
+			evalBudget: text,
+		});
+	}
+	return Math.round(amount * 100) / 100;
+}
+
+/** Validates and normalizes `hook`'s eval budget when set. */
+function normalizedHook(hook: Hook): Hook {
+	if (hook.kind !== "agent" || hook.evalBudget === undefined) {
+		return hook;
+	}
+	const amount = hook.evalBudget;
+	if (!Number.isFinite(amount) || amount <= 0 || amount > MOST_EVAL_BUDGET) {
+		fail(
+			"usage",
+			`'${amount}' is no eval budget: give a dollar amount above 0`,
+			{ evalBudget: amount },
+		);
+	}
+	return { ...hook, evalBudget: Math.round(amount * 100) / 100 };
 }
 
 /** Refuses `trigger` when its event is none or its schedule will not read. */
@@ -462,4 +468,47 @@ function checked(trigger: Trigger, functions: SignalFunctions): Trigger {
 		scheduleOf(trigger);
 	}
 	return trigger;
+}
+
+/** What a converted groomer is told, on each task added. */
+export const GROOM_PROMPT =
+	"Groom the task that was just added, as the splates skill's groom reference says for a task added to Backlog: organize it and place it in a lane, never do it.";
+
+/**
+ * Splates once ran the groomer as a built-in automation, and others. A groomer kept in an old
+ * record becomes a regular agent automation on a task added, numbered after
+ * the others, keeping its agent, its pause and when it was set; any other built-in is dropped.
+ */
+function withoutBuiltIns(automations: Automation[]): Automation[] {
+	let last = Math.max(0, ...automations.map(({ id }) => Number(id) || 0));
+	return automations.flatMap((each) => {
+		const old = each as unknown as Record<string, unknown> & {
+			source?: string;
+			hook: { kind: string } & Partial<AgentPick>;
+		};
+		if (old.source !== "builtin") {
+			return [each];
+		}
+		if (old.hook.kind !== "groom") {
+			return [];
+		}
+		last += 1;
+		const { agent, model, effort } = old.hook;
+		const { source: _, ...rest } = old;
+		return [
+			{
+				...rest,
+				id: String(last),
+				name: "Groom",
+				trigger: { event: "task.created" },
+				hook: {
+					kind: "agent",
+					prompt: GROOM_PROMPT,
+					...(agent === undefined ? {} : { agent }),
+					...(model === undefined ? {} : { model }),
+					...(effort === undefined ? {} : { effort }),
+				},
+			} as Automation,
+		];
+	});
 }

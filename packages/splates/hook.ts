@@ -1,11 +1,11 @@
 import { commaList } from "@splates/server/comma-list";
 import { fail } from "@splates/server/exit";
 import {
+	evalBudgetNamed,
 	type Hook,
 	HookStore,
 	hookAdd,
 	hookEdit,
-	hookGroomer,
 	hookList,
 	hookPause,
 	hookRemove,
@@ -56,7 +56,8 @@ splatesHook
 	})
 	.option("lane", z.string(), {
 		default: "",
-		description: "only for tasks in these lanes, by number, comma separated",
+		description:
+			"only for tasks in these lanes, by number, comma separated, Backlog being 0",
 	})
 	.option("invokes", z.string(), {
 		default: "",
@@ -94,15 +95,26 @@ splatesHook
 		default: "",
 		description: "what the agent is told after the event",
 	})
+	.option("eval-budget", z.string(), {
+		default: "",
+		description:
+			"pre-approved eval budget in dollars for each firing, nothing carries over (agent hooks only)",
+	})
 	.option("run", z.string(), {
 		default: "",
 		description: "a shell command to run",
 	})
 	.action(async (opts, ctx) => {
 		const pick = await hookPickIn(ctx, opts);
+		const evalBudget = opts["eval-budget"];
 		let hook: Hook;
 		if (opts.run !== "") {
-			if (pick != null || opts.agent !== "" || opts.prompt !== "") {
+			if (
+				pick != null ||
+				opts.agent !== "" ||
+				opts.prompt !== "" ||
+				evalBudget !== ""
+			) {
 				fail("usage", "--run goes alone: a shell command runs no agent", {});
 			}
 			hook = { kind: "run", command: opts.run };
@@ -113,7 +125,14 @@ splatesHook
 				{},
 			);
 		} else {
-			hook = { kind: "agent", prompt: opts.prompt, ...(pick ?? {}) };
+			hook = {
+				kind: "agent",
+				prompt: opts.prompt,
+				...(pick ?? {}),
+				...(evalBudget === ""
+					? {}
+					: { evalBudget: evalBudgetNamed(evalBudget) }),
+			};
 		}
 		await hookAdd({ hooks: storeOf(ctx), log: ctx.log }, triggerOf(opts), hook);
 	});
@@ -122,7 +141,7 @@ splatesHook
 	.command("edit")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"change one of your automations, by its number in `splates hook list`, keeping its number, its pause and its last runs. Each flag changes only what it names, as `splates hook add` takes it: `--event`, `--every` or `--cron` sets what sets it off anew, `--stage` or `--lane` alone narrows its event again (`any` for no narrowing), `--prompt` or `--agent` changes what an agent is told or which agent, and `--run` makes it a shell command. The groomer changes through `splates hook groomer`",
+		"change one of your automations, by its number in `splates hook list`, keeping its number, its pause and its last runs. Each flag changes only what it names, as `splates hook add` takes it: `--event`, `--every` or `--cron` sets what sets it off anew, `--stage` or `--lane` alone narrows its event again (`any` for no narrowing), `--prompt` or `--agent` changes what an agent is told or which agent, and `--run` makes it a shell command.",
 	)
 	.arg("id", z.string(), { description: "its number in `splates hook list`" })
 	.option("event", z.string(), {
@@ -138,7 +157,7 @@ splatesHook
 	.option("lane", z.string(), {
 		default: "",
 		description:
-			"only for tasks in these lanes, by number, comma separated, or `any`",
+			"only for tasks in these lanes, by number, comma separated, Backlog being 0, or `any`",
 	})
 	.option("invokes", z.string(), {
 		default: "",
@@ -171,15 +190,28 @@ splatesHook
 		default: "",
 		description: "what the agent is told after the event",
 	})
+	.option("eval-budget", z.string(), {
+		default: "",
+		description:
+			"pre-approved eval budget in dollars per firing, or `none` to clear (agent hooks only)",
+	})
 	.option("run", z.string(), {
 		default: "",
 		description: "a shell command to run in place of an agent",
 	})
 	.action(async (opts, ctx) => {
-		const { id, agent, model, effort, ...change } = opts;
+		const {
+			id,
+			agent,
+			model,
+			effort,
+			"eval-budget": evalBudget,
+			...change
+		} = opts;
 		const pick = await hookPickIn(ctx, { agent, model, effort });
 		await hookEdit({ hooks: storeOf(ctx), log: ctx.log }, id, {
 			...change,
+			evalBudget,
 			...(pick === undefined ? {} : { pick }),
 		});
 	});
@@ -219,48 +251,14 @@ splatesHook
 	.command("run")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"run an automation now, as the Subscriptions tab's Run now does, its schedule left as it was: one on a schedule or the groomer, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
+		"run an automation now, as the Subscriptions tab's Run now does, its schedule left as it was: one on a schedule, never one on another task event, which needs that event's tasks. `splates server` starts it at once, or as it starts when it is not running, and lists the run as `by hand`; it runs paused too",
 	)
 	.arg("id", z.string(), {
-		description: "its number in `splates hook list`, or `groomer`",
+		description: "its number in `splates hook list`",
 	})
 	.action((opts, ctx) =>
 		hookRun({ hooks: storeOf(ctx), log: ctx.log }, opts.id),
 	);
-
-splatesHook
-	.command("groomer")
-	.use(repository({ needs: "tasks" }))
-	.description(
-		"turn on the project's groomer, built-in automation `groomer`, or set the agent it runs as, as the Subscriptions tab does: on each ungroomed task in Backlog, and ungroomed Backlog tasks as `splates server` starts, a conversation of its own per run, archived as the run ends, organizes each task in order and places it in a lane, never doing it. `--off` turns it off, retiring its conversations",
-	)
-	.option("agent", z.string(), {
-		default: "",
-		description: "the agent it runs as, as `splates agents` names it",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "its model (default: the agent's own)",
-	})
-	.option("effort", z.string(), {
-		default: "",
-		description: "its thinking level (default: the agent's own)",
-	})
-	.option("off", z.boolean(), {
-		default: false,
-		description: "turn it off",
-	})
-	.action(async (opts, ctx) => {
-		const pick = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
-		if (opts.off === (pick != null)) {
-			fail(
-				"usage",
-				"say how it runs with --agent, or turn it off with --off",
-				{},
-			);
-		}
-		await hookGroomer({ hooks: storeOf(ctx), log: ctx.log }, pick ?? null);
-	});
 
 /** What sets the automation `splates hook add` adds off, refusing two triggers or none. */
 function triggerOf(opts: TriggerOptions): Trigger {

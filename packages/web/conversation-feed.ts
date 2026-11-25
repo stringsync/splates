@@ -464,10 +464,31 @@ export class ConversationFeed
 	private release(recorded: ConversationState[]): void {
 		for (const each of recorded) {
 			const sending = this.sending.get(each.id);
-			if (sending === undefined) {
+			const unsent = this.unsent.get(each.id);
+			if (sending === undefined && unsent === undefined) {
 				continue;
 			}
 			const kept = new Set(each.messages.map((message) => message.id));
+			// Given up on, as when its answer timed out or the stream dropped,
+			// while the server kept it after all: sending it again would say it twice.
+			if (unsent !== undefined) {
+				const left = unsent.filter((one) => !kept.has(one.message.id));
+				if (left.length < unsent.length) {
+					unsent
+						.filter((one) => kept.has(one.message.id))
+						.forEach((one) => {
+							forget(one.message);
+						});
+					if (left.length === 0) {
+						this.unsent.delete(each.id);
+					} else {
+						this.unsent.set(each.id, left);
+					}
+				}
+			}
+			if (sending === undefined) {
+				continue;
+			}
 			const left = sending.filter((message) => !kept.has(message.id));
 			sending
 				.filter((message) => kept.has(message.id))

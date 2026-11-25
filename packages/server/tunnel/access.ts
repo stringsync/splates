@@ -90,7 +90,8 @@ export class Access {
 		}
 		const audiences =
 			typeof claims.aud === "string" ? [claims.aud] : claims.aud;
-		if (!audiences.includes(this.config.aud)) {
+		const allowed = [this.config.aud, ...(this.config.extraAuds ?? [])];
+		if (!audiences.some((each) => allowed.includes(each))) {
 			throw new Error("meant for another Access application");
 		}
 		if (claims.exp <= now) {
@@ -163,6 +164,8 @@ export interface AccessConfig {
 	issuer: string;
 	/** The application's AUD tag, which each of its tokens names. */
 	aud: string;
+	/** Additional AUD tags accepted by this verifier (such as the wildcard `*.<zone>` Access app). */
+	extraAuds?: readonly string[];
 }
 
 /**

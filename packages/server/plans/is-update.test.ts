@@ -7,10 +7,9 @@ describe("isUpdate", () => {
 			[
 				"[SPLATES REPORT header]",
 				"[SPLATES IDLE header]",
-				"[SPLATES GROOM #12]",
 				"[SPLATES TODO DONE #12]",
 			].map(isUpdate),
-		).toEqual([true, true, true, true]);
+		).toEqual([true, true, true]);
 	});
 
 	it("takes what the person sends for theirs", () => {

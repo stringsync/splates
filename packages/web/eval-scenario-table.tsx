@@ -8,7 +8,6 @@ import { Duration } from "core/time";
 import { ArrowLeftIcon, PlayIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { evalScenarios, evalStates } from "./api";
 import { promptConversation, startAutoPick } from "./conversation-api";
@@ -16,6 +15,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ReadingNow } from "./countdown";
 import { type EvalAgentsEditor, runAgentsOf } from "./eval-agents";
 import { EvalAgentsView } from "./eval-agents-view";
+import { EvalFileList } from "./eval-file-list";
 import { byNamespace, scenarioPrompt } from "./eval-improve";
 import { useEvalLoops } from "./eval-loops";
 import {
@@ -24,37 +24,58 @@ import {
 	type RunChoice,
 	validRunChoice,
 } from "./eval-plan-preview";
-import { EvalGroupCard } from "./eval-scenario-group-card";
+import { EvalGroupCard, EvalSuite } from "./eval-scenario-group-card";
 import { EvalScenarioRow } from "./eval-scenario-row";
 import {
 	countStates,
+	fileKeyOf,
+	filesOf,
 	filterRows,
-	groupRows,
-	projectsOf,
 	rowsOf,
 	type ScenarioFilter,
-	STATE_LABEL,
+	type ScenarioRow,
 	STATES,
+	suitesOf,
 	summaryOf,
 } from "./eval-scenarios";
+import { FileChip } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 
+/** What a state's filter pill reads, and its colors. */
+const PILL: Record<
+	ScenarioFilter["state"] & string,
+	{ label: string; tone: string }
+> = {
+	failing: { label: "failing", tone: "bg-destructive/15 text-destructive" },
+	"needs-runs": {
+		label: "need runs",
+		tone: "bg-warning/15 text-warning",
+	},
+	"never-run": { label: "not run", tone: "bg-muted text-muted-foreground" },
+	passing: {
+		label: "passing",
+		tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+	},
+};
+
 /**
- * Browse every scenario the project lists, worst first, each by its name and
- * what it tests, and filter by state or project. Open a row to see its prompt,
- * how it is judged and its last run; pass feed so Run can
- * start a conversation to work the scenario's loop. Browsing costs nothing.
- * Pass onLoaded to learn when the scenarios have been read.
+ * Browse the specs the project lists: with no file open, its eval files as
+ * one card, a row a file; with `file` open, that file's specs as suites and
+ * their `describe` groups, one sentence a spec, each group its own card. Open
+ * a spec to see its prompt and latest results. Pass feed so Run can start a
+ * conversation to work the picked specs' loop. Browsing costs nothing. Pass
+ * onLoaded to learn when the specs have been read.
  */
 export function EvalScenarioTable({
 	agents,
-	onOpenBatch,
+	file = null,
 	feed = null,
 	onLoaded,
 }: {
+	/** The eval file open, as its address names it; null for the list of files. */
+	file?: string | null;
 	/** The saved eval agents: the ones a run card ticks. */
 	agents: EvalAgentsEditor;
-	onOpenBatch: (batch: string) => void;
 	/** Where a conversation started from here is shown; null while there is none to start. */
 	feed?: ConversationFeed | null;
 	/** Called once the scenarios have been read. */
@@ -63,14 +84,9 @@ export function EvalScenarioTable({
 	const [scenarios, setScenarios] = useState<EvalScenario[] | null>(null);
 	const [states, setStates] = useState<EvalScenarioState[]>([]);
 	const [error, setError] = useState<string | null>(null);
-	const [filter, setFilter] = useState<ScenarioFilter>({
-		state: null,
-		project: null,
-	});
+	const [filter, setFilter] = useState<ScenarioFilter>({ state: null });
 	const [picked, setPicked] = useState<string[]>([]);
 	const [open, setOpen] = useState<string | null>(null);
-	// Groups start folded; this lists the ones the user opened.
-	const [expanded, setExpanded] = useState<string[]>([]);
 	const [running, setRunning] = useState<string[] | null>(null);
 	const [pending, setPending] = useState(false);
 	// This run's own agents, copied from the saved ones when the review opens.
@@ -115,11 +131,38 @@ export function EvalScenarioTable({
 			current = false;
 		};
 	}, [onLoaded]);
-	const rows = rowsOf(scenarios ?? [], states);
+	const rows = rowsOf(
+		(scenarios ?? []).filter(
+			(each) => file === null || fileKeyOf(each) === file,
+		),
+		states,
+	);
 	const counts = countStates(rows);
 	const shown = filterRows(rows, filter);
-	const projects = projectsOf(rows);
-	const groups = groupRows(shown);
+	const suites = suitesOf(shown);
+	const at =
+		rows.find((row) => row.scenario.fileAt !== undefined)?.scenario.fileAt ??
+		null;
+	const pick = (ids: string[], on: boolean): void =>
+		setPicked((now) =>
+			on
+				? [...new Set([...now, ...ids])]
+				: now.filter((id) => !ids.includes(id)),
+		);
+	const specRow = ({ scenario, state }: ScenarioRow) => (
+		<EvalScenarioRow
+			key={scenario.id}
+			scenario={scenario}
+			state={state}
+			isPicked={picked.includes(scenario.id)}
+			isOpen={open === scenario.id}
+			loop={loops.get(scenario.id)}
+			now={now}
+			onPick={() => toggle(scenario.id)}
+			onOpen={() => setOpen(open === scenario.id ? null : scenario.id)}
+			onOpenLoop={() => runOrOpen([scenario.id])}
+		/>
+	);
 	const toggle = (id: string): void =>
 		setPicked((now) =>
 			now.includes(id) ? now.filter((each) => each !== id) : [...now, id],
@@ -180,151 +223,85 @@ export function EvalScenarioTable({
 			)}
 			<div hidden={running !== null} className="flex flex-col gap-4">
 				{scenarios === null ? (
-					error === null && <ReadingNow label="Reading scenarios…" />
+					error === null && <ReadingNow label="Reading specs…" />
 				) : scenarios.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
-						This project lists no eval scenarios.
+						This project lists no eval specs.
+					</p>
+				) : rows.length === 0 ? (
+					<p className="text-muted-foreground text-sm">
+						This project lists no specs in {file}.
 					</p>
 				) : (
 					<>
-						<div className="flex flex-col gap-2">
-							<h2 className="font-semibold text-lg tracking-tight">
+						{file !== null && at !== null && (
+							<FileChip
+								path={at}
+								name="Open in editor"
+								className="hidden w-fit sm:flex"
+							/>
+						)}
+						<div className="flex flex-wrap items-center gap-2">
+							<h2 className="mr-1 font-semibold text-lg tracking-tight">
 								{summaryOf(rows)}
 							</h2>
-							<div
-								role="progressbar"
-								aria-label="scenarios passing"
-								aria-valuemin={0}
-								aria-valuemax={rows.length}
-								aria-valuenow={counts.passing}
-								className="h-2 overflow-hidden rounded-full bg-muted"
-							>
-								<div
-									className="h-full bg-emerald-500"
-									style={{ width: `${(counts.passing / rows.length) * 100}%` }}
-								/>
-							</div>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							{STATES.map((each) => (
+							{STATES.filter((each) => counts[each] > 0).map((each) => (
 								<button
 									key={each}
 									type="button"
 									aria-pressed={filter.state === each}
+									aria-label={`Show only ${PILL[each].label}`}
 									onClick={() =>
-										setFilter({
-											...filter,
-											state: filter.state === each ? null : each,
-										})
+										setFilter({ state: filter.state === each ? null : each })
 									}
 									className={cn(
-										"inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs",
-										filter.state === each
-											? "border-foreground bg-accent"
-											: "hover:bg-accent/50",
+										"inline-flex h-6 items-center rounded-full px-2.5 font-medium text-xs tabular-nums",
+										PILL[each].tone,
+										filter.state === each &&
+											"ring-2 ring-foreground/60 ring-offset-1 ring-offset-background",
 									)}
 								>
-									{STATE_LABEL[each]}
-									<span className="tabular-nums">{counts[each]}</span>
+									{counts[each]} {PILL[each].label}
 								</button>
 							))}
-							{projects.length > 1 && (
-								<select
-									aria-label="Filter by project"
-									value={filter.project ?? ""}
-									onChange={(event) =>
-										setFilter({
-											...filter,
-											project:
-												event.currentTarget.value === ""
-													? null
-													: event.currentTarget.value,
-										})
-									}
-									className="h-7 rounded-md border bg-background px-2 text-xs"
-								>
-									<option value="">All projects</option>
-									{projects.map((each) => (
-										<option key={each} value={each}>
-											{each}
-										</option>
-									))}
-								</select>
-							)}
-							<span className="ml-auto flex items-center gap-2 text-xs">
-								Select all
-								<Checkbox
-									aria-label="Select all scenarios"
-									checked={
-										shown.length > 0 &&
-										shown.every(({ scenario }) => picked.includes(scenario.id))
-									}
-									onCheckedChange={(on) =>
-										setPicked((now) =>
-											on
-												? [
-														...new Set([
-															...now,
-															...shown.map(({ scenario }) => scenario.id),
-														]),
-													]
-												: now.filter(
-														(id) =>
-															!shown.some(({ scenario }) => scenario.id === id),
-													),
-										)
-									}
-								/>
-							</span>
 						</div>
-						<div className="flex flex-col gap-3.5">
-							{groups.length === 0 && (
-								<p className="py-4 text-center text-muted-foreground text-sm">
-									No scenario matches this filter.
-								</p>
-							)}
-							{groups.map((group) => (
-								<EvalGroupCard
-									key={group.name}
-									group={group}
-									collapsed={!expanded.includes(group.name)}
-									picked={picked}
-									onToggle={() =>
-										setExpanded((now) =>
-											now.includes(group.name)
-												? now.filter((each) => each !== group.name)
-												: [...now, group.name],
-										)
-									}
-									onPick={(ids, on) =>
-										setPicked((now) =>
-											on
-												? [...new Set([...now, ...ids])]
-												: now.filter((id) => !ids.includes(id)),
-										)
-									}
-								>
-									{group.rows.map(({ scenario, state }) => (
-										<EvalScenarioRow
-											key={scenario.id}
-											scenario={scenario}
-											state={state}
-											isPicked={picked.includes(scenario.id)}
-											isOpen={open === scenario.id}
-											loop={loops.get(scenario.id)}
-											now={now}
-											saved={saved}
-											onOpenBatch={onOpenBatch}
-											onPick={() => toggle(scenario.id)}
-											onOpen={() =>
-												setOpen(open === scenario.id ? null : scenario.id)
-											}
-											onOpenLoop={() => runOrOpen([scenario.id])}
-										/>
-									))}
-								</EvalGroupCard>
-							))}
-						</div>
+						{file === null ? (
+							<EvalFileList files={filesOf(shown)} />
+						) : (
+							<div className="flex flex-col gap-8">
+								{suites.map((suite) => (
+									<EvalSuite
+										key={suite.name}
+										name={suite.name}
+										rows={suite.rows}
+										picked={picked}
+										onPick={pick}
+									>
+										{suite.loose.length > 0 && (
+											<EvalGroupCard
+												name={null}
+												rows={suite.loose}
+												picked={picked}
+												onPick={pick}
+											>
+												{suite.loose.map(specRow)}
+											</EvalGroupCard>
+										)}
+										{suite.groups.map((group) => (
+											<EvalGroupCard
+												key={group.name}
+												name={group.name}
+												rows={group.rows}
+												picked={picked}
+												onPick={pick}
+											>
+												{group.rows.map(specRow)}
+											</EvalGroupCard>
+										))}
+									</EvalSuite>
+								))}
+							</div>
+						)}
 					</>
 				)}
 			</div>
@@ -338,7 +315,10 @@ export function EvalScenarioTable({
 					/>
 				</>
 			)}
-			<div className="sticky bottom-0 -mx-1 flex flex-col gap-3 bg-background/90 px-1 py-3 backdrop-blur">
+			<div
+				hidden={file === null}
+				className="sticky bottom-0 -mx-1 flex flex-col gap-3 bg-background/90 px-1 py-3 backdrop-blur"
+			>
 				{running === null ? (
 					<Button
 						block
@@ -346,8 +326,8 @@ export function EvalScenarioTable({
 						onClick={() => runOrOpen(picked)}
 					>
 						{picked.length > 0
-							? `Review ${picked.length} ${picked.length === 1 ? "scenario" : "scenarios"}`
-							: "Choose scenarios to run"}
+							? `Review ${picked.length} ${picked.length === 1 ? "spec" : "specs"}`
+							: "Pick specs to run"}
 					</Button>
 				) : (
 					<div className="flex gap-2">

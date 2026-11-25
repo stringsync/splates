@@ -166,10 +166,17 @@ export class EvalAgentsEditor implements Eventful<EvalAgentsEvents>, PickList {
 	}
 }
 
-/** A copy of `saved` for one run to edit; its edits stay in memory and never change the saved agents. */
-export function runAgentsOf(saved: EvalAgentsEditor): EvalAgentsEditor {
+/**
+ * A list for one run to edit, starting from `picks` (the saved agents unless
+ * given) with the saved roster; its edits stay in memory and never change the
+ * saved agents.
+ */
+export function runAgentsOf(
+	saved: Pick<EvalAgentsEditor, "picks" | "agents">,
+	picks: readonly AgentPick[] = saved.picks,
+): EvalAgentsEditor {
 	let view: EvalAgentsView = {
-		agents: [...saved.picks],
+		agents: [...picks],
 		problem: null,
 		roster: [...saved.agents],
 	};

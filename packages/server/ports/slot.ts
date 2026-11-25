@@ -27,7 +27,10 @@ export interface SlotStart {
  * home starts out with a throwaway project of its own, made on the first
  * start, so its page has one to show.
  */
-export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
+export async function devSlot(
+	ctx: SplatesDeps,
+	opts: DevSlotOptions = {},
+): Promise<SlotStart> {
 	const { fs, ps, log, secrets = SYSTEM_STORES } = ctx;
 	// The checkout of splates it runs from, wherever it is run, whose creds
 	// keep the slot's tunnel token.
@@ -59,7 +62,7 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 		);
 	}
 	const registry = ps.env(MACHINE_HOME) ?? splatesHome(ps);
-	const slots = Slots.ofMachine(ctx);
+	const slots = Slots.ofMachine(ctx, opts);
 	// The worktree it runs in, not the main tree every worktree shares, so
 	// each worktree holds a slot of its own.
 	const { stdout } = await ps.spawnCapture(
@@ -85,7 +88,9 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 	const saved = SavedTunnel.in(new FsStorage(`${home}`, fs), secrets.device);
 	let record = await saved.read();
 	// One saved before slots asked for their token at each start names no
-	// account, so it is set up again, reusing its tunnel.
+	// account, so it is set up again, reusing its tunnel. An existing slot
+	// also ensures its DNS route still points to its tunnel in case wildcard
+	// rig routing cleared a stale CNAME while this word was idle.
 	if (record?.account === undefined) {
 		log.info(`setting up slot ${slot.word} ${slot.emoji}`);
 		record = await slotTunnelSetup({
@@ -96,6 +101,21 @@ export async function devSlot(ctx: SplatesDeps): Promise<SlotStart> {
 			log,
 			fetch: ctx.fetch,
 		});
+	} else {
+		try {
+			record = await slotTunnelSetup({
+				slot,
+				machine,
+				creds,
+				saved,
+				log,
+				fetch: ctx.fetch,
+			});
+		} catch (error) {
+			log.error(
+				`could not verify slot ${slot.word} DNS route: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
 	}
 	const projects = Projects.in(FsStorage.ofMachine({ fs, ps, log, home }), fs);
 	if ((await projects.list()).length === 0) {
@@ -170,4 +190,10 @@ export async function stopLeftover(
 			`stopped slot ${slot.word} ${slot.emoji}'s last server, pid ${pid}, to serve this tree's code`,
 		);
 	}
+}
+
+/** Optional coordination hooks for {@link devSlot}. */
+export interface DevSlotOptions {
+	/** Animal words currently held elsewhere (such as tunnel-exposed rigs). */
+	reserved?: () => Promise<ReadonlySet<string>>;
 }

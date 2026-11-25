@@ -263,8 +263,8 @@ describe("App's agents, in a folder per project", () => {
 				...mine,
 				conversation({
 					id: "g1",
-					title: "Groomer",
-					persistent: "groomer",
+					title: "Review",
+					automation: "a2",
 					createdAt: "2026-10-11T10:01:30.000Z",
 				}),
 				conversation({
@@ -294,40 +294,18 @@ describe("App's agents, in a folder per project", () => {
 		).toEqual([
 			"Pinnedmain",
 			"Mine brokeFailed",
-			"Groomermain",
+			"Reviewmain",
 			"MineWorking",
 			"Review mergedmain",
 		]);
 		expect(within(here).queryByText("Automation")).toBeNull();
 		expect(within(here).queryByRole("separator")).toBeNull();
 		expect(
-			within(here).getByRole("button", { name: "Archive Groomer" }),
+			within(here).getByRole("button", { name: "Archive Review" }),
 		).toBeDefined();
 		expect(
 			within(here).getByRole("button", { name: "Archive Mine" }),
 		).toBeTruthy();
-	});
-
-	it("drops a persistent agent's row between runs", async () => {
-		const view = await testing.openConversations(
-			[
-				...mine,
-				conversation({
-					id: "g1",
-					title: "Groomer",
-					persistent: "groomer",
-					createdAt: "2026-10-11T09:30:00.000Z",
-					archived: true,
-					resting: true,
-				}),
-			],
-			null,
-		);
-		const here = await waitFor(() =>
-			within(agentList(view)).getByRole("region", { name: "wren" }),
-		);
-
-		expect(within(here).queryByText("Groomer")).toBeNull();
 	});
 
 	it("lists a folder's automations among its conversations in a phone's inbox", async () => {
@@ -338,8 +316,8 @@ describe("App's agents, in a folder per project", () => {
 					...mine,
 					conversation({
 						id: "g1",
-						title: "Groomer",
-						persistent: "groomer",
+						title: "Review",
+						automation: "a2",
 						createdAt: "2026-10-11T09:00:00.000Z",
 					}),
 				],
@@ -359,7 +337,7 @@ describe("App's agents, in a folder per project", () => {
 			).toEqual([
 				expect.stringContaining("Mine broke"),
 				expect.stringContaining("Mine"),
-				expect.stringContaining("Groomer"),
+				expect.stringContaining("Review"),
 			]);
 			expect(within(here).queryByRole("separator")).toBeNull();
 		} finally {

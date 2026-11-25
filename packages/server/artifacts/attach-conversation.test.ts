@@ -84,4 +84,23 @@ describe("attach from a conversation", () => {
 			attach(deps, [await taken("a.png")], tree, { conversation: "nope" }),
 		).toBail("not_found");
 	});
+
+	it("keeps files with the conversation when no task is open", async () => {
+		const [stored = ""] = await attach(
+			deps,
+			[await taken("a.png")],
+			deps.root,
+			{ conversation: ID },
+		);
+
+		expect(stored).toContain(`/conversations/${ID}/attached/`);
+		expect(deps.service.owns(stored)).toBe(true);
+		expect(deps.out()).toContain("They stay with the conversation");
+	});
+
+	it("tells an agent with no task and no conversation what to pass", async () => {
+		await expect(attach(deps, [await taken("a.png")], deps.root)).toBail(
+			"usage",
+		);
+	});
 });

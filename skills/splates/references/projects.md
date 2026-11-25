@@ -41,6 +41,8 @@ leave it:
 
 `splates --project wren queue add 404`
 
+Why not auto-queued: 6, wide scope: it is another project's task.
+
 The report page here needs it to show prices by locale.
 ```
 

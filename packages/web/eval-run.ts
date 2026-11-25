@@ -1,10 +1,10 @@
 import {
-	DEFAULT_EVAL_BUDGET,
-	type EvalBudgetStatus,
+	type EvalBudgetView,
 	type EvalGrid,
 	type EvalLaunch,
 	type EvalPlan,
 	type EvalScenario,
+	evalCardKey,
 	targetOf,
 } from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
@@ -20,37 +20,31 @@ import {
 	evalLaunch,
 	evalPlan,
 	evalScenarios,
-	startEvalRun,
 	stopEvalRun,
 } from "./api";
 import { refusalOf } from "./refusal";
 
 /** What a run card reads and writes on the server. */
 export interface EvalRunServer {
-	savedAgents(): Promise<AgentPick[]>;
+	/** The saved eval agents, which a card's agents are picked from. */
+	savedAgents(): Promise<{ agents: AgentPick[] }>;
 	scenarios(conversation: string | null): Promise<EvalScenario[]>;
 	plan(run: EvalRunAsk): Promise<EvalPlan>;
-	start(key: string, run: EvalRunAsk): Promise<EvalLaunch>;
 	launch(key: string): Promise<EvalLaunch | null>;
 	stop(key: string): Promise<void>;
 	batch(id: string): Promise<EvalGrid>;
-	/** Where the conversation's budget stands; null when this server cannot say. */
-	budget(conversation: string): Promise<EvalBudgetStatus | null>;
+	/** Conversation `id`'s approved eval budget and what its rounds have spent. */
+	budget(conversation: string): Promise<EvalBudgetView>;
 }
 
 export const HTTP_EVAL_RUN: EvalRunServer = {
-	savedAgents: async () => (await evalAgents()).agents,
+	savedAgents: evalAgents,
 	scenarios: evalScenarios,
 	plan: evalPlan,
-	start: startEvalRun,
 	launch: evalLaunch,
 	stop: stopEvalRun,
 	batch: evalBatch,
-	budget: (conversation) =>
-		evalBudget(conversation).then(
-			(status) => (typeof status?.spentUsd === "number" ? status : null),
-			() => null,
-		),
+	budget: evalBudget,
 };
 
 /** What a test swaps: the server, and the clock the run is followed by. */
@@ -68,41 +62,46 @@ export type EvalRunEvents = { changed: undefined };
 /** How often a run in flight is read again. */
 const FOLLOW = Duration.secs(2);
 
+/** How many times a card with no run is read again before it settles on waiting for a budget. */
+const WAIT_READS = 15;
+
 /**
- * The run an agent's `run evals` card asks for, for the person to start: the
- * cases it picked grouped as the project's `evals.list` heads them, the
- * saved agents (each of which can be left out for this run), and the free
- * plan's reservation when the project prints one. Starting is the person's, through `run`; once it runs the
- * card follows the batch the runner writes: cells landed of those planned,
- * the tally and the cost so far. Reads and writes nothing until `load`.
+ * The round an agent's `run evals` card asks for: the cases it picked
+ * grouped as the project's `evals.list` heads them, the agents it runs on
+ * (those the card names, else the first saved), and what it may cost. The
+ * server starts it by itself when that fits the conversation's approved
+ * eval budget; until then it waits for a budget. Once it runs the card
+ * follows the batch the runner writes: cells landed of those planned, the
+ * tally and the cost so far. Reads and writes nothing until `load`.
  */
 export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<EvalRunEvents>();
 	readonly events = this.dispatcher.events;
 
-	/** The agents saved, each with whether this run uses it. */
-	agents: { pick: AgentPick; on: boolean }[] = [];
+	/** The agents the round runs on. */
+	picks: AgentPick[] = [];
 	scenarios: EvalScenario[] = [];
+	/** Every scenario the project's `list` returned, so the request card can show how many were not targeted. */
+	allScenarios: EvalScenario[] = [];
 	groups: ScenarioGroup[] = [];
 	/** The scenarios the card names that the harness does not know. */
 	unknown: string[] = [];
-	/** The agents the card names that are not saved. */
+	/** The agents the card names that are not saved, left out of the run. */
 	unknownAgents: string[] = [];
 	plan: EvalPlan | null = null;
+	/** The conversation's approved eval budget and its spend; null outside a conversation or until read. */
+	budget: EvalBudgetView | null = null;
 	launch: EvalLaunch | null = null;
 	grid: EvalGrid | null = null;
-	/** The conversation's latest run and what it has spent; null outside a conversation or before it is read. */
-	budget: EvalBudgetStatus | null = null;
-	/** This run's own dollar budget: the latest run's in the conversation, else the default, editable until it starts. */
-	usd: number = DEFAULT_EVAL_BUDGET.usd;
-	private usdEdited = false;
 	/** Why the last read or write refused, in the server's words. */
 	refusal: string | null = null;
 	loaded = false;
 
-	private repetitions: number | undefined;
+	/** Repetitions of each scenario on each agent. */
+	readonly reps: number;
 	private following: Resource | null = null;
-	private planning = 0;
+	/** Reads again while the card waits on the server to start it. */
+	private waiting: Resource | null = null;
 	private loading: Promise<void> | null = null;
 
 	private readonly server: EvalRunServer;
@@ -114,7 +113,7 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		readonly key: string,
 		opts: EvalRunOptions = {},
 	) {
-		this.repetitions = ask.reps;
+		this.reps = ask.reps ?? 1;
 		this.server = opts.server ?? HTTP_EVAL_RUN;
 		this.timer = opts.timer ?? new SystemTimer();
 		this.conversation = opts.conversation ?? null;
@@ -122,14 +121,14 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		if (shown !== undefined) {
 			// Reopening a conversation: show the card as it was, and read it
 			// again behind it, rather than hold a placeholder of another height.
-			this.agents = shown.agents.map((each) => ({ ...each }));
+			this.picks = shown.agents;
 			this.scenarios = shown.scenarios;
+			this.allScenarios = shown.allScenarios;
 			this.groups = shown.groups;
 			this.unknown = shown.unknown;
 			this.plan = shown.plan;
 			this.launch = shown.launch;
 			this.grid = shown.grid;
-			this.budget = shown.budget;
 			this.loaded = true;
 		}
 	}
@@ -138,19 +137,14 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 		const ask = proposal.evals as EvalAsk;
 		return new EvalRun(
 			ask,
-			`${ask.skill}:${ask.scenarios.join(",")}:${proposal.title ?? ""}:${opts?.conversation ?? ""}:${opts?.message ?? ""}`,
+			evalCardKey(
+				ask,
+				proposal.title,
+				opts?.conversation ?? null,
+				opts?.message ?? null,
+			),
 			opts,
 		);
-	}
-
-	/** The agents picked for this run. */
-	get picked(): AgentPick[] {
-		return this.agents.filter((each) => each.on).map((each) => each.pick);
-	}
-
-	/** Whether a run is going, or has gone, from this card. */
-	get started(): boolean {
-		return this.launch !== null;
 	}
 
 	get running(): boolean {
@@ -172,111 +166,40 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 				this.server.savedAgents(),
 				this.server.scenarios(this.conversation),
 				this.server.launch(this.key),
-				this.readBudget(),
 			]);
 			launch = found;
 			const named = this.ask.agents;
-			this.agents = saved.map((pick, index) => ({
-				pick,
-				on: named === undefined ? index === 0 : named.includes(targetOf(pick)),
-			}));
-			const have = new Set(saved.map(targetOf));
+			this.picks =
+				named === undefined
+					? saved.agents.slice(0, 1)
+					: saved.agents.filter((pick) => named.includes(targetOf(pick)));
+			const have = new Set(saved.agents.map(targetOf));
 			this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
-			this.scenarios = scenarios.filter((each) =>
+			const listed = Array.isArray(scenarios) ? scenarios : [];
+			this.allScenarios = listed;
+			this.scenarios = listed.filter((each) =>
 				this.ask.scenarios.includes(each.id),
 			);
-			this.groups = groupsOf(
-				scenarios.filter((each) => this.ask.scenarios.includes(each.id)),
-			);
-			const known = new Set(scenarios.map((each) => each.id));
+			this.groups = groupsOf(this.scenarios);
+			const known = new Set(listed.map((each) => each.id));
 			this.unknown = this.ask.scenarios.filter((each) => !known.has(each));
 			this.launch = launch;
 			this.refusal = null;
 		} catch (error) {
 			this.refusal = refusalOf("Could not read the evals", error);
 		}
+		await this.readBudget();
 		if (this.refusal === null && launch !== null) {
+			// A running card shows its progress with its first paint.
 			await this.follow();
-		}
-		// The card shows its scenarios and agents now; the plan fills in behind.
-		this.loaded = true;
-		this.changed();
-		if (this.refusal === null && launch === null) {
+		} else if (this.refusal === null) {
 			await this.replan();
 		}
-	}
-
-	/** Leaves a saved agent in or out of this run, and asks the plan again. */
-	async toggle(index: number): Promise<void> {
-		const each = this.agents[index];
-		if (each === undefined || this.started) {
-			return;
-		}
-		each.on = !each.on;
+		this.loaded = true;
 		this.changed();
-		await this.replan();
-	}
-
-	/** Change repetitions before starting an unlinked run and refresh its cost plan. */
-	async repeat(repetitions: number): Promise<void> {
-		if (this.started || !Number.isSafeInteger(repetitions) || repetitions < 1) {
-			return;
+		if (this.refusal === null && this.launch === null) {
+			this.waitForStart();
 		}
-		this.repetitions = repetitions;
-		await this.replan();
-	}
-
-	/** Sets the dollars this run may spend. */
-	setBudget(usd: number): void {
-		if (this.started) {
-			return;
-		}
-		this.usd = usd;
-		this.usdEdited = true;
-		this.changed();
-	}
-
-	/** The person's Run: starts the paid run, then follows it. */
-	async run(): Promise<void> {
-		try {
-			const saved = await this.server.savedAgents();
-			if (
-				saved.length !== this.agents.length ||
-				saved.some((pick, at) => {
-					const shown = this.agents[at]?.pick;
-					return (
-						pick.agent !== shown?.agent ||
-						pick.model !== shown?.model ||
-						pick.effort !== shown?.effort
-					);
-				})
-			) {
-				// A card can outlive a correction to a rejected model. Show the
-				// new picks and cost before the person authorizes that run.
-				const named = this.ask.agents;
-				this.agents = saved.map((pick, index) => ({
-					pick,
-					on:
-						named === undefined ? index === 0 : named.includes(targetOf(pick)),
-				}));
-				const have = new Set(saved.map(targetOf));
-				this.unknownAgents = (named ?? []).filter((each) => !have.has(each));
-				this.plan = null;
-				this.refusal =
-					"Saved eval agents changed. Review the updated agents and press Run again.";
-				this.changed();
-				await this.replan();
-				return;
-			}
-			this.launch = await this.server.start(this.key, this.request());
-			this.refusal = null;
-		} catch (error) {
-			this.refusal = refusalOf("Not started", error);
-			this.changed();
-			return;
-		}
-		this.changed();
-		await this.follow();
 	}
 
 	async stop(): Promise<void> {
@@ -292,94 +215,116 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 	dispose(): void {
 		this.following?.dispose();
 		this.following = null;
+		this.waiting?.dispose();
+		this.waiting = null;
 	}
 
 	private request(): EvalRunAsk {
 		return {
 			skill: this.ask.skill,
 			scenarios: this.ask.scenarios,
-			agents: this.picked,
+			agents: [...this.picks],
 			baseline: this.ask.baseline,
-			...(this.repetitions === undefined ? {} : { reps: this.repetitions }),
+			reps: this.reps,
 			conversation: this.conversation,
-			...(this.conversation === null ? {} : { budget: { usd: this.usd } }),
 		};
 	}
 
 	private async replan(): Promise<void> {
-		const mine = ++this.planning;
-		if (this.picked.length === 0) {
+		if (this.picks.length === 0) {
 			this.plan = null;
-			this.changed();
 			return;
 		}
 		try {
-			const plan = await this.server.plan(this.request());
-			if (mine === this.planning) {
-				this.plan = plan;
-			}
+			this.plan = await this.server.plan(this.request());
 		} catch (error) {
 			this.plan = null;
 			this.refusal = refusalOf("No plan", error);
 		}
-		this.changed();
 	}
 
-	/** Reads the run once, and again every `FOLLOW` while it is going. */
+	/**
+	 * Reads the run once, and again every `FOLLOW` while it is going. A card
+	 * with no run yet is read again while the server may still start it.
+	 */
 	private async follow(): Promise<void> {
 		await this.read();
+		if (this.launch === null) {
+			this.waitForStart();
+			return;
+		}
 		if (this.running && this.following === null) {
 			this.following = this.timer.setInterval(() => {
-				// The budget moves with the batch's cost, so it is read again
-				// once the run stops, not on every tick.
-				void this.read(false).then(async () => {
+				void this.read().then(() => {
 					if (!this.running) {
-						this.dispose();
-						await this.readBudget();
-						this.changed();
+						this.following?.dispose();
+						this.following = null;
 					}
 				});
 			}, FOLLOW);
 		}
 	}
 
-	private async readBudget(): Promise<void> {
-		if (this.conversation !== null) {
-			this.budget = await this.server.budget(this.conversation);
-			if (!this.started && !this.usdEdited && this.budget !== null) {
-				this.usd = this.budget.budget.usd;
-			}
-		}
-	}
-
-	private async read(withBudget = true): Promise<void> {
+	private async read(): Promise<void> {
 		try {
 			this.launch = (await this.server.launch(this.key)) ?? this.launch;
 			const batch = this.launch?.batch ?? null;
 			if (batch !== null) {
 				this.grid = await this.server.batch(batch);
 			}
-			if (withBudget) {
-				await this.readBudget();
-			}
 			this.refusal = null;
+			await this.readBudget();
 		} catch (error) {
 			this.refusal = refusalOf("Could not follow the run", error);
 		}
 		this.changed();
 	}
 
+	/**
+	 * Reads the card's launch every `FOLLOW` for a short while, as the server
+	 * starts a round that fits the budget a moment after the turn ends; then
+	 * follows it.
+	 */
+	private waitForStart(): void {
+		if (this.waiting !== null) {
+			return;
+		}
+		let left = WAIT_READS;
+		this.waiting = this.timer.setInterval(() => {
+			left -= 1;
+			void this.read().then(() => {
+				if (this.launch !== null || left <= 0) {
+					this.waiting?.dispose();
+					this.waiting = null;
+					if (this.launch !== null) {
+						void this.follow();
+					}
+				}
+			});
+		}, FOLLOW);
+	}
+
+	/** Reads the budget and the conversation's spend, which a missing budget never holds the card up for. */
+	private async readBudget(): Promise<void> {
+		if (this.conversation === null) {
+			return;
+		}
+		this.budget = await this.server
+			.budget(this.conversation)
+			.catch(() => this.budget);
+	}
+
 	private changed(): void {
 		if (this.loaded && this.refusal === null) {
 			SHOWN.set(this.key, {
-				agents: this.agents.map((each) => ({ ...each })),
+				agents: [...this.picks],
 				scenarios: this.scenarios,
+				allScenarios: this.allScenarios,
 				groups: this.groups,
 				unknown: this.unknown,
 				plan: this.plan,
 				launch: this.launch,
 				grid: this.grid,
-				budget: this.budget,
 			});
 		}
 		this.dispatcher.dispatch("changed");
@@ -389,13 +334,13 @@ export class EvalRun implements Eventful<EvalRunEvents>, Resource {
 /** What a card last showed, kept so reopening its conversation paints it at once. */
 interface Shown {
 	scenarios: EvalScenario[];
-	agents: { pick: AgentPick; on: boolean }[];
+	allScenarios: EvalScenario[];
+	agents: AgentPick[];
 	groups: ScenarioGroup[];
 	unknown: string[];
 	plan: EvalPlan | null;
 	launch: EvalLaunch | null;
 	grid: EvalGrid | null;
-	budget: EvalBudgetStatus | null;
 }
 
 const SHOWN = new Map<string, Shown>();

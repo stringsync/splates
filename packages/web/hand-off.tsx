@@ -17,7 +17,7 @@ import { handOffConversation, restartConversation } from "./conversation-api";
 import { Dispatching } from "./dispatching";
 import type { Refuse } from "./refusal";
 
-/** Choose another agent to continue this task in a new conversation. */
+/** Choose another agent to continue this conversation in a new one. */
 export function HandOffItems({
 	conversation,
 	refused,
@@ -29,15 +29,16 @@ export function HandOffItems({
 	onStart?: () => void;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
-	const { task } = conversation;
-	if (context === null || task === null) {
+	if (context === null || conversation.archived) {
 		return null;
 	}
 	const { dispatch } = context;
 	const handOff = (agent: string): void => {
 		onStart?.();
 		handOffConversation(conversation.id)
-			.then((prompt) => dispatch.beginWith({ agent }, task, prompt))
+			.then(({ prompt }) =>
+				dispatch.beginWith({ agent }, conversation.task, prompt),
+			)
 			.then(context.open)
 			.catch((error: unknown) => refused("Not handed off", error));
 	};

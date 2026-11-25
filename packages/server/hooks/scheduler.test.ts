@@ -28,9 +28,6 @@ describe("Scheduler", () => {
 				agent: async (hook) => {
 					ran.push(hook.prompt);
 				},
-				groom: async () => {
-					ran.push("groom");
-				},
 			},
 			log: new MemoryLogger(),
 			timer,
@@ -103,19 +100,11 @@ describe("Scheduler", () => {
 				paused: true,
 				requestedAt: new Date(clock.now()).toISOString(),
 			},
-			{
-				id: "groomer",
-				trigger: { event: "task.created" },
-				hook: { kind: "groom", agent: "claude" },
-				createdAt: new Date(clock.now()).toISOString(),
-				source: "builtin",
-				requestedAt: new Date(clock.now()).toISOString(),
-			},
 		];
 		const running = await start();
 		await running.look();
 
-		expect(ran).toEqual(["tidy", "groom"]);
+		expect(ran).toEqual(["tidy"]);
 		expect((await runs.read())["1"]).toMatchObject({
 			runs: [{ on: "by hand" }],
 		});

@@ -49,6 +49,10 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "escalated header" }),
 		);
+		// Every question down the card, as it shows one at a time.
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Show all" })),
+		);
 		expect(card.textContent).toContain("Escalated");
 		expect(card.textContent).toContain("two calls on the header");
 		// Numbered from 1, as a report numbers them, whatever SPLATES.md says.
@@ -97,6 +101,10 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "escalated header" }),
+		);
+		// Every question down the card, as it shows one at a time.
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Show all" })),
 		);
 		expect(view.getAllByRole("region", { name: /escalated/ })).toHaveLength(1);
 		expect(view.getAllByRole("list", { name: "questions" })).toHaveLength(1);

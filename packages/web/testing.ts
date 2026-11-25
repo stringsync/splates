@@ -18,6 +18,7 @@ import type {
 import { saidIn, wordsOf } from "@splates/server/conversations/browser";
 import type { PortLink } from "@splates/server/ports";
 import type { EverywhereProject } from "@splates/server/projects";
+import type { ChainView } from "@splates/server/queue/browser";
 import type { ServerChoice } from "@splates/server/server";
 import type { SetupProgress, UndoPlan } from "@splates/server/setup";
 import type { CellOverrides, Landed } from "@splates/server/stats/browser";
@@ -199,6 +200,7 @@ export class Testing implements Resource {
 	} | null = null;
 	/** What `/api/conversations/<id>` reads whole, for a listed summary, by id. */
 	wholes: Record<string, ConversationState | number> = {};
+	agentChain: ChainView | null = null;
 	private readonly histories = new Map<string, Promise<void>>();
 	/** The sessions `/api/conversations/sessions` lists for any task. */
 	sessions: Session[] = [];
@@ -491,6 +493,9 @@ export class Testing implements Resource {
 					}
 				}
 				return Response.json({ said });
+			}
+			if (route === "/api/queue/agent-chain") {
+				return Response.json(this.agentChain);
 			}
 			if (route === "/api/conversations/sessions") {
 				return Response.json(this.sessions);

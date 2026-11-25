@@ -176,7 +176,8 @@ export function unqueuedBlockers(
 
 /**
  * Whether deferred task `task` goes back to the conversation that deferred
- * it by itself: untaken, waiting only on tasks, and each of them merged.
+ * it by itself: untaken, and each task it waits on merged. Notes an older
+ * deferral kept, its questions and outside waits, hold nothing back.
  */
 export function resumesItself(
 	task: TaskRecord,
@@ -191,8 +192,6 @@ export function resumesItself(
 		task.takenBy === null &&
 		task.stage !== "running" &&
 		deferred.tasks.length > 0 &&
-		deferred.questions.length === 0 &&
-		deferred.outside.length === 0 &&
 		canStart(task, all) &&
 		deferralBlockers(task, all).every(cleared)
 	);
@@ -212,8 +211,6 @@ export function blockersEnded(
 		deferred.conversation !== undefined &&
 		task.takenBy !== null &&
 		task.blockedBy.length === 0 &&
-		deferred.questions.length === 0 &&
-		deferred.outside.length === 0 &&
 		deferralBlockers(task, all).every(cleared)
 	);
 }

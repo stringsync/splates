@@ -166,7 +166,7 @@ export function ReportCard({
 								}
 							/>
 						)}
-						<CardArchive report={report} unmerge={merged} />
+						<CardArchive report={report} />
 					</>
 				)}
 			</CardShell>

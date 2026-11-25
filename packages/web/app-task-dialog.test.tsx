@@ -76,6 +76,8 @@ see the header
 			within(dialog).getAllByText("How should sessions move?").length,
 		).toBeGreaterThan(0);
 		expect(dialog.textContent).toContain("ship the thing");
+		expect(dialog.textContent).not.toContain("Before");
+		expect(dialog.textContent).not.toContain("After");
 		expect(dialog.textContent).not.toContain("see the header");
 		expect(within(dialog).queryAllByRole("tab")).toEqual([]);
 		const disclosure = within(dialog).getByRole("button", { name: "Details" });

@@ -4,7 +4,6 @@ import { nameOf } from "@splates/server/conversations/browser";
 import {
 	APPROVE,
 	CHECKPOINT,
-	DEFER,
 	MERGE,
 	RECONNECT,
 	RESUME,
@@ -19,7 +18,6 @@ import type { Details } from "@splates/server/tasks";
 import {
 	BanIcon,
 	BookmarkIcon,
-	ClockIcon,
 	FolderGit2Icon,
 	GitMergeIcon,
 	LightbulbIcon,
@@ -277,13 +275,6 @@ export const BARE_DIRECTIVES = [
 		label: "Reconnect",
 		about: "carry on with a turn a lost connection cut short",
 		icon: PlugIcon,
-		tone: "neutral",
-	},
-	{
-		directive: DEFER,
-		label: "Put back on board",
-		about: "put the request on the board rather than do it",
-		icon: ClockIcon,
 		tone: "neutral",
 	},
 	{

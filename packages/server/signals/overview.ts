@@ -1,4 +1,5 @@
 import { dotted, projectOf } from "./book";
+import { isOn } from "./probes";
 import type {
 	SignalOverview,
 	SignalProbe,
@@ -6,7 +7,7 @@ import type {
 	SignalSubscriber,
 	SignalWait,
 } from "./types";
-import { RETENTION_MS } from "./types";
+import { IDLE_MS, RETENTION_MS } from "./types";
 
 /** One conversation's waits, for the Signals page to list as subscribers. */
 export interface WaitsOf {
@@ -146,4 +147,33 @@ export function overview(input: {
 	return rows.sort((first, second) =>
 		latest(second).localeCompare(latest(first)),
 	);
+}
+
+/**
+ * Whether something still listens to `signal` or can fire it: a live
+ * subscriber, a paused automation (pausing is the person's choice), a running
+ * probe, or a removal deadline someone set.
+ */
+export function listening(signal: SignalOverview): boolean {
+	return (
+		(signal.probe !== null && isOn(signal.probe)) ||
+		signal.expiresAt !== undefined ||
+		signal.subscribers.some((each) => each.live || each.state === "paused")
+	);
+}
+
+/**
+ * Whether cleanup should hide `signal`: nothing listens to it or can fire it,
+ * and nothing has happened on it for `IDLE_MS`.
+ */
+export function idle(signal: SignalOverview, now: number): boolean {
+	if (listening(signal)) {
+		return false;
+	}
+	const last = [
+		signal.raises[0]?.at ?? "",
+		signal.probe?.endedAt ?? signal.probe?.startedAt ?? "",
+		...signal.subscribers.map((each) => each.endedAt ?? ""),
+	].reduce((most, each) => (most > each ? most : each), "");
+	return last < new Date(now - IDLE_MS).toISOString();
 }

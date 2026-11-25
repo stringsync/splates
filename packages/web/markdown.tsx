@@ -18,10 +18,20 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "#web/components/ui/table.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Board, still } from "./board";
 import { CopyableCode, CopyablePre } from "./copyable-code";
 import { DiagramView } from "./diagram-view";
+import { evalProposalOf } from "./eval-proposal";
+import { EvalProposalCard } from "./eval-proposal-card";
 import { FinishedReferences } from "./finished-references";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
@@ -133,11 +143,15 @@ const OPTIONS: MarkdownToJSX.Options = {
 					"rounded bg-current/10 px-1 [pre_&]:p-0 [pre_&]:bg-transparent",
 			},
 		},
-		table: {
-			props: { className: "my-2 block overflow-x-auto text-xs" },
+		table: Table,
+		thead: TableHeader,
+		tbody: TableBody,
+		tr: TableRow,
+		th: { component: TableHead, props: { className: "h-auto px-2 py-1" } },
+		td: {
+			component: TableCell,
+			props: { className: "px-2 py-1 whitespace-normal" },
 		},
-		th: { props: { className: "border px-2 py-1 text-left font-medium" } },
-		td: { props: { className: "border px-2 py-1" } },
 		hr: { props: { className: "my-3" } },
 		a: Link,
 		img: Image,
@@ -431,7 +445,10 @@ function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
 	return <Media src={src} alt={alt} />;
 }
 
-/** A fenced `d2` block is drawn as a diagram; any other fence stays code. */
+/**
+ * A fenced `d2` block is drawn as a diagram and an `eval` block as a proposed
+ * eval; any other fence stays code.
+ */
 function Pre(props: ComponentProps<"pre">): JSX.Element {
 	const copyable = useContext(CopyableCode);
 	const code = Children.toArray(props.children)[0];
@@ -443,6 +460,14 @@ function Pre(props: ComponentProps<"pre">): JSX.Element {
 			source.trim() !== ""
 		) {
 			return <DiagramView source={source.trim()} />;
+		}
+		const proposal =
+			/\blang-eval\b/.test(code.props.className ?? "") &&
+			typeof source === "string"
+				? evalProposalOf(source)
+				: null;
+		if (proposal !== null) {
+			return <EvalProposalCard proposal={proposal} />;
 		}
 	}
 	if (copyable) {

@@ -59,8 +59,6 @@ export async function remove(
 		why: deferral.why ?? "",
 		blockedBy: deferral.blockedBy ?? [],
 		blockedElsewhere: deferral.blockedElsewhere ?? [],
-		questions: deferral.questions ?? [],
-		outside: deferral.outside ?? [],
 	};
 	const problem = reason === "blocked" ? deferralProblem(ask) : null;
 	if (problem !== null) {
@@ -134,8 +132,8 @@ export async function remove(
 		});
 	}
 
-	const deleted = pushedLine(await branches.delete(task), "deleted");
-
+	// Settle board tasks right after discard, before remote branch cleanup that
+	// could be interrupted and leave them soft-locked as taken.
 	const taken = await queue.takenBy(task);
 	const released =
 		reason === "blocked" ? [...taken, ...(held === null ? [] : [held])] : [];
@@ -151,6 +149,8 @@ export async function remove(
 			taken.flatMap(({ lane }) => (lane === null ? [] : [lane])),
 		);
 	}
+
+	const deleted = pushedLine(await branches.delete(task), "deleted");
 
 	const lines = [
 		`${color.green("removed")} ${task}`,
@@ -179,13 +179,7 @@ export async function remove(
 		);
 	}
 	if (reason === "blocked") {
-		lines.push(
-			...ask.blockedBy.map((id) => `  waits on: task ${id} merging`),
-			...ask.questions.map(
-				(text) => `  waits on: the person answering ${text.split("\n")[0]}`,
-			),
-			...ask.outside.map((what) => `  waits on: ${what}`),
-		);
+		lines.push(...ask.blockedBy.map((id) => `  waits on: task ${id} merging`));
 	}
 	log.info(lines.join("\n"));
 	return {

@@ -16,7 +16,7 @@ import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
 import { heldPrompt } from "./held-prompt";
-import { failed, rested } from "./reply-endings";
+import { failed } from "./reply-endings";
 import { heldAfter, messageOf, queuesNow } from "./sending";
 import { probeId, signalId } from "./signal-of";
 import { supersedeQueues } from "./superseded-queues";
@@ -177,10 +177,7 @@ export function useThreadMessages(
 				: conversation.messages.filter(
 						(each) => each.queued && !youngQueued.includes(each),
 					);
-		const ended = failed(
-			conversation.resting === true ? rested(thread) : thread,
-			conversation,
-		);
+		const ended = failed(thread, conversation);
 		const lined =
 			waiting.length === 0
 				? ended
@@ -219,7 +216,6 @@ export function useThreadMessages(
 		conversation.probes,
 		conversation.id,
 		conversation.lastTask,
-		conversation.resting,
 		conversation.error,
 		conversation.queue,
 		writing,

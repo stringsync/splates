@@ -321,7 +321,11 @@ export function ActionButton({
 		variant: outline ? "outline" : "default",
 		disabled: action.disabled,
 		onClick: action.run,
-		className,
+		className: cn(
+			action.destructive &&
+				"border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive pointer-coarse:h-10 pointer-coarse:text-sm",
+			className,
+		),
 	} as const;
 	const face = (
 		<>

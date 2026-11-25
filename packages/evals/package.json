@@ -5,7 +5,8 @@
 	"dependencies": {
 		"@evals/evals": "workspace:*",
 		"@splates/server": "workspace:*",
-		"@splates/skill-evals": "workspace:*"
+		"@splates/skill-evals": "workspace:*",
+		"core": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:"

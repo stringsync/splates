@@ -4,49 +4,40 @@ import type { TaskRecord } from "@splates/server/board";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { AgentQueuedMark } from "./agent-queued-mark";
-import {
-	blockedFix,
-	blockedQueue,
-	chainLines,
-	upNext,
-	useUndoQueued,
-} from "./blocked-fix";
+import { blockedQueue, upNext, useUndoQueued } from "./blocked-fix";
 import { Board } from "./board";
 import { Card } from "./card";
 import { QueueColumn } from "./queue-column";
 import { QueueEmpty } from "./queue-rows";
 import { ReserveLine, useQuotaReserve } from "./quota-reserve";
 
-/** Lists the queued tasks that can start, numbered in start order. Pass `shown` to filter what is listed. */
+/** Lists the queued tasks that can start, in start order. Pass `shown` to filter what is listed. */
 export function QueuedColumn({
 	shown = () => true,
 	staleness,
 }: {
-	/** Which of the queue to list; every card keeps its place in the whole queue. */
+	/** Which of the queue to list. */
 	shown?: (todo: TaskRecord) => boolean;
 	staleness: number;
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const holds = useQuotaReserve();
-	const places = upNext(todos).flatMap((todo, at) =>
-		shown(todo) ? [{ todo, place: at + 1 }] : [],
-	);
+	const queued = upNext(todos).filter(shown);
 	return (
 		<QueueColumn
 			title="Queued"
 			why="Permanent column: queued tasks free to start, next first. A card arrives when you queue its task, and leaves when an agent starts it or you press Unqueue."
-			count={places.length}
+			count={queued.length}
 		>
-			{places.length === 0 ? (
+			{queued.length === 0 ? (
 				<QueueEmpty>Nothing queued</QueueEmpty>
 			) : (
 				<ol aria-label="queued tasks" className="flex flex-col gap-1.5">
-					{places.map(({ todo, place }) => (
+					{queued.map((todo) => (
 						<li key={todo.id}>
 							<Card
 								todo={todo}
 								staleness={staleness}
-								step={place}
 								listed
 								detail={
 									<>
@@ -67,7 +58,7 @@ export function QueuedColumn({
 	);
 }
 
-/** Lists the queued tasks stuck until the person acts, each saying what holds it, with its fix on the card. */
+/** Lists the queued tasks stuck until the person acts, with the fix on actionable cards. */
 export function BlockedColumn({
 	shown = () => true,
 	staleness,
@@ -116,7 +107,6 @@ export function BlockedColumn({
 								todo={todo}
 								staleness={staleness}
 								listed
-								detail={<Holds todo={todo} />}
 								onFixed={(ids) => setDone({ for: todo.id, ids })}
 							/>
 						</li>
@@ -133,27 +123,6 @@ function waited(todo: TaskRecord): ReactNode {
 		<span title="How long it has waited in the queue">
 			<span className="sr-only">Waiting: </span>
 			{age(todo.queuedAt)}
-		</span>
-	);
-}
-
-/** What a blocked card waits on, in the warning tone. */
-function Holds({ todo }: { todo: TaskRecord }): JSX.Element | null {
-	const { todos, lanes } = useContext(Board);
-	const fix = blockedFix(todo, todos);
-	if (fix === null) {
-		return null;
-	}
-	const words =
-		fix.kind === "queue"
-			? `needs ${fix.chain.map((task) => `#${task.id}`).join(", ")} queued`
-			: `blocked with #${fix.id}`;
-	return (
-		<span
-			className="text-warning"
-			title={fix.kind === "queue" ? chainLines(fix.chain, lanes) : undefined}
-		>
-			{words}
 		</span>
 	);
 }

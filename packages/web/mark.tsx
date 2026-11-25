@@ -1,6 +1,6 @@
+import type { ConversationState } from "@splates/server/conversations";
 import type { Ending, Need } from "@splates/server/plans";
 import {
-	BanIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
 	GitMergeIcon,
@@ -9,6 +9,7 @@ import {
 	type LucideIcon,
 	StarIcon,
 	TriangleAlertIcon,
+	UnplugIcon,
 } from "lucide-react";
 import type { ComponentProps, CSSProperties, JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -16,6 +17,17 @@ import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
 import { placeInLine } from "./merge-place";
 import { type Quiet, quietTitle } from "./quiet";
+
+/** Whether a conversation has no live or starting agent process (excluding queued-to-start holds). */
+export function isDisconnected(
+	conversation: Pick<ConversationState, "status" | "heldForTask"> | null,
+): boolean {
+	return (
+		conversation !== null &&
+		(conversation.status === "stopped" || conversation.status === "failed") &&
+		conversation.heldForTask == null
+	);
+}
 
 /** A conversation's status icon in a list. */
 export function Mark({
@@ -31,6 +43,7 @@ export function Mark({
 	background = false,
 	signal = false,
 	blockedNeedsYou = false,
+	disconnected = false,
 }: {
 	need: Need;
 	/** Its agent has yet to open a session, so no work is running. */
@@ -53,6 +66,8 @@ export function Mark({
 	signal?: boolean;
 	/** Whether its blocked task waits on a blocker nobody has queued. */
 	blockedNeedsYou?: boolean;
+	/** Whether its agent has no live connection (stopped or failed). */
+	disconnected?: boolean;
 }): JSX.Element {
 	if (need.kind === "working" && need.merge === "running") {
 		return (
@@ -126,10 +141,15 @@ export function Mark({
 				need={need.kind === "waiting" ? { kind: "idle" } : need}
 				hosting={hosting}
 				quiet={quiet}
+				signal={signal}
+				disconnected={disconnected}
 			/>
 		);
 	}
 	if (need.kind === "waiting") {
+		if (need.why === "failed" && disconnected) {
+			return <Disconnected title={need.subject} />;
+		}
 		return (
 			<Glyph
 				icon={TriangleAlertIcon}
@@ -142,14 +162,13 @@ export function Mark({
 	}
 	if (signal) {
 		return (
-			<span
+			<Glyph
+				icon={HourglassIcon}
 				role="status"
-				aria-label="working"
+				aria-label="waiting"
 				title="Waiting to continue automatically"
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
-			</span>
+				color="text-muted-foreground"
+			/>
 		);
 	}
 	const shows = need.kind === "idle";
@@ -173,12 +192,12 @@ export function Mark({
 			/>
 		);
 	}
-	// Blocked: the triangle while a blocker needs queuing, else Ban, for a
-	// task that starts automatically once its blockers are done.
+	// Waiting on blockers: the triangle while a blocker needs queuing, else a
+	// gray hourglass while its blockers are already handled.
 	if (reported === "deferred" && shows && !hosting) {
 		return (
 			<Glyph
-				icon={blockedNeedsYou ? TriangleAlertIcon : BanIcon}
+				icon={blockedNeedsYou ? TriangleAlertIcon : HourglassIcon}
 				role="img"
 				aria-label="deferred"
 				color={blockedNeedsYou ? "text-warning" : "text-muted-foreground"}
@@ -216,8 +235,14 @@ export function Mark({
 				/>
 			);
 		}
+		if (disconnected) {
+			return <Disconnected title="Disconnected" />;
+		}
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
+	}
+	if (need.kind === "idle" && disconnected) {
+		return <Disconnected title="Disconnected" />;
 	}
 	if (quiet !== null && need.kind !== "idle") {
 		return (
@@ -239,6 +264,21 @@ export function Mark({
 		>
 			<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
 		</span>
+	);
+}
+
+/**
+ * A muted gray unplugged icon for a conversation with no live agent process.
+ */
+function Disconnected({ title }: { title: string }): JSX.Element {
+	return (
+		<Glyph
+			icon={UnplugIcon}
+			role="status"
+			aria-label="disconnected"
+			title={title}
+			color="text-muted-foreground"
+		/>
 	);
 }
 

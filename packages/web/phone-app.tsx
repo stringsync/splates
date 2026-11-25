@@ -225,7 +225,7 @@ export function PhoneApp({
 						<div
 							ref={setTitleSlot}
 							data-page-area={pageArea(page).area}
-							className="page-header-band flex min-w-0 items-center [&>nav]:w-full"
+							className="page-header-band relative flex min-w-0 items-center [&>nav]:w-full"
 						/>
 					)}
 					<TopBarFrame

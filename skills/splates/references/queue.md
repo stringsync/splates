@@ -21,8 +21,9 @@ When you notice something beyond what the task's After says, choose one:
 When something you chose to queue comes up, queue it as a task and move on:
 its subject and what you know. `splates task add` puts it in a lane, which
 says you groomed it: you checked no task already asks it, linked what
-blocks it, and put it in a lane (`--lane`, Backlog when none is plain; see
-[groom.md](groom.md)). When you know too little of it
+blocks it, and picked its board and lane. Read `splates board list` and
+`splates lane list` before adding it, then pass `--lane <n>` or use Backlog
+when nothing fits (see [groom.md](groom.md)). When you know too little of it
 to do that without looking into it, as for a rough idea or a request
 deferred as it came, `splates task defer` it instead, which takes the same
 flags and leaves it in Backlog, ungroomed, for whoever grooms it. Leave its position
@@ -88,38 +89,33 @@ and found; once none holds, carry on from its detail.
 Merging removes the queued task yours took: when you leave part of it
 undone, `splates task add` what is left as a task of its own.
 
-## Deferring
-
-`[SPLATES DEFER]` asks you to make a request a task rather than do it.
-`splates task defer` it as Queueing tasks says, from your worktree when a
-task is under way, its detail all the message gives and what you already
-know of the code it touches, with no new investigation.
-
-Sent alone, it defers work you may have begun: save it before you stop. Put
-what you learned and did on that request since the message in the task's
-detail, ticking off the `- [ ]` steps done. When you started a task for it,
-commit what its worktree holds, write in the detail that it carries on there
-with `splates claim <task>`, and bring `SPLATES.md` up to date, the
-`## Next` step it came from saying it is deferred to task #N.
-
-Either way, take no further step toward the request and reply with nothing
-beyond the line the page shows for the task; then, after a request, carry on
-with any work under way, and, sent alone, end your turn.
-
 A task of yours deferred with `splates remove <task> --reason blocked`
-asks the same of its detail, given as `--detail`: why it stopped, what you
+takes a detail, given as `--detail`: why it stopped, what you
 found, the steps done ticked off, those left, and, since the remove
 discards the branch, what of it is worth redoing,
 for a stranger who has none of this conversation.
 
 ## Asking the user to queue
 
-You never change the queue: splates refuses an agent `splates queue remove`,
-`move`, `pause` and `resume`, and `splates lane queue` and `unqueue`. The user
-queues, from the board or from the queue card your reply ends with. The one
-exception is `splates queue add` when the project's Agents setting lets you
-(Queueing on your own, below); with the setting at Never, the default, it is
-refused too.
+First, a task you just added or deferred is queued with `splates queue add
+<id>` in the same turn, and a lane you just filled with `splates lane queue
+<n>` (Queueing on your own, below); only when splates refuses it, or the work
+meets an ask-first criterion, does the queue card below apply. Otherwise you
+never change the queue: splates refuses an agent `splates queue remove`,
+`move`, `pause` and `resume`, and `splates lane unqueue`. The user
+queues, from the board or from the queue card your reply ends with. The
+exceptions are `splates queue add` and `splates lane queue` when the project's
+Agents setting lets you (Queueing on your own, below); with the setting at
+Never, the default, they are refused too.
+
+**Every queue card says why it was not auto-queued.** Right under its command,
+write one line, `Why not auto-queued:` then the reason in a few words: the refusal
+splates gave (`the Agents setting is Never`, `this conversation's cap of 5 is
+used`, `the chain is out of budget`) or the ask-first criterion the work
+meets, by number and in words (`4, the user's decision: it adds a page`). The
+line is how the user troubleshoots work that did not queue on its own, so
+name the real cause, never `to be safe` or `for your review`. When you can name
+no such reason, there is none: queue it yourself instead of carding it.
 
 A task is one medium-sized change: one coherent thing you can state in a
 sentence, that an agent can finish without carrying decisions from an earlier
@@ -144,15 +140,19 @@ are added. On No, do it all in this task, without raising it again and
 without queuing split points as follow-ups. Leave one change with a
 follow-up or two to a task and its follow-ups, and do the change itself when
 the user asked for it, so a request that is one medium change gets no offer.
-Then end your reply with the lane's queue card, naming it by number, and what
-the tasks add up to under it:
+Then queue the lane yourself when Queueing a lane on your own (below) allows
+it; otherwise end your reply with the lane's queue card, naming it by number,
+why it was not auto-queued, and what the tasks add up to under it:
 
 ```markdown
 ## 🔐 Permission: queue lane 7: Billing export
 
 `splates lane queue 7`
 
-The CSV writer first, then the endpoint and the page's button that use it.
+Why not auto-queued: 4, the user's decision: it opens with the export page's design.
+
+The design for the export page first, then the CSV writer, the endpoint and
+the page's button.
 ```
 
 When the user asks you to queue a request for a worker, rather than do it,
@@ -168,11 +168,14 @@ end your reply with its card, naming each task by number:
 
 `splates queue add 31 32`
 
+Why not auto-queued: the Agents setting is Never.
+
 Both stop retries the server already refused.
 ```
 
 Under its title, give the command that queues it, on a line of its own in
-backticks, so a user reading in a terminal can run it themselves.
+backticks, so a user reading in a terminal can run it themselves, then the
+`Why not auto-queued:` line.
 The `splates server` page lists the work on the card as the board has it,
 with that command to copy, and Queue now for the user to press; the choice is theirs and
 reaches only the board, never you. Work you added for several lanes or tasks (an approved plan that
@@ -191,8 +194,9 @@ without asking: **Never** (the default), **Safe tasks only**, or **Any task**.
 You cannot change it. Do not read it: after `splates task add`, run
 `splates queue add <id>`. When the setting or the cap forbids it, splates
 refuses and says so; then carry on as Asking the user to queue says, with the
-queue card. Never retry a refused add, and never work around it (`splates
-queue move`, a lane queue, asking another agent).
+queue card, its `Why not auto-queued:` line quoting the refusal. Never retry a
+refused add, and never work around it (`splates queue move`, a lane queue,
+asking another agent).
 
 **Ask first** when any one of these holds, whatever the level, and give the
 user the queue card instead (at Any task, the criteria below still bind you
@@ -204,7 +208,7 @@ except where the user's own words already approved the very thing):
    posting to GitHub, email or chat, paid APIs, purchases.
 3. Expensive to run: full builds or suites, docker, benchmarks, profiling,
    model training or inference, long jobs, large downloads, caches or
-   fixtures, token-heavy work (evals, workflows, large refactors).
+   fixtures, token-heavy work (running evals, workflows, large refactors).
 4. The user's decision: product or UX, features not asked for, any UI change
    (it opens with a mockup gate), removing behavior, naming public things,
    adding or majorly upgrading a dependency, licensing.
@@ -224,8 +228,84 @@ meets none of them goes in, and one that meets any goes to the user. Nothing
 you notice on the way is such a follow-up unless it passes this test: drop it
 or queue-card it as Do, queue or drop says.
 
+**Prefer queueing on your own.** A task that passes that test, meets none of
+the ask-first criteria and has every quality below is queued with `splates
+queue add`, never given a queue card; the card is for tasks that fall short.
+The qualities, on top of small, reversible and one goal:
+
+- **Implied by approved work.** It is a part the user's approved work needs,
+  even unstated: they approved a `foo` that calls a `bar` that does not exist
+  yet, so building `bar` is implied. A neighbor they never asked for is not.
+- **Checkable done.** A test or command confirms the Goal, with no judgment
+  call.
+- **Follows precedent.** It copies a pattern already in the code and makes no
+  new design or API choice.
+- **Cheap to verify.** Scoped tests, typecheck or lint are enough, with no
+  full suite.
+- **Independent.** It overlaps no open task's files, has no blocker, and
+  needs no other task's result first.
+- **Nothing needed from the user.** No credentials, no decision, no UI
+  mockup gate.
+
+Two more make a candidate stronger and tip a close call toward queueing:
+**evidence-backed** (it comes from a failure you saw, such as a flaky test or
+a failing gate, not a guess) and **costly to leave** (left alone it keeps
+slowing or failing other tasks).
+
 The same criteria apply when you start work in a task an agent queued: if
 the work turns out to meet one, ask as Questions says before doing it.
+
+### Queueing a lane on your own
+
+A lane is queued the way its tasks would be, all or none: `splates lane queue
+<n>` asks the same setting, cap and chain budget for every task waiting in
+it, and each counts against your cap. So queue a lane yourself, rather than
+card it, when all of these hold:
+
+- **Every task passes.** Each meets none of the ask-first criteria and passes
+  the test above, judged one by one as if you queued it alone; a lane is no
+  reason to let one through.
+- **It fits the cap.** Its waiting tasks fit in what is left of this
+  conversation's cap (default 5). A bigger lane is refused: card it, saying so.
+- **No design task.** A lane that opens with a Design task (Design first,
+  below) is the user's decision, ask-first item 4, so it gets the card.
+- **Whole as asked.** It is the lane the user said Yes to splitting into, or
+  follow-ups their approved work implies; a lane of things you noticed on the
+  way is not.
+
+When one task fails, card the whole lane, the `Why not auto-queued:` line naming
+that task and its criterion. Say a lane you queued as you would a task, one
+heading for the lane:
+
+```markdown
+## 🤖 Queued lane 7: Billing export
+
+Why: the split the user approved; three small tasks, each one package and tested.
+```
+
+### Auto-queueing an eval for AI changes
+
+Whenever a task lands a change to something with AI (a skill's `SKILL.md` or
+its `references/`, an agent guide or rule such as `AGENTS.md` or `vet` rules,
+an LLM prompt, a judge rubric, or other AI-facing behavior) in **any** project
+(not only `splates`), do not ask the user whether they want an eval. Right after
+`splates merge` lands, add and auto-queue a follow-up task for another agent to
+author an eval covering that change:
+
+- **Skip eval-only tasks.** Do not queue another eval task when the merged task
+  itself only authored, edited, or ran evals.
+- **Safe to auto-queue.** Drafting an eval spends no eval-run tokens, and any
+  eval run in the new conversation still waits for an eval budget card the user
+  approves, so it does not trip Ask-first item 3.
+- **Make it specific.** Write the task's goal and detail with the landed commit
+  SHA, the files and behavior that changed, and concrete passing vs. failing
+  examples so the next agent can author a sharp, targeted eval (using
+  `evals-authoring` or the project's eval framework) without guessing.
+- **Queue it in the same turn.** Run `splates task add ...` then
+  `splates queue add <id>` before your final reply, and include the
+  `## 🤖 Queued #<id>: ...` block in the reply (or fall back to the queue
+  permission card, with its `Why not auto-queued:` line, if `splates queue add` is
+  refused).
 
 **Say it.** For each task you queue, write one heading and a `Why:` line, in
 the reply that queued it, the reason one short sentence. The page groups the
@@ -247,7 +327,7 @@ today's queue card, which says so:
 
 `splates queue add 830`
 
-This conversation has queued its 5; the rest need you.
+Why not auto-queued: this conversation's cap of 5 is used.
 ```
 
 **The chain budget.** A chain is the tasks agents queued under a task the user
@@ -324,8 +404,7 @@ queue list` name it with where it stands, while `task show` there lists
 this task under `blocking:`. A blocker removed there without merging stops
 holding the task, as one here does, and stays as a note on it;
 `--remove-blocked-by wren#404` undoes the link. Never leave such a wait only in a task's
-detail or a deferral's `--waiting-on`: unlinked, the user cannot see what
-holds the work up.
+detail: unlinked, the user cannot see what holds the work up.
 
 ## Lanes
 
@@ -333,23 +412,23 @@ A lane is a named group of related tasks, for the user to see them together
 on the board. Every lane is on exactly one board (see Boards below). It orders nothing: the queue starts tasks, and links
 alone say what must land first, so link a task `--blocked-by` another
 whenever it needs that one's code or changes its files, even in the same
-lane. A lane has no model of its own: each task names its own, or Auto pick picks it. Placing a task, read `splates lane
-list`, then:
+lane. A lane has no model of its own: each task names its own, or Auto pick picks it.
+To place a task, read `splates board list` and `splates lane list`, then:
 
 - **An existing lane** when it builds on that lane's work, needing its code,
   files, or context: `--lane <n>` puts it at the bottom.
 - **A new lane** when it starts a chain that more tasks will follow, or
   shares a theme with another ungroomed Backlog task, such as the same feature,
   area or kind of fix: `splates lane add '<name>' --board <n>`, named for what they
-  add up to, on the board that fits, then `--lane <n>` for each. A lane you add for the user to
-  queue ends your reply with its queue card (see Asking the user to queue).
+  add up to, on the board that fits, then `--lane <n>` for each. A lane you add
+  is queued by you when Queueing a lane on your own allows it, and otherwise
+  ends your reply with its queue card (see Asking the user to queue).
 - **Backlog** otherwise: a task that fits with no other yet.
 
 After grooming, unmatched work goes to **Backlog** (`--lane backlog`, lane
 `0`), the permanent catch-all. Backlog can be queued and worked like any
 other lane, but cannot be renamed, removed, or merged away; it stays empty
-once its work finishes. Backlog's Groom button starts the groomer, which
-moves each ungroomed task to a themed lane or leaves it in Backlog, groomed.
+once its work finishes. An ungroomed task is moved to a themed lane or left in Backlog, groomed, by whoever grooms it.
 
 `splates task update <id> --lane <n>` moves one that exists.
 
@@ -377,8 +456,8 @@ waiting in it joins the queue then, which starts each once what it is
 blocked by lands. One blocked by a task outside the queue, neither queued
 nor running, stays queued but shows as Blocked, with a button on its card
 that queues that chain of blockers, until the user presses it. A task added to the lane later is not queued with it: so a
-follow-up you add to a lane under way waits, and your reply ends with its
-queue card, as for any task you add. 
+follow-up you add to a lane under way waits until you queue it with `splates
+queue add`, or your reply ends with its queue card, as for any task you add.
 
 The order of the lanes, the board's columns left to right, is the user's to
 set, like a task's position: only when they ask ("put Licensing first"),

@@ -11,7 +11,7 @@ import { cn } from "#web/lib/utils.ts";
 import { Board } from "./board";
 import { Card, type CardProps } from "./card";
 import { usePendingSnapshot } from "./expecting";
-import { PendingSpinner, pendingRow, useShowPending } from "./pending";
+import { pendingRow, useShowPending } from "./pending";
 
 /** A card in a column that can be dragged to another place, as `Card` takes it. */
 export function Sortable(props: CardProps): JSX.Element {
@@ -49,12 +49,6 @@ export function Sortable(props: CardProps): JSX.Element {
 				),
 			)}
 		>
-			{pending && (
-				<PendingSpinner
-					shown={showPending}
-					className="absolute top-2 right-2 z-10 size-3.5 text-muted-foreground"
-				/>
-			)}
 			<Card
 				{...props}
 				// The whole card answers a mouse and a finger; its title, a keyboard

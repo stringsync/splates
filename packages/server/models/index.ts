@@ -38,7 +38,7 @@ export {
 	observeTokens,
 	safeOpenCodeUpdate,
 } from "./opencode-usage";
-export type { AgentPick, RosterAgent, RosterFile } from "./roster";
+export type { AgentPick, RosterAgent, RosterFile, Speed } from "./roster";
 export {
 	DEFAULT_AGENTS,
 	modelsOf,

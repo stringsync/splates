@@ -94,6 +94,18 @@ export async function finishLanding(
 			{ task },
 		);
 	}
+	// Done is done: the queued tasks this task took up leave the queue with it
+	// right after discard, before slow post-merge hooks or remote branch cleanup
+	// that could be interrupted and leave them soft-locked as taken.
+	const done = await tasks.takenBy(task);
+	// Read before the queued tasks go, since a lane they empty ends with them.
+	const ran = (await tasks.lanes()).filter((lane) =>
+		done.some((each) => each.lane === lane.id),
+	);
+	for (const each of done) {
+		await each.remove(head);
+	}
+	await tasks.endLanes(ran.map((lane) => lane.id));
 	// Only a worktree's hook ran for this landing, so the main tree holds a lock
 	// its node_modules is behind, and whatever runs there next fails on it.
 	const here =
@@ -104,16 +116,6 @@ export async function finishLanding(
 	const freed = await slots.release(current.path);
 	// Landed is landed: a remote that kept its copy only has a stray branch.
 	const unpushed = pushedLine(await branches.delete(task), "deleted");
-	// Done is done: the queued tasks this task took up leave the queue with it.
-	const done = await tasks.takenBy(task);
-	// Read before the queued tasks go, since a lane they empty ends with them.
-	const ran = (await tasks.lanes()).filter((lane) =>
-		done.some((each) => each.lane === lane.id),
-	);
-	for (const each of done) {
-		await each.remove(head);
-	}
-	await tasks.endLanes(ran.map((lane) => lane.id));
 	const lines = [
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing.landing === git.root ? "" : `\n  landed in: ${landing.landing}`

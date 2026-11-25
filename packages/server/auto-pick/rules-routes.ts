@@ -1,7 +1,14 @@
 import type { Fs } from "core/system";
 import { Exit } from "../exit";
-import { effortsOf, Offered, RETIRED_AGENTS, Roster } from "../models";
+import {
+	effortsOf,
+	Offered,
+	RETIRED_AGENTS,
+	Roster,
+	type Speed,
+} from "../models";
 import { body } from "../server/shared";
+import { type ModelProvider, modelProvider } from "../stats/model-provider";
 import { FsStorage } from "../storage";
 import { DEFAULT_RULES } from "./defaults";
 import type { AutoPickRules } from "./rules";
@@ -17,12 +24,24 @@ export interface AutoPickRulesView {
 	agents: AutoPickAgent[];
 }
 
+/** A model a pick can name, with what a menu shows beside it. */
+export interface PickableModel {
+	id: string;
+	name: string;
+	/** Who made it, for its mark, even when another maker's agent runs it, when known. */
+	provider?: ModelProvider;
+	/** How quickly it answers, when the roster says. */
+	speed?: Speed;
+	/** What it costs against the others, 1 (cheapest) to 4 (dearest), when the roster says. */
+	costRank?: number;
+}
+
 /** An agent a pick can name, and what it can name with it. */
 export interface AutoPickAgent {
 	id: string;
 	name: string;
 	/** The roster's models for it; none when the roster leaves them to the agent. */
-	models: { id: string; name: string }[];
+	models: PickableModel[];
 	/**
 	 * The thinking levels it offered when it last ran here, by value; null
 	 * when it never ran here, so what it takes is not known yet.
@@ -99,7 +118,16 @@ export async function pickableAgents(
 		.map((agent) => ({
 			id: agent.id,
 			name: agent.name,
-			models: agent.models.map(({ id, name }) => ({ id, name })),
+			models: agent.models.map(({ id, name, speed, costRank }) => {
+				const provider = modelProvider(id, roster);
+				return {
+					id,
+					name,
+					...(provider === null ? {} : { provider }),
+					...(speed === undefined ? {} : { speed }),
+					...(costRank === undefined ? {} : { costRank }),
+				};
+			}),
 			efforts:
 				offered[agent.id] === undefined
 					? null

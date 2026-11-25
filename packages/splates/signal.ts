@@ -319,3 +319,35 @@ splatesSignal
 				: `${opts.name} expires at ${String(answer.expiresAt)}`,
 		);
 	});
+
+splatesSignal
+	.command("cleanup")
+	.use(repository({ needs: "own" }))
+	.description(
+		"hide every signal nothing has listened to or could fire for a day, now rather than at the server's hourly sweep; each stays revivable for 30 days with `splates signal revive`",
+	)
+	.action(async (_opts, ctx) => {
+		const answer = await post(ctx, "/api/signals/cleanup", {});
+		const removed = (answer.removed as string[] | undefined) ?? [];
+		ctx.log.info(
+			removed.length === 0
+				? "no idle signals to clean up"
+				: `cleaned up ${removed.length}: ${removed.join(", ")}`,
+		);
+	});
+
+splatesSignal
+	.command("revive")
+	.use(repository({ needs: "own" }))
+	.description(
+		"show a signal cleanup or expiration hid on the Signals page again; firing, waiting on or probing it brings it back too",
+	)
+	.arg("name", z.string(), { description: "the signal name, as mdom.released" })
+	.action(async (opts, ctx) => {
+		const answer = await post(ctx, "/api/signals/revive", { name: opts.name });
+		ctx.log.info(
+			answer.revived === true
+				? `${opts.name} is back on the Signals page`
+				: `${opts.name} was not hidden`,
+		);
+	});

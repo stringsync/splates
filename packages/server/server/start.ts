@@ -27,14 +27,17 @@ import {
 	Offered,
 	splatesHome,
 } from "../models";
-import { devSlot, SERVER_PID, SLOT, slotOf } from "../ports";
+import { devSlot, SERVER_PID, SLOT, SLOT_POOL, Slots, slotOf } from "../ports";
 import { Projects } from "../projects";
 import { inLinkedWorktree, Journal, ProjectHome } from "../records";
+import { RigSlots } from "../rigs";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
 import {
 	accessConfig,
+	clearWildcardShadow,
+	ensureWildcardTunnel,
 	portsHostFlag,
 	savedTunnelConfig,
 	tunnelConfig,
@@ -57,6 +60,7 @@ import type { SplatesDeps } from "./runtime-deps";
 import { type DevServer, dev, devPorts } from "./server";
 import { devServers } from "./servers";
 import {
+	resolvePortsTarget,
 	rosterOf,
 	savedPortsHostOf,
 	savedTunnelOf,
@@ -155,7 +159,14 @@ async function start(
 			: null;
 		// The slot is readied here, once, and its child serves it as a bare
 		// `splates server` serves the machine's tunnel, from the slot's home.
-		const slot = opts.slot ? await devSlot(ctx) : null;
+		const slot = opts.slot
+			? await devSlot(ctx, {
+					reserved: () =>
+						RigSlots.in(FsStorage.ofMachine(ctx), {
+							exists: (path) => ctx.fs.exists(path),
+						}).heldWords(),
+				})
+			: null;
 		if (portsFlag !== undefined) {
 			await savedPortsHostOf(ctx).save(portsFlag);
 		}
@@ -212,8 +223,35 @@ async function start(
 		access = saved?.access ?? null;
 		tunnel = saved?.tunnel ?? null;
 	}
-	const portsHost =
-		portsFlag === undefined ? await savedPortsHostOf(ctx).read() : portsFlag;
+	const { portsHost, portsAccess } = await resolvePortsTarget({
+		portsFlag,
+		savedPortsHost: await savedPortsHostOf(ctx).read(),
+		slotServer: ctx.ps.env(SLOT) !== undefined,
+		workerless,
+		flagged,
+		access,
+		tunnel,
+		ensureWildcard: async () => {
+			const held = await Slots.ofMachine(ctx)
+				.status()
+				.catch(() => []);
+			const active = new Set(
+				held
+					.filter((each) => !each.orphaned || each.pid !== null)
+					.map((each) => each.slot.word),
+			);
+			const clearWords = SLOT_POOL.map((each) => each.word).filter(
+				(word) => !active.has(word),
+			);
+			return ensureWildcardTunnel({
+				saved: savedTunnelOf(ctx),
+				store: (ctx.secrets ?? SYSTEM_STORES).device,
+				clearWords,
+				log: ctx.log,
+				fetch: ctx.fetch,
+			});
+		},
+	});
 	// A slot's server says which process it is, so the next start of the slot
 	// can tell one left running by a killed wrapper.
 	if (ctx.ps.env(SLOT) !== undefined) {
@@ -384,6 +422,25 @@ async function start(
 			access,
 			tunnel,
 			portsHost,
+			portsAccess,
+			onRigSlotClaimed:
+				portsAccess === null
+					? undefined
+					: async (claimed) => {
+							const record = await savedTunnelOf(ctx)
+								.read()
+								.catch(() => null);
+							if (record === null) {
+								return;
+							}
+							await clearWildcardShadow({
+								record,
+								word: claimed.word,
+								store: device,
+								log: ctx.log,
+								fetch: ctx.fetch,
+							});
+						},
 			general: {
 				conversations: general,
 				root: generalRoot,

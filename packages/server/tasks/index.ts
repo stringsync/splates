@@ -21,6 +21,7 @@ export { recommend, recommendation } from "./recommend";
 export { remove } from "./remove";
 export { recordRetry, retry } from "./retry";
 export { TaskRoutes } from "./routes";
+export { settleTaken } from "./settle-taken";
 export type { Details } from "./show";
 export { show, TaskDetails } from "./show";
 export type { Snapshot } from "./snapshot";

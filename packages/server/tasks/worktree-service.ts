@@ -100,20 +100,6 @@ export class WorktreeService {
 		return id !== undefined && (await this.holds(id)) ? id : undefined;
 	}
 
-	/**
-	 * The persistent agent's role of the conversation `conversation()` names,
-	 * as `"groomer"`, read from its log's first entry, which says what it
-	 * was started for; undefined for an ordinary one, or none.
-	 */
-	async callerRole(): Promise<string | undefined> {
-		const id = await this.conversation();
-		if (id === undefined) {
-			return undefined;
-		}
-		const start = await this.conversationLog(id).first();
-		return start?.kind === "start" ? start.persistent : undefined;
-	}
-
 	/** The log of the conversation `id`. */
 	conversationLog(id: string): Log<Entry> {
 		return this.storage.log(`conversations/${id}.jsonl`);
@@ -344,7 +330,7 @@ export class WorktreeService {
 		await this.records.end(worktree.task, { unqueue: opts.unqueue });
 		await this.storage.document(`conflicts/${worktree.task}.json`).remove();
 		await this.rememberRemoved(worktree.task);
-		await this.recordOutcome(worktree, ended, ending, opts);
+		await this.recordOutcome(worktree, ended, ending, record?.board, opts);
 		return removed;
 	}
 
@@ -397,6 +383,8 @@ export class WorktreeService {
 		{ task, base, state }: Worktree,
 		ended: "merged" | "removed",
 		ending: Ending,
+		// Undefined for a task with no record, whose board is unknown.
+		board: { id: number; name: string } | null | undefined,
 		opts: DiscardOptions,
 	): Promise<void> {
 		const { outcomes } = this;
@@ -489,6 +477,11 @@ export class WorktreeService {
 					)
 				: (worked?.waitedMs ?? 0),
 			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
+			...(board === undefined
+				? {}
+				: {
+						board: board === null ? null : { id: board.id, name: board.name },
+					}),
 			...(opts.commits === undefined ? {} : { commits: opts.commits }),
 			promptsFrom:
 				log === null ? {} : await promptsFrom(log, state.createdAt, endedAt),

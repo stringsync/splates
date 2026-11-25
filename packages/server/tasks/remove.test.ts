@@ -117,7 +117,7 @@ describe("remove", () => {
 					reason: "blocked",
 					deferral: { why: "It needs a key." },
 				}),
-			).toBail("usage", { message: "--waiting-on" });
+			).toBail("usage", { message: "--closes-on" });
 			await expect(
 				remove(deps, "alpha", {
 					reason: "blocked",
@@ -199,8 +199,6 @@ describe("remove", () => {
 				deferral: {
 					why: "The fix needs the new upload client.",
 					blockedBy: [blocker.id],
-					questions: ["Keep the 413 retry for old clients?"],
-					outside: ["an upstream release"],
 					detail: "Stopped: the client is half built.",
 				},
 			});
@@ -215,8 +213,8 @@ describe("remove", () => {
 					task: "alpha",
 					conversation: "c1",
 					tasks: [{ id: blocker.id, subject: "Build the upload client" }],
-					questions: [{ text: "Keep the 413 retry for old clients?" }],
-					outside: [{ what: "an upstream release" }],
+					questions: [],
+					outside: [],
 				},
 			});
 			expect(deps.out()).toContain(`waits on: task ${blocker.id} merging`);
@@ -227,10 +225,27 @@ describe("remove", () => {
 			expect(deps.out()).toContain(
 				`[ ] #${blocker.id} Build the upload client (available)`,
 			);
-			expect(deps.out()).toContain(
-				"[ ] the person: Keep the 413 retry for old clients? (open)",
-			);
 		});
+	});
+
+	it("keeps the board its lane is on with how it ended, and none for one off the list", async () => {
+		const board = await deps.tasks.addBoard("Audio");
+		const lane = await deps.tasks.addLane("Fixes", board.id);
+		const queued = await deps.tasks.add("Retry on 413", null, {
+			lane: lane.id,
+		});
+		await add(deps, "alpha", { tasks: [queued.id] });
+		await add(deps, "beta");
+
+		await remove(deps, "alpha", { reason: "moot" });
+		await remove(deps, "beta", { reason: "moot" });
+
+		const outcomes = await deps.outcomes.list();
+		expect(outcomes.find((each) => each.task === "alpha")?.board).toEqual({
+			id: board.id,
+			name: "Audio",
+		});
+		expect(outcomes.find((each) => each.task === "beta")?.board).toBeNull();
 	});
 
 	it("removes every board task it took and the tasks that depended on them", async () => {
@@ -262,19 +277,24 @@ describe("remove", () => {
 		await queueAdd(deps, [started.id, taken.id]);
 		await add(deps, "alpha", { tasks: [started.id] });
 		await (await deps.tasks.find(taken.id)).take("alpha");
+		const blocker = await deps.tasks.add("Build the client", null);
 
 		await remove(deps, "alpha", {
 			reason: "blocked",
-			deferral: { why: "It needs a key.", outside: ["a key"] },
+			deferral: { why: "It needs the client.", blockedBy: [blocker.id] },
 		});
 
-		expect((await deps.tasks.all()).map((task) => task.state)).toMatchObject([
-			{ id: started.id, stage: "available", takenBy: null },
-			{ id: taken.id, stage: "available", takenBy: null },
+		expect([
+			(await deps.tasks.find(started.id)).state,
+			(await deps.tasks.find(taken.id)).state,
+		]).toMatchObject([
+			{ stage: "available", takenBy: null },
+			{ stage: "available", takenBy: null },
 		]);
 	});
 
 	it("gives work started with no board task one of its own to hold its deferral", async () => {
+		const blocker = await deps.tasks.add("Build the client", null);
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
@@ -284,10 +304,10 @@ describe("remove", () => {
 
 		const { released } = await remove(deps, "alpha", {
 			reason: "blocked",
-			deferral: { why: "It needs a key.", outside: ["a key"] },
+			deferral: { why: "It needs the client.", blockedBy: [blocker.id] },
 		});
 
-		const [held] = await deps.tasks.all();
+		const [, held] = await deps.tasks.all();
 		expect(released).toEqual([
 			{ id: held?.id ?? 0, subject: "Stop uploads retrying a 413" },
 		]);
@@ -297,7 +317,10 @@ describe("remove", () => {
 			from: "alpha",
 			stage: "available",
 			takenBy: null,
-			deferred: { why: "It needs a key.", outside: [{ what: "a key" }] },
+			deferred: {
+				why: "It needs the client.",
+				tasks: [{ id: blocker.id, subject: "Build the client" }],
+			},
 		});
 		expect(held?.text).toContain("## Goal");
 		expect(deps.out()).toContain("holds the deferred work");
@@ -309,5 +332,21 @@ describe("remove", () => {
 
 		await expect(remove(deps, "alpha")).toBail("already_removed");
 		await expect(remove(deps, "never")).toBail("not_found");
+	});
+
+	it("removes the board task before deleting any remote branch", async () => {
+		const queued = await deps.tasks.add("Drop alpha", null);
+		await add(deps, "alpha", { tasks: [queued.id] });
+
+		const removeBranch = deps.branches.delete.bind(deps.branches);
+		const remainingAtDelete: number[] = [];
+		deps.branches.delete = async (task) => {
+			remainingAtDelete.push((await deps.tasks.all()).length);
+			return removeBranch(task);
+		};
+
+		await remove(deps, "alpha");
+
+		expect(remainingAtDelete).toEqual([0]);
 	});
 });

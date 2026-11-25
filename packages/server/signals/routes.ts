@@ -9,7 +9,7 @@ import {
 } from "./call";
 import { clockDuration } from "./clock-schedule";
 import type { Clocks } from "./clocks";
-import { type AutomationOn, overview } from "./overview";
+import { type AutomationOn, idle, listening, overview } from "./overview";
 import { isOn, type Probes } from "./probes";
 import { durationMs, expirationOf, sinceOf } from "./time";
 import { LONGEST_WAIT_MS, PROBE_RUN_MS } from "./types";
@@ -20,6 +20,8 @@ export interface SignalHome {
 	clocks?: Pick<Clocks, "start">;
 	/** Every conversation of every project and General, opening the unopened. */
 	all(): Promise<Conversation[]>;
+	/** The conversations of the projects open now, opening no others; `all` when absent. */
+	opened?(): Promise<Conversation[]>;
 	/** The conversation `id`, or null for none. */
 	find(id: string): Promise<Conversation | null>;
 	/** The main tree of the project that holds conversation `id`, where its probes run; null for none. */
@@ -243,10 +245,68 @@ export class SignalRoutes {
 
 	/**
 	 * `GET /api/signals`: every signal with a raise, a probe or a subscriber,
-	 * and how many live subscribers they have.
+	 * and how many live subscribers they have, plus the signals cleanup hid.
 	 */
 	readonly list = async (): Promise<Response> => {
-		const conversations = await this.home.all();
+		const visible = await this.#visible();
+		const shown = new Set(visible.map((each) => each.name));
+		const hidden = Object.entries(await this.home.book.swept())
+			.filter(([name]) => !shown.has(name))
+			.map(([name, one]) => ({ name, ...one }))
+			.sort((left, right) => right.at.localeCompare(left.at));
+		return Response.json({
+			signals: visible,
+			hidden,
+			subscribers: visible.reduce(
+				(sum, each) => sum + each.subscribers.filter((one) => one.live).length,
+				0,
+			),
+		});
+	};
+
+	/**
+	 * `POST /api/signals/cleanup`: hides every signal nothing has listened to or
+	 * could fire for a day, keeping it revivable; the answer names them.
+	 */
+	readonly cleanup = async (): Promise<Response> => {
+		return Response.json({ removed: await this.sweep() });
+	};
+
+	/** Hides the signals cleanup finds idle, as the route does, for the server's schedule; their names. */
+	async sweep(): Promise<string[]> {
+		const now = this.home.now();
+		// Read only what is open: a signal hidden for missing a listener in an
+		// unopened project shows again once that listener is seen.
+		const found = (await this.#visible(false)).filter((each) =>
+			idle(each, now),
+		);
+		await this.home.book.sweep(
+			found.map((each) => ({
+				name: each.name,
+				...(each.description === undefined
+					? {}
+					: { description: each.description }),
+			})),
+		);
+		return found.map((each) => each.name);
+	}
+
+	/**
+	 * `POST /api/signals/revive`: `name`. Shows a signal cleanup or expiration
+	 * hid on the Signals page again; the answer says whether it was hidden.
+	 */
+	readonly revive = async (request: Request): Promise<Response> => {
+		const given = await body(request);
+		const name = dotted(String(given.name ?? ""));
+		return Response.json({ name, revived: await this.home.book.revive(name) });
+	};
+
+	/** The signals the Signals page shows: not removed by expiration, and not hidden by cleanup unless something listens again. */
+	async #visible(open = true) {
+		const conversations =
+			open || this.home.opened === undefined
+				? await this.home.all()
+				: await this.home.opened();
 		const deadlines = await this.home.book.expirations();
 		const raises = await this.home.book.raises();
 		for (const name of Object.keys(deadlines)) {
@@ -279,15 +339,13 @@ export class SignalRoutes {
 				signal.expiresAt = at;
 			}
 		}
-		const visible = signals.filter((each) => !removed.has(each.name));
-		return Response.json({
-			signals: visible,
-			subscribers: visible.reduce(
-				(sum, each) => sum + each.subscribers.filter((one) => one.live).length,
-				0,
-			),
-		});
-	};
+		const swept = await this.home.book.swept();
+		return signals.filter(
+			(each) =>
+				!removed.has(each.name) &&
+				(swept[each.name] === undefined || listening(each)),
+		);
+	}
 
 	/**
 	 * `POST /api/signals/check`: `name`, `description`, `script`, `every` and

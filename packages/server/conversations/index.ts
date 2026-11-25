@@ -17,7 +17,7 @@ export { ARCHIVED_KEPT, Conversations } from "./conversations";
 export type { Pairing } from "./entry";
 export { eventWaitOf } from "./event-wait";
 export { JournalEvents } from "./events";
-export { conversationOf, refuseGroomer } from "./given";
+export { conversationOf } from "./given";
 export type {
 	ConversationDeps,
 	ConversationEvents,
@@ -33,8 +33,6 @@ export type { Entry, Live } from "./log";
 export { ConversationLog, LOG_FORMAT } from "./log";
 export { messageOf, paused, said, textOf } from "./messages";
 export {
-	GROOMER_ROLE,
-	grooms,
 	lanesOf,
 	namedForTask,
 	nameOf,

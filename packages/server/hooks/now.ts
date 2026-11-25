@@ -4,15 +4,9 @@ import type { Automation } from "./store";
 export const BY_HAND = "by hand";
 
 /**
- * Whether `automation` can be run at once by hand: one on a schedule, or the
- * groomer, which grooms ungroomed Backlog tasks as it stands. One on any other task
- * event needs the event's tasks, so it runs only on that event.
+ * Whether `automation` can be run at once by hand: one on a schedule. One on
+ * a task event needs the event's tasks, so it runs only on that event.
  */
-export function runsNow({
-	trigger,
-	hook,
-}: Pick<Automation, "trigger" | "hook">): boolean {
-	return (
-		(!("event" in trigger) && !("signal" in trigger)) || hook.kind === "groom"
-	);
+export function runsNow({ trigger }: Pick<Automation, "trigger">): boolean {
+	return !("event" in trigger) && !("signal" in trigger);
 }

@@ -282,27 +282,19 @@ export class Git {
 		}
 		// A merge or remove can take the worktree away mid-read, which reads as
 		// no worktree at all rather than an error.
-		const edited = await this.run(worktree, "diff", "--name-only", "HEAD");
-		const untracked = await this.run(
-			worktree,
-			"ls-files",
-			"--others",
-			"--exclude-standard",
-		);
-		if (edited.code !== 0 || untracked.code !== 0) {
+		const changes = await this.worktreeChanges(worktree);
+		if (changes === null) {
 			return null;
 		}
 		let text = stdout;
-		for (const path of lines(untracked.stdout)) {
+		for (const path of changes.untracked) {
 			// Exits 1 because the two differ, which is the point.
 			const added = await raw(worktree, "--no-index", "--", "/dev/null", path);
 			text += added.stdout;
 		}
 		return {
 			text,
-			uncommitted: [
-				...new Set([...lines(edited.stdout), ...lines(untracked.stdout)]),
-			],
+			uncommitted: [...new Set([...changes.edited, ...changes.untracked])],
 		};
 	}
 
@@ -327,18 +319,43 @@ export class Git {
 		}
 		const paths = lines(committed.stdout);
 		if (worktree !== null) {
-			// Two calls rather than `status --porcelain`, whose leading status
-			// columns do not survive the trim every call here gets.
-			const edited = await this.run(worktree, "diff", "--name-only", "HEAD");
-			const added = await this.run(
-				worktree,
-				"ls-files",
-				"--others",
-				"--exclude-standard",
-			);
-			paths.push(...lines(edited.stdout), ...lines(added.stdout));
+			const changes = await this.worktreeChanges(worktree);
+			paths.push(...(changes?.edited ?? []), ...(changes?.untracked ?? []));
 		}
 		return [...new Set(paths)].sort();
+	}
+
+	/**
+	 * What `worktree` has uncommitted, from one `git status` (each git a
+	 * command starts costs more than the reading it does): `edited`, the
+	 * tracked paths that differ from HEAD, staged or not, a rename as both its
+	 * old and new path; `untracked`, each new file git does not ignore. Null
+	 * when git cannot say, as when a merge or remove took the worktree away.
+	 */
+	async worktreeChanges(
+		worktree: string,
+	): Promise<{ edited: string[]; untracked: string[] } | null> {
+		// Untrimmed: each entry's leading status columns can be a space.
+		const { code, stdout } = await this.runner.git(worktree, [
+			"--no-optional-locks",
+			"status",
+			"--porcelain",
+			"-z",
+			"--untracked-files=all",
+			"--no-renames",
+		]);
+		if (code !== 0) {
+			return null;
+		}
+		const edited: string[] = [];
+		const untracked: string[] = [];
+		for (const entry of stdout.split("\0")) {
+			if (entry.length < 4) {
+				continue;
+			}
+			(entry.startsWith("??") ? untracked : edited).push(entry.slice(3));
+		}
+		return { edited, untracked };
 	}
 
 	/**

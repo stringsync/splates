@@ -24,6 +24,7 @@ import { answered, dropLane, queueLane, queueTodo, scoped } from "./api";
 import { Board } from "./board";
 import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
+import { EvalBudgetCard } from "./eval-budget-card";
 import { EvalsCard } from "./evals-card";
 import {
 	type SnapshotExpecter,
@@ -39,12 +40,14 @@ import { QueueToggle, stageOf } from "./todo-queue";
 
 /**
  * Shows what an agent asks you to allow, such as queueing work, removing a
- * lane with its tasks, running evals or the whole test suite. Pressing its
+ * lane with its tasks, an eval budget, or running the whole test suite. Pressing its
  * button is your own action; the agent never acts on it as a reply.
  */
 export const PermissionUI = makeAssistantDataUI<{
 	permission: PermissionProposal;
 	superseded?: boolean;
+	evalRound?: number;
+	earlierEvalRound?: boolean;
 }>({
 	name: "permission",
 	render: ({ data }) =>
@@ -52,21 +55,37 @@ export const PermissionUI = makeAssistantDataUI<{
 			<SupersededQueue proposal={data.permission} />
 		) : (
 			<InMessage>
-				<PermissionCard proposal={data.permission} />
+				<PermissionCard
+					proposal={data.permission}
+					evalRound={data.evalRound}
+					earlierEvalRound={data.earlierEvalRound}
+				/>
 			</InMessage>
 		),
 });
 
 export function PermissionCard({
 	proposal,
+	evalRound,
+	earlierEvalRound,
 }: {
 	proposal: PermissionProposal;
+	evalRound?: number;
+	earlierEvalRound?: boolean;
 }): JSX.Element {
 	switch (proposal.action) {
 		case "remove-lane":
 			return <RemoveLaneCard proposal={proposal} />;
 		case "run-evals":
-			return <EvalsCard proposal={proposal} />;
+			return (
+				<EvalsCard
+					proposal={proposal}
+					round={evalRound}
+					earlierRound={earlierEvalRound}
+				/>
+			);
+		case "eval-budget":
+			return <EvalBudgetCard proposal={proposal} />;
 		case "run-command":
 			return <RunCommandCard proposal={proposal} />;
 		case "queue":

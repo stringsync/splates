@@ -31,6 +31,7 @@ const stats: Stats = {
 	previous: { ...combine([]), costed: 5, cost: 10 },
 	models: [],
 	devices: [],
+	boards: [],
 	projects: [],
 	since: null,
 	skill: [],

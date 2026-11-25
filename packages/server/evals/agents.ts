@@ -12,7 +12,7 @@ export interface EvalAgents {
 }
 
 /** The agents the eval runner starts natively, by roster id. */
-export const NATIVE_AGENTS = ["claude", "codex", "kimi"];
+export const NATIVE_AGENTS = ["claude", "codex", "kimi", "antigravity"];
 
 const FORMAT = 1;
 

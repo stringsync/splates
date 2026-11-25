@@ -1,12 +1,15 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, readFile, realpath } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import type { Priority } from "@evals/evals/scenario";
 import type { AsyncResource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import type { Child, Ps } from "core/system";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Document, Storage } from "../storage";
-import { type EvalBudgetStatus, EvalBudgets } from "./budget";
+import type { EvalBudgetSeed, EvalBudgetView } from "./auto";
+import type { PassRule } from "./pass-rule";
+import { EvalRounds } from "./rounds";
 import { ScenarioCache } from "./scenario-cache";
 import { parsed, parseScenarioList } from "./scenario-list";
 import { EvalStore } from "./store";
@@ -29,8 +32,8 @@ export class EvalLaunches
 	private readonly launches = new Map<string, Launched>();
 	private readonly watching = new Set<Promise<void>>();
 	private readonly record: Document<Record<string, SavedLaunch>>;
-	/** The dollar budget of each conversation's latest run, and the rounds it started. */
-	readonly budgets: EvalBudgets;
+	/** The rounds each conversation started. */
+	readonly rounds: EvalRounds;
 	private writing: Promise<void> = Promise.resolve();
 	private disposing = false;
 	private readonly listed: ScenarioCache;
@@ -41,7 +44,8 @@ export class EvalLaunches
 	) {
 		this.listed = new ScenarioCache(ps);
 		this.record = storage.document("eval-launches.json");
-		this.budgets = new EvalBudgets(storage.document("eval-budgets.json"));
+		// Named for the budget it once kept too, so earlier rounds still link up.
+		this.rounds = new EvalRounds(storage.document("eval-budgets.json"));
 	}
 
 	/** Every case the project's `list` prints. */
@@ -62,7 +66,17 @@ export class EvalLaunches
 				const said = tailOf(`${stdout}${stderr}`);
 				fail("hook_failed", said || `evals.list exited ${exitCode}`, {});
 			}
-			return parseScenarioList(stdout);
+			// A file is listed absolute or from where `list` ran; the page names it
+			// from the project's root, through the links (macOS's /tmp) either may resolve.
+			const real = await realpath(dir).catch(() => dir);
+			return parseScenarioList(stdout).map((each) => {
+				if (each.file === undefined) {
+					return each;
+				}
+				const at = resolve(dir, each.file);
+				const from = at.startsWith(`${real}/`) ? real : dir;
+				return { ...each, file: relative(from, at), fileAt: at };
+			});
 		});
 	}
 
@@ -124,11 +138,6 @@ export class EvalLaunches
 			return this.read(held);
 		}
 		const conversation = spec.conversation ?? null;
-		let worstUsd = 0;
-		if (conversation !== null) {
-			const plan = await this.plan(commands, spec);
-			worstUsd = plan.usd ?? 0;
-		}
 		const known = new Set(await batchesIn(commands.results));
 		const reserved: SavedLaunch = {
 			launch: {
@@ -137,6 +146,7 @@ export class EvalLaunches
 				status: "running",
 				batch: null,
 				output: "",
+				...(spec.auto === true ? { auto: true as const } : {}),
 			},
 			commands,
 			spec,
@@ -144,9 +154,8 @@ export class EvalLaunches
 		// Persist the request before a process can spend, including a crash during spawn.
 		await this.record.update((all) => ({ ...all, [id]: reserved }));
 		if (conversation !== null) {
-			await this.budgets.begin(conversation, {
+			await this.rounds.begin(conversation, {
 				launch: reserved.launch.id,
-				worstUsd,
 				batch: null,
 			});
 		}
@@ -181,14 +190,6 @@ export class EvalLaunches
 		return this.read(launch);
 	}
 
-	/** Where the conversation's latest run stands: its budget and what it has cost. */
-	budgetStatus(
-		commands: EvalCommands,
-		conversation: string,
-	): Promise<EvalBudgetStatus> {
-		return this.budgets.statusOf(conversation, new EvalStore(commands.results));
-	}
-
 	/** Recover saved launches after a server restart without rerunning paid commands. */
 	async resume(commands: EvalCommands[]): Promise<void> {
 		const current = new Map(commands.map((each) => [each.root, each]));
@@ -217,6 +218,23 @@ export class EvalLaunches
 			: this.read(launch);
 	}
 
+	/** The launch that writes `batch` in this project, so its report can follow and stop it; null for none. */
+	async ofBatch(
+		commands: EvalCommands,
+		batch: string,
+	): Promise<EvalLaunch | null> {
+		for (const launch of this.launches.values()) {
+			if (launch.commands.root === commands.root && launch.batch === batch) {
+				return this.read(launch);
+			}
+		}
+		const saved = Object.values((await this.record.read()) ?? {}).find(
+			(each) =>
+				each.commands.root === commands.root && each.launch.batch === batch,
+		);
+		return saved?.launch ?? null;
+	}
+
 	/** Saved ownership of batches in this results directory, including earlier rounds of a card. */
 	async batchConversations(results: string): Promise<Map<string, string>> {
 		const owners = new Map<string, string>();
@@ -228,13 +246,95 @@ export class EvalLaunches
 			if (saved.launch.batch !== null) {
 				owners.set(saved.launch.batch, conversation);
 			}
-			for (const round of await this.budgets.roundsOf(conversation)) {
+			for (const round of await this.rounds.roundsOf(conversation)) {
 				if (round.batch !== null) {
 					owners.set(round.batch, conversation);
 				}
 			}
 		}
 		return owners;
+	}
+
+	/**
+	 * Conversation `id`'s eval budget: what its person approved on its budget
+	 * cards, and what its rounds have cost since the first approval, from
+	 * their batches, so rounds before any budget never count against it.
+	 */
+	async budget(id: string): Promise<EvalBudgetView> {
+		const grants = await this.rounds.grantsOf(id);
+		const answers: Record<string, number | null> = {};
+		let usd = 0;
+		let since: string | null = null;
+		let seeded: EvalBudgetSeed | undefined;
+		for (const grant of grants) {
+			if (grant.automation !== undefined && grant.usd !== null) {
+				seeded = {
+					usd: grant.usd,
+					automation: grant.automation.id,
+					...(grant.automation.name === undefined
+						? {}
+						: { name: grant.automation.name }),
+				};
+			} else {
+				answers[grant.card] = grant.usd;
+			}
+			if (grant.usd !== null) {
+				usd += grant.usd;
+				since ??= grant.at;
+			}
+		}
+		const spent =
+			since === null ? 0 : ((await this.costs(id, since)).get(id)?.usd ?? 0);
+		return {
+			usd: Math.round(usd * 100) / 100,
+			spent,
+			answers,
+			...(seeded === undefined ? {} : { seeded }),
+		};
+	}
+
+	/**
+	 * What each conversation's rounds have cost, with when its latest began;
+	 * only `only`'s when given, and only rounds begun at `since` or later.
+	 */
+	async costs(
+		only: string | null = null,
+		since: string | null = null,
+	): Promise<Map<string, { usd: number; last: string }>> {
+		const dirs = new Map<string, Set<string>>();
+		for (const saved of Object.values((await this.record.read()) ?? {})) {
+			const conversation = saved.spec.conversation;
+			if (conversation != null && (only === null || conversation === only)) {
+				const each = dirs.get(conversation) ?? new Set<string>();
+				each.add(saved.commands.results);
+				dirs.set(conversation, each);
+			}
+		}
+		const costs = new Map<string, { usd: number; last: string }>();
+		for (const [conversation, results] of dirs) {
+			let usd = 0;
+			let last = "";
+			for (const round of await this.rounds.roundsOf(conversation)) {
+				if (round.batch === null) {
+					continue;
+				}
+				for (const dir of results) {
+					const grid = await new EvalStore(dir).grid(round.batch);
+					if (grid !== null) {
+						if (since !== null && grid.startedAt < since) {
+							break;
+						}
+						usd += grid.costUsd ?? 0;
+						last = grid.startedAt > last ? grid.startedAt : last;
+						break;
+					}
+				}
+			}
+			if (last !== "") {
+				costs.set(conversation, { usd, last });
+			}
+		}
+		return costs;
 	}
 
 	/** Stops the run of the card `key` names; its landed cells stay on the Evals page. */
@@ -299,8 +399,8 @@ export class EvalLaunches
 					: "done";
 		await this.save(launch);
 		if (launch.status === "refused" && launch.spec.conversation != null) {
-			// A refusal spent nothing, so it is no round.
-			await this.budgets.refund(launch.spec.conversation, launch.id);
+			// A refusal ran nothing, so it is no round.
+			await this.rounds.drop(launch.spec.conversation, launch.id);
 		}
 		if (
 			(launch.status === "done" || launch.status === "stopped") &&
@@ -314,10 +414,23 @@ export class EvalLaunches
 				launch: viewOf(launch),
 				results: launch.commands.results,
 				conversation: launch.spec.conversation,
+				rules: await this.rulesOf(launch.commands),
 			});
 		} else {
 			this.running(launch);
 		}
+	}
+
+	/** Each listed spec's own pass rule; empty when the list cannot be read. */
+	private async rulesOf(
+		commands: EvalCommands,
+	): Promise<Map<string, PassRule>> {
+		const listed = await this.scenarios(commands).catch(() => []);
+		return new Map(
+			listed.flatMap((each) =>
+				each.pass === undefined ? [] : [[each.id, each.pass] as const],
+			),
+		);
 	}
 
 	/** Says whether any run from `launch`'s conversation is still going. */
@@ -371,7 +484,7 @@ export class EvalLaunches
 			if (launch.batch !== null) {
 				await this.save(launch);
 				if (launch.spec.conversation != null) {
-					await this.budgets.landed(
+					await this.rounds.landed(
 						launch.spec.conversation,
 						launch.id,
 						launch.batch,
@@ -432,6 +545,8 @@ export interface EvalLaunchSpec {
 	conversation?: string | null;
 	/** Where the commands run, the conversation's task worktree; the project's root when null. */
 	cwd?: string | null;
+	/** Started by the server within the conversation's eval budget, as every card's round is, rather than from the Evals page. */
+	auto?: boolean;
 }
 
 /** How a launch stands. `refused` is the runner declining before it wrote a batch. */
@@ -446,6 +561,8 @@ export interface EvalLaunch {
 	batch: string | null;
 	/** The runner's last words: a refusal's reason. */
 	output: string;
+	/** Started by the server within the conversation's eval budget, not from the Evals page. */
+	auto?: true;
 }
 
 /** What a project's `plan` says a run comes to; without one, nothing is known of its cost. */
@@ -467,6 +584,18 @@ export interface EvalScenario {
 	group: string | null;
 	/** What the case checks, as `about` in `batch.json`. */
 	about: string | null;
+	/** The spec's `it(...)` sentence, when the case is written as a spec. */
+	sentence?: string;
+	/** The `describe(...)` groups around the spec, outermost first: the suite, then its groups. */
+	groups?: string[];
+	/** How many of its last graded runs on an agent must pass, when the spec sets its own; 2 of 3 otherwise. */
+	pass?: PassRule;
+	/** Which scenarios run first when a budget cannot run them all; unset is `normal`. */
+	priority?: Priority;
+	/** The file that holds the spec, from the project's root; `list` prints it absolute or from where it ran. The Evals page groups specs by it. */
+	file?: string;
+	/** `file` as an absolute path, for an editor to open. */
+	fileAt?: string;
 	/** The skill the case belongs to, when the project's `list` says. */
 	skill?: string;
 	prompt?: string;
@@ -474,7 +603,16 @@ export interface EvalScenario {
 	judge?: string | null;
 	/** The judge that grades the scenario (for example `claude:sonnet`), when the list names one. */
 	judgeWith?: string;
+	/** The repo it starts from, in a line (backticks as code), when the list says. */
+	environment?: string;
+	/** A sketched good reply to the prompt, in order, when the list gives one. */
+	example?: EvalExampleTurn[];
 }
+
+/** One step of a sketched reply: a stretch of words, or a tool call with what it does in plain words. */
+export type EvalExampleTurn =
+	| { kind: "text"; text: string }
+	| { kind: "tool"; name: string; input: string; does: string | null };
 
 /**
  * What a project's `plan` and `run` are told, as the evals docs lay out: the
@@ -536,6 +674,7 @@ function viewOf(launch: Launched): EvalLaunch {
 		status: launch.status,
 		batch: launch.batch,
 		output: launch.output,
+		...(launch.spec.auto === true ? { auto: true as const } : {}),
 	};
 }
 
@@ -545,6 +684,8 @@ export interface EvalFinished {
 	/** The directory the batch is in. */
 	results: string;
 	conversation: string;
+	/** The pass rules of the specs that set their own, by spec id. */
+	rules: ReadonlyMap<string, PassRule>;
 }
 
 /** Whether a conversation has a run its card started going, as one starts or ends. */

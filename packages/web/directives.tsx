@@ -19,7 +19,7 @@ import { FinishedReferences } from "./finished-references";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
-import { handOffOf } from "./server-messages";
+import { handOffOf, isConversationHandOff } from "./server-messages";
 import { SplatesEvent, type Words } from "./splates-event";
 import { TaskIcon } from "./task-icon";
 
@@ -204,7 +204,7 @@ const ABOUT_TASK =
 
 /** A directive that steers a task's own conversation, so it wears the clipboard too. */
 const IN_TASK =
-	/^\[(?:SPLATES|ARBOR) (?:MERGE|APPROVE|CHECKPOINT|RESUME|RECONNECT|DEFER|RETRIED)\]$/;
+	/^\[(?:SPLATES|ARBOR) (?:MERGE|APPROVE|CHECKPOINT|RESUME|RECONNECT|RETRIED)\]$/;
 
 /**
  * Whether a directive of `kind` names a task by its number, as
@@ -283,6 +283,7 @@ export function carriesOn(message: ThreadMessageLike): boolean {
 export function hasEventLine(text: string, told: unknown): boolean {
 	return (
 		handOffOf(text) !== null ||
+		isConversationHandOff(text) ||
 		(told === SERVER_TOLD && soleDirective(text) === null)
 	);
 }

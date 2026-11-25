@@ -297,4 +297,24 @@ describe.concurrent("merge", () => {
 		const read = await deps.service.finished.read(finished?.key ?? "");
 		expect(read?.plan).toContain("## After\n\nland alpha");
 	});
+
+	it("removes the board task before deleting any remote branch", async () => {
+		await using deps = await Testing.open();
+		const queued = await deps.tasks.add("Land alpha", null);
+		await add(deps, "alpha", { tasks: [queued.id] });
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		const removeBranch = deps.branches.delete.bind(deps.branches);
+		const remainingAtDelete: number[] = [];
+		deps.branches.delete = async (task) => {
+			remainingAtDelete.push((await deps.tasks.all()).length);
+			return removeBranch(task);
+		};
+
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		expect(remainingAtDelete).toEqual([0]);
+	});
 });

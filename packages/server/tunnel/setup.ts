@@ -79,13 +79,26 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 			z.string(),
 		);
 		await cloudflare.ensureRoute(zone.id, host, tunnel.id);
+		await cloudflare.ensureRoute(zone.id, `*.${zone.name}`, tunnel.id);
 		const policy = await ensurePolicy(api, account, name, emails, log);
 		const aud = await cloudflare.ensureApp(account, name, host, [policy]);
+		const wildcardAud = await cloudflare.ensureApp(
+			account,
+			SLOTS_APP,
+			`*.${zone.name}`,
+			[policy],
+		);
 		await creds.save(TUNNEL_TOKEN, token, {
 			scope: "device",
 			by: "splates tunnel setup",
 		});
-		await saved.save({ host, team, aud, tunnel: tunnel.id });
+		await saved.save({
+			host,
+			team,
+			aud,
+			tunnel: tunnel.id,
+			wildcard: { base: zone.name, aud: wildcardAud },
+		});
 	} catch (error) {
 		// A refusal of splates's own, such as a store it cannot reach, says enough.
 		if (error instanceof Exit) {
@@ -432,6 +445,41 @@ export class CloudflareTunnels {
 	}
 
 	/**
+	 * Deletes any proxied CNAME on `host` pointing at a Cloudflare tunnel
+	 * (optionally sparing `exceptTunnel`), leaving non-tunnel records alone.
+	 */
+	async clearTunnelRoute(
+		zone: string,
+		host: string,
+		opts: ClearTunnelRouteOptions = {},
+	): Promise<boolean> {
+		const records = await this.api.list(
+			`/zones/${zone}/dns_records?name.exact=${encodeURIComponent(host)}`,
+			DnsRecord,
+		);
+		const keep =
+			opts.exceptTunnel === undefined
+				? null
+				: `${opts.exceptTunnel}.cfargotunnel.com`;
+		let deleted = false;
+		for (const record of records) {
+			if (
+				record.type !== "CNAME" ||
+				!record.content.endsWith(".cfargotunnel.com") ||
+				record.content === keep
+			) {
+				continue;
+			}
+			await this.api.delete(`/zones/${zone}/dns_records/${record.id}`);
+			this.log.info(
+				`${color.green("deleted")} stale tunnel route ${host} (${record.content})`,
+			);
+			deleted = true;
+		}
+		return deleted;
+	}
+
+	/**
 	 * The self-hosted Access application in front of `host`, guarded by
 	 * `policies` alone, in order, and its AUD tag, which Cloudflare assigns
 	 * when it is made.
@@ -483,4 +531,10 @@ export class CloudflareTunnels {
 		);
 		return updated.aud;
 	}
+}
+
+/** Options for {@link CloudflareTunnels.clearTunnelRoute}. */
+export interface ClearTunnelRouteOptions {
+	/** Tunnel id whose CNAME should be left untouched. */
+	exceptTunnel?: string;
 }

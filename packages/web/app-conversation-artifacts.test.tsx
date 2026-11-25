@@ -5,7 +5,6 @@ import { workTimeline } from "./drivers";
 import {
 	act,
 	cleanup,
-	details,
 	fireEvent,
 	resize,
 	second,
@@ -34,8 +33,7 @@ describe("App's artifacts", () => {
 	beforeEach(() => {
 		testing = new Testing();
 		followed = [];
-		// A download leaves the page.
-		// vet-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks: happy-dom has no fake download navigation, so intercept anchor click.
 		click = spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
 			function (this: HTMLAnchorElement) {
 				followed.push({ href: this.href, download: this.download });
@@ -248,92 +246,7 @@ describe("App's artifacts", () => {
 		);
 	});
 
-	it("opens an approval question's plan page in the lightbox, only its own question under it, outside the page's frame", async () => {
-		const view = await testing.openConversations([
-			{
-				...turn([
-					[
-						"1. Which backfill?",
-						"   - (a) Batch",
-						"   - (b) Job",
-						"2. Do you approve a users.last_seen column?",
-						"   Plan: plan.html",
-						"   - (a) Yes, approve it (chosen)",
-						"   - (b) No",
-					].join("\n"),
-				]),
-				artifacts: [artifact("plan.html", [version(1, 10, "text/html")])],
-			},
-		]);
-
-		const tile = await waitFor(() =>
-			view.getByRole("button", { name: "open plan" }),
-		);
-		expect(tile.querySelector("iframe")?.getAttribute("sandbox")).toBe(
-			"allow-scripts",
-		);
-		await act(async () => fireEvent.click(tile));
-		let lightbox = await waitFor(() =>
-			view.getByRole("dialog", { name: "plan.html" }),
-		);
-		expect(within(lightbox).queryByRole("button", { name: "Send" })).toBeNull();
-		// Only the approval question shows, folded until opened.
-		expect(within(lightbox).queryByLabelText("Anything else")).toBeNull();
-		const expand = within(lightbox).getByRole("button", {
-			name: "Do you approve a users.last_seen column?",
-		});
-		expect(expand.getAttribute("aria-expanded")).toBe("false");
-		await act(async () => fireEvent.click(expand));
-		expect(expand.getAttribute("aria-expanded")).toBe("true");
-		const frame = within(lightbox).getByTitle("plan.html");
-		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
-		expect(frame.getAttribute("src")).toContain(
-			"/api/conversations/c1/artifacts/plan.html/1",
-		);
-		expect(within(lightbox).queryByText("Which backfill?")).toBeNull();
-		expect(within(lightbox).getAllByRole("listitem")).toHaveLength(1);
-		// Decided from the card's footer: the question takes words, not choices.
-		expect(within(lightbox).queryByText("No")).toBeNull();
-		await typeIn(
-			within(lightbox).getByRole("textbox", { name: "Answer to 2" }),
-			"Approve, with an index.",
-		);
-		await act(async () =>
-			fireEvent.click(within(lightbox).getByRole("button", { name: "close" })),
-		);
-		// What was written there is the card's: Reject stays visible and Approve switches to Send.
-		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
-		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
-		await act(async () => fireEvent.click(tile));
-		lightbox = view.getByRole("dialog", { name: "plan.html" });
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", {
-					name: "Do you approve a users.last_seen column?",
-				}),
-			),
-		);
-		const words = within(lightbox).getByRole("textbox", {
-			name: "Answer to 2",
-		});
-		expect(words.textContent).toBe("Approve, with an index.");
-		// The question is the page's own, not the frame's.
-		expect(frame.contains(words)).toBe(false);
-		// Its footer goes back to the card's questions rather than sending.
-		expect(within(lightbox).queryByRole("button", { name: "Send" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", { name: "Back to questions" }),
-			),
-		);
-		await waitFor(() =>
-			expect(view.queryByRole("dialog", { name: "plan.html" })).toBeNull(),
-		);
-		expect(view.getByRole("listitem", { name: "question 2" })).toBeTruthy();
-	});
-
-	it("offers Comment on a selection the plan's frame reports, keeping the comment in the sheet", async () => {
+	it("renders a standalone Do you approve question as an ordinary question with no plan tile or approval footer", async () => {
 		const view = await testing.openConversations([
 			{
 				...turn([
@@ -347,151 +260,15 @@ describe("App's artifacts", () => {
 				artifacts: [artifact("plan.html", [version(1, 10, "text/html")])],
 			},
 		]);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "open plan" })),
-		);
-		const lightbox = await waitFor(() =>
-			view.getByRole("dialog", { name: "plan.html" }),
-		);
-		const frame = within(lightbox).getByTitle("plan.html") as HTMLIFrameElement;
-		// A page asks for the report, and only its own frame is heard.
-		expect(frame.getAttribute("src")).toContain("?select");
-		await act(async () => {
-			window.dispatchEvent(
-				new MessageEvent("message", {
-					data: {
-						splates: "selection",
-						text: "backfill it",
-						rect: { x: 10, y: 50, w: 40, h: 10 },
-					},
-					source: window,
-				}),
-			);
-		});
-		expect(
-			within(lightbox).queryByRole("button", { name: "comment on selection" }),
-		).toBeNull();
-		await act(async () => {
-			window.dispatchEvent(
-				new MessageEvent("message", {
-					data: {
-						splates: "selection",
-						text: "backfill it",
-						rect: { x: 10, y: 50, w: 40, h: 10 },
-					},
-					source: frame.contentWindow,
-				}),
-			);
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", { name: "comment on selection" }),
-			),
-		);
-		const note = within(lightbox).getByLabelText("comment 1");
-		await act(async () =>
-			fireEvent.change(note, { target: { value: "In a job?" } }),
-		);
-		expect(within(lightbox).getByText("“backfill it”")).toBeTruthy();
-		expect((note as HTMLTextAreaElement).value).toBe("In a job?");
-	});
 
-	it("opens an approval question with no plan page as text in the lightbox, its questions under it", async () => {
-		const view = await testing.openConversations(
-			[
-				{
-					...turn([
-						[
-							"1. Do you approve retrying failed scans?",
-							"   - (a) Yes, approve it (chosen)",
-							"   - (b) No",
-						].join("\n"),
-					]),
-					task: "alpha",
-					name: "Fix scans",
-				},
-			],
-			undefined,
-			{
-				tasks: [
-					details({
-						task: "alpha",
-						lease: "held",
-						plan: "## Before\n\nA failed scan is lost.\n\n## After\n\nFailed scans **retry** three times.\n\n![the retry run](/tmp/run.webm)",
-					}),
-				],
-			},
-		);
-
-		await waitFor(() => view.getByText("Request full plan"));
-		const tile = await waitFor(() =>
-			view.getByRole("button", { name: "open plan" }),
-		);
-		expect(tile.querySelector("iframe")).toBeNull();
-		await act(async () => fireEvent.click(tile));
-		const lightbox = await waitFor(() =>
-			view.getByRole("dialog", { name: "alpha" }),
-		);
-		// Markdown: bold is a strong element, not asterisks.
-		expect(lightbox.querySelector("strong")?.textContent).toBe("retry");
-		expect(lightbox.querySelector("strong")?.parentElement?.textContent).toBe(
-			"Failed scans retry three times.",
-		);
-		const words = lightbox.querySelector("strong")
-			?.parentElement as HTMLElement;
-		await act(async () => {
-			window.getSelection()?.selectAllChildren(words);
-			document.dispatchEvent(new Event("selectionchange"));
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", { name: "comment on selection" }),
-			),
-		);
-		expect(
-			within(lightbox).getByText("“Failed scans retry three times.”"),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", {
-					name: "Do you approve retrying failed scans?",
-				}),
-			),
-		);
-		expect(
-			within(lightbox).getByRole("button", { name: "Back to questions" }),
-		).toBeTruthy();
-		// Media in the plan opens in a lightbox of its own, above the plan's.
-		await act(async () =>
-			fireEvent.click(
-				within(lightbox).getByRole("button", {
-					name: "expand the retry run",
-				}),
-			),
-		);
 		await waitFor(() =>
-			expect(
-				view
-					.getAllByRole("dialog")
-					.some((each) => each.textContent?.includes("the retry run")),
-			).toBe(true),
+			view.getByText("Do you approve a users.last_seen column?"),
 		);
-	});
-
-	it("offers to request a full plan on an approval question with no plan page", async () => {
-		const view = await testing.openConversations([
-			turn([
-				[
-					"1. Do you approve renaming the Stop button?",
-					"   - (a) Yes, approve it (chosen)",
-					"   - (b) No",
-				].join("\n"),
-			]),
-		]);
-
-		await waitFor(() => view.getByText("Request full plan"));
-		expect(view.getByText("No full plan")).toBeTruthy();
 		expect(view.queryByRole("button", { name: "open plan" })).toBeNull();
+		expect(view.queryByText("No full plan")).toBeNull();
+		expect(view.queryByText("Request full plan")).toBeNull();
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
 	});
 
 	const planned = turn([
@@ -539,195 +316,64 @@ describe("App's artifacts", () => {
 			.posted("/api/conversations/c1/prompt")
 			.map((post) => (post.body as { text: string }).text);
 
-	it("heads a plan's questions with the plan and approves it from the footer", async () => {
+	it("ends a plan card with an unticked Approved checkbox in place of its approval question, with no Approve, Reject or full-plan buttons", async () => {
 		const view = await testing.openConversations([planned]);
 
 		await waitFor(() => view.getByText("Plan: rename the Stop button"));
 		expect(view.getByText("Awaiting approval")).toBeTruthy();
 		expect(view.getByText("Rename it Pause.")).toBeTruthy();
-		expect(view.getByText("Anything else?")).toBeTruthy();
+		expect(
+			view
+				.getByRole("checkbox", { name: "Approved" })
+				.getAttribute("aria-checked"),
+		).toBe("false");
+		expect(view.getByText("renaming the Stop button")).toBeTruthy();
 		expect(
 			view.queryByText("Do you approve renaming the Stop button?"),
 		).toBeNull();
-		// The plan is in the card: no tile for the task's record, and Reject + Request full plan sit in the footer.
-		expect(view.queryByText("No full plan")).toBeNull();
+		expect(view.getByText("Anything else?")).toBeTruthy();
+		expect(view.queryByText("Request a full plan")).toBeNull();
 		expect(
-			view.getByRole("button", { name: "Request full plan" }),
-		).toBeTruthy();
-		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
-		);
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Yes, approve it");
-	});
-
-	it("switches Approve to Send without implicit approval when Anything else has text", async () => {
-		const view = await testing.openConversations([planned]);
-
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Anything else" }),
-		);
-		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
-		await typeIn(box, "Approve, but call it Hold.");
-		expect(view.getByRole("button", { name: "Reject" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+			view.queryAllByRole("button", {
+				name: /^(Approve|Reject|Request full plan)$/,
+			}),
+		).toEqual([]);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Send" })),
 		);
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Approve, but call it Hold.");
-		expect(prompts()[0]).not.toContain("Yes, approve it");
-	});
-
-	it("switches back to Approve when Anything else is cleared", async () => {
-		const view = await testing.openConversations([planned]);
-
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Anything else" }),
-		);
-		await typeIn(box, "Call it Hold.");
-		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
-		await typeIn(box, "");
-		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
-	});
-
-	it("rejects a plan card even when a question was only typed in a preceding question", async () => {
-		const view = await testing.openConversations([
-			turn([
-				[
-					"## 📝 Plan: rename the Stop button",
-					"",
-					"### Approach",
-					"",
-					"Rename it Pause.",
-					"",
-					"1. Should the shortcut change too?",
-					"   - (a) Keep Esc (chosen)",
-					"   - (b) Use Space",
-					"2. Do you approve renaming the Stop button?",
-					"   - (a) Yes, approve it",
-					"   - (b) No",
-				].join("\n"),
-			]),
-		]);
-
-		const q1Box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Answer to 1" }),
-		);
-		await typeIn(q1Box, "Why not keep Esc only while running?");
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Reject" })),
-		);
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Why not keep Esc only while running?");
-		expect(prompts()[0]).toContain("No");
-		expect(prompts()[0]).not.toContain("Yes, approve it");
-	});
-
-	it("approves on Enter in a plan card's Anything else box when empty, and sends feedback when text is present", async () => {
-		const view = await testing.openConversations([planned]);
-
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Anything else" }),
-		);
-		await act(async () =>
-			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
-		);
 		expect(prompts()).toEqual([]);
-
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Yes, approve it");
 	});
 
-	it("sends feedback on Enter in a plan card's Anything else box when text is present", async () => {
+	it("approves only once Approved is ticked and sent, with the same reply as a Yes", async () => {
 		const view = await testing.openConversations([planned]);
 
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Anything else" }),
+		const approved = await waitFor(() =>
+			view.getByRole("checkbox", { name: "Approved" }),
 		);
+		await act(async () => fireEvent.click(approved));
+		expect(prompts()).toEqual([]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^(Send|Answer)$/ })),
+		);
+
+		await waitFor(() => expect(prompts()).toHaveLength(1));
+		expect(prompts()[0]).toBe(
+			"> **Do you approve renaming the Stop button?**\n\n- (a) Yes, approve it",
+		);
+	});
+
+	it("sends a note without approving while Approved is unticked", async () => {
+		const view = await testing.openConversations([planned]);
+
+		await waitFor(() => view.getByRole("checkbox", { name: "Approved" }));
+		const box = view.getByRole("textbox", { name: "Anything else" });
 		await typeIn(box, "Call it Hold instead.");
 		await act(async () =>
-			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
+			fireEvent.click(view.getByRole("button", { name: /^(Send|Answer)$/ })),
 		);
-		expect(prompts()).toEqual([]);
 
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 		await waitFor(() => expect(prompts()).toHaveLength(1));
 		expect(prompts()[0]).toContain("Call it Hold instead.");
-		expect(prompts()[0]).not.toContain("Yes, approve it");
-	});
-
-	// vet-ignore simple-test-setup: one artifact of each kind is what this test alone opens
-	it("keeps Reject and Request full plan in the ellipsis menu beside Approve on a phone", async () => {
-		resize(390, 844);
-		const view = await testing.openConversations([planned]);
-
-		const sheet = await waitFor(() =>
-			view.getByRole("dialog", { name: /plan for you/ }),
-		);
-		expect(
-			within(sheet).queryByRole("button", { name: "Request full plan" }),
-		).toBeNull();
-		expect(within(sheet).queryByRole("button", { name: "Reject" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				within(sheet).getByRole("button", { name: "More actions" }),
-			),
-		);
-		expect(view.getByRole("menuitem", { name: "Reject" })).toBeTruthy();
-		const item = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Request full plan" }),
-		);
-		await act(async () => fireEvent.click(item));
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Request a full plan");
-	});
-
-	it("rejects from the ellipsis menu beside Approve on a phone", async () => {
-		resize(390, 844);
-		const view = await testing.openConversations([planned]);
-
-		const sheet = await waitFor(() =>
-			view.getByRole("dialog", { name: /plan for you/ }),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(sheet).getByRole("button", { name: "More actions" }),
-			),
-		);
-		const reject = await waitFor(() =>
-			view.getByRole("menuitem", { name: "Reject" }),
-		);
-		await act(async () => fireEvent.click(reject));
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("No");
-		expect(prompts()[0]).not.toContain("Yes, approve it");
-	});
-
-	it("switches Approve to Send without implicit approval on a phone when Anything else has text", async () => {
-		resize(390, 844);
-		const view = await testing.openConversations([planned]);
-
-		const sheet = await waitFor(() =>
-			view.getByRole("dialog", { name: /plan for you/ }),
-		);
-		const box = within(sheet).getByRole("textbox", { name: "Anything else" });
-		await typeIn(box, "Looks good, ship it.");
-		expect(within(sheet).queryByRole("button", { name: "Approve" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(sheet).getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() => expect(prompts()).toHaveLength(1));
-		expect(prompts()[0]).toContain("Looks good, ship it.");
 		expect(prompts()[0]).not.toContain("Yes, approve it");
 	});
 

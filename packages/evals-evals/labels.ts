@@ -65,11 +65,11 @@ export async function checkLabel(
 
 const SECRET_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH/i;
 const SECRET_SHAPES: RegExp[] = [
-	/sk-[A-Za-z0-9_-]{16,}/g,
-	/gh[pousr]_[A-Za-z0-9]{20,}/g,
-	/github_pat_[A-Za-z0-9_]{20,}/g,
-	/AKIA[0-9A-Z]{16}/g,
-	/xox[abprs]-[A-Za-z0-9-]{10,}/g,
+	/(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_-]{16,}/g,
+	/(?<![A-Za-z0-9_-])gh[pousr]_[A-Za-z0-9]{20,}/g,
+	/(?<![A-Za-z0-9_-])github_pat_[A-Za-z0-9_]{20,}/g,
+	/(?<![A-Za-z0-9_-])AKIA[0-9A-Z]{16}/g,
+	/(?<![A-Za-z0-9_-])xox[abprs]-[A-Za-z0-9-]{10,}/g,
 	/(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/g,
 	/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
 ];

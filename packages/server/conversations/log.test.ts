@@ -24,6 +24,25 @@ describe("ConversationLog", () => {
 			expect(replayed?.state).not.toHaveProperty("notesExperiment");
 		},
 	);
+	it("keeps the agent-queued mark once its task has merged", async () => {
+		const replayed = await replay(
+			{ kind: "task", task: "fix-it", cwd: "/tree" },
+			{ kind: "auto-queued", autoQueued: true },
+			{ kind: "task", task: null, cwd: "/root" },
+		);
+
+		expect(replayed?.state.lastAutoQueued).toBe(true);
+	});
+
+	it("drops the agent-queued mark when the next task was not queued by an agent", async () => {
+		const replayed = await replay(
+			{ kind: "auto-queued", autoQueued: true },
+			{ kind: "auto-queued", autoQueued: false },
+		);
+
+		expect(replayed?.state).not.toHaveProperty("lastAutoQueued");
+	});
+
 	it("reads back a failed process's error while nothing has run since", async () => {
 		const replayed = await replay({ kind: "end", error: "it fell over" });
 

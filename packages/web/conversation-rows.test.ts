@@ -34,10 +34,10 @@ describe("conversation rows", () => {
 	const external = row(null, "beta");
 	const part = row("c2");
 
-	it("lists an automation's run among the rest by recency, the groomer's too, started by hand or not", () => {
-		const groomer = conversation({
+	it("lists an automation's run among the rest by recency, started by hand or not", () => {
+		const scheduled = conversation({
 			id: "g",
-			persistent: "groomer",
+			automation: "2",
 			createdAt: "2026-10-23T09:00:00.000Z",
 		});
 		const hooked = conversation({
@@ -49,9 +49,15 @@ describe("conversation rows", () => {
 			id: "m",
 			createdAt: "2026-10-23T11:00:00.000Z",
 		});
-		expect([groomer, hooked, mine].map(automated)).toEqual([true, true, false]);
+		expect([scheduled, hooked, mine].map(automated)).toEqual([
+			true,
+			true,
+			false,
+		]);
 		expect(
-			rowsOf([], [mine, groomer, hooked]).map((each) => each.conversation?.id),
+			rowsOf([], [mine, scheduled, hooked]).map(
+				(each) => each.conversation?.id,
+			),
 		).toEqual(["m", "h", "g"]);
 	});
 

@@ -3,6 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { AGENTS, type AgentPick } from "@evals/evals/agents";
+import { planUsd, recentCosts } from "@evals/evals/estimate";
 import {
 	type Cell,
 	type Result,
@@ -10,8 +11,12 @@ import {
 	type SkillUsed,
 } from "@evals/evals/run";
 import { type EvalDetail, EvalStore, targetName } from "@splates/server/evals";
+import { evalJudge } from "../classify/judge";
+import { runClassify } from "../classify/run";
+import { SUITE } from "../classify/spec";
+import { CLASSIFY_SPECS } from "../classify/specs";
 import { splatesSandbox } from "./box";
-import { SCENARIOS } from "./scenarios";
+import { fileOf, SCENARIOS } from "./scenarios";
 
 const HELP = `splates dev eval: run the splates skill's eval scenarios on real agents.
 
@@ -38,10 +43,16 @@ Run from the Evals card, as splates.config.ts's evals.run, the selection is
 read from SPLATES_EVALS_CASES, SPLATES_EVALS_TARGETS, SPLATES_EVALS_REPS,
 SPLATES_EVALS_BASELINE and SPLATES_EVALS_RESULTS when its flags are absent.
 
-Each run is graded by its code checks and, where it has one, a judge its scenario names.`;
+Each run is graded by its code checks and, where it has one, a judge its scenario names.
 
-/** What each run may spend at most, agent and judge together, for the plan's ceiling. */
-const RUN_USD = 1.05;
+Auto pick classification specs (packages/evals/classify/specs.ts) list under
+"${SUITE}": each asks Auto pick's real judge, Jev or Clef from the project's
+creds, about a request, whatever --agent says, and passes when every class it
+names lands on the side of 50% it expects. A selection runs them or the
+skill's scenarios, never both; Jev's calls show on Billing as jev-latest evals.`;
+
+/** At most what one classification costs: a few thousand input tokens at Jev's price, rounded well up. */
+const CLASSIFY_USD = 0.001;
 
 const DEFAULT_DIRECTORY = join(homedir(), ".splates", "evals");
 const DEFAULT_SKILL = resolve(import.meta.dir, "../../../skills/splates");
@@ -86,6 +97,14 @@ export function toldBy(env: Record<string, string | undefined>): {
 	};
 }
 
+/** Where the classification specs are written. */
+const CLASSIFY_FILE = resolve(import.meta.dir, "../classify/specs.ts");
+
+/** A listed spec's `file`: the absolute path of the file that holds it, as the Evals page groups by. */
+function fileField(file: string | undefined): { file?: string } {
+	return file === undefined ? {} : { file };
+}
+
 async function main(argv: string[]): Promise<number> {
 	const told = toldBy(process.env);
 	const { values, positionals } = parseArgs({
@@ -119,8 +138,38 @@ async function main(argv: string[]): Promise<number> {
 							case: each.id,
 							group: each.aspect,
 							about: each.requirement,
+							...(each.sentence === undefined
+								? {}
+								: { sentence: each.sentence }),
+							...(each.groups === undefined ? {} : { groups: each.groups }),
+							...fileField(fileOf(each.id)),
+							prompt: each.message,
+							checks: (each.checks ?? []).map(({ id, about }) => ({
+								id,
+								about,
+							})),
+							...(each.environment === undefined
+								? {}
+								: { environment: each.environment }),
+							...(each.example === undefined ? {} : { example: each.example }),
 						})
 					: [each.id, each.aspect, each.requirement, "agent"].join("\t"),
+			);
+		}
+		for (const each of CLASSIFY_SPECS) {
+			console.log(
+				values.json
+					? JSON.stringify({
+							case: each.id,
+							group: SUITE,
+							about: each.sentence,
+							sentence: each.sentence,
+							groups: [SUITE],
+							...(each.pass === undefined ? {} : { pass: each.pass }),
+							...fileField(CLASSIFY_FILE),
+							prompt: each.request.subject,
+						})
+					: [each.id, SUITE, each.sentence, "classify"].join("\t"),
 			);
 		}
 		return 0;
@@ -151,12 +200,28 @@ async function main(argv: string[]): Promise<number> {
 	}
 	const picked = values.scenario.length === 0 ? told.scenario : values.scenario;
 	const baseline = values.baseline ?? told.baseline;
+	const classifying = CLASSIFY_SPECS.filter((each) => picked.includes(each.id));
 	const unknown = picked.filter(
-		(id) => !SCENARIOS.some((each) => each.id === id),
+		(id) =>
+			!SCENARIOS.some((each) => each.id === id) &&
+			!classifying.some((each) => each.id === id),
 	);
 	if (unknown.length > 0) {
 		console.error(`no scenario ${unknown.join(", ")}`);
 		return 2;
+	}
+	if (classifying.length > 0) {
+		if (classifying.length < picked.length) {
+			console.error(
+				`${SUITE} specs run apart from the skill's scenarios; pick one or the other`,
+			);
+			return 2;
+		}
+		return classifyCommand(command, classifying, {
+			reps: Math.max(1, Number(values.reps) || 1),
+			directory: values.directory,
+			json: values.json,
+		});
 	}
 	const scenarios =
 		picked.length === 0
@@ -190,7 +255,10 @@ async function main(argv: string[]): Promise<number> {
 		),
 	);
 	if (command === "plan") {
-		const usd = Number((cells.length * RUN_USD).toFixed(2));
+		const usd = planUsd(
+			cells.map((cell) => cell.agent.agent),
+			await recentCosts(values.directory),
+		);
 		if (values.json) {
 			console.log(JSON.stringify({ cells: cells.length, usd }));
 		} else {
@@ -217,6 +285,39 @@ async function main(argv: string[]): Promise<number> {
 	} finally {
 		await Promise.all(extracted.map((dir) => rm(dir, { recursive: true })));
 	}
+}
+
+/** `plan` or `run` of Auto pick classification specs, on the real judge. */
+async function classifyCommand(
+	command: "plan" | "run",
+	specs: typeof CLASSIFY_SPECS,
+	opts: ClassifyCommandOptions,
+): Promise<number> {
+	const cells = specs.length * opts.reps;
+	if (command === "plan") {
+		const usd = cells * CLASSIFY_USD;
+		console.log(
+			opts.json
+				? JSON.stringify({ cells, usd })
+				: `runs ${cells}\nusd ${usd.toFixed(2)}`,
+		);
+		return 0;
+	}
+	const batch = await runClassify(specs, {
+		directory: opts.directory,
+		judge: await evalJudge(),
+		reps: opts.reps,
+		landed: (line) => console.log(line),
+	});
+	console.log(`batch ${batch}`);
+	return 0;
+}
+
+/** What `classifyCommand` is told by the command line. */
+interface ClassifyCommandOptions {
+	reps: number;
+	directory: string;
+	json: boolean;
 }
 
 /** The skill directory `skill` held at `revision`, copied out of git into a temp directory. */

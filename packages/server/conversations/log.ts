@@ -142,9 +142,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		state.automatic = start.automatic ?? start.capped ?? false;
 		state.heldForTask = start.heldForTask ?? start.queued ?? null;
 		state.queuedTask = start.queuedTask ?? null;
-		if (start.persistent !== undefined) {
-			state.persistent = start.persistent;
-		}
 		if (start.automation !== undefined) {
 			state.automation = start.automation;
 		}
@@ -252,6 +249,12 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.lastBase =
 					entry.task === null ? state.lastBase : (entry.base ?? null);
 				replayed.cwd = entry.cwd;
+			} else if (entry.kind === "auto-queued") {
+				if (entry.autoQueued) {
+					state.lastAutoQueued = true;
+				} else {
+					delete state.lastAutoQueued;
+				}
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
 				requested = {};
@@ -259,9 +262,10 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.archived = entry.archived;
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
-				state.resting = entry.archived && entry.rest === true;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
+			} else if (entry.kind === "evaluated") {
+				state.evaluated = true;
 			} else if (entry.kind === "pin") {
 				state.pinned = entry.pinned;
 			} else if (entry.kind === "parent") {

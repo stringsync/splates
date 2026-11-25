@@ -32,6 +32,8 @@ export interface TunnelRecord {
 	 * machine's tunnel has none: its token is kept as `TUNNEL_TOKEN`.
 	 */
 	account?: string;
+	/** Wildcard DNS and Access (`*.<base>`) provisioned on the machine tunnel's zone. */
+	wildcard?: TunnelWildcard;
 }
 
 const Saved = z.object({
@@ -41,6 +43,7 @@ const Saved = z.object({
 	aud: z.string(),
 	tunnel: z.string(),
 	account: z.string().optional(),
+	wildcard: z.object({ base: z.string(), aud: z.string() }).optional(),
 });
 
 /**
@@ -122,4 +125,12 @@ export class SavedTunnel {
 	async save(record: TunnelRecord): Promise<void> {
 		await this.file.write({ format: FORMAT, ...record });
 	}
+}
+
+/** The wildcard base host and Access application provisioned for `*.<base>`. */
+export interface TunnelWildcard {
+	/** The zone apex (e.g. `spinningplates.tech`) served under `*.<base>`. */
+	base: string;
+	/** The AUD tag of the wildcard Access application (`splates-slots`). */
+	aud: string;
 }

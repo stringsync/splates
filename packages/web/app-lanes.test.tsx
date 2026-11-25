@@ -49,7 +49,7 @@ describe("App's lanes", () => {
 			.getAllByRole("listitem")
 			.map((card) => card.textContent ?? "");
 
-	it("offers Groom on Backlog, which is locked, while allowing it to be queued", async () => {
+	it("locks Backlog while allowing it to be queued", async () => {
 		const view = await testing.open({
 			todos: [todo({ id: 1, subject: "unplaced" })],
 			lanes: [{ id: 0, name: "Backlog", board: 1 }],
@@ -65,7 +65,7 @@ describe("App's lanes", () => {
 		);
 		expect(view.queryByRole("region", { name: "Untriaged" })).toBeNull();
 		const backlog = within(view.getByRole("region", { name: "Backlog" }));
-		expect(backlog.getByRole("button", { name: "Groom" })).toBeTruthy();
+		expect(backlog.queryByRole("button", { name: "Groom" })).toBeNull();
 		expect(backlog.getByLabelText("Permanent lane")).toBeTruthy();
 		expect(backlog.queryByTitle("Rename")).toBeNull();
 		await clickShown(() =>
@@ -121,13 +121,11 @@ describe("App's lanes", () => {
 				"An agent is at work on one of its tasks",
 			),
 		).toBeTruthy();
-		// A lone hourglass, naming what blocks it only in its label and tooltip.
+		// A lone warning mark: the details say what blocks it.
 		const third = within(
 			view.getByRole("list", { name: "Audio, uploads and pricing tasks" }),
 		).getAllByRole("listitem")[2] as HTMLElement;
-		expect(
-			within(third).getByLabelText("Blocked by #177 in Licensing"),
-		).toBeTruthy();
+		expect(within(third).getByLabelText("Needs attention")).toBeTruthy();
 		// Every todo is in a lane: the Backlog column is empty.
 		expect(
 			within(view.getByRole("list", { name: "Backlog tasks" })).queryAllByRole(
@@ -149,9 +147,6 @@ describe("App's lanes", () => {
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByText("Step 4 of 6 in Licensing")).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
-		);
 		expect(within(dialog).getByText("Blocked by")).toBeTruthy();
 		expect(within(dialog).getByText("Blocking")).toBeTruthy();
 		await act(async () =>
@@ -413,31 +408,6 @@ describe("App's lanes", () => {
 		});
 	});
 
-	it("marks a queued card and names what it waits on, its own lane's blocker included", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "Store licenses", lane: 1, stage: "queued" }),
-				todo({
-					id: 2,
-					subject: "Check them",
-					lane: 1,
-					stage: "queued",
-					blockedBy: [1],
-				}),
-			],
-			lanes: [{ id: 1, name: "Licensing" }],
-		});
-		const [first, second] = within(
-			view.getByRole("list", { name: "Licensing tasks" }),
-		).getAllByRole("listitem") as [HTMLElement, HTMLElement];
-
-		expect(
-			within(second).getByTitle("#1 in Licensing Store licenses (queued)")
-				.textContent,
-		).toBe("waits on #1 Store licenses");
-		expect(first.textContent).not.toContain("waits on");
-	});
-
 	it("names a blocker in another project on a lane", async () => {
 		const blocker = {
 			project: "/repos/wren",
@@ -516,9 +486,6 @@ describe("App's lanes", () => {
 		);
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("tab", { name: "Details" })),
-		);
-		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("combobox", { name: "lane" })),
 		);
 		const option = await waitFor(() =>
@@ -584,30 +551,5 @@ describe("App's lanes", () => {
 		await all("Hide all");
 		expect(again.queryByRole("region", { name: "Licensing" })).toBeNull();
 		expect(again.queryByRole("list", { name: "Backlog tasks" })).toBeNull();
-	});
-
-	it("links a mention to its todo, and shows one that is gone as archived", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({
-					id: 2,
-					subject: "second",
-					position: 2,
-					text: "Needs #1 and #9, but not `#3`.",
-				}),
-			],
-		});
-
-		const mention = view.getByRole("button", { name: "#1" });
-		expect(mention.title).toBe("first");
-		expect(view.getByTitle(/#9 is archived/).innerHTML).toContain(
-			"line-through",
-		);
-		expect(view.getByText("#3")).toBeTruthy();
-		await act(async () => fireEvent.click(mention));
-		await waitFor(() =>
-			expect(view.getByRole("dialog", { name: /Task 1/ })).toBeTruthy(),
-		);
 	});
 });

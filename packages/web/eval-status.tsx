@@ -1,8 +1,4 @@
-import type {
-	EvalBudgetStatus,
-	EvalPlan,
-	EvalStatus,
-} from "@splates/server/evals/browser";
+import type { EvalStatus } from "@splates/server/evals/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 
@@ -64,35 +60,12 @@ export const ORDER: EvalStatus[] = [
 	"pass",
 ];
 
-/** What the plan says of the run: its ceiling, its refusal, or that the project prints none. */
-export function planText(plan: EvalPlan, budget?: number): string {
-	if (plan.refused) {
-		return plan.output;
-	}
-	if (plan.usd === null) {
-		return plan.output !== ""
-			? plan.output
-			: "This project prints no plan, so the run shows no cost ceiling.";
-	}
-	const runs =
-		plan.cells === null
-			? ""
-			: ` across ${plan.cells} ${plan.cells === 1 ? "run" : "runs"}`;
-	const within =
-		budget === undefined || budget < ceilCents(plan.usd)
-			? ""
-			: " · within budget";
-	return `At most $${ceilCents(plan.usd).toFixed(2)}${runs}${within}.`;
-}
-
-/** A dollar amount rounded up to whole cents, so a ceiling and the budget that covers it read the same. */
+/** A dollar amount rounded up to whole cents, so a ceiling never reads under what it may cost. */
 export function ceilCents(usd: number): number {
 	return Math.ceil(usd * 100 - 1e-9) / 100;
 }
 
-/** `$spent of $budget` with the tokens beside it, as a budget line reads. */
-export function budgetText(status: EvalBudgetStatus): string {
-	const tokens =
-		status.tokens > 0 ? ` · ${status.tokens.toLocaleString()} tokens` : "";
-	return `$${status.spentUsd.toFixed(2)} of $${status.budget.usd.toFixed(2)}${tokens}`;
+/** `usd` as money: whole dollars bare, cents otherwise. */
+export function dollars(usd: number): string {
+	return Number.isInteger(usd) ? `$${usd}` : `$${usd.toFixed(2)}`;
 }

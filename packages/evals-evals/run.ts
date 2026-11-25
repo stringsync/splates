@@ -33,9 +33,11 @@ import { revisionOf } from "./revision";
 import { type MakeSandbox, type Sandbox, sandbox } from "./sandbox";
 import {
 	evaluateCheck,
+	judgeDetailOf,
 	type Limits,
 	type Scenario,
 	type Step,
+	specTitleOf,
 } from "./scenario";
 
 /** How a run ended: every check and the judge held, one did not, the harness broke on it, it was skipped after an earlier harness error on its target, or another error stopped it. */
@@ -84,6 +86,13 @@ export async function runOne(
 			id: scenario.id,
 			aspect: scenario.aspect,
 			requirement: scenario.requirement,
+			...(scenario.sentence === undefined
+				? {}
+				: { sentence: scenario.sentence }),
+			...(scenario.groups && scenario.groups.length > 0
+				? { groups: [...scenario.groups] }
+				: {}),
+			...(scenario.detail === undefined ? {} : { detail: scenario.detail }),
 			message: scenario.message,
 			rubric: scenario.judge ?? null,
 		},
@@ -174,7 +183,7 @@ export async function runOne(
 		if (scenario.judge !== undefined) {
 			result.judge = await runners.judge(
 				judgePrompt({
-					requirement: scenario.requirement,
+					requirement: judgeDetailOf(scenario),
 					rubric: scenario.judge,
 					message: scenario.message,
 					transcript: run.transcript,
@@ -185,6 +194,10 @@ export async function runOne(
 			);
 		}
 		phases.judgeMs = lap();
+		// A run's cost is the agent's and the judge's; an agent that reports none stays unknown.
+		if (result.usage.usd !== null && result.judge?.usd != null) {
+			result.usage.usd += result.judge.usd;
+		}
 		result.status =
 			result.checks.every((check) => check.pass) && (result.judge?.pass ?? true)
 				? "pass"
@@ -245,6 +258,9 @@ export interface Result {
 		id: string;
 		aspect: string;
 		requirement: string;
+		sentence?: string;
+		groups?: string[];
+		detail?: string;
 		message: string;
 		rubric: string | null;
 	};
@@ -328,8 +344,17 @@ export async function runBatch(
 		cells: cells.map((cell, index) => ({
 			id: cellId(index),
 			case: cell.scenario.id,
-			group: cell.scenario.aspect,
-			about: cell.scenario.requirement,
+			group:
+				cell.scenario.groups && cell.scenario.groups.length > 0
+					? cell.scenario.groups.join(" > ")
+					: cell.scenario.aspect,
+			...(cell.scenario.groups && cell.scenario.groups.length > 0
+				? { groups: [...cell.scenario.groups] }
+				: {}),
+			...(cell.scenario.sentence === undefined
+				? {}
+				: { sentence: cell.scenario.sentence }),
+			about: specTitleOf(cell.scenario),
 			target: contractTarget(cell.agent, cell.skill.used),
 			repetition: cell.repetition,
 			...(revision === undefined
@@ -412,6 +437,15 @@ function skippedResult(cell: Cell, reason: string): Result {
 			id: cell.scenario.id,
 			aspect: cell.scenario.aspect,
 			requirement: cell.scenario.requirement,
+			...(cell.scenario.sentence === undefined
+				? {}
+				: { sentence: cell.scenario.sentence }),
+			...(cell.scenario.groups && cell.scenario.groups.length > 0
+				? { groups: [...cell.scenario.groups] }
+				: {}),
+			...(cell.scenario.detail === undefined
+				? {}
+				: { detail: cell.scenario.detail }),
 			message: cell.scenario.message,
 			rubric: cell.scenario.judge ?? null,
 		},
@@ -457,6 +491,9 @@ export async function saveResult(
 		result.repo == null ? null : await saveSnapshot(dir, cell, result.repo);
 	const detail: ContractDetail = {
 		input: result.scenario.message,
+		...(result.scenario.detail === undefined
+			? {}
+			: { detail: result.scenario.detail }),
 		...(result.scenario.rubric === null
 			? {}
 			: { rubric: result.scenario.rubric }),

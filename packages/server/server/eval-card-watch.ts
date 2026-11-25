@@ -1,5 +1,15 @@
 import type { Resource } from "core/disposable";
-import { type Conversations, SERVER_TOLD } from "../conversations";
+import {
+	type Conversations,
+	type Message,
+	SERVER_TOLD,
+} from "../conversations";
+import {
+	type EvalAutoCard,
+	type EvalAutoStart,
+	evalBudgetShortPrompt,
+	evalCardKey,
+} from "../evals";
 import { type EvalAsk, stretches } from "../plans";
 import type { Project } from "./project";
 
@@ -15,6 +25,14 @@ export interface EvalCardRefs {
 export interface EvalCardSource {
 	/** What a card may name for a conversation working in `cwd`; null when the project has no evals. */
 	refs(project: Project, cwd: string | null): Promise<EvalCardRefs | null>;
+	/**
+	 * Starts the round a card that can run asks for when the conversation's
+	 * approved eval budget covers it, answering what became of it.
+	 */
+	autoStart?(
+		project: Project,
+		card: EvalAutoCard,
+	): Promise<EvalAutoStart | null>;
 }
 
 /**
@@ -44,8 +62,9 @@ export function evalCardRefusal(
 /**
  * Holds each run-evals card an agent sends to what can run: when a turn ends
  * on a card naming a scenario the project does not list, or an agent that is
- * not saved, the agent is told, rather than the person meeting a card whose
- * Run is disabled.
+ * not saved, the agent is told. A card that can run starts by itself within
+ * the conversation's approved eval budget; past it, the agent is told to ask
+ * for more.
  */
 export class EvalCardWatch implements Resource {
 	private readonly unlisten: () => void;
@@ -97,10 +116,47 @@ export class EvalCardWatch implements Resource {
 				});
 				return;
 			}
+			if (refs !== null && this.source.autoStart !== undefined) {
+				const ask = stretch.permission.evals;
+				const started = await this.source.autoStart(this.project, {
+					ask,
+					key: evalCardKey(
+						ask,
+						stretch.permission.title,
+						id,
+						messageKey(conversation.state.messages, last, conversation.state),
+					),
+					conversation: id,
+					cwd: conversation.cwd ?? null,
+				});
+				// A round past the budget waits on the agent's ask for more.
+				if (started !== null && "short" in started) {
+					await conversation.prompt(
+						evalBudgetShortPrompt(started.short.ceiling, started.short.budget),
+						[],
+						undefined,
+						{ told: SERVER_TOLD },
+					);
+				}
+				return;
+			}
 		}
 	}
 
 	dispose(): void {
 		this.unlisten();
 	}
+}
+
+/**
+ * The id the page gives `message`: its place among the conversation's sent
+ * messages, after the prompt a conversation held for its task shows first.
+ */
+export function messageKey(
+	messages: readonly Message[],
+	message: Message,
+	state: { heldForTask: number | null },
+): string {
+	const sent = messages.filter((each) => !each.queued);
+	return String(sent.indexOf(message) + (state.heldForTask === null ? 0 : 1));
 }

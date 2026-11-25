@@ -1,12 +1,17 @@
 import { useAuiState } from "@assistant-ui/react";
+import {
+	type EvalGrid,
+	type EvalScenario,
+	fitsEvalBudget,
+	targetOf,
+} from "@splates/server/evals/browser";
+import type { AgentPick } from "@splates/server/models";
 import type { PermissionProposal } from "@splates/server/plans";
-import { RUN_DENIED } from "@splates/server/plans/browser";
 import { useReactive } from "core/react";
 import {
-	BanIcon,
+	CheckIcon,
+	ChevronRightIcon,
 	FlaskConicalIcon,
-	PlayIcon,
-	SettingsIcon,
 	SquareIcon,
 } from "lucide-react";
 import {
@@ -18,43 +23,50 @@ import {
 	useState,
 } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { Checkbox } from "#web/components/ui/checkbox.tsx";
-import {
-	Dialog,
-	DialogContent,
-	DialogTitle,
-	DialogTrigger,
-} from "#web/components/ui/dialog.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
-import { CardBox, useCardDictationTurn } from "./card-box";
-import { useCardReply, useKept } from "./card-reply";
-import { CardSection } from "./card-section";
+import { cn } from "#web/lib/utils.ts";
+import { AgentMark } from "./agent-icons";
 import { CardBody, CardShell } from "./card-shell";
-import { useEnterDoes } from "./enter-while-taking";
-import { EvalAgentsEditor } from "./eval-agents";
-import { EvalAgentsView } from "./eval-agents-view";
-import { EvalBudgetLine } from "./eval-budget-line";
-import { EvalRunRecord } from "./eval-card-record";
-import { EvalCardScenarios } from "./eval-card-scenarios";
-import { EvalTimer } from "./eval-elapsed";
+import { EvalProgress, EvalRunRecord } from "./eval-card-record";
 import { EvalRun } from "./eval-run";
-import { EvalRunCue } from "./eval-run-cue";
-import { SettingField } from "./eval-setting-field";
-import { ceilCents, planText } from "./eval-status";
-import { PendingSpinner, useShowPending } from "./pending";
-import { Refusal, useRefusal } from "./refusal";
+import {
+	doneAsideText,
+	EvalSpecResults,
+	targetDisplay,
+} from "./eval-spec-results";
+import { plannedCells } from "./eval-squares";
+import { ceilCents, dollars } from "./eval-status";
+import { Markdown } from "./markdown";
+import { MergeCardContext } from "./merge-card";
+import { Refusal } from "./refusal";
+
+const _RUN_AGENTS =
+	"The agents these scenarios run on, each at the model and thinking level shown. Changes here are for this run only.";
 
 /** The conversation the card is in, which the server tells once its run is done; null outside one. */
 export const EvalsConversation = createContext<string | null>(null);
 
-/** Plans evals, explains availability, and shows progress after a manual or budgeted start. */
+/**
+ * An agent's round of evals: waiting, running and done are one card. The
+ * server starts it by itself when its ceiling fits what is left of the
+ * conversation's approved eval budget, so the card has nothing to press but
+ * Stop. Before it runs it lists the targeted specs as sentences and, when
+ * the budget falls short, says it waits for one; while running it shows live
+ * progress; once done it lists every test as a row opening to Prompt,
+ * Results by model, Where it failed, Diagnosis and remedy.
+ */
 export function EvalsCard({
 	proposal,
+	round,
+	earlierRound = false,
 }: {
 	proposal: PermissionProposal;
+	/** 1-based round number in the conversation, when known. */
+	round?: number;
+	/** Whether a later eval round follows in the conversation; folds unrun rounds while keeping finished ones open. */
+	earlierRound?: boolean;
 }): JSX.Element {
 	const conversation = useContext(EvalsConversation);
-	const [editor] = useState(() => new EvalAgentsEditor());
+	const task = useContext(MergeCardContext)?.task ?? null;
 	const message = useAuiState((state) => state.message.id);
 	const [run] = useState(() => EvalRun.of(proposal, { conversation, message }));
 	useEffect(() => {
@@ -64,16 +76,15 @@ export function EvalsCard({
 	const state = useReactive(
 		run,
 		(each) => ({
-			agents: each.agents.map((agent) => ({ ...agent })),
+			picks: each.picks,
 			scenarios: each.scenarios,
-			groups: each.groups,
+			allScenarios: each.allScenarios,
 			unknown: each.unknown,
 			unknownAgents: each.unknownAgents,
 			plan: each.plan,
+			budget: each.budget,
 			launch: each.launch,
 			grid: each.grid,
-			budget: each.budget,
-			usd: each.usd,
 			refusal: each.refusal,
 			loaded: each.loaded,
 			running: each.running,
@@ -81,331 +92,213 @@ export function EvalsCard({
 		["changed"],
 	);
 	const { launch, grid } = state;
-	const { reply, sent } = useCardReply();
-	const { refusal, attempt } = useRefusal();
-	const [rejecting, setRejecting] = useState(false);
-	const kept = useKept(`run-evals:${run.key}`, sent);
-	const [more, setMore] = useState(kept.read);
-	const written = useRef(more);
-	const panel = useRef<HTMLDivElement>(null);
-	const turn = useCardDictationTurn(panel);
-	const send = reply?.send ?? null;
-	const turnedDown = sent?.includes(RUN_DENIED) ?? false;
-	const open = launch === null && !turnedDown;
-	const showRejecting = useShowPending(rejecting);
-	const enterDoes = useEnterDoes(
-		panel,
-		!open ||
-			send === null ||
-			!state.loaded ||
-			state.unknown.length > 0 ||
-			state.unknownAgents.length > 0 ||
-			state.plan === null ||
-			state.plan.refused
-			? null
-			: () => turn(start),
-	);
-	if (!state.loaded) {
-		return (
-			<CardShell
-				label={`run evals ${run.ask.skill}`}
-				Icon={FlaskConicalIcon}
-				title={`Run ${run.ask.skill} evals`}
-				tone="eval"
-			>
-				<div
-					role="status"
-					aria-busy="true"
-					aria-label="Loading evals"
-					className="flex flex-col gap-3 px-4 py-3"
-				>
-					<Skeleton className="h-3 w-[30%] animate-pulse" />
-					<div className="ml-3 flex flex-col gap-1.5">
-						<Skeleton className="h-2.5 w-[80%] animate-pulse" />
-						<Skeleton className="h-2.5 w-[45%] animate-pulse" />
-					</div>
-					<div className="flex items-center gap-2">
-						<Skeleton className="size-3.5 animate-pulse" />
-						<Skeleton className="h-3 w-[35%] animate-pulse" />
-					</div>
-					<div className="flex items-center gap-2">
-						<Skeleton className="size-3.5 animate-pulse" />
-						<Skeleton className="h-3 w-[30%] animate-pulse" />
-					</div>
-					<Skeleton className="h-16 animate-pulse rounded-lg" />
-				</div>
-				<div className="flex items-center justify-end gap-2 rule-t px-4 py-2.5">
-					<Skeleton className="h-8 w-20 animate-pulse rounded-lg" />
-					<Skeleton className="h-8 w-16 animate-pulse rounded-lg" />
-				</div>
-			</CardShell>
-		);
+	const runBegan = useRef<string | null>(null);
+	if (state.running && grid === null) {
+		runBegan.current ??= new Date().toISOString();
+	} else if (!state.running) {
+		runBegan.current = null;
 	}
-	const ceilingNow =
-		open && state.plan !== null && !state.plan.refused ? state.plan.usd : null;
-	const overBudget =
-		conversation !== null &&
-		ceilingNow !== null &&
-		state.usd < ceilCents(ceilingNow);
-	const note = (): string => written.current.trim();
-	const reject = (): void => {
-		if (send === null) {
-			return;
-		}
-		setRejecting(true);
-		void attempt(
-			send(
-				note() === ""
-					? RUN_DENIED
-					: `${RUN_DENIED}\n\n> **Anything else?**\n\n${note()}`,
-			).catch((error: unknown) => {
-				setRejecting(false);
-				throw error;
-			}),
-			"Not rejected",
-		);
-	};
-	const start = (): void => {
-		void run.run();
-		if (send !== null && note() !== "") {
-			void attempt(send(note()), "Note not sent");
-		}
-	};
+	const ceiling =
+		state.plan !== null && !state.plan.refused ? state.plan.usd : null;
+	const waiting = state.loaded && launch === null;
+	// A round whose ceiling does not fit what is left waits for a budget card.
+	const short =
+		waiting &&
+		state.budget !== null &&
+		ceiling !== null &&
+		!fitsEvalBudget(state.budget.usd, state.budget.spent, ceiling);
+	const runs = state.scenarios.length * state.picks.length * run.reps;
+	const liveGrid =
+		grid ??
+		(state.running && state.picks.length > 0 && state.scenarios.length > 0
+			? startingGrid(
+					run.ask.skill,
+					state.scenarios.map((each) => each.id),
+					state.picks,
+					run.reps,
+					runBegan.current ?? new Date().toISOString(),
+				)
+			: null);
+	const roundSuffix = round !== undefined ? ` · round ${round}` : "";
+	const title =
+		launch === null
+			? `Run ${run.ask.skill} evals${round !== undefined && round > 1 ? ` · round ${round}` : ""}`
+			: state.running
+				? `Running evals${roundSuffix}`
+				: launch.status === "refused"
+					? `Evals refused${roundSuffix}`
+					: launch.status === "stopped"
+						? `Evals stopped${roundSuffix}`
+						: `Evals done${roundSuffix}`;
+	const done = !state.running && launch !== null && liveGrid !== null;
+	const untargeted = state.allScenarios.filter(
+		(each) => !run.ask.scenarios.includes(each.id),
+	);
+	const left =
+		state.budget === null
+			? 0
+			: Math.max(0, state.budget.usd - state.budget.spent);
 	return (
 		<CardShell
 			label={`run evals ${run.ask.skill}`}
 			Icon={FlaskConicalIcon}
-			title={
-				turnedDown
-					? "Evals rejected"
-					: launch === null
-						? `Run ${run.ask.skill} evals`
-						: state.running
-							? "Running evals"
-							: launch.status === "refused"
-								? "Evals refused"
-								: launch.status === "stopped"
-									? "Evals stopped"
-									: "Evals done"
-			}
+			title={title}
 			tone="eval"
+			task={task?.task}
+			base={task?.base ?? null}
+			folded={waiting && earlierRound}
 			aside={
-				state.running && grid !== null ? <EvalTimer grid={grid} /> : undefined
+				state.running && liveGrid !== null && launch !== null ? (
+					<EvalProgress grid={liveGrid} running />
+				) : done ? (
+					<span className="text-muted-foreground text-xs tabular-nums">
+						{doneAsideText(liveGrid)}
+					</span>
+				) : waiting && earlierRound ? (
+					<span className="text-muted-foreground text-xs">Not run</span>
+				) : short ? (
+					<span className="text-warning text-xs">Waiting for a budget</span>
+				) : waiting && ceiling !== null ? (
+					<span className="text-muted-foreground text-xs tabular-nums">
+						up to ${ceilCents(ceiling).toFixed(2)}
+					</span>
+				) : undefined
 			}
 		>
-			{proposal.body !== "" && <CardBody text={proposal.body} />}
-			{launch === null && !turnedDown ? (
-				<>
-					<CardSection
-						label="scenarios"
-						title={`${state.scenarios.length} scenarios`}
-						ruled={proposal.body !== ""}
-						className="mx-4 mb-3 text-sm"
-					>
-						<div className="flex flex-col gap-3">
-							<EvalCardScenarios scenarios={state.scenarios} />
-							{state.unknown.length > 0 && (
-								<p className="text-destructive text-xs">
-									Not a scenario: {state.unknown.join(", ")}
-								</p>
-							)}
-						</div>
-					</CardSection>
-					<CardSection label="agents" title="Run on" className="mx-4 mb-3">
-						<fieldset className="flex flex-col gap-2 text-sm">
-							<legend className="sr-only">Run on</legend>
-							{state.unknownAgents.length > 0 && (
-								<p className="text-destructive text-xs">
-									Not a saved agent: {state.unknownAgents.join(", ")}
-								</p>
-							)}
-							<ul className="flex flex-col gap-1.5">
-								{state.agents.map((each, index) => (
-									<li
-										key={`${each.pick.agent}/${each.pick.model}/${each.pick.effort}`}
-									>
-										<label
-											htmlFor={`eval-agent-${index}`}
-											className={`flex cursor-pointer items-center gap-2 text-sm ${each.on ? "text-foreground" : "text-muted-foreground"}`}
-										>
-											<Checkbox
-												id={`eval-agent-${index}`}
-												checked={each.on}
-												onCheckedChange={() => void run.toggle(index)}
-											/>
-											{[each.pick.agent, each.pick.model, each.pick.effort]
-												.filter((part) => part !== undefined)
-												.join(" ")}
-										</label>
-									</li>
-								))}
-							</ul>
-							<div>
-								<Dialog onOpenChange={(now) => now || void run.load()}>
-									<DialogTrigger
-										render={
-											<Button size="xs" variant="ghost" className="gap-1" />
-										}
-									>
-										<SettingsIcon data-icon="inline-start" />
-										{state.agents.length === 0 ? "Add agents" : "Edit agents"}
-									</DialogTrigger>
-									<DialogContent className="sm:max-w-2xl">
-										<DialogTitle>Saved eval agents</DialogTitle>
-										<EvalAgentsView editor={editor} />
-									</DialogContent>
-								</Dialog>
-							</div>
-							{state.agents.length === 0 && state.loaded && (
-								<p className="text-muted-foreground text-xs">
-									No saved agents yet.
-								</p>
-							)}
-						</fieldset>
-					</CardSection>
-					<CardSection label="run" title="Run" className="mx-4 mb-3 text-sm">
-						<div className="flex flex-col gap-2">
-							<fieldset
-								aria-label="run settings"
-								className="grid grid-cols-2 gap-2 text-xs"
-							>
-								<SettingField
-									label="Repetitions per scenario"
-									aria-label="Run repetitions"
-									min={1}
-									defaultValue={run.ask.reps}
-									placeholder="1"
-									onChange={(event) =>
-										void run.repeat(Number(event.target.value))
-									}
-								/>
-								{conversation !== null && (
-									<SettingField
-										label="Budget ($)"
-										aria-label="Budget in dollars"
-										min={0.01}
-										step="any"
-										value={state.usd}
-										onChange={(event) =>
-											run.setBudget(Number(event.target.value))
-										}
-									/>
-								)}
-							</fieldset>
-
-							{state.plan === null &&
-								state.loaded &&
-								state.refusal === null &&
-								state.agents.some((each) => each.on) && (
-									<p
-										data-testid="plan-pending"
-										className="text-muted-foreground text-xs"
-									>
-										Working out the cost…
-									</p>
-								)}
-							{state.plan !== null && (
-								<p
-									data-testid="plan"
-									className={
-										state.plan.usd === null || state.plan.refused
-											? "text-muted-foreground text-xs"
-											: "font-medium text-sm"
-									}
-								>
-									{planText(
-										state.plan,
-										conversation !== null ? state.usd : undefined,
-									)}
-								</p>
-							)}
-							{state.budget !== null && conversation !== null && (
-								<EvalBudgetLine
-									status={state.budget}
-									started={false}
-									usd={state.usd}
-									ceiling={ceilingNow}
-									onUpdate={(usd) => run.setBudget(usd)}
-								/>
-							)}
-						</div>
-					</CardSection>
-				</>
-			) : launch === null ? null : (
-				<div className="mx-4 mb-3 flex flex-col gap-1 text-sm">
-					{grid !== null && (
-						<EvalRunRecord
-							grid={grid}
-							running={state.running}
-							stopped={launch.status === "stopped"}
-							budget={conversation !== null ? state.usd : null}
-						/>
-					)}
-					{grid === null && launch.output !== "" && (
-						<pre className="whitespace-pre-wrap text-muted-foreground text-xs">
-							{launch.output}
-						</pre>
-					)}
-				</div>
-			)}
-			{open && send !== null && (
-				<div ref={panel} className="flex flex-col gap-3 rule-t px-4 py-4">
-					<p className="font-medium text-sm leading-snug">Anything else?</p>
-					<CardBox
-						aria-label="Anything else"
-						value={more}
-						placeholder="Your note (optional)"
-						files={null}
-						onKeyDown={enterDoes}
-						onValue={(text) => {
-							written.current = text;
-							setMore(text);
-							kept.write(text);
-						}}
+			{!done && proposal.body !== "" && <CardBody text={proposal.body} />}
+			{state.running && liveGrid !== null ? (
+				<div className="mx-4 mb-3 flex flex-col gap-2">
+					<p className="m-0 flex min-h-6 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground text-sm">
+						<span>
+							{state.picks.length}{" "}
+							{state.picks.length === 1 ? "agent" : "agents"}
+						</span>
+						<span aria-hidden>·</span>
+						<span data-testid="reps" className="tabular-nums">
+							{run.reps} {run.reps === 1 ? "rep" : "reps"}
+						</span>
+						<span aria-hidden>·</span>
+						<span className="tabular-nums">
+							{runs} {runs === 1 ? "run" : "runs"}
+						</span>
+					</p>
+					<EvalRunRecord
+						grid={liveGrid}
+						running={state.running}
+						stopped={launch?.status === "stopped"}
+						shape={false}
+						leftOut={run.ask.leftOut}
 					/>
 				</div>
-			)}
-			{turnedDown && (sent ?? "").includes("> **Anything else?**") && (
-				<CardBody
-					text={`> **Anything else?**\n\n${(sent ?? "").split("> **Anything else?**\n\n").slice(1).join("")}`}
+			) : done ? (
+				<EvalSpecResults
+					grid={liveGrid}
+					scenarios={state.scenarios}
+					skill={run.ask.skill}
 				/>
-			)}
-			<EvalRunCue open={open} state={state} />
-			{(open || state.running) && (
-				<div className="flex items-center justify-end gap-2 rule-t px-4 py-2.5">
-					{open && (
-						<Button
-							size="sm"
-							variant="outline"
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-							disabled={send === null || rejecting}
-							onClick={() => turn(reject)}
-						>
-							{rejecting && showRejecting ? (
-								<PendingSpinner shown />
-							) : (
-								<BanIcon data-icon="inline-start" />
-							)}
-							Reject
-						</Button>
+			) : launch !== null ? (
+				launch.output !== "" && (
+					<pre className="mx-4 my-3 whitespace-pre-wrap text-muted-foreground text-sm">
+						{launch.output}
+					</pre>
+				)
+			) : (
+				<div className="flex flex-col gap-2">
+					<RequestSpecList
+						skill={run.ask.skill}
+						targetLabel={proposal.title}
+						targeted={
+							state.scenarios.length > 0
+								? state.scenarios
+								: run.ask.scenarios.map((id) => ({
+										id,
+										group: null,
+										about: null,
+									}))
+						}
+						untargeted={untargeted}
+						total={
+							state.allScenarios.length > 0
+								? state.allScenarios.length
+								: run.ask.scenarios.length
+						}
+					/>
+					{state.unknown.length > 0 && (
+						<p className="mx-4 text-destructive text-sm">
+							Not a scenario: {state.unknown.join(", ")}
+						</p>
 					)}
-					{open && (
-						<Button
-							size="sm"
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base in-data-sheet:flex-1"
-							disabled={
-								!state.loaded ||
-								state.unknown.length > 0 ||
-								state.unknownAgents.length > 0 ||
-								state.plan === null ||
-								state.plan.refused ||
-								overBudget
-							}
-							onClick={() => turn(start)}
+					{state.unknownAgents.length > 0 && (
+						<p className="mx-4 text-muted-foreground text-sm">
+							Not a saved agent, so left out: {state.unknownAgents.join(", ")}
+						</p>
+					)}
+					{state.plan !== null &&
+						(state.plan.refused || state.plan.usd === null) &&
+						state.plan.output !== "" && (
+							<p className="mx-4 mb-2 text-muted-foreground text-sm">
+								{state.plan.output}
+							</p>
+						)}
+				</div>
+			)}
+			{short && !earlierRound && state.budget !== null && ceiling !== null && (
+				<p role="status" className="mx-4 mb-3 text-muted-foreground text-xs">
+					{state.budget.usd === 0
+						? "No eval budget is approved in this conversation yet."
+						: `${dollars(left)} of the ${dollars(state.budget.usd)} eval budget is left.`}{" "}
+					This round may cost up to ${ceilCents(ceiling).toFixed(2)}; it starts
+					once a budget card covers it.
+				</p>
+			)}
+			{(waiting || state.running) && !earlierRound && (
+				<div className="flex flex-wrap items-center gap-2 rule-t px-4 py-2.5">
+					<span className="mr-auto flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground text-xs">
+						<span className="mr-0.5">Agents</span>
+						{state.picks.map((pick) => {
+							const { markAgent, label } = targetDisplay({
+								key: targetOf(pick),
+								agent: pick.agent,
+								model: pick.model ?? null,
+								effort: pick.effort ?? null,
+								skill: null,
+							});
+							return (
+								<span
+									key={targetOf(pick)}
+									className="inline-flex items-center gap-1 rounded-md border bg-card px-1.5 py-0.5 text-foreground text-xs"
+								>
+									<AgentMark agent={markAgent} className="size-3.5 shrink-0" />
+									<span>{label}</span>
+								</span>
+							);
+						})}
+						<span aria-hidden>·</span>
+						<span data-testid="reps" className="tabular-nums">
+							{run.reps} {run.reps === 1 ? "rep" : "reps"}
+						</span>
+						{run.ask.baseline !== null && (
+							<>
+								<span aria-hidden>·</span>
+								<span>
+									baseline{" "}
+									<code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
+										{run.ask.baseline}
+									</code>
+								</span>
+							</>
+						)}
+					</span>
+					{ceiling !== null && (
+						<span
+							data-testid="plan"
+							className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums"
 						>
-							<PlayIcon data-icon="inline-start" />
-							Run
-						</Button>
+							Up to{" "}
+							<span className="font-semibold text-foreground">
+								${ceilCents(ceiling).toFixed(2)}
+							</span>
+						</span>
 					)}
 					{state.running && (
 						<Button
@@ -420,7 +313,148 @@ export function EvalsCard({
 					)}
 				</div>
 			)}
-			<Refusal refusal={state.refusal ?? refusal} className="mx-4 mb-3" />
+			<Refusal refusal={state.refusal} className="mx-4 mb-3" />
 		</CardShell>
 	);
+}
+
+/**
+ * The run request's targeted specs, listed as sentences with what targeted
+ * them, plus a collapsible list of untargeted specs when only part of the
+ * suite is targeted.
+ */
+function RequestSpecList({
+	skill,
+	targetLabel,
+	targeted,
+	untargeted,
+	total,
+}: {
+	skill: string;
+	targetLabel: string | null;
+	targeted: readonly EvalScenario[];
+	untargeted: readonly EvalScenario[];
+	total: number;
+}): JSX.Element {
+	const [showOther, setShowOther] = useState(false);
+	const grouped = new Map<string, EvalScenario[]>();
+	for (const scenario of targeted) {
+		const group = scenario.group ?? "";
+		grouped.set(group, [...(grouped.get(group) ?? []), scenario]);
+	}
+	const chipText =
+		targetLabel && targetLabel.trim() !== ""
+			? targetLabel.trim()
+			: [...grouped.keys()].filter(Boolean).join(", ");
+
+	return (
+		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm">
+			{(chipText !== "" || total > targeted.length) && (
+				<div className="flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
+					<span>Targets</span>
+					{chipText !== "" && (
+						<code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11.5px] text-foreground">
+							{chipText}
+						</code>
+					)}
+					<span aria-hidden>·</span>
+					<span className="tabular-nums">
+						{targeted.length} of {total} {total === 1 ? "spec" : "specs"}
+					</span>
+				</div>
+			)}
+			<div className="flex flex-col gap-2">
+				{[...grouped.entries()].map(([group, items]) => (
+					<div key={group || "__ungrouped"} className="flex flex-col gap-1">
+						{group !== "" && (
+							<div className="text-muted-foreground text-xs">
+								{skill} › {group}
+							</div>
+						)}
+						<ul className="flex flex-col gap-1.5">
+							{items.map((scenario) => (
+								<li key={scenario.id} className="flex items-start gap-2.5">
+									<span
+										aria-hidden
+										className="mt-0.5 inline-flex size-[15px] shrink-0 items-center justify-center rounded-[4px] bg-foreground text-background"
+									>
+										<CheckIcon className="size-2.5 stroke-[3]" />
+									</span>
+									<Markdown
+										text={scenario.about || scenario.id}
+										inline
+										className="flex-1 text-[13.5px] leading-snug"
+									/>
+								</li>
+							))}
+						</ul>
+					</div>
+				))}
+			</div>
+			{untargeted.length > 0 && (
+				<div className="pt-0.5">
+					<button
+						type="button"
+						aria-expanded={showOther}
+						onClick={() => setShowOther((was) => !was)}
+						className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground text-xs hover:text-foreground"
+					>
+						<ChevronRightIcon
+							aria-hidden
+							className={cn(
+								"size-3.5 transition-transform duration-150",
+								showOther && "rotate-90",
+							)}
+						/>
+						{untargeted.length} other{" "}
+						{untargeted.length === 1 ? "spec" : "specs"} not targeted
+					</button>
+					{showOther && (
+						<ul className="mt-1.5 flex flex-col gap-1 pl-5 text-muted-foreground text-xs">
+							{untargeted.map((scenario) => (
+								<li key={scenario.id} className="break-words">
+									<Markdown text={scenario.about || scenario.id} inline />
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+/** Planned grid shown right after Run until the runner creates its batch directory. */
+function startingGrid(
+	skill: string,
+	scenarios: readonly string[],
+	picks: readonly AgentPick[],
+	reps: number,
+	startedAt: string,
+): EvalGrid {
+	const targets = picks.map((pick) => ({
+		key: targetOf(pick),
+		agent: pick.agent,
+		model: pick.model ?? null,
+		effort: pick.effort ?? null,
+		skill: null,
+	}));
+	const grid = plannedCells(
+		scenarios,
+		targets.map((target) => target.key),
+		reps,
+	);
+	return {
+		id: "",
+		skill,
+		producer: null,
+		startedAt,
+		targets,
+		tally: { pending: grid.length },
+		cells: grid.length,
+		tokens: null,
+		costUsd: null,
+		results: [],
+		grid,
+	};
 }

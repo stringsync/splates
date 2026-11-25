@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { contractCells, contractDetail, isContractBatch } from "./contract";
+import { type Diagnosis, diagnosesOf } from "./diagnosis";
 import type { EvalScenario } from "./launch";
+import { type EvalOrderedScenario, orderedScenarios } from "./order";
+import { testResults } from "./results";
 import { scenarioStates } from "./states";
 import type {
 	EvalBatch,
@@ -31,19 +34,29 @@ export class EvalStore {
 		);
 		return grids
 			.filter((grid) => grid !== null)
-			.map(({ grid: _, remarks: __, ...batch }) => batch)
+			.map(({ grid: _, remarks: __, results: ___, ...batch }) => batch)
 			.sort((first, second) => second.startedAt.localeCompare(first.startedAt));
 	}
 
 	/** The state of each of `scenarios` from every batch saved. */
 	async states(scenarios: EvalScenario[]): Promise<EvalScenarioState[]> {
+		return scenarioStates(scenarios, await this.grids());
+	}
+
+	/** Single `scenarios` in run order from priority and every batch saved; `agent` scopes last run to that agent. */
+	async order(
+		scenarios: readonly EvalScenario[],
+		agent?: string | null,
+	): Promise<EvalOrderedScenario[]> {
+		return orderedScenarios(scenarios, await this.grids(), agent);
+	}
+
+	/** Every batch with its every cell, in no order. */
+	async grids(): Promise<EvalGrid[]> {
 		const grids = await Promise.all(
 			(await this.ids()).map((id) => this.grid(id)),
 		);
-		return scenarioStates(
-			scenarios,
-			grids.filter((grid) => grid !== null),
-		);
+		return grids.filter((grid) => grid !== null);
 	}
 
 	/** The batch `id` names with its every cell; null when there is none. */
@@ -67,6 +80,7 @@ export class EvalStore {
 				saved.startedAt,
 				targets,
 				grid,
+				readable(found),
 			),
 			...(found.trim() === "" ? {} : { remarks: found }),
 		};
@@ -107,6 +121,7 @@ function gridOf(
 	startedAt: string,
 	targets: EvalTarget[],
 	grid: EvalCell[],
+	diagnoses: Diagnosis[] | null,
 ): EvalGrid {
 	const tally: Partial<Record<EvalStatus, number>> = {};
 	for (const cell of grid) {
@@ -125,7 +140,17 @@ function gridOf(
 		tokens: total(runs.map((each) => each.tokens)),
 		costUsd: total(runs.map((each) => each.costUsd)),
 		grid,
+		results: testResults(grid, diagnoses),
 	};
+}
+
+/** The remarks' diagnoses, or null when they have none or cannot be read, so the runs show as not yet diagnosed. */
+function readable(remarks: string): Diagnosis[] | null {
+	try {
+		return diagnosesOf(remarks);
+	} catch {
+		return null;
+	}
 }
 
 /** `path` as JSON; null when there is no such file. */

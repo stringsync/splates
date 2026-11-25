@@ -49,6 +49,14 @@ export interface DevOptions {
 	 * loopback ports here. Refused without `access`.
 	 */
 	portsHost?: string | null;
+	/**
+	 * The Cloudflare Access application in front of `portsHost` when it differs
+	 * from `access` (for example the `*.<zone>` wildcard Access app); defaults
+	 * to `access`.
+	 */
+	portsAccess?: AccessConfig | null;
+	/** Called after a tunnel-exposed rig claims an animal slot (e.g. to clear stale slot DNS). */
+	onRigSlotClaimed?: (slot: Slot) => Promise<void>;
 	/** Where to listen; the port `--port` asked for, and the span above it. */
 	ports?: PortProvider;
 	/**

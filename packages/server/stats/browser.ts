@@ -11,6 +11,7 @@ export type { Outcome } from "./outcomes";
 export type { CellOverrides, LineupOverrides } from "./overrides";
 export type { PickSignal, PickVerdict, ScorecardRow } from "./scorecard";
 export type {
+	BoardSeries,
 	PeriodId,
 	SkillVersion,
 	Stats,

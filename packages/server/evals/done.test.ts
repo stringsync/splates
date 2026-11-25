@@ -34,6 +34,7 @@ describe("evalsDonePrompt", () => {
 		cells: 2,
 		tokens: 1234,
 		costUsd: 0.42,
+		results: [],
 		grid: [
 			{
 				scenario: "resources/install",
@@ -128,5 +129,71 @@ describe("evalsDonePrompt", () => {
 
 	it("says every run passed when none held back", () => {
 		expect(evalsDonePrompt(grid, [])).toContain("Every run passed.");
+	});
+
+	it("closes with each saved agent's coverage and the next run's agents", () => {
+		const text = evalsDonePrompt(
+			grid,
+			[],
+			[
+				{
+					scenario: "resources/install",
+					agents: [
+						{
+							agent: "claude:sonnet",
+							state: "passed",
+							lastPass: "batch-abc#run-000",
+							runsSincePass: 0,
+							skip: true,
+						},
+						{
+							agent: "codex:gpt",
+							state: "failing",
+							lastPass: null,
+							runsSincePass: null,
+							skip: false,
+						},
+						{
+							agent: "kimi:k3",
+							state: "never-run",
+							lastPass: null,
+							runsSincePass: null,
+							skip: false,
+						},
+					],
+				},
+			],
+		);
+		expect(text).toContain(
+			"| `resources/install` | passed this run, skip next | failing, never passed | never run |",
+		);
+		expect(text).toContain("\n\nAgents: `codex:gpt`, `kimi:k3`\n");
+		expect(text).toContain(
+			"Not yet passed: `resources/install` on `codex:gpt`",
+		);
+	});
+
+	it("says the loop can stop once every saved agent passed", () => {
+		const text = evalsDonePrompt(
+			grid,
+			[],
+			[
+				{
+					scenario: "resources/install",
+					agents: [
+						{
+							agent: "claude:sonnet",
+							state: "passed",
+							lastPass: "batch-abc#run-000",
+							runsSincePass: 0,
+							skip: true,
+						},
+					],
+				},
+			],
+		);
+		expect(text).toContain(
+			"Every saved agent has passed every scenario here: the loop can stop.",
+		);
 	});
 });

@@ -17,7 +17,7 @@ export interface RowStatus {
 	text: string;
 	label: string;
 	urgent: boolean;
-	/** Set while its agent waits on a signal, which the row shows in amber. */
+	/** Set while its agent waits automatically (on a signal, task, or idle machine). */
 	signal?: true;
 }
 
@@ -48,7 +48,7 @@ export function useRowStatus(row: Needing): RowStatus {
 						deferral,
 						board.todos,
 						board.elsewhere?.blockers[deferral.id],
-					).length,
+					).filter((each) => each.kind === "task").length,
 				},
 	);
 }
@@ -121,7 +121,7 @@ export function automaticWait(
 	if (
 		conversation === null ||
 		conversation.archived ||
-		!["idle", "running"].includes(conversation.status)
+		!["idle", "running", "stopped"].includes(conversation.status)
 	) {
 		return null;
 	}
@@ -129,7 +129,10 @@ export function automaticWait(
 	if (signal !== null) {
 		return `Waiting on ${signal.name} · ${timeLeft(signal.deadline, Date.now())} left`;
 	}
-	if (conversation.status !== "idle") {
+	if (
+		(conversation.status !== "idle" && conversation.status !== "stopped") ||
+		conversation.checkpoint != null
+	) {
 		return null;
 	}
 	const wait = eventWaitOf(conversation.messages.at(-1));
@@ -221,8 +224,8 @@ function fullStatus(
 			removed: "Removed",
 			deferred:
 				blockers !== null && blockers.left > 0
-					? `Blocked · ${blockers.left} of ${blockers.total} left`
-					: "Blocked",
+					? `Waiting on blockers · ${blockers.left} of ${blockers.total} left`
+					: "Waiting on blockers",
 			// From before escalating was retired.
 			escalated: "Escalated",
 			working: "Working",

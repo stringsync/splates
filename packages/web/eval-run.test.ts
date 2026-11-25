@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type {
-	EvalBudgetStatus,
-	EvalGrid,
-	EvalLaunch,
+import {
+	type EvalGrid,
+	type EvalLaunch,
+	evalCardKey,
 } from "@splates/server/evals/browser";
 import type { AgentPick } from "@splates/server/models";
 import { FakeTimer } from "core/time/testing";
 import { EvalRun, type EvalRunServer, forgetShownEvals } from "./eval-run";
-import { budgetText } from "./eval-status";
 
 describe("EvalRun", () => {
 	const proposal = () => ({
@@ -51,53 +50,12 @@ describe("EvalRun", () => {
 		expect(resent.key).not.toBe(first.key);
 	});
 
-	it("starts each run with its own budget: $10 at first, then the last run's", async () => {
-		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
-		await run.load();
-		expect(run.usd).toBe(10);
-		run.setBudget(4);
-		await run.run();
-		expect(server.started[0]).toMatchObject({
-			conversation: "c-1",
-			budget: { usd: 4 },
-		});
-		run.dispose();
-		server.status = { budget: { usd: 4 }, spentUsd: 0, tokens: 0 };
-		const next = EvalRun.of(proposal(), {
-			server,
-			timer,
-			conversation: "c-1",
-			message: "m-2",
-		});
-		await next.load();
-		expect(next.usd).toBe(4);
-		next.dispose();
-	});
-
-	it("reads the latest run's spend against its budget", async () => {
-		server.status = { budget: { usd: 10 }, spentUsd: 3.5, tokens: 1200 };
-		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
-		await run.load();
-		expect(budgetText(run.budget as EvalBudgetStatus)).toBe(
-			"$3.50 of $10.00 · 1,200 tokens",
-		);
-		run.dispose();
-	});
-
-	it("configures repetitions", async () => {
-		const run = EvalRun.of(proposal(), { server, timer });
-		await run.load();
-		await run.repeat(5);
-		await run.run();
-		expect(server.started[0]).toMatchObject({ reps: 5 });
-		run.dispose();
-	});
 	it("ticks only the first saved agent when the card names no Agents line", async () => {
 		const run = EvalRun.of(proposal(), { server, timer });
 
 		await run.load();
 
-		expect(run.picked).toEqual([{ agent: "claude", model: "opus" }]);
+		expect(run.picks).toEqual([{ agent: "claude", model: "opus" }]);
 		run.dispose();
 	});
 	it("ticks only the agents the card names and flags the ones not saved", async () => {
@@ -108,7 +66,7 @@ describe("EvalRun", () => {
 
 		await run.load();
 
-		expect(run.picked).toEqual([{ agent: "codex" }]);
+		expect(run.picks).toEqual([{ agent: "codex" }]);
 		expect(run.unknownAgents).toEqual(["claude:gone"]);
 		run.dispose();
 	});
@@ -122,7 +80,7 @@ describe("EvalRun", () => {
 			"lifecycle",
 		]);
 		expect(run.plan?.usd).toBe(8);
-		expect(server.started).toEqual([]);
+		expect(run.launch).toBeNull();
 	});
 
 	it("publishes an ongoing run only after its progress has loaded", async () => {
@@ -155,6 +113,35 @@ describe("EvalRun", () => {
 		]);
 	});
 
+	it("reads the conversation's approved eval budget and what it spent", async () => {
+		const run = EvalRun.of(proposal(), {
+			server,
+			timer,
+			conversation: "c-1",
+			message: "4",
+		});
+		await run.load();
+
+		expect(run.budget).toEqual({ usd: 10, spent: 2, answers: {} });
+	});
+
+	it("names its card by the key the server starts a round under", () => {
+		const run = EvalRun.of(proposal(), {
+			server,
+			conversation: "c-1",
+			message: "4",
+		});
+
+		expect(run.key).toBe(
+			evalCardKey(
+				{ skill: run.ask.skill, scenarios: run.ask.scenarios },
+				proposal().title,
+				"c-1",
+				"4",
+			),
+		);
+	});
+
 	it("shows a reopened card as it was while reading it again", async () => {
 		server.launched = {
 			id: "1",
@@ -173,52 +160,33 @@ describe("EvalRun", () => {
 		expect(reopened.grid?.cells).toBe(4);
 	});
 
-	it("starts only on run, with the agents left in and its conversation, and follows until it ends", async () => {
+	it("never starts a round itself: it waits for the server's, then follows it until it ends", async () => {
 		const run = EvalRun.of(proposal(), { server, timer, conversation: "c-1" });
 		await run.load();
-		await run.toggle(1);
+		expect(run.launch).toBeNull();
 
-		await run.run();
-		expect(server.started).toEqual([
-			{
-				...ASK,
-				agents: [{ agent: "claude", model: "opus" }, { agent: "codex" }],
-				conversation: "c-1",
-				budget: { usd: 10 },
-			},
-		]);
+		// The server starts the round a moment after the turn ends, within the budget.
+		server.launched = {
+			id: "1",
+			key: run.key,
+			status: "running",
+			batch: "batch-a",
+			output: "",
+			auto: true,
+		};
+		timer.fireIntervals();
+		await settle();
+		expect(run.running).toBe(true);
 		expect(run.grid?.tally.pending).toBe(2);
 
 		server.pending = 0;
-		server.launched = { ...(server.launched as EvalLaunch), status: "done" };
+		server.launched = { ...server.launched, status: "done" };
 		timer.fireIntervals();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
+		await settle();
 
 		expect(run.running).toBe(false);
 		expect(run.grid?.tally.pass).toBe(4);
-	});
-
-	it("refreshes a corrected model before starting a card loaded with the old pick", async () => {
-		server.agents = [{ agent: "codex", model: "gpt-6.1-sol" }];
-		const run = EvalRun.of(proposal(), { server, timer });
-		await run.load();
-		server.agents = [{ agent: "codex", model: "gpt-6-astra" }];
-
-		await run.run();
-
-		expect(server.started).toEqual([]);
-		expect(run.picked).toEqual(server.agents);
-		expect(run.refusal).toContain("Saved eval agents changed");
-		expect(run.plan?.usd).toBe(8);
-
-		await run.run();
-
-		expect(server.started).toEqual([
-			{ ...ASK, agents: server.agents, conversation: null },
-		]);
-		expect(run.refusal).toBeNull();
+		run.dispose();
 	});
 });
 
@@ -233,16 +201,11 @@ class FakeEvalServer implements EvalRunServer {
 		{ agent: "claude", model: "opus" },
 		{ agent: "codex" },
 	];
-	started: unknown[] = [];
 	launched: EvalLaunch | null = null;
 	pending = 2;
-	status: EvalBudgetStatus | null = null;
 
-	async budget() {
-		return this.status;
-	}
 	async savedAgents() {
-		return this.agents;
+		return { agents: this.agents };
 	}
 	async scenarios() {
 		return [
@@ -261,17 +224,6 @@ class FakeEvalServer implements EvalRunServer {
 	async plan() {
 		return { cells: 4, usd: 8, refused: false, output: "" };
 	}
-	async start(key: string, run: unknown) {
-		this.started.push(run);
-		this.launched = {
-			id: "1",
-			key,
-			status: "running",
-			batch: "batch-a",
-			output: "",
-		};
-		return this.launched;
-	}
 	async launch() {
 		return this.launched;
 	}
@@ -279,6 +231,10 @@ class FakeEvalServer implements EvalRunServer {
 		if (this.launched !== null) {
 			this.launched = { ...this.launched, status: "stopped" };
 		}
+	}
+	budgetView = { usd: 10, spent: 2, answers: {} };
+	async budget() {
+		return this.budgetView;
 	}
 	async batch(): Promise<EvalGrid> {
 		return {
@@ -291,7 +247,16 @@ class FakeEvalServer implements EvalRunServer {
 			cells: 4,
 			tokens: 10,
 			costUsd: 0.5,
+			results: [],
 			grid: [],
 		};
 	}
+}
+
+/** Lets the reads a timer tick starts come back. */
+async function settle(): Promise<void> {
+	for (let each = 0; each < 5; each++) {
+		await Promise.resolve();
+	}
+	await new Promise((resolve) => setTimeout(resolve, 0));
 }

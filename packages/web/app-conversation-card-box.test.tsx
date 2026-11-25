@@ -59,9 +59,24 @@ describe("App's card answer boxes", () => {
 		view.getByRole("listitem", { name: `question ${question}` });
 	const answer = (view: ConversationsView, question: string) =>
 		within(card(view, question)).getByRole("textbox");
+	/**
+	 * The thread opened as `testing.openConversations` opens it, with every
+	 * question down its card, as a desktop shows them one at a time.
+	 */
+	const opened = async (
+		...args: Parameters<Testing["openConversations"]>
+	): Promise<ConversationsView> => {
+		const view = await testing.openConversations(...args);
+		await waitFor(() => view.getByRole("list", { name: "questions" }));
+		const all = view.queryByRole("button", { name: "Show all" });
+		if (all !== null) {
+			await act(async () => fireEvent.click(all));
+		}
+		return view;
+	};
 
 	it("writes what the mic hears into its own box, not the composer, saying it listens there", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 
 		await act(async () =>
@@ -91,7 +106,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("starts ⌥⌘V's take in the box in focus, not the first card's", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 
 		act(() => answer(view, "2").focus());
@@ -113,7 +128,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("discards a card recording and keeps the words already typed", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		await typeIn(answer(view, "2"), "Keep this");
 		await act(async () =>
@@ -188,7 +203,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("finishes a card's take on Send and sends its words as dictated", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
 			fireEvent.click(
@@ -235,7 +250,7 @@ describe("App's card answer boxes", () => {
 				),
 			],
 		});
-		const view = await testing.openConversations([proposal]);
+		const view = await opened([proposal]);
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "questions for you" }),
 		);
@@ -264,7 +279,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("finishes a take on Enter, keeping its words, then goes on to the next question", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "1"));
 		await act(async () =>
 			fireEvent.click(
@@ -335,7 +350,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("stops a card's take with Escape even when focus moves to the message composer", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
 			fireEvent.click(
@@ -360,7 +375,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("restores the existing draft with the full transcript after dictation", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		await typeIn(answer(view, "2"), "Something, edited");
 		await act(async () =>
@@ -381,7 +396,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("sends the files pasted into a box with the reply, named after the answer they go with", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		await typeIn(answer(view, "2"), "This overlaps");
@@ -411,7 +426,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("answers a question with a file alone", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 
@@ -442,7 +457,7 @@ describe("App's card answer boxes", () => {
 			"Permission denied",
 			"NotAllowedError",
 		);
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 
 		await act(async () =>
@@ -501,7 +516,7 @@ describe("App's card answer boxes", () => {
 
 	it("writes the path an @ in a box picks, as the composer sends it", async () => {
 		testing.tree = ["src/", "src/header.tsx"];
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const box = answer(view, "2");
 
@@ -525,7 +540,7 @@ describe("App's card answer boxes", () => {
 
 	// vet-ignore simple-test-setup: only this scenario needs a todo to pick from the reference menu
 	it("writes what a # in a box picks as its reference, leaving out the composer's directives and actions", async () => {
-		const view = await testing.openConversations([asking], asking.id, {
+		const view = await opened([asking], asking.id, {
 			todos: [todo({ id: 12, subject: "Retry the upload on a 413" })],
 			lanes: [],
 		});
@@ -560,7 +575,7 @@ describe("App's card answer boxes", () => {
 
 	it("closes a box's list on Escape, leaving the card's keys alone", async () => {
 		testing.tree = ["src/header.tsx"];
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const box = answer(view, "2");
 		await typeIn(box, "@");
@@ -575,7 +590,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("names each box's files from 1, and the reply's in one count, each where its chip stands", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const first = new File(["a"], "first.png", { type: "image/png" });
 		const second = new File(["b"], "second.png", { type: "image/png" });
@@ -609,7 +624,7 @@ describe("App's card answer boxes", () => {
 	});
 
 	it("removes a file from its chip's menu, its chip with it", async () => {
-		const view = await testing.openConversations([asking]);
+		const view = await opened([asking]);
 		await waitFor(() => card(view, "2"));
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
 		await typeIn(answer(view, "2"), "This overlaps");
@@ -630,83 +645,5 @@ describe("App's card answer boxes", () => {
 		expect(
 			within(card(view, "2")).queryByRole("button", { name: "Image 1" }),
 		).toBeNull();
-	});
-
-	it("switches a plan card's Approve button to Send while dictating in Anything else and sends without implicit approval", async () => {
-		const planned = conversation({
-			title: "Rename",
-			messages: [
-				message("user", "rename stop"),
-				message(
-					"agent",
-					[
-						"## 📝 Plan: rename the Stop button",
-						"",
-						"### Approach",
-						"",
-						"Rename it Pause.",
-						"",
-						"1. Should the shortcut change too?",
-						"   - (a) Keep Esc (chosen)",
-						"   - (b) Use Space",
-						"2. Do you approve renaming the Stop button?",
-						"   - (a) Yes, approve it",
-						"   - (b) No",
-					].join("\n"),
-				),
-			],
-		});
-		const view = await testing.openConversations([planned]);
-		await waitFor(() => view.getByRole("textbox", { name: "Anything else" }));
-		const more = view.container.querySelector<HTMLElement>(
-			"[data-more]",
-		) as HTMLElement;
-		expect(more).toBeTruthy();
-		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
-
-		// Dictating in a preceding question does not turn Approve into Send.
-		await act(async () =>
-			fireEvent.click(
-				within(card(view, "1")).getByRole("button", { name: "Dictate" }),
-			),
-		);
-		await waitFor(() =>
-			within(card(view, "1")).getByRole("button", { name: "Stop dictation" }),
-		);
-		expect(view.getByRole("button", { name: "Approve" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				within(card(view, "1")).getByRole("button", {
-					name: "Discard dictation",
-				}),
-			),
-		);
-
-		// Dictating in Anything else switches Approve to Send and sends without approving.
-		await act(async () =>
-			fireEvent.click(within(more).getByRole("button", { name: "Dictate" })),
-		);
-		await waitFor(() =>
-			within(more).getByRole("button", { name: "Stop dictation" }),
-		);
-		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
-		expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
-		act(() => microphone.speak("Call it Hold instead."));
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1),
-		);
-		const body = testing.posted("/api/conversations/c1/prompt")[0]?.body as {
-			text: string;
-			dictated?: string;
-		};
-		expect(body.text).toContain("Call it Hold instead.");
-		expect(body.text).not.toContain("Yes, approve it");
-		expect(body.dictated).toBe("true");
 	});
 });
