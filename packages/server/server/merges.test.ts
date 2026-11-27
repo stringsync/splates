@@ -14,7 +14,12 @@ import { add } from "../tasks";
 import { Testing } from "../testing";
 import type { TrustBand, TrustStore } from "../trust";
 import type { ServerSend } from "../workers";
-import { MergeRoutes, unapprovedWhy, unreviewedWhy } from "./merges";
+import {
+	MergeRoutes,
+	planTrusting,
+	unapprovedWhy,
+	unreviewedWhy,
+} from "./merges";
 import type { Project } from "./project-types";
 
 setDefaultTimeout(30_000);
@@ -273,5 +278,50 @@ describe("unapprovedWhy", () => {
 				]),
 			).toBeNull();
 		});
+	});
+});
+
+describe("planTrusting", () => {
+	it("falls back to lastTask and remembered files once a merged worktree is gone", async () => {
+		const seen: (readonly string[] | null)[] = [];
+		const project = {
+			service: {
+				git: { root: "/repo" },
+				find: async () => {
+					throw new Error("worktree removed");
+				},
+			},
+		} as unknown as Project;
+		const trust = {
+			latestTaskFiles: async (root: string, name: string) =>
+				root === "/repo" && name === "alpha"
+					? ["splates/packages/server/plans/needs.ts"]
+					: null,
+			postureOfWork: async (
+				_key: unknown,
+				files: () => Promise<readonly string[] | null>,
+			) => {
+				const resolved = await files();
+				seen.push(resolved);
+				return resolved?.includes("splates/packages/server/plans/needs.ts")
+					? { band: "ask-and-go", entry: { score: 82 }, asking: [] }
+					: { band: "ask-and-wait", entry: { score: 50 }, asking: [] };
+			},
+		} as unknown as TrustStore;
+		const conversation = {
+			state: {
+				task: null,
+				lastTask: "alpha",
+				agent: "claude",
+				settings: [],
+				messages: [],
+			},
+		} as unknown as Conversation;
+
+		expect(await planTrusting(project, trust)(conversation)).toEqual({
+			band: "ask-and-go",
+			score: 82,
+		});
+		expect(seen).toEqual([["splates/packages/server/plans/needs.ts"]]);
 	});
 });

@@ -7,10 +7,10 @@ import {
 	Circle,
 	Copy,
 	Highlighter,
-	Laser,
 	Mic,
 	MicOff,
 	MousePointerClick,
+	MoveUpRight,
 	RotateCw,
 	Square,
 	StickyNote,
@@ -97,6 +97,7 @@ export function App({ capture }: { capture: Capture }) {
 				)}
 				<SaveResult state={state} />
 				{recording && <RemarkInput capture={capture} />}
+				<AnnotationStrip state={state} />
 				<div className="border-t">
 					{state.mic !== "none" && state.mic !== "off" && (
 						<LevelMeter level={state.level} className="mx-3 mt-3" />
@@ -104,7 +105,6 @@ export function App({ capture }: { capture: Capture }) {
 					<div className="flex items-center gap-2 px-3 py-3">
 						<Clock state={state} />
 						<MicIndicator state={state} capture={capture} />
-						<LaserIndicator state={state} />
 						{recording || state.phase === "starting" ? (
 							<Button
 								className="ml-auto rounded-full"
@@ -375,27 +375,74 @@ function MicIndicator({
 	);
 }
 
-/** The laser pointer: lit while Option is held in the page and its trail is drawing. */
-function LaserIndicator({ state }: { state: PanelState }) {
+/** The Splates-style arrow and box strip above the bottom bar: lights up while Option or Option+Command is held in the page. */
+function AnnotationStrip({ state }: { state: PanelState }) {
+	const arrow = state.laser === "arrow";
+	const box = state.laser === "box";
+	const hint = arrow ? "Drawing arrow…" : box ? "Drawing box…" : "Hold & move";
 	return (
-		<Tooltip>
-			<TooltipTrigger asChild>
-				<div
-					className={cn(
-						"flex h-8 items-center gap-1.5 rounded-md bg-secondary px-2 text-muted-foreground transition-colors",
-						state.laser && "bg-destructive/15 text-destructive",
-					)}
-				>
-					<Laser className="size-4" />
-					<Kbd
-						className={cn("bg-transparent", state.laser && "text-destructive")}
-					>
-						⌥
-					</Kbd>
-				</div>
-			</TooltipTrigger>
-			<TooltipContent>Hold Option and drag to point things out</TooltipContent>
-		</Tooltip>
+		<div className="flex shrink-0 items-center justify-between gap-2 border-t bg-card px-3 py-1.5">
+			<div className="inline-flex items-center gap-0.5 rounded-lg bg-secondary p-0.5">
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div
+							className={cn(
+								"inline-flex h-6.5 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground",
+								arrow &&
+									"bg-[#ff1f8f] text-white shadow-[0_1px_6px_rgba(255,31,143,0.45)]",
+							)}
+						>
+							<MoveUpRight className="size-3.5" />
+							<span>Arrow</span>
+							<Kbd
+								className={cn(
+									"h-4.5 min-w-4.5 bg-foreground/8 text-[11px] text-muted-foreground",
+									arrow && "bg-white/20 text-white",
+								)}
+							>
+								⌥
+							</Kbd>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent>
+						Hold Option and move the pointer to draw an arrow
+					</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div
+							className={cn(
+								"inline-flex h-6.5 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground",
+								box &&
+									"bg-[#ff1f8f] text-white shadow-[0_1px_6px_rgba(255,31,143,0.45)]",
+							)}
+						>
+							<Square className="size-3.5" />
+							<span>Box</span>
+							<Kbd
+								className={cn(
+									"h-4.5 min-w-4.5 bg-foreground/8 text-[11px] text-muted-foreground",
+									box && "bg-white/20 text-white",
+								)}
+							>
+								⌥⌘
+							</Kbd>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent>
+						Hold Option + Command and move the pointer to draw a box
+					</TooltipContent>
+				</Tooltip>
+			</div>
+			<span
+				className={cn(
+					"truncate text-[11.5px] text-muted-foreground",
+					(arrow || box) && "font-medium text-[#ff69b4]",
+				)}
+			>
+				{hint}
+			</span>
+		</div>
 	);
 }
 
@@ -403,6 +450,7 @@ const TONES = {
 	error: { dot: "bg-destructive", icon: WifiOff },
 	warn: { dot: "bg-amber-500", icon: AlertTriangle },
 	info: { dot: "bg-primary", icon: Highlighter },
+	ink: { dot: "bg-[#ff1f8f]", icon: MoveUpRight },
 } as const;
 
 const KINDS: Record<
@@ -411,7 +459,7 @@ const KINDS: Record<
 > = {
 	speech: { tone: "info", icon: Mic },
 	mark: { tone: "info", icon: StickyNote },
-	highlight: { tone: "info", icon: Highlighter },
+	highlight: { tone: "ink", icon: Highlighter },
 	"console-error": { tone: "error", icon: AlertTriangle },
 	exception: { tone: "error", icon: AlertTriangle },
 	"request-failed": { tone: "error", icon: WifiOff },
@@ -431,7 +479,15 @@ function SignalRow({
 	item: SignalItem;
 	startedAt: number;
 }) {
-	const { tone, icon } = KINDS[item.kind];
+	const { tone } = KINDS[item.kind];
+	const icon =
+		item.kind === "highlight"
+			? item.shape === "box"
+				? Square
+				: item.shape === "arrow"
+					? MoveUpRight
+					: Highlighter
+			: KINDS[item.kind].icon;
 	const secs = Math.max(0, Math.floor((item.at - startedAt) / 1000));
 	return (
 		<EventRow

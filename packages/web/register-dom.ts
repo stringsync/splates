@@ -36,6 +36,7 @@ for (const [name, descriptor] of runtime) {
 // not throwing at all, so `expect(dialog).toBeNull()` passed on an open dialog.
 // Print a node as its markup instead.
 const limit = 300;
+// vet-ignore no-monkeypatching: happy-dom nodes otherwise walk the whole DOM tree when Bun prints a failed matcher
 Object.defineProperty(Node.prototype, Bun.inspect.custom, {
 	value(this: Node) {
 		const text =

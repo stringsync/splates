@@ -10,29 +10,26 @@ describe("Wakes", () => {
 	let timer: FakeTimer;
 	let wakes: Wakes;
 	let woke: number;
-	let shown: DocumentVisibilityState;
+	let host: EventTarget & { visibilityState: DocumentVisibilityState };
 
 	const show = (state: DocumentVisibilityState) => {
-		shown = state;
-		document.dispatchEvent(new Event("visibilitychange"));
+		host.visibilityState = state;
+		host.dispatchEvent(new Event("visibilitychange"));
 	};
 
 	beforeEach(() => {
-		shown = "visible";
-		Object.defineProperty(document, "visibilityState", {
-			configurable: true,
-			get: () => shown,
+		host = Object.assign(new EventTarget(), {
+			visibilityState: "visible" as DocumentVisibilityState,
 		});
 		clock = new FakeWallClock();
 		timer = new FakeTimer();
-		wakes = new Wakes(clock, timer);
+		wakes = new Wakes(clock, timer, PULSE, host);
 		woke = 0;
 		wakes.events.on("woke", () => woke++);
 	});
 
 	afterEach(() => {
 		wakes.dispose();
-		Reflect.deleteProperty(document, "visibilityState");
 	});
 
 	it("wakes when the page is shown again after a pulse or more hidden", () => {

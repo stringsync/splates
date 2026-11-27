@@ -225,11 +225,13 @@ describe("App", () => {
 			document.dispatchEvent(new Event("fullscreenchange"));
 			return Promise.resolve();
 		};
+		// vet-ignore no-monkeypatching: happy-dom lacks the Fullscreen API; restored by returned cleanup
 		Object.defineProperties(document, {
 			fullscreenEnabled: { configurable: true, get: () => true },
 			fullscreenElement: { configurable: true, get: () => element },
 			exitFullscreen: { configurable: true, value: () => flip(null) },
 		});
+		// vet-ignore no-monkeypatching: happy-dom lacks Element.requestFullscreen; restored by returned cleanup
 		document.documentElement.requestFullscreen = () =>
 			flip(document.documentElement);
 		return () => {

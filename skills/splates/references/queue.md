@@ -51,7 +51,7 @@ change itself when the user asked for it.
 Whoever writes a task grooms it as they add it (Grooming, below): check that
 no task already asks it, link what blocks it, and pass `--lane <n>`, or leave
 it in Backlog when nothing fits. Leave its position and model off unless the
-user names them: a task with no model goes to Auto pick, which starts it on
+user names them: a task with no model goes to Autopick, which starts it on
 the agent, model and thinking level the user's rules give.
 
 Give it a `--slug`, a few lowercase words with dashes for what it changes
@@ -404,6 +404,6 @@ saying why; when unsure, ask. Change nothing else.
 
 Reply with one short line per task, such as `#12: in lane 3 Stats, blocked by
 #9`, `#13: folded into #8`, `#14: split into #15 and #16`, `#18 and #19: into
-new lane 4 Auto pick`, `lane 5 Old tests: removed, empty` or `#20: removed,
+new lane 4 Autopick`, `lane 5 Old tests: removed, empty` or `#20: removed,
 already merged in a1b2c3d`, then only numbered questions. End your turn;
 never wait for the next task.

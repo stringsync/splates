@@ -233,6 +233,30 @@ describe("SqliteStorage", () => {
 			db.close();
 		}
 	});
+
+	it("lists and sizes a collection through the owner index rather than scanning every live log", async () => {
+		const storage = await open();
+		await storage.collection("tasks").write("1.md", "task");
+		await storage.log("conversations/one.jsonl").append({ n: 1 });
+		expect(await storage.collection("tasks").list()).toEqual(["1.md"]);
+		expect(await storage.collection("tasks").entries()).toEqual([
+			{ name: "1.md", size: 4 },
+		]);
+		const db = new Database(`${made[0]}/state.db`, { readonly: true });
+		try {
+			const plan = db
+				.query<{ detail: string }, [string, string]>(
+					"EXPLAIN QUERY PLAN SELECT DISTINCT substr(log, 7) AS name FROM entries WHERE +segment IS NULL AND (log >= ? AND log < ?)",
+				)
+				.all("tasks/", "tasks0")
+				.map((row) => row.detail)
+				.join(" | ");
+			expect(plan).toContain("entries_by_owner");
+			expect(plan).not.toContain("entries_by_segment");
+		} finally {
+			db.close();
+		}
+	});
 });
 
 const MB = 1024 * 1024;

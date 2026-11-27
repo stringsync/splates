@@ -3,16 +3,18 @@ import type { AsyncTaskUpdate, Flag, ProcessHandle } from "../agents";
 import type { ArtifactChange } from "../artifacts";
 import type { ObservedTurn } from "../models";
 import type { SignalProbe, SignalWait } from "../signals/types";
+import type { CapturedMedia } from "./media";
 import type {
 	Ask,
 	Attached,
-	AutoPickSet,
+	AutopickSet,
 	Checkpoint,
 	Decision,
 	Device,
 	Image,
 	LiftReason,
 	Limit,
+	PlanTrusted,
 	Reminder,
 	Setting,
 } from "./state";
@@ -68,7 +70,7 @@ type Said =
 	  }
 	| { kind: "session"; session: string; cwd?: string }
 	| { kind: "model-request"; model: string }
-	/** The person set a model or effort after Auto pick chose it, by the setting's id and what it was set to. */
+	/** The person set a model or effort after Autopick chose it, by the setting's id and what it was set to. */
 	| {
 			kind: "override";
 			setting: string;
@@ -80,18 +82,18 @@ type Said =
 			result?: Pairing;
 	  }
 	/**
-	 * What Auto pick set it to: at its start, or `lifted` when it moved it up
+	 * What Autopick set it to: at its start, or `lifted` when it moved it up
 	 * for what the person said later.
 	 */
 	| {
 			kind: "auto-pick";
-			pick: AutoPickSet;
+			pick: AutopickSet;
 			lifted?: true;
 			/** For a lift, why it moved; absent on older lines. */
 			why?: LiftReason;
 			at: string;
 	  }
-	/** The person switched Auto pick on or off for the conversation. */
+	/** The person switched Autopick on or off for the conversation. */
 	| {
 			kind: "auto-pick-switch";
 			on: boolean;
@@ -104,9 +106,9 @@ type Said =
 			holdout: boolean;
 			experiment?: { version: string; at: string };
 	  }
-	/** Settings to set once the session opens, by id, as Auto pick chose them. */
+	/** Settings to set once the session opens, by id, as Autopick chose them. */
 	| { kind: "picks-request"; picks: Record<string, string> }
-	/** Auto picked another agent than the one it started on, before any session opened. */
+	/** Autopicked another agent than the one it started on, before any session opened. */
 	| { kind: "agent"; agent: string }
 	/** The queue started the task it was held for, so it is held no more. */
 	| { kind: "held-for-task"; heldForTask: null }
@@ -169,6 +171,8 @@ type Said =
 	| { kind: "stopped"; at: string }
 	/** The agent's turn ended early, its connection lost or its process gone. */
 	| { kind: "interrupted"; at: string }
+	/** The agent's last turn posted a plan and went on with it on this trust, unapproved. */
+	| ({ kind: "plan-trust"; at: string } & PlanTrusted)
 	/** A turn started or ended, so one a dead process left running shows as cut short. */
 	| { kind: "turn"; running: boolean; at?: string }
 	| { kind: "observed-turn"; turn: ObservedTurn }
@@ -202,6 +206,8 @@ type Said =
 	| { kind: "probe"; probe: SignalProbe }
 	/** An artifact added, removed, or its bytes deleted. */
 	| { kind: "artifact"; change: ArtifactChange }
+	/** Local inline media captured from an agent reply into conversation storage. */
+	| { kind: "media"; files: CapturedMedia[] }
 	/**
 	 * The agent's session is open on a process a worker runs, which a
 	 * server started again takes back by `handle`, until `end`.

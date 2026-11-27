@@ -12,6 +12,7 @@ import { useReactive } from "core/react";
 import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAged } from "./aged";
+import { isWaitCommand } from "./background-commands";
 import { cardPart } from "./card-part";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -121,6 +122,9 @@ export function useThreadMessages(
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
 		const assumedBefore = assumedCounts(said);
+		const waitBackground = conversation.background.some(
+			(each) => each.state === "running" && isWaitCommand(each.command),
+		);
 		const liked = supersedeQueues(
 			said.map((message, index) =>
 				like(
@@ -140,6 +144,7 @@ export function useThreadMessages(
 					said[index + 1]?.steered === true || index === resumed,
 					cardsIn[index],
 					assumedBefore[index],
+					waitBackground,
 				),
 			),
 		);
@@ -366,6 +371,7 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		cut = false,
 		cards = [],
 		assumedBefore = 0,
+		waitBackground = false,
 	] = args;
 	let cache = conversions.get(conversation);
 	if (cache === undefined) {
@@ -388,6 +394,7 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		waiting,
 		cut,
 		assumedBefore,
+		waitBackground,
 		cards.length,
 		...cards,
 		...events,
@@ -432,6 +439,8 @@ function convert(
 	cards: readonly string[] = [],
 	/** How many Assumed lines the agent wrote in earlier messages. */
 	assumedBefore = 0,
+	/** Whether a backgrounded splates wait command is still running in this conversation. */
+	waitBackground = false,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -486,7 +495,11 @@ function convert(
 	// Each Assumed line numbered as the server counts them, in order.
 	let assumed = assumedBefore;
 	const said = (text: string, done: boolean): LikePart[] => {
-		const parts = replied(text, done, { task, assumedBefore: assumed });
+		const parts = replied(text, done, {
+			task,
+			assumedBefore: assumed,
+			trusted: message.trusted ?? null,
+		});
 		assumed += assumedLines(text).length;
 		return parts;
 	};
@@ -513,6 +526,7 @@ function convert(
 												event: stretch.event,
 												also: stretch.also,
 												going,
+												waitBackground,
 											},
 										},
 									]

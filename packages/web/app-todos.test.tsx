@@ -65,40 +65,56 @@ describe("App's todos", () => {
 
 	it("copies a link to one, without opening it", async () => {
 		const copied: string[] = [];
+		const previousClipboard = Object.getOwnPropertyDescriptor(
+			navigator,
+			"clipboard",
+		);
+		// vet-ignore no-monkeypatching: happy-dom lacks navigator.clipboard; restored in finally
 		Object.defineProperty(navigator, "clipboard", {
 			configurable: true,
 			value: { writeText: async (text: string) => void copied.push(text) },
 		});
-		const view = await testing.open({
-			todos: [todo({ id: 7, subject: "fix it" })],
-		});
+		try {
+			const view = await testing.open({
+				todos: [todo({ id: 7, subject: "fix it" })],
+			});
 
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "copy a link to task 7" }),
-			),
-		);
+			await act(async () =>
+				fireEvent.click(
+					view.getByRole("button", { name: "copy a link to task 7" }),
+				),
+			);
 
-		expect(copied).toEqual(["[SPLATES TASK #7]"]);
-		expect(view.queryByText("Task 7")).toBeNull();
-		// The id says so in place, with no toast.
-		expect(
-			view.getByRole("button", { name: "copy a link to task 7" }).textContent,
-		).toBe("Copied");
-		expect(view.queryByText("Copied [SPLATES TASK #7]")).toBeNull();
+			expect(copied).toEqual(["[SPLATES TASK #7]"]);
+			expect(view.queryByText("Task 7")).toBeNull();
+			// The id says so in place, with no toast.
+			expect(
+				view.getByRole("button", { name: "copy a link to task 7" }).textContent,
+			).toBe("Copied");
+			expect(view.queryByText("Copied [SPLATES TASK #7]")).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "fix it" })),
-		);
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /Task 7/ }),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "copy a link to task 7" }),
-			),
-		);
-		expect(copied).toEqual(["[SPLATES TASK #7]", "[SPLATES TASK #7]"]);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "fix it" })),
+			);
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: /Task 7/ }),
+			);
+			await act(async () =>
+				fireEvent.click(
+					within(dialog).getByRole("button", {
+						name: "copy a link to task 7",
+					}),
+				),
+			);
+			expect(copied).toEqual(["[SPLATES TASK #7]", "[SPLATES TASK #7]"]);
+		} finally {
+			if (previousClipboard !== undefined) {
+				// vet-ignore no-monkeypatching: restores navigator.clipboard after test
+				Object.defineProperty(navigator, "clipboard", previousClipboard);
+			} else {
+				Reflect.deleteProperty(navigator, "clipboard");
+			}
+		}
 	});
 
 	it("adds one at the foot of a column, Trello style, staying open for the next", async () => {

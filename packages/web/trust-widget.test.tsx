@@ -1,57 +1,16 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { ScoredDecision, TrustEntry } from "@splates/server/trust";
-import { cleanup, fireEvent, render, within } from "./testing-library";
+import { cleanup, fireEvent, render } from "./testing-library";
 import {
 	type ConversationTrust,
 	decisionsFor,
 	overturnDecisions,
 	redoDecisions,
 	TrustBadge,
-	TrustCard,
 	TrustChange,
-	TrustContext,
 } from "./trust-widget";
 
 afterEach(cleanup);
-
-describe("TrustCard", () => {
-	it("shows the score and this conversation's net change at rest", () => {
-		const view = card(false);
-		const row = view.getByRole("button");
-		expect(row.textContent).toBe("Trust+184");
-	});
-
-	it("opens, on a phone, the breakdown by kind and this conversation's picks, oldest first", () => {
-		const view = card(true);
-		fireEvent.click(view.getByRole("button", { name: /Trust/ }));
-		const kinds = within(view.getByRole("list", { name: "trust by kind" }));
-		expect(
-			kinds.getAllByRole("listitem").map((each) => each.textContent),
-		).toEqual([
-			"Defaults0",
-			"API / design0",
-			"Scope / split0",
-			"Visual / UI68",
-			"Approval0",
-		]);
-		const here = within(
-			view.getByRole("region", { name: "this conversation" }),
-		);
-		expect(
-			here.getAllByRole("listitem").map((each) => each.textContent),
-		).toEqual([
-			"Keep old endpoint 1 release · API+2",
-			"Compact card layout → Roomy · Visual−1",
-		]);
-		expect(view.getByText("Trust →").getAttribute("href")).toBe("#trust");
-		expect(view.getByText("mono · Dynamic · Ask & go")).toBeDefined();
-	});
-
-	it("shows nothing until trust is read", () => {
-		const view = render(<TrustCard phone={false} />);
-		expect(view.container.textContent).toBe("");
-	});
-});
 
 describe("TrustBadge and TrustChange", () => {
 	it("carries the net change and opens the score before and after with each pick's change", () => {
@@ -207,11 +166,3 @@ const trust: ConversationTrust = {
 	],
 	net: 1,
 };
-
-function card(phone: boolean) {
-	return render(
-		<TrustContext value={{ trust, agent: "Claude", project: "/work/mono" }}>
-			<TrustCard phone={phone} />
-		</TrustContext>,
-	);
-}

@@ -80,10 +80,15 @@ export function parseEvent(
 				type: "route",
 				url: scrub.scrub(redactUrl(String(raw.url))),
 			};
-		case "highlight":
+		case "highlight": {
+			const shape =
+				raw.shape === "arrow" || raw.shape === "box" ? raw.shape : undefined;
 			return {
 				at,
 				type: "highlight",
+				...(shape ? { shape } : {}),
+				...(Array.isArray(raw.from) ? { from: raw.from.map(Number) } : {}),
+				...(Array.isArray(raw.to) ? { to: raw.to.map(Number) } : {}),
 				path: Array.isArray(raw.path)
 					? (raw.path as unknown[][]).map((point) => point.map(Number))
 					: [],
@@ -94,16 +99,29 @@ export function parseEvent(
 						)
 					: [],
 			};
+		}
 		default:
 			return undefined;
 	}
 }
 
-/** Whether the page script said its laser trail started (true) or ended (false); undefined for anything else. */
-export function parseLaser(payload: string): boolean | undefined {
+/** Which shape the laser pointer draws in the page. */
+export type LaserShape = "arrow" | "box";
+
+/** Live state of the laser pointer in the working tab. */
+export type LaserMode = "off" | LaserShape;
+
+/** Whether the page script said its laser pointer is drawing an arrow, drawing a box, or off; undefined for anything else. */
+export function parseLaser(payload: string): LaserMode | undefined {
 	try {
 		const raw = JSON.parse(payload) as Record<string, unknown>;
-		return raw.type === "laser" ? raw.on === true : undefined;
+		if (raw.type !== "laser") {
+			return undefined;
+		}
+		if (raw.on !== true) {
+			return "off";
+		}
+		return raw.shape === "box" ? "box" : "arrow";
 	} catch {
 		return undefined;
 	}
@@ -137,6 +155,9 @@ export type PointerEvent = { at: number } & (
 	| { type: "mark"; label: string; by: "agent" | "person"; still?: string }
 	| {
 			type: "highlight";
+			shape?: LaserShape;
+			from?: number[];
+			to?: number[];
 			path: number[][];
 			area: number[];
 			elements: Target[];
@@ -197,8 +218,8 @@ export interface PointerOptions {
 
 /** What the pointer script reports, as it happens. */
 export interface PointerObserver {
-	/** Option went down or up in a page, as its laser trail starts or ends. */
-	laser(on: boolean): void;
+	/** Option or Option+Command changed in a page, starting or ending an arrow or box. */
+	laser(mode: LaserMode): void;
 	/** An event was written. */
 	event(event: PointerEvent): void;
 }

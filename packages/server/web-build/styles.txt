@@ -785,9 +785,6 @@
   .mx-2\.5 {
     margin-inline: calc(var(--spacing) * 2.5);
   }
-  .mx-3\.5 {
-    margin-inline: calc(var(--spacing) * 3.5);
-  }
   .mx-4 {
     margin-inline: calc(var(--spacing) * 4);
   }
@@ -1273,6 +1270,9 @@
   }
   .h-40 {
     height: calc(var(--spacing) * 40);
+  }
+  .h-\[1\.45em\] {
+    height: 1.45em;
   }
   .h-\[1\.375em\] {
     height: 1.375em;
@@ -2055,9 +2055,6 @@
   .grid-cols-\[5\.5rem_1fr_2\.5rem\] {
     grid-template-columns: 5.5rem 1fr 2.5rem;
   }
-  .grid-cols-\[6\.5rem_1fr_2rem\] {
-    grid-template-columns: 6.5rem 1fr 2rem;
-  }
   .grid-cols-\[6\.5rem_1fr_auto\] {
     grid-template-columns: 6.5rem 1fr auto;
   }
@@ -2213,6 +2210,9 @@
   }
   .gap-\[2px\] {
     gap: 2px;
+  }
+  .gap-\[7px\] {
+    gap: 7px;
   }
   .gap-px {
     gap: 1px;
@@ -3667,6 +3667,12 @@
   .fill-info {
     fill: var(--info);
   }
+  .fill-orange-500\/25 {
+    fill: color-mix(in srgb, oklch(70.5% 0.213 47.604) 25%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      fill: color-mix(in oklab, var(--color-orange-500) 25%, transparent);
+    }
+  }
   .fill-sky-500\/25 {
     fill: color-mix(in srgb, oklch(68.5% 0.169 237.323) 25%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -4250,6 +4256,10 @@
   .leading-\[1\.35\] {
     --tw-leading: 1.35;
     line-height: 1.35;
+  }
+  .leading-\[1\.44\] {
+    --tw-leading: 1.44;
+    line-height: 1.44;
   }
   .leading-\[1\.45\] {
     --tw-leading: 1.45;
@@ -5390,6 +5400,9 @@
     :is(:where(.group\/head):hover .group-hover\/head\:opacity-100) {
       opacity: 100%;
     }
+    :is(:where(.group\/image):hover .group-hover\/image\:opacity-100) {
+      opacity: 100%;
+    }
     :is(:where(.group\/item):hover .group-hover\/item\:hidden) {
       display: none;
     }
@@ -5407,6 +5420,9 @@
     }
     :is(:where(.group\/mark):hover .group-hover\/mark\:hidden) {
       display: none;
+    }
+    :is(:where(.group\/media):hover .group-hover\/media\:opacity-100) {
+      opacity: 100%;
     }
     :is(:where(.group\/project):hover .group-hover\/project\:opacity-100) {
       opacity: 100%;
@@ -5430,6 +5446,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       --tw-ring-color: color-mix(in oklab, var(--ring) 50%, transparent);
     }
+  }
+  :is(:where(.group\/image):focus-visible .group-focus-visible\/image\:opacity-100) {
+    opacity: 100%;
   }
   :is(:where(.group\/mark):focus-visible .group-focus-visible\/mark\:block) {
     display: block;
@@ -6525,6 +6544,9 @@
   .focus-visible\:outline-none:focus-visible {
     --tw-outline-style: none;
     outline-style: none;
+  }
+  .focus-visible\:ring-inset:focus-visible {
+    --tw-ring-inset: inset;
   }
   .focus-visible\:after\:bg-ring:focus-visible::after {
     content: var(--tw-content);
@@ -8164,6 +8186,9 @@
     }
     .\@xl\:grid-cols-\[1fr_1\.15fr\] {
       grid-template-columns: 1fr 1.15fr;
+    }
+    .\@xl\:grid-cols-\[minmax\(0\,1fr\)_minmax\(0\,1\.15fr\)\] {
+      grid-template-columns: minmax(0,1fr) minmax(0,1.15fr);
     }
     .\@xl\:border-t {
       border-top-style: var(--tw-border-style);

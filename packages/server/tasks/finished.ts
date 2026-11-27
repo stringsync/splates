@@ -1,9 +1,30 @@
 import { basename, relative, resolve, sep } from "node:path";
 import type { Fs } from "core/system";
+import {
+	capturedFileName,
+	findInlineMedia,
+	readValidatedMedia,
+	rewriteInlineMedia,
+	validateMedia,
+} from "../artifacts";
 import { decodeTask, encodeTask } from "../board";
-import { movedPath } from "../config";
+import { ARTIFACT_LIMITS, movedPath } from "../config";
 import type { Collection, Storage } from "../storage";
 import type { RemoveReason } from "./worktree";
+
+/** Extra sources for resolving local media referenced in a finished task's `SPLATES.md`. */
+export interface FinishedRecordOptions {
+	/** Directory to resolve relative media paths in `plan` against (e.g. the task's worktree). */
+	cwd?: string;
+	/** Previously captured local media (`resolved source path -> stored path`), reused if needed. */
+	captured?: ReadonlyMap<string, string>;
+	/** Validated media bytes pre-read before the worktree was deleted (`resolved source path -> bytes`). */
+	preRead?: ReadonlyMap<string, Uint8Array>;
+	/** Per-file byte limit for auto-captured local media. */
+	maxFileBytes?: number;
+	/** Total byte limit for auto-captured local media. */
+	maxTotalBytes?: number;
+}
 
 /** A task that merged or was removed, as `Finished` keeps it to look back on. */
 export interface FinishedTask {
@@ -63,17 +84,19 @@ export class Finished {
 
 	/**
 	 * Keeps `finished`, with a copy of each file its plan names that
-	 * `attached` says is one a task held, the plan rewritten to name the copy.
+	 * `attached` says is one a task held or that validates as local media,
+	 * the plan rewritten to name the copy, which it returns.
 	 */
 	async record(
 		finished: Omit<FinishedPlan, "key">,
 		attached: (path: string) => boolean = () => false,
 		/** Attached files the task held, kept whether or not the plan names them. */
 		held: string[] = [],
-	): Promise<void> {
+		opts: FinishedRecordOptions = {},
+	): Promise<string> {
 		const key = `${finished.id}-${Date.parse(finished.endedAt) || 0}`;
 		const { plan: ended, ...facts } = finished;
-		const plan = await this.keep(key, ended, attached, held);
+		const plan = await this.keep(key, ended, attached, held, opts);
 		await this.records.write(
 			recordName(key),
 			encodeTask({ ...facts, key, text: plan }),
@@ -99,6 +122,7 @@ export class Finished {
 		for (const old of newest.slice(this.attachmentCapacity, this.capacity)) {
 			await this.storage.remove(this.filesKey(old));
 		}
+		return plan;
 	}
 
 	/**
@@ -125,51 +149,181 @@ export class Finished {
 		plan: string,
 		attached: (path: string) => boolean,
 		held: string[] = [],
+		opts: FinishedRecordOptions = {},
 	): Promise<string> {
-		const kept = new Map<string, string>();
+		const keptPlain = new Map<string, string>();
+		const mdReplacements = new Map<string, string>();
 		const taken = new Set<string>();
-		const named = new Set(plan.match(PATH) ?? []);
-		// Files a reply showed but the plan does not name keep by name, so
-		// `copyOf` can find them once the old path is gone.
-		for (const path of held) {
-			if (named.has(path)) {
-				continue;
-			}
-			const bytes = await this.fs.readBytes(path).catch(() => null);
-			if (bytes === null) {
-				continue;
-			}
-			let name = basename(path);
+		const copiedSource = new Map<string, string>();
+		const copiedHash = new Map<string, string>();
+		const files = this.storage.collection(this.filesKey(key));
+		const maxFileBytes = opts.maxFileBytes ?? ARTIFACT_LIMITS.file;
+		const maxTotalBytes = opts.maxTotalBytes ?? ARTIFACT_LIMITS.conversation;
+		let autoCapturedBytes = 0;
+
+		const saveCopy = async (
+			sourceName: string,
+			bytes: Uint8Array,
+		): Promise<string> => {
+			const base = basename(sourceName);
+			let name = base;
 			for (let copies = 2; taken.has(name); copies++) {
-				name = `${copies}-${basename(path)}`;
+				name = `${copies}-${base}`;
 			}
 			taken.add(name);
-			await this.storage.collection(this.filesKey(key)).writeBytes(name, bytes);
+			await files.writeBytes(name, bytes);
+			return this.storage.materialize(`${this.filesKey(key)}/${name}`);
+		};
+
+		// Map held files by basename so auto-captured plan refs matching an
+		// already-held content-addressed file reuse the same stored copy.
+		const heldByName = new Map<string, string>();
+		for (const path of held) {
+			heldByName.set(basename(path), path);
 		}
+
+		// 1. Copy attached paths named in the plan (including bare paths in text).
 		for (const named of new Set(plan.match(PATH) ?? [])) {
 			const path = movedPath(named);
 			if (!attached(path)) {
 				continue;
 			}
+			const existing = copiedSource.get(path);
+			if (existing !== undefined) {
+				keptPlain.set(named, existing);
+				continue;
+			}
 			const bytes = await this.fs.readBytes(path).catch(() => null);
 			if (bytes === null) {
 				continue;
 			}
-			let name = basename(path);
-			for (let copies = 2; taken.has(name); copies++) {
-				name = `${copies}-${basename(path)}`;
-			}
-			taken.add(name);
-			const files = this.storage.collection(this.filesKey(key));
-			await files.writeBytes(name, bytes);
-			kept.set(
-				named,
-				await this.storage.materialize(`${this.filesKey(key)}/${name}`),
-			);
+			const dest = await saveCopy(path, bytes);
+			copiedSource.set(path, dest);
+			keptPlain.set(named, dest);
 		}
-		return kept.size === 0
-			? plan
-			: plan.replace(PATH, (named) => kept.get(named) ?? named);
+
+		// 2. Copy validated local Markdown media references outside code blocks.
+		const seenRaw = new Set<string>();
+		for (const ref of findInlineMedia(plan, opts.cwd ?? null)) {
+			if (seenRaw.has(ref.raw) || keptPlain.has(ref.raw)) {
+				continue;
+			}
+			seenRaw.add(ref.raw);
+			const normalized = movedPath(ref.resolved);
+			if (attached(normalized)) {
+				const existing = copiedSource.get(normalized);
+				if (existing !== undefined) {
+					mdReplacements.set(ref.raw, existing);
+					continue;
+				}
+				const bytes = await this.fs.readBytes(normalized).catch(() => null);
+				if (bytes !== null) {
+					const dest = await saveCopy(normalized, bytes);
+					copiedSource.set(normalized, dest);
+					mdReplacements.set(ref.raw, dest);
+				}
+				continue;
+			}
+
+			let bytes: Uint8Array | null = null;
+			const preRead = opts.preRead?.get(ref.resolved);
+			if (
+				preRead !== undefined &&
+				preRead.length > 0 &&
+				preRead.length <= maxFileBytes &&
+				validateMedia(ref.resolved, preRead) !== null
+			) {
+				bytes = preRead;
+			} else {
+				const valid = await readValidatedMedia(
+					this.fs,
+					ref.resolved,
+					maxFileBytes,
+				);
+				if (valid !== null) {
+					bytes = valid.bytes;
+				}
+			}
+
+			if (bytes !== null) {
+				const sig = capturedFileName(bytes, ref.resolved);
+				const dup = copiedHash.get(sig);
+				if (dup !== undefined) {
+					mdReplacements.set(ref.raw, dup);
+					continue;
+				}
+				const heldMatch = heldByName.get(sig);
+				const heldNorm = heldMatch === undefined ? null : movedPath(heldMatch);
+				if (heldNorm !== null && copiedSource.has(heldNorm)) {
+					const dest = copiedSource.get(heldNorm) as string;
+					copiedHash.set(sig, dest);
+					mdReplacements.set(ref.raw, dest);
+					continue;
+				}
+				if (autoCapturedBytes + bytes.length > maxTotalBytes) {
+					continue;
+				}
+				const dest = await saveCopy(
+					heldMatch !== undefined ? sig : ref.resolved,
+					bytes,
+				);
+				autoCapturedBytes += bytes.length;
+				copiedHash.set(sig, dest);
+				if (heldNorm !== null) {
+					copiedSource.set(heldNorm, dest);
+				}
+				mdReplacements.set(ref.raw, dest);
+				continue;
+			}
+
+			// Source file no longer exists on disk: reuse conversation-captured copy if present.
+			if (!(await this.fs.exists(ref.resolved))) {
+				const fallback = opts.captured?.get(ref.resolved);
+				if (fallback === undefined) {
+					continue;
+				}
+				const normFallback = movedPath(fallback);
+				const existing = copiedSource.get(normFallback);
+				if (existing !== undefined) {
+					mdReplacements.set(ref.raw, existing);
+					continue;
+				}
+				const copied = await this.fs.readBytes(normFallback).catch(() => null);
+				if (
+					copied === null ||
+					copied.length === 0 ||
+					copied.length > maxFileBytes ||
+					(!attached(normFallback) &&
+						validateMedia(normFallback, copied) === null) ||
+					autoCapturedBytes + copied.length > maxTotalBytes
+				) {
+					continue;
+				}
+				const dest = await saveCopy(normFallback, copied);
+				autoCapturedBytes += copied.length;
+				copiedSource.set(normFallback, dest);
+				mdReplacements.set(ref.raw, dest);
+			}
+		}
+
+		// 3. Copy remaining held files that the plan did not name so `copyOf` finds them.
+		for (const path of held) {
+			const normalized = movedPath(path);
+			if (copiedSource.has(normalized)) {
+				continue;
+			}
+			const bytes = await this.fs.readBytes(path).catch(() => null);
+			if (bytes === null) {
+				continue;
+			}
+			const dest = await saveCopy(path, bytes);
+			copiedSource.set(normalized, dest);
+		}
+
+		const rewritten = rewriteInlineMedia(plan, mdReplacements);
+		return keptPlain.size === 0
+			? rewritten
+			: rewritten.replace(PATH, (named) => keptPlain.get(named) ?? named);
 	}
 
 	/**

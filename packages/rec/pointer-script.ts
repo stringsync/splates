@@ -1,7 +1,7 @@
 /** The runtime binding the pointer script reports through, one JSON string per event. */
 export const POINTER_BINDING = "__recPointer";
 
-/** The pointer script as source to evaluate in a page: it tracks the element under the pointer, clicks, typing, routes and Option-held highlights. */
+/** The pointer script as source to evaluate in a page: it tracks the element under the pointer, clicks, typing, routes and Option-held arrow/box highlights. */
 export function pointerSource(): string {
 	return `(${pointerScript.toString()})(${JSON.stringify(POINTER_BINDING)})`;
 }
@@ -21,8 +21,10 @@ function pointerScript(binding: string): void {
 	const REST_MS = 300;
 	const TYPE_GAP_MS = 1500;
 	const FADE_MS = 1500;
-	const MAX_PATH = 200;
 	const DEAD_MS = 500;
+	const INK = "#ff1f8f";
+	const STROKE = 4;
+	const MIN_DRAG = STROKE * 3;
 
 	const clip = (text: string, max: number): string =>
 		text.replace(/\s+/g, " ").trim().slice(0, max);
@@ -141,77 +143,177 @@ function pointerScript(binding: string): void {
 	const under = (): Element | null =>
 		pointer.seen ? document.elementFromPoint(pointer.x, pointer.y) : null;
 
-	// Highlight: hold Option and drag the pointer.
-	let drawing: { x: number; y: number }[] | undefined;
-	let seenElements: Element[] = [];
+	// Highlight: hold Option to draw an arrow, or Option+Command to draw a box.
+	// Releasing freezes the shape in place while its still is captured, then fades it out.
+	type Shape = "arrow" | "box";
+	let drawing:
+		| {
+				shape: Shape;
+				from?: { x: number; y: number };
+				to?: { x: number; y: number };
+				lockedBox: boolean;
+		  }
+		| undefined;
 	let canvas: HTMLCanvasElement | undefined;
 	let fade: ReturnType<typeof setTimeout> | undefined;
 	const paint = (): void => {
-		if (!canvas || !drawing) {
+		if (!canvas || !drawing?.from || !drawing.to) {
 			return;
 		}
 		const ctx = canvas.getContext("2d");
 		if (!ctx) {
 			return;
 		}
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		ctx.strokeStyle = "rgba(255, 60, 60, 0.85)";
-		ctx.lineWidth = 5;
+		const rect = canvas.getBoundingClientRect();
+		const dpr = window.devicePixelRatio || 1;
+		const targetW = Math.round(rect.width * dpr);
+		const targetH = Math.round(rect.height * dpr);
+		if (canvas.width !== targetW || canvas.height !== targetH) {
+			canvas.width = targetW;
+			canvas.height = targetH;
+		}
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.clearRect(0, 0, rect.width, rect.height);
+		const { from, to, shape } = drawing;
+		if (Math.hypot(to.x - from.x, to.y - from.y) < 2) {
+			return;
+		}
+		const path = new Path2D();
+		if (shape === "box") {
+			path.rect(
+				Math.min(from.x, to.x),
+				Math.min(from.y, to.y),
+				Math.abs(to.x - from.x),
+				Math.abs(to.y - from.y),
+			);
+		} else {
+			const angle = Math.atan2(to.y - from.y, to.x - from.x);
+			const head = STROKE * 4;
+			path.moveTo(from.x, from.y);
+			path.lineTo(to.x, to.y);
+			for (const side of [-1, 1]) {
+				path.moveTo(to.x, to.y);
+				path.lineTo(
+					to.x - head * Math.cos(angle + side * 0.5),
+					to.y - head * Math.sin(angle + side * 0.5),
+				);
+			}
+		}
+		ctx.save();
 		ctx.lineCap = "round";
 		ctx.lineJoin = "round";
-		ctx.beginPath();
-		drawing.forEach((pt, i) => {
-			if (i === 0) {
-				ctx.moveTo(pt.x, pt.y);
-			} else {
-				ctx.lineTo(pt.x, pt.y);
-			}
-		});
-		ctx.stroke();
+		ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+		ctx.shadowBlur = STROKE * 1.5;
+		ctx.strokeStyle = "white";
+		ctx.lineWidth = STROKE * 2;
+		ctx.stroke(path);
+		ctx.shadowColor = "transparent";
+		ctx.strokeStyle = INK;
+		ctx.lineWidth = STROKE;
+		ctx.stroke(path);
+		ctx.restore();
 	};
-	const startTrail = (): void => {
+	const collectElements = (
+		shape: Shape,
+		from: { x: number; y: number },
+		to: { x: number; y: number },
+	): Element[] => {
+		const seen: Element[] = [];
+		const probe = (px: number, py: number): void => {
+			const el = document.elementFromPoint(px, py);
+			if (el && !seen.includes(el)) {
+				seen.push(el);
+			}
+		};
+		if (shape === "arrow") {
+			probe(to.x, to.y);
+			probe(from.x, from.y);
+		} else {
+			const left = Math.min(from.x, to.x);
+			const top = Math.min(from.y, to.y);
+			const width = Math.abs(to.x - from.x);
+			const height = Math.abs(to.y - from.y);
+			for (const fy of [0.5, 0.2, 0.8]) {
+				for (const fx of [0.5, 0.2, 0.8]) {
+					probe(left + width * fx, top + height * fy);
+				}
+			}
+		}
+		return seen.slice(0, 6);
+	};
+	const startShape = (shape: Shape): void => {
 		clearTimeout(fade);
 		canvas?.remove();
 		canvas = document.createElement("canvas");
-		canvas.width = window.innerWidth;
-		canvas.height = window.innerHeight;
 		canvas.style.cssText =
-			"position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483647;transition:opacity .4s";
+			"position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2147483647;transition:opacity .4s";
 		document.documentElement.append(canvas);
-		drawing = pointer.seen ? [{ x: pointer.x, y: pointer.y }] : [];
-		seenElements = [];
-		send({ type: "laser", on: true });
+		const rect = canvas.getBoundingClientRect();
+		const dpr = window.devicePixelRatio || 1;
+		canvas.width = Math.round(rect.width * dpr);
+		canvas.height = Math.round(rect.height * dpr);
+		const start = pointer.seen ? { x: pointer.x, y: pointer.y } : undefined;
+		drawing = {
+			shape,
+			from: start,
+			to: start ? { ...start } : undefined,
+			lockedBox: shape === "box",
+		};
+		send({ type: "laser", on: true, shape });
 	};
-	const endTrail = (): void => {
-		const path = drawing;
+	const cancelShape = (): void => {
+		if (!drawing) {
+			return;
+		}
+		drawing = undefined;
+		clearTimeout(fade);
+		canvas?.remove();
+		canvas = undefined;
+		send({ type: "laser", on: false });
+	};
+	const endShape = (): void => {
+		const current = drawing;
 		drawing = undefined;
 		send({ type: "laser", on: false });
 		const shown = canvas;
+		if (
+			!current?.from ||
+			!current.to ||
+			Math.hypot(current.to.x - current.from.x, current.to.y - current.from.y) <
+				MIN_DRAG
+		) {
+			shown?.remove();
+			if (canvas === shown) {
+				canvas = undefined;
+			}
+			return;
+		}
 		fade = setTimeout(() => {
 			if (shown) {
 				shown.style.opacity = "0";
 			}
 			setTimeout(() => shown?.remove(), 500);
 		}, FADE_MS);
-		if (!path || path.length < 3) {
-			return;
-		}
-		const xs = path.map((pt) => pt.x);
-		const ys = path.map((pt) => pt.y);
-		const left = Math.min(...xs);
-		const top = Math.min(...ys);
-		const step = Math.max(1, Math.ceil(path.length / MAX_PATH));
-		const unique = [...new Set(seenElements)].slice(0, 6);
+		const { from, to, shape } = current;
+		const left = Math.min(from.x, to.x);
+		const top = Math.min(from.y, to.y);
+		const width = Math.abs(to.x - from.x);
+		const height = Math.abs(to.y - from.y);
+		const unique = collectElements(shape, from, to);
 		send({
 			type: "highlight",
-			path: path
-				.filter((_, i) => i % step === 0)
-				.map((pt) => [Math.round(pt.x), Math.round(pt.y)]),
+			shape,
+			from: [Math.round(from.x), Math.round(from.y)],
+			to: [Math.round(to.x), Math.round(to.y)],
+			path: [
+				[Math.round(from.x), Math.round(from.y)],
+				[Math.round(to.x), Math.round(to.y)],
+			],
 			area: [
 				Math.round(left),
 				Math.round(top),
-				Math.round(Math.max(...xs) - left),
-				Math.round(Math.max(...ys) - top),
+				Math.round(width),
+				Math.round(height),
 			],
 			elements: unique.map(describe),
 		});
@@ -232,11 +334,9 @@ function pointerScript(binding: string): void {
 			pointer.y = event.clientY;
 			pointer.seen = true;
 			if (drawing) {
-				drawing.push({ x: event.clientX, y: event.clientY });
-				const el = document.elementFromPoint(event.clientX, event.clientY);
-				if (el && seenElements.at(-1) !== el) {
-					seenElements.push(el);
-				}
+				const pt = { x: event.clientX, y: event.clientY };
+				drawing.from ??= pt;
+				drawing.to = pt;
 				paint();
 			}
 			const now = Date.now();
@@ -328,8 +428,24 @@ function pointerScript(binding: string): void {
 	document.addEventListener(
 		"keydown",
 		(event) => {
-			if (event.key === "Alt" && !drawing) {
-				startTrail();
+			if (event.key === "Alt") {
+				if (!drawing && !event.repeat) {
+					startShape(event.metaKey ? "box" : "arrow");
+				}
+				return;
+			}
+			if (event.key === "Meta") {
+				if (drawing && !drawing.lockedBox) {
+					drawing.shape = "box";
+					drawing.lockedBox = true;
+					paint();
+					send({ type: "laser", on: true, shape: "box" });
+				}
+				return;
+			}
+			if (drawing && event.key !== "Shift" && event.key !== "Control") {
+				// Another key was pressed with Option/Command (e.g. DevTools or word-jump): cancel without capturing.
+				cancelShape();
 			}
 		},
 		true,
@@ -337,15 +453,18 @@ function pointerScript(binding: string): void {
 	document.addEventListener(
 		"keyup",
 		(event) => {
-			if (event.key === "Alt" && drawing) {
-				endTrail();
+			if (!drawing) {
+				return;
+			}
+			if (event.key === "Alt" || (event.key === "Meta" && drawing.lockedBox)) {
+				endShape();
 			}
 		},
 		true,
 	);
 	window.addEventListener("blur", () => {
 		if (drawing) {
-			endTrail();
+			endShape();
 		}
 	});
 

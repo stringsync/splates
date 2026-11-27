@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseEvent, parseLaser, pickFrame } from "./pointer";
-import { pointerSource } from "./pointer-script";
+import { POINTER_BINDING, pointerSource } from "./pointer-script";
 import { Scrubber } from "./scrub";
 import { eventPointers } from "./timeline";
 
@@ -94,23 +94,279 @@ describe("pointer events", () => {
 	test("the injected source is a complete expression", () => {
 		expect(() => new Function(`return ${pointerSource()}`)).not.toThrow();
 	});
+
+	test("the page script draws arrows on Option, boxes on Option+Command, locks on staggered release, and cancels on shortcuts", () => {
+		const docListeners = new Map<
+			string,
+			((event: Record<string, unknown>) => void)[]
+		>();
+		const winListeners = new Map<string, (() => void)[]>();
+		const sent: Record<string, unknown>[] = [];
+		const strokes: { style: string; width: number }[] = [];
+		const canvases: { removed: boolean; style: { cssText: string } }[] = [];
+		class FakePath2D {
+			ops: string[] = [];
+			rect(...args: number[]) {
+				this.ops.push(`rect:${args.join(",")}`);
+			}
+			moveTo(...args: number[]) {
+				this.ops.push(`moveTo:${args.join(",")}`);
+			}
+			lineTo(...args: number[]) {
+				this.ops.push(`lineTo:${args.join(",")}`);
+			}
+		}
+		const fakeEl = {
+			tagName: "BUTTON",
+			classList: [],
+			parentElement: null,
+			innerText: "Past due",
+			getAttribute: () => null,
+			closest: () => null,
+			getBoundingClientRect: () => ({ x: 40, y: 50, width: 80, height: 24 }),
+		};
+		const fakeDoc = {
+			documentElement: {
+				append: (node: { removed: boolean; style: { cssText: string } }) => {
+					canvases.push(node);
+				},
+			},
+			createElement: () => {
+				const node = {
+					width: 0,
+					height: 0,
+					style: { cssText: "", opacity: "1" },
+					removed: false,
+					remove() {
+						this.removed = true;
+					},
+					getBoundingClientRect: () => ({ width: 1200, height: 800 }),
+					getContext: () => ({
+						lineCap: "",
+						lineJoin: "",
+						shadowColor: "",
+						shadowBlur: 0,
+						strokeStyle: "",
+						lineWidth: 0,
+						setTransform() {},
+						clearRect() {},
+						save() {},
+						restore() {},
+						stroke() {
+							strokes.push({
+								style: this.strokeStyle,
+								width: this.lineWidth,
+							});
+						},
+					}),
+				};
+				return node;
+			},
+			elementFromPoint: () => fakeEl,
+			addEventListener: (
+				type: string,
+				fn: (event: Record<string, unknown>) => void,
+			) => {
+				const list = docListeners.get(type) ?? [];
+				list.push(fn);
+				docListeners.set(type, list);
+			},
+		};
+		const fakeWin: Record<string, unknown> = {
+			innerWidth: 1200,
+			innerHeight: 800,
+			devicePixelRatio: 2,
+			[POINTER_BINDING]: (payload: string) => {
+				sent.push(JSON.parse(payload) as Record<string, unknown>);
+			},
+			addEventListener: (type: string, fn: () => void) => {
+				const list = winListeners.get(type) ?? [];
+				list.push(fn);
+				winListeners.set(type, list);
+			},
+		};
+		fakeWin.top = fakeWin;
+		const emit = (type: string, event: Record<string, unknown>) => {
+			for (const fn of docListeners.get(type) ?? []) {
+				fn(event);
+			}
+		};
+		class FakeMutationObserver {
+			observe() {}
+		}
+		const run = new Function(
+			"window",
+			"document",
+			"location",
+			"history",
+			"MutationObserver",
+			"Path2D",
+			"HTMLElement",
+			"Element",
+			"HTMLInputElement",
+			"HTMLTextAreaElement",
+			"HTMLSelectElement",
+			"CSS",
+			pointerSource(),
+		);
+		run(
+			fakeWin,
+			fakeDoc,
+			{ href: "http://example.test/" },
+			{ pushState() {}, replaceState() {} },
+			FakeMutationObserver,
+			FakePath2D,
+			class {},
+			class {},
+			class {},
+			class {},
+			class {},
+			{ escape: (value: string) => value },
+		);
+
+		// 1. Hold Option, move, release -> arrow highlight with magenta halo+ink strokes.
+		emit("pointermove", { clientX: 10, clientY: 20 });
+		emit("keydown", { key: "Alt", metaKey: false, repeat: false });
+		emit("pointermove", { clientX: 110, clientY: 80 });
+		emit("keyup", { key: "Alt" });
+		expect(sent.filter((item) => item.type === "laser")).toEqual([
+			expect.objectContaining({ type: "laser", on: true, shape: "arrow" }),
+			expect.objectContaining({ type: "laser", on: false }),
+		]);
+		expect(sent.filter((item) => item.type === "highlight")).toEqual([
+			expect.objectContaining({
+				type: "highlight",
+				shape: "arrow",
+				from: [10, 20],
+				to: [110, 80],
+			}),
+		]);
+		expect(strokes.some((item) => item.style === "#ff1f8f")).toBe(true);
+		expect(strokes.some((item) => item.style === "white")).toBe(true);
+
+		// 2. Start Option, add Command mid-drag -> upgrades to box, staggered Meta release freezes box without snapping back.
+		sent.length = 0;
+		emit("pointermove", { clientX: 200, clientY: 100 });
+		emit("keydown", { key: "Alt", metaKey: false, repeat: false });
+		emit("keydown", { key: "Meta", metaKey: true, repeat: false });
+		emit("pointermove", { clientX: 400, clientY: 250 });
+		emit("keyup", { key: "Meta" });
+		emit("keyup", { key: "Alt" });
+		expect(sent.filter((item) => item.type === "laser")).toEqual([
+			expect.objectContaining({ type: "laser", on: true, shape: "arrow" }),
+			expect.objectContaining({ type: "laser", on: true, shape: "box" }),
+			expect.objectContaining({ type: "laser", on: false }),
+		]);
+		expect(sent.filter((item) => item.type === "highlight")).toEqual([
+			expect.objectContaining({
+				type: "highlight",
+				shape: "box",
+				from: [200, 100],
+				to: [400, 250],
+				area: [200, 100, 200, 150],
+			}),
+		]);
+
+		// 3. Option+Command+I (DevTools) cancels draft with no highlight and removes canvas immediately.
+		sent.length = 0;
+		emit("keydown", { key: "Alt", metaKey: true, repeat: false });
+		emit("pointermove", { clientX: 500, clientY: 300 });
+		emit("keydown", { key: "i", metaKey: true, altKey: true, repeat: false });
+		emit("keyup", { key: "Alt" });
+		expect(sent.filter((item) => item.type === "highlight")).toEqual([]);
+		expect(canvases.at(-1)?.removed).toBe(true);
+
+		// 4. Accidental Option tap with tiny movement (< 12px) emits no highlight.
+		sent.length = 0;
+		emit("pointermove", { clientX: 300, clientY: 300 });
+		emit("keydown", { key: "Alt", metaKey: false, repeat: false });
+		emit("pointermove", { clientX: 304, clientY: 303 });
+		emit("keyup", { key: "Alt" });
+		expect(sent.filter((item) => item.type === "highlight")).toEqual([]);
+	});
 });
 
 test("the page's laser messages are told apart from its events", () => {
+	expect(
+		parseLaser(
+			JSON.stringify({ at: 1, type: "laser", on: true, shape: "arrow" }),
+		),
+	).toBe("arrow");
+	expect(
+		parseLaser(
+			JSON.stringify({ at: 1, type: "laser", on: true, shape: "box" }),
+		),
+	).toBe("box");
 	expect(parseLaser(JSON.stringify({ at: 1, type: "laser", on: true }))).toBe(
-		true,
+		"arrow",
 	);
 	expect(parseLaser(JSON.stringify({ at: 1, type: "laser", on: false }))).toBe(
-		false,
+		"off",
 	);
 	expect(parseLaser(JSON.stringify({ at: 1, type: "click" }))).toBeUndefined();
 	expect(parseLaser("not json")).toBeUndefined();
 	expect(
 		parseEvent(
-			JSON.stringify({ at: 1, type: "laser", on: true }),
+			JSON.stringify({ at: 1, type: "laser", on: true, shape: "arrow" }),
 			new Scrubber(),
 		),
 	).toBeUndefined();
+});
+
+test("arrow and box highlights keep their shape and endpoints and format cleanly in the timeline", () => {
+	const scrub = new Scrubber();
+	const arrow = parseEvent(
+		JSON.stringify({
+			at: START + 2000,
+			type: "highlight",
+			shape: "arrow",
+			from: [10, 20],
+			to: [110, 80],
+			path: [
+				[10, 20],
+				[110, 80],
+			],
+			area: [10, 20, 100, 60],
+			elements: [{ component: "StatusBadge", text: "Past due" }],
+		}),
+		scrub,
+	);
+	const box = parseEvent(
+		JSON.stringify({
+			at: START + 4000,
+			type: "highlight",
+			shape: "box",
+			from: [200, 100],
+			to: [420, 210],
+			path: [
+				[200, 100],
+				[420, 210],
+			],
+			area: [200, 100, 220, 110],
+			elements: [{ component: "FailedRenewals" }],
+		}),
+		scrub,
+	);
+	expect(arrow).toMatchObject({
+		type: "highlight",
+		shape: "arrow",
+		from: [10, 20],
+		to: [110, 80],
+	});
+	expect(box).toMatchObject({
+		type: "highlight",
+		shape: "box",
+		from: [200, 100],
+		to: [420, 210],
+	});
+	const lines = eventPointers(
+		[arrow, box].map((item) => JSON.stringify(item)).join("\n"),
+		START,
+	).map((pointer) => `${pointer.at} ${pointer.text}`);
+	expect(lines).toEqual([
+		'2 pointed arrow 100x60 at 10,20 at <StatusBadge> "Past due"',
+		"4 boxed 220x110 at 200,100 over <FailedRenewals>",
+	]);
 });
 
 test("a remark the person typed is listed as typed, apart from speech and agent marks", () => {

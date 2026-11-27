@@ -43,7 +43,7 @@ splatesHook
 	.command("add")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"run something on a task event, on a schedule with `--every` or `--cron`, or on a signal with `--signal`, in place of the event: `--prompt <words>` starts an agent in the main tree, the one `--agent` names or else the one Auto pick picks from your words for each run,, told the event as `[SPLATES EVENT <event> #N]`, or a schedule as `[SPLATES SCHEDULE <number>]`, then your words; `--run <command>` runs it via `sh -c` in the main tree, with $SPLATES_EVENT (`schedule` for one), $SPLATES_TASKS and $SPLATES_TASK set. A schedule that came due while `splates server` was down runs once as it starts",
+		"run something on a task event, on a schedule with `--every` or `--cron`, or on a signal with `--signal`, in place of the event: `--prompt <words>` starts an agent in the main tree, the one `--agent` names or else the one Autopick picks from your words for each run, told the event as `[SPLATES EVENT <event> #N]`, or a schedule as `[SPLATES SCHEDULE <number>]`, then your words; `--run <command>` runs it via `sh -c` in the main tree, with $SPLATES_EVENT (`schedule` for one), $SPLATES_TASKS, $SPLATES_TASK and $SPLATES_HOOK set. A schedule that came due while `splates server` was down runs once as it starts",
 	)
 	.arg("event", z.string().optional(), {
 		description: "the task event, as task.created; none for a schedule",
@@ -80,7 +80,7 @@ splatesHook
 	.option("agent", z.string(), {
 		default: "",
 		description:
-			"the agent to run, as `splates agents` names it, or `auto` for Auto pick (the default)",
+			"the agent to run, as `splates agents` names it, or `auto` for Autopick (the default)",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -109,7 +109,7 @@ splatesHook
 		} else if (opts.prompt === "") {
 			fail(
 				"usage",
-				"say what runs: --prompt, with --agent unless Auto pick picks it, or --run",
+				"say what runs: --prompt, with --agent unless Autopick picks it, or --run",
 				{},
 			);
 		} else {
@@ -161,7 +161,7 @@ splatesHook
 	.option("agent", z.string(), {
 		default: "",
 		description:
-			"the agent to run, as `splates agents` names it, or `auto` for Auto pick",
+			"the agent to run, as `splates agents` names it, or `auto` for Autopick",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -289,7 +289,7 @@ function storeOf(ctx: { storage: Storage }) {
 
 /**
  * The agent a hook runs as, as `--agent`, `--model` and `--effort` name it:
- * undefined when none is given, null for `--agent auto`, Auto pick.
+ * undefined when none is given, null for `--agent auto`, Autopick.
  */
 async function hookPickIn(
 	deps: SplatesDeps,
@@ -302,7 +302,7 @@ async function hookPickIn(
 		return assigneeIn(deps, agent, model, effort);
 	}
 	if (model !== "" || effort !== "") {
-		fail("usage", "Auto pick picks the model and effort too", {
+		fail("usage", "Autopick picks the model and effort too", {
 			model,
 			effort,
 		});

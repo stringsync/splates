@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { antigravityLimitsForModel } from "./antigravity-quota";
+import {
+	antigravityGroupLabel,
+	antigravityGroups,
+	antigravityLimitsForModel,
+} from "./antigravity-quota";
 
 const AT = "2026-11-26T12:00:00.000Z";
 const LIMITS = [
@@ -33,5 +37,33 @@ describe("antigravityLimitsForModel", () => {
 				(each) => each.window,
 			),
 		).toEqual(["Gemini Models · Five Hour", "Gemini Models · Weekly"]);
+	});
+});
+
+describe("antigravityGroups", () => {
+	it("splits grouped windows by quota family with short labels", () => {
+		expect(
+			antigravityGroups(LIMITS).map((each) => ({
+				group: each.group,
+				label: each.label,
+				windows: each.limits.map((limit) => limit.window),
+			})),
+		).toEqual([
+			{
+				group: "Gemini Models",
+				label: "Gemini",
+				windows: ["Gemini Models · Five Hour", "Gemini Models · Weekly"],
+			},
+			{
+				group: "Claude and GPT models",
+				label: "Claude & GPT",
+				windows: [
+					"Claude and GPT models · Five Hour",
+					"Claude and GPT models · Weekly",
+				],
+			},
+		]);
+		expect(antigravityGroupLabel("Gemini Models")).toBe("Gemini");
+		expect(antigravityGroupLabel("Claude and GPT models")).toBe("Claude & GPT");
 	});
 });

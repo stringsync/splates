@@ -3,11 +3,11 @@ import { type JSX, type SVGProps, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { ColoredMark, hasColors } from "./agent-icons";
 
-/** What the Start menu calls the item that lets Auto pick the agent. */
-export const AUTO_PICK_NAME = "Auto pick";
+/** What the Start menu calls the item that lets Autopick the agent. */
+export const AUTOPICK_NAME = "Autopick";
 
 /**
- * Auto pick's mark, in place of an agent's, beside its name in a menu. Plain
+ * Autopick's mark, in place of an agent's, beside its name in a menu. Plain
  * like an agent's icon there; `colored` gives golden sparkles where an
  * agent's mark shows its maker's colors, in the blue-violet-pink gradient that
  * marks AI work across the page.
@@ -25,7 +25,7 @@ export function AutoIcon({
 	return <ColoredSparkles className={cn("size-4", className)} />;
 }
 
-/** Auto pick's golden sparkles, in the gradient that marks AI work across the page. */
+/** Autopick's golden sparkles, in the gradient that marks AI work across the page. */
 function ColoredSparkles(props: SVGProps<SVGSVGElement>): JSX.Element {
 	const gradient = useId();
 	return (
@@ -55,8 +55,8 @@ const STAR =
 	"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z";
 
 /**
- * Shows which agent Auto pick chose, beside a conversation or in its composer.
- * Use instead of the regular agent mark while Auto pick is on.
+ * Shows which agent Autopick chose, beside a conversation or in its composer.
+ * Use instead of the regular agent mark while Autopick is on.
  */
 export function AutoAgentMark({
 	agent,

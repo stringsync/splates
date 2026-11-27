@@ -91,7 +91,7 @@ export class StartedRecords {
 	private async write(state: TaskState): Promise<void> {
 		const record =
 			(await this.store.find(state.task)) ?? (await this.numbered(state.task));
-		// Its Auto pick is the record's own, which a stale read must not undo.
+		// Its Autopick is the record's own, which a stale read must not undo.
 		const {
 			id: _,
 			createdAt,

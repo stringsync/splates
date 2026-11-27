@@ -14,7 +14,7 @@ import {
 } from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AddedLine } from "./added-line";
-import { AutoPickLine } from "./auto-pick-line";
+import { AutopickLine } from "./autopick-line";
 import { lineOfRun } from "./event-lines";
 import { FileChip } from "./file-chip";
 import { NamedContext } from "./mentioned";
@@ -134,7 +134,7 @@ export function TimelineItem({
 		case "event": {
 			const { event } = item;
 			if (event.action === "auto" && event.reason === null) {
-				return <AutoPickLine event={event} details />;
+				return <AutopickLine event={event} details />;
 			}
 			const view = lineOfRun(event, item.also, false, 0);
 			// A refused command has no line of its own, yet the row counts it.

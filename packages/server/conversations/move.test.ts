@@ -131,6 +131,56 @@ describe("Conversation move", () => {
 		await reread.disposeAsync();
 	});
 
+	it("stops immediately when moved off its worktree while idle with nothing awaited", async () => {
+		agent.turn = async () => "end_turn";
+		const conversation = await started();
+
+		conversation.move(null, "/repo");
+		await until(conversation, "stopped");
+
+		await conversation.prompt("go on");
+		await until(conversation, "idle");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
+	});
+
+	it("waits until an awaited background command's wakeup turn ends before stopping off a deleted worktree", async () => {
+		const release = Promise.withResolvers<void>();
+		agent.turn = async () => {
+			await release.promise;
+			return "end_turn";
+		};
+		const conversation = await started();
+		conversation.set({
+			wakes: true,
+			background: [
+				{
+					id: "bg-merge",
+					name: "splates merge",
+					command: "splates merge",
+					subagent: null,
+					state: "running",
+					output: null,
+				},
+			],
+		});
+
+		conversation.move(null, "/repo");
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		expect(conversation.state.status).toBe("idle");
+		expect(agent.killed).toBe(0);
+
+		const wakeup = conversation.prompt("merged");
+		await until(conversation, "running");
+		release.resolve();
+		await wakeup;
+		await until(conversation, "stopped");
+
+		agent.turn = async () => "end_turn";
+		await conversation.prompt("next");
+		await until(conversation, "idle");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
+	});
+
 	it("says why it cannot resume once its tree is gone and no main tree is known", async () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();

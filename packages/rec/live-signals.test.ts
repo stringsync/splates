@@ -38,3 +38,43 @@ test("a dead click arrives only once the stream has gone past it", () => {
 	live.event({ at: 7000, type: "route", url: "/x" });
 	expect(rows.map((row) => row.title)).toEqual(["Click did nothing"]);
 });
+
+test("arrow and box highlights become shaped live rows with target details", () => {
+	const rows: SignalRow[] = [];
+	const live = new LiveSignals(
+		{ frameAt: () => undefined },
+		{ row: (row) => rows.push(row) },
+	);
+	live.event({
+		at: 1000,
+		type: "highlight",
+		shape: "arrow",
+		area: [10, 20, 120, 60],
+		elements: [{ text: "Past due" }],
+	});
+	live.event({
+		at: 2000,
+		type: "highlight",
+		shape: "box",
+		area: [200, 100, 222, 108],
+		elements: [{ text: "Failed renewals" }],
+	});
+	expect(rows).toEqual([
+		{
+			at: 1000,
+			kind: "highlight",
+			shape: "arrow",
+			title: "Arrow",
+			detail: "Pointed at Past due",
+			thumbnail: undefined,
+		},
+		{
+			at: 2000,
+			kind: "highlight",
+			shape: "box",
+			title: "Boxed",
+			detail: "Failed renewals · 222×108",
+			thumbnail: undefined,
+		},
+	]);
+});

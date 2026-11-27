@@ -2,10 +2,14 @@
 
 The Merged, Removed, Blocked and Done cards, and what any task outcome says,
 are in SKILL.md (step 7 and Core formats). This guide covers the rest. A few
-extras for those four: a Done whose result is something to see, such as a
+extras for those four: a Merged card for a visual or flow change includes Before
+and After as two separate, labelled visuals (`#### Before` and `#### After`,
+each with its own attached screenshot or `d2` fence, never combined into one and
+never only one side), with the After visual also under `## After` in
+`SPLATES.md`; a Done whose result is something to see, such as a
 flow you traced, puts a `d2` diagram under its colon line (see
-[showing.md](showing.md), Pictures in plans), as a before and after when it
-changed anything; a merge report names any artifact the task made as
+[showing.md](showing.md), Pictures in plans), as two separate labelled Before
+and After `d2` diagrams when it changed anything; a merge report names any artifact the task made as
 `Artifact: <name>` rather than inlining it; and when a task that took a
 queued board task waits briefly on another task without ending,
 `splates blocker add <#id | "subject">` links the blocker and keeps the
@@ -33,7 +37,12 @@ The board can now mark a stale task, once you pick how.
      ![stale badge](/abs/path/badge.png)
 ```
 
-A review asks no numbered question and ends on nothing to reply: the page
+Use a `Ready to merge` review card only when the sole remaining decision is
+whether to merge as-is. If any other question or behavior call is still open,
+do not send a `Ready to merge` card and never put questions, choices, or
+unresolved calls in its Notes: send a plain questions card first, settle them,
+and send `Ready to merge` only once nothing else is open. A review asks no
+numbered question and ends on nothing to reply: the page
 shows its Merge button under the card, and the user approves there or asks
 for changes. After what changed come the screenshots that show it, then a
 `Checks:` line naming each check you ran that passed, in backticks, and a
@@ -48,7 +57,7 @@ against on the Rigs page; run your own dev servers only to check your work,
 and when no rig fits, say so and let the screenshots stand. With a task record, the card leads with its Before and After
 in place of your first paragraph, and shows what follows it under a Notes
 label: keep Notes optional, at most three short points the record does not
-already say, and never repeat the After screenshot there.
+already say (never open questions or choices), and never repeat the After screenshot there.
 
 ```markdown
 ## 🔍 Ready to merge <task> onto <base>

@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { SERVER_TOLD } from "@splates/server/conversations/browser";
 import { conflictWarning, earlyWarning } from "@splates/server/server/browser";
+import { CLAMP, CUT_FADE } from "./clamped";
 import {
 	act,
 	cleanup,
 	conversation,
 	fireEvent,
 	message,
+	openRow,
 	Testing,
+	todo,
 	toggle,
 	tool,
 	waitFor,
@@ -98,6 +101,106 @@ describe("App's conversation thread", () => {
 			),
 		);
 		expect(stamps()).toEqual([]);
+	});
+
+	it("expands and collapses all image previews per conversation from the widgets menu, showing its state", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "First thread",
+					messages: [
+						message("agent", "![one](/abs/one.webm)\n\n![two](/abs/two.mp4)"),
+					],
+				}),
+				conversation({
+					id: "c2",
+					title: "Second thread",
+					messages: [
+						message(
+							"agent",
+							"![three](/abs/three.webm)\n\n![four](/abs/four.mp4)",
+						),
+					],
+				}),
+			],
+			"c1",
+		);
+		const first = () => view.getByRole("region", { name: "First thread" });
+		const toggle = () =>
+			within(view.getByRole("navigation", { name: "actions" })).getByRole(
+				"button",
+				{ name: /^Image previews/ },
+			);
+
+		await waitFor(() =>
+			expect(
+				within(first()).getByRole("button", { name: "view 2 recordings" }),
+			).toBeTruthy(),
+		);
+		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().getAttribute("aria-pressed")).toBe("false");
+
+		await act(async () => fireEvent.click(toggle()));
+		expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P");
+		expect(toggle().getAttribute("aria-pressed")).toBe("true");
+		expect(
+			within(first()).queryByRole("button", { name: "view 2 recordings" }),
+		).toBeNull();
+		expect(
+			within(first()).getByRole("button", { name: "view one" }),
+		).toBeTruthy();
+		expect(
+			within(first()).getByRole("button", { name: "view two" }),
+		).toBeTruthy();
+
+		// Switching to another conversation keeps that conversation collapsed.
+		await openRow(view, "Second thread");
+		const second = view.getByRole("region", { name: "Second thread" });
+		await waitFor(() =>
+			expect(
+				within(second).getByRole("button", { name: "view 2 recordings" }),
+			).toBeTruthy(),
+		);
+		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().getAttribute("aria-pressed")).toBe("false");
+
+		// Returning to the first conversation remembers its expanded state.
+		await openRow(view, "First thread");
+		await waitFor(() =>
+			expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P"),
+		);
+		expect(
+			within(first()).queryByRole("button", { name: "view 2 recordings" }),
+		).toBeNull();
+
+		// Collapsing via the keyboard shortcut returns to the compact gallery card.
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				code: "KeyP",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().getAttribute("aria-pressed")).toBe("false");
+		expect(
+			within(first()).getByRole("button", { name: "view 2 recordings" }),
+		).toBeTruthy();
+
+		// Pressing the shortcut again expands previews inline.
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				code: "KeyP",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+		expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P");
+		expect(toggle().getAttribute("aria-pressed")).toBe("true");
+		expect(
+			within(first()).queryByRole("button", { name: "view 2 recordings" }),
+		).toBeNull();
 	});
 
 	it("labels a message another conversation told with a link back to it", async () => {
@@ -312,26 +415,41 @@ describe("App's conversation thread", () => {
 			conversation({ title: "Read the note" }),
 		]);
 		const copied: string[] = [];
+		const previousClipboard = Object.getOwnPropertyDescriptor(
+			navigator,
+			"clipboard",
+		);
+		// vet-ignore no-monkeypatching: happy-dom lacks navigator.clipboard; restored in finally
 		Object.defineProperty(navigator, "clipboard", {
 			configurable: true,
 			value: { writeText: async (text: string) => void copied.push(text) },
 		});
+		try {
+			await testing.say(
+				conversation({
+					title: "Read the note",
+					messages: [
+						message("user", "what does it say?"),
+						message("agent", "It says hi."),
+					],
+				}),
+			);
 
-		await testing.say(
-			conversation({
-				title: "Read the note",
-				messages: [
-					message("user", "what does it say?"),
-					message("agent", "It says hi."),
-				],
-			}),
-		);
-
-		const thread = view.getByRole("region", { name: "Read the note" });
-		const copy = await within(thread).findByRole("button", { name: "Copy" });
-		await act(async () => fireEvent.click(copy));
-		expect(copied).toEqual(["what does it say?"]);
-		await waitFor(() => expect(copy.getAttribute("data-copied")).toBe("true"));
+			const thread = view.getByRole("region", { name: "Read the note" });
+			const copy = await within(thread).findByRole("button", { name: "Copy" });
+			await act(async () => fireEvent.click(copy));
+			expect(copied).toEqual(["what does it say?"]);
+			await waitFor(() =>
+				expect(copy.getAttribute("data-copied")).toBe("true"),
+			);
+		} finally {
+			if (previousClipboard !== undefined) {
+				// vet-ignore no-monkeypatching: restores navigator.clipboard after test
+				Object.defineProperty(navigator, "clipboard", previousClipboard);
+			} else {
+				Reflect.deleteProperty(navigator, "clipboard");
+			}
+		}
 	});
 
 	it("opens a link the agent wrote in a new tab, and a footnote in place", async () => {
@@ -427,43 +545,60 @@ describe("App's conversation thread", () => {
 
 	it("opens a menu to copy a message from when a finger holds it", async () => {
 		const written: string[] = [];
+		const previousClipboard = Object.getOwnPropertyDescriptor(
+			navigator,
+			"clipboard",
+		);
+		// vet-ignore no-monkeypatching: happy-dom lacks navigator.clipboard; restored in finally
 		Object.defineProperty(navigator, "clipboard", {
 			configurable: true,
 			value: { writeText: async (text: string) => void written.push(text) },
 		});
-		const view = await testing.openConversations([
-			conversation({ title: "Copy", messages: [message("user", "ok thanks")] }),
-		]);
-		const thread = view.getByRole("region", { name: "Copy" });
-		const box = await waitFor(() => {
-			const found = thread.querySelector(".aui-user-message-content");
-			expect(found).not.toBeNull();
-			return found as HTMLElement;
-		});
-		const hold = async (pointerType: string) => {
-			await act(async () => {
-				// Restore real timers before React flushes the menu's effects.
-				jest.useFakeTimers();
-				try {
-					fireEvent.pointerDown(box, { pointerType });
-					jest.advanceTimersByTime(600);
-				} finally {
-					jest.useRealTimers();
-				}
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Copy",
+					messages: [message("user", "ok thanks")],
+				}),
+			]);
+			const thread = view.getByRole("region", { name: "Copy" });
+			const box = await waitFor(() => {
+				const found = thread.querySelector(".aui-user-message-content");
+				expect(found).not.toBeNull();
+				return found as HTMLElement;
 			});
-			fireEvent.pointerUp(box, { pointerType });
-		};
+			const hold = async (pointerType: string) => {
+				await act(async () => {
+					// Restore real timers before React flushes the menu's effects.
+					jest.useFakeTimers();
+					try {
+						fireEvent.pointerDown(box, { pointerType });
+						jest.advanceTimersByTime(600);
+					} finally {
+						jest.useRealTimers();
+					}
+				});
+				fireEvent.pointerUp(box, { pointerType });
+			};
 
-		// A mouse's press opens nothing.
-		await hold("mouse");
-		expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull();
+			// A mouse's press opens nothing.
+			await hold("mouse");
+			expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull();
 
-		await hold("touch");
-		fireEvent.click(await view.findByRole("menuitem", { name: "Copy" }));
-		await waitFor(() => expect(written).toEqual(["ok thanks"]));
-		await waitFor(() =>
-			expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull(),
-		);
+			await hold("touch");
+			fireEvent.click(await view.findByRole("menuitem", { name: "Copy" }));
+			await waitFor(() => expect(written).toEqual(["ok thanks"]));
+			await waitFor(() =>
+				expect(view.queryByRole("menuitem", { name: "Copy" })).toBeNull(),
+			);
+		} finally {
+			if (previousClipboard !== undefined) {
+				// vet-ignore no-monkeypatching: restores navigator.clipboard after test
+				Object.defineProperty(navigator, "clipboard", previousClipboard);
+			} else {
+				Reflect.deleteProperty(navigator, "clipboard");
+			}
+		}
 	});
 
 	it("keeps a message of a skill alone in the turn it comes in, unstuck, so it takes none of a turn's scroll", async () => {
@@ -857,5 +992,96 @@ describe("App's conversation thread", () => {
 		expect(line.textContent).toContain("The last turn failed");
 		expect(line.closest('[data-role="assistant"]')).toBeTruthy();
 		expect(view.queryByText("Internal error")).toBeNull();
+	});
+
+	it("clamps a long initial message whether entered through the composer or started from a task", async () => {
+		const previousScroll = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"scrollHeight",
+		);
+		const previousClient = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"clientHeight",
+		);
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so scrollHeight is always 0
+		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+			configurable: true,
+			get: () => 400,
+		});
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so clientHeight is always 0
+		Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+			configurable: true,
+			get: () => 96,
+		});
+		try {
+			const startText =
+				"[SPLATES TASK long-task]\n\nsplates server started this task for queued task #7 from the queue, which lane 2 queued:\n\nVery long task body";
+			const view = await testing.openConversations(
+				[
+					conversation({
+						id: "composer",
+						title: "Composer start",
+						messages: [
+							message("user", "line 1\nline 2\nline 3\nline 4\nline 5"),
+						],
+					}),
+					conversation({
+						id: "task",
+						title: "long-task",
+						messages: [{ ...message("user", startText), told: SERVER_TOLD }],
+					}),
+				],
+				"composer",
+				{
+					todos: [
+						todo({
+							id: 7,
+							subject: "Long task",
+							text: "Paragraph one.\n\nParagraph two.\n\nParagraph three.",
+						}),
+					],
+				},
+			);
+
+			const composerThread = view.getByRole("region", {
+				name: "Composer start",
+			});
+			const userButton = await waitFor(() =>
+				within(composerThread).getByRole("button", { name: "Show all" }),
+			);
+			const userClamped = userButton.querySelector(
+				"[class*='max-h-24']",
+			) as HTMLElement;
+			expect(userClamped).not.toBeNull();
+			expect(userClamped.className).toContain(CLAMP);
+			expect(userClamped.className).toContain(CUT_FADE);
+			await act(async () => fireEvent.click(userButton));
+			expect(userButton.getAttribute("aria-expanded")).toBe("true");
+			expect(userClamped.className).toContain("md:max-h-[50dvh]");
+
+			await act(async () => fireEvent.click(view.getByText("long-task")));
+			const taskThread = view.getByRole("region", { name: "long-task" });
+			const card = await within(taskThread).findByRole("article", {
+				name: "Task #7",
+			});
+			const cardButton = within(card).getByRole("button", { name: "Show all" });
+			const cardClamped = card.querySelector(
+				"[class*='max-h-24']",
+			) as HTMLElement;
+			expect(cardClamped).not.toBeNull();
+			expect(cardClamped.className).toContain(CLAMP);
+			expect(cardClamped.className).toContain(CUT_FADE);
+			await act(async () => fireEvent.click(cardButton));
+			expect(cardButton.getAttribute("aria-expanded")).toBe("true");
+			expect(cardClamped.className).not.toContain(CLAMP);
+		} finally {
+			Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+			Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+			// vet-ignore no-monkeypatching: restores HTMLElement.prototype layout properties after test
+			Object.defineProperties(HTMLElement.prototype, {
+				...(previousScroll ? { scrollHeight: previousScroll } : {}),
+				...(previousClient ? { clientHeight: previousClient } : {}),
+			});
+		}
 	});
 });

@@ -1,4 +1,4 @@
-import type { ReserveHold } from "@splates/server/auto-pick/browser";
+import type { ReserveHold } from "@splates/server/autopick/browser";
 import { type JSX, useEffect, useState } from "react";
 import { readQuotaReserve } from "./api";
 
@@ -66,7 +66,7 @@ export function ReserveBanner({ hold }: { hold: ReserveHold }): JSX.Element {
 			</p>
 			<ul aria-label="Agents" className="text-muted-foreground text-xs">
 				{hold.agents.map((each) => (
-					<li key={each.agent}>
+					<li key={`${each.agent}:${each.window}`}>
 						{each.agent}: {Math.round(each.left * 100)}% left in {each.window}
 					</li>
 				))}

@@ -11,7 +11,7 @@ import { SqliteCollection } from "./sqlite-collection";
 import { SqliteDb } from "./sqlite-db";
 import { SqliteDocument } from "./sqlite-document";
 import { importTree } from "./sqlite-import";
-import { inRange, rangeParams } from "./sqlite-keys";
+import { rangeOf } from "./sqlite-keys";
 import { SqliteLock } from "./sqlite-lock";
 import { SqliteLog } from "./sqlite-log";
 import type { Kept, Storage, Watch, WatchOptions } from "./storage";
@@ -124,51 +124,53 @@ export class SqliteStorage implements Storage, Resource {
 
 	async children(key: string): Promise<string[]> {
 		const at = this.full(key);
-		const params = rangeParams(at);
+		const kvRange = rangeOf("key", at);
+		const ownerRange = rangeOf("coalesce(segment, log)", at);
 		const from = at === "" ? 1 : at.length + 2;
 		return this.shared.db.db
-			.query<
-				{ child: string },
-				[number, ...typeof params, number, ...typeof params]
-			>(
+			.query<{ child: string }, (string | number)[]>(
 				`SELECT DISTINCT substr(rest, 1, instr(rest, '/') - 1) AS child FROM (
-					SELECT substr(key, ?) AS rest FROM kv WHERE ${inRange("key")}
+					SELECT substr(key, ?) AS rest FROM kv WHERE ${kvRange.sql}
 					UNION
 					SELECT substr(coalesce(segment, log), ?) AS rest FROM entries
-					WHERE ${inRange("coalesce(segment, log)")}
+					WHERE ${ownerRange.sql}
 				) WHERE instr(rest, '/') > 0 ORDER BY child`,
 			)
-			.all(from, ...params, from, ...params)
+			.all(from, ...kvRange.params, from, ...ownerRange.params)
 			.map((row) => row.child);
 	}
 
 	async size(key: string): Promise<number> {
-		const params = rangeParams(this.full(key));
+		const at = this.full(key);
+		const kvRange = rangeOf("key", at);
+		const ownerRange = rangeOf("coalesce(segment, log)", at);
 		const row = this.shared.db.db
-			.query<{ bytes: number | null }, [...typeof params, ...typeof params]>(
+			.query<{ bytes: number | null }, string[]>(
 				`SELECT (
-					(SELECT coalesce(sum(length(data)), 0) FROM kv WHERE ${inRange("key")})
+					(SELECT coalesce(sum(length(data)), 0) FROM kv WHERE ${kvRange.sql})
 					+ (SELECT coalesce(sum(length(CAST(line AS BLOB)) + 1), 0) FROM entries
-						WHERE ${inRange("coalesce(segment, log)")})
+						WHERE ${ownerRange.sql})
 				) AS bytes`,
 			)
-			.get(...params, ...params);
+			.get(...kvRange.params, ...ownerRange.params);
 		return row?.bytes ?? 0;
 	}
 
 	async keys(key: string): Promise<string[]> {
-		const params = rangeParams(this.full(key));
+		const at = this.full(key);
+		const kvRange = rangeOf("key", at);
+		const ownerRange = rangeOf("coalesce(segment, log)", at);
 		const from = this.root === "" ? 1 : this.root.length + 2;
 		return this.shared.db.db
-			.query<{ key: string }, [number, ...typeof params, ...typeof params]>(
+			.query<{ key: string }, (string | number)[]>(
 				`SELECT substr(key, ?) AS key FROM (
-					SELECT key FROM kv WHERE ${inRange("key")}
+					SELECT key FROM kv WHERE ${kvRange.sql}
 					UNION
 					SELECT coalesce(segment, log) AS key FROM entries
-					WHERE ${inRange("coalesce(segment, log)")}
+					WHERE ${ownerRange.sql}
 				) ORDER BY key`,
 			)
-			.all(from, ...params, ...params)
+			.all(from, ...kvRange.params, ...ownerRange.params)
 			.map((row) => row.key);
 	}
 
@@ -204,7 +206,8 @@ export class SqliteStorage implements Storage, Resource {
 
 	async remove(key: string): Promise<void> {
 		const at = this.full(key);
-		const params = rangeParams(at);
+		const kvRange = rangeOf("key", at);
+		const ownerRange = rangeOf("coalesce(segment, log)", at);
 		const { db } = this.shared.db;
 		await this.shared.cache.fs.rm(this.locate(key), {
 			recursive: true,
@@ -212,26 +215,23 @@ export class SqliteStorage implements Storage, Resource {
 		});
 		this.shared.db.write(() => {
 			const gone = db
-				.query<
-					{ key: string },
-					[string, ...typeof params, string, ...typeof params]
-				>(
-					`SELECT key FROM kv WHERE key = ? OR ${inRange("key")}
+				.query<{ key: string }, string[]>(
+					`SELECT key FROM kv WHERE key = ? OR ${kvRange.sql}
 					UNION SELECT DISTINCT coalesce(segment, log) AS key FROM entries
-					WHERE coalesce(segment, log) = ? OR ${inRange("coalesce(segment, log)")}`,
+					WHERE coalesce(segment, log) = ? OR ${ownerRange.sql}`,
 				)
-				.all(at, ...params, at, ...params)
+				.all(at, ...kvRange.params, at, ...ownerRange.params)
 				.map((row) => row.key);
-			db.query(`DELETE FROM kv WHERE key = ? OR ${inRange("key")}`).run(
+			db.query(`DELETE FROM kv WHERE key = ? OR ${kvRange.sql}`).run(
 				at,
-				...params,
+				...kvRange.params,
 			);
 			db.query(
-				`DELETE FROM entries WHERE coalesce(segment, log) = ? OR ${inRange("coalesce(segment, log)")}`,
-			).run(at, ...params);
-			db.query(`DELETE FROM segments WHERE key = ? OR ${inRange("key")}`).run(
+				`DELETE FROM entries WHERE coalesce(segment, log) = ? OR ${ownerRange.sql}`,
+			).run(at, ...ownerRange.params);
+			db.query(`DELETE FROM segments WHERE key = ? OR ${kvRange.sql}`).run(
 				at,
-				...params,
+				...kvRange.params,
 			);
 			return gone;
 		});

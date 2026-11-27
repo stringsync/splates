@@ -17,6 +17,7 @@ export { ARCHIVED_KEPT, Conversations } from "./conversations";
 export type { Pairing } from "./entry";
 export {
 	EVALS_LIVE_DIR,
+	type EvalFaultNote,
 	type EvalRun,
 	evalRunOf,
 	evalsDir,
@@ -32,11 +33,14 @@ export type {
 	ConversationsEvents,
 	Lift,
 	PlaceRequest,
+	PlanTrust,
 	ProjectRef,
 } from "./host";
 export { listing } from "./listing";
 export type { Entry, Live } from "./log";
 export { ConversationLog, LOG_FORMAT } from "./log";
+export type { CapturedMedia } from "./media";
+export { capturedMedia } from "./media";
 export { messageOf, paused, said, textOf } from "./messages";
 export {
 	lanesOf,
@@ -59,8 +63,8 @@ export type {
 	Ask,
 	Asked,
 	Attached,
-	AutoPickMark,
-	AutoPickSet,
+	AutopickMark,
+	AutopickSet,
 	Background,
 	Backgrounded,
 	BackgroundState,
@@ -77,6 +81,7 @@ export type {
 	Limit,
 	Message,
 	Part,
+	PlanTrusted,
 	QueueSpot,
 	Reminder,
 	ReminderCard,

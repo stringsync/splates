@@ -6,6 +6,7 @@ import { limited, READ_CONCURRENCY } from "../limited";
 import { MergeLine } from "../merge";
 import type { Slot } from "../ports";
 import type { Behind, Release, Stuck } from "../server/shared";
+import { capturePlanMedia } from "./plan-media";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
@@ -45,7 +46,11 @@ export async function snapshot({
 	unbuilt?: boolean;
 	slot?: Slot | null;
 }): Promise<Snapshot> {
-	const read = await tasksOf({ service, fs, details });
+	const [read, board, requestedCreds] = await Promise.all([
+		tasksOf({ service, fs, details }),
+		queue.board(),
+		creds.requests(),
+	]);
 	// The server runs every merge, so its line holds every batch gating now.
 	const running = new Set(
 		read.filter((task) => task.gate === "running").map((task) => task.task),
@@ -53,10 +58,28 @@ export async function snapshot({
 	const mergeBatches = MergeLine.of(service.git.root)
 		.groups()
 		.filter((group) => group.every((task) => running.has(task)));
-	const tasks = read.map((task) => {
-		const batch = mergeBatches.find((each) => each.includes(task.task));
-		return batch === undefined ? task : { ...task, mergeBatch: batch };
-	});
+	const tasks = await Promise.all(
+		read.map(async (task) => {
+			const batch = mergeBatches.find((each) => each.includes(task.task));
+			const plan =
+				task.plan === null
+					? null
+					: await capturePlanMedia({
+							service,
+							queue,
+							fs,
+							task: task.task,
+							worktree: task.worktree,
+							plan: task.plan,
+							conversations: [task.takenBy, task.handedTo, task.caller],
+						});
+			return {
+				...task,
+				plan,
+				...(batch === undefined ? {} : { mergeBatch: batch }),
+			};
+		}),
+	);
 	return {
 		project,
 		repo: basename(service.git.root),
@@ -64,13 +87,13 @@ export async function snapshot({
 		root: service.git.root,
 		worktreeRoot: resolve(service.config.worktreeRoot),
 		taskStalenessMs: service.config.taskStalenessMs,
-		todos: (await queue.all()).map((each) => each.state),
-		boards: await queue.boards(),
-		lanes: await queue.lanes(),
-		laneNames: await queue.laneNames(),
+		todos: board.todos,
+		boards: board.boards,
+		lanes: board.lanes,
+		laneNames: board.laneNames,
 		tasks,
 		mergeBatches,
-		creds: await creds.requests(),
+		creds: requestedCreds,
 		trunk: service.config.trunk,
 		release,
 		behind,

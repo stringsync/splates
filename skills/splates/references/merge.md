@@ -1,7 +1,7 @@
 # When a merge refuses
 
-When to merge or ask for a review, and running `splates merge` in the
-foreground, are in SKILL.md (step 6). This guide is for when it refuses.
+When to merge or ask for a review, and running `splates merge`, are in
+SKILL.md (step 6). This guide is for when it refuses.
 
 ## When a merge fails
 

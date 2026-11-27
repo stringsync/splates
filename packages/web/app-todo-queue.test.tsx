@@ -79,7 +79,7 @@ describe("App's queue", () => {
 			);
 		// A waiting card has no badge, a queued one Queued, one under way Running.
 		expect(badges).toEqual([null, null, "queued", "queued", "running", null]);
-		expect(cards.join("")).not.toContain("Auto pick");
+		expect(cards.join("")).not.toContain("Autopick");
 	});
 
 	it("counts a lane's todos by stage in its header, leaving out the stages it has none in", async () => {

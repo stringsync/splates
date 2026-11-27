@@ -121,6 +121,7 @@ function StepsList({
 						hint={hint}
 						was={changed.has(i) ? (changed.get(i) ?? null) : undefined}
 						onDone={() => place(i + 1)}
+						onUndo={() => place(i)}
 						onPreview={() => togglePreview(i)}
 					/>
 				))}
@@ -172,6 +173,7 @@ function Step({
 	hint,
 	was,
 	onDone,
+	onUndo,
 	onPreview,
 }: {
 	n: number;
@@ -182,6 +184,7 @@ function Step({
 	/** What it said before the agent changed it: null for a new step, undefined for one unchanged. */
 	was: string | null | undefined;
 	onDone: () => void;
+	onUndo: () => void;
 	onPreview: () => void;
 }): JSX.Element {
 	const here = at === "here";
@@ -211,7 +214,7 @@ function Step({
 				n={n}
 				at={at}
 				previewed={previewed}
-				onClick={here ? onDone : onPreview}
+				onClick={here ? onDone : past ? onUndo : onPreview}
 			/>
 			<div
 				className={cn(
@@ -302,7 +305,8 @@ function Step({
 }
 
 /**
- * The current circle marks a step done. Other markers open the preview.
+ * The current circle marks a step done, a done step's check undoes it, and
+ * the markers ahead open the preview.
  */
 function Mark({
 	n,
@@ -319,13 +323,23 @@ function Mark({
 	return (
 		<button
 			type="button"
-			title={here ? "Mark done" : previewed ? "Close preview" : "Preview step"}
+			title={
+				here
+					? "Mark done"
+					: at === "past"
+						? "Undo"
+						: previewed
+							? "Close preview"
+							: "Preview step"
+			}
 			aria-label={
 				here
 					? `Mark step ${n} done`
-					: `Preview step ${n}${at === "past" ? ", done" : ""}`
+					: at === "past"
+						? `Undo step ${n}, done`
+						: `Preview step ${n}`
 			}
-			aria-expanded={here ? undefined : previewed}
+			aria-expanded={here || at === "past" ? undefined : previewed}
 			onClick={onClick}
 			className={cn(
 				"grid shrink-0 place-items-center rounded-full border-2 outline-none tabular-nums transition-all duration-500 focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",

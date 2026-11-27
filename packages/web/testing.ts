@@ -8,7 +8,7 @@ import type {
 // before anything below loads react-dom.
 import "./testing-dom";
 import { expect } from "bun:test";
-import type { AutoPickRulesView, Avoided } from "@splates/server/auto-pick";
+import type { AutopickRulesView, Avoided } from "@splates/server/autopick";
 import { BACKLOG_LANE } from "@splates/server/board/browser";
 import type {
 	ConversationState,
@@ -32,8 +32,8 @@ import { FakeTimer, FakeWallClock } from "core/time/testing";
 import { createElement } from "react";
 import type { Budgets, KeptCreds, MachineStatus } from "./api";
 import { WAITS } from "./api";
-import type { AutoPickScores } from "./auto-pick-api";
 import type { AutoRestart } from "./auto-restart";
+import type { AutopickScores } from "./autopick-api";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
@@ -58,6 +58,7 @@ import {
 	waitFor,
 	within,
 } from "./testing-dom";
+import { forgetAutopickImprovements } from "./use-autopick-improvements";
 import { forgetSignals } from "./use-signals";
 
 export * from "./drivers";
@@ -265,19 +266,19 @@ export class Testing implements Resource {
 	/** What `GET /api/setup/:area/undo` reads, or null for it to fail. */
 	undoPlan: UndoPlan | null = null;
 	/** What `/api/auto-pick/rules` reads, or null for it to fail. */
-	autoPickRules: AutoPickRulesView | null = null;
+	autopickRules: AutopickRulesView | null = null;
 	/** What `/api/auto-pick/overrides` reads. */
-	autoPickOverrides: CellOverrides[] = [];
-	autoPickOverrideCursor = 0;
-	autoPickScores: AutoPickScores = {
+	autopickOverrides: CellOverrides[] = [];
+	autopickOverrideCursor = 0;
+	autopickScores: AutopickScores = {
 		minimumTasks: 10,
 		rows: [],
 		overrides: [],
 	};
 	/** What `/api/auto-pick/improvements` reads. */
-	autoPickImprovements = { count: 0, key: "[]" };
+	autopickImprovements = { count: 0, key: "[]" };
 	/** What `/api/auto-pick/avoided` reads, and what `Use anyway` leaves. */
-	autoPickAvoided: Avoided[] = [];
+	autopickAvoided: Avoided[] = [];
 	/** The ports `/api/ports` says tasks serve. */
 	ports: PortLink[] = [];
 	/**
@@ -333,8 +334,8 @@ export class Testing implements Resource {
 				return Response.json(this.billingView);
 			}
 			if (path.split("?")[0] === "/api/auto-pick/avoided/clear") {
-				this.autoPickAvoided = [];
-				return Response.json(this.autoPickAvoided);
+				this.autopickAvoided = [];
+				return Response.json(this.autopickAvoided);
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({
@@ -411,23 +412,23 @@ export class Testing implements Resource {
 					: Response.json(this.undoPlan);
 			}
 			if (route === "/api/auto-pick/avoided") {
-				return Response.json(this.autoPickAvoided);
+				return Response.json(this.autopickAvoided);
 			}
 			if (route?.split("?")[0] === "/api/auto-pick/scorecard") {
-				return Response.json(this.autoPickScores);
+				return Response.json(this.autopickScores);
 			}
 			if (route === "/api/auto-pick/improvements") {
-				return Response.json(this.autoPickImprovements);
+				return Response.json(this.autopickImprovements);
 			}
 			if (route?.split("?")[0] === "/api/auto-pick/overrides") {
-				return Response.json(this.autoPickOverrides, {
-					headers: { "X-Override-Cursor": String(this.autoPickOverrideCursor) },
+				return Response.json(this.autopickOverrides, {
+					headers: { "X-Override-Cursor": String(this.autopickOverrideCursor) },
 				});
 			}
 			if (route === "/api/auto-pick/rules") {
-				return this.autoPickRules === null
+				return this.autopickRules === null
 					? new Response(null, { status: 500 })
-					: Response.json(this.autoPickRules);
+					: Response.json(this.autopickRules);
 			}
 			if (route === "/api/ports") {
 				return Response.json({ base: null, ports: this.ports });
@@ -813,6 +814,7 @@ export class Testing implements Resource {
 
 	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
 	dispose(): void {
+		forgetAutopickImprovements();
 		forgetSignals();
 		localStorage.clear();
 		sessionStorage.clear();

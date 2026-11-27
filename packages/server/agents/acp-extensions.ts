@@ -183,6 +183,20 @@ export function finalAnswer(update: acp.SessionUpdate): boolean {
 }
 
 /**
+ * Ends the words the agent's latest turn ends on, as a command it waited on
+ * in the background finishes: what it says next is new words, timed when it
+ * says them, so what splates did during the wait (a merge landing, say)
+ * shows between them rather than below both.
+ */
+function endWords(state: ConversationState): void {
+	const turn = state.messages.findLast((message) => message.queued !== true);
+	const last = turn?.role === "agent" ? turn.parts.at(-1) : undefined;
+	if (last?.type === "text") {
+		last.ended = true;
+	}
+}
+
+/**
  * Folds an update on a background command into those the agent left, and
  * into the tool call that started it, at `at`.
  */
@@ -239,6 +253,10 @@ export function foldBackground(
 		update.state !== "running" &&
 		update.state !== "paused"
 	) {
+		const was = state.background.find((each) => each.id === update.asyncTaskId);
+		if (was === undefined || was.state === "running") {
+			endWords(state);
+		}
 		const tool = backgroundedBy(state, update.asyncTaskId);
 		if (tool?.background !== undefined) {
 			const code = update.summary?.match(/exit code (-?\d+)/i)?.[1];

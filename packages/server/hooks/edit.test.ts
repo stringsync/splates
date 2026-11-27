@@ -75,7 +75,7 @@ describe("changed", () => {
 		);
 	});
 
-	it("moves an agent hook onto Auto pick, keeping its prompt", () => {
+	it("moves an agent hook onto Autopick, keeping its prompt", () => {
 		expect(changed(NOTIFY, { ...NONE, pick: null }).hook).toEqual({
 			kind: "agent",
 			prompt: "say hi",

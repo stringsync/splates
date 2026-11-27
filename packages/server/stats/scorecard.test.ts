@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { DEFAULT_RULES } from "../auto-pick/browser";
+import { DEFAULT_RULES } from "../autopick/browser";
 import { DEFAULT_AGENTS } from "../models";
 import type { Event } from "../records";
 import {
@@ -7,7 +7,7 @@ import {
 	improvementsTaskText,
 	overpoweredLineups,
 } from "./improvements";
-import type { Outcome, OutcomeAutoPick } from "./outcomes";
+import type { Outcome, OutcomeAutopick } from "./outcomes";
 import { scorecard, scorecardWindow } from "./scorecard";
 
 it("distinguishes lifts, trouble without a lift and override directions in the same cell", () => {
@@ -279,7 +279,7 @@ it("filters by the task's end and keeps legacy outcomes available for override h
 });
 
 const NOW = Date.parse("2026-11-23T12:00:00Z");
-const PICK: OutcomeAutoPick = {
+const PICK: OutcomeAutopick = {
 	kind: "bugfix",
 	depth: "shallow",
 	lineup: "quick",
@@ -292,8 +292,8 @@ const PICK: OutcomeAutoPick = {
 function task(
 	index: number,
 	data: Partial<Outcome> = {},
-	pick: Partial<OutcomeAutoPick> = {},
-): Outcome & { autoPick: OutcomeAutoPick } {
+	pick: Partial<OutcomeAutopick> = {},
+): Outcome & { autoPick: OutcomeAutopick } {
 	return {
 		task: `task-${index}`,
 		project: "/example",

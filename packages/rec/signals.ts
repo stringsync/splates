@@ -53,14 +53,22 @@ export class SignalDetector {
 					detail: { label: event.label, still: event.still },
 				});
 				return;
-			case "highlight":
+			case "highlight": {
+				const first = event.elements?.[0];
+				const element = first ? label(first) : undefined;
 				out.push({
 					at: event.at,
 					signal: "highlight",
 					source: "events",
-					detail: { area: event.area, still: event.still },
+					detail: {
+						...(event.shape ? { shape: event.shape } : {}),
+						...(element && element !== "unknown" ? { element } : {}),
+						area: event.area,
+						still: event.still,
+					},
 				});
 				return;
+			}
 			case "alert":
 				out.push({
 					at: event.at,
@@ -284,7 +292,9 @@ export interface EventInput {
 	text?: string;
 	url?: string;
 	still?: string;
+	shape?: "arrow" | "box";
 	area?: number[];
+	elements?: { component?: string; selector?: string; text?: string }[];
 	kind?: string;
 	label?: string;
 }

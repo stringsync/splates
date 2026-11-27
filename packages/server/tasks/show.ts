@@ -1,7 +1,7 @@
 import { color, type Logger } from "core/log";
 import { type Fs, NodeFs } from "core/system";
 import { age } from "../age";
-import type { AutoPicked } from "../auto-pick";
+import type { Autopicked } from "../autopick";
 import { fail } from "../exit";
 import { checkPlan, PLAN_FILE, Plans, ready, unfinished } from "../plans";
 import { areasOf } from "./areas";
@@ -128,8 +128,8 @@ export interface Details {
 	 * user; null for any other task.
 	 */
 	handedTo: string | null;
-	/** The last Auto pick that started it, as its record keeps it; null before any. */
-	autoPick: AutoPicked | null;
+	/** The last Autopick that started it, as its record keeps it; null before any. */
+	autoPick: Autopicked | null;
 }
 
 export interface ShowOptions {
@@ -161,6 +161,8 @@ export class TaskDetails {
 	private generation = 0;
 	/** As `generation`, for the worktrees {@link moved} named, by path. */
 	private readonly generations = new Map<string, number>();
+	/** As `generation`, for individual branch refs {@link movedBranch} named. */
+	private readonly branchGenerations = new Map<string, number>();
 
 	constructor(opts: TaskDetailsOptions = {}) {
 		this.fs = opts.fs ?? new NodeFs();
@@ -174,6 +176,7 @@ export class TaskDetails {
 		if (worktree === undefined) {
 			this.generation++;
 			this.kept.clear();
+			this.branchGenerations.clear();
 			return;
 		}
 		// Only the files of that worktree changed: the others' facts stand.
@@ -185,20 +188,44 @@ export class TaskDetails {
 		}
 	}
 
+	/**
+	 * Forgets what git said only of tasks whose branch or base matches
+	 * `branch` (or lies under it, for a directory watch event), leaving
+	 * unrelated worktrees' cached git facts intact.
+	 */
+	movedBranch(branch: string): void {
+		this.branchGenerations.set(
+			branch,
+			(this.branchGenerations.get(branch) ?? 0) + 1,
+		);
+		for (const key of this.kept.keys()) {
+			if (
+				matchesBranch(keyBranch(key), branch) ||
+				matchesBranch(keyBase(key), branch)
+			) {
+				this.kept.delete(key);
+			}
+		}
+	}
+
 	async get(worktree: Worktree): Promise<Details> {
 		const { state } = worktree;
-		const plan = worktree.exists
-			? await new Plans(this.fs).read(worktree.path)
-			: null;
-		const { stat, ahead, committedAt, uncommitted, changed } =
-			await this.git(worktree);
+		const [plan, latestLanded, comingConflict] = await Promise.all([
+			worktree.exists ? new Plans(this.fs).read(worktree.path) : null,
+			worktree.hasBranch
+				? worktree.landed().then((all) => all[0]?.key ?? "")
+				: "",
+			worktree.comingConflict(),
+		]);
+		const { stat, ahead, committedAt, uncommitted, changed, landed } =
+			await this.git(worktree, latestLanded);
 		return {
 			task: worktree.task,
 			number: state?.id ?? null,
 			project: worktree.scope,
 			areas: areasOf(changed),
-			comingConflict: (await worktree.comingConflict())?.files ?? [],
-			landed: await landingNotices(worktree),
+			comingConflict: comingConflict?.files ?? [],
+			landed,
 			status: worktree.status,
 			branch: worktree.branch,
 			base: worktree.base,
@@ -239,14 +266,20 @@ export class TaskDetails {
 	}
 
 	/** What git says of `worktree`: kept since git last moved, or read now. */
-	private git(worktree: Worktree): Promise<GitFacts> {
-		const key = gitKey(worktree);
+	private git(worktree: Worktree, latestLanded: string): Promise<GitFacts> {
+		const key = gitKey(worktree, latestLanded);
 		const kept = this.kept.get(key);
 		if (kept !== undefined) {
 			return kept;
 		}
+		// Evict any earlier entry for the same worktree (e.g. an older latestLanded).
+		for (const prior of this.kept.keys()) {
+			if (keyPath(prior) === worktree.path) {
+				this.kept.delete(prior);
+			}
+		}
 		const stamp = () =>
-			`${this.generation}:${this.generations.get(worktree.path) ?? 0}`;
+			`${this.generation}:${this.generations.get(worktree.path) ?? 0}:${this.branchStamp(worktree.branch, worktree.base)}`;
 		const generation = stamp();
 		const read = this.readGit(worktree);
 		this.kept.set(key, read);
@@ -262,6 +295,16 @@ export class TaskDetails {
 		return read;
 	}
 
+	private branchStamp(branch: string, base: string): number {
+		let sum = 0;
+		for (const [moved, count] of this.branchGenerations) {
+			if (matchesBranch(branch, moved) || matchesBranch(base, moved)) {
+				sum += count;
+			}
+		}
+		return sum;
+	}
+
 	private forget(key: string, read: Promise<GitFacts>): void {
 		if (this.kept.get(key) === read) {
 			this.kept.delete(key);
@@ -272,27 +315,36 @@ export class TaskDetails {
 		// A record whose worktree or branch is gone is still worth showing: the
 		// status names what is wrong, and asking git about a branch that is not
 		// there would only fill the fields with nulls.
-		const stat = worktree.hasBranch ? await worktree.size() : null;
-		const ahead = worktree.hasBranch ? await worktree.commitsAhead() : null;
+		const [stat, ahead, uncommitted, changed] = await Promise.all([
+			worktree.hasBranch ? worktree.size() : null,
+			worktree.hasBranch ? worktree.commitsAhead() : null,
+			worktree.exists
+				? worktree
+						.uncommitted()
+						.catch(() => [])
+						.then((lines) => lines.map(pathOf))
+				: [],
+			worktree.hasBranch
+				? worktree
+						.changedFiles()
+						.catch(() => null)
+						.then((files) => files ?? [])
+				: [],
+		]);
 		// With none of its own, the branch's latest commit is its base's.
-		const committedAt =
+		const [committedAt, landed] = await Promise.all([
 			(ahead ?? 0) > 0
-				? await worktree
-						.committedAt()
-						.then((at) => (at ? Date.parse(at) : null))
-				: null;
-		const uncommitted = worktree.exists
-			? (await worktree.uncommitted().catch(() => [])).map(pathOf)
-			: [];
-		const changed = worktree.hasBranch
-			? ((await worktree.changedFiles().catch(() => null)) ?? [])
-			: [];
+				? worktree.committedAt().then((at) => (at ? Date.parse(at) : null))
+				: null,
+			worktree.hasBranch ? landingNotices(worktree, changed) : [],
+		]);
 		return {
 			stat,
 			ahead,
 			committedAt,
 			uncommitted,
 			changed,
+			landed,
 		};
 	}
 
@@ -340,10 +392,12 @@ interface GitFacts {
 	uncommitted: string[];
 	/** The paths it has changed, committed or not, relative to the repository. */
 	changed: string[];
+	/** Notices of merged tasks on its base that overlap its changed files. */
+	landed: string[];
 }
 
 /** What a task's git facts are read from, so a task that changes any is read anew. */
-function gitKey(worktree: Worktree): string {
+function gitKey(worktree: Worktree, latestLanded: string): string {
 	return JSON.stringify([
 		worktree.git.root,
 		worktree.path,
@@ -351,12 +405,28 @@ function gitKey(worktree: Worktree): string {
 		worktree.base,
 		worktree.exists,
 		worktree.hasBranch,
+		latestLanded,
 	]);
 }
 
 /** The worktree path a {@link gitKey} was made of. */
 function keyPath(key: string): string {
 	return (JSON.parse(key) as string[])[1] ?? "";
+}
+
+/** The branch name a {@link gitKey} was made of. */
+function keyBranch(key: string): string {
+	return (JSON.parse(key) as string[])[2] ?? "";
+}
+
+/** The base branch name a {@link gitKey} was made of. */
+function keyBase(key: string): string {
+	return (JSON.parse(key) as string[])[3] ?? "";
+}
+
+/** Whether `name` is `moved` or sits under it (e.g. a `task` directory watch event). */
+function matchesBranch(name: string, moved: string): boolean {
+	return name === moved || name.startsWith(`${moved}/`);
 }
 
 /**

@@ -4,10 +4,10 @@ import { cn } from "#web/lib/utils.ts";
 
 /**
  * An image that opens whole, to explore with pinch, drag, scroll and double
- * tap. A tall one opens across the screen's width at its top, to scroll down,
- * with Fit width and Fit all to switch between that and the whole of it. Mark
- * an SVG `vector` so it opens filling the screen rather than at its own, often
- * small, size.
+ * tap. A tall one offers Fit width and Fit all to switch between spanning the
+ * screen's width and seeing all of it, opening at Fit width in a portrait
+ * viewport and Fit all in a wider one. Mark an SVG `vector` so it opens
+ * filling the screen rather than at its own, often small, size.
  */
 export function ZoomableImage({
 	src,
@@ -41,7 +41,7 @@ export function ZoomableImage({
 			getViewportSizeFn: () => ({ x: host.clientWidth, y: host.clientHeight }),
 			// Open on the whole image; double tap steps in at the tapped point and
 			// a pinch moves freely between there and the maximum.
-			initialZoomLevel: (zoom) => levelOf(zoom, isTall(zoom) ? "width" : "all"),
+			initialZoomLevel: (zoom) => levelOf(zoom, defaultFit(zoom)),
 			secondaryZoomLevel: (zoom) => Math.max(1, zoom.fit * 2.5),
 			// PhotoSwipe springs a pinch released past this back to it, so on a phone
 			// it sits well beyond where a pinch ends.
@@ -92,14 +92,17 @@ export function ZoomableImage({
 		});
 		pswp.on("firstZoomPan", (event) => {
 			const zoom = event.slide.zoomLevels;
-			if (isTall(zoom)) {
+			if (!isTall(zoom)) {
+				setFit(null);
+				return;
+			}
+			const initial = defaultFit(zoom);
+			if (initial === "width") {
 				// Start at its top, as a page is read.
 				// PhotoSwipe's `min` pan is the image's top edge at the top of the screen.
 				event.slide.pan.y = event.slide.bounds.min.y;
-				setFit("width");
-			} else {
-				setFit(null);
 			}
+			setFit(initial);
 		});
 		pswp.init();
 		// Avoid a nested dialog: Base UI supplies the accessible name and focus trap.
@@ -192,7 +195,7 @@ type Fit = "width" | "all";
 function levelOf(
 	zoom: {
 		fit: number;
-		panAreaSize: { x: number } | null;
+		panAreaSize: { x: number; y: number } | null;
 		elementSize: { x: number } | null;
 	},
 	fit: Fit,
@@ -208,8 +211,24 @@ function levelOf(
 
 /**
  * Whether an image fit whole on screen would be much narrower than it can be,
- * as a tall full-page capture is: it opens across the width to scroll down.
+ * as a tall full-page capture is, so the Fit width / Fit all toggle is useful.
  */
 function isTall(zoom: Parameters<typeof levelOf>[0]): boolean {
 	return levelOf(zoom, "width") > zoom.fit * 1.25;
+}
+
+/**
+ * How an image opens: across the width when it is much taller than a portrait
+ * viewport (like a phone), and whole in a wider landscape viewport so it is
+ * not blown up past the screen.
+ */
+function defaultFit(zoom: Parameters<typeof levelOf>[0]): Fit {
+	if (
+		isTall(zoom) &&
+		zoom.panAreaSize &&
+		zoom.panAreaSize.x <= zoom.panAreaSize.y
+	) {
+		return "width";
+	}
+	return "all";
 }

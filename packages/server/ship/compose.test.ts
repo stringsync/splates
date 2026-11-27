@@ -147,6 +147,84 @@ describe("ShipComposer", () => {
 		expect(followed?.steps[0]?.does).toBe("Check staging verified v1.4.3");
 	});
 
+	it("composes waves and forwards --upstream versions across a 3-target follow chain", async () => {
+		const prodFollower = {
+			...prod,
+			dependencies: ["staging"],
+			follows: "staging",
+		};
+		const playerFollower = {
+			name: "player",
+			versioned: true,
+			dependencies: ["prod"],
+			follows: "prod",
+			steps: [{ id: "publish", does: "Publish player" }],
+		};
+		const composed = await composer({
+			"bin/stage ship plan": [staging, prodFollower, playerFollower],
+			"bin/stage ship plan --target prod --upstream staging=1.4.3": {
+				...prodFollower,
+				steps: [{ id: "prove", does: "Check staging verified v1.4.3" }],
+			},
+			"bin/stage ship plan --target player --upstream prod=1.4.3": {
+				...playerFollower,
+				steps: [{ id: "publish", does: "Publish player v1.4.3" }],
+			},
+		}).compose([
+			{ name: "staging", bump: "patch" },
+			{ name: "prod", follow: true },
+			{ name: "player", follow: true },
+		]);
+		expect(composed.errors).toEqual([]);
+		expect(composed.waves).toEqual([["staging"], ["prod"], ["player"]]);
+		const composedProd = composed.targets.find((each) => each.name === "prod");
+		const composedPlayer = composed.targets.find(
+			(each) => each.name === "player",
+		);
+		expect(composedProd?.error).toBeUndefined();
+		expect(composedProd?.version).toBeUndefined();
+		expect(composedProd?.steps[0]?.does).toBe("Check staging verified v1.4.3");
+		expect(composedPlayer?.error).toBeUndefined();
+		expect(composedPlayer?.bump).toBeUndefined();
+		expect(composedPlayer?.version).toBeUndefined();
+		expect(composedPlayer?.steps[0]?.does).toBe("Publish player v1.4.3");
+	});
+
+	it("passes --upstream to a follower when its dependency is picked at an exact version", async () => {
+		const prodFollower = {
+			...prod,
+			dependencies: ["staging"],
+			follows: "staging",
+		};
+		const playerFollower = {
+			name: "player",
+			versioned: true,
+			dependencies: ["prod"],
+			follows: "prod",
+			steps: [{ id: "publish", does: "Publish player" }],
+		};
+		const composed = await composer({
+			"bin/stage ship plan": [staging, prodFollower, playerFollower],
+			"bin/stage ship plan --target prod --version 1.4.3": {
+				...prodFollower,
+				version: "1.4.3",
+			},
+			"bin/stage ship plan --target player --upstream prod=1.4.3": {
+				...playerFollower,
+				steps: [{ id: "publish", does: "Publish player v1.4.3" }],
+			},
+		}).compose([
+			{ name: "prod", version: "1.4.3" },
+			{ name: "player", follow: true },
+		]);
+		expect(composed.waves).toEqual([["prod"], ["player"]]);
+		const composedPlayer = composed.targets.find(
+			(each) => each.name === "player",
+		);
+		expect(composedPlayer?.error).toBeUndefined();
+		expect(composedPlayer?.steps[0]?.does).toBe("Publish player v1.4.3");
+	});
+
 	it("refuses a follow of a target that follows nothing, or one with a version too", async () => {
 		expect(
 			composer().compose([{ name: "prod", follow: true }]),

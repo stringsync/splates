@@ -17,7 +17,7 @@ import { scheduleOf } from "./schedule";
 
 /**
  * What runs on a trigger: an agent told of it with a prompt, or a shell
- * command. An agent hook that names no agent runs on Auto pick, which picks
+ * command. An agent hook that names no agent runs on Autopick, which picks
  * the agent, model and effort for each run from what it is told.
  */
 export type Hook =

@@ -8,6 +8,7 @@ import type {
 } from "@splates/server/conversations";
 import type { Event } from "@splates/server/records";
 import { Duration } from "core/time";
+import { hasOwnCard } from "./background-commands";
 import { tierOf } from "./event-tier";
 import { split } from "./work-paths";
 import { workingSpan } from "./work-time";
@@ -42,7 +43,7 @@ export interface Work {
  * word, or the work around them.
  */
 export type Stretch =
-	| { type: "said"; text: string }
+	| { type: "said"; text: string; at?: string | null }
 	/** `also` is the events folded into it: a run of one action that reads as one line. */
 	| { type: "event"; event: Event; also?: Event[] }
 	/** The agent folded its context into a summary, between the work before and after. */
@@ -107,7 +108,7 @@ export function stretchesOf(
 		pieces.push(...cut(before));
 	}
 	if (said?.type === "text") {
-		pieces.push({ type: "said", text: said.text });
+		pieces.push({ type: "said", text: said.text, at: said.at ?? null });
 	}
 	if (after.length > 0) {
 		pieces.push(after);
@@ -193,12 +194,15 @@ export function stretchesOf(
 								? following.at
 								: null;
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
-		const ended = run.flatMap((part) =>
-			(part.type === "tool" || part.type === "compaction") &&
-			part.until !== null
+		const ended = run.flatMap((part) => {
+			if (part.type === "tool") {
+				const end = part.background !== undefined ? part.at : part.until;
+				return end !== null ? [end] : [];
+			}
+			return part.type === "compaction" && part.until !== null
 				? [part.until]
-				: [],
-		);
+				: [];
+		});
 		return {
 			type: "work",
 			work: {
@@ -319,7 +323,19 @@ function placed(
 	const out: Piece[] = began === null ? [] : due(began, true);
 	for (const piece of pieces) {
 		if (!Array.isArray(piece)) {
-			out.push(piece);
+			if (piece.type === "said") {
+				out.push(...due(piece.at ?? null), piece);
+			} else if (piece.type === "background") {
+				out.push(...due(piece.tool.at), piece);
+			} else if (piece.type === "compaction") {
+				out.push(
+					...due(piece.compaction.at),
+					piece,
+					...due(piece.compaction.until ?? piece.compaction.at, true),
+				);
+			} else {
+				out.push(piece);
+			}
 			continue;
 		}
 		let from = 0;
@@ -370,17 +386,22 @@ function beganWith(
 		(piece): piece is Extract<Piece, { type: "event" }> =>
 			!Array.isArray(piece) &&
 			piece.type === "event" &&
-			piece.event.id === began,
+			(piece.event.id === began ||
+				piece.also?.some((each) => each.id === began) === true),
 	);
 }
 
 /** When the last of `parts` to say so ended, or began. */
 function endOf(parts: Part[]): string | null {
 	for (const part of [...parts].reverse()) {
-		if (
-			(part.type === "tool" || part.type === "compaction") &&
-			(part.until ?? part.at) !== null
-		) {
+		if (part.type === "tool") {
+			const at =
+				part.background !== undefined ? part.at : (part.until ?? part.at);
+			if (at !== null) {
+				return at;
+			}
+		}
+		if (part.type === "compaction" && (part.until ?? part.at) !== null) {
 			return part.until ?? part.at;
 		}
 		if (part.type === "thought" && part.at !== null) {
@@ -392,8 +413,9 @@ function endOf(parts: Part[]): string | null {
 
 /**
  * Cut out the agent's words, compaction markers and commands left in the
- * background, each a stretch of its own, so every message ends the row of
- * work that led to it.
+ * background (unless that command already renders its own dedicated card),
+ * each a stretch of its own, so every message ends the row of work that led
+ * to it.
  */
 function cut(run: Part[]): Piece[] {
 	const pieces: Piece[] = [];
@@ -402,14 +424,16 @@ function cut(run: Part[]): Piece[] {
 		if (
 			part.type === "text" ||
 			part.type === "compaction" ||
-			(part.type === "tool" && part.background !== undefined)
+			(part.type === "tool" &&
+				part.background !== undefined &&
+				!hasOwnCard(part.command ?? part.title))
 		) {
 			if (at > from) {
 				pieces.push(run.slice(from, at));
 			}
 			pieces.push(
 				part.type === "text"
-					? { type: "said", text: part.text }
+					? { type: "said", text: part.text, at: part.at ?? null }
 					: part.type === "compaction"
 						? { type: "compaction", compaction: part }
 						: { type: "background", tool: part },

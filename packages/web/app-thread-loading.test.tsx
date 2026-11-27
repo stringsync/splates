@@ -352,7 +352,7 @@ describe("Opening complete conversation history", () => {
 			const bar = await originThread.findByRole("status", {
 				name: "queued tasks",
 			});
-			expect(bar.textContent).toContain("Queued #1 Follow-up eval");
+			expect(bar.textContent).toContain("#1 Follow-up eval");
 			expect(originThread.getByText("Turn 1")).toBeTruthy();
 			await waitFor(() => expect(scrolled).toContain(bar));
 		} finally {

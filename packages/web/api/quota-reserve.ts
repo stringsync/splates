@@ -1,4 +1,4 @@
-import type { ReserveHold } from "@splates/server/auto-pick/browser";
+import type { ReserveHold } from "@splates/server/autopick/browser";
 import { ApiError, answered, scoped } from "./request";
 
 /** The agent-queued tasks waiting for the quota reserve, by task id. */

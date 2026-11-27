@@ -172,7 +172,8 @@ and `judged by` when not Jev. The single-turn `you` + `pass` form keeps working.
 conversation, put the JSON in a fenced `eval-report` block. Along with the
 runner's fields (`eval`, `agent`, `status`, `error`, `transcript`, `checks`,
 `judge`, `usage`, `fault`), you may add `group`, `round` (e.g. `1` or `"R1"`),
-`change` (what you changed on failure), and zero-based `step` indexes into the
+`faults` (an array of `{ "area": "skill" | "judge" | "environment" | "prompt" | "checks" | "harness" | "model" | "eval", "detail": "..." }` entries diagnosing what went wrong during that run, shown underneath the checks),
+`change` (for single-fault reports), and zero-based `step` indexes into the
 live transcript on each check or `judge` to link numbered pins between the
 short transcript and the highlight list.
 
@@ -201,8 +202,9 @@ short transcript and the highlight list.
     "step": 3
   },
   "usage": { "usd": null, "turns": 2, "seconds": 14 },
-  "fault": "skill",
-  "change": "Clarified in the splates skill that a trivial fix below ask-and-go still gets a short plan."
+  "faults": [
+    { "area": "skill", "detail": "Does not state that a trivial fix below ask-and-go still gets a short plan." }
+  ]
 }
 ```
 ````

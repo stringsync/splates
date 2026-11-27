@@ -1,4 +1,4 @@
-import type { AutoPicked } from "../auto-pick";
+import type { Autopicked } from "../autopick";
 import type { Git, GitResult } from "../git";
 import type { TimedTest } from "../merge";
 import { type ComingConflict, ConflictChecks } from "./conflicts";
@@ -598,8 +598,8 @@ export interface TaskState {
 	machine?: string;
 	stranded?: unknown[];
 	rescued?: unknown[];
-	/** The last Auto pick for it, beside what it was queued as; for reading only. */
-	autoPick?: AutoPicked;
+	/** The last Autopick for it, beside what it was queued as; for reading only. */
+	autoPick?: Autopicked;
 	/** Whether an agent queued it on its own, read from its queued record; never written back. */
 	autoQueued?: true;
 }

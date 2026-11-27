@@ -2,7 +2,7 @@ import type { ConversationHost, Lift } from "./host";
 import type { Message } from "./state";
 
 /**
- * Lets Auto pick look again at what the person says in `messages`, in a
+ * Lets Autopick look again at what the person says in `messages`, in a
  * conversation it started, before the agent reads them; one that fails
  * moves nothing.
  */

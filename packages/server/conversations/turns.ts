@@ -597,7 +597,8 @@ export class ConversationTurns {
 			.then(() => this.content(messages))
 			.then((prompt) => this.connection.prompt(prompt))
 			.then(
-				(response) => {
+				async (response) => {
+					await host.captureMedia();
 					if (response?.usage != null) {
 						host.log.write({ kind: "usage", usage: response.usage });
 						tally(host.state, response.usage);

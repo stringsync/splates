@@ -19,6 +19,20 @@ export { attach } from "./attach";
 export type { Attachment } from "./attachments";
 export { Attachments, readFiles } from "./attachments";
 export { DIAGRAM_REQUEST } from "./diagrams";
+export type {
+	InlineMediaRef,
+	InlineMediaScanOptions,
+	ValidatedMedia,
+} from "./media";
+export {
+	capturedFileName,
+	findInlineMedia,
+	mediaExtension,
+	ownsConversationAttached,
+	readValidatedMedia,
+	rewriteInlineMedia,
+	validateMedia,
+} from "./media";
 export { ArtifactRoom } from "./room";
 export {
 	addVersion,

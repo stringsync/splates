@@ -1,6 +1,6 @@
 import type { ConversationState } from "@splates/server/conversations";
 import type { JSX } from "react";
-import { useAutoPick } from "./auto-pick-switch";
+import { useAutopick } from "./autopick-switch";
 import { useChooseSetting } from "./choose-setting";
 import type { Refuse } from "./refusal";
 import { SettingControls } from "./setting-controls";
@@ -19,7 +19,7 @@ export function ThreadControls({
 	refused: Refuse;
 }): JSX.Element {
 	const choose = useChooseSetting(conversation.id, refused);
-	const autoPick = useAutoPick(conversation, refused);
+	const autoPick = useAutopick(conversation, refused);
 	return (
 		<>
 			{!conversation.archived && (

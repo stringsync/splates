@@ -70,7 +70,7 @@ describe("App's pages and the project switcher", () => {
 			await switcherOn(view, "Stats"),
 			await switcherOn(view, "Billing"),
 			await switcherOn(view, "Creds"),
-			await switcherOn(view, "Auto pick"),
+			await switcherOn(view, "Autopick"),
 			await switcherOn(view, "Setup"),
 		];
 		expect(switchers).toEqual(Array(switchers.length).fill(null));
@@ -98,7 +98,7 @@ describe("App's pages and the project switcher", () => {
 			[
 				"Boards",
 				"Creds",
-				"Auto pick",
+				"Autopick",
 				"Rigs",
 				"Stats",
 				"Ships",

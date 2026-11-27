@@ -30,8 +30,8 @@ ask. A secret, such as an API token, is a cred to request instead (see
 [creds.md](creds.md)).
 
 1. Leave something to look at, by **absolute path** (start from
-   `splates path <task>`): for anything visual, a screenshot or recording you
-   `splates attach` (see [showing.md](showing.md)). Ask first if producing it
+   `splates path <task>`): for anything visual, a screenshot or recording written
+   as an inline image (see [showing.md](showing.md)). Ask first if producing it
    is expensive.
 2. Ask in your reply as [Reporting](reporting.md) says, and end your turn:
    the page shows you waiting on the user. Do not `splates wait` or poll

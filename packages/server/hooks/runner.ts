@@ -16,7 +16,8 @@ export type Fired =
 
 /** What a hook does, by kind. */
 export interface HookActions {
-	run(command: string, fired: Fired): Promise<void>;
+	/** Runs shell `command` for automation `id`. */
+	run(command: string, fired: Fired, id: string, name?: string): Promise<void>;
 	/** Starts an agent for automation `id` as `hook` says. */
 	agent(
 		hook: Extract<Hook, { kind: "agent" }>,
@@ -44,7 +45,7 @@ export async function fire(
 	const { hook } = automation;
 	try {
 		if (hook.kind === "run") {
-			await actions.run(hook.command, fired);
+			await actions.run(hook.command, fired, automation.id, automation.name);
 		} else if (hook.kind === "agent") {
 			await actions.agent(hook, fired, automation.id, automation.name);
 		}

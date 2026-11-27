@@ -12,7 +12,7 @@ beforeEach(() => {
 	localStorage.clear();
 });
 
-test("New follows Auto pick once a conversation started there", () => {
+test("New follows Autopick once a conversation started there", () => {
 	expect(startsAuto(NEW)).toBe(false);
 	expect(startsAuto(null)).toBe(false);
 	rememberAuto(true);
@@ -22,7 +22,7 @@ test("New follows Auto pick once a conversation started there", () => {
 	expect(startsAuto(NEW)).toBe(false);
 });
 
-test("An address that names an agent or Auto pick keeps it", () => {
+test("An address that names an agent or Autopick keeps it", () => {
 	rememberAuto(true);
 	expect(startsAuto(newAddress("codex", null))).toBe(false);
 	rememberAuto(false);

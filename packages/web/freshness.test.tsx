@@ -6,27 +6,15 @@ describe("Saying the page may be stale", () => {
 	afterEach(cleanup);
 
 	it("shows disconnected immediately and disables retry without a connection", () => {
-		const online = navigator.onLine;
-		Object.defineProperty(navigator, "onLine", {
-			configurable: true,
-			value: false,
-		});
-		try {
-			const page = barred(UNREACHABLE);
-			expect(page.getByRole("alert").textContent).toContain("Disconnected.");
-			expect(page.getByRole("alert").textContent).toContain(
-				"No internet connection.",
-			);
-			expect(
-				(page.getByRole("button", { name: "Retry" }) as HTMLButtonElement)
-					.disabled,
-			).toBe(true);
-		} finally {
-			Object.defineProperty(navigator, "onLine", {
-				configurable: true,
-				value: online,
-			});
-		}
+		const page = barred(UNREACHABLE, true);
+		expect(page.getByRole("alert").textContent).toContain("Disconnected.");
+		expect(page.getByRole("alert").textContent).toContain(
+			"No internet connection.",
+		);
+		expect(
+			(page.getByRole("button", { name: "Retry" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
 	});
 
 	it("says nothing in the bar while the page only catches up", async () => {
@@ -65,10 +53,12 @@ const STALE: Freshness = { ...FRESH, stale: true };
 
 const UNREACHABLE: Freshness = { ...FRESH, stale: true, unreachable: true };
 
-function barred(freshness: Freshness) {
+function barred(freshness: Freshness, disconnected?: boolean) {
 	return render(
 		<FreshnessContext value={freshness}>
-			{freshness.unreachable && <OfflineBanner reason={freshness.reason} />}
+			{freshness.unreachable && (
+				<OfflineBanner reason={freshness.reason} disconnected={disconnected} />
+			)}
 		</FreshnessContext>,
 	);
 }

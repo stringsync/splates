@@ -319,6 +319,7 @@ export class AgentConnection {
 				this.loading = false;
 				this.suppressReplay = false;
 				this.logHeard();
+				await host.captureMedia();
 				host.state.settings = settingsIn(session.configOptions);
 			} else {
 				const session = await this.answered(
@@ -911,6 +912,9 @@ export class AgentConnection {
 					this.logHeard();
 					host.log.write({ kind: "update", update });
 					fold(host.state, update);
+					if (mayCompleteInlineMedia(host.state, update)) {
+						await host.captureMedia({ streaming: true });
+					}
 					host.changed();
 					return;
 				}
@@ -927,6 +931,9 @@ export class AgentConnection {
 				}
 				host.log.write({ kind: "update", update, at });
 				fold(host.state, update, at);
+				if (mayCompleteInlineMedia(host.state, update)) {
+					await host.captureMedia({ streaming: true });
+				}
 				this.antigravity?.heard(update);
 				this.watchCommand(update);
 				host.changed();
@@ -1141,4 +1148,22 @@ function elicited(answer: Answer): acp.CreateElicitationResponse {
 	return answer.type === "question"
 		? { action: "accept", content: answer.values }
 		: { action: "decline" };
+}
+
+/** Fast check before scanning for inline media while streaming text chunks. */
+function mayCompleteInlineMedia(
+	state: ConversationHost["state"],
+	update: acp.SessionUpdate,
+): boolean {
+	if (
+		update.sessionUpdate !== "agent_message_chunk" ||
+		update.content.type !== "text" ||
+		parentOf(update) !== null ||
+		!update.content.text.includes(")")
+	) {
+		return false;
+	}
+	const last = state.messages.findLast((each) => each.role === "agent");
+	const part = last?.parts.at(-1);
+	return part?.type === "text" && part.text.includes("![");
 }

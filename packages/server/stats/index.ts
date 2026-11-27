@@ -4,11 +4,11 @@ export { addFactTasks } from "./fact-tasks";
 export { findings } from "./findings";
 export type {
 	Outcome,
-	OutcomeAutoPick,
+	OutcomeAutopick,
 	OutcomeHoldout,
 	OutcomeLift,
 } from "./outcomes";
-export { Outcomes, outcomeAutoPick, promptsFrom } from "./outcomes";
+export { Outcomes, outcomeAutopick, promptsFrom } from "./outcomes";
 export type { CellOverrides } from "./overrides";
 export { DevOutcomes } from "./routes";
 export type { Beat, Transcript, Verdict } from "./skill-checks";

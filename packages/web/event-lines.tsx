@@ -3,7 +3,7 @@ import type { Action, Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
 import { type JSX, useContext } from "react";
 import { AddedLine } from "./added-line";
-import { AutoPickLine } from "./auto-pick-line";
+import { AutopickLine } from "./autopick-line";
 import { QueuedBar } from "./chain-card";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
@@ -28,6 +28,7 @@ export const EventUI = makeAssistantDataUI<{
 	event: Event;
 	also?: Event[];
 	going?: boolean;
+	waitBackground?: boolean;
 	written?: Written | null;
 }>({
 	name: "event",
@@ -35,7 +36,12 @@ export const EventUI = makeAssistantDataUI<{
 		isEscalation(data.event) ? (
 			<EscalationCard event={data.event} written={data.written ?? null} />
 		) : (
-			<EventLine event={data.event} also={data.also} going={data.going} />
+			<EventLine
+				event={data.event}
+				also={data.also}
+				going={data.going}
+				waitBackground={data.waitBackground}
+			/>
 		),
 });
 
@@ -215,8 +221,8 @@ const LINES: {
 };
 
 /**
- * What Auto pick started a task on, and what the judge found in it, or why
- * it found nothing: `Auto picked Haiku 5.5, low effort: Lookup 91%, Light
+ * What Autopick started a task on, and what the judge found in it, or why
+ * it found nothing: `Autopicked Haiku 5.5, low effort: Lookup 91%, Light
  * 80%`. One that moved the conversation up for what the person said later
  * says so: `Auto moved up to Opus 5.5, medium effort: Open 80%, Deep 70%`.
  * Every reason shows on hover, after what it moved off.
@@ -232,7 +238,7 @@ function autoLine(event: EventOf<"auto"> & { reason: null }): SplatesEventView {
 	const lifted = event.lifted ?? null;
 	return {
 		words: [
-			`${lifted === null ? "Auto picked" : lifted.switched ? "Auto switched to" : "Auto moved up to"} ${picked}: ${found}`,
+			`${lifted === null ? "Autopicked" : lifted.switched ? "Auto switched to" : "Auto moved up to"} ${picked}: ${found}`,
 		],
 		title: [...(lifted === null ? [] : [`from ${lifted.from}`]), ...why].join(
 			"\n",
@@ -282,16 +288,24 @@ export function EventLine({
 	event,
 	also = [],
 	going = false,
+	waitBackground = false,
 }: {
 	event: Event;
 	also?: Event[];
 	/** Whether the turn it came in is still going. */
 	going?: boolean;
+	/** Whether a backgrounded splates wait command is still running in this conversation. */
+	waitBackground?: boolean;
 }): JSX.Element | null {
 	return isMergeStep(event) ? (
 		<MergeLines first={event} also={also} going={going} />
 	) : (
-		<OneLine event={event} also={also} going={going} />
+		<OneLine
+			event={event}
+			also={also}
+			going={going}
+			waitBackground={waitBackground}
+		/>
 	);
 }
 
@@ -300,14 +314,17 @@ function OneLine({
 	event,
 	also,
 	going,
+	waitBackground,
 }: {
 	event: Event;
 	also: Event[];
 	going: boolean;
+	waitBackground: boolean;
 }): JSX.Element | null {
 	// A wait under way checks each second whether it has run past its time.
-	const now = useNow(going && isWait(event) && also.length === 0);
-	const view = lineOfRun(event, also, going, now);
+	const active = going || (isWait(event) && waitBackground);
+	const now = useNow(active && isWait(event) && also.length === 0);
+	const view = lineOfRun(event, also, active, now);
 	if (view === null) {
 		return null;
 	}
@@ -315,7 +332,7 @@ function OneLine({
 		return <AddedLine view={view} id={event.number} />;
 	}
 	if (event.action === "auto" && event.reason === null) {
-		return <AutoPickLine event={event} />;
+		return <AutopickLine event={event} />;
 	}
 	if (event.action === "merge" && event.reason !== null) {
 		return <MergeFailedLine view={view} event={event} />;

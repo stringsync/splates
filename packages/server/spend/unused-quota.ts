@@ -1,4 +1,8 @@
-import type { LimitPeak } from "../models";
+import {
+	antigravityGroupLabel,
+	antigravityGroupOf,
+	type LimitPeak,
+} from "../models";
 import type { Plan } from "./plans";
 import type { Rates } from "./rates";
 import type { Spend } from "./spend";
@@ -64,35 +68,8 @@ export async function unusedQuotaReport(
 	for (const provider of providers) {
 		const plan = planByProvider.get(provider) ?? null;
 		const allPeaks = input.peaks[provider] ?? [];
-		const primary = pickPrimaryPeaks(provider, allPeaks);
-		const completed: UnusedQuotaReset[] = [];
-		let current: { used: number; resets: string } | null = null;
-
-		for (const item of primary.peaks) {
-			const resetsMs = Date.parse(item.resets);
-			if (!Number.isFinite(resetsMs)) {
-				continue;
-			}
-			const peak = clamp01(item.peak);
-			if (resetsMs <= nowMs) {
-				if (resetsMs >= sinceMs) {
-					completed.push({
-						resets: item.resets,
-						peak,
-						unused: clamp01(1 - peak),
-					});
-				}
-			} else if (current === null || item.resets > current.resets) {
-				current = { used: peak, resets: item.resets };
-			}
-		}
-
-		// Skip providers with neither a pulled plan nor any observed window.
-		if (plan === null && completed.length === 0 && current === null) {
-			continue;
-		}
-
-		const monthlyPrice =
+		const primaryGroups = pickPrimaryPeakGroups(provider, allPeaks);
+		const fullMonthlyPrice =
 			plan === null
 				? null
 				: round2(
@@ -105,51 +82,86 @@ export async function unusedQuotaReport(
 			await convert(equivalentByProvider.get(provider) ?? 0, "USD"),
 		);
 
-		const avgPeak =
-			completed.length === 0
-				? null
-				: completed.reduce((sum, each) => sum + each.peak, 0) /
-					completed.length;
-		const maxPeak =
-			completed.length === 0
-				? null
-				: Math.max(...completed.map((each) => each.peak));
-		const unusedShare = avgPeak === null ? null : clamp01(1 - avgPeak);
-		const unusedMonthly =
-			monthlyPrice === null || unusedShare === null
-				? null
-				: round2(monthlyPrice * unusedShare);
-		const tierHint =
-			plan !== null && maxPeak !== null && completed.length >= 2
-				? tierHintFor(provider, plan.service, maxPeak)
-				: null;
+		for (const primary of primaryGroups) {
+			const completed: UnusedQuotaReset[] = [];
+			let current: { used: number; resets: string } | null = null;
 
-		rows.push({
-			provider,
-			plan: plan?.service ?? null,
-			monthlyPrice,
-			window: primary.window,
-			resets: completed,
-			current,
-			avgPeak,
-			maxPeak,
-			unusedShare,
-			unusedMonthly,
-			tierHint,
-			apiEquivalent,
-		});
+			for (const item of primary.peaks) {
+				const resetsMs = Date.parse(item.resets);
+				if (!Number.isFinite(resetsMs)) {
+					continue;
+				}
+				const peak = clamp01(item.peak);
+				if (resetsMs <= nowMs) {
+					if (resetsMs >= sinceMs) {
+						completed.push({
+							resets: item.resets,
+							peak,
+							unused: clamp01(1 - peak),
+						});
+					}
+				} else if (current === null || item.resets > current.resets) {
+					current = { used: peak, resets: item.resets };
+				}
+			}
+
+			// Skip providers with neither a pulled plan nor any observed window.
+			if (plan === null && completed.length === 0 && current === null) {
+				continue;
+			}
+
+			const monthlyPrice =
+				fullMonthlyPrice === null
+					? null
+					: round2(fullMonthlyPrice / primaryGroups.length);
+
+			const avgPeak =
+				completed.length === 0
+					? null
+					: completed.reduce((sum, each) => sum + each.peak, 0) /
+						completed.length;
+			const maxPeak =
+				completed.length === 0
+					? null
+					: Math.max(...completed.map((each) => each.peak));
+			const unusedShare = avgPeak === null ? null : clamp01(1 - avgPeak);
+			const unusedMonthly =
+				monthlyPrice === null || unusedShare === null
+					? null
+					: round2(monthlyPrice * unusedShare);
+			const tierHint =
+				plan !== null && maxPeak !== null && completed.length >= 2
+					? tierHintFor(provider, plan.service, maxPeak)
+					: null;
+
+			rows.push({
+				provider,
+				...(primary.group === undefined ? {} : { group: primary.group }),
+				plan: plan?.service ?? null,
+				monthlyPrice,
+				window: primary.window,
+				resets: completed,
+				current,
+				avgPeak,
+				maxPeak,
+				unusedShare,
+				unusedMonthly,
+				tierHint,
+				apiEquivalent,
+			});
+		}
 	}
 
 	rows.sort(comparePlans);
 
 	let totalUnusedMonthly = 0;
 	let totalPricedMonthly = 0;
-	let pricedPlans = 0;
+	const pricedProviders = new Set<string>();
 	for (const row of rows) {
 		if (row.monthlyPrice !== null && row.unusedMonthly !== null) {
 			totalUnusedMonthly += row.unusedMonthly;
 			totalPricedMonthly += row.monthlyPrice;
-			pricedPlans += 1;
+			pricedProviders.add(row.provider);
 		}
 	}
 
@@ -158,7 +170,7 @@ export async function unusedQuotaReport(
 		currency,
 		totalUnusedMonthly: round2(totalUnusedMonthly),
 		totalPricedMonthly: round2(totalPricedMonthly),
-		pricedPlans,
+		pricedPlans: pricedProviders.size,
 		plans: rows,
 	};
 }
@@ -173,10 +185,12 @@ export interface UnusedQuotaReset {
 	unused: number;
 }
 
-/** Unused quota summary for one subscription / agent plan. */
+/** Unused quota summary for one subscription / agent plan (or one quota group of it). */
 export interface UnusedQuotaPlan {
 	/** Provider id (`claude`, `codex`, `kimi`, `antigravity`). */
 	provider: string;
+	/** Independent quota group label when a provider has several (`Gemini`, `Claude & GPT`). */
+	group?: string;
 	/** Pulled plan name (`Max 20x plan`, `Pro plan`, etc.), or null when unpriced. */
 	plan: string | null;
 	/** Monthly list price in the display currency, or null when unpriced. */
@@ -226,20 +240,47 @@ export interface UnusedQuotaInput {
 }
 
 /**
- * Picks the primary recurring cap window for `provider` (preferring the
+ * Picks the primary recurring cap window(s) for `provider` (preferring the
  * overall weekly cap over 5-hour burst or model-specific sub-caps).
+ * Antigravity's independent weekly quota groups stay separate.
  */
-function pickPrimaryPeaks(
+function pickPrimaryPeakGroups(
 	provider: string,
 	peaks: readonly LimitPeak[],
-): { window: string | null; peaks: LimitPeak[] } {
+): { group?: string; window: string | null; peaks: LimitPeak[] }[] {
 	if (peaks.length === 0) {
-		return { window: null, peaks: [] };
+		return [{ window: null, peaks: [] }];
 	}
 	if (provider === "claude") {
 		const overall = peaks.filter((each) => each.window === "seven_day");
 		if (overall.length > 0) {
-			return { window: "seven_day", peaks: overall };
+			return [{ window: "seven_day", peaks: overall }];
+		}
+	}
+	if (provider === "antigravity") {
+		const weekly = peaks.filter(
+			(each) => (windowMs(each.window) ?? 0) >= 7 * DAY_MS,
+		);
+		if (weekly.length > 0) {
+			const byWindow = new Map<string, LimitPeak[]>();
+			for (const item of weekly) {
+				const existing = byWindow.get(item.window);
+				if (existing === undefined) {
+					byWindow.set(item.window, [item]);
+				} else {
+					existing.push(item);
+				}
+			}
+			const entries = [...byWindow.entries()].sort(([one], [other]) =>
+				one.localeCompare(other),
+			);
+			return entries.map(([window, items]) => ({
+				group: antigravityGroupLabel(antigravityGroupOf(window)),
+				window,
+				peaks: items.toSorted((one, other) =>
+					one.resets.localeCompare(other.resets),
+				),
+			}));
 		}
 	}
 	const windows = [...new Set(peaks.map((each) => each.window))];
@@ -250,38 +291,14 @@ function pickPrimaryPeaks(
 		}
 		return one.localeCompare(other);
 	});
-	// For Antigravity, multiple model groups share the same weekly cadence;
-	// collapse each reset cycle to the highest peak across its weekly buckets.
-	if (provider === "antigravity") {
-		const weekly = peaks.filter(
-			(each) => (windowMs(each.window) ?? 0) >= 7 * DAY_MS,
-		);
-		if (weekly.length > 0) {
-			return { window: "Weekly", peaks: collapseByReset(weekly) };
-		}
-	}
 	const chosen = ranked[0] ?? null;
-	return {
-		window: chosen,
-		peaks:
-			chosen === null ? [] : peaks.filter((each) => each.window === chosen),
-	};
-}
-
-function collapseByReset(peaks: readonly LimitPeak[]): LimitPeak[] {
-	const grouped: LimitPeak[] = [];
-	for (const item of peaks) {
-		const resetsMs = Date.parse(item.resets);
-		const match = grouped.find(
-			(each) => Math.abs(Date.parse(each.resets) - resetsMs) <= 15 * 60_000,
-		);
-		if (match === undefined) {
-			grouped.push({ ...item, window: "Weekly" });
-		} else if (item.peak > match.peak) {
-			match.peak = item.peak;
-		}
-	}
-	return grouped.sort((one, other) => one.resets.localeCompare(other.resets));
+	return [
+		{
+			window: chosen,
+			peaks:
+				chosen === null ? [] : peaks.filter((each) => each.window === chosen),
+		},
+	];
 }
 
 function windowMs(window: string): number | null {
@@ -342,7 +359,10 @@ function comparePlans(one: UnusedQuotaPlan, other: UnusedQuotaPlan): number {
 	if (oneShare !== otherShare) {
 		return otherShare - oneShare;
 	}
-	return one.provider.localeCompare(other.provider);
+	return (
+		one.provider.localeCompare(other.provider) ||
+		(one.group ?? "").localeCompare(other.group ?? "")
+	);
 }
 
 const clamp01 = (value: number): number => Math.min(Math.max(value, 0), 1);

@@ -1,4 +1,4 @@
-import type { RulesEditor } from "./auto-pick-rules";
+import type { RulesEditor } from "./autopick-rules";
 import type { SetupJourney } from "./setup-journey";
 
 /** A journey and what it runs, kept while the page is elsewhere. */

@@ -1,10 +1,19 @@
 import type { Resource } from "core/disposable";
+import type { Fs } from "core/system";
+import { ownsConversationAttached } from "../artifacts";
+import { movedPath } from "../config";
 import { ConversationRoutes, type Conversations } from "../conversations";
 import { fail } from "../exit";
 import { continuedReference, needs } from "../plans";
 import { Everywhere, GENERAL, GENERAL_NAME } from "../projects";
 import type { Snapshot } from "../tasks";
-import { type EventSink, eventStream } from "./http";
+import {
+	type EventSink,
+	eventStream,
+	fileResponse,
+	MEDIA_TYPES,
+	refuse,
+} from "./http";
 import type { Handler, ProjectHeard, Served } from "./project";
 import type { Behind, Release, Stuck } from "./release";
 import { body } from "./shared";
@@ -18,6 +27,7 @@ export interface GeneralOptions {
 
 /** The release and slot metadata General's static snapshot shares with projects. */
 interface GeneralSettings {
+	fs: Fs;
 	release: () => Release | null;
 	behind: () => Behind | null;
 	stuck?: () => Stuck | null;
@@ -34,9 +44,10 @@ export interface General
 /** The machine's projectless conversations, shown as one global destination. */
 export class General {
 	readonly talks: ConversationRoutes;
-	readonly startAutoPick: Handler;
+	readonly startAutopick: Handler;
 	readonly snapshot: Handler;
 	readonly events: Handler;
+	readonly file: Handler;
 	readonly continueConversation: Handler;
 	private readonly listeners = new Set<EventSink>();
 
@@ -53,9 +64,21 @@ export class General {
 			scratchRoot,
 		);
 		Object.assign(this, this.talks);
-		this.startAutoPick = this.talks.startConversation;
+		this.startAutopick = this.talks.startConversation;
 		this.snapshot = async () => Response.json(await this.current());
 		this.events = async () => eventStream(this.listeners);
+		this.file = async (request) => {
+			const params = new URL(request.url).searchParams;
+			const path = movedPath(params.get("path") ?? "");
+			const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+			const bytes = ownsConversationAttached(this.conversations.dir, path)
+				? await this.opts.fs.readBytes(path).catch(() => null)
+				: null;
+			if (bytes === null) {
+				return refuse(404, "not_found", `nothing here shows ${path}`);
+			}
+			return fileResponse(request, bytes, type, {});
+		};
 		this.continueConversation = (request) => this.continueIn(request);
 	}
 

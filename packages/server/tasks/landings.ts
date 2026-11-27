@@ -10,36 +10,45 @@ export interface Landing {
 /**
  * Landings since `worktree` branched that changed files it also changed,
  * newest first. A landing the branch has rebased past is not listed. Reads
- * only, never rebasing the worktree.
+ * only, never rebasing the worktree. Pass `changed` when the caller already
+ * computed `worktree.changedFiles()` to avoid repeating the git diff/status.
  */
 export async function landingsOverlapping(
 	worktree: Worktree,
+	changed?: string[] | null,
 ): Promise<Landing[]> {
 	const { state } = worktree;
 	if (!worktree.hasBranch || !state) {
 		return [];
 	}
-	const own = await worktree.changedFiles();
+	const own = changed === undefined ? await worktree.changedFiles() : changed;
 	if (own === null || own.length === 0) {
+		return [];
+	}
+	const candidates = (await worktree.landed()).filter(
+		(done) =>
+			done.ended === "merged" &&
+			done.commit !== null &&
+			done.base === worktree.base &&
+			done.endedAt >= state.createdAt &&
+			done.task !== worktree.task,
+	);
+	if (candidates.length === 0) {
 		return [];
 	}
 	const mine = new Set(own);
 	const git = worktree.git;
 	const baseRef = await worktree.baseRef();
 	const landings: Landing[] = [];
-	for (const done of await worktree.landed()) {
+	for (const done of candidates) {
+		const commit = done.commit as string;
 		if (
-			done.ended !== "merged" ||
-			done.commit === null ||
-			done.base !== worktree.base ||
-			done.endedAt < state.createdAt ||
-			done.task === worktree.task ||
-			(await git.isAncestor(done.commit, worktree.branch)) ||
-			!(await git.isAncestor(done.commit, baseRef))
+			(await git.isAncestor(commit, worktree.branch)) ||
+			!(await git.isAncestor(commit, baseRef))
 		) {
 			continue;
 		}
-		const changed = await git.run(
+		const diff = await git.run(
 			git.root,
 			"diff-tree",
 			"--no-commit-id",
@@ -47,15 +56,15 @@ export async function landingsOverlapping(
 			"-r",
 			"-m",
 			"--first-parent",
-			done.commit,
+			commit,
 		);
-		const files = changed.stdout
+		const files = diff.stdout
 			.split("\n")
 			.filter((path) => path !== "" && mine.has(path));
-		if (changed.code === 0 && files.length > 0) {
+		if (diff.code === 0 && files.length > 0) {
 			landings.push({
 				task: done.task,
-				commit: done.commit,
+				commit,
 				files: [...new Set(files)].sort(),
 			});
 		}
@@ -69,8 +78,11 @@ export function landingNotice(landing: Landing, base: string): string {
 }
 
 /** Each landing's notice for `worktree`, for `list` and `show` to name. */
-export async function landingNotices(worktree: Worktree): Promise<string[]> {
-	return (await landingsOverlapping(worktree)).map((each) =>
+export async function landingNotices(
+	worktree: Worktree,
+	changed?: string[] | null,
+): Promise<string[]> {
+	return (await landingsOverlapping(worktree, changed)).map((each) =>
 		landingNotice(each, worktree.base),
 	);
 }

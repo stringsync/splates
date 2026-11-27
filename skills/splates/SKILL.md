@@ -1,7 +1,7 @@
 ---
 name: splates
-description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, and before any command that deletes or overwrites data or spends money (even when asked to), before asking the user a question, before answering when they ask what you think of a change or idea (use the plan card for proposals), and before waiting on, polling for or scheduling a later check of anything that finishes outside the conversation (a deploy, a release, another agent's work, a time, spare quota), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.1.0
+description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before any command that deletes or overwrites data or spends money (even when asked to), before asking the user a question, before comparing options, explaining tradeoffs, or showing the user a screenshot, image, recording, diagram, or HTML artifact, before answering when they ask what you think of a change or idea (use the plan card for proposals), and before waiting on, polling for or scheduling a later check of anything that finishes outside the conversation (a deploy, a release, another agent's work, a time, spare quota), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
+version: 2.1.1
 ---
 
 # Using splates
@@ -89,7 +89,7 @@ The agent that starts each task handles its implementation plan.
      A change to a schema or to how records are interpreted, kept or removed
      is never trivial.
    - **Visuals:** for any UI change or visual choice, build mockups eagerly
-     and attach them, mobile first, good at phone and desktop widths
+     and show them inline, mobile first, good at phone and desktop widths
      ([references/showing.md](references/showing.md)).
 
 3. **Make small, reversible commits.** Check `splates list --files` for
@@ -132,24 +132,27 @@ The agent that starts each task handles its implementation plan.
 6. **Land or clean up.** Merge only while `After` is true and every `## Next`
    item and open question is resolved; keep working rather than landing part
    and queuing the rest (a follow-up is only for work outside the After).
-   - **Merge** work you verified yourself, its result pictures under
-     `## After` and evidence under `## Verification`: the usual end.
+   - **Merge** work you verified yourself, after putting its result visual
+     (screenshot or `d2` diagram) under `## After` in `SPLATES.md` and
+     evidence under `## Verification`: the usual end.
    - **Ask for a review** when the change is invasive (reworks something the
      user relies on, or much of the project) or hard to reverse (a migration,
      data written, anything sent outside the repo), when the plan was approved
      with **Approve & review** or carries the **One-way** tag, or when a
-     `## Next` step asks to show the user. Keep an unchecked `- [ ] Show the
-     user before merging` under `## Next`, send the Ready to merge card
-     ([references/reporting.md](references/reporting.md)), and end your turn.
+     `## Next` step asks to show the user. Send `Ready to merge`
+     ([references/reporting.md](references/reporting.md)) only when nothing
+     beyond merge approval is still open: if any other decision or question
+     remains open, send a plain questions card first and wait to send
+     `Ready to merge` until it is settled. Keep an unchecked `- [ ] Show the
+     user before merging` under `## Next` and end your turn.
      On `[SPLATES MERGE]` or approval in words, `splates claim <task>`, check
      it off, and merge; on requested changes, `claim`, add them under
      `## Next`, do them, and send the card again. For trying the work,
      name a rig the user can start on the Rigs page, if one fits.
    Queue follow-ups first, then run `splates merge --message "<what the base
-   gains>"` as a plain foreground command with a long timeout (never
-   backgrounded, `&`, or `nohup`: the page sees a merge only through your
-   running command) and `cd` to the main tree it prints. It removes the
-   worktree, so chain nothing after it. When it refuses, read
+   gains>"` (with a long timeout if your harness sets one) and `cd` to the
+   main tree it prints once it finishes. It removes the worktree, so chain
+   nothing after it. When it refuses, read
    [references/merge.md](references/merge.md).
    Never leave a task behind: when there is nothing to change, or the work is
    moot, superseded, better redone, or blocked, `cd "$(splates path)"` and run
@@ -176,7 +179,7 @@ margin, ending at `?`, with a one-line why indented under it and `- (a)`
 choices (`(chosen)` on your pick). Use `- [a]` for multi-select (marking each
 pick `(chosen)`). Yes/no questions use explicit `- (a) Yes, ...` and
 `- (b) No, ...`. Keep "I" and "you" out of questions and choices. Visual
-choices carry an attached image (`splates attach`) indented under each choice.
+choices carry an image (`![what](/abs/path.png)`) indented under each choice.
 
 ```markdown
 1. Should the old upload endpoint stay for a release?
@@ -187,10 +190,13 @@ choices carry an attached image (`splates attach`) indented under each choice.
 
 ### Plan card
 
-Use `## 📝 Plan: <title>`, with **Goal** (the aim, in one sentence),
-**Details** bullets (each leading with its action in bold) and **Tags** (Undo, Size, Area and any Watch out, each
-with a reason), plus a picture when needed. Put ordinary questions inside
-the plan. See [Proposing](references/proposing.md) for the plan card format.
+Use `## 📝 Plan: <title>`, with `**Goal:**` (the aim, in one sentence),
+`**Details:**` (bullets each leading with its action in bold) and `**Tags:**`
+(`- <Tag>: <why>` bullets using the exact fixed tag names in
+[Proposing](references/proposing.md), never `Undo:`/`Size:`/`Area:`/`Watch out:`
+prefixes, bold tag names, or comma-separated lines), plus a picture when
+needed. Keep the colons inside the bold labels, put ordinary questions inside
+the plan, and read [Proposing](references/proposing.md) before writing one.
 
 ### Task outcome cards
 
@@ -203,6 +209,12 @@ for a merge, or after a colon what it waits on or why it went. A `##` or
 
 Cards on a phone now drag on a long press. Restart `splates server` to pick it up.
 ```
+
+When a merged task changes something visible or a flow (screenshots or a `d2`
+diagram in `SPLATES.md`), show Before and After in the `Merged` card as two
+separate, labelled visuals (`#### Before` and `#### After`, each with its own
+attached image or `d2` fence), never combined into one and never only one side,
+and put the After visual under `## After` in `SPLATES.md` before merging.
 
 ```markdown
 ## 🧹 Removed <task>: superseded by a fix on main
@@ -237,16 +249,18 @@ Both kept their tests; the notes needed no change.
   audits, surveys) are plain Markdown: a headline sentence and what
   helps, with no card title. Tables, quotes and fences draw as plain markdown;
   only a `d2` fence draws as a diagram.
-- **HTML artifacts:** When a reply would be easier to judge or explore
-  interactively (options across scenarios, a system with moving parts, a
-  diagram to inspect, a tool to try inputs), save a self-contained `.html`
-  file with `splates artifact add <file>` unasked
-  ([references/showing.md](references/showing.md#artifacts)) and point to it.
-- **Screenshots:** A tool preview is invisible to the user. Run
-  `splates attach <file>` (it needs no task: with none open it keeps the file with the conversation, and
-  `--conversation <id>` names it when `$SPLATES_CONVERSATION` is unset) and paste the returned `![what](/abs/path.png)`
-  outside a code block (never the raw capture path). For task results, also
-  place the same image under `## After` in `SPLATES.md` before replying.
+- **HTML artifacts:** When comparing options across scenarios, explaining a
+  system with moving parts, presenting a diagram to inspect, or giving the
+  user a tool to try inputs, default to building a self-contained `.html`
+  artifact with `splates artifact add <file>` unasked
+  ([references/showing.md](references/showing.md#artifacts)) instead of plain
+  Markdown alone, and point to it alongside a brief summary.
+- **Screenshots:** A tool preview is invisible to the user. Write
+  `![what](/abs/path.png)` with the file's absolute path, outside a code
+  block; the server validates, copies and keeps it with the conversation, with
+  no command and no task needed. A filename, bare link or path in a code block
+  shows nothing. For task results, also place the same image under `## After`
+  in `SPLATES.md` before replying.
 - **D2 diagrams:** Always use a fenced block tagged exactly `d2` (never
   untagged, `D2`, or `text`).
 - **Other cards:** For `Ready to merge`, `Run command`, and
@@ -264,11 +278,11 @@ conversation, not here.
 
 ## Before
 
-Today in one line, plus an attached screenshot or `d2` diagram (empty for a new feature).
+Today in one line, plus a screenshot or `d2` diagram (empty for a new feature).
 
 ## After
 
-One or two plain sentences on the outcome (no internals or file names), followed by the result screenshot.
+One or two plain sentences on the outcome (no internals or file names), followed by the result screenshot or `d2` diagram.
 
 ## Next
 
@@ -323,7 +337,7 @@ new session.
   [references/questions.md](references/questions.md) (when to ask, writing
   the card, reading answers).
 - **Before a plan or question for a UI change, a visual choice, or a backend
-  change across several services, before attaching screenshots or
+  change across several services, before showing screenshots or
   recordings, or when a reply compares options or explains moving parts:**
   [references/showing.md](references/showing.md).
 - **When an answer arrives mid-turn, `claim` lists open questions, or you

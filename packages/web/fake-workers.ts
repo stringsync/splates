@@ -22,6 +22,7 @@ export class FakeWorkers {
 
 	/** Puts it in place of the browser's own, until the test deletes it. */
 	install(): this {
+		// vet-ignore no-monkeypatching: happy-dom lacks navigator.serviceWorker; tests delete it in afterEach
 		Object.defineProperty(navigator, "serviceWorker", {
 			configurable: true,
 			value: this,

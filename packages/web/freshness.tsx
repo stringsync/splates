@@ -261,11 +261,14 @@ export function ListLoading({
  */
 export function OfflineBanner({
 	reason = null,
+	disconnected: disconnectedOverride,
 }: {
 	reason?: string | null;
+	disconnected?: boolean;
 }): JSX.Element {
 	const { retry } = useFreshness();
-	const disconnected = useDisconnected();
+	const browserDisconnected = useDisconnected();
+	const disconnected = disconnectedOverride ?? browserDisconnected;
 	const [retrying, setRetrying] = useState(false);
 	useEffect(() => {
 		if (!retrying) {

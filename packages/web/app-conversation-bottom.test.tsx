@@ -23,6 +23,7 @@ describe("Conversation bottom after loading", () => {
 		testing = new Testing();
 		height = 1600;
 		// happy-dom has no layout or resize delivery; model content settling.
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so scrollHeight is always 0
 		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
 			configurable: true,
 			get: () => height,
@@ -47,6 +48,7 @@ describe("Conversation bottom after loading", () => {
 		testing.dispose();
 		globalThis.ResizeObserver = realObserver;
 		Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+		// vet-ignore no-monkeypatching: restores HTMLElement.prototype.scrollHeight after test
 		Object.defineProperties(
 			HTMLElement.prototype,
 			realHeight ? { scrollHeight: realHeight } : {},

@@ -9,6 +9,17 @@ const SETTLE = Duration.ms(200);
 /** The env variable `bin/evals run` writes a run's progress under. */
 export const EVALS_LIVE_DIR = "EVALS_LIVE_DIR";
 
+/** Where the agent of conversation `id` writes its evals' progress. */
+export function evalsDir(conversations: string, id: string): string {
+	return `${conversations}/evals-live/${id}`;
+}
+
+/** One issue the lead agent diagnosed for a finished eval run. */
+export interface EvalFaultNote {
+	area: string;
+	detail: string;
+}
+
 /**
  * One eval the conversation's agent ran or is running, as read from the
  * progress `bin/evals run` writes (`evals/packages/evals/live.ts`).
@@ -36,6 +47,8 @@ export interface EvalRun {
 	phase: "agent" | "checks" | "judge";
 	/** The finished run's report, as `bin/evals run --json` prints it. */
 	report: Record<string, unknown> | null;
+	/** What the lead agent diagnosed as wrong during this run, by area. */
+	faults?: EvalFaultNote[];
 	/** It ended without a report: found unfinished when splates read it after a restart. */
 	stopped?: true;
 	/** The run watches for a cancel file beside its progress, so the page can cancel it. */
@@ -44,11 +57,6 @@ export interface EvalRun {
 	cancelling?: string;
 	/** When the run ended on a cancel, as ISO, with no report. */
 	cancelled?: string;
-}
-
-/** Where the agent of conversation `id` writes its evals' progress. */
-export function evalsDir(conversations: string, id: string): string {
-	return `${conversations}/evals-live/${id}`;
 }
 
 /**
@@ -115,6 +123,7 @@ export class ConversationEvals {
 				: run,
 		);
 		if (runs.length > 0) {
+			this.host.state.hasEvals = true;
 			this.host.changed();
 		}
 	}
@@ -188,6 +197,9 @@ export class ConversationEvals {
 			}
 		}
 		this.host.state.evals = runs;
+		if (runs.length > 0) {
+			this.host.state.hasEvals = true;
+		}
 		this.host.changed();
 	}
 
@@ -273,6 +285,16 @@ function apply(run: EvalRun, event: Record<string, unknown>): void {
 		run.phase = event.phase;
 	} else if (event.type === "done" && isRecord(event.report)) {
 		run.report = event.report;
+	} else if (event.type === "faults" && Array.isArray(event.faults)) {
+		const faults = event.faults
+			.map(faultNoteOf)
+			.filter((note): note is EvalFaultNote => note !== null);
+		run.faults = faults;
+	} else if (event.type === "fault") {
+		const note = faultNoteOf(event);
+		if (note !== null) {
+			run.faults = [...(run.faults ?? []), note];
+		}
 	} else if (
 		event.type === "cancelled" &&
 		typeof event.at === "string" &&
@@ -280,6 +302,25 @@ function apply(run: EvalRun, event: Record<string, unknown>): void {
 	) {
 		run.cancelled = event.at;
 	}
+}
+
+function faultNoteOf(raw: unknown): EvalFaultNote | null {
+	if (!isRecord(raw)) {
+		return null;
+	}
+	const area = nonEmptyString(raw.area ?? raw.fault ?? raw.kind);
+	const detail = nonEmptyString(
+		raw.detail ?? raw.reason ?? raw.text ?? raw.note,
+	);
+	return area === null || detail === null ? null : { area, detail };
+}
+
+function nonEmptyString(value: unknown): string | null {
+	if (typeof value !== "string") {
+		return null;
+	}
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

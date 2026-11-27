@@ -28,7 +28,7 @@ export interface HookChange {
 	invokes: string;
 	prompt: string;
 	run: string;
-	/** The agent to run in place of the one it runs, when given; null for Auto pick. */
+	/** The agent to run in place of the one it runs, when given; null for Autopick. */
 	pick?: AgentPick | null;
 }
 
@@ -115,7 +115,7 @@ function rehooked(hook: Hook, { run, prompt, pick }: HookChange): Hook {
 	if (prompt === "") {
 		fail(
 			"usage",
-			"a command becomes an agent with --prompt, and --agent unless Auto pick picks it",
+			"a command becomes an agent with --prompt, and --agent unless Autopick picks it",
 			{},
 		);
 	}

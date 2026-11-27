@@ -673,7 +673,7 @@ describe("App on a phone", () => {
 		await openPage("Boards");
 		await openPage("Creds");
 		expect(location.hash).toBe("#creds");
-		await openPage("Auto pick");
+		await openPage("Autopick");
 		expect(location.hash).toBe("#auto-pick");
 
 		expect(history.length).toBe(length + 1);

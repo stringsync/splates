@@ -105,4 +105,29 @@ describe("conversation summaries", () => {
 			["agent", ["## ✅ Merged fix onto main\n\nUploads retry."]],
 		]);
 	});
+
+	it("drops bulky eval runs while keeping the eval conversation mark", () => {
+		state.hasEvals = true;
+		state.evals = [
+			{
+				name: "a.jsonl",
+				startedAt: "2026-11-26T12:00:00.000Z",
+				eval: "keeps the edit",
+				group: null,
+				agent: "claude:sonnet",
+				seeded: 0,
+				turns: 1,
+				turn: 1,
+				checks: [],
+				judge: null,
+				lines: [],
+				usd: null,
+				phase: "agent",
+				report: null,
+			},
+		];
+		const summary = listed(state);
+		expect(summary.evals).toEqual([]);
+		expect(summary.hasEvals).toBe(true);
+	});
 });

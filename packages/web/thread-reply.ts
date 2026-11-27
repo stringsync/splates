@@ -1,4 +1,5 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import type { PlanTrusted } from "@splates/server/conversations";
 import {
 	type PlanCard,
 	type QueuedCard,
@@ -216,6 +217,11 @@ export interface Turn {
 	 * counts them; 0 when unset.
 	 */
 	assumedBefore?: number;
+	/**
+	 * The trust the agent went ahead on the reply's plan with, unapproved,
+	 * as the server kept it once the turn ended; null or unset for none.
+	 */
+	trusted?: PlanTrusted | null;
 }
 
 /**
@@ -322,6 +328,7 @@ export function replied(
 							escalation: escalatedIn(before),
 							task: turn.task,
 							plan: before?.type === "plan" ? before.plan : null,
+							trusted: before?.type === "plan" ? (turn.trusted ?? null) : null,
 						} satisfies QuestionsData,
 					},
 				];
@@ -357,6 +364,7 @@ export function replied(
 									plan: stretch.plan,
 									escalation: null,
 									task: turn.task,
+									trusted: turn.trusted ?? null,
 								} satisfies QuestionsData,
 							},
 						];

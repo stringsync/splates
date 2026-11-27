@@ -2,7 +2,7 @@ import type { TaskRecord } from "@splates/server/board";
 import type { StepProgress } from "@splates/server/setup";
 import type { JSX } from "react";
 import type { ConversationFeed } from "./conversation-feed";
-import { AUTO_PICK_STEPS, AUTO_PICK_STOPS } from "./setup-auto-pick-steps";
+import { AUTOPICK_STEPS, AUTOPICK_STOPS } from "./setup-autopick-steps";
 import type { SetupJourney } from "./setup-journey";
 import { NATIVE_STEPS } from "./setup-native-steps";
 
@@ -29,14 +29,14 @@ export type StepBodies = Record<string, (props: StepBodyProps) => JSX.Element>;
  */
 export const STEP_BODIES: StepBodies = {
 	...NATIVE_STEPS,
-	...AUTO_PICK_STEPS,
+	...AUTOPICK_STEPS,
 };
 
 /**
  * The steps a walk through a journey stops on even when done, as an editor
  * of what is set up, each journey's from a file of its own.
  */
-export const STEP_STOPS: ReadonlySet<string> = new Set(AUTO_PICK_STOPS);
+export const STEP_STOPS: ReadonlySet<string> = new Set(AUTOPICK_STOPS);
 
 // vet-ignore objects-over-callbacks: props handed to a React component, which are how React passes events
 /** What a journey's done page is handed. */

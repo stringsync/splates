@@ -1,0 +1,133 @@
+import type { Conversations } from "../conversations";
+import { treeOf } from "../conversations";
+import { fail } from "../exit";
+import type { Project, ProjectWatch } from "../server/shared";
+import { body } from "../server/shared";
+import {
+	type AutopickTarget,
+	type AutopickWords,
+	startAutopick,
+} from "./start";
+import { tryAutopick } from "./trial";
+
+/**
+ * Starts a task on what Autopick decides, or shows what it would decide.
+ * Spread an instance into a project's routes, as `ConversationRoutes` is.
+ */
+export class AutopickRoutes {
+	readonly #project: Project;
+	readonly #conversations: Conversations | null;
+	readonly #watch: ProjectWatch;
+	readonly #slug: () => Promise<string | null>;
+
+	constructor(
+		project: Project,
+		conversations: Conversations | null,
+		watch: ProjectWatch,
+		slug: () => Promise<string | null> = async () => null,
+	) {
+		this.#slug = slug;
+		this.#project = project;
+		this.#conversations = conversations;
+		this.#watch = watch;
+	}
+
+	/**
+	 * Starts a conversation on what Autopick decides for `task`, a started
+	 * task by name, in its tree, or `todo`, a queued one by number, in the
+	 * main tree, or `words`, a new conversation's first message, in `task`'s
+	 * tree if one is named. It answers before the judge does, as any start answers
+	 * before its agent opens, and the prompt the page sends next waits on the
+	 * pick.
+	 */
+	readonly startAutopick = async (request: Request): Promise<Response> => {
+		const conversations = this.#conversations;
+		if (conversations === null) {
+			fail("not_found", "conversations are off", {});
+		}
+		const { id, task, todo, words, attachments, ship } = await body(request);
+		// A new conversation's first message, judged in `task`'s tree, if named.
+		const target: AutopickWords =
+			typeof words === "string"
+				? { words, attachments: attachmentInfos(attachments) }
+				: targetOf(task, todo);
+		const [named, cwd, base, caller] = await treeOf(
+			this.#project.service,
+			"words" in target ? task : "task" in target ? target.task : null,
+		);
+		const conversation = await startAutopick({
+			project: this.#project,
+			slug: this.#slug,
+			conversations,
+			target,
+			// Not the person's pick, so the next start does not take its settings.
+			start: (agent, { model, settings, picking }) =>
+				conversations.start(agent, {
+					// As the page picked it, to open the conversation at once.
+					id: typeof id === "string" ? id : undefined,
+					task: named,
+					base,
+					caller,
+					cwd,
+					model,
+					settings,
+					assigned: true,
+					...(typeof ship === "string" ? { ship } : {}),
+					picking: picking.finally(() => this.#watch.changed()),
+				}),
+		});
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * What Autopick would decide for `task` or `todo`, named as for
+	 * `startAutopick`, without starting it or writing its record: Setup's
+	 * "Try it on a task".
+	 */
+	readonly tryAutopick = async (request: Request): Promise<Response> => {
+		const conversations = this.#conversations;
+		if (conversations === null) {
+			fail("not_found", "conversations are off", {});
+		}
+		const { task, todo } = await body(request);
+		return Response.json(
+			await tryAutopick({
+				project: this.#project,
+				slug: this.#slug,
+				conversations,
+				target: targetOf(task, todo),
+			}),
+		);
+	};
+}
+
+/** What the page's body names: a started task's name, or a queued one's number. */
+function targetOf(task: unknown, todo: unknown): AutopickTarget {
+	if (typeof task === "string" && task !== "") {
+		return { task };
+	}
+	if (typeof todo === "number" && Number.isInteger(todo) && todo > 0) {
+		return { todo };
+	}
+	fail("usage", "name a task, by `task` or by `todo` number, to Autopick", {});
+}
+
+/** Only first-message metadata crosses the judging endpoint, never bytes. */
+function attachmentInfos(value: unknown): { name: string; mimeType: string }[] {
+	if (value === undefined) {
+		return [];
+	}
+	if (
+		!Array.isArray(value) ||
+		value.some(
+			(file) =>
+				file === null ||
+				typeof file !== "object" ||
+				typeof file.name !== "string" ||
+				typeof file.mimeType !== "string",
+		)
+	) {
+		fail("usage", "attachments must give each file's name and mimeType", {});
+	}
+	return value.map((file) => ({ name: file.name, mimeType: file.mimeType }));
+}

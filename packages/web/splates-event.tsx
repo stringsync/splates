@@ -173,7 +173,7 @@ export interface SplatesEventView {
  * or an
  * early warning of a conflict with the base or an overlap with another task,
  * each by its muted icon; or a call an agent made without asking, by a
- * shield.
+ * shield, green for a plan it went ahead on with trust, unapproved.
  */
 export type Mark =
 	| "failed"
@@ -183,7 +183,8 @@ export type Mark =
 	| "changes-requested"
 	| "conflict"
 	| "overlap"
-	| "assumed";
+	| "assumed"
+	| "trusted";
 
 /**
  * A wait an event counts down to `until`. Once what it waited on comes, it is
@@ -268,6 +269,12 @@ function Line({
 				<ShieldCheckIcon
 					aria-label="Assumed"
 					className="size-3.5 shrink-0 text-primary"
+				/>
+			)}
+			{mark === "trusted" && (
+				<ShieldCheckIcon
+					aria-label="Approved on trust"
+					className="size-3.5 shrink-0 text-success"
 				/>
 			)}
 			<Words words={event.words} />

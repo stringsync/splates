@@ -10,8 +10,8 @@ import {
 	RadioIcon,
 	ShieldCheckIcon,
 	ShipIcon,
+	SparklesIcon,
 	VideoIcon,
-	ZapIcon,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
@@ -120,8 +120,8 @@ export const PAGES: {
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon, scope: "project" },
 	{
 		value: "auto-pick",
-		label: "Auto pick",
-		Icon: ZapIcon,
+		label: "Autopick",
+		Icon: SparklesIcon,
 		scope: "project",
 	},
 	{
@@ -230,7 +230,7 @@ export interface PageRoute {
 	openLane: (id: number) => void;
 	/** The cred the Creds page is set on, by name, or null. */
 	cred: string | null;
-	/** The cell the Auto pick page is set on, `bugfix.deep`, or null. */
+	/** The cell the Autopick page is set on, `bugfix.deep`, or null. */
 	cell: string | null;
 	/** The ship run the Ships page shows, by id, or null. */
 	shipRun: string | null;

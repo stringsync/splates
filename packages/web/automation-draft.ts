@@ -24,7 +24,7 @@ export interface DraftFields {
 	/** The interval or cron line, for a schedule. */
 	schedule: string;
 	kind: Hook["kind"];
-	/** The agent an agent hook runs as; null for Auto pick. */
+	/** The agent an agent hook runs as; null for Autopick. */
 	pick: AgentPick | null;
 	prompt: string;
 	command: string;
@@ -81,7 +81,7 @@ export class AutomationDraft implements Eventful<AutomationDraftEvents> {
 			const { kind, prompt, agent, ...rest } = hook;
 			fields.kind = kind;
 			fields.prompt = prompt;
-			// No agent named runs on Auto pick.
+			// No agent named runs on Autopick.
 			fields.pick = agent === undefined ? null : { agent, ...rest };
 		}
 		draft.fields = fields;

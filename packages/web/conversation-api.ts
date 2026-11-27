@@ -42,9 +42,9 @@ export async function startConversation(
 		 * not start where this one leaves its settings.
 		 */
 		assigned?: boolean;
-		/** Whether Auto pick chooses its model and effort from the first message. */
+		/** Whether Autopick chooses its model and effort from the first message. */
 		autoPick?: boolean;
-		/** Whether the person picked the model in the composer, which Auto pick then keeps. */
+		/** Whether the person picked the model in the composer, which Autopick then keeps. */
 		modelChosen?: boolean;
 		/** The queued task this live conversation was started on while it waits. */
 		queuedTask?: number;
@@ -70,7 +70,7 @@ export async function startConversation(
 	})) as ConversationState;
 }
 
-/** A new conversation's first message for Auto pick to judge, in `task`'s tree or the main tree for null. */
+/** A new conversation's first message for Autopick to judge, in `task`'s tree or the main tree for null. */
 export interface AutoWords {
 	attachments?: { name: string; mimeType: string }[];
 	words: string;
@@ -82,12 +82,12 @@ export interface AutoWords {
 }
 
 /**
- * Starts a conversation on what Auto pick decides for a task: a started one
+ * Starts a conversation on what Autopick decides for a task: a started one
  * by name, in its tree, or a queued one by number, in the main tree. Send its
  * prompt as for any start; the agent opens on the pick once the judge has
  * answered.
  */
-export async function startAutoPick(
+export async function startAutopick(
 	target: { task: string } | { todo: number } | AutoWords,
 	/** The project it starts in, else the one this page shows. */
 	project?: string,
@@ -303,8 +303,8 @@ export async function chooseSetting(
 	});
 }
 
-/** Switches Auto pick on or off for conversation `id`'s model and effort. */
-export async function switchAutoPick(id: string, on: boolean): Promise<void> {
+/** Switches Autopick on or off for conversation `id`'s model and effort. */
+export async function switchAutopick(id: string, on: boolean): Promise<void> {
 	await sendJson(`/api/conversations/${id}/auto-pick`, "PUT", { on });
 }
 

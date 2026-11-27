@@ -73,6 +73,42 @@ describe("fireTaskEvent", () => {
 		]);
 	});
 
+	it("passes each shell hook's id and name to the run action", async () => {
+		const seen: Array<{ id: string; name?: string }> = [];
+		automations = [
+			{
+				...automation(
+					"4",
+					{ event: "task.created" },
+					{ kind: "run", command: "check" },
+				),
+				name: "Check Vexflow",
+			},
+			automation(
+				"config:task.created",
+				{ event: "task.created" },
+				{ kind: "run", command: "config-check" },
+			),
+		];
+		await fireTaskEvent(eventOf("task.created", [1]), automations, {
+			runs,
+			task: async () => null,
+			now: () => "2026-10-19T00:00:00.000Z",
+			actions: {
+				run: async (_command, _fired, id, name) => {
+					seen.push({ id, name });
+				},
+				agent: async () => {},
+			},
+			log: new MemoryLogger(),
+		});
+
+		expect(seen).toEqual([
+			{ id: "4", name: "Check Vexflow" },
+			{ id: "config:task.created", name: undefined },
+		]);
+	});
+
 	it("runs one set to every Nth match on each Nth, counting on", async () => {
 		automations = [
 			automation(

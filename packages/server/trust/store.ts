@@ -179,6 +179,16 @@ export class TrustStore {
 		});
 	}
 
+	/** The files last remembered for `task` in `project`, or null when none are recorded. */
+	async latestTaskFiles(
+		project: string,
+		task: string,
+	): Promise<readonly string[] | null> {
+		const snapshots = await this.taskFiles.read();
+		const latest = snapshots?.[taskFilesKey({ project, task })]?.at(-1);
+		return latest?.files ?? null;
+	}
+
 	/** Appends `decision` if its `id` has not been recorded yet. */
 	async record(decision: TrustDecision): Promise<boolean> {
 		return (await this.recordMany([decision])) > 0;

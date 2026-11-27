@@ -557,6 +557,46 @@ describe("dev conversations", () => {
 		expect(local.status).toBe(200);
 	});
 
+	it("treats a task with an active premerge (mergeSince) as merging during pause", async () => {
+		await withAlpha();
+		const alpha = await deps.service.find("alpha");
+		await alpha.take({
+			status: "working",
+			mergeSince: new Date().toISOString(),
+			gate: "running",
+		});
+		const release = Promise.withResolvers<void>();
+		agent.turn = async (_client, _sessionId, text) => {
+			said.push(text);
+			if (said.length === 1) {
+				await release.promise;
+			}
+			return "end_turn";
+		};
+		const id = await start(port, "alpha");
+		const conversation = await conversations.find(id);
+		await eventually(async () => conversation.state.status === "idle", 2_000);
+		void conversation.prompt("merge it");
+		await eventually(
+			async () => conversation.state.status === "running",
+			2_000,
+		);
+
+		const paused = await json(
+			port,
+			`/api/conversations/${id}/pause`,
+			"POST",
+			{},
+		);
+		expect(paused.status).toBe(200);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(agent.cancelled).toBe(0);
+
+		release.resolve();
+		await eventually(async () => said.length >= 2, 2_000);
+		expect(said[1]).toContain("[SPLATES CHECKPOINT]");
+	});
+
 	it("refuses a start from another site", async () => {
 		const response = await fetch(
 			`http://127.0.0.1:${server.port}/api/conversations`,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
 import { Board, NO_BOARD } from "./board";
+import { ImagePreviewsContext } from "./image-previews";
 import { linkElsewhere, linkTasks, Markdown } from "./markdown";
 import { joinImageRuns } from "./media";
 import { NamedContext } from "./mentioned";
@@ -154,7 +155,7 @@ describe("Markdown", () => {
 		// The page asked, and the 404 brought the alt text back.
 		expect(container.querySelector("img")).toBeNull();
 		expect(container.textContent).toContain("the header: unavailable");
-		expect(container.textContent).toContain("splates attach");
+		expect(container.textContent).not.toContain("splates attach");
 	});
 
 	it("plays a recording by absolute path", () => {
@@ -224,6 +225,32 @@ describe("Markdown", () => {
 		expect(run.querySelectorAll("video")).toHaveLength(3);
 		expect(page.getByRole("button", { name: "view lone" })).toBeTruthy();
 		expect(page.container.textContent).toContain("Then this.");
+	});
+
+	it("renders each item inline when image previews are expanded, opening the lightbox on the one clicked", async () => {
+		const page = render(
+			<ImagePreviewsContext value={true}>
+				<Markdown
+					text={"![first run](/abs/a.webm)\n\n![second run](/abs/b.mp4)"}
+				/>
+			</ImagePreviewsContext>,
+		);
+
+		expect(
+			page.queryByRole("button", { name: "view 2 recordings" }),
+		).toBeNull();
+		expect(page.container.querySelectorAll("video")).toHaveLength(2);
+		expect(
+			[...page.container.querySelectorAll("video")].every(
+				(video) => video.controls,
+			),
+		).toBe(true);
+
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "view second run" })),
+		);
+		const lightbox = await waitFor(() => page.getByRole("dialog"));
+		expect(lightbox.textContent).toContain("second run2 of 2");
 	});
 
 	it("steps through a document's media from the lightbox's thumbnails", async () => {

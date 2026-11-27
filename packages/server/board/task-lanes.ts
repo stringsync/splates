@@ -389,27 +389,36 @@ export class TaskLanes {
 	 * has no record. A file that will not parse reads as none.
 	 */
 	async records(states: TaskRecord[]): Promise<LaneRecord[]> {
-		const records = await this.read("lanes");
-		if (!records.some((record) => record.id === BACKLOG_LANE)) {
-			records.push({
-				id: BACKLOG_LANE,
-				name: "Backlog",
-				board: DEFAULT_BOARD,
-			});
-		}
-		// A lane whose board is gone, or one from before boards, is on the
-		// default board; Backlog is always there.
-		const boards = await this.boards();
-		const placed = records.map((record) =>
-			record.id === BACKLOG_LANE ||
-			!boards.some((board) => board.id === record.board)
-				? { ...record, board: DEFAULT_BOARD }
-				: record,
-		);
-		// Backlog is static: always the first lane.
-		const backlog = placed.filter((record) => record.id === BACKLOG_LANE);
-		const others = placed.filter((record) => record.id !== BACKLOG_LANE);
-		return named(states, [...backlog, ...others]);
+		const [records, boards] = await Promise.all([
+			this.read("lanes"),
+			this.boards(),
+		]);
+		return placeLanes(states, records, boards);
+	}
+
+	/**
+	 * @internal Boards, active lanes, and every lane name ever used, read once
+	 * from `states` so a snapshot does not re-read tasks, lanes, or boards.
+	 */
+	async snapshot(states: TaskRecord[]): Promise<{
+		boards: BoardRecord[];
+		lanes: LaneRecord[];
+		laneNames: LaneRecord[];
+	}> {
+		const [boards, stored, ended] = await Promise.all([
+			this.boards(),
+			this.read("lanes"),
+			this.read("ended-lanes"),
+		]);
+		const lanes = placeLanes(states, stored, boards);
+		return {
+			boards,
+			lanes,
+			laneNames: [
+				...lanes,
+				...ended.filter(({ id }) => !lanes.some((record) => record.id === id)),
+			],
+		};
 	}
 
 	/**
@@ -514,6 +523,29 @@ export class TaskLanes {
 			`${JSON.stringify(records, null, "\t")}\n`,
 		);
 	}
+}
+
+/** Places stored lanes on valid boards with Backlog first, adding unnamed task lanes. */
+function placeLanes(
+	states: TaskRecord[],
+	records: LaneRecord[],
+	boards: readonly BoardRecord[],
+): LaneRecord[] {
+	const withBacklog = records.some((record) => record.id === BACKLOG_LANE)
+		? records
+		: [...records, { id: BACKLOG_LANE, name: "Backlog", board: DEFAULT_BOARD }];
+	// A lane whose board is gone, or one from before boards, is on the
+	// default board; Backlog is always there.
+	const placed = withBacklog.map((record) =>
+		record.id === BACKLOG_LANE ||
+		!boards.some((board) => board.id === record.board)
+			? { ...record, board: DEFAULT_BOARD }
+			: record,
+	);
+	// Backlog is static: always the first lane.
+	const backlog = placed.filter((record) => record.id === BACKLOG_LANE);
+	const others = placed.filter((record) => record.id !== BACKLOG_LANE);
+	return named(states, [...backlog, ...others]);
 }
 
 /** `name` trimmed, refused when empty or another board's. */

@@ -60,6 +60,53 @@ describe("evalRunOf", () => {
 		);
 		expect(run?.report).toEqual({ status: "pass" });
 	});
+
+	it("reads faults appended after done, replacing on a later faults list", () => {
+		const run = evalRunOf(
+			"a.jsonl",
+			fileOf(
+				START,
+				{ type: "done", report: { status: "fail" } },
+				{
+					type: "fault",
+					area: "skill",
+					detail: "Missing guidance on option order.",
+				},
+				{
+					type: "fault",
+					area: "judge",
+					detail: "Rubric does not name the expected sequence.",
+				},
+			),
+		);
+		expect(run?.faults).toEqual([
+			{ area: "skill", detail: "Missing guidance on option order." },
+			{ area: "judge", detail: "Rubric does not name the expected sequence." },
+		]);
+
+		const revised = evalRunOf(
+			"a.jsonl",
+			fileOf(
+				START,
+				{ type: "done", report: { status: "fail" } },
+				{ type: "fault", area: "harness", detail: "Old guess." },
+				{
+					type: "faults",
+					faults: [
+						{ area: "skill", detail: "Skill omitted natural ordering." },
+						{
+							area: "environment",
+							detail: "Sandbox started with a task open.",
+						},
+					],
+				},
+			),
+		);
+		expect(revised?.faults).toEqual([
+			{ area: "skill", detail: "Skill omitted natural ordering." },
+			{ area: "environment", detail: "Sandbox started with a task open." },
+		]);
+	});
 });
 
 describe("ConversationEvals.cancel", () => {
@@ -67,7 +114,7 @@ describe("ConversationEvals.cancel", () => {
 	const NAME = "2026-11-26-files.jsonl";
 	let fs: FakeFs;
 	let timer: FakeTimer;
-	let state: Pick<ConversationState, "id" | "evals">;
+	let state: Pick<ConversationState, "id" | "evals" | "hasEvals">;
 	let said: string[];
 	let evals: ConversationEvals;
 
@@ -138,5 +185,19 @@ describe("ConversationEvals.cancel", () => {
 			cancelled: "2026-11-26T12:01:45.000Z",
 		});
 		expect(state.evals?.[0]?.stopped).toBeUndefined();
+		expect(state.hasEvals).toBe(true);
+	});
+
+	it("marks the conversation as having evals once a live run starts", async () => {
+		await evals.follow();
+		expect(state.hasEvals).toBeUndefined();
+
+		await fs.write(`${DIR}/${NAME}`, fileOf(START));
+		timer.fireTimeouts();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(state.evals).toHaveLength(1);
+		expect(state.hasEvals).toBe(true);
+		evals.dispose();
 	});
 });

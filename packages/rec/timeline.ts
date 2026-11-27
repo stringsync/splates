@@ -186,6 +186,7 @@ interface TimelineEvent extends EventTarget {
 	structure?: string;
 	trigger?: string;
 	sourceAt?: number;
+	shape?: "arrow" | "box";
 	area?: number[];
 	elements?: EventTarget[];
 	label?: string;
@@ -246,10 +247,17 @@ export function eventPointers(text: string, startedAt: number): Pointer[] {
 			case "highlight": {
 				const [left, top, width, height] = event.area ?? [];
 				const over = (event.elements ?? []).map(target).join(", ");
+				const verb =
+					event.shape === "arrow"
+						? "pointed arrow"
+						: event.shape === "box"
+							? "boxed"
+							: "highlighted";
+				const prep = event.shape === "arrow" ? "at" : "over";
 				out.push({
 					at,
 					label: "pointer",
-					text: `highlighted ${width}x${height} at ${left},${top}${over ? ` over ${over}` : ""}${still}`,
+					text: `${verb} ${width}x${height} at ${left},${top}${over ? ` ${prep} ${over}` : ""}${still}`,
 				});
 				break;
 			}

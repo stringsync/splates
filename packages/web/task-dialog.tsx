@@ -27,7 +27,7 @@ import {
 	useHeldConversations,
 } from "./handed-out";
 import { ActionBar, useRetry } from "./task-actions";
-import { AutoPickFact } from "./task-auto-pick";
+import { AutopickFact } from "./task-autopick";
 import { TaskIcon } from "./task-icon";
 import { Overview } from "./task-overview";
 import { planParts } from "./task-plan-parts";
@@ -334,8 +334,8 @@ function Facts({
 	}
 	if (task.autoPick !== null) {
 		facts.push([
-			"Auto pick",
-			<AutoPickFact key="auto-pick" picked={task.autoPick} />,
+			"Autopick",
+			<AutopickFact key="auto-pick" picked={task.autoPick} />,
 		]);
 	}
 	if (task.planProblems.length > 0) {

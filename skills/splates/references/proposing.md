@@ -21,8 +21,9 @@ Read the band on your `trust:` line (or your row in `splates trust`).
   then carry on in the same turn on your picks. Wait only when a question
   always asks (shipping, spending, deletions, security).
 
-Use the following shape for a plan card. Include what could change the user's
-decision.
+Use the following shape for a plan card, keeping the colons inside `**Goal:**`,
+`**Details:**`, and `**Tags:**` so the card splits each section. Include what
+could change the user's decision.
 
 - `**Goal:**` one sentence on what you are trying to do, read back from
   the request so a misunderstanding shows at once. Say the aim, not today's
@@ -34,8 +35,10 @@ decision.
   alone (`- **Retry a failed scan three times** with backoff.`), then the
   specifics in plain text; the card draws them as rows. A call that could
   go either way is a question with your pick, not a bullet.
-- `**Tags:**` one `- <Tag>: <why>` item per tag, each with a short reason,
-  from this fixed set (use the names exactly):
+- `**Tags:**` one `- <Tag>: <why>` bullet per line, plain text (no bold on
+  `<Tag>`, no `Undo:` / `Size:` / `Area:` / `Watch out:` category prefix, and
+  never comma-separated), each with a short reason, from this fixed set (use
+  the names exactly):
   - Undo, exactly one: `Clean revert` (reverting the merge undoes all of
     it), `Revert + cleanup` (a revert leaves something behind, such as
     stored records, files or settings; the reason names the cleanup) or

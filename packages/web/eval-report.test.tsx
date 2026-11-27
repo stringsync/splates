@@ -79,15 +79,56 @@ describe("an eval-report fence", () => {
 		const highlights = page.getByLabelText("Highlights");
 		expect(highlights.textContent).toContain("Checked splates trust");
 		expect(highlights.textContent).toContain("Edited README.md");
-		expect(highlights.textContent).toContain("Jev:");
+		expect(highlights.textContent).toContain(
+			"Jev judged the reply and transcript:",
+		);
 		expect(highlights.textContent).toContain("Treated [SPLATES APPROVE]");
 
-		const fault = page.getByLabelText("Fault");
-		expect(fault.textContent).toContain("Skill fault ·");
-		expect(fault.textContent).toContain("a plan must be approved before edits");
+		const wentWrong = page.getByLabelText("What went wrong");
+		expect(wentWrong.textContent).toContain("Skill ·");
+		expect(wentWrong.textContent).toContain(
+			"a plan must be approved before edits",
+		);
 	});
 
-	it("draws a passing run report with no fault footer and pins the judge to the live reply", () => {
+	it("renders multiple diagnosed areas underneath the checks", () => {
+		const page = render(
+			<Markdown
+				text={`\`\`\`eval-report\n${JSON.stringify({
+					...failReport(),
+					fault: null,
+					change: null,
+					faults: [
+						{
+							area: "skill",
+							detail: "Does not say to keep natural choice order.",
+						},
+						{
+							area: "judge",
+							detail: "Rubric omits the expected sequence.",
+						},
+						{
+							area: "environment",
+							detail: "Sandbox started with an open task.",
+						},
+						{
+							area: "prompt",
+							detail: "User prompt hinted at the answer.",
+						},
+					],
+				})}\n\`\`\``}
+			/>,
+		);
+
+		const highlights = page.getByLabelText("Highlights");
+		const wentWrong = within(highlights).getByLabelText("What went wrong");
+		expect(wentWrong.textContent).toContain("Skill ·");
+		expect(wentWrong.textContent).toContain("Judge ·");
+		expect(wentWrong.textContent).toContain("Environment ·");
+		expect(wentWrong.textContent).toContain("Prompt ·");
+	});
+
+	it("draws a passing run report with no fault section and pins the judge to the live reply", () => {
 		const page = render(
 			<Markdown
 				text={`\`\`\`eval-report\n${JSON.stringify(passReport())}\n\`\`\``}
@@ -96,8 +137,10 @@ describe("an eval-report fence", () => {
 
 		expect(page.getByText("Eval passed")).toBeTruthy();
 		expect(page.getByText("Haiku 4.5 · R2 · 11s")).toBeTruthy();
-		expect(page.queryByLabelText("Fault")).toBeNull();
-		expect(page.getByLabelText("Highlights").textContent).toContain("Jev:");
+		expect(page.queryByLabelText("What went wrong")).toBeNull();
+		expect(page.getByLabelText("Highlights").textContent).toContain(
+			"Jev judged the reply and transcript:",
+		);
 	});
 
 	it("shows runner errors in the highlights list", () => {
@@ -121,7 +164,9 @@ describe("an eval-report fence", () => {
 		expect(page.getByLabelText("Highlights").textContent).toContain(
 			"agent timed out after 60s",
 		);
-		expect(page.getByLabelText("Fault").textContent).toContain("Harness fault");
+		expect(page.getByLabelText("What went wrong").textContent).toContain(
+			"Harness",
+		);
 	});
 
 	it("stays code when the fence is not a valid report", () => {

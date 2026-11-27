@@ -19,7 +19,7 @@ none.
   them eagerly, for every task that touches UI and for any design question a
   picture would settle. UI work plans two or more variants before any code.
   Build each as a throwaway mock in plain HTML in a scratch directory outside
-  the worktree, capture it, `splates attach` it and put it under its own
+  the worktree, capture it, and put it as `![what](/abs/path.png)` under its own
   choice, lettered A, B, C in order, one image each.
   - Fidelity: the more, the better. Prefer hi-fi (the app's own CSS or
     components, real copy and colors) whenever it is trivial, for instance
@@ -31,18 +31,17 @@ none.
     design it first and let the desktop add to it (more columns, side
     panels, room to breathe) without changing what the phone does. Every
     mock of a web UI must look good at both sizes: capture a phone width
-    (about 390px) and a desktop width (about 1280px), attach both, and show
+    (about 390px) and a desktop width (about 1280px), and show
     them together under the same choice. A desktop-only mock is not done.
   - A pick means build it. A pick with words, or a request for more, means
     another round at the same fidelity or higher, asked the same way: each
-    variant its own attached image under its own choice.
+    variant its own image under its own choice.
 - **Backend: a D2 diagram.** Write the D2 source (a sequence, flow, data or
   state diagram, whichever the change is) in a fenced block tagged exactly
   `d2` in the plan card itself, under a short heading for what it shows,
   after the plan's lines with no prose beside it. The page draws it as an
   SVG; an untagged fence stays plain code, and invalid source shows as a code
-  block, so check the syntax. It needs no `d2` binary, render, screenshot or
-  attach. A plan for such a change is not ready until its diagram is in it.
+  block, so check the syntax. It needs no `d2` binary, render or screenshot. A plan for such a change is not ready until its diagram is in it.
 
   ````markdown
   ### Flow
@@ -62,7 +61,7 @@ screen has no before, so say so). The after is the intent: the planned
 diagram, or the mockup. Label each `Before` and `After`, and label a mock as a
 mock.
 
-## Capturing and attaching
+## Capturing and showing
 
 **Deliver screenshots before asking for visual review.** A tool preview is
 visible to you, not to the user. To capture, use the browser tool when you
@@ -70,25 +69,19 @@ have one; otherwise headless Chrome from Bash (`"/Applications/Google
 Chrome.app/Contents/MacOS/Google Chrome" --headless=new --screenshot=out.png
 --window-size=720,480 file:///…`), or any installed Chromium.
 
-Save the capture outside the worktree, run `splates attach <file>`, and paste
-the image Markdown it prints, `![what](/abs/path.png)`, into your reply
-outside a code block, using the stored path it returns, never the original
-capture path. Only attached files show on the page (inline in `SPLATES.md`
-and replies alike, with `.mp4`, `.webm` and `.mov` played as video), so never
-point a question at a file anywhere else. A filename, plain link or “see
-screenshot” does not deliver an image. If attaching fails, report the failure
-rather than claiming the user can see it. For task evidence, put the same
-image under `## After` in `SPLATES.md`.
+Save the capture outside the worktree and write it into your reply as standard
+Markdown, `![what](/abs/path.png)`, by absolute path and outside a code block.
+No command is needed: `splates server` validates each local image or recording
+it finds in a reply or in `SPLATES.md`, copies it, and keeps it with the
+conversation (`.mp4`, `.webm` and `.mov` play as video). A file under `##
+After` in `SPLATES.md` is also kept with the finished task. A filename, plain
+link, bare path or “see screenshot” does not deliver an image, and neither does
+a path inside a code block. If the file is missing or not a valid image or
+video, it does not show: report that rather than claiming the user can see it.
 
-`splates attach` works from a task worktree or a conversation. With no task
-open it keeps the file with the conversation (`$SPLATES_CONVERSATION`, set by
-`splates server`); when that is unset it fails with `usage`, so pass
-`--conversation <id>` for the first try to succeed. With neither a task nor a
-conversation, `splates add` the task first and attach from its worktree.
-Attached from a conversation, a file stays with it past the task, so the
-question still shows it when the user scrolls back; attached outside one, it
-goes when the task does. Either way, one the final `SPLATES.md` shows is
-copied to keep with the finished task.
+`splates attach <file>` still stores a file for a queued task or for use
+outside a conversation, and prints the `![what](/abs/path.png)` to paste; a
+conversation reply never needs it.
 
 ## Pictures in questions
 
@@ -114,8 +107,7 @@ gate, a design talk with no task).
 
 Before any code, make sure `SPLATES.md` holds the agreed plan:
 `## Before` and `## After` with the plan's short summary, and
-`## Verification` with its mock images inline (the stored paths
-`splates attach` printed, not the scratch captures), each answered call folded
+`## Verification` with its mock images inline (as `![what](/abs/path.png)`), each answered call folded
 in. When the plan was written before the task existed, `splates add` it now
 and write the sections then with the same images, so they are the *Expected*
 that *As built* later pairs with. Never leave the pictures only in the reply,
@@ -123,15 +115,19 @@ and never re-capture them.
 
 ## Artifacts
 
-Use artifacts proactively when the conversation warrants something the user
-can explore or return to, especially HTML artifacts: an interactive
-explanation, a comparison of options, a diagram with details to inspect, or
-a small tool for trying scenarios. Do not wait for the user to ask for an
-artifact when one would make the work easier to understand or judge. Choose
-one when its visual structure or interaction adds value, rather than for
-every reply. Screenshots remain the first choice for showing what the actual
-UI looks like, with recordings for behavior over time; an HTML artifact can
-complement that evidence, labelled as a mockup or simulation when it is one.
+Build a self-contained HTML artifact proactively, without waiting to be asked,
+whenever the user is weighing options across scenarios, exploring a system
+with moving parts, inspecting a detailed diagram, or trying inputs and
+tradeoffs. In those cases, do not settle for a plain Markdown table or wall of
+prose alone: write a complete, single-file `.html` document (`<!doctype html>`,
+`<html>`, `<body>` with styles, scripts, and assets inline, never a bare
+fragment) that lets the user interactively compare, filter, or explore the
+material, add it with `splates artifact add <file>`, and give a brief summary
+in your reply that points to it. Skip HTML artifacts for simple, one-off
+answers where plain text is already clearest. Screenshots remain the first
+choice for showing what the actual UI looks like, with recordings for behavior
+over time; an HTML artifact can complement that evidence, labelled as a mockup
+or simulation when it is one.
 
 An artifact is a file the user will come back for after the task is gone: a
 screenshot or recording of the finished work, an HTML page, a generated
@@ -151,15 +147,15 @@ scripts and images inline; anything else is offered as a download.
 - It needs a conversation: `$SPLATES_CONVERSATION` from `splates server`, or
   `--conversation <id>` from outside it.
 
-Most files you show are not artifacts: a screenshot that shows a question or
-sits in a report's card serves the moment it is shown in, so it stays inline
-through `splates attach`. Make a file an artifact only when the user would
-look for it on its own, apart from the reply it came in.
+Most screenshots and recordings are not artifacts: an image that illustrates a
+question or sits in a report's card serves the moment it is shown in, so it
+stays inline in the reply. Make a screenshot or recording an artifact only when
+the user would come back for it on its own, apart from the reply it came in.
 
 ### Artifact space
 
 One file may be 50 MB, one conversation's artifacts 250 MB and the project's
-2 GB, counting kept versions and, toward the last two, files attached from
+2 GB, counting kept versions and, toward the last two, media kept from
 conversations (`artifactFileCapacity`, `artifactConversationCapacity`,
 `artifactProjectCapacity` in `splates.config.ts`). Past the project's limit
 `splates server` evicts the oldest bytes first (removed and earlier versions,

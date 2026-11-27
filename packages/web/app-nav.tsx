@@ -36,7 +36,7 @@ import { SetupDot } from "./setup-state";
 import { ShipRecapIndicator } from "./ship-recap-indicator";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
-import { useAutoPickImprovements } from "./use-auto-pick-improvements";
+import { useAutopickImprovements } from "./use-autopick-improvements";
 import {
 	useShipFailed,
 	useShipsRunning,
@@ -106,7 +106,7 @@ export function AppNav({
 			? orphanCount(snapshot.tasks, conversations)
 			: 0;
 	const asking = useShipsWaiting().length;
-	const improvements = useAutoPickImprovements()?.count ?? 0;
+	const improvements = useAutopickImprovements()?.count ?? 0;
 	const shipsRunning = useShipsRunning();
 	const shipFailed = useShipFailed();
 	const tab = ({ value, label, Icon, shortcut }: (typeof PAGES)[number]) => (

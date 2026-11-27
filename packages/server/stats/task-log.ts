@@ -1,7 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import { agentTurn, fold, tally } from "../agents";
 import { LEGACY_PLAN_FILE } from "../config";
-import type { AutoPickSet, Entry, LiftReason, Pairing } from "../conversations";
+import type { AutopickSet, Entry, LiftReason, Pairing } from "../conversations";
 import {
 	blank,
 	type ConversationState,
@@ -40,7 +40,7 @@ export async function taskLog(
 	let requested: string | null = null;
 	const overrides: TaskLog["overrides"] = [];
 	const lifts: TaskLog["lifts"] = [];
-	let picked: AutoPickSet | null = null;
+	let picked: AutopickSet | null = null;
 	for (const entry of entries) {
 		const at = "at" in entry && typeof entry.at === "string" ? entry.at : null;
 		if (at !== null && at > until) {
@@ -169,7 +169,7 @@ export interface TaskLog {
 	 * they said, or the task's end.
 	 */
 	waitedMs: number;
-	/** What the person set the model or effort to after Auto pick, in order. */
+	/** What the person set the model or effort to after Autopick, in order. */
 	overrides: {
 		aspect: "model" | "effort";
 		value: string;
@@ -178,13 +178,13 @@ export interface TaskLog {
 		result?: Pairing;
 	}[];
 	/**
-	 * Each time Auto pick moved the conversation after it started, with the
+	 * Each time Autopick moved the conversation after it started, with the
 	 * pick it was on before (null when the log kept none) and why; `why` is
 	 * absent on lifts logged before it was kept.
 	 */
 	lifts: {
-		from: AutoPickSet | null;
-		to: AutoPickSet;
+		from: AutopickSet | null;
+		to: AutopickSet;
 		why?: LiftReason;
 		at: string;
 	}[];

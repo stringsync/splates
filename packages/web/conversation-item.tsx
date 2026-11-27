@@ -42,7 +42,7 @@ import {
 } from "./conversation-api";
 import { useArchive } from "./conversation-archive";
 import { unnamed, useNameOf } from "./conversation-names";
-import { automated, shipped } from "./conversation-rows";
+import { automated, evaluated, shipped } from "./conversation-rows";
 import { Trunk, whereRuns } from "./dispatching";
 import { useExpect, usePendingConversation } from "./expecting";
 import { isDisconnected, Mark } from "./mark";
@@ -54,7 +54,7 @@ import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
 import { automaticWait, boardRef, useRowStatus } from "./row-status";
 
-/** The round mark of a conversation's agent at the left of its row, tinted for an automation or a ship. */
+/** The round mark of a conversation's agent at the left of its row, tinted for an automation, an eval, or a ship. */
 export function ItemIcon({
 	conversation,
 	agent,
@@ -72,6 +72,7 @@ export function ItemIcon({
 			className={cn(
 				"relative flex shrink-0 items-center justify-center rounded-full bg-muted",
 				automated(conversation) && "bg-violet-500/15",
+				evaluated(conversation) && "bg-orange-500/15",
 				shipped(conversation) && "bg-sky-500/15",
 				nested ? "size-6" : "size-7",
 			)}

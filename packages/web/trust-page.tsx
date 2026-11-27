@@ -145,6 +145,9 @@ export function TrustPage(): JSX.Element {
 				title="Trust"
 				tabs={
 					<TabsList variant="line" aria-label="Trust views">
+						<TabsTrigger value="key" className="px-2">
+							How it works
+						</TabsTrigger>
 						<TabsTrigger value="models" className="px-2">
 							Models
 						</TabsTrigger>
@@ -153,9 +156,6 @@ export function TrustPage(): JSX.Element {
 						</TabsTrigger>
 						<TabsTrigger value="assumptions" className="px-2">
 							Assumptions
-						</TabsTrigger>
-						<TabsTrigger value="key" className="px-2">
-							How it works
 						</TabsTrigger>
 					</TabsList>
 				}

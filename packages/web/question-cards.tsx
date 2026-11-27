@@ -1,3 +1,4 @@
+import type { PlanTrusted } from "@splates/server/conversations";
 import type { PlanCard, Question, TaskReport } from "@splates/server/plans";
 import {
 	type Answer,
@@ -51,6 +52,7 @@ export function QuestionCards({
 	onSent,
 	trust = [],
 	agent = "",
+	wentAhead = null,
 }: {
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
@@ -90,6 +92,12 @@ export function QuestionCards({
 	trust?: readonly ScoredDecision[];
 	/** The agent's display name, for the trust change's details. */
 	agent?: string;
+	/**
+	 * The trust the agent went ahead on the plan with before the person
+	 * answered it: drawn as a line of splates's saying so, the card opening
+	 * from it for changes. Null while the plan waits, or has none.
+	 */
+	wentAhead?: PlanTrusted | null;
 }): JSX.Element {
 	const { reply, sent, askedAgain } = useCardReply();
 	// Answered, or asked again below, it is history: a line of splates's,
@@ -488,7 +496,7 @@ export function QuestionCards({
 			<CardShell
 				{...questionHeading(questions.length, escalation, undefined, planned)}
 				aside={
-					planned !== null && live ? (
+					planned !== null && live && wentAhead === null ? (
 						<span className="text-muted-foreground text-xs">
 							Awaiting approval
 						</span>
@@ -513,6 +521,33 @@ export function QuestionCards({
 				{shell}
 			</div>
 		);
+	if (sent === null && !askedAgain && planned !== null && wentAhead !== null) {
+		// Gone ahead on trust: a line of splates's says the person did not
+		// approve it, its card opening below for changes.
+		return (
+			<div className="my-6">
+				<SplatesEvent
+					event={{
+						mark: "trusted",
+						// One string, so it wraps on a phone rather than overflowing.
+						words: [
+							`Plan approved on trust, not by you · ${wentAhead.score}/100`,
+						],
+						act: {
+							label: shown ? "Hide" : "Show",
+							run: () => {
+								if (!shown) {
+									setDecision("revise");
+								}
+								setShown(!shown);
+							},
+						},
+					}}
+				/>
+				{shown && card}
+			</div>
+		);
+	}
 	if (sent === null && !askedAgain) {
 		return card;
 	}

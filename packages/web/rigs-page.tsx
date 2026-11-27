@@ -5,7 +5,7 @@ import type {
 	RunView,
 } from "@splates/server/rigs/browser";
 import { useReactive, useResource } from "core/react";
-import { ChevronRightIcon, PlayIcon, RefreshCwIcon } from "lucide-react";
+import { ChevronRightIcon, RefreshCwIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { renderAnsiLine } from "./ansi-line";
 import { rigsPage, stopRun } from "./api/rigs";
@@ -332,7 +332,6 @@ function RigGroup({
 							aria-label={`Start ${rig.label}`}
 							onClick={() => onStart(rig)}
 						>
-							<PlayIcon />
 							Start
 						</Button>
 					</li>

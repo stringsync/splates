@@ -1,5 +1,5 @@
 import type { Resource } from "core/disposable";
-import { startAutoPick } from "../auto-pick";
+import { startAutopick } from "../autopick";
 import { type Conversations, SERVER_TOLD } from "../conversations";
 import {
 	type Automation,
@@ -39,6 +39,7 @@ export class Automations implements Resource {
 		| ((name: string, payload: unknown) => Promise<void>)
 		| undefined;
 	readonly #clocks: (() => ClockShelf | undefined) | undefined;
+	readonly #serverUrl: (() => string | null) | undefined;
 	readonly #slug: () => Promise<string>;
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
@@ -56,9 +57,12 @@ export class Automations implements Resource {
 		raise?: (name: string, payload: unknown) => Promise<void>,
 		/** Where clock schedules are kept, which saved every and cron automations move onto at start. */
 		clocks?: () => ClockShelf | undefined,
+		/** The running server's local URL, passed to shell hooks as `SPLATES_DEV`. */
+		serverUrl?: () => string | null,
 	) {
 		this.#raise = raise;
 		this.#clocks = clocks;
+		this.#serverUrl = serverUrl;
 		this.#slug = slug;
 		this.#project = project;
 		this.#store = new HookStore(
@@ -295,7 +299,7 @@ export class Automations implements Resource {
 			}: {
 				automation?: string;
 				automationName?: string;
-				/** What Auto pick judges, for no `pick`: the hook's own prompt. */
+				/** What Autopick judges, for no `pick`: the hook's own prompt. */
 				words?: string;
 			},
 		): Promise<void> => {
@@ -308,7 +312,7 @@ export class Automations implements Resource {
 			};
 			const conversation =
 				pick === null
-					? await startAutoPick({
+					? await startAutopick({
 							project: this.#project,
 							conversations,
 							slug: this.#slug,
@@ -344,12 +348,23 @@ export class Automations implements Resource {
 			now: () => new Date().toISOString(),
 			log,
 			actions: {
-				run: async (command, fired) => {
+				run: async (command, fired, id, name) => {
+					const url = this.#serverUrl?.() ?? null;
 					const { exitCode, stderr } = await ps.spawnCapture(
 						["sh", "-c", command],
 						{
 							cwd: root,
-							env: envOf(fired),
+							env: {
+								...envOf(fired),
+								SPLATES_HOOK: hookIdentity(id, name),
+								...(url === null ? {} : { SPLATES_DEV: url }),
+							},
+							// A shell hook runs for the server, never under a conversation or rig it may have inherited.
+							unset: [
+								"SPLATES_CONVERSATION",
+								"ARBOR_CONVERSATION",
+								"SPLATES_RIG",
+							],
 							...("signal" in fired
 								? { stdin: JSON.stringify(fired.payload ?? null) }
 								: {}),
@@ -404,6 +419,11 @@ function referenceOf(fired: Fired): string {
 		: "event" in fired
 			? eventReference(fired.event.name, fired.event.numbers, fired.event.task)
 			: scheduleReference(fired.schedule);
+}
+
+/** What `SPLATES_HOOK` names a shell hook as: its given name when set, else its id. */
+function hookIdentity(id: string, name?: string): string {
+	return name?.trim() || id;
 }
 
 /** Whether `signal` is a one-time clock, `clock.in(...)` or `clock.at(...)`, which fires once. */

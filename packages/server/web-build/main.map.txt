@@ -5,6 +5,6 @@
     "// The page's entry, which only starts the app. The app and every page loaded on\n// demand import what they share from each other by content-hashed name, which\n// they could not from an entry file the shell asks for under a `?v=` of its\n// own: the browser would run it twice.\nawait import(\"./main.tsx\");\n"
   ],
   "mappings": ";AAIA,KAAM",
-  "debugId": "5F390EC7CD725F1C64756E2164756E21",
+  "debugId": "A17BC01EEA96278664756E2164756E21",
   "names": []
 }

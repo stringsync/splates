@@ -57,7 +57,8 @@ in the splates repository) documents each one, and its defaults are in
 `task.updated`, `task.queued`, `task.started`, `task.done` and
 `task.dropped`. The command gets the event in `$SPLATES_EVENT`, its tasks'
 numbers in `$SPLATES_TASKS`, comma separated, and a started task's name in
-`$SPLATES_TASK`. Shell commands only: a hook that runs an agent spends one
+`$SPLATES_TASK`, and the hook's identity in `$SPLATES_HOOK` (which also lets it
+run `splates signal fire` without a conversation). Shell commands only: a hook that runs an agent spends one
 person's tokens, so each person adds their own from the Setup page or
 `splates hook add`.
 
@@ -118,7 +119,7 @@ In code, `new Scopes(config, repoName).of(path)` answers
 | `removedCapacity`              | `50`           | Removed task names kept, so `remove` can say "already removed".                                      |
 | `finishedCapacity`             | `50000`        | Finished tasks kept, with their `SPLATES.md`; the newest 5,000 also keep attachment copies.                                    |
 | `logCapacity`                  | `1000`         | Events the log holds before it is moved aside and a fresh one starts.                                |
-| `attachmentCapacity`           | 100 MiB        | Bytes of `splates attach` files one task may hold.                                                   |
+| `attachmentCapacity`           | 100 MiB        | Bytes of `splates attach` files one task may hold (queued-task and CLI use; inline images in replies are kept by the server).                                                   |
 | `artifactFileCapacity`         | 50 MiB         | Bytes one artifact may be.                                                                           |
 | `artifactConversationCapacity` | 250 MiB        | Bytes of artifacts one conversation may keep ([showing.md](showing.md#artifact-space)).                         |
 | `artifactProjectCapacity`      | 2 GiB          | Bytes of artifacts every conversation in the project may keep together.                              |

@@ -4,7 +4,7 @@ import { type ModelProvider, modelProvider } from "./model-provider";
 import type { Outcome } from "./outcomes";
 
 /**
- * How often the person moved a conversation off what Auto pick set for one
+ * How often the person moved a conversation off what Autopick set for one
  * cell of its routes: a kind at a depth, `unsure` for either the judge was
  * not sure of.
  */

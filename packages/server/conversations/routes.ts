@@ -123,9 +123,12 @@ export class ConversationRoutes {
 			}
 			const worktree =
 				task === null ? null : await this.projectService().find(task);
+			const merging =
+				worktree !== null &&
+				(worktree.status === "merging" || worktree.mergeSince !== null);
 			asked.push(
 				conversation
-					.checkpoint(worktree?.status === "merging", budget)
+					.checkpoint(merging, budget)
 					.catch(() => {})
 					.then(() => conversation.answered()),
 			);
@@ -241,10 +244,10 @@ export class ConversationRoutes {
 				).map(([id, value]) => [id, String(value)]),
 			),
 		});
-		// Auto pick's model and effort for the agent the person picked: the
+		// Autopick's model and effort for the agent the person picked: the
 		// first message decides them, before the agent reads it.
 		if (autoPick === true) {
-			conversation.switchAutoPick(true, chosen === true);
+			conversation.switchAutopick(true, chosen === true);
 		}
 		return Response.json(conversation.state);
 	};
@@ -380,7 +383,10 @@ export class ConversationRoutes {
 		}
 		const worktree =
 			task === null ? null : await this.projectService().find(task);
-		void conversation.pause(worktree?.status === "merging").catch(() => {});
+		const merging =
+			worktree !== null &&
+			(worktree.status === "merging" || worktree.mergeSince !== null);
+		void conversation.pause(merging).catch(() => {});
 		return Response.json(conversation.state);
 	};
 
@@ -459,10 +465,10 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
-	readonly switchAutoPick = async (request: Request): Promise<Response> => {
+	readonly switchAutopick = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { on } = await body(request);
-		conversation.switchAutoPick(on === true);
+		conversation.switchAutopick(on === true);
 		return Response.json(conversation.state);
 	};
 

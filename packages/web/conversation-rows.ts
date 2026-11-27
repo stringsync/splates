@@ -89,6 +89,17 @@ export function shipped(conversation: ConversationState): boolean {
 	return conversation.ship !== undefined;
 }
 
+/**
+ * Whether `conversation` ran a live eval, which the sidebar and the inbox
+ * mark with a flask, as they mark a ship with a ship and an automation with
+ * a bolt.
+ */
+export function evaluated(conversation: ConversationState): boolean {
+	return (
+		conversation.hasEvals === true || (conversation.evals?.length ?? 0) > 0
+	);
+}
+
 /** Whether a row's conversation is pinned atop the list. */
 function pinned(row: Needing): boolean {
 	return row.conversation?.pinned === true;

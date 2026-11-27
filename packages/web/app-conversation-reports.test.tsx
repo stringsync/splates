@@ -159,6 +159,7 @@ describe("App's report cards", () => {
 			HTMLElement.prototype,
 			"scrollHeight",
 		);
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so scrollHeight is always 0
 		Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
 			configurable: true,
 			get: () => 1600,
@@ -181,6 +182,7 @@ describe("App's report cards", () => {
 			await waitFor(() => expect(thread.scrollTop).toBe(1600));
 		} finally {
 			Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+			// vet-ignore no-monkeypatching: restores HTMLElement.prototype.scrollHeight after test
 			Object.defineProperties(
 				HTMLElement.prototype,
 				height ? { scrollHeight: height } : {},
@@ -194,6 +196,7 @@ describe("App's report cards", () => {
 			HTMLElement.prototype,
 			"offsetHeight",
 		) as PropertyDescriptor;
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so offsetHeight is always 0
 		Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
 			configurable: true,
 			get: () => 120,
@@ -228,6 +231,7 @@ describe("App's report cards", () => {
 			act(() => button.focus());
 			expect(thread.style.scrollPaddingBottom).toBe("120px");
 		} finally {
+			// vet-ignore no-monkeypatching: restores HTMLElement.prototype.offsetHeight after test
 			Object.defineProperty(HTMLElement.prototype, "offsetHeight", height);
 		}
 	});

@@ -301,8 +301,8 @@ export interface Served extends AsyncResource {
 	chooseDefault: Handler;
 	startShipTask(task: string, ship: string): Promise<void>;
 	startConversation: Handler;
-	startAutoPick: Handler;
-	tryAutoPick: Handler;
+	startAutopick: Handler;
+	tryAutopick: Handler;
 	listSessions: Handler;
 	bringSession: Handler;
 	/**
@@ -332,7 +332,7 @@ export interface Served extends AsyncResource {
 	unqueueConversation: Handler;
 	sendQueuedNow: Handler;
 	chooseSetting: Handler;
-	switchAutoPick: Handler;
+	switchAutopick: Handler;
 	renameConversation: Handler;
 	markUnread: Handler;
 	markRead: Handler;

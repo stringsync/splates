@@ -3,16 +3,21 @@ import type { IdProvider } from "core/id";
 import type { Fs, Lock } from "core/system";
 import type { Timer, WallClock } from "core/time";
 import type { Agent, Launch, Launcher, Watch } from "../agents";
-import type { ArtifactLimits, ArtifactRoom } from "../artifacts";
+import type {
+	ArtifactLimits,
+	ArtifactRoom,
+	InlineMediaScanOptions,
+} from "../artifacts";
 import type { Reach } from "../projects";
 import type { Storage } from "../storage";
 import type { Grant, WorkerMachine } from "../workers";
 import type { ConversationLog } from "./log";
 import type {
-	AutoPickSet,
+	AutopickSet,
 	ConversationState,
 	LiftReason,
 	Message,
+	PlanTrusted,
 	QueueSpot,
 } from "./state";
 
@@ -25,7 +30,7 @@ export interface ConversationHost {
 	readonly state: ConversationState;
 	/**
 	 * The person set the model or effort since the last turn ended, which
-	 * Auto pick leaves alone for the turn under way; a turn's end clears it.
+	 * Autopick leaves alone for the turn under way; a turn's end clears it.
 	 */
 	personChose: boolean;
 	readonly log: ConversationLog;
@@ -49,16 +54,18 @@ export interface ConversationHost {
 	unarchive(): Promise<void>;
 	/** Marks it `unread` or not. */
 	flag(unread: boolean): void;
-	/** Sets `settings`, by id, as Auto pick moves it up to `pick`. */
+	/** Captures validated local media referenced in the latest agent reply. */
+	captureMedia(opts?: InlineMediaScanOptions): Promise<void>;
+	/** Sets `settings`, by id, as Autopick moves it up to `pick`. */
 	lift(
 		settings: Record<string, string>,
-		pick: AutoPickSet,
+		pick: AutopickSet,
 		why?: LiftReason,
 	): Promise<void>;
 }
 
 /**
- * Auto pick's second look at `said`, what the person says next in
+ * Autopick's second look at `said`, what the person says next in
  * `conversation`, before its agent reads it: it may move the conversation
  * up with `lift`.
  */
@@ -66,6 +73,15 @@ export type Lift = (
 	conversation: ConversationHost,
 	said: readonly Message[],
 ) => Promise<void>;
+
+/**
+ * The trust that lets `conversation`'s agent go ahead on a plan without the
+ * person's approval: its band and score when that is ask-and-go or above,
+ * null below it.
+ */
+export type PlanTrust = (
+	conversation: ConversationHost,
+) => Promise<PlanTrusted | null>;
 
 export type ConversationEvents = { changed: undefined; chosen: string };
 
@@ -121,8 +137,14 @@ export interface ConversationDeps {
 	root: string | null;
 	/** The splates projects on this machine, for `#slug`. */
 	projects: ProjectRoster;
-	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
+	/** What looks again at what the person says in a conversation Autopick started; null for nothing. */
 	lift?: Lift | null;
+	/** What reads the trust an agent went ahead on a plan with; null for nothing. */
+	planTrust?: PlanTrust | null;
+	/** Whether `path` is already owned by project storage and needs no copy. */
+	ownsMedia?: (path: string) => boolean;
+	/** Whether `task` has an active merge under way (rebase, checks, gate, or landing). */
+	isMerging?: (task: string) => Promise<boolean>;
 }
 
 /** A project's way into the machine's queue for places on workers (`Scheduler`). */

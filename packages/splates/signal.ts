@@ -20,7 +20,12 @@ async function post(
 	path: string,
 	body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-	const server = await serverOf(ctx as Parameters<typeof serverOf>[0]);
+	const server = await serverOf({
+		ps: ctx.ps,
+		fs: ctx.fs,
+		log: ctx.log,
+		send: ctx.fetch,
+	});
 	if (server === null) {
 		fail(
 			"usage",
@@ -52,7 +57,7 @@ for (const name of ["fire", "raise"] as const) {
 		.command(name)
 		.use(repository({ needs: "own" }))
 		.description(
-			"fire a signal, as `mdom.released`, with an optional JSON payload: every conversation waiting on it at this moment wakes with it. Agents and splates-managed rigs can fire signals. Firing it again later is a new firing",
+			"fire a signal, as `mdom.released`, with an optional JSON payload: every conversation waiting on it at this moment wakes with it. Agents, splates-managed rigs and server-run shell hooks can fire signals. Firing it again later is a new firing",
 		)
 		.arg("name", z.string(), {
 			description:
@@ -82,11 +87,19 @@ for (const name of ["fire", "raise"] as const) {
 				);
 			}
 			const rig =
-				opts.conversation === "" ? ctx.ps.env("SPLATES_RIG") : undefined;
+				opts.conversation === ""
+					? ctx.ps.env("SPLATES_RIG")?.trim() || undefined
+					: undefined;
+			const hook =
+				opts.conversation === ""
+					? ctx.ps.env("SPLATES_HOOK")?.trim() || undefined
+					: undefined;
 			const by = rig
 				? `rig:${rig}`
-				: ((await here(ctx)) ??
-					(await conversationOf(ctx.service, opts.conversation)));
+				: hook
+					? `hook:${hook}`
+					: ((await here(ctx)) ??
+						(await conversationOf(ctx.service, opts.conversation)));
 			const answer = await post(ctx, "/api/signals/raise", {
 				name: opts.name,
 				by,

@@ -137,7 +137,7 @@ describe("QueueRunner", () => {
 		expect(started).toEqual([]);
 	});
 
-	it("starts queued tasks in dependency order, once each, on the model each names or Auto pick's", async () => {
+	it("starts queued tasks in dependency order, once each, on the model each names or Autopick's", async () => {
 		await taskAdd(deps, "Breakdowns", null, {
 			assignee: { agent: "claude", model: "sonnet" },
 		});
@@ -497,7 +497,7 @@ describe("QueueRunner", () => {
 		expect(held.held).toEqual([]);
 	});
 
-	it("holds no conversation for a task that names no agent while it waits for room, so none sits at an agent Auto pick only guessed", async () => {
+	it("holds no conversation for a task that names no agent while it waits for room, so none sits at an agent Autopick only guessed", async () => {
 		await taskAdd(deps, "One", null);
 		await taskAdd(deps, "Two", null);
 		await queueAdd(deps, [1, 2]);
@@ -534,7 +534,7 @@ describe("QueueRunner", () => {
 		expect(held.held.map((each) => each.agent)).toEqual(["codex"]);
 	});
 
-	it("starts a task that names no agent on what Auto pick decides as it starts, held and told there", async () => {
+	it("starts a task that names no agent on what Autopick decides as it starts, held and told there", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await queueAdd(deps, [1]);
 		picker.decides = { agent: "codex", model: "o3", effort: "high" };
@@ -550,7 +550,7 @@ describe("QueueRunner", () => {
 		expect(picker.told).toEqual([{ queued: 1, conversation: "h1" }]);
 	});
 
-	it("has Auto pick judge an ungroomed Backlog task that names no agent as it is added, not one in a lane", async () => {
+	it("has Autopick judge an ungroomed Backlog task that names no agent as it is added, not one in a lane", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await taskAdd(deps, "Named", null, {
 			assignee: { agent: "codex", model: "o3" },
@@ -566,7 +566,7 @@ describe("QueueRunner", () => {
 		expect(started).toEqual([]);
 	});
 
-	it("keeps the agent a task names, asking Auto pick nothing", async () => {
+	it("keeps the agent a task names, asking Autopick nothing", async () => {
 		await taskAdd(deps, "Totals first", null, {
 			assignee: { agent: "codex", model: "o3" },
 		});
@@ -601,7 +601,7 @@ describe("QueueRunner", () => {
 		expect(held.held.map(({ queued }) => queued)).toEqual([2]);
 	});
 
-	it("tries a refused start again only once its task changes, not for what Auto pick kept on it", async () => {
+	it("tries a refused start again only once its task changes, not for what Autopick kept on it", async () => {
 		await taskAdd(deps, "Totals first", null);
 		await queueAdd(deps, [1]);
 		picker.keeps = async (queued) => {

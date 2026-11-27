@@ -157,7 +157,14 @@ export function UnusedQuota({
 
 				<ul className="divide-y">
 					{report.plans.map((plan) => (
-						<PlanUnusedRow key={plan.provider} plan={plan} />
+						<PlanUnusedRow
+							key={
+								plan.group === undefined
+									? plan.provider
+									: `${plan.provider}:${plan.group}`
+							}
+							plan={plan}
+						/>
 					))}
 				</ul>
 			</div>
@@ -183,8 +190,13 @@ function PlanUnusedRow({ plan }: { plan: UnusedQuotaPlan }): JSX.Element {
 			? `Resets ${shortDay(plan.current.resets.slice(0, 10))}`
 			: "Waiting for limits";
 
+	const label =
+		plan.group === undefined
+			? nameOf(plan.provider)
+			: `${nameOf(plan.provider)} · ${plan.group}`;
+
 	return (
-		<li aria-label={`${nameOf(plan.provider)} unused quota`}>
+		<li aria-label={`${label} unused quota`}>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -198,9 +210,7 @@ function PlanUnusedRow({ plan }: { plan: UnusedQuotaPlan }): JSX.Element {
 						style={{ background: color }}
 					/>
 					<span className="flex min-w-0 flex-col">
-						<span className="truncate font-medium text-sm">
-							{nameOf(plan.provider)}
-						</span>
+						<span className="truncate font-medium text-sm">{label}</span>
 						<span className="truncate text-muted-foreground text-xs">
 							{plan.monthlyPrice !== null
 								? `${plan.plan ?? "Plan"} · ${dollars(plan.monthlyPrice)}/mo`

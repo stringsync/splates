@@ -17,7 +17,7 @@ import {
 	type Session,
 } from "../agents";
 import { type ArtifactLimits, ArtifactRoom } from "../artifacts";
-import type { Health } from "../auto-pick/health";
+import type { Health } from "../autopick/health";
 import { ARTIFACT_LIMITS, systemPs } from "../config";
 import { fail } from "../exit";
 import type { Limits, Offered } from "../models";
@@ -34,6 +34,7 @@ import type {
 	ConversationPlacer,
 	ConversationsEvents,
 	Lift,
+	PlanTrust,
 	ProjectRoster,
 } from "./host";
 import { NoopProjectRoster } from "./noop-project-roster";
@@ -79,7 +80,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
-	/** Where provider errors are kept for Auto pick to avoid a failing model; null for none. */
+	/** Where provider errors are kept for Autopick to avoid a failing model; null for none. */
 	readonly health: Health | null;
 	private readonly adherence: Adherence | null;
 	private readonly outcomes: Outcomes | null;
@@ -90,6 +91,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster;
+	private readonly ownsMedia: ((path: string) => boolean) | undefined;
+	private readonly isMerging: ((task: string) => Promise<boolean>) | undefined;
 	private readonly artifacts: ArtifactLimits;
 	/** What every conversation's artifacts make room through, across the project. */
 	private readonly room: ArtifactRoom;
@@ -101,8 +104,10 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly asked = new Map<string, number>();
 	/** Where `splates server` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
-	/** What looks again at what the person says in a conversation Auto pick started; null for nothing. */
+	/** What looks again at what the person says in a conversation Autopick started; null for nothing. */
 	lift: Lift | null = null;
+	/** What reads the trust an agent went ahead on a plan with; null for nothing. */
+	planTrust: PlanTrust | null = null;
 
 	/** Replaces the agents new conversations can start with; running ones keep theirs. */
 	refreshRoster(agents: Agent[]): void {
@@ -140,6 +145,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 		this.projects = opts.projects ?? new NoopProjectRoster();
+		this.ownsMedia = opts.ownsMedia;
+		this.isMerging = opts.isMerging;
 		this.artifacts = opts.artifacts ?? ARTIFACT_LIMITS;
 		this.room = new ArtifactRoom({
 			storage: this.storage,
@@ -164,6 +171,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			get lift() {
 				return conversations.lift;
 			},
+			get planTrust() {
+				return conversations.planTrust;
+			},
 			fs: this.fs,
 			kimiHome: this.kimiHome,
 			antigravityHome: this.antigravityHome,
@@ -182,6 +192,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			watch: this.watch,
 			root: this.root,
 			projects: this.projects,
+			...(this.ownsMedia === undefined ? {} : { ownsMedia: this.ownsMedia }),
+			...(this.isMerging === undefined ? {} : { isMerging: this.isMerging }),
 		};
 	}
 
@@ -333,7 +345,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			/** The ship whose adoption task it runs, by its id. */
 			ship?: string;
 			/**
-			 * What Auto pick decides, once it has, to open on in place of
+			 * What Autopick decides, once it has, to open on in place of
 			 * `agent`, `model` and `settings`, which it shows meanwhile.
 			 */
 			picking?: Promise<Picked<string>>;

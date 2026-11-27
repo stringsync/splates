@@ -1,6 +1,6 @@
 import type { Fs, Ps } from "core/system";
 import { SystemWallClock } from "core/time";
-import { AutoPickStore } from "../auto-pick/scoring";
+import { AutopickStore } from "../autopick/scoring";
 import { Exit, fail } from "../exit";
 import { Roster, splatesHome } from "../models";
 import type { Event } from "../records";
@@ -40,7 +40,7 @@ export class DevOutcomes {
 	private readonly dismissed: Document<number>;
 	private readonly improvementsDismissed: Document<string>;
 	private readonly roster: Roster;
-	private readonly autoPick: AutoPickStore;
+	private readonly autoPick: AutopickStore;
 	private readonly clock = new SystemWallClock();
 	/** What `splates server` judged of each conversation as its turns ended. */
 	readonly adherence: Adherence;
@@ -52,7 +52,7 @@ export class DevOutcomes {
 		const storage = new FsStorage(splatesHome(ps), fs);
 		this.outcomes = new Outcomes(storage);
 		this.roster = Roster.in(storage);
-		this.autoPick = new AutoPickStore(storage.path("auto-pick.json"), { fs });
+		this.autoPick = new AutopickStore(storage.path("auto-pick.json"), { fs });
 		this.dismissed = storage.document("auto-pick-overrides-dismissed.json");
 		this.improvementsDismissed = storage.document(
 			"auto-pick-improvements-dismissed.json",
@@ -80,7 +80,7 @@ export class DevOutcomes {
 		);
 	};
 
-	/** How Auto pick’s recorded tasks ended over the requested window. */
+	/** How Autopick’s recorded tasks ended over the requested window. */
 	readonly scorecard: Handler = async (request) => {
 		const period = new URL(request.url).searchParams.get("period") ?? "7d";
 		if (!isPeriodId(period)) {
@@ -216,7 +216,7 @@ export class DevOutcomes {
 	};
 
 	/**
-	 * The words of the board task that has an agent propose Auto pick rule
+	 * The words of the board task that has an agent propose Autopick rule
 	 * changes from every recorded task's scorecard, or null when no cell is
 	 * flagged.
 	 */

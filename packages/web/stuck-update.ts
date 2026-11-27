@@ -8,7 +8,7 @@ import {
 } from "./conversation-address";
 import {
 	promptConversation,
-	startAutoPick,
+	startAutopick,
 	startConversation,
 } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -59,7 +59,7 @@ export async function sendStuckToAgent(
 	}
 	if (targetSlug === undefined) {
 		const state = await (startsAuto(NEW) || feed.agents.length === 0
-			? startAutoPick({ words: text, task: null })
+			? startAutopick({ words: text, task: null })
 			: startConversation(
 					agentFor(NEW, feed.agents, feed.conversations),
 					null,
@@ -73,7 +73,7 @@ export async function sendStuckToAgent(
 		onOpen(state.id);
 		return;
 	}
-	const state = await startAutoPick({ words: text, task: null }, targetSlug);
+	const state = await startAutopick({ words: text, task: null }, targetSlug);
 	await promptConversation(
 		state.id,
 		text,

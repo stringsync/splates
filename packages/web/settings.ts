@@ -215,6 +215,11 @@ export const SETTINGS = {
 		"Show or hide the open conversation's widgets.",
 		"Alt+Mod+Slash",
 	),
+	"shortcuts.imagePreviews": shortcut(
+		"Image previews",
+		"Expand or collapse all image previews in the open conversation.",
+		"Alt+Mod+KeyP",
+	),
 	"shortcuts.terminal": shortcut(
 		"Terminal",
 		"Show or hide the open conversation's terminal.",

@@ -53,6 +53,7 @@ describe("App on a touch device", () => {
 			"main",
 			"Terminal",
 			"Hand to a new agent",
+			"Image previewsCollapsed",
 			"Show timestamps",
 			"Archive",
 		]);

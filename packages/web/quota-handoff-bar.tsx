@@ -1,4 +1,8 @@
 import type { ConversationState, Limit } from "@splates/server/conversations";
+import {
+	antigravityGroups,
+	antigravityModelInGroup,
+} from "@splates/server/models/browser";
 import { useReactive } from "core/react";
 import {
 	ChevronDownIcon,
@@ -100,11 +104,23 @@ export function QuotaHandoffBar({
 		return null;
 	}
 
+	const currentChoice = snapshot.agents.find(
+		(each) => each.id === conversation.agent,
+	);
+	const currentModel =
+		conversation.settings.find(
+			(each) => each.category === "model" || each.id === "model",
+		)?.current ??
+		currentChoice?.settings.find(
+			(each) => each.category === "model" || each.id === "model",
+		)?.current ??
+		conversation.autoPick?.model;
 	const candidates = candidateAgentQuotas(
 		conversation.agent,
 		snapshot.agents,
 		snapshot.conversations,
 		now,
+		currentModel ?? undefined,
 	);
 	if (candidates.length === 0) {
 		return null;
@@ -125,7 +141,7 @@ export function QuotaHandoffBar({
 		setDismissedKey(state.cycleKey);
 	};
 
-	const handOff = (targetAgent: string): void => {
+	const handOff = (targetAgent: string, targetModel?: string): void => {
 		if (handingOff) {
 			return;
 		}
@@ -136,7 +152,9 @@ export function QuotaHandoffBar({
 					feed.put(archived);
 				}
 				return context.dispatch.beginWith(
-					{ agent: targetAgent },
+					targetModel === undefined
+						? { agent: targetAgent }
+						: { agent: targetAgent, model: targetModel },
 					conversation.task,
 					prompt,
 				);
@@ -199,16 +217,22 @@ export function QuotaHandoffBar({
 							<DropdownMenuGroup>
 								<DropdownMenuLabel>Hand off to</DropdownMenuLabel>
 								{candidates.map(
-									({ agent: candidate, out: exhausted, used, tone }) => (
+									({
+										key,
+										agent: candidate,
+										label,
+										model,
+										out: exhausted,
+										used,
+										tone,
+									}) => (
 										<DropdownMenuItem
-											key={candidate.id}
+											key={key}
 											disabled={exhausted || handingOff}
-											onClick={() => handOff(candidate.id)}
+											onClick={() => handOff(candidate.id, model)}
 										>
 											<AgentMark agent={candidate.id} name={candidate.name} />
-											<span className="min-w-0 flex-1 truncate">
-												{candidate.name}
-											</span>
+											<span className="min-w-0 flex-1 truncate">{label}</span>
 											{exhausted ? (
 												<span className="shrink-0 font-medium text-destructive text-xs">
 													Out of quota
@@ -267,11 +291,17 @@ export interface QuotaHandoffState {
 	cycleKey: string;
 }
 
-/** Quota availability of another agent offered in the handoff dropdown. */
+/** Quota availability of another agent (or independent quota group) offered in the handoff dropdown. */
 export interface CandidateAgentQuota {
+	/** Stable key for the option (e.g. `"codex"`, `"antigravity:Gemini Models"`). */
+	key: string;
 	agent: AgentChoice;
+	/** Display label in the dropdown (e.g. `"Codex"`, `"Antigravity · Gemini"`). */
+	label: string;
+	/** Model to start on when handing off to a specific quota group. */
+	model?: string;
 	out: boolean;
-	/** Highest active share used across the agent's windows, or null when unreported. */
+	/** Highest active share used across the candidate's windows, or null when unreported. */
 	used: number | null;
 	tone: "warning" | "destructive" | null;
 }
@@ -324,34 +354,121 @@ export function quotaHandoffState(
 }
 
 /**
- * Other agents available to hand off to, with each one's quota status so
- * out-of-quota agents can be disabled.
+ * Other agents (and independent quota groups of the current agent, for
+ * Antigravity) available to hand off to, with each one's quota status so
+ * out-of-quota targets can be disabled.
  */
 export function candidateAgentQuotas(
 	currentAgent: string,
 	agents: AgentChoice[],
 	conversations: ConversationState[],
 	now: number,
+	currentModel?: string,
 ): CandidateAgentQuota[] {
-	return agents
-		.filter((each) => each.id !== currentAgent)
-		.map((agent) => {
-			const raw = limitsOf(agents, conversations, agent.id).filter(
-				(limit) => !limit.window.startsWith("cap:"),
-			);
-			const limits = limitsForCandidate(agent, agents, conversations, raw);
-			if (limits.length === 0) {
-				return { agent, out: false, used: null, tone: null };
+	return agents.flatMap((agent): CandidateAgentQuota[] => {
+		const raw = limitsOf(agents, conversations, agent.id).filter(
+			(limit) => !limit.window.startsWith("cap:"),
+		);
+		if (agent.id === "antigravity") {
+			const groups = antigravityGroups(raw);
+			if (groups.length > 0) {
+				const sameAgent = agent.id === currentAgent;
+				if (sameAgent && (currentModel === undefined || currentModel === "")) {
+					return [];
+				}
+				return groups.flatMap(({ group, label, limits }) => {
+					if (
+						sameAgent &&
+						currentModel !== undefined &&
+						antigravityModelInGroup(currentModel, group)
+					) {
+						return [];
+					}
+					const rows = limits.map((limit) => limitRow(limit, now));
+					const used = Math.max(...rows.map((row) => row.used));
+					const model = modelForAntigravityGroup(
+						agent,
+						agents,
+						conversations,
+						group,
+					);
+					return [
+						{
+							key: `${agent.id}:${group}`,
+							agent,
+							label: `${agent.name} · ${label}`,
+							...(model === undefined ? {} : { model }),
+							out: used >= QUOTA_OUT_AT,
+							used,
+							tone: toneOf(used),
+						},
+					];
+				});
 			}
-			const rows = limits.map((limit) => limitRow(limit, now));
-			const used = Math.max(...rows.map((row) => row.used));
-			return {
+		}
+		if (agent.id === currentAgent) {
+			return [];
+		}
+		const limits = limitsForCandidate(agent, agents, conversations, raw);
+		if (limits.length === 0) {
+			return [
+				{
+					key: agent.id,
+					agent,
+					label: agent.name,
+					out: false,
+					used: null,
+					tone: null,
+				},
+			];
+		}
+		const rows = limits.map((limit) => limitRow(limit, now));
+		const used = Math.max(...rows.map((row) => row.used));
+		return [
+			{
+				key: agent.id,
 				agent,
+				label: agent.name,
 				out: used >= QUOTA_OUT_AT,
 				used,
 				tone: toneOf(used),
-			};
-		});
+			},
+		];
+	});
+}
+
+/** Picks an Antigravity model id belonging to `group`, preferring the last selected one. */
+function modelForAntigravityGroup(
+	agent: AgentChoice,
+	agents: AgentChoice[],
+	conversations: ConversationState[],
+	group: string,
+): string | undefined {
+	const settings = settingsFor("antigravity", agents, conversations);
+	const modelSetting = settings.find(
+		(each) => each.category === "model" || each.id === "model",
+	);
+	if (
+		modelSetting !== undefined &&
+		modelSetting.current !== "" &&
+		antigravityModelInGroup(modelSetting.current, group)
+	) {
+		return modelSetting.current;
+	}
+	const offered = modelSetting?.options.find(
+		(each) =>
+			antigravityModelInGroup(each.value, group) ||
+			antigravityModelInGroup(each.name, group),
+	);
+	if (offered !== undefined) {
+		return offered.value;
+	}
+	const roster = agent.models?.find(
+		(each) =>
+			antigravityModelInGroup(each.id, group) ||
+			antigravityModelInGroup(each.name, group),
+	);
+	return roster?.id;
 }
 
 /** Limits relevant to `agent` when starting a new conversation with it. */

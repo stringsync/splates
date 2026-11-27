@@ -1,6 +1,6 @@
-import type { AutoPicked } from "../auto-pick/record";
+import type { Autopicked } from "../autopick/record";
 import type {
-	AutoPickSet,
+	AutopickSet,
 	Device,
 	Entry,
 	LiftReason,
@@ -374,16 +374,16 @@ export interface Outcome {
 	/** Of `picksAsked`, those answered with the agent's choice but with words added. */
 	picksAmended?: number;
 	/**
-	 * Each time the person set the model or effort of a conversation Auto pick
+	 * Each time the person set the model or effort of a conversation Autopick
 	 * started, with the pick it overrode. Absent from older lines, and for a
-	 * task Auto pick did not start.
+	 * task Autopick did not start.
 	 */
 	overrides?: PickOverride[];
 	/**
-	 * The Auto pick decision, including picks the person later overrode.
+	 * The Autopick decision, including picks the person later overrode.
 	 * An absent value leaves the pick unknown because older outcomes may omit it.
 	 */
-	autoPick?: OutcomeAutoPick;
+	autoPick?: OutcomeAutopick;
 	/**
 	 * Each question its plan asked, with its size and what became of it. Absent from older lines, whose calls the counts above alone keep.
 	 */
@@ -440,7 +440,7 @@ export interface Outcome {
 	model: string | null;
 }
 
-/** One time the person moved a conversation off what Auto pick set. */
+/** One time the person moved a conversation off what Autopick set. */
 export interface PickOverride {
 	/** What they changed. */
 	aspect: "model" | "effort";
@@ -460,8 +460,8 @@ export interface PickOverride {
 	depth: string | null;
 }
 
-/** What Auto pick decided for a task, as its outcome keeps it. */
-export interface OutcomeAutoPick {
+/** What Autopick decided for a task, as its outcome keeps it. */
+export interface OutcomeAutopick {
 	/** The id of the lineup its cell routed to; null on picks before lineups. */
 	lineup: string | null;
 	/** The kind and depth it was taken for; null when the judge was unsure. */
@@ -500,14 +500,14 @@ export interface OutcomeHoldout {
 }
 
 /**
- * What an outcome keeps of `picked`, the Auto pick its task's record holds,
+ * What an outcome keeps of `picked`, the Autopick its task's record holds,
  * and the `lifts` its conversation's log shows after: a lift that left the
  * pick where it was is no lift.
  */
-export function outcomeAutoPick(
-	picked: AutoPicked,
+export function outcomeAutopick(
+	picked: Autopicked,
 	lifts: TaskLog["lifts"],
-): OutcomeAutoPick {
+): OutcomeAutopick {
 	const classification = picked.classified?.classification;
 	return {
 		lineup: picked.lineup ?? null,
@@ -549,7 +549,7 @@ function likeliest(answers: Record<string, number>): number {
 }
 
 /** Whether `left` and `right` start the same agent, model and effort. */
-function samePick(left: AutoPickSet, right: AutoPickSet): boolean {
+function samePick(left: AutopickSet, right: AutopickSet): boolean {
 	return (
 		left.agent === right.agent &&
 		left.model === right.model &&
@@ -557,11 +557,11 @@ function samePick(left: AutoPickSet, right: AutoPickSet): boolean {
 	);
 }
 
-/** One time Auto pick moved a task's conversation after it started. */
+/** One time Autopick moved a task's conversation after it started. */
 export interface OutcomeLift {
 	/** The pick it moved off, null when its log kept none. */
-	from: AutoPickSet | null;
-	to: AutoPickSet;
+	from: AutopickSet | null;
+	to: AutopickSet;
 	/** Why it moved; absent on lifts logged before it was kept. */
 	reason?: LiftReason;
 	at: string;

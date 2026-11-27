@@ -102,6 +102,11 @@ describe("a project's kept snapshot", () => {
 						asked++;
 						return size();
 					};
+					const changed = worktree.changedFiles.bind(worktree);
+					worktree.changedFiles = () => {
+						asked++;
+						return changed();
+					};
 					return worktree;
 				});
 
@@ -112,6 +117,69 @@ describe("a project's kept snapshot", () => {
 				"later",
 			]);
 			expect(asked).toBe(0);
+		});
+	}, 15_000);
+
+	it("invalidates only the affected worktree when one task branch ref moves, and refreshes landings when a task finishes", async () => {
+		await add(deps, "beta");
+		await changes.mkdir((await deps.service.find("beta")).path);
+		await changes.mkdir(`${dirname(deps.splatesDir)}/refs/heads/task`);
+		await serving(deps, async (snapshot) => {
+			await snapshot();
+			const asked: string[] = [];
+			const list = deps.service.list.bind(deps.service);
+			deps.service.list = async () =>
+				(await list()).map((worktree) => {
+					const size = worktree.size.bind(worktree);
+					worktree.size = () => {
+						asked.push(worktree.task);
+						return size();
+					};
+					return worktree;
+				});
+
+			// Moving alpha's branch ref invalidates alpha alone, leaving beta cached.
+			await changes.write(
+				`${dirname(deps.splatesDir)}/refs/heads/task/alpha`,
+				"ref",
+			);
+			await snapshot();
+			expect(asked).toEqual(["alpha"]);
+
+			// Moving main invalidates every task based on main.
+			asked.length = 0;
+			await changes.write(`${dirname(deps.splatesDir)}/refs/heads/main`, "ref");
+			await snapshot();
+			expect(asked.sort()).toEqual(["alpha", "beta"]);
+
+			// Recording a finished task invalidates cached landing notices without a ref move.
+			const alpha = await deps.service.find("alpha");
+			await deps.commit(alpha.path, "README.md", "alpha\n", "alpha edit");
+			await changes.write(`${alpha.path}/README.md`, "alpha\n");
+			await snapshot();
+			await deps.commit(deps.root, "README.md", "trunk\n", "trunk edit");
+			const commit = (await deps.git.run(deps.root, "rev-parse", "HEAD"))
+				.stdout;
+			await deps.service.finished.record({
+				id: 99,
+				task: "gamma",
+				subject: "gamma",
+				ended: "merged",
+				reason: null,
+				base: alpha.base,
+				commit,
+				startedAt: new Date(0).toISOString(),
+				endedAt: new Date().toISOString(),
+				conversation: null,
+				took: [],
+				plan: "",
+			});
+			await changes.write(`${deps.splatesDir}/tasks/changed`, "");
+
+			const latest = await snapshot();
+			const alphaDetails = latest.tasks.find((task) => task.task === "alpha");
+			expect(alphaDetails?.landed?.length).toBe(1);
+			expect(alphaDetails?.landed?.[0]).toContain("gamma landed");
 		});
 	}, 15_000);
 });

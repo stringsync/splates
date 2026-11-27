@@ -3,6 +3,7 @@
 // 8-byte float64 of when the server received it, in wall-clock ms, then the
 // JPEG) and recording chunks the other.
 
+import type { LaserShape } from "./pointer";
 import type { SignalKind } from "./signals";
 
 /** A screencast frame as one binary message: its time, then its JPEG. */
@@ -78,8 +79,8 @@ export type ToControl =
 	| { type: "stop" }
 	/** How many frames the server dropped because the window fell behind. */
 	| { type: "status"; dropped: number }
-	/** Option went down (on) or up in the working tab, the laser trail drawing. */
-	| { type: "laser"; on: boolean }
+	/** Option or Option+Command changed in the working tab, drawing an arrow or box (or off). */
+	| { type: "laser"; on: boolean; shape?: LaserShape }
 	/** A session was saved to this folder. */
 	| { type: "saved"; dir: string }
 	/** The session could not be saved. */
@@ -92,6 +93,8 @@ export type ToControl =
 			kind: SignalKind | "speech";
 			title: string;
 			detail: string;
+			/** For highlight rows: which annotation shape was drawn. */
+			shape?: LaserShape;
 			/** A JPEG of the page then, base64. */
 			thumbnail?: string;
 	  }

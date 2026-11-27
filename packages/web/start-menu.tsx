@@ -16,7 +16,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { AUTOPICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import { useNameOf } from "./conversation-names";
 import type { Assignment } from "./dispatch";
@@ -176,7 +176,7 @@ export function StartAssigned({
 
 /**
  * What `StartMenu` offers, for a menu of its own or one with more in it: the
- * assignee, Auto pick, which starts the agent the person's rules give the
+ * assignee, Autopick, which starts the agent the person's rules give the
  * task, and each agent for a new conversation, then the conversations
  * already going.
  */
@@ -233,7 +233,7 @@ export function StartItems({
 					}}
 				>
 					<AutoIcon colored />
-					{AUTO_PICK_NAME}
+					{AUTOPICK_NAME}
 				</DropdownMenuItem>
 				{dispatch.agents.map((each) => (
 					<DropdownMenuItem

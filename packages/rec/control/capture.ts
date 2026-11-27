@@ -1,5 +1,7 @@
+import { Disposer, disposables, type Resource } from "core/disposable";
 import { Dispatcher, type Eventful } from "core/events";
 import { Duration, SystemTimer, SystemWallClock } from "core/time";
+import type { LaserMode } from "../pointer";
 import {
 	type RecorderStats,
 	type ToControl,
@@ -39,8 +41,8 @@ export interface PanelState {
 	devices: string[];
 	/** The label of the mic in use, when it is open. */
 	device?: string;
-	/** Whether Option is held in the working tab, drawing the laser trail. */
-	laser: boolean;
+	/** Whether Option or Option+Command is held in the working tab, drawing an arrow or box. */
+	laser: LaserMode;
 	/** What rec noticed while recording, newest first. */
 	signals: SignalItem[];
 	/** The words being said right now, so far (empty until the first arrive); null when nobody is speaking. */
@@ -60,7 +62,8 @@ export interface PanelState {
  */
 // The screencast is painted onto a canvas the person never sees, which
 // `MediaRecorder` records with the mic, handing the chunks to the server.
-export class Capture implements Eventful<{ change: PanelState }> {
+export class Capture implements Eventful<{ change: PanelState }>, Resource {
+	private readonly disposer = new Disposer();
 	private readonly dispatcher = new Dispatcher<{ change: PanelState }>();
 	readonly events = this.dispatcher.events;
 	state: PanelState = {
@@ -69,7 +72,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 		mic: location.hash.includes("nomic") ? "none" : "unknown",
 		level: 0,
 		devices: [],
-		laser: false,
+		laser: "off",
 		signals: [],
 		speaking: null,
 	};
@@ -122,24 +125,42 @@ export class Capture implements Eventful<{ change: PanelState }> {
 
 	constructor() {
 		this.socket.binaryType = "arraybuffer";
-		this.socket.addEventListener("message", ({ data }) => this.receive(data));
-		this.timer.setInterval(() => {
-			if (this.last && performance.now() - this.lastDrawn >= REPEAT.ms) {
-				this.draw(this.last);
-				this.stats.repeats++;
-			}
-		}, Duration.ms(100));
+		const onMessage = ({ data }: MessageEvent) => this.receive(data);
+		this.socket.addEventListener("message", onMessage);
+		this.disposer.use(
+			disposables.callback(() => {
+				this.socket.removeEventListener("message", onMessage);
+				this.socket.close();
+			}),
+		);
+		this.disposer.use(
+			this.timer.setInterval(() => {
+				if (this.last && performance.now() - this.lastDrawn >= REPEAT.ms) {
+					this.draw(this.last);
+					this.stats.repeats++;
+				}
+			}, Duration.ms(100)),
+		);
 		// Tries the mic when the panel opens, so a denial shows before Start.
 		this.micTried = location.hash.includes("nomic")
 			? Promise.resolve()
 			: this.choiceKnown.then(() => this.openMic());
-		navigator.mediaDevices.addEventListener("devicechange", () => {
+		const onDeviceChange = () => {
 			void this.listDevices();
-		});
+		};
+		navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
+		this.disposer.use(
+			disposables.callback(() =>
+				navigator.mediaDevices.removeEventListener(
+					"devicechange",
+					onDeviceChange,
+				),
+			),
+		);
 		// Retries a denied mic when the panel regains focus, after the person
 		// allowed it in Chrome's settings. Only before Start: a recorder's stream
 		// cannot take a track once it is running.
-		window.addEventListener("focus", () => {
+		const onFocus = () => {
 			if (
 				this.audio ||
 				this.recorder ||
@@ -158,7 +179,23 @@ export class Capture implements Eventful<{ change: PanelState }> {
 						this.set({ status: "Mic allowed" });
 					}
 				});
-		});
+		};
+		window.addEventListener("focus", onFocus);
+		this.disposer.use(
+			disposables.callback(() => window.removeEventListener("focus", onFocus)),
+		);
+		this.disposer.use(
+			disposables.callback(() => {
+				this.closeMic();
+				this.last?.close();
+				this.last = undefined;
+			}),
+		);
+	}
+
+	/** Releases the socket, timers, listeners and open mic. */
+	dispose(): void {
+		this.disposer.dispose();
 	}
 
 	/** Starts recording, from the staged panel or as soon as it opens. */
@@ -199,7 +236,7 @@ export class Capture implements Eventful<{ change: PanelState }> {
 				stats: { ...this.stats, latency: percentiles(this.latencies) },
 			});
 			this.recorder = undefined;
-			this.set({ phase: "saving", laser: false, status: "Saving…" });
+			this.set({ phase: "saving", laser: "off", status: "Saving…" });
 		})();
 		return this.stopping;
 	}
@@ -285,7 +322,9 @@ export class Capture implements Eventful<{ change: PanelState }> {
 			} else if (message.type === "stop") {
 				void this.stop();
 			} else if (message.type === "laser") {
-				this.set({ laser: message.on });
+				this.set({
+					laser: message.on ? (message.shape ?? "arrow") : "off",
+				});
 			} else if (message.type === "speech-live") {
 				this.set({ speaking: message.text });
 			} else if (message.type === "signal") {

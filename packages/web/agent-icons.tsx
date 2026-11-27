@@ -1,11 +1,11 @@
 import type { ConversationState } from "@splates/server/conversations";
-import { BotIcon, ShipIcon, ZapIcon } from "lucide-react";
+import { BotIcon, FlaskConicalIcon, ShipIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 import { ANTIGRAVITY_MARKUP, ANTIGRAVITY_PATH } from "./antigravity-brand";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import { automated, shipped } from "./conversation-rows";
+import { automated, evaluated, shipped } from "./conversation-rows";
 
 /** Google Gemini's sparkle, from Simple Icons (CC0). */
 const GEMINI_PATH =
@@ -42,9 +42,10 @@ const MARKS: Record<string, { path: string }> = {
 
 /**
  * The mark beside a conversation, named by `name`: its agent's branded mark,
- * the auto picker's while it is picking, its hybrid mark while Auto pick is on,
- * a sky ship for the task of a ship (see `shipped`), or a violet bolt for an
- * automation (see `automated`) such as the groomer, so each reads at a glance.
+ * the autopicker's while it is picking, its hybrid mark while Autopick is on,
+ * a sky ship for the task of a ship (see `shipped`), an orange flask for one
+ * that ran a live eval (see `evaluated`), or a violet bolt for an automation
+ * (see `automated`) such as the groomer, so each reads at a glance.
  */
 export function RowIcon({
 	conversation,
@@ -64,6 +65,19 @@ export function RowIcon({
 					"size-4 shrink-0",
 					className,
 					"fill-sky-500/25 text-sky-600 dark:text-sky-400",
+				)}
+			/>
+		);
+	}
+	if (evaluated(conversation)) {
+		return (
+			<FlaskConicalIcon
+				role="img"
+				aria-label={name}
+				className={cn(
+					"size-4 shrink-0",
+					className,
+					"fill-orange-500/25 text-orange-600 dark:text-orange-400",
 				)}
 			/>
 		);

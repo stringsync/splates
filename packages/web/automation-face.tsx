@@ -23,7 +23,7 @@ import {
 import { Badge } from "#web/components/ui/badge.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { AUTOPICK_NAME, AutoIcon } from "./auto-brand";
 import { Dispatching } from "./dispatching";
 import { Markdown } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
@@ -311,7 +311,7 @@ function Runs({ hook, does }: { hook: Hook; does: string }): JSX.Element {
 				{hook.agent === undefined ? (
 					<>
 						<AutoIcon colored className="size-3.5 shrink-0" />
-						<span className="truncate">{AUTO_PICK_NAME}</span>
+						<span className="truncate">{AUTOPICK_NAME}</span>
 					</>
 				) : (
 					<>

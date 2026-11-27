@@ -1,7 +1,13 @@
 import {
+	BookOpenIcon,
+	BoxIcon,
 	CheckIcon,
 	CircleCheckIcon,
+	CpuIcon,
+	FlaskConicalIcon,
 	HistoryIcon,
+	ListChecksIcon,
+	MessageSquareIcon,
 	ScaleIcon,
 	WrenchIcon,
 	XCircleIcon,
@@ -11,7 +17,11 @@ import type { JSX, ReactNode } from "react";
 import { CardShell } from "./card-shell";
 import { judgeDisplay } from "./eval-judge";
 import { Coded } from "./eval-proposal-card";
-import type { EvalReportLine, EvalRunReport } from "./eval-report";
+import type {
+	EvalReportFault,
+	EvalReportLine,
+	EvalRunReport,
+} from "./eval-report";
 import { Line } from "./work-timeline";
 
 interface HighlightItem {
@@ -32,9 +42,9 @@ export interface LiveItem {
 }
 
 /**
- * The eval run report card: pass/fail `CardShell`, title, responsive
- * two-column body (short transcript + numbered highlights) stacked on phone,
- * and a calm fault/change footer on failure.
+ * The eval run report card: pass/fail `CardShell`, title, and responsive
+ * two-column body (short transcript + numbered checks and, underneath the
+ * checks, what went wrong by area), stacked on phone.
  */
 export function EvalReportCard({
 	report,
@@ -58,10 +68,14 @@ export function EvalReportCard({
 	).length;
 	const liveLines = report.transcript.filter((line) => line.seeded !== true);
 	const { liveItems, highlights } = buildPins(liveLines, report);
+	const faults = faultsOf(report);
+	const hasPins = highlights.some((item) => item.pin !== undefined);
 
 	const hasBody =
-		seededCount > 0 || liveItems.length > 0 || highlights.length > 0;
-	const hasFooter = report.fault !== null || report.change !== null;
+		seededCount > 0 ||
+		liveItems.length > 0 ||
+		highlights.length > 0 ||
+		faults.length > 0;
 
 	return (
 		<div data-slot="eval-report">
@@ -88,86 +102,137 @@ export function EvalReportCard({
 				</h3>
 
 				{hasBody && (
-					<div className="flex flex-col @xl:grid @xl:grid-cols-[1fr_1.15fr] @xl:border-t">
+					<div className="flex flex-col @xl:grid @xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] @xl:border-t">
 						<EvalTranscript seededCount={seededCount} items={liveItems} />
 
 						<section
 							aria-label="Highlights"
 							className="rule-t flex flex-col gap-2 px-4 py-3 @max-md:px-3 @xl:border-t-0 @xl:[background-image:none]"
 						>
-							<ul className="m-0 flex list-none flex-col gap-2 p-0">
-								{highlights.map((item, index) => (
-									<li
-										// biome-ignore lint/suspicious/noArrayIndexKey: highlights never reorder
-										key={index}
-										className="flex items-start gap-2 text-[13px] leading-[1.45] [&_code]:[overflow-wrap:anywhere]"
-									>
-										<span className="mt-px inline-flex shrink-0 items-center gap-1.5">
-											{item.pin !== undefined && <Pin n={item.pin} />}
-											<span
-												className={
-													item.pass
-														? "inline-flex text-emerald-600 dark:text-emerald-400"
-														: "inline-flex text-destructive"
-												}
-											>
-												{item.pass ? (
-													<CheckIcon
-														aria-label="pass"
-														className="size-3.5 stroke-[2.2]"
-													/>
-												) : (
-													<XIcon
-														aria-label="fail"
-														className="size-3.5 stroke-[2.2]"
-													/>
+							{highlights.length > 0 && (
+								<ul className="m-0 flex list-none flex-col gap-2 p-0">
+									{highlights.map((item, index) => (
+										<li
+											// biome-ignore lint/suspicious/noArrayIndexKey: highlights never reorder
+											key={index}
+											className="flex items-start gap-2 text-[13px] leading-[1.45] [&_code]:[overflow-wrap:anywhere]"
+										>
+											<span className="inline-flex h-[1.45em] shrink-0 items-center gap-1.5">
+												{hasPins && (
+													<span className="inline-flex size-[18px] shrink-0 items-center justify-center">
+														{item.pin !== undefined && <Pin n={item.pin} />}
+													</span>
 												)}
-											</span>
-										</span>
-										<span className="min-w-0 flex-1">
-											{item.kind === "judge" && (
-												<span className="mr-1 inline-flex items-center gap-1 font-semibold text-foreground">
-													<ScaleIcon
-														aria-hidden
-														className="size-3.5 text-muted-foreground"
-													/>
-													{item.judgeName}:
+												<span
+													className={
+														item.pass
+															? "inline-flex text-emerald-600 dark:text-emerald-400"
+															: "inline-flex text-destructive"
+													}
+												>
+													{item.pass ? (
+														<CheckIcon
+															aria-label="pass"
+															className="size-3.5 stroke-[2.2]"
+														/>
+													) : (
+														<XIcon
+															aria-label="fail"
+															className="size-3.5 stroke-[2.2]"
+														/>
+													)}
 												</span>
-											)}
-											<Coded text={item.text} />
-										</span>
-									</li>
-								))}
-							</ul>
+											</span>
+											<span className="min-w-0 flex-1">
+												{item.kind === "judge" && (
+													<span className="mr-1 font-semibold text-foreground">
+														{item.judgeName} judged the reply and transcript:
+													</span>
+												)}
+												<Coded text={item.text} />
+											</span>
+										</li>
+									))}
+								</ul>
+							)}
+
+							{faults.length > 0 && (
+								<section
+									aria-label="What went wrong"
+									className={
+										highlights.length > 0
+											? "mt-1.5 flex flex-col gap-2 border-t pt-2.5"
+											: "flex flex-col gap-2"
+									}
+								>
+									<span className="font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.04em]">
+										What went wrong
+									</span>
+									<ul className="m-0 flex list-none flex-col gap-[7px] p-0">
+										{faults.map((item, index) => (
+											<li
+												// biome-ignore lint/suspicious/noArrayIndexKey: faults never reorder
+												key={index}
+												className="flex items-start gap-2 text-[12.5px] leading-[1.44] [&_code]:[overflow-wrap:anywhere]"
+											>
+												<FaultAreaIcon area={item.area} />
+												<span className="min-w-0 flex-1">
+													<b className="font-semibold text-foreground">
+														{capitalize(item.area)}
+														{item.detail !== "" ? " · " : ""}
+													</b>
+													{item.detail !== "" && <Coded text={item.detail} />}
+												</span>
+											</li>
+										))}
+									</ul>
+								</section>
+							)}
 						</section>
 					</div>
-				)}
-
-				{hasFooter && (
-					<section
-						aria-label="Fault"
-						className="rule-t px-4 py-3 @max-md:px-3 [&_code]:[overflow-wrap:anywhere]"
-					>
-						<div className="flex items-start gap-2 text-[13px] leading-[1.45]">
-							<WrenchIcon
-								aria-hidden
-								className="mt-0.5 size-[13px] shrink-0 text-muted-foreground"
-							/>
-							<span className="min-w-0 flex-1">
-								{report.fault !== null && (
-									<b className="font-semibold">
-										{capitalize(report.fault)} fault
-										{report.change !== null ? " · " : ""}
-									</b>
-								)}
-								{report.change !== null && <Coded text={report.change} />}
-							</span>
-						</div>
-					</section>
 				)}
 			</CardShell>
 		</div>
 	);
+}
+
+/** Issues diagnosed for `report`: explicit `faults`, else a legacy `fault`/`change` pair. */
+function faultsOf(report: EvalRunReport): EvalReportFault[] {
+	if (report.faults.length > 0) {
+		return report.faults;
+	}
+	if (report.fault !== null) {
+		return [{ area: report.fault, detail: report.change ?? "" }];
+	}
+	if (report.change !== null) {
+		return [{ area: "note", detail: report.change }];
+	}
+	return [];
+}
+
+/** Quiet monochrome icon matching a diagnosed eval area. */
+function FaultAreaIcon({ area }: { area: string }): JSX.Element {
+	const className = "mt-0.5 size-[13px] shrink-0 text-muted-foreground";
+	switch (area.toLowerCase()) {
+		case "skill":
+			return <BookOpenIcon aria-hidden className={className} />;
+		case "judge":
+			return <ScaleIcon aria-hidden className={className} />;
+		case "environment":
+		case "sandbox":
+			return <BoxIcon aria-hidden className={className} />;
+		case "prompt":
+			return <MessageSquareIcon aria-hidden className={className} />;
+		case "checks":
+		case "check":
+			return <ListChecksIcon aria-hidden className={className} />;
+		case "model":
+			return <CpuIcon aria-hidden className={className} />;
+		case "eval":
+			return <FlaskConicalIcon aria-hidden className={className} />;
+		default:
+			return <WrenchIcon aria-hidden className={className} />;
+	}
 }
 
 /**
@@ -212,7 +277,7 @@ export function EvalTranscript({
 					<div
 						// biome-ignore lint/suspicious/noArrayIndexKey: transcript never reorders
 						key={index}
-						className="flex max-w-[96%] flex-col items-start gap-1.5 self-start"
+						className="flex min-w-0 max-w-[96%] flex-col items-start gap-1.5 self-start"
 					>
 						{block.items.map((item) =>
 							item.line.who === "tool" ? (
@@ -220,12 +285,12 @@ export function EvalTranscript({
 							) : (
 								<div
 									key={item.index}
-									className="inline-flex flex-wrap items-center gap-2"
+									className="flex min-w-0 max-w-full flex-wrap items-center gap-2"
 								>
-									<div className="rounded-2xl rounded-bl-sm border bg-card px-3 py-1.5 text-[13px] text-foreground [&_code]:[overflow-wrap:anywhere]">
+									{item.pin !== undefined && <Pin n={item.pin} />}
+									<div className="min-w-0 max-w-full rounded-2xl rounded-bl-sm border bg-card px-3 py-1.5 text-[13px] text-foreground [overflow-wrap:anywhere] [&_code]:[overflow-wrap:anywhere]">
 										<Coded text={item.line.text} />
 									</div>
-									{item.pin !== undefined && <Pin n={item.pin} />}
 								</div>
 							),
 						)}

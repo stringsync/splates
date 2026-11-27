@@ -5,58 +5,9 @@ import type { Ctx } from "../ctx";
 import { type Step, step } from "../step";
 import type { Bump } from "../target";
 import { releaseTag } from "../unshipped";
-import { next } from "./version";
+import { isSemver, next } from "./version";
 import { WORKFLOW_FILE, WORKFLOW_PATH, workflow } from "./workflow";
 import type { Fold } from "./workspace";
-
-export interface ReleaseOptions {
-	/** The package's name on npm, as `@stringsync/mdom`. */
-	package: string;
-	/** How far the release raises npm's latest version. */
-	bump: Bump;
-	/** The package's public mirror on GitHub, as `stringsync/mdom`. */
-	repository: string;
-	/** The command that tests the package, run from mono's root. */
-	test: string;
-	/** Project-relative globs of otherwise omitted paths to carry, as `skills/vexml/**`. */
-	keep?: readonly string[];
-	/** Project-relative globs of tracked paths to omit; `keep` wins overlaps. */
-	omit?: readonly string[];
-	/** Versions the mirror depends on in place of npm's latest, by package name. */
-	pins?: Record<string, string>;
-	/**
-	 * A command run from the mirror's root after it is written and installed
-	 * and before it is built and committed, so what it changes is in the
-	 * release commit. The release's version is in `SHIP_VERSION`. The publish
-	 * workflow runs it too, before its build.
-	 */
-	prepare?: string;
-	/**
-	 * A command run from the mirror's root after the build, with
-	 * `SHIP_VERSION` set; the mirror step fails when it does, before anything
-	 * is committed.
-	 */
-	check?: string;
-	mirrorTest?: string; // Tests the built mirror from its root, before the commit.
-	/**
-	 * Private packages of other projects to fold into the mirror and the
-	 * build, by package name, with the files each reads from disk.
-	 */
-	fold?: Fold;
-	/**
-	 * What the mirror holds of the project: `project` (the default) its whole
-	 * folder, `package` only the published package's folder, at the mirror's
-	 * root, for a project that keeps the rest private. `keep` and `omit` globs
-	 * and the `mirror/` folder are then relative to the package's folder.
-	 */
-	scope?: "project" | "package";
-	/** Steps of the same target that finish before the first of these. */
-	dependencies?: readonly string[];
-	/** Milliseconds before the first retry of a failed registry query, doubling after (default 2000). */
-	retryDelay?: number;
-	/** Where the mirror checkout and in-progress state live (default: `$XDG_CACHE_HOME/core-ship/npm` or `~/.cache/core-ship/npm`). */
-	cacheDir?: string;
-}
 
 /**
  * The steps of releasing `package` to npm through its public mirror, to spread
@@ -68,6 +19,12 @@ export interface ReleaseOptions {
  *   repository: "stringsync/mdom", test: "bin/mdom test" })
  */
 export function release(opts: ReleaseOptions): Step[] {
+	if (opts.bump !== undefined && opts.version !== undefined) {
+		throw new Error("Pass either bump or version to npm.release, not both");
+	}
+	if (opts.bump === undefined && opts.version === undefined) {
+		throw new Error("Pass either bump or version to npm.release");
+	}
 	const slug = opts.package.replace(/[^\w-]+/g, "-");
 	const cacheDir = opts.cacheDir ?? defaultCacheDir();
 	const statePath = join(cacheDir, `${slug}.json`);
@@ -76,14 +33,14 @@ export function release(opts: ReleaseOptions): Step[] {
 
 	const read = async (): Promise<State> =>
 		JSON.parse(await readFile(statePath, "utf8"));
-	const exists = async () => {
+	const readIfExists = async (): Promise<State | undefined> => {
 		try {
-			await readFile(statePath);
-			return true;
+			return await read();
 		} catch {
-			return false;
+			return undefined;
 		}
 	};
+	const exists = async () => (await readIfExists()) !== undefined;
 	/** Where the package sits in the mirror, whose root is the project folder. */
 	const inMirror = (dir: string) =>
 		opts.scope === "package" ? "." : dir.split("/").slice(1).join("/");
@@ -208,10 +165,46 @@ export function release(opts: ReleaseOptions): Step[] {
 		}),
 		step({
 			id: "version",
-			does: `Pick the next ${opts.bump} of ${opts.package} after what npm has`,
+			does:
+				opts.version !== undefined
+					? `Use ${opts.version} for ${opts.package}`
+					: `Pick the next ${opts.bump} of ${opts.package} after what npm has`,
 			dependencies: ["test"],
-			done: exists,
+			done: async () => {
+				const cached = await readIfExists();
+				if (opts.version !== undefined) {
+					return cached?.version === opts.version;
+				}
+				return cached !== undefined;
+			},
 			run: async (ctx) => {
+				if (opts.version !== undefined) {
+					const placeholder = UNRESOLVED_UPSTREAM.exec(opts.version);
+					if (placeholder) {
+						throw new Error(
+							`Cannot release ${opts.package}: "${opts.version}" is an unresolved upstream version placeholder; pass --upstream ${placeholder[1]}=<version>`,
+						);
+					}
+					if (!isSemver(opts.version)) {
+						throw new Error(
+							`"${opts.version}" is not a clean semantic version for ${opts.package}`,
+						);
+					}
+					const cached = await readIfExists();
+					if (cached?.version === opts.version) {
+						ctx.update(`Releasing ${opts.package}@${opts.version}`);
+						return;
+					}
+					if (await view(ctx, `${opts.package}@${opts.version}`, "version")) {
+						throw new Error(
+							`${opts.package}@${opts.version} is already published on npm`,
+						);
+					}
+					const { dir } = await locate(ctx);
+					await write({ version: opts.version, dir });
+					ctx.update(`Releasing ${opts.package}@${opts.version}`);
+					return;
+				}
 				const { dir, version: declared } = await locate(ctx);
 				const latest = await publishedVersions(ctx);
 				const version = latest
@@ -430,6 +423,70 @@ export function release(opts: ReleaseOptions): Step[] {
 // version, the package's folder, the mirror's release commit, and the mono
 // commit the mirror was written from.
 type State = { version: string; dir: string; sha?: string; monoSha?: string };
+
+interface ReleaseBaseOptions {
+	/** The package's name on npm, as `@stringsync/mdom`. */
+	package: string;
+	/** The package's public mirror on GitHub, as `stringsync/mdom`. */
+	repository: string;
+	/** The command that tests the package, run from mono's root. */
+	test: string;
+	/** Project-relative globs of otherwise omitted paths to carry, as `skills/vexml/**`. */
+	keep?: readonly string[];
+	/** Project-relative globs of tracked paths to omit; `keep` wins overlaps. */
+	omit?: readonly string[];
+	/** Versions the mirror depends on in place of npm's latest, by package name. */
+	pins?: Record<string, string>;
+	/**
+	 * A command run from the mirror's root after it is written and installed
+	 * and before it is built and committed, so what it changes is in the
+	 * release commit. The release's version is in `SHIP_VERSION`. The publish
+	 * workflow runs it too, before its build.
+	 */
+	prepare?: string;
+	/**
+	 * A command run from the mirror's root after the build, with
+	 * `SHIP_VERSION` set; the mirror step fails when it does, before anything
+	 * is committed.
+	 */
+	check?: string;
+	mirrorTest?: string; // Tests the built mirror from its root, before the commit.
+	/**
+	 * Private packages of other projects to fold into the mirror and the
+	 * build, by package name, with the files each reads from disk.
+	 */
+	fold?: Fold;
+	/**
+	 * What the mirror holds of the project: `project` (the default) its whole
+	 * folder, `package` only the published package's folder, at the mirror's
+	 * root, for a project that keeps the rest private. `keep` and `omit` globs
+	 * and the `mirror/` folder are then relative to the package's folder.
+	 */
+	scope?: "project" | "package";
+	/** Steps of the same target that finish before the first of these. */
+	dependencies?: readonly string[];
+	/** Milliseconds before the first retry of a failed registry query, doubling after (default 2000). */
+	retryDelay?: number;
+	/** Where the mirror checkout and in-progress state live (default: `$XDG_CACHE_HOME/core-ship/npm` or `~/.cache/core-ship/npm`). */
+	cacheDir?: string;
+}
+
+export type ReleaseOptions = ReleaseBaseOptions &
+	(
+		| {
+				/** How far the release raises npm's latest version. */
+				bump: Bump;
+				version?: never;
+		  }
+		| {
+				/** The exact semantic version to publish, in place of bumping npm's latest. */
+				version: string;
+				bump?: never;
+		  }
+	);
+
+/** Placeholder version `serve` supplies when planning before an upstream releases. */
+const UNRESOLVED_UPSTREAM = /^the version (.+) releases$/;
 
 /** How many times a registry query that fails other than with E404 is tried. */
 const QUERY_ATTEMPTS = 3;

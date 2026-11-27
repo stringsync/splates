@@ -10,6 +10,7 @@ import {
 	ClockIcon,
 	FileDiffIcon,
 	FolderGit2Icon,
+	ImageIcon,
 	ListPlusIcon,
 	PauseIcon,
 	PlayIcon,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
+import { cn } from "#web/lib/utils.ts";
 import type { Action } from "./actions";
 import { Board } from "./board";
 import { ReviewChanges } from "./changes";
@@ -36,6 +38,7 @@ import { deferredTask } from "./deferred-body";
 import { Dispatching } from "./dispatching";
 import { HandOffItems } from "./hand-off";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
+import { useConversationImagePreviews } from "./image-previews";
 import { usePendingWrites } from "./pending";
 import type { Refuse } from "./refusal";
 import { useStamps } from "./stamp";
@@ -62,7 +65,9 @@ export function useThreadActions(
 	const archive = useArchive(conversation, refused);
 	const archiveKey = useShortcutLabel("shortcuts.archive");
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
+	const previewsKey = useShortcutLabel("shortcuts.imagePreviews");
 	const dispatching = useContext(Dispatching);
+	const imagePreviews = useConversationImagePreviews(id);
 	const stamps = useStamps();
 	const writes = usePendingWrites();
 	const board = useContext(Board);
@@ -135,6 +140,25 @@ export function useThreadActions(
 				]
 			: []),
 		{
+			label: "Image previews",
+			icon: <ImageIcon />,
+			detail: (
+				<span className="flex items-center gap-1.5">
+					<span
+						className={cn(
+							"text-xs",
+							imagePreviews.expanded && "font-medium text-primary",
+						)}
+					>
+						{imagePreviews.expanded ? "Expanded" : "Collapsed"}
+					</span>
+					{previewsKey !== null && <Kbd>{previewsKey}</Kbd>}
+				</span>
+			),
+			pressed: imagePreviews.expanded,
+			run: imagePreviews.toggle,
+		},
+		{
 			label: stamps.shown ? "Hide timestamps" : "Show timestamps",
 			icon: <ClockIcon />,
 			run: stamps.toggle,
@@ -160,6 +184,7 @@ export function useThreadActions(
 		}
 	};
 	useShortcut("shortcuts.archive", fileByKey);
+	useShortcut("shortcuts.imagePreviews", imagePreviews.toggle);
 	return { actions, archive };
 }
 

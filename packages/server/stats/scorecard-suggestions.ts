@@ -1,9 +1,9 @@
-import type { AutoPickRules, Lineup } from "../auto-pick";
-import { depthLabel, ROUTE_DEPTHS, ROUTE_KINDS } from "../auto-pick/browser";
-import { higher, lineupFor } from "../auto-pick/scoring";
+import type { AutopickRules, Lineup } from "../autopick";
+import { depthLabel, ROUTE_DEPTHS, ROUTE_KINDS } from "../autopick/browser";
+import { higher, lineupFor } from "../autopick/scoring";
 import { type AgentPick, DEFAULT_AGENTS, type RosterAgent } from "../models";
 import { modelProvider } from "./model-provider";
-import type { OutcomeAutoPick } from "./outcomes";
+import type { OutcomeAutopick } from "./outcomes";
 import type { PickSignal, ScorecardRow } from "./scorecard";
 
 /** A suggested change follows the clearest measured signal on a flagged row. */
@@ -17,13 +17,13 @@ export function suggestedChange({
 	rules,
 }: {
 	signals: readonly PickSignal[];
-	pick: OutcomeAutoPick;
-	cheaper: OutcomeAutoPick | null;
+	pick: OutcomeAutopick;
+	cheaper: OutcomeAutopick | null;
 	/** The lineup the holdout started this cell's tasks on, one difficulty easier. */
 	easier?: string | null;
 	liftedInHoldout: boolean;
 	agents: RosterAgent[];
-	rules: AutoPickRules | null;
+	rules: AutopickRules | null;
 }): Pick<ScorecardRow, "suggestion" | "suggestionProvider"> {
 	if (signals.length === 0) {
 		return { suggestion: null };
@@ -96,7 +96,7 @@ export function suggestedChange({
 }
 
 function nextStronger(
-	pick: OutcomeAutoPick,
+	pick: OutcomeAutopick,
 	lineups: readonly Lineup[],
 	agents: RosterAgent[],
 ): Lineup | undefined {
@@ -122,7 +122,7 @@ function nextStronger(
 	return best?.lineup;
 }
 
-function startsWith(lineup: Lineup, pick: OutcomeAutoPick): boolean {
+function startsWith(lineup: Lineup, pick: OutcomeAutopick): boolean {
 	const first = lineup.picks[0];
 	return (
 		first?.agent === pick.agent &&
@@ -131,7 +131,7 @@ function startsWith(lineup: Lineup, pick: OutcomeAutoPick): boolean {
 	);
 }
 
-function pickName(pick: OutcomeAutoPick, agents: RosterAgent[]): string {
+function pickName(pick: OutcomeAutopick, agents: RosterAgent[]): string {
 	const agent = [...agents, ...DEFAULT_AGENTS].find(
 		(each) => each.id === pick.agent,
 	);

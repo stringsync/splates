@@ -22,7 +22,7 @@ describe("quota per agent, grouped by schedule", () => {
 		limits,
 	});
 
-	it("names each agent's shortest window for the agent, the fullest of several, groups agents by schedule and leaves out an agent with none", () => {
+	it("names each agent's shortest window for the agent, splits Antigravity's independent quota groups, groups by schedule and leaves out an agent with none", () => {
 		const groups = quotaByAgent(
 			[
 				agent("claude", "Claude", [
@@ -31,8 +31,8 @@ describe("quota per agent, grouped by schedule", () => {
 				]),
 				agent("codex", "Codex", [limit("10080_minutes", 0.5, 48 * HOUR)]),
 				agent("antigravity", "Antigravity", [
-					limit("Gemini · Five Hour", 0.2, HOUR),
-					limit("Claude · Five Hour", 0.96, HOUR),
+					limit("Gemini Models · Five Hour", 0.2, HOUR),
+					limit("Claude and GPT models · Five Hour", 0.96, HOUR),
 				]),
 				agent("gemini", "Gemini", []),
 			],
@@ -48,13 +48,14 @@ describe("quota per agent, grouped by schedule", () => {
 				"5-hour quota",
 				[
 					["Claude", 0.34],
-					["Antigravity", 0.96],
+					["Antigravity · Gemini", 0.2],
+					["Antigravity · Claude & GPT", 0.96],
 				],
 			],
 			["Weekly quota", [["Codex", 0.5]]],
 		]);
 		expect(groups.map((group) => group.marks)).toEqual([
-			["claude", "antigravity"],
+			["claude", "antigravity", "antigravity"],
 			["codex"],
 		]);
 	});

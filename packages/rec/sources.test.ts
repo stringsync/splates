@@ -7,7 +7,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { Duration, sleep } from "core/time";
+import { Duration } from "core/time";
 import { composeProject, parseContainers, selectContainers } from "./docker";
 import { guessLevel, parseStamp, sourceLine } from "./sources";
 import { parseTailSpec, Tail } from "./tail";
@@ -69,31 +69,50 @@ test("tail follows appends, truncation and rotation, and backfills", async () =>
 		path,
 		"2026-11-03T12:00:00Z old\n2026-11-03T12:07:00Z recent\ncontinued\n",
 	);
-	const seen: [number, string][] = [];
+	const queued: [number, string][] = [];
+	const waiters: ((entry: [number, string]) => void)[] = [];
+	const nextLine = (): Promise<[number, string]> => {
+		const next = queued.shift();
+		if (next) {
+			return Promise.resolve(next);
+		}
+		return new Promise((resolve) => {
+			waiters.push(resolve);
+		});
+	};
 	const tail = await Tail.start({
 		path,
 		backfillMs: 5 * 60_000,
 		now: () => now,
-		sink: { line: (at, text) => seen.push([at, text]) },
+		sink: {
+			line: (at, text) => {
+				const entry: [number, string] = [at, text];
+				const waiter = waiters.shift();
+				if (waiter) {
+					waiter(entry);
+				} else {
+					queued.push(entry);
+				}
+			},
+		},
 		poll: Duration.ms(10),
 	});
 	try {
-		expect(seen.map(([, line]) => line)).toEqual(["recent", "continued"]);
-		expect(seen[1]?.[0]).toBe(Date.parse("2026-11-03T12:07:00Z"));
+		expect(queued.map(([, line]) => line)).toEqual(["recent", "continued"]);
+		expect(queued[1]?.[0]).toBe(Date.parse("2026-11-03T12:07:00Z"));
+		queued.length = 0;
 		await appendFile(path, "new line\nhalf");
-		await sleep(Duration.ms(80));
-		expect(seen.at(-1)).toEqual([now, "new line"]);
+		expect(await nextLine()).toEqual([now, "new line"]);
 		await appendFile(path, " done\n");
-		await sleep(Duration.ms(80));
-		expect(seen.at(-1)?.[1]).toBe("half done");
+		expect((await nextLine())[1]).toBe("half done");
 		await truncate(path, 0);
 		await appendFile(path, "after truncate\n");
-		await sleep(Duration.ms(80));
-		expect(seen.at(-1)?.[1]).toBe("after truncate");
+		expect((await nextLine())[1]).toBe("after truncate");
 		await rename(path, `${path}.1`);
 		await writeFile(path, "after rotate, a longer line than before it\n");
-		await sleep(Duration.ms(80));
-		expect(seen.at(-1)?.[1]).toBe("after rotate, a longer line than before it");
+		expect((await nextLine())[1]).toBe(
+			"after rotate, a longer line than before it",
+		);
 	} finally {
 		tail.dispose();
 	}

@@ -51,7 +51,7 @@ export function Mark({
 	starting?: boolean;
 	/** Its task is queued and has not started. */
 	queued?: boolean;
-	/** Auto pick has yet to decide its agent, which opens once it has. */
+	/** Autopick has yet to decide its agent, which opens once it has. */
 	picking?: boolean;
 	reported?: Ending | null;
 	unread?: boolean;
@@ -125,7 +125,7 @@ export function Mark({
 		const waiting = queued
 			? "Queued"
 			: picking
-				? "Auto pick is choosing the agent"
+				? "Autopick is choosing the agent"
 				: "Waiting for agent to start";
 		return (
 			<span

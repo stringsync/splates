@@ -297,7 +297,7 @@ export class BoardRoutes {
 	 * `splates queue add` and `remove` do.
 	 */
 	readonly queueQueued = async (request: Request): Promise<Response> => {
-		const found = await this.taskAt(request);
+		const id = this.idAt(request);
 		const { queued } = (await request.json()) as { queued?: unknown };
 		if (typeof queued !== "boolean") {
 			fail("usage", "say whether to queue it, as `queued: true` or `false`");
@@ -306,11 +306,13 @@ export class BoardRoutes {
 		const [task] = await this.#project.journal.record(
 			queued ? "queue add" : "queue remove",
 			null,
-			() => (queued ? queueAdd : queueRemove)(deps, [found.id]),
+			() => (queued ? queueAdd : queueRemove)(deps, [id]),
 			(changed) => ({ tasks: tasksNamed(changed) }),
 		);
 		this.#watch.tick();
-		return Response.json(task?.state ?? found.state);
+		return Response.json(
+			task?.state ?? (await this.#project.tasks.find(id)).state,
+		);
 	};
 
 	/** Moves a queued task to `{position}` in the queue, from 1 for the next to start. */

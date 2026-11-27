@@ -1,10 +1,10 @@
 // vet-ignore-file compact-files: one service over a task's record, tree and checkout, which adding, discarding and amending its record share
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "core/system";
-import { Attachments } from "../artifacts";
+import { Attachments, ownsConversationAttached } from "../artifacts";
 import { TaskStore } from "../board";
 import type { Config } from "../config";
-import type { Entry } from "../conversations";
+import { capturedMedia, type Entry } from "../conversations";
 import type { Git, GitResult } from "../git";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { ranWith } from "../models";
@@ -13,13 +13,14 @@ import type { Adherence } from "../stats";
 import {
 	findings,
 	type Outcomes,
-	outcomeAutoPick,
+	outcomeAutopick,
 	promptsFrom,
 	taskLog,
 } from "../stats";
 import { type Collection, FsStorage, type Log, type Storage } from "../storage";
 import type { TrustStore } from "../trust";
 import { Finished } from "./finished";
+import { preReadPlanMedia } from "./plan-media";
 import { StartedRecords } from "./started-records";
 import {
 	type DiffSize,
@@ -201,10 +202,7 @@ export class WorktreeService {
 		if (!parts.includes("..") && parts.length === 3 && parts[1] === "started") {
 			return true;
 		}
-		const inside = relative(this.conversationsDir, resolve(path)).split(sep);
-		return (
-			!inside.includes("..") && inside.length === 4 && inside[1] === "attached"
-		);
+		return ownsConversationAttached(this.conversationsDir, path);
 	}
 
 	/**
@@ -311,6 +309,21 @@ export class WorktreeService {
 		)
 			.flat()
 			.map((file) => file.path);
+		const conversation =
+			opts.conversation ??
+			worktree.state?.dispatch?.conversation ??
+			this.ps.env("SPLATES_CONVERSATION") ??
+			null;
+		const captured =
+			conversation === null
+				? new Map<string, string>()
+				: await capturedMedia(this.conversationLog(conversation));
+		// Read validated worktree-local media before removing the worktree.
+		const preRead = await preReadPlanMedia(this.fs, plan, worktree.path, {
+			isOwned: (path) => this.owns(path) || this.queued(path),
+			maxFileBytes: this.config.artifactFileCapacity,
+			maxTotalBytes: this.config.attachmentCapacity,
+		});
 		const removed = await this.worktrees.remove(worktree.path, worktree.branch);
 		if (removed.code !== 0) {
 			return removed;
@@ -326,8 +339,9 @@ export class WorktreeService {
 				})
 				.catch(() => {});
 		}
+		let kept = ending.plan;
 		if (record !== null && worktree.state) {
-			await this.finished.record(
+			kept = await this.finished.record(
 				{
 					id: record.id,
 					task: worktree.task,
@@ -346,6 +360,13 @@ export class WorktreeService {
 				// Copied before the task's own folder goes with its record.
 				(path) => this.owns(path) || this.queued(path),
 				held,
+				{
+					cwd: worktree.path,
+					captured,
+					preRead,
+					maxFileBytes: this.config.artifactFileCapacity,
+					maxTotalBytes: this.config.attachmentCapacity,
+				},
 			);
 		}
 		await this.records.end(worktree.task, { unqueue: opts.unqueue });
@@ -354,7 +375,7 @@ export class WorktreeService {
 		await this.recordOutcome(
 			worktree,
 			ended,
-			{ ...ending, files },
+			{ ...ending, plan: kept, files },
 			record?.board,
 			opts,
 		);
@@ -486,7 +507,7 @@ export class WorktreeService {
 					}),
 			...(state.autoPick === undefined
 				? {}
-				: { autoPick: outcomeAutoPick(state.autoPick, worked?.lifts ?? []) }),
+				: { autoPick: outcomeAutopick(state.autoPick, worked?.lifts ?? []) }),
 			...(outcomeOf(ending.plan) === ""
 				? {}
 				: { outcome: outcomeOf(ending.plan) }),

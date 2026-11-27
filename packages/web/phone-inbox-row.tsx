@@ -8,7 +8,7 @@ import { backgrounded } from "./backgrounded";
 import { useBlockedNeedsYou } from "./blockers-card";
 import { BoardChip } from "./board-chip";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
-import { automated, shipped } from "./conversation-rows";
+import { automated, evaluated, shipped } from "./conversation-rows";
 import { useHeldConversations } from "./handed-out";
 import { isDisconnected, Mark } from "./mark";
 import { Filed, type useLongPress } from "./phone-row-menu";
@@ -76,6 +76,9 @@ export function Row({
 					conversation !== null &&
 						automated(conversation) &&
 						"bg-violet-500/15",
+					conversation !== null &&
+						evaluated(conversation) &&
+						"bg-orange-500/15",
 					conversation !== null && shipped(conversation) && "bg-sky-500/15",
 					depth === 0 ? "size-10" : "size-8",
 				)}

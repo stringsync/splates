@@ -5,7 +5,11 @@ import { Dispatcher, type Eventful } from "core/events";
 import { Duration } from "core/time";
 import type { Agent, AgentProcess, ProcessHandle } from "../agents";
 import { AgentConnection, endBackground, fold } from "../agents";
-import { Artifacts, applyArtifact } from "../artifacts";
+import {
+	Artifacts,
+	applyArtifact,
+	type InlineMediaScanOptions,
+} from "../artifacts";
 import { fail } from "../exit";
 import { finishObservation } from "../models";
 import {
@@ -31,16 +35,17 @@ import type {
 } from "./host";
 import { LeftRunning } from "./left-running";
 import { ConversationLog, type Entry, type Live } from "./log";
+import { ConversationMedia } from "./media";
 import { sent } from "./messages";
 import { NoopHold } from "./noop-hold";
-import { refuseStalePlanDecision } from "./plan-decision";
+import { postsPlan, refuseStalePlanDecision } from "./plan-decision";
 import { AWAY, VISIT_KEPT } from "./reminder";
 import { ConversationSignals, type SignalAsk } from "./signals";
 import {
 	type Answer,
 	type Ask,
 	type Attached,
-	type AutoPickSet,
+	type AutopickSet,
 	awaited,
 	blank,
 	type ConversationState,
@@ -79,6 +84,7 @@ export class Conversation
 	readonly events = this.dispatcher.events;
 
 	private readonly files: ConversationFiles;
+	private readonly media: ConversationMedia;
 	/** The files its agent kept as its outputs, read and changed here. */
 	readonly artifacts: Artifacts;
 	private readonly connection: AgentConnection;
@@ -152,6 +158,7 @@ export class Conversation
 			projects: deps.projects,
 			home: deps.root,
 		});
+		this.media = new ConversationMedia(this, deps);
 		this.artifacts = new Artifacts(deps.storage, state.id, {
 			ids: deps.ids,
 			limits: deps.artifacts,
@@ -283,7 +290,7 @@ export class Conversation
 			 */
 			model?: string;
 			/**
-			 * What Auto pick decides, once it has, to open on in place of
+			 * What Autopick decides, once it has, to open on in place of
 			 * `agent`, `settings` and `model`, which it shows meanwhile.
 			 */
 			picking?: Promise<Picked>;
@@ -660,17 +667,17 @@ export class Conversation
 		this.dispatcher.dispatch("chosen", id);
 	}
 
-	/** Keeps what Auto pick set it to, as it started. */
-	autoPicked(pick: AutoPickSet): void {
+	/** Keeps what Autopick set it to, as it started. */
+	autopicked(pick: AutopickSet): void {
 		this.log.write({ kind: "auto-pick", pick, at: this.now() });
 		this.set({ autoPick: { ...pick, overridden: false } });
 	}
 
 	/**
-	 * Switches Auto pick `on` for its model and effort, to judge what the
+	 * Switches Autopick `on` for its model and effort, to judge what the
 	 * person says next, or off, leaving them as they are.
 	 */
-	switchAutoPick(on: boolean, keepModel = false): void {
+	switchAutopick(on: boolean, keepModel = false): void {
 		const autoPick = switched(this.state, on, keepModel);
 		if (autoPick === this.state.autoPick) {
 			return;
@@ -686,7 +693,7 @@ export class Conversation
 
 	async lift(
 		settings: Record<string, string>,
-		pick: AutoPickSet,
+		pick: AutopickSet,
 		why?: LiftReason,
 	): Promise<void> {
 		for (const [id, value] of Object.entries(settings)) {
@@ -748,10 +755,18 @@ export class Conversation
 		caller: string | null = null,
 	): void {
 		// A running session keeps the directory it opened in, which a merge
-		// deletes under it. At the turn's end it stops, so the next prompt
-		// resumes in the new one.
+		// deletes under it. Stop once its turn (or an awaited background
+		// command's wakeup turn) ends, or right away when idle with nothing
+		// awaited, so the next prompt resumes in the new directory.
+		const leaving = task === null && this.dir !== cwd;
+		const stopNow =
+			leaving &&
+			this.state.status === "idle" &&
+			awaited(this.state).length === 0;
 		this.leftWorktree =
-			task === null && this.dir !== cwd && this.state.status === "running";
+			leaving &&
+			(this.state.status === "running" ||
+				(this.state.status === "idle" && awaited(this.state).length > 0));
 		this.dir = cwd;
 		this.log.write({
 			kind: "task",
@@ -766,6 +781,9 @@ export class Conversation
 			lastBase: task === null ? this.state.lastBase : base,
 			lastCaller: callerAfter(this.state, task, caller),
 		});
+		if (stopNow) {
+			void this.stop();
+		}
 	}
 
 	/**
@@ -1031,7 +1049,8 @@ export class Conversation
 			task === null ||
 			status !== "idle" ||
 			awaited(this.state).length > 0 ||
-			this.grant === null
+			this.grant === null ||
+			(await this.merging())
 		) {
 			return;
 		}
@@ -1217,6 +1236,11 @@ export class Conversation
 		this.set(unread ? { unread } : { unread, seen: sent(this.state.messages) });
 	}
 
+	/** Captures validated local media referenced in the latest agent reply. */
+	captureMedia(opts?: InlineMediaScanOptions): Promise<void> {
+		return this.media.capture(opts);
+	}
+
 	/** Back to idle once a turn ends, then on to what was queued meanwhile. */
 	ended(error: string | null): void {
 		if (error === null) {
@@ -1302,6 +1326,31 @@ export class Conversation
 		}, RECONNECT_WAIT.multiply(this.reconnects));
 	}
 
+	/**
+	 * Keeps, on a turn that posted a plan and went on with it unapproved, the
+	 * trust that let it, so the page says so the same way however trust
+	 * moves later. Nothing below ask-and-go, nor for a plan already stamped.
+	 */
+	private async stampPlanTrust(at: string): Promise<void> {
+		const read = this.deps.planTrust;
+		const last = this.state.messages.findLast((each) => each.role === "agent");
+		if (
+			read == null ||
+			last === undefined ||
+			last.trusted !== undefined ||
+			!postsPlan(last)
+		) {
+			return;
+		}
+		const trusted = await read(this).catch(() => null);
+		if (trusted === null || last.trusted !== undefined) {
+			return;
+		}
+		this.log.write({ kind: "plan-trust", at, ...trusted });
+		last.trusted = trusted;
+		this.changed();
+	}
+
 	set(next: Partial<ConversationState>): void {
 		// Kept, so a log whose process died mid-turn reads back as cut short.
 		const running = next.status === "running";
@@ -1313,6 +1362,8 @@ export class Conversation
 			this.log.write({ kind: "turn", running });
 			if (!running) {
 				finishObservation(this.state, at);
+				void this.stampPlanTrust(at);
+				void this.captureMedia();
 			}
 			void (running ? this.leftRunning.started() : this.leftRunning.ended());
 		}
@@ -1340,11 +1391,27 @@ export class Conversation
 		this.dispatcher.dispatch("changed");
 	}
 
+	/** Whether this conversation currently has an active merge under way. */
+	private async merging(): Promise<boolean> {
+		if (
+			this.state.background.some(
+				(each) => each.state === "running" && isMergeCommand(each.command),
+			)
+		) {
+			return true;
+		}
+		const { task } = this.state;
+		if (task === null || this.deps.isMerging === undefined) {
+			return false;
+		}
+		return this.deps.isMerging(task).catch(() => false);
+	}
+
 	/**
 	 * Stops an agent left idle `IDLE_STOP`, waiting on no command in the background,
-	 * no question open and no checkpoint, so its process exits and takes what
-	 * it started along, MCP servers and browsers included. The next prompt
-	 * resumes the same session.
+	 * no active merge, no question open and no checkpoint, so its process exits
+	 * and takes what it started along, MCP servers and browsers included. The
+	 * next prompt resumes the same session.
 	 */
 	private rest(): void {
 		const idle = (): boolean => {
@@ -1353,7 +1420,11 @@ export class Conversation
 				status === "idle" &&
 				// What the agent will not come back for, such as a dev server it
 				// left, does not hold it up: it ends with the agent's process.
+				// An active background merge does hold it up.
 				awaited(this.state).length === 0 &&
+				!this.state.background.some(
+					(each) => each.state === "running" && isMergeCommand(each.command),
+				) &&
 				ask === null &&
 				checkpoint === null
 			);
@@ -1365,9 +1436,22 @@ export class Conversation
 		}
 		this.resting ??= this.deps.timer.setTimeout(() => {
 			this.resting = null;
-			if (idle()) {
-				void this.stop({ idle: true });
+			if (!idle()) {
+				return;
 			}
+			if (this.state.task !== null && this.deps.isMerging !== undefined) {
+				void this.merging().then((active) => {
+					if (active) {
+						this.rest();
+						return;
+					}
+					if (idle()) {
+						void this.stop({ idle: true });
+					}
+				});
+				return;
+			}
+			void this.stop({ idle: true });
 		}, IDLE_STOP);
 	}
 
@@ -1377,7 +1461,7 @@ export class Conversation
 	}
 
 	/**
-	 * Opens on what Auto pick decides once it has, or, when the pick fails,
+	 * Opens on what Autopick decides once it has, or, when the pick fails,
 	 * on what the conversation started on; opens nothing when it was stopped
 	 * meanwhile. The model is asked for only now, so a log read back mid-pick
 	 * asks for none the pick may not keep.
@@ -1501,6 +1585,13 @@ export class Conversation
 	}
 }
 
+const MERGE_COMMAND =
+	/(?:^|[;&|(\n])\s*(?:[A-Z_][A-Z0-9_]*=(?:"(?:\\.|[^"\\])*"|'[^']*'|\S*)\s+)*(?:(?:nohup|exec)\s+|timeout\s+\S+\s+)*(?:(?:bunx|npx)\s+)?(?:\S*\/)?splates(?:@\S+)?\s+merge(?=\s|$|[;&|)\n])/;
+
+function isMergeCommand(command: string | null): boolean {
+	return command !== null && MERGE_COMMAND.test(command);
+}
+
 /**
  * Whether splates started it, from the queue or a hook, rather than the
  * person; an older one a lane's orchestrator started counts too.
@@ -1541,7 +1632,7 @@ interface Opening {
 	ship?: string;
 }
 
-/** What Auto pick decided for a conversation to open on, its agent as `A` names it. */
+/** What Autopick decided for a conversation to open on, its agent as `A` names it. */
 export interface Picked<A = Agent> {
 	agent: A;
 	/** The model to pick, as `Conversation.start` takes it; none for the agent's default. */

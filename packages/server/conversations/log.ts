@@ -16,6 +16,7 @@ import { finishObservation } from "../models";
 import type { Log } from "../storage";
 import { compacted } from "./compact";
 import type { Entry } from "./entry";
+import { applyCapturedMedia } from "./media";
 import { delivered, said, sent, takeBack } from "./messages";
 import {
 	type Ask,
@@ -210,6 +211,11 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 					agentTurn(state, entry.until);
 				}
 				tells ||= result(entry.update);
+			} else if (entry.kind === "plan-trust") {
+				const last = state.messages.findLast((each) => each.role === "agent");
+				if (last !== undefined) {
+					last.trusted = { band: entry.band, score: entry.score };
+				}
 			} else if (entry.kind === "observed-turn") {
 				state.usage.opencode?.turns.push(entry.turn);
 			} else if (entry.kind === "usage") {
@@ -228,7 +234,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 			} else if (entry.kind === "auto-pick-switch") {
 				state.autoPick = switched(state, entry.on, entry.keepModel === true);
 			} else if (entry.kind === "override") {
-				// Recorded for the stats; Auto pick stays as it was.
+				// Recorded for the stats; Autopick stays as it was.
 			} else if (entry.kind === "picks-request") {
 				requested = entry.picks;
 			} else if (entry.kind === "agent") {
@@ -314,6 +320,11 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				}
 			} else if (entry.kind === "artifact") {
 				applyArtifact(state.artifacts, entry.change);
+			} else if (entry.kind === "media") {
+				const last = state.messages.findLast((each) => each.role === "agent");
+				if (last !== undefined) {
+					applyCapturedMedia(last, entry.files);
+				}
 			} else if (entry.kind === "turn") {
 				replayed.running = entry.running;
 				// A new turn puts the last one's failure behind it.

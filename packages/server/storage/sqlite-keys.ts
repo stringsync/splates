@@ -14,17 +14,20 @@ export function under(prefix: string): { lo: string; hi: string | null } {
 	};
 }
 
-/** SQL for `col` in the range `under` gives, bound as `lo, hi, hi`. */
-export function inRange(col: string): string {
-	return `(${col} >= ? AND (? IS NULL OR ${col} < ?))`;
-}
-
-/** The parameters `inRange` binds. */
-export function rangeParams(
+/**
+ * SQL for `col` in the range `under` gives, with its bound parameters.
+ * Empty prefix matches every row with no parameters; a non-empty prefix uses
+ * a tight `>= ? AND < ?` range so SQLite can apply both index bounds.
+ */
+export function rangeOf(
+	col: string,
 	prefix: string,
-): [string, string | null, string | null] {
+): { sql: string; params: string[] } {
+	if (prefix === "") {
+		return { sql: "1 = 1", params: [] };
+	}
 	const { lo, hi } = under(prefix);
-	return [lo, hi, hi];
+	return { sql: `(${col} >= ? AND ${col} < ?)`, params: [lo, hi as string] };
 }
 
 /** The text of `data`, which a document or a record keeps as UTF-8. */

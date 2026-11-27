@@ -4,7 +4,7 @@ import { CompositeLogger } from "core/log";
 import { SystemTimer } from "core/time";
 import { StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
-import { Health, statusPage } from "../auto-pick";
+import { Health, statusPage } from "../autopick";
 import { TaskStore, Tasks } from "../board";
 import {
 	type Config,
@@ -492,6 +492,7 @@ async function start(
 				scratchRoot: `${generalRoot}/workspaces`,
 			},
 			conversations: ({ dir, storage, git, config, service }) => {
+				const board = new Tasks(new TaskStore(storage));
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,
 					kimiHome:
@@ -499,6 +500,16 @@ async function start(
 						`${ctx.ps.env("HOME") ?? homedir()}/.kimi-code`,
 					storage: storage.within("conversations"),
 					artifacts: artifactLimits(config),
+					ownsMedia: (path) =>
+						service.owns(path) ||
+						board.owns(path) ||
+						service.finished.owns(path),
+					isMerging: async (task) => {
+						const worktree = await service.find(task);
+						return (
+							worktree.status === "merging" || worktree.mergeSince !== null
+						);
+					},
 					launcher: worker,
 					placer: placement.project(git.root),
 					machine: worker,

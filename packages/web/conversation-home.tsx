@@ -23,8 +23,8 @@ import { useAdapters } from "./adapters";
 import { AgentBrand } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
 import { WIDE } from "./app-nav";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
-import type { AutoPickControl } from "./auto-pick-switch";
+import { AUTOPICK_NAME, AutoIcon } from "./auto-brand";
+import type { AutopickControl } from "./autopick-switch";
 import { Board } from "./board";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { composerIn } from "./composer-editor";
@@ -48,7 +48,7 @@ import {
 import {
 	chooseDefault,
 	promptConversation,
-	startAutoPick,
+	startAutopick,
 	startConversation,
 } from "./conversation-api";
 import {
@@ -91,7 +91,7 @@ export interface Starting {
 	agents: AgentChoice[];
 	/** The agent the conversation starts with, picked beside New conversation. */
 	agent: string;
-	/** Whether Auto pick chooses the agent from the first message, `agent` standing in until then. */
+	/** Whether Autopick chooses the agent from the first message, `agent` standing in until then. */
 	auto: boolean;
 	/** The task whose tree it starts in; null for the main tree. */
 	task: string | null;
@@ -142,9 +142,9 @@ export function useNewConversation({
 	const [picks, setPicks] = useState<Record<string, string>>({});
 	// How many settings are on their way to being kept as the agent's default.
 	const [keeping, setKeeping] = useState(0);
-	// A model a todo asked for stands: Auto pick is the person's own choice.
+	// A model a todo asked for stands: Autopick is the person's own choice.
 	const [autoModel, setAutoModel] = useState(autoModelChosen);
-	const autoPick: AutoPickControl = {
+	const autoPick: AutopickControl = {
 		on: autoModel && model === null,
 		switch: (on) => {
 			setAutoModel(on);
@@ -198,7 +198,7 @@ export function useNewConversation({
 			};
 			const prompt = noted(text, files);
 			const state = await (auto
-				? startAutoPick({
+				? startAutopick({
 						words: text,
 						task,
 						agent,
@@ -300,7 +300,7 @@ export function useNewConversation({
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
 	// The sheet switches the agent as the title's menu does, what was typed
-	// carried over; on Auto pick the agent is yet to be picked, so it leads.
+	// carried over; on Autopick the agent is yet to be picked, so it leads.
 	const agentSwitch: AgentSwitch = {
 		agents,
 		agent,
@@ -452,7 +452,7 @@ export function Home({
 									{auto ? (
 										<span className="flex items-center gap-2">
 											<AutoIcon colored className="size-[1em]" />
-											{AUTO_PICK_NAME}
+											{AUTOPICK_NAME}
 										</span>
 									) : (
 										<AgentBrand agent={agent} name={agentName(agents, agent)} />

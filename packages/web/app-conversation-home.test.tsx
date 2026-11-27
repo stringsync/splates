@@ -239,7 +239,7 @@ describe("App's conversation home", () => {
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 
-	it("starts on the picked agent with Auto pick choosing its model, kept for the next New", async () => {
+	it("starts on the picked agent with Autopick choosing its model, kept for the next New", async () => {
 		const settings = [
 			{
 				id: "model",
@@ -276,7 +276,7 @@ describe("App's conversation home", () => {
 			await act(async () => fireEvent.click(model));
 			await act(async () =>
 				fireEvent.click(
-					await waitFor(() => view.getByRole("switch", { name: "Auto pick" })),
+					await waitFor(() => view.getByRole("switch", { name: "Autopick" })),
 				),
 			);
 			await waitFor(() => expect(model.textContent).toContain("Auto · Big"));
@@ -306,7 +306,7 @@ describe("App's conversation home", () => {
 		}
 	});
 
-	it("keeps New's Auto pick on when the person picks a model", async () => {
+	it("keeps New's Autopick on when the person picks a model", async () => {
 		localStorage.setItem("splates.newConversationAutoModel", "true");
 		const settings = [
 			{
@@ -351,17 +351,17 @@ describe("App's conversation home", () => {
 		}
 	});
 
-	it("lists the agents in New's settings while Auto pick picks one, a tap starting on that agent", async () => {
+	it("lists the agents in New's settings while Autopick picks one, a tap starting on that agent", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", agent: "codex" })],
 			null,
 		);
 		await openHome();
-		await newWith(view, "Auto pick");
+		await newWith(view, "Autopick");
 		expect(location.hash.split("?")[0]).toBe("#conversations/new/auto");
 
 		const settings = view.getByRole("button", { name: "settings" });
-		expect(settings.textContent).toContain("Auto pick");
+		expect(settings.textContent).toContain("Autopick");
 		await act(async () => fireEvent.click(settings));
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		await act(async () =>
@@ -759,7 +759,7 @@ describe("App's conversation home", () => {
 		expect(box.textContent).toContain("draft in progress");
 	});
 
-	it("keeps the Auto pick new conversation screen mounted when a conversation arrives on another agent", async () => {
+	it("keeps the Autopick new conversation screen mounted when a conversation arrives on another agent", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", agent: "claude", title: "Earlier" })],
 			null,

@@ -22,12 +22,14 @@ describe("LiveStream", () => {
 	let said: string[];
 	let dropped: number;
 	let wakes: Wakes;
+	let online: boolean;
 
 	beforeEach(() => {
 		streams = [];
 		opens = [];
 		said = [];
 		dropped = 0;
+		online = true;
 		timer = new FakeTimer();
 		wakes = new Wakes(new FakeWallClock(), new FakeTimer());
 		globalThis.EventSource = class {
@@ -59,6 +61,7 @@ describe("LiveStream", () => {
 			},
 			timer,
 			wakes,
+			() => online,
 		);
 	});
 
@@ -69,24 +72,13 @@ describe("LiveStream", () => {
 	});
 
 	it("does not open while disconnected and resumes on the next wake", () => {
-		const navigator = globalThis.navigator;
-		const online = navigator.onLine;
-		Object.defineProperty(navigator, "onLine", {
-			configurable: true,
-			value: false,
-		});
-		try {
-			live.reopen();
-			wakes.woke();
-			timer.fireTimeouts();
-			expect(streams).toHaveLength(1);
-			expect(streams[0]?.closed).toBe(true);
-		} finally {
-			Object.defineProperty(navigator, "onLine", {
-				configurable: true,
-				value: online,
-			});
-		}
+		online = false;
+		live.reopen();
+		wakes.woke();
+		timer.fireTimeouts();
+		expect(streams).toHaveLength(1);
+		expect(streams[0]?.closed).toBe(true);
+		online = true;
 		wakes.woke();
 		expect(streams).toHaveLength(2);
 	});

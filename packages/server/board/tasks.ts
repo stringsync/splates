@@ -266,6 +266,24 @@ export class Tasks {
 		return this.laneFiles.records(await this.stored());
 	}
 
+	/**
+	 * The whole board in one pass over the stored tasks: todos numbered from 1,
+	 * boards, active lanes, and every lane name ever used.
+	 */
+	async board(): Promise<{
+		todos: TaskRecord[];
+		boards: BoardRecord[];
+		lanes: LaneRecord[];
+		laneNames: LaneRecord[];
+	}> {
+		const stored = await this.stored();
+		const todos = stored.map((state, i) => ({ ...state, position: i + 1 }));
+		return {
+			todos,
+			...(await this.laneFiles.snapshot(stored)),
+		};
+	}
+
 	/** The project's boards, in order. */
 	boards(): Promise<BoardRecord[]> {
 		return this.laneFiles.boards();

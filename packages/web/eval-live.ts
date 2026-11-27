@@ -55,6 +55,9 @@ export function evalLiveOf(run: EvalRun): EvalLive {
 							group: run.group,
 							...run.report,
 							...(run.report.status === "harness" ? { status: "error" } : {}),
+							...(run.faults !== undefined && run.faults.length > 0
+								? { faults: run.faults }
+								: {}),
 						}),
 					),
 		stopped: run.stopped === true,

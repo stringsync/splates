@@ -9,7 +9,6 @@ import {
 import { BotIcon, ChevronRightIcon } from "lucide-react";
 import {
 	createContext,
-	Fragment,
 	type JSX,
 	type ReactNode,
 	useCallback,
@@ -223,22 +222,23 @@ export function QueuedBar({
 			className={cn("my-4", SLIM_BAR, arrived && "ring-2 ring-primary/60")}
 		>
 			<BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-			<p className="min-w-0 flex-1">
-				Queued{" "}
-				{tasks.map((task, index) => (
-					<Fragment key={task.id}>
-						{index > 0 && (index === tasks.length - 1 ? " and " : ", ")}
-						<button
-							type="button"
-							data-queued-task={task.id}
-							className="underline"
-							onClick={() => openTask(task.id)}
-						>
-							#{task.id} {task.subject}
-						</button>
-					</Fragment>
-				))}
-			</p>
+			<div className="min-w-0 flex-1">
+				<p>Queued</p>
+				<ul className="flex flex-col items-start">
+					{tasks.map((task) => (
+						<li key={task.id}>
+							<button
+								type="button"
+								data-queued-task={task.id}
+								className="text-left underline"
+								onClick={() => openTask(task.id)}
+							>
+								#{task.id} {task.subject}
+							</button>
+						</li>
+					))}
+				</ul>
+			</div>
 			{shared?.chain != null && (
 				<Button
 					variant="outline"

@@ -1,5 +1,5 @@
 import { age } from "@splates/server/age";
-import type { ReserveHold } from "@splates/server/auto-pick/browser";
+import type { ReserveHold } from "@splates/server/autopick/browser";
 import type { TaskRecord } from "@splates/server/board";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";

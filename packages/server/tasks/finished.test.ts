@@ -145,6 +145,56 @@ describe("Finished", () => {
 	it("reads nothing outside its folder", async () => {
 		expect(await finished.read("../tasks/1")).toBeNull();
 	});
+
+	it("copies validated local media from SPLATES.md and reuses captured copies when originals are gone", async () => {
+		const png = new Uint8Array([
+			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9,
+		]);
+		const svg = new TextEncoder().encode(
+			'<svg xmlns="http://www.w3.org/2000/svg"/>',
+		);
+		await fs.writeBytes("/tmp/local.png", png);
+		await fs.writeBytes("/tree/shots/rel.svg", svg);
+		await fs.writeBytes("/tmp/fake.png", new TextEncoder().encode("not a png"));
+		await fs.writeBytes("/held/captured-gone.png", png);
+
+		await finished.record(
+			ended(9, "2026-10-01T09:00:00.000Z", {
+				plan: [
+					"![local](/tmp/local.png)",
+					"![url](file:///tmp/local.png)",
+					"![rel](./shots/rel.svg)",
+					"![gone](/tmp/deleted.png)",
+					"![fake](/tmp/fake.png)",
+					"`![code](/tmp/local.png)`",
+				].join("\n"),
+			}),
+			(path) => path.startsWith("/held/"),
+			["/held/captured-gone.png"],
+			{
+				cwd: "/tree",
+				captured: new Map([["/tmp/deleted.png", "/held/captured-gone.png"]]),
+			},
+		);
+
+		const [listed] = await finished.list();
+		const dir = `/state/finished/${listed?.key}`;
+		const read = await finished.read(listed?.key ?? "");
+		expect(read?.plan).toBe(
+			[
+				`![local](${dir}/local.png)`,
+				`![url](${dir}/local.png)`,
+				`![rel](${dir}/rel.svg)`,
+				`![gone](${dir}/captured-gone.png)`,
+				"![fake](/tmp/fake.png)",
+				"`![code](/tmp/local.png)`",
+			].join("\n"),
+		);
+		expect(await fs.readBytes(`${dir}/local.png`)).toEqual(png);
+		expect(await fs.readBytes(`${dir}/rel.svg`)).toEqual(svg);
+		expect(await fs.readBytes(`${dir}/captured-gone.png`)).toEqual(png);
+		expect(await fs.exists(`${dir}/fake.png`)).toBe(false);
+	});
 });
 
 function ended(

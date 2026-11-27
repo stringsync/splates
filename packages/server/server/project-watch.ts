@@ -88,6 +88,7 @@ export class ProjectWatch implements StreamWatcher {
 	 */
 	tick(): void {
 		// The write need not wait for the read: the page's refetch shares it.
+		this.settle.cancel();
 		this.moves++;
 		this.push().catch((error: unknown) =>
 			this.project.log.error(String(error)),
@@ -311,9 +312,28 @@ export class ProjectWatch implements StreamWatcher {
 					this.changed();
 				}
 			});
+			const refsDir = `${gitDir}/refs`;
+			const headsPrefix = `${refsDir}/heads/`;
 			this.watches = [
 				records,
-				fs.watch(`${gitDir}/refs`, this.moved, { recursive: true }),
+				fs.watch(
+					refsDir,
+					(path) => {
+						if (path.endsWith(".lock")) {
+							return;
+						}
+						if (path.startsWith(headsPrefix)) {
+							const branch = path.slice(headsPrefix.length);
+							if (branch !== "" && !branch.endsWith("/")) {
+								this.details.movedBranch(branch);
+								this.changed();
+								return;
+							}
+						}
+						this.moved();
+					},
+					{ recursive: true },
+				),
 				// Its own entries, of which only `packed-refs` names branches:
 				// `index` moves on every `git status`.
 				fs.watch(gitDir, (path) => {

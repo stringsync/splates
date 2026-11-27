@@ -12,7 +12,6 @@ import {
 	ShipIcon,
 	SparklesIcon,
 	VideoIcon,
-	ZapIcon,
 } from "lucide-react";
 import type { Page } from "./page-route";
 
@@ -82,7 +81,7 @@ export const PAGE_AREAS: Record<Page, PageArea> = {
 	},
 	"auto-pick": {
 		area: "auto-pick",
-		Icon: ZapIcon,
+		Icon: SparklesIcon,
 		description:
 			"Route tasks to the right agent lineup automatically by kind and difficulty.",
 		scope: "project",

@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 
 import { AsyncDisposer, type AsyncResource } from "core/disposable";
 import { Duration, SystemTimer } from "core/time";
-import { AutoPickRulesRoutes, HealthRoutes } from "../auto-pick";
+import { AutopickRulesRoutes, HealthRoutes } from "../autopick";
 import { TaskStore, Tasks } from "../board";
 import { ConfigFiles } from "../config";
 import { SYSTEM_STORES } from "../creds";
@@ -147,6 +147,7 @@ export async function dev(
 					generalOption.root,
 					generalOption.scratchRoot,
 					{
+						fs,
 						release: () => versions.release,
 						behind: () => versions.behind,
 						stuck: () => versions.stuck,
@@ -640,6 +641,7 @@ export async function dev(
 		}
 		return owner;
 	};
+	let expiration: SignalExpiration | undefined;
 	const signalHome: Pick<SignalHome, "book" | "all" | "fire" | "now"> &
 		Pick<SignalHome, "setExpiration"> = {
 		book: new SignalBook(machineStorage.document("signals.json"), () =>
@@ -655,6 +657,9 @@ export async function dev(
 						.catch((error: unknown) => log.error(String(error)));
 				}
 			}
+		},
+		setExpiration: async (name, at) => {
+			await expiration?.set(name, at);
 		},
 	};
 	const probes = new Probes({
@@ -736,7 +741,7 @@ export async function dev(
 	});
 	clocks.arm();
 	disposer.defer(async () => clocks.dispose());
-	const expiration = new SignalExpiration({
+	expiration = new SignalExpiration({
 		book: signalHome.book,
 		now: () => Date.now(),
 		timer: new SystemTimer(),
@@ -756,12 +761,10 @@ export async function dev(
 		},
 		error: (error) => log.error(`expiring signals: ${String(error)}`),
 	});
-	disposer.defer(async () => expiration.dispose());
-	signalHome.setExpiration = (name, at) => expiration.set(name, at);
+	disposer.defer(async () => expiration?.dispose());
 	void expiration.arm().catch((error: unknown) => log.error(String(error)));
 	const signals = new SignalRoutes({
 		clocks,
-		setExpiration: (name, at) => expiration.set(name, at),
 		...signalHome,
 		signalFunctions: async () => {
 			const found: Record<string, SignalFunction> = {};
@@ -909,8 +912,8 @@ export async function dev(
 		);
 	});
 
-	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
-	const autoPickHealth = new HealthRoutes({ fs, home: splatesHome(ps) });
+	const autopickRules = new AutopickRulesRoutes({ fs, home: splatesHome(ps) });
+	const autopickHealth = new HealthRoutes({ fs, home: splatesHome(ps) });
 	const d2 = new D2Renderer();
 	disposer.defer(async () => d2.dispose());
 	const diagrams = new DiagramRoutes(d2);
@@ -999,7 +1002,7 @@ export async function dev(
 									{
 										reason: "usage",
 										message:
-											"Only the user sends the overrides to an agent, from the Auto pick page",
+											"Only the user sends the overrides to an agent, from the Autopick page",
 									},
 									{ status: 403 },
 								);
@@ -1010,14 +1013,14 @@ export async function dev(
 									{
 										reason: "usage",
 										message:
-											"No Auto pick cell is flagged with enough tasks to change the rules",
+											"No Autopick cell is flagged with enough tasks to change the rules",
 									},
 									{ status: 400 },
 								);
 							}
 							const project = await projectFor(request);
 							const task = await project.sendToAgent(
-								"Propose Auto pick rule changes from the scorecard",
+								"Propose Autopick rule changes from the scorecard",
 								text,
 							);
 							return Response.json({ task });
@@ -1034,7 +1037,7 @@ export async function dev(
 									{
 										reason: "usage",
 										message:
-											"Only the user sends Auto pick's possible improvements to an agent, from the Auto pick page",
+											"Only the user sends Autopick's possible improvements to an agent, from the Autopick page",
 									},
 									{ status: 403 },
 								);
@@ -1051,7 +1054,7 @@ export async function dev(
 							}
 							const project = await projectFor(request);
 							const task = await project.sendToAgent(
-								"Review Auto pick's possible improvements",
+								"Review Autopick's possible improvements",
 								improvements.text,
 							);
 							await ended.improvementsSent(improvements.key);
@@ -1116,19 +1119,19 @@ export async function dev(
 						POST: guarded(setup.undo),
 					},
 					"/api/auto-pick/rules": {
-						GET: guarded(autoPickRules.read),
-						PUT: guarded(autoPickRules.save),
+						GET: guarded(autopickRules.read),
+						PUT: guarded(autopickRules.save),
 					},
-					"/api/auto-pick/avoided": guarded(autoPickHealth.read),
+					"/api/auto-pick/avoided": guarded(autopickHealth.read),
 					"/api/auto-pick/avoided/clear": {
-						POST: guarded(autoPickHealth.clear),
+						POST: guarded(autopickHealth.clear),
 					},
 					"/api/auto-pick/rules/reset": {
-						POST: guarded(autoPickRules.reset),
+						POST: guarded(autopickRules.reset),
 					},
 					// It may ask the judge, on the person's key, as a start would.
 					"/api/auto-pick/try": {
-						POST: talk(scoped((project) => project.tryAutoPick)),
+						POST: talk(scoped((project) => project.tryAutopick)),
 					},
 					"/api/migration": guarded(migrations.read),
 					"/api/migration/retry": { POST: guarded(migrations.retry) },
@@ -1140,7 +1143,7 @@ export async function dev(
 					// Conversations among them, so only as far as a conversation reaches.
 					"/api/everywhere": talk(guarded(everywhere.list)),
 					"/api/everywhere/events": talk(guarded(everywhere.events)),
-					"/api/file": scoped((project) => project.file),
+					"/api/file": conversationScoped((project) => project.file),
 					// Limited to what a conversation reaches, since it runs the person's editor.
 					"/api/open": { POST: talk(scoped((project) => project.open)) },
 					"/api/paths": scoped((project) => project.paths),
@@ -1353,7 +1356,7 @@ export async function dev(
 						),
 					},
 					"/api/conversations/auto": {
-						POST: talk(conversationScoped((project) => project.startAutoPick)),
+						POST: talk(conversationScoped((project) => project.startAutopick)),
 					},
 					"/api/conversations/sessions": {
 						GET: talk(conversationScoped((project) => project.listSessions)),
@@ -1440,7 +1443,7 @@ export async function dev(
 						PUT: talk(owned((project) => project.chooseSetting)),
 					},
 					"/api/conversations/:id/auto-pick": {
-						PUT: talk(owned((project) => project.switchAutoPick)),
+						PUT: talk(owned((project) => project.switchAutopick)),
 					},
 					"/api/conversations/:id/archived": {
 						PUT: talk(owned((project) => project.archiveConversation)),

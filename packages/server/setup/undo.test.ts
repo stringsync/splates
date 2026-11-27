@@ -203,7 +203,7 @@ describe("Setup's undo", () => {
 		await device.set("CLOUDFLARE_API_TOKEN", "t");
 
 		const plan = await new Setup(machine, [
-			{ id: "auto-pick", title: "Auto pick", purpose: "", steps: [judge] },
+			{ id: "auto-pick", title: "Autopick", purpose: "", steps: [judge] },
 		]).undoPlan("auto-pick");
 
 		expect(plan.creds).toEqual([

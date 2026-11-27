@@ -13,7 +13,7 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
 import { useWide } from "./app-nav";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import type { AutoPickControl } from "./auto-pick-switch";
+import type { AutopickControl } from "./autopick-switch";
 import {
 	type AgentSwitch,
 	IN_COMPOSER,
@@ -42,14 +42,14 @@ export function SettingControls({
 	onChange: (setting: Setting, value: string) => void;
 	/** The agent the settings are for, by its roster id, whose mark the settings button shows. */
 	agent?: string | undefined;
-	/** Auto pick's switch, for a conversation that offers it. */
-	autoPick?: AutoPickControl | undefined;
+	/** Autopick's switch, for a conversation that offers it. */
+	autoPick?: AutopickControl | undefined;
 	/** The agents a conversation not yet started can switch to, in the sheet. */
 	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element | null {
 	const wide = useWide();
 	if (settings.length === 0) {
-		// Auto pick, still to choose the agent, has the agents to show alone.
+		// Autopick, still to choose the agent, has the agents to show alone.
 		return autoPick === undefined && agentSwitch === undefined ? null : (
 			<SettingsSheet
 				settings={settings}
@@ -104,7 +104,7 @@ function InlineSettings({
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
 	agent?: string | undefined;
-	autoPick?: AutoPickControl | undefined;
+	autoPick?: AutopickControl | undefined;
 	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element {
 	const row = useRef<HTMLDivElement>(null);
@@ -187,7 +187,7 @@ function SettingControl({
 	value: string;
 	onChange: (value: string) => void;
 	agent?: string | undefined;
-	autoPick?: AutoPickControl | undefined;
+	autoPick?: AutopickControl | undefined;
 }): JSX.Element {
 	const inlineModel = setting.category === "model";
 	const id = useId();
@@ -212,7 +212,7 @@ function SettingControl({
 			</span>
 		);
 	}
-	// Inline, Auto pick's switch tops the model's dropdown.
+	// Inline, Autopick's switch tops the model's dropdown.
 	return (
 		<SettingSelect
 			setting={setting}
@@ -238,10 +238,10 @@ function SettingSelect({
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
-	/** The agent whose mark leads the picker, as it leads a phone's settings button, split with Auto pick's while it picks. */
+	/** The agent whose mark leads the picker, as it leads a phone's settings button, split with Autopick's while it picks. */
 	agent?: string | undefined;
-	/** Auto pick, whose mark shows while it picks. */
-	autoPick?: AutoPickControl | undefined;
+	/** Autopick, whose mark shows while it picks. */
+	autoPick?: AutopickControl | undefined;
 }): JSX.Element {
 	const known = setting.options.some((option) => option.value === value);
 	const auto = autoPick?.on === true;
@@ -276,7 +276,7 @@ function SettingSelect({
 				{!UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
-				{/* Who answers next in color: the agent's maker, split with Auto pick while it picks. */}
+				{/* Who answers next in color: the agent's maker, split with Autopick while it picks. */}
 				{auto && agent !== undefined ? (
 					<AutoAgentMark agent={agent} className="size-3" />
 				) : auto ? (
@@ -288,7 +288,7 @@ function SettingSelect({
 					{auto
 						? `Auto · ${settingLabel(setting, value)}`
 						: setting.category === "mode" && value === "auto"
-							? // Bare, it reads as Auto pick's "Auto · Opus" beside it.
+							? // Bare, it reads as Autopick's "Auto · Opus" beside it.
 								`Mode: ${settingLabel(setting, value)}`
 							: settingLabel(setting, value).replace(RECOMMENDED, "")}
 				</SelectValue>
@@ -306,7 +306,7 @@ function SettingSelect({
 							className="flex cursor-pointer items-center gap-1.5"
 						>
 							<AutoIcon colored={auto} />
-							Auto pick
+							Autopick
 						</label>
 						<Switch
 							id={autoId}

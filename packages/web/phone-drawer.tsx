@@ -17,7 +17,7 @@ import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
 import { ShipRecapIndicator } from "./ship-recap-indicator";
-import { useAutoPickImprovements } from "./use-auto-pick-improvements";
+import { useAutopickImprovements } from "./use-autopick-improvements";
 import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
 
 /**
@@ -75,7 +75,7 @@ export function Drawer({
 	const [adding, setAdding] = useState(false);
 	const asking = useShipsWaiting().length;
 	const shipsRunning = useShipsRunning();
-	const improvements = useAutoPickImprovements()?.count ?? 0;
+	const improvements = useAutopickImprovements()?.count ?? 0;
 	const entry = ({ value, label, Icon }: (typeof PAGES)[number]) => (
 		<Entry
 			key={value}

@@ -139,6 +139,67 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("auto-captures local SPLATES.md media in active snapshots and finished records while keeping /api/file restricted", async () => {
+		const png = new Uint8Array([
+			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 42,
+		]);
+		const svg = new TextEncoder().encode(
+			'<svg xmlns="http://www.w3.org/2000/svg"/>',
+		);
+		await add(deps, "alpha");
+		const tree = (await deps.service.find("alpha")).path;
+		const outside = `${deps.root}-outside.png`;
+		const fake = `${deps.root}-fake.png`;
+		await deps.fs.writeBytes(outside, png);
+		await deps.fs.writeBytes(fake, new TextEncoder().encode("secret text"));
+		await deps.fs.mkdir(`${tree}/shots`);
+		await deps.fs.writeBytes(`${tree}/shots/rel.svg`, svg);
+		await deps.fs.write(
+			`${tree}/SPLATES.md`,
+			`# alpha\n\n## After\n\n![out](${outside})\n![rel](./shots/rel.svg)\n![fake](${fake})\n`,
+		);
+
+		await serving(deps, async (snapshot, port) => {
+			const file = (path: string) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
+				);
+			const plan =
+				(await snapshot()).tasks.find((each) => each.task === "alpha")?.plan ??
+				"";
+			const outCaptured = /!\[out\]\(([^)]+)\)/.exec(plan)?.[1] ?? "";
+			const relCaptured = /!\[rel\]\(([^)]+)\)/.exec(plan)?.[1] ?? "";
+			expect(deps.service.owns(outCaptured)).toBe(true);
+			expect(deps.service.owns(relCaptured)).toBe(true);
+			expect(plan).toContain(`![fake](${fake})`);
+
+			// Raw local paths stay refused; captured copies serve cleanly.
+			expect((await file(outside)).status).toBe(404);
+			expect((await file(fake)).status).toBe(404);
+			const servedOut = await file(outCaptured);
+			expect(servedOut.status).toBe(200);
+			expect(new Uint8Array(await servedOut.arrayBuffer())).toEqual(png);
+			const servedRel = await file(relCaptured);
+			expect(servedRel.status).toBe(200);
+			expect(new Uint8Array(await servedRel.arrayBuffer())).toEqual(svg);
+		});
+
+		// Removing the task deletes the worktree, yet Finished.record preserves both images.
+		await remove(deps, "alpha");
+		const [done] = await deps.service.finished.list();
+		const finishedPlan =
+			(await deps.service.finished.read(done?.key ?? ""))?.plan ?? "";
+		const finishedOut = /!\[out\]\(([^)]+)\)/.exec(finishedPlan)?.[1] ?? "";
+		const finishedRel = /!\[rel\]\(([^)]+)\)/.exec(finishedPlan)?.[1] ?? "";
+		expect(deps.service.finished.owns(finishedOut)).toBe(true);
+		expect(deps.service.finished.owns(finishedRel)).toBe(true);
+		expect(finishedPlan).toContain(`![fake](${fake})`);
+		expect(await deps.fs.readBytes(finishedOut)).toEqual(png);
+		expect(await deps.fs.readBytes(finishedRel)).toEqual(svg);
+		await deps.fs.rm(outside);
+		await deps.fs.rm(fake);
+	});
+
 	it("serves an original queued image URL after its task ends", async () => {
 		const queued = await deps.tasks.add("look", null, {
 			files: [{ name: "before.jpg", bytes: new Uint8Array([7, 8]) }],

@@ -1,9 +1,9 @@
-import type { AutoPickRules } from "../auto-pick";
-import { cellLabel, ROUTE_DEPTHS, ROUTE_KINDS } from "../auto-pick/browser";
+import type { AutopickRules } from "../autopick";
+import { cellLabel, ROUTE_DEPTHS, ROUTE_KINDS } from "../autopick/browser";
 import type { HoldoutSide } from "./holdout-comparison";
 import type { ScorecardRow } from "./scorecard";
 
-/** How far back the Auto pick page looks for possible improvements: 30 days. */
+/** How far back the Autopick page looks for possible improvements: 30 days. */
 export const IMPROVEMENTS_SPAN = 30 * 24 * 60 * 60 * 1000;
 
 /** A lineup the holdout shows is stronger than some of its cells need. */
@@ -46,7 +46,7 @@ export function improvementsKey(lineups: readonly OverpoweredLineup[]): string {
  */
 export function improvementsTaskText(
 	lineups: readonly OverpoweredLineup[],
-	rules: AutoPickRules | null,
+	rules: AutopickRules | null,
 ): string | null {
 	if (lineups.length === 0) {
 		return null;
@@ -69,7 +69,7 @@ export function improvementsTaskText(
 		}),
 	]);
 	return [
-		"Auto pick's holdout started some tasks one difficulty easier than their cell's lineup, as an experiment, and in the cells below those held-out tasks did as well as the regular ones over the last 30 days (a problem is a task that hit trouble, was lifted, or was overridden to a stronger pick). Read the numbers, and where they hold up, update the Auto pick rules (the Auto pick page's rules, saved for this machine) to route those cells to the easier lineup. Say what you changed and why, and what you left alone.",
+		"Autopick's holdout started some tasks one difficulty easier than their cell's lineup, as an experiment, and in the cells below those held-out tasks did as well as the regular ones over the last 30 days (a problem is a task that hit trouble, was lifted, or was overridden to a stronger pick). Read the numbers, and where they hold up, update the Autopick rules (the Autopick page's rules, saved for this machine) to route those cells to the easier lineup. Say what you changed and why, and what you left alone.",
 		"",
 		...lines,
 	].join("\n");

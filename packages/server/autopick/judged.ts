@@ -1,0 +1,104 @@
+import type { TaskRecord } from "../board";
+import { type AttachmentInfo, type Classification, classify } from "./classify";
+import {
+	type AutopickDecision,
+	type DecideContext,
+	decide,
+	decideWithout,
+} from "./decide";
+import { holdBack } from "./holdout";
+import type { Attribution } from "./jev";
+import type { JudgeFor } from "./judge";
+import type { Autopicked } from "./record";
+
+/** What Autopick decided for a task's words, and what the judge said of them. */
+export interface Judged {
+	decision: AutopickDecision;
+	/** What the judge said of the words, now or before; null when it said nothing. */
+	classification: Classification | null;
+	/** Whether there was a judge to ask; without one, its key is asked for. */
+	judged: boolean;
+}
+
+/**
+ * Decides for a task's words: on `cached`, what the judge said of the same
+ * words before, with no judge asked; else on what `judge` says now; else, the
+ * judge missing, failing or slow, on the lineup for an unsure kind and depth, saying why.
+ */
+export async function decideFor({
+	subject,
+	detail,
+	attachments,
+	cached,
+	judge,
+	who,
+	context,
+	task,
+}: {
+	subject: string;
+	detail: string;
+	attachments?: readonly AttachmentInfo[];
+	cached: Classification | null;
+	judge: JudgeFor;
+	/** Whose work the judgment is, for the spend ledger. */
+	who?: Partial<Attribution>;
+	context: DecideContext;
+	/**
+	 * The task's number, when the words are a task's: a task the holdout
+	 * takes in starts one difficulty easier. A judge that said nothing leaves
+	 * the depth unsure, which is never held out.
+	 */
+	task?: number;
+}): Promise<Judged> {
+	const decided = (classification: Classification): AutopickDecision => {
+		const decision = decide({ ...context, classification });
+		return task === undefined ? decision : holdBack(decision, context, task);
+	};
+	if (cached !== null) {
+		return {
+			decision: decided(cached),
+			classification: cached,
+			judged: true,
+		};
+	}
+	const asked = await judge(who ?? {});
+	const classified = await classify({
+		subject,
+		detail,
+		attachments,
+		judge: asked,
+	});
+	return classified.ok
+		? {
+				decision: decided(classified.classification),
+				classification: classified.classification,
+				judged: true,
+			}
+		: {
+				decision: decideWithout({ ...context, reason: classified.reason }),
+				classification: null,
+				judged: asked !== null,
+			};
+}
+
+/** What the judge said of `record`'s words before, kept on it under `key`; null for none. */
+export function cachedFor(
+	record: TaskRecord,
+	key: string,
+): Classification | null {
+	const kept = record.autoPick?.classified;
+	return kept?.key === key ? kept.classification : null;
+}
+
+/** `judged` as a task's record keeps it, decided `at`, its words' classification under `key`. */
+export function autopicked(
+	{ decision, classification }: Judged,
+	key: string,
+	at: Date,
+): Autopicked {
+	return {
+		...decision,
+		at: at.toISOString(),
+		...(classification === null ? {} : { classified: { key, classification } }),
+	};
+}

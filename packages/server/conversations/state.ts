@@ -7,6 +7,7 @@ import type { OpenCodeUsage } from "../models";
 import { stretches } from "../plans/browser";
 import type { Event } from "../records";
 import type { SignalProbe, SignalWait } from "../signals/types";
+import type { TrustBand } from "../trust/types";
 import type { EvalRun } from "./evals";
 
 /** What a session has used before its agent says anything of it. */
@@ -124,15 +125,15 @@ export interface ConversationState {
 	 */
 	assigned: boolean;
 	/**
-	 * Auto pick is still deciding its agent: it shows the agent the rules
+	 * Autopick is still deciding its agent: it shows the agent the rules
 	 * fall back on with no judge until the pick lands, and opens none before.
 	 */
 	picking: boolean;
 	/**
-	 * What Auto pick set it to, and from what lineup, once it has; null for one
+	 * What Autopick set it to, and from what lineup, once it has; null for one
 	 * it did not start, or before it decided.
 	 */
-	autoPick: AutoPickMark | null;
+	autoPick: AutopickMark | null;
 	/**
 	 * Started by the server's queue or a hook, so its agent waits while
 	 * starts are paused; the person's own conversations never do.
@@ -208,6 +209,12 @@ export interface ConversationState {
 	probes: SignalProbe[];
 	/** The evals its agent ran with `bin/evals run`, in the order each started. */
 	evals?: EvalRun[];
+	/**
+	 * Its agent ran a live eval (`bin/evals run`), kept on summaries where
+	 * `evals` is omitted so lists can mark it as an eval conversation. Absent
+	 * for any other.
+	 */
+	hasEvals?: true;
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
 	/**
@@ -233,15 +240,15 @@ export interface ConversationState {
  * Where the agent is: `stopped` and `failed` have no process, and the next
  * prompt resumes the session in a new one.
  */
-/** What Auto pick set a conversation to, and why, as its log keeps it. */
+/** What Autopick set a conversation to, and why, as its log keeps it. */
 /**
- * Why Auto pick moved a conversation after it started: the judge read what
+ * Why Autopick moved a conversation after it started: the judge read what
  * the person said as needing more, the first answer asked back, or the
- * person switched Auto pick on and it looked afresh.
+ * person switched Autopick on and it looked afresh.
  */
 export type LiftReason = "judged" | "asked-back" | "switched";
 
-export interface AutoPickSet {
+export interface AutopickSet {
 	/** The id of the lineup its cell sent it to; null before it took one, as for a conversation switched on that it has yet to look at. */
 	lineup?: string | null;
 	/** On picks before lineups, the index of the rule it took. */
@@ -257,8 +264,8 @@ export interface AutoPickSet {
 	effort: string | null;
 }
 
-/** A conversation's Auto pick, and whether the person has moved off it since. */
-export interface AutoPickMark extends AutoPickSet {
+/** A conversation's Autopick, and whether the person has moved off it since. */
+export interface AutopickMark extends AutopickSet {
 	/** The person set the model or effort since, or switched it off, which then stands. */
 	overridden: boolean;
 	/**
@@ -267,12 +274,12 @@ export interface AutoPickMark extends AutoPickSet {
 	 * for it, down as well as up, on the agent it runs.
 	 */
 	rejudge?: true;
-	/** The person chose the model, when starting or since: Auto pick moves its effort, never the model. */
+	/** The person chose the model, when starting or since: Autopick moves its effort, never the model. */
 	keepModel?: true;
 }
 
 /**
- * What Auto pick holds for `state` once the person switches it `on` or off:
+ * What Autopick holds for `state` once the person switches it `on` or off:
  * on, to judge their next message afresh, keeping what it picked before, if
  * anything, or, already on, as it is, the model kept when `keepModel`; off, what it picked, overridden, or nothing for a conversation it
  * never picked for.
@@ -281,7 +288,7 @@ export function switched(
 	state: Pick<ConversationState, "autoPick" | "agent">,
 	on: boolean,
 	keepModel = false,
-): AutoPickMark | null {
+): AutopickMark | null {
 	const { autoPick } = state;
 	if (!on) {
 		return autoPick === null ? null : { ...autoPick, overridden: true };
@@ -306,11 +313,11 @@ export function switched(
 	};
 }
 
-/** What Auto pick holds once it moved `before` to `pick`: a model the person kept, still kept. */
+/** What Autopick holds once it moved `before` to `pick`: a model the person kept, still kept. */
 export function lifted(
-	before: AutoPickMark | null,
-	pick: AutoPickSet,
-): AutoPickMark {
+	before: AutopickMark | null,
+	pick: AutopickSet,
+): AutopickMark {
 	return {
 		...pick,
 		overridden: false,
@@ -379,6 +386,12 @@ export interface Message {
 	dictated?: true;
 	/** The id the page gave it as it sent it, so it knows its own copy when it comes back. */
 	id?: string;
+	/**
+	 * For an agent's turn that posted a plan and carried on without the
+	 * person's approval, the trust that let it: its band and score as the
+	 * turn ended. Absent for any other.
+	 */
+	trusted?: PlanTrusted;
 	// Set only by the page, on its own copy, never by the server.
 	/**
 	 * Set while it is on its way: when the page sent it, as epoch ms, which
@@ -387,13 +400,27 @@ export interface Message {
 	sending?: number;
 }
 
+/** The trust an agent went ahead on a plan with, unapproved: its band and score. */
+export interface PlanTrusted {
+	band: TrustBand;
+	score: number;
+}
+
 /** One piece of what someone in a conversation said or did. */
 export type Part =
 	/**
 	 * `at` is when the agent began saying it, where the server knows;
-	 * `message` is the agent's id for its latest message here, if it gave one.
+	 * `message` is the agent's id for its latest message here, if it gave one;
+	 * `ended` says a command the agent waited on in the background finished
+	 * after it, so what it says next starts new words.
 	 */
-	| { type: "text"; text: string; at?: string | null; message?: string | null }
+	| {
+			type: "text";
+			text: string;
+			at?: string | null;
+			message?: string | null;
+			ended?: boolean;
+	  }
 	/** `at` is when the agent began it; null in a log too old to say. */
 	| {
 			type: "thought";
@@ -794,6 +821,9 @@ export function listed(state: ConversationState): ConversationState {
 		// a merge's failed tests made them half of what a listing weighed.
 		events: [],
 		evals: [],
+		...(state.hasEvals === true || (state.evals?.length ?? 0) > 0
+			? { hasEvals: true as const }
+			: {}),
 		messages: state.messages.flatMap((message, at, all) =>
 			summarized(message, at === all.length - 1, all[at + 1]?.role === "user"),
 		),

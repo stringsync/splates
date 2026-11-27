@@ -355,7 +355,7 @@ export interface Facts {
 	 * applied rate per note.
 	 */
 	"note applied": NoteApplied;
-	/** `splates server` starting a task on what Auto pick decided, or, before it, a first prompt on what Auto picked. */
+	/** `splates server` starting a task on what Autopick decided, or, before it, a first prompt on what Autopicked. */
 	auto: {
 		/** The roster agent it picked, by its id. */
 		agent: string;
@@ -363,7 +363,7 @@ export interface Facts {
 		model: string | null;
 		/** The thinking level it set, or null for the agent's default. */
 		effort: string | null;
-		/** What it picked, then why, as `AutoPickDecision.reasons`. */
+		/** What it picked, then why, as `AutopickDecision.reasons`. */
 		reasons: string[];
 		/**
 		 * What the judge found: the likeliest kind and depth, each with its
@@ -374,7 +374,7 @@ export interface Facts {
 		/**
 		 * For a pick that moved the conversation up for what the person said
 		 * later, what it moved off; null for one it started on, and missing
-		 * from lines written before Auto pick looked again.
+		 * from lines written before Autopick looked again.
 		 */
 		lifted: Lifted | null;
 		/**
@@ -419,13 +419,13 @@ export interface NoteApplied {
 	dollars?: number | null;
 }
 
-/** What an Auto pick that moved a conversation up, or anywhere once switched on, moved it off. */
+/** What an Autopick that moved a conversation up, or anywhere once switched on, moved it off. */
 export interface Lifted {
 	/** The pick it was on, in words: `Sonnet 5.5, low effort`. */
 	from: string;
 	/** Each setting it changed, by id, and what it was before, for an Undo to set back. */
 	undo: Record<string, string>;
-	/** Its first look after the person switched Auto pick on, which may move it down too. */
+	/** Its first look after the person switched Autopick on, which may move it down too. */
 	switched?: true;
 }
 

@@ -176,7 +176,7 @@ function fullStatus(
 	if (conversation?.status === "starting") {
 		return {
 			text: conversation.picking
-				? "Auto pick is choosing the agent"
+				? "Autopick is choosing the agent"
 				: "Waiting for agent to start",
 			urgent: false,
 		};

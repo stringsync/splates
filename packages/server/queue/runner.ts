@@ -1,7 +1,7 @@
 import { Disposer, type Resource } from "core/disposable";
 import { color, type Logger } from "core/log";
 import { Duration, SystemTimer, type Timer } from "core/time";
-import type { ReserveHold } from "../auto-pick/reserve";
+import type { ReserveHold } from "../autopick/reserve";
 import { type TaskRecord, ungroomed } from "../board";
 import type { QueueSpot } from "../conversations";
 import type { AgentPick } from "../models";
@@ -25,7 +25,7 @@ export interface QueueStart {
 	queued: TaskRecord;
 	/** The name for its task, one no task out has. */
 	task: string;
-	/** The agent and model to work it: the one it names, else what Auto pick decided. */
+	/** The agent and model to work it: the one it names, else what Autopick decided. */
 	pick: AgentPick;
 	/** What its agent is told beyond claiming the task. */
 	prompt: string;
@@ -42,7 +42,7 @@ export type QueueStarter = (start: QueueStart) => Promise<void>;
 /** Starts a project's queued tasks: `watch` to begin, `sweep` to check now, `retry` a refused start, `dispose` to stop. */
 export class QueueRunner implements Resource {
 	// Each queued task starts once nothing it is blocked by is open, on the
-	// agent and model it names or Auto pick's; one blocked by a task not
+	// agent and model it names or Autopick's; one blocked by a task not
 	// queued, or by one removed without merging, stays queued as blocked
 	// until the person queues that or drops the link, as the page offers.
 	// Checked as tasks change and every `QUEUE_SWEEP`. Queue starts go one at a time, in queue order, at most `QUEUE_STARTS_MAX`
@@ -52,7 +52,7 @@ export class QueueRunner implements Resource {
 	// waits at an agent on another task. A refused start is tried again at
 	// once when its task changes or on `retry`, otherwise after a wait that
 	// doubles with each refusal up to `RETRY_SWEEPS_MAX` sweeps, so a passing
-	// snag never strands it and a broken one never loops; what Auto pick
+	// snag never strands it and a broken one never loops; what Autopick
 	// keeps on a task's record is not such a change.
 	readonly #disposer = new Disposer();
 	/** One check at a time, so no queued task is started twice. */
@@ -314,7 +314,7 @@ export class QueueRunner implements Resource {
 	}
 
 	/**
-	 * Whom each queued task goes to: the agent it names, else Auto pick's
+	 * Whom each queued task goes to: the agent it names, else Autopick's
 	 * pick. Every ungroomed available task or queued task that names none has its
 	 * words judged in the background as it is added and once for each new
 	 * wording, so the queued ones take what that judged, guessed without
@@ -382,7 +382,7 @@ export class QueueRunner implements Resource {
 		starting: ReadonlySet<number>,
 	): Promise<Map<number, HeldConversation>> {
 		// One that names no agent is assigned one only at the last moment, once
-		// it can run, so none waits at an agent Auto pick only guessed; one whose
+		// it can run, so none waits at an agent Autopick only guessed; one whose
 		// start was refused stays, so its conversation says why.
 		const assigned = (queued: TaskRecord): boolean =>
 			queued.assignee !== undefined ||
@@ -522,7 +522,7 @@ const NO_PICK: AgentPick = { agent: "claude" };
 
 /**
  * `queued` as a refused start remembers it, to tell a change from: all but
- * what Auto pick keeps on it, which a start writes itself.
+ * what Autopick keeps on it, which a start writes itself.
  */
 function asWas({ autoPick: _, ...queued }: TaskRecord): string {
 	return JSON.stringify(queued);
@@ -545,7 +545,7 @@ export interface QueueRunnerDeps {
 	settle?: () => Promise<unknown>;
 	/** The name of every task out, so a new one takes another. */
 	tasks: () => Promise<string[]>;
-	/** Who works a queued task that names no agent: Auto pick. */
+	/** Who works a queued task that names no agent: Autopick. */
 	picker: QueuePicker;
 	start: QueueStarter;
 	/**

@@ -95,6 +95,50 @@ describe("EvalLiveCard", () => {
 		expect(view.queryByText("Eval running")).toBeNull();
 	});
 
+	it("shows lead-diagnosed faults underneath the checks once appended to a finished live run", () => {
+		const live = evalLiveOf(
+			`${RUNNING}${liveFileOf(
+				{
+					type: "done",
+					report: {
+						eval: START.eval,
+						agent: "claude:sonnet",
+						status: "fail",
+						error: null,
+						transcript: [{ who: "user", text: "Add a files command." }],
+						checks: [
+							{ id: "kept", about: "the first file edit is kept", pass: false },
+						],
+						judge: { pass: false, reason: "Reverted both edits." },
+						usage: { usd: 0.5, turns: 3, seconds: 42 },
+						fault: null,
+					},
+				},
+				{
+					type: "faults",
+					faults: [
+						{ area: "skill", detail: "Never says to keep earlier edits." },
+						{
+							area: "environment",
+							detail: "Sandbox started with a dirty tree.",
+						},
+					],
+				},
+			)}`,
+		);
+		if (live === null) {
+			throw new Error("no live eval");
+		}
+		const view = render(<EvalLiveCard live={live} />);
+
+		expect(view.getByText("Eval failed")).toBeTruthy();
+		const section = view.getByLabelText("What went wrong");
+		expect(section.textContent).toContain("Skill ·");
+		expect(section.textContent).toContain("Never says to keep earlier edits.");
+		expect(section.textContent).toContain("Environment ·");
+		expect(section.textContent).toContain("Sandbox started with a dirty tree.");
+	});
+
 	it("says a run that ended without a report stopped, with no clock or spinner", () => {
 		const run = evalRunOf("run.jsonl", RUNNING);
 		if (run === null) {

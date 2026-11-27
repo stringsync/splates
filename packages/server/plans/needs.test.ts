@@ -189,6 +189,146 @@ describe("needs", () => {
 		).toMatchObject({ kind: "idle" });
 	});
 
+	it("waits on nobody for a plan the agent went ahead on with trust, but on one its turn ended on", () => {
+		const at = "2026-11-27T10:07:00.000Z";
+		const plan =
+			"## 📝 Plan: retry uploads\n\n**Goal:** Retry once.\n\n1. How many retries?\n   Fewer keeps uploads quick.\n   - (a) One (chosen)\n   - (b) Three";
+		const posted = (then: boolean) =>
+			talk({
+				status: "idle",
+				messages: [
+					{
+						role: "agent",
+						parts: [
+							{ type: "text", text: plan },
+							...(then
+								? [{ type: "text" as const, text: "Built and merged." }]
+								: []),
+						],
+						plan: null,
+						at,
+						until: at,
+						trusted: { band: "ask-and-go", score: 78 },
+					},
+				],
+			});
+
+		expect(need(null, posted(true))).toMatchObject({ kind: "idle" });
+		expect(need(null, posted(false))).toMatchObject({
+			kind: "waiting",
+			subject: "How many retries?",
+		});
+	});
+
+	it("ignores non-adjacent questions in a went-ahead plan, but still waits on new questions asked afterward", () => {
+		const at = "2026-11-27T10:07:00.000Z";
+		const planWithNote = [
+			"## 📝 Plan: retry uploads",
+			"",
+			"**Goal:** Retry once.",
+			"",
+			"## 📋 Steps: check logs",
+			"- Read the error",
+			"",
+			"1. How many retries?",
+			"   Fewer keeps uploads quick.",
+			"   - (a) One (chosen)",
+			"   - (b) Three",
+		].join("\n");
+		const built = talk({
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{ type: "text", text: planWithNote },
+						{ type: "text", text: "Built and merged." },
+					],
+					plan: null,
+					at,
+					until: at,
+					trusted: { band: "ask-and-go", score: 78 },
+				},
+			],
+		});
+		const askedLater = talk({
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{ type: "text", text: planWithNote },
+						{
+							type: "text",
+							text: "1. Should this also retry 429s?\n   Hit a rate limit while testing.\n   - (a) Yes (chosen)\n   - (b) No",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+					trusted: { band: "ask-and-go", score: 78 },
+				},
+			],
+		});
+
+		expect(need(null, built)).toMatchObject({ kind: "idle" });
+		expect(need(null, askedLater)).toMatchObject({
+			kind: "waiting",
+			why: "questions",
+			subject: "Should this also retry 429s?",
+		});
+	});
+
+	it("clears an earlier plan once the turn ends on a terminal outcome, even without a trust stamp", () => {
+		const at = "2026-11-27T10:07:00.000Z";
+		const plan =
+			"## 📝 Plan: retry uploads\n\n**Goal:** Retry once.\n\n1. How many retries?\n   Fewer keeps uploads quick.\n   - (a) One (chosen)\n   - (b) Three";
+		const merged = talk({
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{ type: "text", text: plan },
+						{
+							type: "text",
+							text: "## ✅ Merged retry-uploads onto main\n\nUploads now retry once.",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+				},
+			],
+		});
+		const mergedWithQueue = talk({
+			status: "idle",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{ type: "text", text: plan },
+						{
+							type: "text",
+							text: "## ✅ Merged retry-uploads onto main\n\nUploads now retry once.\n\n## 🔐 Permission: queue lane 3: Follow-up",
+						},
+					],
+					plan: null,
+					at,
+					until: at,
+					trusted: { band: "ask-and-go", score: 78 },
+				},
+			],
+		});
+
+		expect(need(null, merged)).toMatchObject({ kind: "idle" });
+		expect(need(null, mergedWithQueue)).toMatchObject({
+			kind: "waiting",
+			why: "ask",
+			subject: "Follow-up",
+		});
+	});
+
 	it("stops waiting on a queue card once its work is queued or running, but not on open questions", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const asking = talk({

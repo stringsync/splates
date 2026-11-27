@@ -26,20 +26,20 @@ import { cn } from "#web/lib/utils.ts";
 import { type AgentChoice, agentName } from "./agent-choice";
 import { AgentMark } from "./agent-icons";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import type { AutoPickControl } from "./auto-pick-switch";
+import type { AutopickControl } from "./autopick-switch";
 import { latestPerClass } from "./model-classes";
 
 /** Classes for a picker in the composer's bottom row; pass them to its trigger. */
 /**
  * The agent a new conversation starts with, for the settings sheet to switch:
- * the roster, the one in force (or Auto pick) and what a pick does.
+ * the roster, the one in force (or Autopick) and what a pick does.
  */
 export interface AgentSwitch {
 	agents: AgentChoice[];
 	agent: string;
-	/** Whether Auto pick chooses the agent from the first message. */
+	/** Whether Autopick chooses the agent from the first message. */
 	auto: boolean;
-	/** Starts on `agent` instead, or on Auto pick for null. */
+	/** Starts on `agent` instead, or on Autopick for null. */
 	pick: (agent: string | null) => void;
 }
 
@@ -64,18 +64,18 @@ export function SettingsSheet({
 	current: (setting: Setting) => string;
 	onChange: (setting: Setting, value: string) => void;
 	agent?: string | undefined;
-	autoPick?: AutoPickControl | undefined;
+	autoPick?: AutopickControl | undefined;
 	/** The agents to switch to, on a conversation not yet started. */
 	agentSwitch?: AgentSwitch | undefined;
 }): JSX.Element {
 	const model = settings.find((setting) => setting.category === "model");
-	// Auto pick picks for this conversation: its model, or its agent too.
+	// Autopick picks for this conversation: its model, or its agent too.
 	const auto = autoPick?.on === true || agentSwitch?.auto === true;
 	const switchId = useId();
 	const [open, setOpen] = useState(false);
 	const [subId, setSub] = useState<string>();
 	const [all, setAll] = useState(false);
-	// On Auto pick the agent is the choice; else a tap deeper, past the models.
+	// On Autopick the agent is the choice; else a tap deeper, past the models.
 	const [choosing, setChoosing] = useState(false);
 	const agentsFirst = agentSwitch?.auto;
 	// The sheet opens on the models; everything else is a tap deeper.
@@ -102,7 +102,7 @@ export function SettingsSheet({
 					name={
 						<span className="flex items-center gap-2.5">
 							<AutoIcon colored />
-							Auto pick
+							Autopick
 						</span>
 					}
 					description="Chooses the agent, model and effort from your first message."
@@ -147,7 +147,7 @@ export function SettingsSheet({
 					"inline-flex min-w-0 shrink max-w-48 items-center gap-1.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				)}
 			>
-				{/* Who answers next in color: the agent's maker, split with Auto pick while it picks. */}
+				{/* Who answers next in color: the agent's maker, split with Autopick while it picks. */}
 				{auto && agent !== undefined ? (
 					<AutoAgentMark
 						agent={agent}
@@ -170,7 +170,7 @@ export function SettingsSheet({
 				{model === undefined && (
 					<span>
 						{auto
-							? "Auto pick"
+							? "Autopick"
 							: agentSwitch !== undefined && !agentSwitch.auto
 								? agentName(agentSwitch.agents, agentSwitch.agent)
 								: "Settings"}
@@ -232,7 +232,7 @@ export function SettingsSheet({
 								<FieldContent>
 									<FieldLabel htmlFor={switchId}>
 										<AutoIcon colored={auto} />
-										Auto pick
+										Autopick
 									</FieldLabel>
 									<FieldDescription>
 										{autoPick.chooses ??

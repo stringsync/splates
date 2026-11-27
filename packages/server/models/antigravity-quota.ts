@@ -92,9 +92,60 @@ function newestAt(limits: readonly Limit[]): string {
 	);
 }
 
-function groupOf(window: string): string {
+/** One grouped Antigravity quota family with its short display label and active windows. */
+export interface AntigravityQuotaGroup {
+	/** Raw group name as `agy` reports it (e.g. `"Gemini Models"`). */
+	group: string;
+	/** Short display label (e.g. `"Gemini"`, `"Claude & GPT"`). */
+	label: string;
+	/** Active windows belonging to this group, ordered shortest first. */
+	limits: Limit[];
+}
+
+/**
+ * The active grouped Antigravity quotas, each with its own windows; empty when
+ * the account reports legacy per-model buckets or no limits.
+ */
+export function antigravityGroups(
+	limits: readonly Limit[],
+): AntigravityQuotaGroup[] {
+	const current = currentAntigravityLimits(limits);
+	if (current.kind !== "grouped" || current.limits.length === 0) {
+		return [];
+	}
+	const grouped = new Map<string, Limit[]>();
+	for (const each of current.limits) {
+		const group = antigravityGroupOf(each.window);
+		const existing = grouped.get(group);
+		if (existing === undefined) {
+			grouped.set(group, [each]);
+		} else {
+			existing.push(each);
+		}
+	}
+	return [...grouped.entries()].map(([group, groupLimits]) => ({
+		group,
+		label: antigravityGroupLabel(group),
+		limits: groupLimits,
+	}));
+}
+
+/** The group prefix of an Antigravity window name (before `" · "`). */
+export function antigravityGroupOf(window: string): string {
 	const index = window.indexOf(" · ");
 	return index === -1 ? window : window.slice(0, index);
+}
+
+/** Short human-readable label for an Antigravity quota group (`"Gemini"`, `"Claude & GPT"`). */
+export function antigravityGroupLabel(group: string): string {
+	return group
+		.replace(/\s+models$/i, "")
+		.replace(/\band\b/gi, "&")
+		.trim();
+}
+
+function groupOf(window: string): string {
+	return antigravityGroupOf(window);
 }
 
 function windowRank(window: string): number {

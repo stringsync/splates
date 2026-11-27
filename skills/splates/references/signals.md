@@ -55,8 +55,9 @@ preview server or watcher left available is not a continuation.
 - **Fire**: `splates signal fire mdom.released --data '{"version":"2.4.0"}'`
   announces the fact with no approval. Every conversation waiting on that name
   at that moment wakes with the payload; nothing is stored as current truth, so
-  fire it when the fact holds. A rig started by splates can run the same
-  command from its checkout (including main), attributed to the rig.
+  fire it when the fact holds. A rig or shell hook started by splates can run
+  the same command from its checkout (including main), attributed to the rig or
+  hook.
 - **Wait**:
   `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 is published on npm, so vexml can adopt it."`
   puts one card in the conversation, then end your turn. The signal wakes you on

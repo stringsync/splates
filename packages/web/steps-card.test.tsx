@@ -54,27 +54,41 @@ describe("StepsCard", () => {
 		expect(written).toEqual(["splates creds set SECRET"]);
 	});
 
-	it("previews a future or completed step without moving checklist progress", async () => {
+	it("previews a future step, and a completed one from its title, without moving progress", async () => {
 		const view = render(<StepsCard steps={STEPS} />);
 		const card = within(view.container);
 		await act(async () =>
 			fireEvent.click(card.getByRole("button", { name: "Mark step 1 done" })),
 		);
 		const future = card.getByRole("button", { name: "Preview step 3" });
-		const past = card.getByRole("button", { name: "Preview step 1, done" });
+		const past = card.getByRole("button", { name: "Undo step 1, done" });
 
 		await act(async () => fireEvent.click(future));
 		expect(future.getAttribute("aria-expanded")).toBe("true");
 		expect(future.closest("li")?.textContent).toContain("Preview");
 
-		await act(async () => fireEvent.click(past));
+		await act(async () =>
+			fireEvent.click(card.getByText("Open the dashboard.")),
+		);
 		expect(future.getAttribute("aria-expanded")).toBe("false");
-		expect(past.getAttribute("aria-expanded")).toBe("true");
+		expect(past.closest("li")?.textContent).toContain("Preview");
 		expect(current(view.container)).toContain("Copy the secret.");
 		expect(view.container.textContent).toContain("1 of 3");
+	});
 
-		await act(async () => fireEvent.click(past));
-		expect(past.getAttribute("aria-expanded")).toBe("false");
+	it("undoes a completed step from its check", async () => {
+		const view = render(<StepsCard steps={STEPS} />);
+		const card = within(view.container);
+		await act(async () =>
+			fireEvent.click(card.getByRole("button", { name: "Mark step 1 done" })),
+		);
+		expect(view.container.textContent).toContain("1 of 3");
+
+		await act(async () =>
+			fireEvent.click(card.getByRole("button", { name: "Undo step 1, done" })),
+		);
+		expect(view.container.textContent).toContain("0 of 3");
+		expect(card.getByRole("button", { name: "Mark step 1 done" })).toBeTruthy();
 	});
 
 	it("expands a step from its title and closes the preview when progress moves", async () => {

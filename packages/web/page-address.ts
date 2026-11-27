@@ -45,7 +45,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	todo = todoIn(location.hash);
 	/** The cred the Creds page is set on, by name, or null. */
 	cred = credIn(location.hash);
-	/** The cell of the routes the Auto pick page is set on, `bugfix.deep`, or null. */
+	/** The cell of the routes the Autopick page is set on, `bugfix.deep`, or null. */
 	cell = cellIn(location.hash);
 	/** The ship run the Ships page shows, by id, or null. */
 	shipRun = shipRunIn(location.hash);
@@ -319,7 +319,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#billing" || hash === "#budget") {
 		return "billing";
 	}
-	// Auto pick was a page under Automations, which is gone: its old addresses open it.
+	// Autopick was a page under Automations, which is gone: its old addresses open it.
 	if (
 		hash === "#automations" ||
 		hash === "#automations/auto-pick" ||
@@ -409,7 +409,7 @@ export function credAddress(name: string): string {
 }
 
 /**
- * The cell `#auto-pick/<kind>.<depth>` sets the Auto pick page on, as
+ * The cell `#auto-pick/<kind>.<depth>` sets the Autopick page on, as
  * `<kind>.<depth>`, or null. An address from before lineups, set on a rule by
  * its number, opens the page on no cell.
  */
@@ -418,7 +418,7 @@ function cellIn(hash: string): string | null {
 	return cell ?? null;
 }
 
-/** The address of the Auto pick page set on a kind at a depth, either null for unsure. */
+/** The address of the Autopick page set on a kind at a depth, either null for unsure. */
 export function cellAddress(kind: string | null, depth: string | null): string {
 	return `#auto-pick/${kind ?? "unsure"}.${depth ?? "unsure"}`;
 }

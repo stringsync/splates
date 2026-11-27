@@ -48,7 +48,7 @@ export class Offered {
 		return this.images;
 	}
 
-	/** Keeps whether `agent` said it takes images, which Auto pick reads before it connects. */
+	/** Keeps whether `agent` said it takes images, which Autopick reads before it connects. */
 	async see(agent: string, sees: boolean): Promise<void> {
 		const all = await this.all();
 		if (this.images[agent] === sees) {
@@ -117,7 +117,7 @@ export class Offered {
 		let remembered = conversation.state.settings;
 		let sawImages: boolean | null = null;
 		conversation.events.on("changed", () => {
-			// Kept for Auto pick, which decides before an agent connects.
+			// Kept for Autopick, which decides before an agent connects.
 			const sees = conversation.sees;
 			if (sees !== null && sees !== sawImages) {
 				sawImages = sees;

@@ -1,0 +1,78 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { OpenPortProvider } from "core/system";
+import { FakeAgent } from "../agents/testing";
+import { Conversations } from "../conversations";
+import { Testing } from "../testing";
+import { dev } from "./server";
+import { json } from "./testing";
+
+const ROSTERED = {
+	id: "fake",
+	name: "Fake",
+	argv: ["fake-acp"],
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
+
+describe("Autopick's switch for a conversation", () => {
+	let deps: Testing;
+	let conversations: Conversations;
+	let server: Awaited<ReturnType<typeof dev>>;
+
+	beforeEach(async () => {
+		deps = await Testing.open();
+		conversations = new Conversations(`${deps.dir}/conversations`, [ROSTERED], {
+			storage: deps.storage.within("conversations"),
+			launch: new FakeAgent().launch,
+		});
+		server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+	});
+
+	afterEach(async () => {
+		await server.disposeAsync();
+		await deps.disposeAsync();
+	});
+
+	it("starts a conversation on the picked agent with Autopick to judge its first message", async () => {
+		const started = await json(server.port, "/api/conversations", "POST", {
+			agent: "fake",
+			autoPick: true,
+		});
+
+		expect(await started.json()).toMatchObject({
+			agent: "fake",
+			autoPick: { agent: "fake", overridden: false, rejudge: true },
+		});
+	});
+
+	it("switches Autopick on and off for a conversation", async () => {
+		const started = await json(server.port, "/api/conversations", "POST", {
+			agent: "fake",
+		});
+		const { id, autoPick } = (await started.json()) as {
+			id: string;
+			autoPick: unknown;
+		};
+		expect(autoPick).toBeNull();
+
+		const on = await json(
+			server.port,
+			`/api/conversations/${id}/auto-pick`,
+			"PUT",
+			{ on: true },
+		);
+		expect(await on.json()).toMatchObject({ autoPick: { rejudge: true } });
+		const off = await json(
+			server.port,
+			`/api/conversations/${id}/auto-pick`,
+			"PUT",
+			{ on: false },
+		);
+		expect(await off.json()).toMatchObject({ autoPick: { overridden: true } });
+	});
+});

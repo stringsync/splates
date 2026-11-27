@@ -80,8 +80,10 @@ export class ShipComposer {
 		}
 		const pickByName = new Map(picks.map((pick) => [pick.name, pick]));
 		const planned = new Map<string, ComposedTarget>();
+		const resolvedVersion = new Map<string, string>();
 		// Plan wave by wave so a dependent receives the version each earlier
-		// dependency resolved as `--upstream <name>=<version>`.
+		// dependency resolved as `--upstream <name>=<version>`, including
+		// through chained followers.
 		for (const wave of order) {
 			const built = await Promise.all(
 				wave.map(async (name) => {
@@ -89,16 +91,31 @@ export class ShipComposer {
 					const entry = listed.get(name) as Listed;
 					const upstream: Record<string, string> = {};
 					for (const dep of entry.plan.dependencies) {
-						const version = planned.get(dep)?.version;
+						const version = resolvedVersion.get(dep);
 						if (version !== undefined) {
 							upstream[dep] = version;
 						}
 					}
-					return [name, await this.planned(pick, entry, upstream)] as const;
+					return [
+						name,
+						pick,
+						entry,
+						await this.planned(pick, entry, upstream),
+					] as const;
 				}),
 			);
-			for (const [name, target] of built) {
+			for (const [name, pick, entry, target] of built) {
 				planned.set(name, target);
+				if (target.error === undefined) {
+					const version =
+						target.version ??
+						(pick.follow && entry.plan.follows !== undefined
+							? resolvedVersion.get(entry.plan.follows)
+							: undefined);
+					if (version !== undefined) {
+						resolvedVersion.set(name, version);
+					}
+				}
 			}
 		}
 		return {

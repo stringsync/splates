@@ -13,7 +13,12 @@ import { MIC_PAGE } from "./mic-page";
 import { OPEN_PAGE } from "./open-page";
 import { openSidePanel } from "./open-panel";
 import { SNAPSHOTS_DIR } from "./page-snapshot";
-import { EVENTS_FILE, FRAMES_DIR, PointerEvents } from "./pointer";
+import {
+	EVENTS_FILE,
+	FRAMES_DIR,
+	type LaserMode,
+	PointerEvents,
+} from "./pointer";
 import {
 	packFrame,
 	type RecorderStats,
@@ -60,7 +65,7 @@ export class RecorderServer {
 	private readonly micChoice: MicChoice | undefined;
 	private staged = false;
 	private noMic = false;
-	private laserOn = false;
+	private laserMode: LaserMode = "off";
 	private run: Run | undefined;
 	private last: SessionFolder | undefined;
 	private readonly outcome = new LastOutcome();
@@ -125,7 +130,7 @@ export class RecorderServer {
 						...(run && {
 							startedAt: run.started.at,
 							mic: run.started.mic === undefined ? "off" : "on",
-							laser: this.laserOn,
+							laser: this.laserMode !== "off",
 						}),
 					});
 				}
@@ -278,9 +283,13 @@ export class RecorderServer {
 			scrubber,
 			skip: new OtherPages(origin),
 			observer: {
-				laser: (on) => {
-					this.laserOn = on;
-					this.say({ type: "laser", on });
+				laser: (mode) => {
+					this.laserMode = mode;
+					this.say(
+						mode === "off"
+							? { type: "laser", on: false }
+							: { type: "laser", on: true, shape: mode },
+					);
 				},
 				event: (event) => live.event(event),
 			},
@@ -344,7 +353,7 @@ export class RecorderServer {
 				const stats = await run.done;
 				if (this.run === run) {
 					this.run = undefined;
-					this.laserOn = false;
+					this.laserMode = "off";
 				}
 				const manifest = await this.finalize(run, stats).catch((why) => {
 					this.say({ type: "save-failed", message: String(why) });

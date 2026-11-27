@@ -43,7 +43,7 @@ splatesReplica
 splatesReplica
 	.command("restore")
 	.description(
-		"with `splates server` stopped, rebuild this project's records from the replica `replica` names in splates.config.ts, adopting its origin so the server started on them replicates on into it: how a server moves to another machine or comes back after its box is lost. Stops when the project already has records here, unless --force leaves them aside as state.db.moved. The roster and Auto pick rules are not in the replica; set them up again. A bucket's REPLICA_ACCESS_KEY and REPLICA_SECRET_KEY must be filled on this machine first",
+		"with `splates server` stopped, rebuild this project's records from the replica `replica` names in splates.config.ts, adopting its origin so the server started on them replicates on into it: how a server moves to another machine or comes back after its box is lost. Stops when the project already has records here, unless --force leaves them aside as state.db.moved. The roster and Autopick rules are not in the replica; set them up again. A bucket's REPLICA_ACCESS_KEY and REPLICA_SECRET_KEY must be filled on this machine first",
 	)
 	.option("force", z.boolean(), {
 		default: false,

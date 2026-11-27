@@ -81,13 +81,13 @@ describe("AutomationDraft", () => {
 		).toBe("Standup");
 	});
 
-	it("makes an agent hook on Auto pick when no agent is picked", () => {
+	it("makes an agent hook on Autopick when no agent is picked", () => {
 		const draft = new AutomationDraft();
 		draft.set("prompt", "look");
 		expect(draft.made().hook).toEqual({ kind: "agent", prompt: "look" });
 	});
 
-	it("keeps an Auto pick hook on Auto pick when it edits one", () => {
+	it("keeps an Autopick hook on Autopick when it edits one", () => {
 		const draft = AutomationDraft.of({
 			id: "1",
 			trigger: { signal: "mdom.released" },

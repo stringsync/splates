@@ -1,0 +1,35 @@
+/**
+ * The autopick values a browser bundle can take: import them from
+ * `@splates/server/autopick/browser` in the page, and types from
+ * `@splates/server/autopick`.
+ */
+
+// The index brings in the judges, and `classificationKey`, which hashes with `Bun`, so
+// these are re-exported from the file that brings in neither. Checking rules
+// takes zod, which is `check.ts`'s, so a page that only reads the classes
+// carries none of it.
+
+export {
+	cellLabel,
+	DEFAULT_HOLDOUT,
+	DEFAULT_PACE,
+	depthLabel,
+	kindLabel,
+	LINEUP_COLORS,
+	ROUTE_DEPTHS,
+	ROUTE_KINDS,
+	RULES_FORMAT,
+	UNSURE,
+} from "./cells";
+export {
+	CLARITIES,
+	CLARITY_IDS,
+	DEPTH_IDS,
+	DEPTHS,
+	KIND_IDS,
+	KINDS,
+} from "./classes";
+export { DEFAULT_LINEUPS } from "./default-lineups";
+export { DEFAULT_RULES } from "./defaults";
+
+export type { ReserveHold } from "./reserve";

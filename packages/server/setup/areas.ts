@@ -1,4 +1,4 @@
-import { AUTO_PICK_AREA } from "./area-auto-pick";
+import { AUTOPICK_AREA } from "./area-autopick";
 import { DICTATION_AREA } from "./area-dictation";
 import {
 	ANTIGRAVITY_AREA,
@@ -21,5 +21,5 @@ export const SETUP_AREAS: readonly SetupArea[] = [
 	REPLICA_AREA,
 	DICTATION_AREA,
 	SHIPS_AREA,
-	AUTO_PICK_AREA,
+	AUTOPICK_AREA,
 ];

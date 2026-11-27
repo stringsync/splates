@@ -21,7 +21,7 @@ import {
 } from "./conversation-address";
 import {
 	promptConversation,
-	startAutoPick,
+	startAutopick,
 	startConversation,
 } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
@@ -169,7 +169,7 @@ export class Dispatch {
 	}
 
 	/**
-	 * Starts a conversation on what Auto pick decides for `assignment`, and
+	 * Starts a conversation on what Autopick decides for `assignment`, and
 	 * sends it the prompt, answering its address once it is started, as
 	 * `begin` does: the server answers before the judge, so the thread opens
 	 * at once, its agent opening on the pick. When it does not start, the
@@ -179,7 +179,7 @@ export class Dispatch {
 	async auto(assignment: Assignment): Promise<string> {
 		const task = assignment.kind === "task" ? assignment.task : null;
 		const text = promptFor(assignment);
-		const started = await startAutoPick(
+		const started = await startAutopick(
 			assignment.kind === "task"
 				? { task: assignment.task }
 				: { todo: assignment.id },

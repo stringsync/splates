@@ -8,12 +8,12 @@ import type { Picked } from "./conversation";
 import { Conversations } from "./index";
 import { eventually, until } from "./testing";
 
-/** A second agent for Auto pick to choose over the one it starts on. */
+/** A second agent for Autopick to choose over the one it starts on. */
 const OTHER: Agent = { id: "other", name: "Other", argv: ["other-acp"] };
 
 const AGENT = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
-describe("A conversation Auto pick is deciding for", () => {
+describe("A conversation Autopick is deciding for", () => {
 	let fs: FakeFs;
 	let agent: FakeAgent;
 	let conversations: Conversations;
@@ -50,7 +50,7 @@ describe("A conversation Auto pick is deciding for", () => {
 
 	afterEach(() => conversations.disposeAsync());
 
-	it("opens no agent, and holds a message as queued, until Auto pick decides", async () => {
+	it("opens no agent, and holds a message as queued, until Autopick decides", async () => {
 		const conversation = await start();
 		expect(conversation.state).toMatchObject({
 			status: "starting",
@@ -92,7 +92,7 @@ describe("A conversation Auto pick is deciding for", () => {
 		});
 	});
 
-	it("opens nothing once it was stopped while Auto pick decided", async () => {
+	it("opens nothing once it was stopped while Autopick decided", async () => {
 		const conversation = await start();
 
 		await conversation.stop();
@@ -103,7 +103,7 @@ describe("A conversation Auto pick is deciding for", () => {
 		expect(agent.launched).toEqual([]);
 	});
 
-	it("says what it was told once read back, on what Auto pick chose, the server having gone down before the agent opened", async () => {
+	it("says what it was told once read back, on what Autopick chose, the server having gone down before the agent opened", async () => {
 		// Never answered: a killed agent's start ends with its connection,
 		// which the fake's does not.
 		agent.hold = new Promise(() => {});
@@ -151,7 +151,7 @@ describe("A conversation Auto pick is deciding for", () => {
 		expect(read.state.messages[0]?.queued).toBe(true);
 	});
 
-	it("reads back on the agent Auto pick chose", async () => {
+	it("reads back on the agent Autopick chose", async () => {
 		const conversation = await start();
 		pick({ agent: "other", settings: {} });
 		await until(conversation, "idle");

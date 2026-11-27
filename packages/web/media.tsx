@@ -1,4 +1,4 @@
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, Maximize2Icon } from "lucide-react";
 import {
 	Children,
 	isValidElement,
@@ -8,6 +8,7 @@ import {
 	useState,
 } from "react";
 import { fileUrl } from "./api";
+import { useImagePreviewsExpanded } from "./image-previews";
 import { ITEM, type Shown, useLightbox } from "./lightbox";
 
 /** The recordings a todo or a task may hold, by extension; `dev.ts` serves them. */
@@ -39,9 +40,9 @@ export function Media({
 /**
  * A run of screenshots and recordings as one compact card: a few thumbnails,
  * how many there are and their captions. Clicking it opens the lightbox on the
- * first, stepping through every one in the document. One that splates no
- * longer holds is named with instructions for repairing its delivery; one off
- * this machine is named by its caption alone.
+ * first, stepping through every one in the document. One that splates does
+ * not hold is named as unavailable; one off this machine is named by its
+ * caption alone.
  */
 export function Gallery({
 	items,
@@ -49,7 +50,8 @@ export function Gallery({
 	items: readonly Pictured[];
 }): JSX.Element {
 	const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
-	const [size, setSize] = useState<string | null>(null);
+	const [sizes, setSizes] = useState<Readonly<Record<string, string>>>({});
+	const expanded = useImagePreviewsExpanded();
 	const { open, lightbox } = useLightbox();
 	const local = items.filter((item) => item.src.startsWith("/"));
 	const held = local.filter((item) => !failed.has(item.src));
@@ -62,7 +64,12 @@ export function Gallery({
 		}),
 	);
 	const fail = (src: string) => setFailed((before) => new Set(before).add(src));
+	const recordSize = (src: string, size: string) =>
+		setSizes((before) =>
+			before[src] === size ? before : { ...before, [src]: size },
+		);
 	const first = shown[0];
+	const firstSrc = held[0]?.src;
 	const many = shown.length > 1;
 	const recordings = shown.every((item) => item.video);
 	const kind = recordings ? "recording" : "image";
@@ -73,7 +80,7 @@ export function Gallery({
 		? shown.map((item) => item.alt || kind).join(" · ")
 		: first?.video
 			? "Recording"
-			: (size ?? "Image");
+			: ((firstSrc !== undefined ? sizes[firstSrc] : undefined) ?? "Image");
 	const onClick = (event: MouseEvent<HTMLElement>) => {
 		const thumb = event.currentTarget.querySelector(`[${ITEM}]`);
 		if (thumb) {
@@ -89,78 +96,163 @@ export function Gallery({
 				))}
 			{lost.map((item) => (
 				<span key={item.src} role="status" className="text-muted-foreground">
-					[{item.alt || "image"}: unavailable. Ask the agent to run splates
-					attach with the original file and paste the returned image Markdown.]
+					[{item.alt || "image"}: unavailable. The file may be missing, invalid,
+					or too large to display.]
 				</span>
 			))}
-			{first && (
-				<button
-					type="button"
-					aria-label={
-						many ? `view ${title.toLowerCase()}` : `view ${first.alt || kind}`
-					}
-					onClick={onClick}
-					className="my-2 flex w-full max-w-md cursor-pointer items-center gap-3 rounded-lg border bg-card py-2 pr-3 pl-2 text-left text-card-foreground transition-colors hover:bg-muted"
-				>
-					<span className="flex shrink-0 gap-1">
-						{shown.map((item, at) => (
-							<span
+			{first && expanded ? (
+				<div className="my-2 flex min-w-0 flex-wrap items-start gap-2">
+					{shown.map((item, at) => {
+						const src = held[at]?.src ?? "";
+						const size = sizes[src];
+						if (item.video) {
+							return (
+								<span
+									// biome-ignore lint/suspicious/noArrayIndexKey: a run may show one file twice, and it never reorders
+									key={at}
+									{...{ [ITEM]: JSON.stringify(item) }}
+									className="group/media relative flex min-w-0 max-w-full flex-col overflow-hidden rounded-lg border bg-card text-card-foreground"
+								>
+									{/* biome-ignore lint/a11y/useMediaCaption: an agent's screen recording has no captions to give */}
+									<video
+										src={item.url}
+										title={item.alt}
+										controls
+										preload="metadata"
+										onError={() => fail(src)}
+										className="block h-auto max-h-96 max-w-full"
+									/>
+									<button
+										type="button"
+										aria-label={`view ${item.alt || "recording"}`}
+										onClick={(event) => open(event.currentTarget)}
+										className="absolute top-2 right-2 flex size-7 cursor-zoom-in items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/media:opacity-100 focus-visible:opacity-100"
+									>
+										<Maximize2Icon className="size-3.5" />
+									</button>
+									{item.alt && (
+										<span className="truncate border-t px-2.5 py-1.5 text-muted-foreground text-xs">
+											{item.alt}
+										</span>
+									)}
+								</span>
+							);
+						}
+						return (
+							<button
 								// biome-ignore lint/suspicious/noArrayIndexKey: a run may show one file twice, and it never reorders
 								key={at}
+								type="button"
 								{...{ [ITEM]: JSON.stringify(item) }}
-								className={
-									at < THUMBS
-										? "relative block size-12 overflow-hidden rounded-md border bg-white"
-										: "hidden"
-								}
+								aria-label={`view ${item.alt || "image"}`}
+								onClick={(event) => open(event.currentTarget)}
+								className="group/image relative flex min-w-0 max-w-full cursor-zoom-in flex-col overflow-hidden rounded-lg border bg-card text-left text-card-foreground transition-colors hover:border-foreground/25"
 							>
-								{at < THUMBS &&
-									(item.video ? (
-										<video
-											src={item.url}
-											title={item.alt}
-											preload="metadata"
-											muted
-											onError={() => fail(held[at]?.src ?? "")}
-											className="size-full object-cover object-top"
-										/>
-									) : (
-										<img
-											src={item.url}
-											alt={item.alt}
-											loading="lazy"
-											onLoad={(event) => {
-												const { naturalWidth, naturalHeight } =
-													event.currentTarget;
-												if (at === 0 && naturalWidth > 0) {
-													setSize(`${naturalWidth}×${naturalHeight}`);
-												}
-											}}
-											onError={() => fail(held[at]?.src ?? "")}
-											className="size-full object-cover object-top"
-										/>
-									))}
-								{at === THUMBS - 1 && shown.length > THUMBS && (
-									<span className="absolute inset-0 flex items-center justify-center bg-black/55 font-medium text-sm text-white">
-										+{shown.length - THUMBS + 1}
+								<img
+									src={item.url}
+									alt={item.alt}
+									loading="lazy"
+									onLoad={(event) => {
+										const { naturalWidth, naturalHeight } = event.currentTarget;
+										if (naturalWidth > 0) {
+											recordSize(src, `${naturalWidth}×${naturalHeight}`);
+										}
+									}}
+									onError={() => fail(src)}
+									className="block h-auto max-h-96 max-w-full bg-white object-contain"
+								/>
+								<span className="pointer-events-none absolute top-2 right-2 flex size-7 items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/image:opacity-100 group-focus-visible/image:opacity-100">
+									<Maximize2Icon className="size-3.5" />
+								</span>
+								{(item.alt || size !== undefined) && (
+									<span className="flex w-full items-center justify-between gap-2 border-t px-2.5 py-1.5 text-xs">
+										<span className="min-w-0 truncate font-medium text-foreground">
+											{item.alt || "Image"}
+										</span>
+										{size !== undefined && (
+											<span className="shrink-0 text-muted-foreground tabular-nums">
+												{size}
+											</span>
+										)}
 									</span>
 								)}
+							</button>
+						);
+					})}
+				</div>
+			) : (
+				first && (
+					<button
+						type="button"
+						aria-label={
+							many ? `view ${title.toLowerCase()}` : `view ${first.alt || kind}`
+						}
+						onClick={onClick}
+						className="my-2 flex w-full max-w-md cursor-pointer items-center gap-3 rounded-lg border bg-card py-2 pr-3 pl-2 text-left text-card-foreground transition-colors hover:bg-muted"
+					>
+						<span className="flex shrink-0 gap-1">
+							{shown.map((item, at) => (
+								<span
+									// biome-ignore lint/suspicious/noArrayIndexKey: a run may show one file twice, and it never reorders
+									key={at}
+									{...{ [ITEM]: JSON.stringify(item) }}
+									className={
+										at < THUMBS
+											? "relative block size-12 overflow-hidden rounded-md border bg-white"
+											: "hidden"
+									}
+								>
+									{at < THUMBS &&
+										(item.video ? (
+											<video
+												src={item.url}
+												title={item.alt}
+												preload="metadata"
+												muted
+												onError={() => fail(held[at]?.src ?? "")}
+												className="size-full object-cover object-top"
+											/>
+										) : (
+											<img
+												src={item.url}
+												alt={item.alt}
+												loading="lazy"
+												onLoad={(event) => {
+													const { naturalWidth, naturalHeight } =
+														event.currentTarget;
+													if (naturalWidth > 0) {
+														recordSize(
+															held[at]?.src ?? "",
+															`${naturalWidth}×${naturalHeight}`,
+														);
+													}
+												}}
+												onError={() => fail(held[at]?.src ?? "")}
+												className="size-full object-cover object-top"
+											/>
+										))}
+									{at === THUMBS - 1 && shown.length > THUMBS && (
+										<span className="absolute inset-0 flex items-center justify-center bg-black/55 font-medium text-sm text-white">
+											+{shown.length - THUMBS + 1}
+										</span>
+									)}
+								</span>
+							))}
+						</span>
+						<span className="flex min-w-0 flex-1 flex-col">
+							<span className="truncate font-semibold text-[13.5px]">
+								{title}
 							</span>
-						))}
-					</span>
-					<span className="flex min-w-0 flex-1 flex-col">
-						<span className="truncate font-semibold text-[13.5px]">
-							{title}
+							<span className="truncate text-muted-foreground text-xs">
+								{detail}
+							</span>
 						</span>
-						<span className="truncate text-muted-foreground text-xs">
-							{detail}
+						<span className="flex shrink-0 items-center gap-0.5 font-medium text-xs">
+							View
+							<ChevronRightIcon className="size-3.5" />
 						</span>
-					</span>
-					<span className="flex shrink-0 items-center gap-0.5 font-medium text-xs">
-						View
-						<ChevronRightIcon className="size-3.5" />
-					</span>
-				</button>
+					</button>
+				)
 			)}
 			{lightbox}
 		</>

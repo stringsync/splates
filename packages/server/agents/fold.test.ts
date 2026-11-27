@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
 import { type ConversationState, unused } from "../conversations";
+import { type AsyncTaskUpdate, foldBackground } from "./acp-extensions";
 import { fold } from "./fold";
+import { backgroundEnded, backgroundStarted } from "./testing";
 
 describe("fold", () => {
 	const state = (): ConversationState => ({
@@ -612,6 +614,32 @@ describe("fold", () => {
 
 		expect(into.messages[0]?.parts).toEqual([
 			{ type: "text", text: "Now the fix.", at: at(0) },
+		]);
+	});
+
+	it("starts new words after a command it waited on in the background finishes", () => {
+		const into = state();
+		const said = (text: string): acp.SessionUpdate => ({
+			sessionUpdate: "agent_message_chunk",
+			content: { type: "text", text },
+		});
+		const background = (update: acp.SessionUpdate, when: string) =>
+			foldBackground(into, update as unknown as AsyncTaskUpdate, when);
+		background(backgroundStarted("b1", "splates merge", "t1"), at(0));
+		fold(into, said("Merging."), at(1));
+		background(backgroundEnded("b1", "completed"), at(5));
+		fold(into, said("## Merged "), at(7));
+		// Said again, it ended long ago: the words after it run on.
+		background(backgroundEnded("b1", "completed"), at(7));
+		fold(into, said("task onto main"), at(8));
+
+		expect(
+			into.messages[0]?.parts.flatMap((part) =>
+				part.type === "text" ? [{ text: part.text, at: part.at }] : [],
+			),
+		).toEqual([
+			{ text: "Merging.", at: at(1) },
+			{ text: "## Merged task onto main", at: at(7) },
 		]);
 	});
 

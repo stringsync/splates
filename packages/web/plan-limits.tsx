@@ -1,5 +1,6 @@
 import type { ConversationState, Limit } from "@splates/server/conversations";
 import {
+	antigravityGroups,
 	antigravityLimitsForModel,
 	currentAntigravityLimits,
 } from "@splates/server/models/browser";
@@ -248,13 +249,13 @@ export function quotaByAgent(
 	conversations: ConversationState[],
 ): { title: string; limits: Limit[]; marks: string[] }[] {
 	const groups = new Map<number, { limits: Limit[]; marks: string[] }>();
-	for (const agent of agents) {
-		const known = limitsOf(agents, conversations, agent.id).flatMap((each) => {
+	const addRow = (agentId: string, label: string, limits: Limit[]): void => {
+		const known = limits.flatMap((each) => {
 			const length = lengthOf(each.window);
 			return length === null ? [] : [{ each, length }];
 		});
 		if (known.length === 0) {
-			continue;
+			return;
 		}
 		const shortest = Math.min(...known.map((one) => one.length));
 		const fullest = known
@@ -262,9 +263,22 @@ export function quotaByAgent(
 			.reduce((best, one) => (one.each.used > best.each.used ? one : best));
 		const group = groups.get(shortest) ?? { limits: [], marks: [] };
 		groups.set(shortest, {
-			limits: [...group.limits, { ...fullest.each, window: agent.name }],
-			marks: [...group.marks, agent.id],
+			limits: [...group.limits, { ...fullest.each, window: label }],
+			marks: [...group.marks, agentId],
 		});
+	};
+	for (const agent of agents) {
+		const raw = limitsOf(agents, conversations, agent.id);
+		if (agent.id === "antigravity") {
+			const grouped = antigravityGroups(raw);
+			if (grouped.length > 0) {
+				for (const each of grouped) {
+					addRow(agent.id, `${agent.name} · ${each.label}`, each.limits);
+				}
+				continue;
+			}
+		}
+		addRow(agent.id, agent.name, raw);
 	}
 	return [...groups.entries()]
 		.sort(([one], [other]) => one - other)

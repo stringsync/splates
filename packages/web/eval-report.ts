@@ -91,6 +91,21 @@ export function evalReportOf(source: string): EvalRunReport | null {
 		typeof raw.fault === "string" && FAULTS.has(raw.fault.toLowerCase())
 			? (raw.fault.toLowerCase() as EvalFault)
 			: null;
+	const faults: EvalReportFault[] = [];
+	if (Array.isArray(raw.faults)) {
+		for (const item of raw.faults) {
+			if (!isRecord(item)) {
+				continue;
+			}
+			const area = nonEmptyString(item.area ?? item.fault ?? item.kind);
+			const detail = nonEmptyString(
+				item.detail ?? item.reason ?? item.text ?? item.note,
+			);
+			if (area !== null && detail !== null) {
+				faults.push({ area, detail });
+			}
+		}
+	}
 	const round =
 		typeof raw.round === "number" && Number.isFinite(raw.round)
 			? `R${raw.round}`
@@ -108,8 +123,15 @@ export function evalReportOf(source: string): EvalRunReport | null {
 		judge,
 		seconds,
 		fault,
+		faults,
 		change: nonEmptyString(raw.change) ?? nonEmptyString(raw.changed),
 	};
+}
+
+/** One issue diagnosed for a run, grouped by area (`skill`, `judge`, `environment`, `prompt`, `checks`, `harness`, `model`, `eval`, or any label). */
+export interface EvalReportFault {
+	area: string;
+	detail: string;
 }
 
 /** One line of a run report's short transcript. */
@@ -155,6 +177,7 @@ export interface EvalRunReport {
 	judge: EvalReportJudge | null;
 	seconds: number | null;
 	fault: EvalFault | null;
+	faults: EvalReportFault[];
 	change: string | null;
 }
 

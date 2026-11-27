@@ -73,10 +73,11 @@ export interface Config {
 	/**
 	 * Commands run on task events, via `sh -c` in the main tree, with the
 	 * event in `$SPLATES_EVENT`, its tasks' numbers in `$SPLATES_TASKS`, comma
-	 * separated, and the started task's name, if any, in `$SPLATES_TASK`:
-	 * `{ "task.done": "./notify-team" }`. Checked in, so shell commands only;
-	 * an agent hook spends its person's tokens, so each person sets their own
-	 * from the Setup page or `splates hook add`.
+	 * separated, the started task's name, if any, in `$SPLATES_TASK`, and the
+	 * hook's identity in `$SPLATES_HOOK` (allowing `splates signal fire` without
+	 * a conversation): `{ "task.done": "./notify-team" }`. Checked in, so shell
+	 * commands only; an agent hook spends its person's tokens, so each person
+	 * sets their own from the Setup page or `splates hook add`.
 	 */
 	on: Partial<Record<TaskEventName, string>>;
 	/**

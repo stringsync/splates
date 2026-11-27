@@ -42,6 +42,19 @@ export class Attachments {
 		return stored;
 	}
 
+	/**
+	 * Stores `bytes` under the exact filename `name` if not already present,
+	 * returning the absolute path where it is kept.
+	 */
+	async storeNamed(name: string, bytes: Uint8Array): Promise<string> {
+		const clean = safe(name);
+		const entries = await this.files.entries();
+		if (!entries.some((entry) => entry.name === clean)) {
+			await this.files.writeBytes(clean, bytes);
+		}
+		return this.opened(clean);
+	}
+
 	/** Each file stored here, by absolute path, with its size in bytes. */
 	async held(): Promise<{ path: string; bytes: number }[]> {
 		return Promise.all(

@@ -45,25 +45,25 @@ export function MergeLines({
 			/>
 		);
 	}
-	if (
+	const live =
 		end === null &&
-		going &&
 		card?.newest.has(first.id) === true &&
 		card !== null &&
 		task !== null &&
 		task.task === first.task &&
-		task.mergeSteps !== null
-	) {
+		task.mergeSince !== null;
+	if (live && task.mergeSteps !== null) {
 		return <LiveMergeCard task={task} conversation={card.conversation} />;
 	}
+	const active = going || live;
 	return (
 		<>
 			{queued !== null && (
 				<SplatesEvent
-					event={queuedLine(queued, start?.at ?? end?.at ?? null, going)}
+					event={queuedLine(queued, start?.at ?? end?.at ?? null, active)}
 				/>
 			)}
-			{start !== null && <StartedLine start={start} end={end} going={going} />}
+			{start !== null && <StartedLine start={start} end={end} going={active} />}
 		</>
 	);
 }

@@ -6,7 +6,7 @@ import { Conversations } from "./conversations";
 import { CredsPage } from "./creds";
 import type { Drafts } from "./drafts";
 import {
-	AutoPickPage,
+	AutopickPage,
 	BillingPage,
 	RecPage,
 	RigsPage,
@@ -142,7 +142,7 @@ export function useAppPages({
 						trust: <TrustPage />,
 						billing: <BillingPage talk={talk} />,
 						"auto-pick": (
-							<AutoPickPage
+							<AutopickPage
 								mark={cell}
 								tasks={snapshot.tasks}
 								todos={snapshot.todos}

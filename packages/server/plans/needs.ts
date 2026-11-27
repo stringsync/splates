@@ -311,8 +311,59 @@ export function need(
  * word, so none is answered yet, with or without a task behind them.
  */
 function askedIn(conversation: ConversationState): Question[] {
-	return stretches(lastWords(conversation) ?? "").flatMap((stretch) =>
+	return stretches(unsettledWords(conversation) ?? "").flatMap((stretch) =>
 		stretch.type === "questions" ? stretch.questions : [],
+	);
+}
+
+/**
+ * The index of the last part in the agent's final reply whose plan is already
+ * settled: either because the agent went ahead on trust after posting it, or
+ * because the turn ended with a terminal outcome (merged, done, or removed).
+ * Returns -1 when no plan in the reply is settled.
+ */
+function settledPlanPart(conversation: ConversationState): number {
+	const last = conversation.messages.at(-1);
+	if (last?.role !== "agent") {
+		return -1;
+	}
+	const at = last.parts.findLastIndex(
+		(part) =>
+			part.type === "text" &&
+			stretches(part.text).some((stretch) => stretch.type === "plan"),
+	);
+	if (at === -1) {
+		return -1;
+	}
+	if (last.trusted !== undefined && at < last.parts.length - 1) {
+		return at;
+	}
+	return endedWithOutcome(conversation) ? at : -1;
+}
+
+/**
+ * Whether the agent's last reply ends on a terminal outcome (merged, done, or
+ * removed), superseding an earlier plan in that turn.
+ */
+function endedWithOutcome(conversation: ConversationState): boolean {
+	const last = conversation.messages.at(-1);
+	if (last?.role !== "agent") {
+		return false;
+	}
+	const reply = last.parts.findLast(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	const final =
+		reply?.type === "text"
+			? stretches(reply.text).findLast(
+					(each) => each.type !== "text" || each.text.trim() !== "",
+				)
+			: undefined;
+	return (
+		final?.type === "report" &&
+		(final.report.ending === "merged" ||
+			final.report.ending === "done" ||
+			final.report.ending === "removed")
 	);
 }
 
@@ -325,7 +376,7 @@ function permissionIn(
 	conversation: ConversationState,
 	todos?: readonly TaskRecord[],
 ): string | null {
-	for (const stretch of stretches(lastWords(conversation) ?? "")) {
+	for (const stretch of stretches(unsettledWords(conversation) ?? "")) {
 		if (stretch.type === "plan") {
 			return stretch.plan.title || "Plan approval";
 		}
@@ -357,6 +408,23 @@ function reviewIn(conversation: ConversationState): string | null {
 		}
 	}
 	return null;
+}
+
+/**
+ * The text of the conversation's last message after any settled plan part,
+ * so a went-ahead plan (and its questions) no longer count as waiting while
+ * anything asked afterward still does.
+ */
+function unsettledWords(conversation: ConversationState): string | null {
+	const last = conversation.messages.at(-1);
+	if (last?.role !== "agent") {
+		return null;
+	}
+	const settled = settledPlanPart(conversation);
+	const parts = settled === -1 ? last.parts : last.parts.slice(settled + 1);
+	return parts
+		.flatMap((part) => (part.type === "text" ? [part.text] : []))
+		.join("\n\n");
 }
 
 /** The text of the conversation's last message, when the agent sent it. */

@@ -31,6 +31,8 @@ export interface Action {
 	run: (() => void) | null;
 	/** Whether a write it made is pending: out of reach, with a spinner. */
 	pending?: boolean;
+	/** Toggle state for a stateful action row, surfaced as `aria-pressed`. */
+	pressed?: boolean;
 	/** The items of a menu the row opens in place of running anything. */
 	menu?: ReactNode;
 	/** Sizes `menu`, for items wider or more than the usual few. */
@@ -333,6 +335,7 @@ function ActionRow({
 			onClick={action.run}
 			disabled={pending}
 			aria-busy={pending}
+			aria-pressed={action.pressed}
 			className={cn(button, "disabled:opacity-60")}
 		>
 			{icon}

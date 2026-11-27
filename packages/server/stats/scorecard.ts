@@ -1,7 +1,7 @@
-import type { AutoPickRules } from "../auto-pick";
-import { DEFAULT_RULES } from "../auto-pick/browser";
-import { higher, pickOf } from "../auto-pick/scoring";
-import type { AutoPickSet, Pairing } from "../conversations";
+import type { AutopickRules } from "../autopick";
+import { DEFAULT_RULES } from "../autopick/browser";
+import { higher, pickOf } from "../autopick/scoring";
+import type { AutopickSet, Pairing } from "../conversations";
 import { DEFAULT_AGENTS, type RosterAgent } from "../models";
 import type { Event } from "../records";
 import {
@@ -10,7 +10,7 @@ import {
 	type HoldoutSide,
 } from "./holdout-comparison";
 import type { ModelProvider } from "./model-provider";
-import type { Outcome, OutcomeAutoPick, OutcomeLift } from "./outcomes";
+import type { Outcome, OutcomeAutopick, OutcomeLift } from "./outcomes";
 import { suggestedChange } from "./scorecard-suggestions";
 import { PERIODS, type PeriodId } from "./stats";
 
@@ -47,7 +47,7 @@ export interface ScorecardRow {
 	suggestionProvider?: ModelProvider;
 }
 
-type Picked = Outcome & { autoPick: OutcomeAutoPick };
+type Picked = Outcome & { autoPick: OutcomeAutopick };
 
 type Correction = Event & { action: "notes attached"; corrects: number };
 type Corrections = ReadonlyMap<string, readonly Correction[]>;
@@ -62,7 +62,7 @@ export function scorecard(
 	}: {
 		agents: RosterAgent[];
 		eventsByProject?: ReadonlyMap<string, readonly Event[]>;
-		rules?: AutoPickRules | null;
+		rules?: AutopickRules | null;
 	},
 ): ScorecardRow[] {
 	const corrections = new Map<string, Correction[]>();
@@ -154,7 +154,7 @@ function summarizePicks(
 	}: {
 		agents: RosterAgent[];
 		corrections: Corrections;
-		rules: AutoPickRules | null;
+		rules: AutopickRules | null;
 	},
 ): ScorecardRow {
 	const first = group[0] as Picked; // Map.groupBy creates only nonempty groups.
@@ -315,7 +315,7 @@ function troubled(outcome: Outcome): boolean {
 	);
 }
 
-/** Switching Auto pick on can also move down, unlike an ordinary lift. */
+/** Switching Autopick on can also move down, unlike an ordinary lift. */
 function firstLift(
 	{ autoPick }: Picked,
 	agents: RosterAgent[],
@@ -364,9 +364,9 @@ function overridden(
 
 function pairingPick(
 	pairing: Pairing,
-	picked: AutoPickSet,
+	picked: AutopickSet,
 	agents: RosterAgent[],
-): AutoPickSet {
+): AutopickSet {
 	const name = pairing.model?.toLowerCase();
 	const agent = picked.agent;
 	const model = [
@@ -381,7 +381,7 @@ function pairingPick(
 	return { ...picked, model: model?.id ?? pairing.model, effort };
 }
 
-function pickKey({ agent, model, effort }: AutoPickSet): string {
+function pickKey({ agent, model, effort }: AutopickSet): string {
 	return JSON.stringify([agent, model, effort]);
 }
 
@@ -395,7 +395,7 @@ function dominantCohort(group: Picked[]): Picked[] {
 }
 
 interface CostComparison {
-	pick: OutcomeAutoPick;
+	pick: OutcomeAutopick;
 	figures: NonNullable<ScorecardRow["comparison"]>;
 }
 

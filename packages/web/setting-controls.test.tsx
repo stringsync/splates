@@ -30,6 +30,7 @@ describe("composer setting controls", () => {
 		cleanup();
 		for (const [name, descriptor] of widths) {
 			if (descriptor) {
+				// vet-ignore no-monkeypatching: restores HTMLElement.prototype layout property after test
 				Object.defineProperty(HTMLElement.prototype, name, descriptor);
 			} else {
 				Reflect.deleteProperty(HTMLElement.prototype, name);
@@ -38,10 +39,12 @@ describe("composer setting controls", () => {
 	});
 	beforeEach(() => {
 		layout = { content: 100, available: 1000 };
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so offsetWidth is always 0
 		Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
 			configurable: true,
 			get: () => layout.content,
 		});
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so clientWidth is always 0
 		Object.defineProperty(HTMLElement.prototype, "clientWidth", {
 			configurable: true,
 			get: () => layout.available,
@@ -169,7 +172,7 @@ describe("composer setting controls", () => {
 		const mark = view.getByRole("combobox").querySelector("svg path");
 		expect(mark?.getAttribute("fill")).toBe("#D97757");
 	});
-	it("splits the model picker's mark with Auto pick's sparkles while Auto pick picks", () => {
+	it("splits the model picker's mark with Autopick's sparkles while Autopick picks", () => {
 		view.rerender(
 			<SettingControls
 				{...props}
@@ -181,7 +184,7 @@ describe("composer setting controls", () => {
 		expect(combobox.querySelectorAll("clipPath")).toHaveLength(2);
 		expect(combobox.querySelector('path[fill="#D97757"]')).toBeTruthy();
 	});
-	it("names Claude's auto mode as a mode, apart from Auto pick's Auto beside it", () => {
+	it("names Claude's auto mode as a mode, apart from Autopick's Auto beside it", () => {
 		const mode = {
 			...model("auto", ["Default", "Auto"]),
 			id: "mode",
@@ -225,7 +228,7 @@ describe("composer setting controls", () => {
 		{ id: "claude", name: "Claude" },
 		{ id: "codex", name: "Codex" },
 	] as AgentChoice[];
-	it("lists the agents on Auto pick, a tap switching to one and closing the sheet", async () => {
+	it("lists the agents on Autopick, a tap switching to one and closing the sheet", async () => {
 		const picks: (string | null)[] = [];
 		view.rerender(
 			<SettingControls
@@ -276,9 +279,7 @@ describe("composer setting controls", () => {
 			),
 		);
 		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: /Auto pick/ }),
-			),
+			fireEvent.click(within(dialog).getByRole("button", { name: /Autopick/ })),
 		);
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 		expect(picks).toEqual([null]);

@@ -235,19 +235,33 @@ describe("RecPage", () => {
 	test("copies the saved session's reference", async () => {
 		serve({ status: "saved", name: "brave-otter" });
 		const copied: string[] = [];
+		const previousClipboard = Object.getOwnPropertyDescriptor(
+			navigator,
+			"clipboard",
+		);
+		// vet-ignore no-monkeypatching: happy-dom lacks navigator.clipboard; restored in finally
 		Object.defineProperty(navigator, "clipboard", {
 			configurable: true,
 			value: { writeText: async (text: string) => void copied.push(text) },
 		});
-		const view = render(<RecPage />);
+		try {
+			const view = render(<RecPage />);
 
-		fireEvent.click(
-			await within(view.container).findByRole("button", {
-				name: "Copy reference",
-			}),
-		);
+			fireEvent.click(
+				await within(view.container).findByRole("button", {
+					name: "Copy reference",
+				}),
+			);
 
-		await waitFor(() => expect(copied).toEqual(["#rec:brave-otter"]));
+			await waitFor(() => expect(copied).toEqual(["#rec:brave-otter"]));
+		} finally {
+			if (previousClipboard !== undefined) {
+				// vet-ignore no-monkeypatching: restores navigator.clipboard after test
+				Object.defineProperty(navigator, "clipboard", previousClipboard);
+			} else {
+				Reflect.deleteProperty(navigator, "clipboard");
+			}
+		}
 	});
 
 	test("offers a new session name once one is saved", async () => {

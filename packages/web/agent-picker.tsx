@@ -9,7 +9,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { AUTOPICK_NAME, AutoIcon } from "./auto-brand";
 import { autoAddress, newAddress } from "./conversation-address";
 import { type AgentChoice, agentName } from "./conversation-feed";
 import type { Move } from "./page-address";
@@ -31,7 +31,7 @@ export function AgentPicker({
 }: {
 	agents: AgentChoice[];
 	agent: string;
-	/** Whether Auto pick chooses the agent from the first message. */
+	/** Whether Autopick chooses the agent from the first message. */
 	auto: boolean;
 	/** The task whose tree it starts in; null for the main tree. */
 	task: string | null;
@@ -53,7 +53,7 @@ export function AgentPicker({
 				}
 			>
 				{auto ? <AutoIcon colored /> : <AgentMark agent={agent} />}
-				{auto ? AUTO_PICK_NAME : agentName(agents, agent)}
+				{auto ? AUTOPICK_NAME : agentName(agents, agent)}
 				<ChevronDownIcon className="size-4 text-muted-foreground" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-48">
@@ -62,7 +62,7 @@ export function AgentPicker({
 					onClick={() => onOpen(autoAddress(task), "replace")}
 				>
 					<AutoIcon colored />
-					{AUTO_PICK_NAME}
+					{AUTOPICK_NAME}
 				</DropdownMenuItem>
 				{agents.map((each) => (
 					<DropdownMenuItem

@@ -1,7 +1,7 @@
 import type { Collection, CollectionEntry } from "./collection";
 import { checkName } from "./key";
 import type { SqliteDb } from "./sqlite-db";
-import { decode, encode, inRange, rangeParams } from "./sqlite-keys";
+import { decode, encode, rangeOf } from "./sqlite-keys";
 
 /**
  * A collection for `SqliteStorage`: open one with `SqliteStorage.collection`,
@@ -55,42 +55,40 @@ export class SqliteCollection implements Collection {
 
 	async list(): Promise<string[]> {
 		// Names only: the sizes `entries` sums read every line of every log.
-		const params = rangeParams(this.at);
+		// `+segment IS NULL` keeps SQLite on the `entries_by_owner` covering
+		// index instead of scanning every live log via `entries_by_segment`.
+		const kvRange = rangeOf("key", this.at);
+		const logRange = rangeOf("log", this.at);
 		const from = this.at === "" ? 1 : this.at.length + 2;
 		return this.db.db
-			.query<
-				{ name: string },
-				[number, ...typeof params, number, ...typeof params]
-			>(
+			.query<{ name: string }, (string | number)[]>(
 				`SELECT name FROM (
 					SELECT substr(key, ?) AS name FROM kv
-					WHERE ${inRange("key")}
+					WHERE ${kvRange.sql}
 					UNION ALL
 					SELECT DISTINCT substr(log, ?) AS name
-					FROM entries WHERE segment IS NULL AND ${inRange("log")}
+					FROM entries WHERE +segment IS NULL AND ${logRange.sql}
 				) WHERE instr(name, '/') = 0 ORDER BY name`,
 			)
-			.all(from, ...params, from, ...params)
+			.all(from, ...kvRange.params, from, ...logRange.params)
 			.map((row) => row.name);
 	}
 
 	async entries(): Promise<CollectionEntry[]> {
-		const params = rangeParams(this.at);
+		const kvRange = rangeOf("key", this.at);
+		const logRange = rangeOf("log", this.at);
 		const from = this.at === "" ? 1 : this.at.length + 2;
 		return this.db.db
-			.query<
-				CollectionEntry,
-				[number, ...typeof params, number, ...typeof params]
-			>(
+			.query<CollectionEntry, (string | number)[]>(
 				`SELECT name, size FROM (
 					SELECT substr(key, ?) AS name, length(data) AS size FROM kv
-					WHERE ${inRange("key")}
+					WHERE ${kvRange.sql}
 					UNION ALL
 					SELECT substr(log, ?) AS name, sum(length(CAST(line AS BLOB)) + 1) AS size
-					FROM entries WHERE segment IS NULL AND ${inRange("log")} GROUP BY log
+					FROM entries WHERE +segment IS NULL AND ${logRange.sql} GROUP BY log
 				) WHERE instr(name, '/') = 0 ORDER BY name`,
 			)
-			.all(from, ...params, from, ...params);
+			.all(from, ...kvRange.params, from, ...logRange.params);
 	}
 
 	async remove(name: string): Promise<void> {

@@ -796,6 +796,64 @@ describe("Conversation lifecycle", () => {
 		expect(agent.killed).toBe(1);
 	});
 
+	it("leaves an idle agent running while a background merge is under way", async () => {
+		const merging = {
+			id: "m1",
+			name: "splates merge",
+			command: "splates merge --message 'Land fix'",
+			subagent: null,
+			state: "running",
+			output: null,
+		} as const;
+		const conversation = await started();
+		conversation.set({ background: [merging] });
+
+		restOut();
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		expect(conversation.state.status).toBe("idle");
+		expect(agent.killed).toBe(0);
+
+		conversation.set({ background: [{ ...merging, state: "completed" }] });
+		restOut();
+		await until(conversation, "stopped");
+		expect(agent.killed).toBe(1);
+	});
+
+	it("leaves an idle agent running while the server reports an active merge on its task", async () => {
+		let active = true;
+		const guarded = new Conversations(
+			"/repo/.git/splates/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				isMerging: async (task) => task === "login" && active,
+			},
+		);
+		try {
+			const conversation = await guarded.start("fake", {
+				task: "login",
+				cwd: "/repo-splates/login",
+			});
+			await until(conversation, "idle");
+
+			restOut();
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			expect(conversation.state.status).toBe("idle");
+			expect(agent.killed).toBe(0);
+
+			active = false;
+			restOut();
+			await until(conversation, "stopped");
+			expect(agent.killed).toBe(1);
+		} finally {
+			await guarded.disposeAsync();
+		}
+	});
+
 	it("fails with the agent's last words when it dies on its own", async () => {
 		const conversation = await started();
 

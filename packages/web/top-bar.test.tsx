@@ -33,18 +33,21 @@ describe("TopBar", () => {
 		resize(1280, 800);
 		room = 0;
 		// Every button 32 wide, the title 100, and the room what each test says.
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so offsetWidth is always 0
 		Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
 			configurable: true,
 			get() {
 				return this.tagName === "SPAN" ? 32 : 0;
 			},
 		});
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so scrollWidth is always 0
 		Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
 			configurable: true,
 			get() {
 				return this.tagName === "H2" ? 100 : 0;
 			},
 		});
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so clientWidth is always 0
 		Object.defineProperty(HTMLElement.prototype, "clientWidth", {
 			configurable: true,
 			get() {
@@ -58,7 +61,10 @@ describe("TopBar", () => {
 		resize(1280, 800);
 		for (const [name, descriptor] of Object.entries(widths)) {
 			if (descriptor !== undefined) {
+				// vet-ignore no-monkeypatching: restores HTMLElement.prototype layout property after test
 				Object.defineProperty(HTMLElement.prototype, name, descriptor);
+			} else {
+				Reflect.deleteProperty(HTMLElement.prototype, name);
 			}
 		}
 	});

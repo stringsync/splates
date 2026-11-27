@@ -78,6 +78,7 @@ describe("App's todo edits", () => {
 		// happy-dom lays nothing out, and a drag goes by where things are: stack
 		// the cards 50px apart so there is an above and a below.
 		const rect = Element.prototype.getBoundingClientRect;
+		// vet-ignore no-monkeypatching: happy-dom has no layout engine, so getBoundingClientRect returns zeros; restored in finally
 		Element.prototype.getBoundingClientRect = function (this: Element) {
 			const card = this.closest("li");
 			const at = card

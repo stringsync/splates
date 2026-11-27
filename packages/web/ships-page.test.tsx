@@ -330,6 +330,7 @@ describe("ShipsPage", () => {
 			)) as unknown as typeof fetch;
 		const back = history.back;
 		let backs = 0;
+		// vet-ignore no-monkeypatching: verifies useShipHistory does not call history.back during run navigation; restored in finally
 		history.back = () => {
 			backs++;
 		};

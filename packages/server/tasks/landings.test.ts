@@ -42,4 +42,18 @@ describe("landings overlapping an open task", () => {
 			[],
 		);
 	});
+
+	it("reuses precomputed changed files without calling worktree.changedFiles", async () => {
+		await using deps = await Testing.open();
+		await add(deps, "alpha");
+		const worktree = await deps.service.find("alpha");
+		let called = false;
+		worktree.changedFiles = async () => {
+			called = true;
+			return [];
+		};
+
+		expect(await landingsOverlapping(worktree, ["README.md"])).toEqual([]);
+		expect(called).toBe(false);
+	});
 });

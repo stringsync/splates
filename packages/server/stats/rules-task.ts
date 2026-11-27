@@ -1,5 +1,5 @@
-import type { RouteDepth, RouteKind } from "../auto-pick";
-import { cellLabel } from "../auto-pick/browser";
+import type { RouteDepth, RouteKind } from "../autopick";
+import { cellLabel } from "../autopick/browser";
 import type { Pairing } from "../conversations";
 import type { CellOverrides } from "./overrides";
 import type { ScorecardRow } from "./scorecard";
@@ -35,7 +35,7 @@ const READING: Record<RulesTarget, string> = {
 };
 
 /**
- * The words of the board task that has an agent propose Auto pick rule
+ * The words of the board task that has an agent propose Autopick rule
  * changes from the scorecard's flagged rows, each with its numbers, what it
  * points at and the overrides in its cell; null when no row is flagged.
  */
@@ -72,7 +72,7 @@ export function rulesTaskText({
 	});
 	const sparse = rows.filter((row) => row.verdict === "sparse");
 	return [
-		"The Auto pick scorecard flags the cells below, a cell being the kind and depth the judge sorted a task into, under the lineup it routed to. Read each one's evidence and propose changes to the Auto pick rules (the Auto pick page's rules, saved for this machine): a lineup a step up or down, or, where it points at the judge, a change to the depth criteria instead.",
+		"The Autopick scorecard flags the cells below, a cell being the kind and depth the judge sorted a task into, under the lineup it routed to. Read each one's evidence and propose changes to the Autopick rules (the Autopick page's rules, saved for this machine): a lineup a step up or down, or, where it points at the judge, a change to the depth criteria instead.",
 		"",
 		"Propose them with a plan card, one change per flagged cell with the numbers it rests on, and change nothing until the user approves.",
 		"",

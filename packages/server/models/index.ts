@@ -1,6 +1,10 @@
 export { AGY_CLI, agyInstalled } from "./antigravity";
 export { antigravityLimits, isAntigravity } from "./antigravity-limits";
+export type { AntigravityQuotaGroup } from "./antigravity-quota";
 export {
+	antigravityGroupLabel,
+	antigravityGroupOf,
+	antigravityGroups,
 	antigravityLimitsForModel,
 	antigravityModelInGroup,
 	currentAntigravityLimits,

@@ -26,7 +26,7 @@ import {
 } from "#web/components/ui/dropdown-menu.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
-import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
+import { AUTOPICK_NAME, AutoIcon } from "./auto-brand";
 import { still, touchArea, touchItems } from "./board";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { useConversationIndex } from "./conversation-index";
@@ -228,7 +228,7 @@ function AssigneeItems({
 	onPick: (pick: AgentPick | null) => void;
 	/** What the items are for, above them. */
 	label?: string;
-	/** Whether no agent means Auto pick, picking for each run, rather than any agent. */
+	/** Whether no agent means Autopick, picking for each run, rather than any agent. */
 	auto?: boolean;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
@@ -257,7 +257,7 @@ function AssigneeItems({
 				{auto ? (
 					<>
 						<AutoIcon colored />
-						{AUTO_PICK_NAME}
+						{AUTOPICK_NAME}
 					</>
 				) : (
 					"Any agent"
@@ -362,7 +362,7 @@ export function AssigneeMenu({
 	assignee: AgentPick | null;
 	onPick: (pick: AgentPick | null) => void;
 	className?: string;
-	/** Whether no agent means Auto pick, picking for each run, rather than any agent. */
+	/** Whether no agent means Autopick, picking for each run, rather than any agent. */
 	auto?: boolean;
 	/** What the menu's items are for, above them. */
 	label?: string;
@@ -400,7 +400,7 @@ export function AssigneeMenu({
 				{assignee !== null
 					? context.dispatch.pickName(assignee)
 					: auto
-						? AUTO_PICK_NAME
+						? AUTOPICK_NAME
 						: "Any agent"}
 				<ChevronDownIcon />
 			</DropdownMenuTrigger>

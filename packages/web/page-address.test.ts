@@ -191,7 +191,7 @@ describe("PageAddress", () => {
 		expect(read.open).toBeNull();
 	});
 
-	it("sets the Auto pick page on a cell, and opens an old rule's address on none", () => {
+	it("sets the Autopick page on a cell, and opens an old rule's address on none", () => {
 		history.replaceState(null, "", cellAddress("bugfix", null));
 		const read = new PageAddress();
 		history.replaceState(null, "", "#automations/auto-pick/3");
@@ -202,7 +202,7 @@ describe("PageAddress", () => {
 		expect([old.page, old.cell]).toEqual(["auto-pick", null]);
 	});
 
-	it("opens the Auto pick page from the old Automations addresses", () => {
+	it("opens the Autopick page from the old Automations addresses", () => {
 		history.replaceState(null, "", "#automations");
 		const address = new PageAddress();
 		history.replaceState(null, "", "#automations/auto-pick");

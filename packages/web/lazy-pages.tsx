@@ -161,6 +161,6 @@ export const Annotate = onDemand(async () => ({
 	default: (await import("./annotate-dialog")).Annotate,
 }));
 
-export const AutoPickPage = onDemand(async () => ({
-	default: (await import("./auto-pick-page")).AutoPickPage,
+export const AutopickPage = onDemand(async () => ({
+	default: (await import("./autopick-page")).AutopickPage,
 }));

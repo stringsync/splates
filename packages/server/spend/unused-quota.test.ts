@@ -112,13 +112,15 @@ describe("unusedQuotaReport", () => {
 		expect(report.pricedPlans).toBe(2);
 		expect(report.totalPricedMonthly).toBe(400);
 		expect(report.totalUnusedMonthly).toBe(180);
-		expect(report.plans.map((each) => each.provider)).toEqual([
-			"codex",
-			"claude",
-			"antigravity",
-		]);
+		expect(
+			report.plans.map((each) =>
+				each.group === undefined
+					? each.provider
+					: `${each.provider}:${each.group}`,
+			),
+		).toEqual(["codex", "claude", "antigravity:Gemini", "antigravity:Claude"]);
 
-		const [codex, claude, antigravity] = report.plans;
+		const [codex, claude, agyGemini, agyClaude] = report.plans;
 		expect(codex?.unusedMonthly).toBe(152);
 		expect(codex?.tierHint).toBe("Peak fits Pro Lite ($100)");
 		expect(codex?.apiEquivalent).toBe(48);
@@ -126,9 +128,73 @@ describe("unusedQuotaReport", () => {
 		expect(claude?.unusedMonthly).toBe(28);
 		expect(claude?.tierHint).toBeNull();
 
-		expect(antigravity?.monthlyPrice).toBeNull();
-		expect(antigravity?.unusedMonthly).toBeNull();
-		expect(antigravity?.unusedShare).toBeCloseTo(0.68, 2);
+		expect(agyGemini?.monthlyPrice).toBeNull();
+		expect(agyGemini?.unusedMonthly).toBeNull();
+		expect(agyGemini?.unusedShare).toBeCloseTo(0.7, 2);
+
+		expect(agyClaude?.monthlyPrice).toBeNull();
+		expect(agyClaude?.unusedMonthly).toBeNull();
+		expect(agyClaude?.unusedShare).toBeCloseTo(0.66, 2);
+	});
+
+	it("splits a priced Antigravity subscription across its two weekly quota groups without double-counting", async () => {
+		const ledger = new Spend(new MemoryStorage());
+		const report = await unusedQuotaReport({
+			days: 28,
+			now: "2026-11-23T12:00:00.000Z",
+			ledger,
+			plans: [
+				{
+					provider: "antigravity",
+					service: "Pro plan",
+					amount: 20,
+					currency: "USD",
+					everyMonths: 1,
+					since: "2026-01-01T00:00:00.000Z",
+				},
+			],
+			peaks: {
+				antigravity: [
+					{
+						window: "Gemini Models · Weekly",
+						resets: "2026-11-16T08:00:00.000Z",
+						peak: 1,
+						lastAt: "2026-11-16T07:00:00.000Z",
+					},
+					{
+						window: "Claude and GPT models · Weekly",
+						resets: "2026-11-16T08:00:00.000Z",
+						peak: 0,
+						lastAt: "2026-11-16T07:00:00.000Z",
+					},
+				],
+			},
+		});
+
+		expect(report.pricedPlans).toBe(1);
+		expect(report.totalPricedMonthly).toBe(20);
+		expect(report.totalUnusedMonthly).toBe(10);
+		expect(
+			report.plans.map((each) => ({
+				group: each.group,
+				monthlyPrice: each.monthlyPrice,
+				unusedShare: each.unusedShare,
+				unusedMonthly: each.unusedMonthly,
+			})),
+		).toEqual([
+			{
+				group: "Claude & GPT",
+				monthlyPrice: 10,
+				unusedShare: 1,
+				unusedMonthly: 10,
+			},
+			{
+				group: "Gemini",
+				monthlyPrice: 10,
+				unusedShare: 0,
+				unusedMonthly: 0,
+			},
+		]);
 	});
 
 	it("reports an in-progress current cycle before the first reset completes", async () => {

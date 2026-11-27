@@ -16,7 +16,7 @@ import {
 	useState,
 } from "react";
 import { Skeleton } from "#web/components/ui/skeleton.tsx";
-import { RulesEditor } from "./auto-pick-rules";
+import { RulesEditor } from "./autopick-rules";
 import {
 	agentFor,
 	autoModelChosen,
@@ -25,7 +25,7 @@ import {
 } from "./conversation-address";
 import {
 	promptConversation,
-	startAutoPick,
+	startAutopick,
 	startConversation,
 } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -34,9 +34,9 @@ import { Markdown } from "./markdown";
 import type { Move, SetupOpen } from "./page-address";
 import { RouteTrail } from "./route-trail";
 import {
-	autoPickBrowserSteps,
+	autopickBrowserSteps,
 	RulesEditorContext,
-} from "./setup-auto-pick-steps";
+} from "./setup-autopick-steps";
 import { type ConfigChanges, ConfigChangesContext } from "./setup-config-field";
 import { JourneyDone, StepField, StepForm } from "./setup-form";
 import { SetupIndex } from "./setup-index";
@@ -60,7 +60,7 @@ export function SetupPage({
 	feed: ConversationFeed | null;
 	/** Opens the conversation started on a step. */
 	onOpen: (id: string) => void;
-	/** The project's tasks, which Auto pick's try picks from. */
+	/** The project's tasks, which Autopick's try picks from. */
 	todos: readonly TaskRecord[];
 	/** The journey and step the address has Setup on. */
 	open: SetupOpen;
@@ -209,7 +209,7 @@ function Journey({
 		const journey = new SetupJourney(
 			area,
 			{
-				...autoPickBrowserSteps(rules),
+				...autopickBrowserSteps(rules),
 			},
 			STEP_STOPS,
 		);
@@ -259,7 +259,7 @@ function Journey({
 			</JourneyDone>
 		);
 	}
-	// Starts a conversation that says `text`, as ⌥⌘N would: Auto pick judging
+	// Starts a conversation that says `text`, as ⌥⌘N would: Autopick judging
 	// the words when the last conversation started on it, else the agent New
 	// offers. Answers its id once it is up, its message shown on its way, and
 	// kept in the thread, unsent, should the server refuse it.
@@ -268,7 +268,7 @@ function Journey({
 			? null
 			: async (text: string): Promise<string> => {
 					const state = await (startsAuto(NEW)
-						? startAutoPick({ words: text, task: null })
+						? startAutopick({ words: text, task: null })
 						: startConversation(
 								agentFor(NEW, feed.agents, feed.conversations),
 								null,

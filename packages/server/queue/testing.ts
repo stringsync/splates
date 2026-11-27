@@ -3,12 +3,12 @@ import type { AgentPick } from "../models";
 import type { QueuePicked, QueuePicker } from "./runner";
 
 /**
- * Auto pick for the queue: guesses Claude for every task, and decides
+ * Autopick for the queue: guesses Claude for every task, and decides
  * `decides`, recording what it was asked and told.
  */
 export class FakePicker implements QueuePicker {
 	decides: AgentPick = { agent: "claude" };
-	/** Runs as it decides: set it to write the task's record, as Auto pick keeps its decision there. */
+	/** Runs as it decides: set it to write the task's record, as Autopick keeps its decision there. */
 	keeps: (queued: TaskRecord) => Promise<void> = async () => {};
 	/** Each task it was asked to judge ahead, by id, once per check. */
 	ahead = async (queued: readonly TaskRecord[]) => {

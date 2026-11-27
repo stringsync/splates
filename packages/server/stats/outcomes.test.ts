@@ -234,7 +234,7 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
-	it("keeps what Auto pick decided for a task, and each lift that moved it", async () => {
+	it("keeps what Autopick decided for a task, and each lift that moved it", async () => {
 		await using deps = await Testing.open();
 		deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
 		await add(deps, "alpha");
@@ -354,7 +354,7 @@ describe.concurrent("outcomes", () => {
 		});
 	});
 
-	it("keeps no Auto pick on a task it did not start", async () => {
+	it("keeps no Autopick on a task it did not start", async () => {
 		await using deps = await Testing.open();
 		await add(deps, "alpha");
 		await remove(deps, "alpha");

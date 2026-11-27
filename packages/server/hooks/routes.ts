@@ -174,7 +174,7 @@ function hookIn(raw: unknown): Hook {
 		typeof given.prompt === "string" &&
 		given.prompt.trim() !== ""
 	) {
-		// No agent named runs on Auto pick, which picks the model and effort too.
+		// No agent named runs on Autopick, which picks the model and effort too.
 		if (
 			given.agent === undefined ||
 			given.agent === null ||

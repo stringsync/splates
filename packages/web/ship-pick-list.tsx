@@ -59,23 +59,33 @@ export function ShipPickList({
 	onPicks: (picks: Picks) => void;
 }): JSX.Element {
 	const served = new Map(targets.map((each) => [each.plan.name, each]));
-	// Following a dependency ticks it too, even with nothing unshipped.
+	// Following a dependency ticks its whole follow chain too, even with nothing unshipped.
 	const withFollowed = (
 		next: Map<string, Choice>,
 		choice: Choice,
 		of: string,
 	) => {
-		const followed = served.get(of)?.plan.follows;
-		const dependency =
-			followed === undefined ? undefined : served.get(followed);
-		if (
-			choice !== null &&
-			typeof choice === "object" &&
-			"follow" in choice &&
-			dependency !== undefined &&
-			!next.has(dependency.plan.name)
-		) {
-			next.set(dependency.plan.name, firstChoice(dependency));
+		const seen = new Set<string>([of]);
+		let current = of;
+		let currentChoice: Choice | undefined = choice;
+		while (isFollow(currentChoice)) {
+			const followed = served.get(current)?.plan.follows;
+			if (followed === undefined || seen.has(followed)) {
+				break;
+			}
+			seen.add(followed);
+			const dependency = served.get(followed);
+			if (dependency === undefined) {
+				break;
+			}
+			if (!next.has(dependency.plan.name)) {
+				const depChoice = firstChoice(dependency);
+				next.set(dependency.plan.name, depChoice);
+				currentChoice = depChoice;
+			} else {
+				currentChoice = next.get(dependency.plan.name);
+			}
+			current = dependency.plan.name;
 		}
 		return next;
 	};
@@ -130,11 +140,18 @@ export function ShipPickList({
 							const count = unshipped[name];
 							const now = current[name];
 							const follows = target.plan.follows;
-							const followed =
-								follows === undefined ? undefined : served.get(follows);
 							const versions = shippable[name] ?? [];
 							const own = picked
-								? ownNotes({ choice, now, versions, followed, follows })
+								? ownNotes({
+										choice,
+										now,
+										versions,
+										follows,
+										released:
+											follows === undefined
+												? undefined
+												: followedVersion(follows, served, picks),
+									})
 								: [];
 							const notes = [
 								deploy ? "deploy" : undefined,
@@ -401,6 +418,44 @@ function FollowChoice({
 	);
 }
 
+function isFollow(choice: Choice | undefined): boolean {
+	return (
+		choice !== null &&
+		choice !== undefined &&
+		typeof choice === "object" &&
+		"follow" in choice
+	);
+}
+
+/**
+ * The version a followed target will release: its picked exact version, what
+ * the target it follows will release across chained followers, or its plan's
+ * default version.
+ */
+function followedVersion(
+	start: string,
+	served: ReadonlyMap<string, Listed>,
+	picks: Picks,
+): string | undefined {
+	const seen = new Set<string>();
+	let name: string | undefined = start;
+	while (name !== undefined && !seen.has(name)) {
+		seen.add(name);
+		const choice = picks.get(name);
+		if (choice !== null && choice !== undefined && typeof choice === "object") {
+			if ("version" in choice) {
+				return choice.version === "" ? undefined : choice.version;
+			}
+			if ("follow" in choice) {
+				name = served.get(name)?.plan.follows;
+				continue;
+			}
+		}
+		return served.get(name)?.plan.version;
+	}
+	return undefined;
+}
+
 /**
  * The row subtitle's version change for a picked follower: `current →
  * picked`, with the item's note, or what the followed dependency will
@@ -410,13 +465,13 @@ function ownNotes({
 	choice,
 	now,
 	versions,
-	followed,
+	released,
 	follows,
 }: {
 	choice: Choice;
 	now: string | undefined;
 	versions: readonly Shippable[];
-	followed: Listed | undefined;
+	released: string | undefined;
 	follows: string | undefined;
 }): string[] {
 	if (follows === undefined || choice === null || typeof choice !== "object") {
@@ -424,7 +479,6 @@ function ownNotes({
 	}
 	const from = now === undefined ? "" : `v${now.replace(/^v/, "")} → `;
 	if ("follow" in choice) {
-		const released = followed?.plan.version;
 		return [
 			released === undefined
 				? `${from}once ${follows} deploys`

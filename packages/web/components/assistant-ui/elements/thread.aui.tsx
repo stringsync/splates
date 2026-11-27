@@ -140,6 +140,7 @@ const ThreadRoot: FC<{
 		if (element === null) {
 			return;
 		}
+		// vet-ignore no-monkeypatching: assistant-ui calls element.scrollTo with behavior "smooth" and exposes no option to disable it
 		element.scrollTo = (target?: ScrollToOptions | number, y?: number) =>
 			(
 				HTMLElement.prototype.scrollTo as (

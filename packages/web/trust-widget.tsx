@@ -5,12 +5,7 @@ import type {
 	ScoredDecision,
 	TrustEntry,
 } from "@splates/server/trust";
-import {
-	ShieldCheckIcon,
-	ShieldIcon,
-	ShieldMinusIcon,
-	ShieldPlusIcon,
-} from "lucide-react";
+import { ShieldIcon, ShieldMinusIcon, ShieldPlusIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -20,11 +15,6 @@ import {
 	useState,
 } from "react";
 import { answered, scoped, sendJson } from "./api/request";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "./components/ui/popover";
 import { cn } from "./lib/utils";
 
 /** Trust as one conversation sees it, from `GET /api/trust/conversation`. */
@@ -38,7 +28,7 @@ export interface ConversationTrust {
 	net: number;
 }
 
-/** The open conversation's trust, for its widget and its answered questions' badges. */
+/** The open conversation's trust, for its answered questions' and events' badges. */
 export interface ThreadTrust {
 	refresh?: () => void;
 	/** Null until read. */
@@ -55,28 +45,13 @@ export const TrustContext = createContext<ThreadTrust>({
 	project: null,
 });
 
-/** What a score lets the model do: assume at 90 up, ask and go from 70, else ask and wait. */
-export function band(score: number): {
-	name: string;
-	bar: string;
-} {
-	if (score >= 90) {
-		return { name: "Assume", bar: "bg-success" };
-	}
-	if (score >= 70) {
-		return { name: "Ask & go", bar: "bg-info" };
-	}
-	return { name: "Ask & wait", bar: "bg-warning" };
-}
-
 /**
  * Reads `conversation`'s trust for the model it runs as in `project`, again
- * whenever it moves on (a turn ends, a reply goes in) or `open` turns true.
+ * whenever it moves on (a turn ends, a reply goes in).
  */
 export function useConversationTrust(
 	conversation: ConversationState,
 	project: string | null,
-	open: boolean,
 	revision = 0,
 ): ConversationTrust | null {
 	const [trust, setTrust] = useState<ConversationTrust | null>(null);
@@ -115,7 +90,6 @@ export function useConversationTrust(
 		project,
 		model,
 		moved,
-		open,
 		revision,
 	]);
 	return trust;
@@ -156,207 +130,6 @@ export function Delta({
 
 function signed(delta: number): string {
 	return delta > 0 ? `+${delta}` : delta < 0 ? `−${-delta}` : "±0";
-}
-
-/**
- * The Trust widget: a row of the model's score and this conversation's net
- * change that opens the breakdown by kind and this conversation's picks, in a
- * popover beside the widgets, or under the row on a phone.
- */
-export function TrustCard({ phone }: { phone: boolean }): JSX.Element | null {
-	const { trust, agent, project } = useContext(TrustContext);
-	const [open, setOpen] = useState(false);
-	if (trust === null) {
-		return null;
-	}
-	const row = (
-		<>
-			<ShieldCheckIcon />
-			<span className="min-w-0 flex-1 truncate">Trust</span>
-			{trust.decisions.length > 0 && <Delta delta={trust.net} />}
-			<span className="font-semibold text-foreground tabular-nums">
-				{trust.entry.score}
-			</span>
-		</>
-	);
-	const rowClass =
-		"flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none [&_svg]:size-4 [&_svg]:text-muted-foreground";
-	const details = (
-		<TrustDetails trust={trust} agent={agent} project={project} />
-	);
-	if (phone) {
-		return (
-			<section
-				aria-label="trust"
-				data-widget
-				className="overflow-hidden rounded-lg border bg-background py-1"
-			>
-				<button
-					type="button"
-					aria-expanded={open}
-					onClick={() => setOpen(!open)}
-					className={rowClass}
-				>
-					{row}
-				</button>
-				{open && <div className="mt-1 border-t">{details}</div>}
-			</section>
-		);
-	}
-	return (
-		<section
-			aria-label="trust"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
-		>
-			<Popover open={open} onOpenChange={setOpen}>
-				<PopoverTrigger render={<button type="button" className={rowClass} />}>
-					{row}
-				</PopoverTrigger>
-				<PopoverContent
-					side="left"
-					align="start"
-					sideOffset={12}
-					className="w-80 gap-0 p-0"
-				>
-					{details}
-				</PopoverContent>
-			</Popover>
-		</section>
-	);
-}
-
-/** The model's score, band and breakdown by kind, then this conversation's picks. */
-function TrustDetails({
-	trust,
-	agent,
-	project,
-}: {
-	trust: ConversationTrust;
-	agent: string;
-	project: string | null;
-}): JSX.Element {
-	const { entry, decisions, net } = trust;
-	const kinds = KIND_ORDER.map(
-		(kind) =>
-			entry.kinds.find((each) => each.kind === kind) ?? {
-				kind,
-				score: 0,
-				counts: { kept: 0, amended: 0, overturned: 0, total: 0 },
-			},
-	);
-	return (
-		<div className="flex flex-col text-sm">
-			<header className="flex items-start gap-2 border-b px-3.5 py-2.5">
-				<div className="min-w-0 flex-1">
-					<p className="font-medium">
-						{[agent, entry.model].filter(Boolean).join(" ")} · {entry.score}
-						{decisions.length > 0 && (
-							<>
-								{" "}
-								<span
-									className={cn(
-										"tabular-nums",
-										net > 0 && "text-success",
-										net < 0 && "text-destructive",
-									)}
-								>
-									{signed(net)} here
-								</span>
-							</>
-						)}
-					</p>
-					<p className="truncate text-muted-foreground text-xs">
-						{[
-							project === null ? null : folderOf(project),
-							entry.scope,
-							entry.mode === "static" ? "Static" : "Dynamic",
-							trust.enabled === false ? "Ask & wait" : band(entry.score).name,
-						]
-							.filter(Boolean)
-							.join(" · ")}
-					</p>
-				</div>
-				<a
-					href="#trust"
-					className="shrink-0 text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
-				>
-					Trust →
-				</a>
-			</header>
-			<ul
-				aria-label="trust by kind"
-				className="flex flex-col gap-1.5 px-3.5 py-2.5"
-			>
-				{kinds.map((each) => (
-					<li
-						key={each.kind}
-						className="grid grid-cols-[6.5rem_1fr_2rem] items-center gap-2 text-xs"
-					>
-						<span className="text-muted-foreground">
-							{KIND_NAMES[each.kind]}
-						</span>
-						<span className="h-1.5 overflow-hidden rounded-full bg-muted">
-							<span
-								className={cn(
-									"block h-full rounded-full",
-									band(each.score).bar,
-								)}
-								style={{ width: `${each.score}%` }}
-							/>
-						</span>
-						<span className="text-right tabular-nums">{each.score}</span>
-					</li>
-				))}
-			</ul>
-			{decisions.length > 0 && (
-				<section
-					aria-label="this conversation"
-					className="mx-3.5 flex flex-col gap-1 border-t py-2.5"
-				>
-					<h4 className="mb-0.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						This conversation
-					</h4>
-					<ul className="flex flex-col gap-1">
-						{decisions.map((each) => (
-							<li key={each.id} className="flex items-baseline gap-2 text-xs">
-								<span className="min-w-0 flex-1 truncate" title={each.subject}>
-									{pickLine(each)}
-									<span className="text-muted-foreground">
-										{" "}
-										· {KIND_SHORT[each.kind]}
-									</span>
-								</span>
-								<Delta
-									delta={each.delta}
-									className={cn(
-										"shrink-0 whitespace-nowrap font-semibold",
-										each.undone && "opacity-60 line-through",
-									)}
-								/>
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
-		</div>
-	);
-}
-
-/** What a pick was, and how it was met. */
-function pickLine(decision: ScoredDecision): string {
-	if (decision.source === "plan") {
-		return decision.outcome === "kept"
-			? "Plan approved as written"
-			: decision.outcome === "amended"
-				? "Plan approved with changes"
-				: "Plan turned down";
-	}
-	const pick = decision.picked ?? decision.subject;
-	if (decision.outcome === "overturned" && decision.instead !== undefined) {
-		return `${pick} → ${decision.instead}`;
-	}
-	return pick;
 }
 
 function folderOf(path: string): string {
@@ -521,6 +294,22 @@ function outcomeWord(decision: ScoredDecision): string {
 			: "changed";
 }
 
+/** What a pick was, and how it was met. */
+function pickLine(decision: ScoredDecision): string {
+	if (decision.source === "plan") {
+		return decision.outcome === "kept"
+			? "Plan approved as written"
+			: decision.outcome === "amended"
+				? "Plan approved with changes"
+				: "Plan turned down";
+	}
+	const pick = decision.picked ?? decision.subject;
+	if (decision.outcome === "overturned" && decision.instead !== undefined) {
+		return `${pick} → ${decision.instead}`;
+	}
+	return pick;
+}
+
 /**
  * The trust decisions an agent message's questions made: those of message
  * `message` (its index in the thread) asking one of `subjects`.
@@ -583,21 +372,3 @@ export const KIND_NAMES: Record<DecisionKind, string> = {
 	visual: "Visual / UI",
 	approval: "Approval",
 };
-
-/** Short names of decision kinds, for a line beside a pick. */
-const KIND_SHORT: Record<DecisionKind, string> = {
-	defaults: "Defaults",
-	design: "API",
-	scope: "Scope",
-	visual: "Visual",
-	approval: "Approval",
-};
-
-/** The order the breakdown lists kinds in, as the design does. */
-const KIND_ORDER: readonly DecisionKind[] = [
-	"defaults",
-	"design",
-	"scope",
-	"visual",
-	"approval",
-];

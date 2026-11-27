@@ -23,6 +23,13 @@ const TICK = Duration.secs(5);
  */
 // It reads a wall clock: `performance.now()` stands still while a Mac sleeps,
 // so only the wall clock sees the time a sleep took.
+/** The little of `document` that `Wakes` reads and listens on. */
+export interface VisibilityHost {
+	readonly visibilityState: DocumentVisibilityState;
+	addEventListener(type: "visibilitychange", listener: () => void): void;
+	removeEventListener(type: "visibilitychange", listener: () => void): void;
+}
+
 export class Wakes implements Eventful<WakesEvents>, Resource {
 	private readonly disposer = new Disposer();
 	private readonly dispatcher = this.disposer.use(
@@ -37,12 +44,15 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 		private readonly wall: WallClock = new SystemWallClock(),
 		timer: Timer = new SystemTimer(),
 		private readonly after: Duration = PULSE,
+		host: VisibilityHost | undefined = typeof document === "undefined"
+			? undefined
+			: document,
 	) {
-		if (typeof document === "undefined") {
+		if (host === undefined) {
 			return;
 		}
 		const shown = () => {
-			if (document.visibilityState === "hidden") {
+			if (host.visibilityState === "hidden") {
 				this.hiddenAt = this.wall.now();
 			} else if (this.hiddenAt !== null) {
 				const away = this.wall.now() - this.hiddenAt;
@@ -63,18 +73,18 @@ export class Wakes implements Eventful<WakesEvents>, Resource {
 			const gap = now - ticked;
 			ticked = now;
 			if (
-				document.visibilityState !== "hidden" &&
+				host.visibilityState !== "hidden" &&
 				gap >= TICK.ms + this.after.ms &&
 				!this.listening()
 			) {
 				this.woke();
 			}
 		};
-		document.addEventListener("visibilitychange", shown);
+		host.addEventListener("visibilitychange", shown);
 		window.addEventListener("online", online);
 		this.disposer.use(timer.setInterval(tick, TICK));
 		this.disposer.defer(() => {
-			document.removeEventListener("visibilitychange", shown);
+			host.removeEventListener("visibilitychange", shown);
 			window.removeEventListener("online", online);
 		});
 	}

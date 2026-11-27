@@ -239,6 +239,80 @@ describe("QuotaHandoffBar", () => {
 		).toMatchObject({ text: prompt });
 	});
 
+	it("offers Antigravity's two quota groups separately and lets one hand off to the other", () => {
+		const now = Date.now();
+		const agents = [
+			{
+				id: "claude",
+				name: "Claude",
+				settings: [],
+				limits: [limit("five_hour", 1, at, hours(2))],
+			},
+			{
+				id: "antigravity",
+				name: "Antigravity",
+				models: [
+					{ id: "gemini-4-neon", name: "Gemini 4 Neon" },
+					{ id: "claude-opus-5-5", name: "Claude Opus 5.5" },
+				],
+				settings: [],
+				limits: [
+					limit("Gemini Models · Five Hour", 1, at, hours(2)),
+					limit("Claude and GPT models · Five Hour", 0.15, at, hours(2)),
+				],
+			},
+		];
+
+		// From Claude, both Antigravity quotas appear with their own availability.
+		const fromClaude = candidateAgentQuotas("claude", agents, [], now);
+		expect(
+			fromClaude.map((each) => ({
+				label: each.label,
+				model: each.model,
+				out: each.out,
+				used: each.used,
+			})),
+		).toEqual([
+			{
+				label: "Antigravity · Gemini",
+				model: "gemini-4-neon",
+				out: true,
+				used: 1,
+			},
+			{
+				label: "Antigravity · Claude & GPT",
+				model: "claude-opus-5-5",
+				out: false,
+				used: 0.15,
+			},
+		]);
+
+		// From Antigravity on a Gemini model, Antigravity's Claude & GPT quota is offered.
+		const fromAgyGemini = candidateAgentQuotas(
+			"antigravity",
+			agents,
+			[],
+			now,
+			"gemini-4-neon",
+		);
+		expect(
+			fromAgyGemini.map((each) => ({
+				label: each.label,
+				model: each.model,
+				out: each.out,
+				used: each.used,
+			})),
+		).toEqual([
+			{ label: "Claude", model: undefined, out: true, used: 1 },
+			{
+				label: "Antigravity · Claude & GPT",
+				model: "claude-opus-5-5",
+				out: false,
+				used: 0.15,
+			},
+		]);
+	});
+
 	it("stays hidden when archived or when no other agent exists", async () => {
 		const reset = hours(2);
 		const solo = [

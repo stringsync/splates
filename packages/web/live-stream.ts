@@ -71,6 +71,8 @@ export class LiveStream implements Resource {
 		private readonly handlers: StreamHandlers,
 		private readonly timer: Timer = new SystemTimer(),
 		private readonly wakes: Wakes = WAKES,
+		private readonly online: () => boolean = () =>
+			globalThis.navigator?.onLine !== false,
 	) {
 		this.silence = new Debouncer(timer, PULSE.multiply(2));
 		this.unlisten = wakes.events.on("woke", () => this.reopen());
@@ -139,7 +141,7 @@ export class LiveStream implements Resource {
 		this.retrying = null;
 		this.source?.close();
 		this.source = null;
-		if (globalThis.navigator?.onLine === false) {
+		if (!this.online()) {
 			return;
 		}
 		const source = new EventSource(this.url);

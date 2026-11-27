@@ -30,11 +30,13 @@ describe("App's marked-up images", () => {
 			height: 50,
 			close() {},
 		})) as unknown as typeof createImageBitmap;
+		// vet-ignore no-monkeypatching: happy-dom has no 2D canvas context; restored in afterEach
 		HTMLCanvasElement.prototype.getContext = (() =>
 			new Proxy(
 				{},
 				{ get: () => () => {} },
 			)) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+		// vet-ignore no-monkeypatching: happy-dom has no canvas toBlob; restored in afterEach
 		HTMLCanvasElement.prototype.toBlob = (done: BlobCallback) => {
 			done(new Blob(["marked"], { type: "image/png" }));
 		};

@@ -76,14 +76,14 @@ export function newAddress(
 
 /**
  * In place of the agent in a new conversation's address, as `new/auto`: the
- * agent is left to Auto pick, which judges the first message.
+ * agent is left to Autopick, which judges the first message.
  */
 export const AUTO = "auto";
 
 /**
- * Whether `open` is the screen that starts a conversation on Auto pick: one
+ * Whether `open` is the screen that starts a conversation on Autopick: one
  * that names it, or one that names no agent when the last conversation
- * started was on Auto pick. Every way to New without naming an agent (⌥⌘N,
+ * started was on Autopick. Every way to New without naming an agent (⌥⌘N,
  * a folder's +, the screen shown after a close) asks this, with `agentFor`
  * for the agent otherwise, so the two decide what New starts on.
  */
@@ -99,10 +99,10 @@ export function startsAuto(open: string | null): boolean {
 	);
 }
 
-/** Where whether New lets Auto pick choose the model and effort is kept. */
+/** Where whether New lets Autopick choose the model and effort is kept. */
 const AUTO_MODEL = "splates.newConversationAutoModel";
 
-/** Whether the person last left New's Model picker on Auto pick, so it starts there again. */
+/** Whether the person last left New's Model picker on Autopick, so it starts there again. */
 export function autoModelChosen(): boolean {
 	try {
 		return localStorage.getItem(AUTO_MODEL) === "true";
@@ -111,7 +111,7 @@ export function autoModelChosen(): boolean {
 	}
 }
 
-/** Keeps whether New's Model picker is on Auto pick, for the next New to follow. */
+/** Keeps whether New's Model picker is on Autopick, for the next New to follow. */
 export function rememberAutoModel(on: boolean): void {
 	try {
 		localStorage.setItem(AUTO_MODEL, String(on));
@@ -120,10 +120,10 @@ export function rememberAutoModel(on: boolean): void {
 	}
 }
 
-/** Where whether the last conversation started was on Auto pick is kept. */
+/** Where whether the last conversation started was on Autopick is kept. */
 const LAST_AUTO = "splates.newConversationAuto";
 
-/** Whether the last conversation started was on Auto pick, so New starts there too. */
+/** Whether the last conversation started was on Autopick, so New starts there too. */
 export function lastStartedAuto(): boolean {
 	try {
 		return localStorage.getItem(LAST_AUTO) === "true";
@@ -132,7 +132,7 @@ export function lastStartedAuto(): boolean {
 	}
 }
 
-/** Keeps whether the conversation just started was on Auto pick, for New to follow. */
+/** Keeps whether the conversation just started was on Autopick, for New to follow. */
 export function rememberAuto(auto: boolean): void {
 	try {
 		localStorage.setItem(LAST_AUTO, String(auto));
@@ -141,7 +141,7 @@ export function rememberAuto(auto: boolean): void {
 	}
 }
 
-/** The address of the screen that starts a conversation on Auto pick, in `task`'s tree or the main tree. */
+/** The address of the screen that starts a conversation on Autopick, in `task`'s tree or the main tree. */
 export function autoAddress(task: string | null): string {
 	return task === null ? `${NEW}/${AUTO}` : `${NEW}/${AUTO}/${task}`;
 }

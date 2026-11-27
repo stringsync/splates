@@ -99,7 +99,7 @@ export function fold(
 				update.sessionUpdate === "agent_message_chunk" ? "text" : "thought";
 			const message = update.messageId ?? null;
 			const { text } = update.content;
-			if (last?.type === type) {
+			if (last?.type === type && (last.type !== "text" || !last.ended)) {
 				// A new message, as Codex says each of a turn's, starts a
 				// paragraph rather than running on from the last.
 				const next =

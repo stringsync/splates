@@ -75,7 +75,15 @@ export async function queueAdd(
 	ids: number[],
 	{ by = { by: "person" } }: { by?: QueuedBy } = {},
 ): Promise<Task[]> {
-	const found = await Promise.all(ids.map((id) => tasks.find(id)));
+	const all = await tasks.all();
+	const byId = new Map(all.map((task) => [task.id, task]));
+	const found = ids.map(
+		(id) =>
+			byId.get(id) ??
+			fail("not_found", `no task ${id}: run \`splates task list\``, {
+				number: id,
+			}),
+	);
 	const taken = found.find((task) => task.takenBy !== null);
 	if (taken !== undefined) {
 		fail(
@@ -95,10 +103,12 @@ export async function queueAdd(
 			)
 			.join("\n"),
 	);
-	await sayUnqueuedBlockers(
-		{ tasks, log },
-		queued.map((task) => task.id),
-	);
+	if (queued.some((task) => task.blockedBy.length > 0)) {
+		await sayUnqueuedBlockers(
+			{ tasks, log },
+			queued.map((task) => task.id),
+		);
+	}
 	return queued;
 }
 
@@ -133,7 +143,15 @@ export async function queueRemove(
 	{ tasks, log }: QueueDeps,
 	ids: number[],
 ): Promise<Task[]> {
-	const found = await Promise.all(ids.map((id) => tasks.find(id)));
+	const all = await tasks.all();
+	const byId = new Map(all.map((task) => [task.id, task]));
+	const found = ids.map(
+		(id) =>
+			byId.get(id) ??
+			fail("not_found", `no task ${id}: run \`splates task list\``, {
+				number: id,
+			}),
+	);
 	const out = found.find((task) => task.state.stage !== "queued");
 	if (out !== undefined) {
 		fail(

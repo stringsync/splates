@@ -1,4 +1,4 @@
-import type { Health } from "../auto-pick/health";
+import type { Health } from "../autopick/health";
 import { modelValue } from "../models";
 import type { Conversation } from "./conversation";
 

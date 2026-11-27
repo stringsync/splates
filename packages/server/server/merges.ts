@@ -1,6 +1,12 @@
 // vet-ignore-file doc-comments-address-users: its doc comments predate the rule
 
-import type { Conversation, Conversations } from "../conversations";
+import type {
+	Conversation,
+	ConversationHost,
+	Conversations,
+	PlanTrust,
+	PlanTrusted,
+} from "../conversations";
 import { NoopConversations, planApproved, reviewHold } from "../conversations";
 import { fail } from "../exit";
 import {
@@ -158,6 +164,54 @@ function servedMerge(
 }
 
 /**
+ * What reads, for a conversation in `project`, the trust that lets its agent
+ * go ahead on a plan unapproved: the posture its merge would be gated on.
+ */
+export function planTrusting(project: Project, trust: TrustStore): PlanTrust {
+	return (conversation) => planTrustOf(project, trust, conversation);
+}
+
+async function planTrustOf(
+	project: Project,
+	trust: TrustStore,
+	conversation: ConversationHost,
+): Promise<PlanTrusted | null> {
+	const posture = await postureOf(project, trust, conversation);
+	return allows(posture.band, "merge-without-approval")
+		? { band: posture.band, score: posture.entry.score }
+		: null;
+}
+
+function postureOf(
+	project: Project,
+	trust: TrustStore,
+	conversation: Pick<ConversationHost, "state">,
+) {
+	const { task, lastTask, agent, settings } = conversation.state;
+	const target = task ?? lastTask;
+	return trust.postureOfWork(
+		{
+			project: project.service.git.root,
+			agent,
+			model: pickedModel(settings),
+		},
+		async () => {
+			if (target === null) {
+				return null;
+			}
+			const live = await project.service
+				.find(target)
+				.then((worktree) => worktree.changedFiles())
+				.catch(() => null);
+			if (live !== null) {
+				return live;
+			}
+			return await trust.latestTaskFiles(project.service.git.root, target);
+		},
+	);
+}
+
+/**
  * Why a task worked in `talks`, newest first, cannot land yet: its newest
  * agent is below ask-and-go trust and none of them had a plan approved.
  * Null when one did, the agent's trust lets it go on its own, or no
@@ -172,21 +226,7 @@ export async function unapprovedWhy(
 	if (newest === undefined || talks.some((each) => planApproved(each.state))) {
 		return null;
 	}
-	const task = newest.state.task;
-	const posture = await trust.postureOfWork(
-		{
-			project: project.service.git.root,
-			agent: newest.state.agent,
-			model: pickedModel(newest.state.settings),
-		},
-		async () =>
-			task === null
-				? null
-				: await project.service
-						.find(task)
-						.then((worktree) => worktree.changedFiles())
-						.catch(() => null),
-	);
+	const posture = await postureOf(project, trust, newest);
 	if (allows(posture.band, "merge-without-approval")) {
 		return null;
 	}

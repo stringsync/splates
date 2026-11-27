@@ -121,6 +121,76 @@ describe("permission wait timing", () => {
 		expect(row?.working).toBe(false);
 		expect(row?.until).toBe(at(5));
 	});
+	it("places loud events from a backgrounded merge before the final reply", () => {
+		const stretches = stretchesOf(
+			{
+				role: "agent",
+				at: at(0),
+				until: at(90),
+				plan: null,
+				parts: [
+					tool({ id: "t1", command: "git commit", at: at(5), until: at(10) }),
+					tool({
+						id: "t2",
+						command: "splates merge",
+						at: at(20),
+						until: at(78),
+						background: {
+							id: "bg-1",
+							state: "completed",
+							exitCode: 0,
+							until: at(78),
+						},
+					}),
+					{ type: "text", text: "Merging alpha onto main.", at: at(25) },
+					{
+						type: "text",
+						text: "## ✅ Merged alpha onto main\n\nAll set.",
+						at: at(85),
+					},
+				],
+			},
+			at(0),
+			false,
+			Infinity,
+			[
+				{
+					id: "s1",
+					at: at(30),
+					action: "merge start",
+					task: "alpha",
+					reason: null,
+					conversation: "c1",
+					began: null,
+				},
+				{
+					id: "m1",
+					at: at(77),
+					action: "merge",
+					task: "alpha",
+					reason: null,
+					conversation: "c1",
+					base: "main",
+					commit: "abc123",
+					files: [],
+					attemptsLeft: 3,
+					failedTests: [],
+					began: "s1",
+				},
+			],
+		);
+		expect(stretches.map((stretch) => stretch.type)).toEqual([
+			"work",
+			"said",
+			"event",
+			"said",
+		]);
+		expect(stretches[2]).toMatchObject({
+			type: "event",
+			event: { action: "merge start" },
+			also: [{ action: "merge" }],
+		});
+	});
 });
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();

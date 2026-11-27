@@ -58,7 +58,8 @@ export function planApproved(
 	);
 }
 
-function postsPlan(message: Message): boolean {
+/** Whether `message` posts a Plan card. */
+export function postsPlan(message: Message): boolean {
 	return latestPlan(message) !== null;
 }
 

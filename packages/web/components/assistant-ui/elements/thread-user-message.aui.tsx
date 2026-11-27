@@ -22,7 +22,6 @@ import {
 	type FC,
 	type PropsWithChildren,
 	useContext,
-	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -30,6 +29,7 @@ import { OverturnedLine, overturnOf } from "#web/assumed-line.tsx";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { Board } from "#web/board.ts";
 import { repliesToReview } from "#web/card-reply.tsx";
+import { CLAMP, CUT_FADE, useClamped } from "#web/clamped.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
@@ -274,7 +274,7 @@ export const UserMessage: FC = () => {
 	const body = (
 		<>
 			<Bubble pending={pending}>
-				<Clamped watch={id} dictated={dictated}>
+				<Clamped watch={`${id}\0${text}`} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
 				their chips. */}
 					<SentAttachments value={sent}>
@@ -505,15 +505,6 @@ const DICTATED_BOX = "ps-9";
 const DICTATED_MIC =
 	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:top-4 max-sm:size-3.5";
 /**
- * Lines of a message shown before it is clicked open: four on a wider
- * screen, where it sticks atop the thread, and twelve in a phone's bubble,
- * which scrolls away with the rest.
- */
-const CLAMP = "max-h-24 max-sm:max-h-[12lh]";
-/** Where a cut message fades: its last lines. */
-const CUT_FADE =
-	"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
-/**
  * A message cut to four lines (twelve on a phone), fading out where it is cut,
  * and opened or closed again by a click (or Enter) when there is more than
  * fits.
@@ -526,41 +517,10 @@ const Clamped: FC<
 		dictated: boolean;
 	}>
 > = ({ watch, dictated, children }) => {
-	const text = useRef<HTMLDivElement>(null);
-	const [open, setOpen] = useState(false);
-	const [more, setMore] = useState(false);
-	useLayoutEffect(() => {
-		const box = text.current;
-		if (box === null) {
-			return;
-		}
-		const measure = () => setMore(box.scrollHeight > box.clientHeight + 1);
-		measure();
-		const watching = new ResizeObserver(measure);
-		watching.observe(box);
-		return () => watching.disconnect();
-	}, [watch, open]);
-	const toggle = () => (more || open) && setOpen(!open);
+	const { ref, open, more, interactive, triggerProps } = useClamped(watch);
 	return (
 		<div
-			role={more || open ? "button" : undefined}
-			tabIndex={more || open ? 0 : undefined}
-			aria-expanded={more || open ? open : undefined}
-			aria-label={more || open ? (open ? "Show less" : "Show all") : undefined}
-			// A link or a button in the words, such as a code block's copy,
-			// does its own thing rather than open or close the message.
-			onClick={(event) =>
-				event.target instanceof Element &&
-				event.target.closest("a, button") !== null
-					? undefined
-					: toggle()
-			}
-			onKeyDown={(event) => {
-				if (event.key === "Enter" || event.key === " ") {
-					event.preventDefault();
-					toggle();
-				}
-			}}
+			{...triggerProps}
 			className={cn(
 				"aui-user-message-content outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				USER_BUBBLE,
@@ -570,7 +530,7 @@ const Clamped: FC<
 				"max-sm:pointer-coarse:select-none max-sm:pointer-coarse:[-webkit-touch-callout:none]",
 				// Raised by a shadow while its message is stuck atop the thread.
 				"[@container_scroll-state(stuck:top)]:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
-				(more || open) && "cursor-pointer",
+				interactive && "cursor-pointer",
 			)}
 		>
 			{dictated && (
@@ -582,7 +542,7 @@ const Clamped: FC<
 				/>
 			)}
 			<div
-				ref={text}
+				ref={ref}
 				className={cn(
 					// Positioned, so what the text holds placed absolutely, such as
 					// the sr-only label of each copy button, is cut with it rather

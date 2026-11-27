@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import type { Attachment, Attachments } from "../artifacts";
-import type { AutoPicked } from "../auto-pick";
+import type { Autopicked } from "../autopick";
 import { fail } from "../exit";
 import type { AgentPick } from "../models";
 import type { Deferral, DeferralAsk } from "./deferral";
@@ -388,8 +388,8 @@ export interface TaskRecord {
 	 * kept once they merge, with the commit each landed as; absent for none.
 	 */
 	blockedElsewhere?: ElsewhereBlocker[];
-	/** Its last Auto pick, with what the judge said of its words; absent for none. */
-	autoPick?: AutoPicked;
+	/** Its last Autopick, with what the judge said of its words; absent for none. */
+	autoPick?: Autopicked;
 	/** Who queued it, kept while it is queued or running; absent for one never queued. */
 	queuedBy?: QueuedBy | { by: "ship"; project: string };
 	/** When it was last queued, kept while it is queued or running; absent for one never queued. */

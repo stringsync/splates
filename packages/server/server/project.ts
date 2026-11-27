@@ -4,12 +4,12 @@ import { UuidProvider } from "core/id";
 import { Debouncer, SystemTimer, SystemWallClock } from "core/time";
 import { launcherOf, launch as launchHere } from "../agents/process";
 import {
-	AutoPickRoutes,
+	AutopickRoutes,
 	contextOf,
 	lifting,
-	QueueAutoPick,
+	QueueAutopick,
 	reserveHold,
-} from "../auto-pick";
+} from "../autopick";
 import type { TaskRecord } from "../board";
 import { BoardRoutes, ElsewhereLinks, SignalTasks } from "../board";
 import { loadConfig } from "../config";
@@ -67,7 +67,7 @@ import { BusyRunWatch } from "./busy-run-watch";
 import { ConflictWatch } from "./conflict-watch";
 import { EventWaitWatch } from "./event-wait-watch";
 import { heldFor } from "./held";
-import { MergeRoutes } from "./merges";
+import { MergeRoutes, planTrusting } from "./merges";
 import type { DevContext, Project, Served } from "./project-types";
 import { ProjectWatch, SETTLE } from "./project-watch";
 import { ShipFixFollowUp } from "./ship-fix-follow-up";
@@ -115,6 +115,7 @@ export async function serveProject(
 			);
 		},
 		() => context.clockShelf?.(),
+		() => context.url,
 	);
 	// Tasks that close on a signal subscribe to it, so a probe on it keeps
 	// running, and end as merged when it fires.
@@ -141,7 +142,7 @@ export async function serveProject(
 				}
 			},
 			tasks: async () => (await service.list()).map(({ task }) => task),
-			picker: new QueueAutoPick(project, conversations, { slug }),
+			picker: new QueueAutopick(project, conversations, { slug }),
 			start: ({ task, queued, pick, prompt, held }) =>
 				startQueuedTask(project, context.url, {
 					task,
@@ -211,6 +212,8 @@ export async function serveProject(
 		await automations.start(conversations, journal);
 		conversations.url = context.url;
 		conversations.lift = lifting(project, conversations, { slug });
+		conversations.planTrust =
+			context.trust === undefined ? null : planTrusting(project, context.trust);
 		const startAll = (): void => {
 			starting = starting
 				.then(() => startDispatched({ service, conversations, log }))
@@ -349,12 +352,12 @@ export async function serveProject(
 				if (conversations === null) {
 					throw new Error("conversations are off");
 				}
-				const response = await new AutoPickRoutes(
+				const response = await new AutopickRoutes(
 					project,
 					conversations,
 					watch,
 					slug,
-				).startAutoPick(
+				).startAutopick(
 					new Request("http://localhost/start", {
 						method: "POST",
 						body: JSON.stringify({ todo: task }),
@@ -465,12 +468,12 @@ export async function serveProject(
 			}
 			const task = (await project.tasks.add(subject, null, { text })).id;
 			const started = async () => {
-				const response = await new AutoPickRoutes(
+				const response = await new AutopickRoutes(
 					project,
 					conversations,
 					watch,
 					slug,
-				).startAutoPick(
+				).startAutopick(
 					new Request("http://localhost/start", {
 						method: "POST",
 						body: JSON.stringify({ todo: task }),
@@ -501,12 +504,12 @@ export async function serveProject(
 			) {
 				return;
 			}
-			const response = await new AutoPickRoutes(
+			const response = await new AutopickRoutes(
 				project,
 				conversations,
 				watch,
 				slug,
-			).startAutoPick(
+			).startAutopick(
 				new Request("http://localhost/start", {
 					method: "POST",
 					body: JSON.stringify({ task, ship }),
@@ -526,7 +529,7 @@ export async function serveProject(
 				)
 				.catch((error: unknown) => log.error(String(error)));
 		},
-		...new AutoPickRoutes(project, conversations, watch, slug),
+		...new AutopickRoutes(project, conversations, watch, slug),
 		...talks,
 		retryQueued: async (request) => {
 			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
