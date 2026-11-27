@@ -1,4 +1,4 @@
-import type { Demo, Review, TaskReport } from "@splates/server/plans";
+import type { Review, TaskReport } from "@splates/server/plans";
 import type { Escalated } from "@splates/server/records";
 import type { JSX } from "react";
 import { InMessage } from "./card-reply";
@@ -8,12 +8,10 @@ import { MessageReview } from "./review-panel";
 
 /**
  * What the agent wrote of its escalation in the turn it escalated, which its
- * card takes in rather than drawing a second card: its report, the demo its
- * questions ask about, or its review.
+ * card takes in rather than drawing a second card: its report or its review.
  */
 export interface Written {
 	report: TaskReport | null;
-	demo: Demo | null;
 	review: Review | null;
 }
 
@@ -22,7 +20,7 @@ export interface Written {
  * the Ready to merge card; else the Escalated card asking the task's open
  * questions as they stood, numbered from 1 as a report numbers them, or, with
  * none, saying why it needs the person. What the agent wrote of it in the
- * same turn fills in the sentence, demo and sections splates cannot know.
+ * same turn fills in the sentence and sections splates cannot know.
  */
 export function EscalationCard({
 	event,
@@ -41,7 +39,6 @@ export function EscalationCard({
 						task,
 						base: event.base,
 						summary: review?.summary || event.about,
-						demo: review?.demo ?? null,
 						checks: review?.checks ?? [],
 						failed: review?.failed ?? [],
 						details: review?.details ?? "",
@@ -70,7 +67,6 @@ export function EscalationCard({
 					number: String(at + 1),
 				}))}
 				escalation={escalation}
-				demo={written?.demo ?? null}
 				task={task}
 			/>
 		</InMessage>

@@ -1,6 +1,5 @@
 import type { BoardContext } from "./board";
 import { earlyWarningOf, warningLines } from "./early-warning";
-import { evalsDoneOf } from "./evals-done";
 import { queueStartOf, startLine } from "./queue-start";
 import type { Named, SplatesEventView, Words } from "./splates-event";
 import { waitOutcome } from "./wait-request";
@@ -16,11 +15,6 @@ export function serverToldLines(
 	const warning = earlyWarningOf(text);
 	if (warning !== null) {
 		return warningLines(warning, at, text);
-	}
-	const done = evalsDoneOf(text);
-	if (done !== null) {
-		// The run card keeps its own record, so the message draws no line.
-		return [];
 	}
 	const start = queueStartOf(text);
 	if (start !== null) {
@@ -109,10 +103,27 @@ export function handOffLines(
 	at: string | null,
 ): SplatesEventView[] | null {
 	const task = handOffOf(text);
-	if (task !== null) {
-		return [handOffLine("Handoff", task, at, text)];
+	if (task === null && !isConversationHandOff(text)) {
+		return null;
 	}
-	return isConversationHandOff(text) ? [view(["Handoff"], at, text)] : null;
+	const from = handedFrom(text);
+	if (from !== null) {
+		return [
+			view(["Handed off from", { kind: "conversation", id: from }], at, text),
+		];
+	}
+	return task === null
+		? [view(["Handoff"], at, text)]
+		: [handOffLine("Handoff", task, at, text)];
+}
+
+/**
+ * The conversation a handoff prompt came from, by its id, read from the path
+ * of the transcript it kept, which lies in that conversation's own folder
+ * under `conversations/`; null when the path names none.
+ */
+function handedFrom(text: string): string | null {
+	return HANDED_FROM.exec(text)?.[1] ?? null;
 }
 
 /** The task a restart or handoff prompt continues, or null for another message. */
@@ -146,6 +157,7 @@ const HAND_OFF =
 	/^\[SPLATES TASK (\S+)\]\n\nThe agent before you on this task stopped without handing it over, so its SPLATES\.md may be behind\./u;
 const CONVERSATION_HAND_OFF =
 	/^This conversation continues one handed off from another agent\./u;
+const HANDED_FROM = /\/conversations\/([^/\s]+)\/transcript\.md: read its end/u;
 const AUTOMATION = /^\[SPLATES EVENT ([^\]\n]+)\]/u;
 const SCHEDULE = /^\[SPLATES SCHEDULE ([^\]\n]+)\]/u;
 const SORT = /^\[SPLATES SORT ((?:#\d+)(?: #\d+)*)\]\s*$/u;

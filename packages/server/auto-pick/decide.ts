@@ -1,10 +1,9 @@
-import { CAP_PREFIX } from "../agents";
 import type { Limit, Setting } from "../conversations";
 import {
 	type AgentPick,
-	antigravityLimitsForModel,
-	isAntigravity,
+	limitsForModel,
 	modelOption,
+	mostUsed,
 	type RosterAgent,
 } from "../models";
 import { type Catalog, inputKey } from "../prices";
@@ -242,13 +241,7 @@ function choose(
 			return [];
 		}
 		const { model: _, ...rest } = pick;
-		const limits = isAntigravity(agent)
-			? antigravityLimitsForModel(input.limits[agent.id] ?? [], model)
-			: (input.limits[agent.id] ?? []).filter(
-					(each) =>
-						!each.window.startsWith(CAP_PREFIX) ||
-						each.window === `${CAP_PREFIX}${model ?? ""}`,
-				);
+		const limits = limitsForModel(agent, input.limits[agent.id] ?? [], model);
 		const candidate = {
 			pick: model === undefined ? rest : { ...rest, model },
 			agent,
@@ -484,18 +477,10 @@ function pressed(
 	limits: Limit[],
 	now: Date,
 ): { used: number; window: string } | undefined {
-	return limits
-		.filter(
-			(each) =>
-				each.resets === null || !(Date.parse(each.resets) <= now.getTime()),
-		)
-		.reduce<{ used: number; window: string } | undefined>(
-			(most, each) =>
-				most === undefined || each.used > most.used
-					? { used: each.used, window: each.window }
-					: most,
-			undefined,
-		);
+	const most = mostUsed(limits, now);
+	return most === undefined
+		? undefined
+		: { used: most.used, window: most.window };
 }
 
 /** How far into a window its use is, and how far into its time. */

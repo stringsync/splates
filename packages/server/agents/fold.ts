@@ -219,6 +219,9 @@ export function fold(
 			}));
 			return;
 		case "usage_update":
+			if (result(update)) {
+				state.wakes = true;
+			}
 			if (state.agent === "opencode") {
 				state.usage.context =
 					metric(update.used) !== null && metric(update.size) !== null

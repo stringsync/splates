@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Page — Scopes Tab</title>
+<link rel="stylesheet" href="shared.css">
+<script>if(location.hash==="#phone") { document.documentElement.classList.add("phone"); }</script>
+<style>
+.master-switch {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--card);
+  font-size: 12.5px; font-weight: 500; flex: none;
+}
+.toggle-track { width: 32px; height: 18px; border-radius: 999px; background: var(--success); position: relative; display: inline-block; }
+.toggle-knob { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; right: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); }
+.scope-row {
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+@media (min-width: 768px) {
+  .scope-row { flex-direction: row; align-items: center; gap: 14px; }
+}
+.scope-path {
+  font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; font-weight: 500; padding: 2px 7px; border-radius: 6px; background: var(--muted); color: var(--foreground);
+}
+.add-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 768px) { .add-card { flex-direction: row; align-items: center; } }
+.text-input {
+  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--input);
+  background: var(--background); font-size: 13px; color: var(--muted-foreground); display: flex; align-items: center;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-brand">splates</div>
+    <div class="side-item">Conversations</div>
+    <div class="side-item">Boards</div>
+    <div class="side-sep"></div>
+    <div class="side-label">Workspace</div>
+    <div class="side-item active">
+      <svg aria-hidden="true" class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+      Trust
+    </div>
+    <div class="side-item">Stats</div>
+    <div class="side-item">Evals</div>
+  </aside>
+
+  <div class="main">
+    <div class="phone-bar">
+      <span>← Menu</span>
+      <span class="muted">All projects</span>
+    </div>
+
+    <header class="page-header">
+      <div class="page-header-glow"></div>
+      <div class="page-header-sheen"></div>
+      <div class="page-header-inner has-tabs">
+        <div class="page-icon">
+          <svg aria-hidden="true" class="ic lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div class="grow">
+          <div class="page-title-row">
+            <h1 class="page-title">Trust</h1>
+            <span class="scope-pill">All projects</span>
+            <div class="master-switch" style="margin-left:auto">
+              <span>Trust</span>
+              <span class="toggle-track"><span class="toggle-knob"></span></span>
+            </div>
+          </div>
+          <p class="page-desc">How much each model can decide without asking. Ships, spending, deletions and security always ask.</p>
+        </div>
+      </div>
+      <nav class="header-tabs">
+        <span class="htab">Models</span>
+        <span class="htab active">Scopes</span>
+        <span class="htab">Assumptions</span>
+      </nav>
+    </header>
+
+    <main class="content">
+      <div class="chips">
+        <span class="chip on">All projects</span>
+        <span class="chip">mono</span>
+        <span class="chip">vexml</span>
+      </div>
+
+      <section class="card add-card">
+        <div class="text-input" style="min-width:92px;color:var(--foreground);font-weight:500">mono ▾</div>
+        <div class="text-input mono grow">Directory path, e.g. sound2score/auth/</div>
+        <button type="button" class="btn pri">Add scope</button>
+      </section>
+
+      <div class="sec-head">
+        <span class="sec-title">mono</span>
+        <span class="xs muted">2 scopes</span>
+      </div>
+      <section class="card sep">
+        <div class="scope-row">
+          <div class="grow">
+            <div class="row-wrap" style="gap:8px">
+              <span class="scope-path">splates/</span>
+              <span class="xs muted">3 models · 29 decisions</span>
+            </div>
+            <div class="xs muted" style="margin-top:4px">Overrides project default for tasks touching files under <span class="mono">splates/</span>.</div>
+          </div>
+          <button type="button" class="btn sm-btn danger">Remove</button>
+        </div>
+
+        <div class="scope-row">
+          <div class="grow">
+            <div class="row-wrap" style="gap:8px">
+              <span class="scope-path">sound2score/billing/</span>
+              <span class="xs muted">1 model pinned · 4 decisions</span>
+            </div>
+            <div class="xs muted" style="margin-top:4px">Overrides project default for tasks touching files under <span class="mono">sound2score/billing/</span>.</div>
+          </div>
+          <button type="button" class="btn sm-btn danger">Remove</button>
+        </div>
+      </section>
+
+      <div class="sec-head">
+        <span class="sec-title">vexml</span>
+        <span class="xs muted">No custom scopes</span>
+      </div>
+      <section class="card card-pad sm muted">
+        All models in <b>vexml</b> use the project default. Add a scope above to track or pin a directory separately.
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

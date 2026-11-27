@@ -1,7 +1,6 @@
 import { useDisposerEffect, useReactive } from "core/react";
 import {
 	ChartColumnIcon,
-	FlaskConicalIcon,
 	GaugeIcon,
 	HardHatIcon,
 	KanbanIcon,
@@ -9,6 +8,7 @@ import {
 	ListChecksIcon,
 	type LucideIcon,
 	RadioIcon,
+	ShieldCheckIcon,
 	ShipIcon,
 	VideoIcon,
 	ZapIcon,
@@ -19,33 +19,17 @@ import { useDictateKey } from "./dictate-button";
 import { useEscapeStopsDictation } from "./dictation-context";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
-import {
-	type EvalsOpen,
-	type Move,
-	PageAddress,
-	type SetupOpen,
-} from "./page-address";
+import { type Move, PageAddress, type SetupOpen } from "./page-address";
 import type { ShortcutKey } from "./settings";
 
 /** Where the page is, from its address, and the actions that move it. */
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, lane, todo, cred, cell, evals, shipRun, setup } =
+	const { page, open, task, lane, todo, cred, cell, shipRun, setup } =
 		useReactive(
 			address,
-			({
-				page,
-				open,
-				task,
-				lane,
-				todo,
-				cred,
-				cell,
-				evals,
-				shipRun,
-				setup,
-			}) => ({
+			({ page, open, task, lane, todo, cred, cell, shipRun, setup }) => ({
 				shipRun,
 				page,
 				open,
@@ -54,7 +38,6 @@ export function usePageRoute(): PageRoute {
 				todo,
 				cred,
 				cell,
-				evals,
 				setup,
 			}),
 			["changed"],
@@ -73,7 +56,6 @@ export function usePageRoute(): PageRoute {
 		todo,
 		cred,
 		cell,
-		evals,
 		shipRun,
 		setup,
 		openSetup: useCallback(
@@ -86,10 +68,6 @@ export function usePageRoute(): PageRoute {
 		),
 		openTask: useCallback((name) => address.openTask(name), [address]),
 		openLane: useCallback((id) => address.openLane(id), [address]),
-		openEval: useCallback(
-			(batch, run, test) => address.openEval(batch, run, test),
-			[address],
-		),
 	};
 }
 
@@ -97,8 +75,8 @@ export function usePageRoute(): PageRoute {
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#lanes/<id>` for the board opened on a lane, `#todos/<N>`
- * for it with todo N open, `#stats`, `#rigs` (or `#rigs/<run>` for a run), `#ships` (or `#ships/<run>` for a run), `#evals` (a checkout's only, or `#evals/<batch>[/<run>]` with one open),
- * `#creds`, `#signals`, `#billing` (`#budget` too), `#auto-pick`
+ * for it with todo N open, `#stats`, `#rigs` (or `#rigs/<run>` for a run), `#ships` (or `#ships/<run>` for a run),
+ * `#creds`, `#signals`, `#trust`, `#billing` (`#budget` too), `#auto-pick`
  * (or `#auto-pick/<kind>.<depth>` set on a cell; `#automations` opens it too),
  * `#setup`, or the board.
  */
@@ -111,9 +89,9 @@ export type Page =
 	| "ships"
 	| "rigs"
 	| "rec"
-	| "evals"
 	| "creds"
 	| "signals"
+	| "trust"
 	| "billing"
 	| "auto-pick"
 	| "setup"
@@ -160,13 +138,13 @@ export const PAGES: {
 		Icon: RadioIcon,
 		scope: "everywhere",
 	},
-	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{
-		value: "evals",
-		label: "Evals",
-		Icon: FlaskConicalIcon,
+		value: "trust",
+		label: "Trust",
+		Icon: ShieldCheckIcon,
 		scope: "everywhere",
 	},
+	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
 	{ value: "billing", label: "Billing", Icon: GaugeIcon, scope: "everywhere" },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon, scope: "everywhere" },
 ];
@@ -188,9 +166,9 @@ export const PHONE_PAGES: Record<Page, string> = {
 	ships: "min-w-0 px-4 pt-4 pb-6",
 	rigs: "min-w-0 px-4 pt-4 pb-6",
 	rec: "min-w-0 px-4 pt-4 pb-6",
-	evals: "min-w-0 px-4 pt-4 pb-6",
 	creds: "min-w-0 px-4 pt-4 pb-6",
 	signals: "min-w-0 px-4 pt-4 pb-6",
+	trust: "min-w-0 px-4 pt-4 pb-6",
 	billing: "min-w-0 px-4 pt-4 pb-6",
 	"auto-pick": "min-w-0 px-4 pt-4 pb-6",
 	setup: "min-w-0 px-4 pt-4 pb-6",
@@ -254,18 +232,10 @@ export interface PageRoute {
 	cred: string | null;
 	/** The cell the Auto pick page is set on, `bugfix.deep`, or null. */
 	cell: string | null;
-	/** The batch and run the Evals page has open. */
-	evals: EvalsOpen;
 	/** The ship run the Ships page shows, by id, or null. */
 	shipRun: string | null;
 	/** The journey and step the Setup page is on, each null for none. */
 	setup: SetupOpen;
 	/** Sets Setup on journey `area` and its `step`, or on the index for a null `area`. */
 	openSetup: (area: string | null, step?: string | null, how?: Move) => void;
-	/** Opens batch `batch` on the Evals page, and its run `run` when given; none for null. */
-	openEval: (
-		batch: string | null,
-		run?: string | string[] | null,
-		test?: string | null,
-	) => void;
 }

@@ -4,18 +4,19 @@ import {
 	ChevronsRightIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useId } from "react";
+import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import { Checkbox } from "#web/components/ui/checkbox.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
+import type { CardSendPolicy } from "./card-send-policy";
 import { Refusal } from "./refusal";
 import { label } from "./shortcuts";
 
 /**
  * The action footer for `QuestionCards`, handling both the phone's pinned
  * paging controls and the desktop send bar, which turns the questions too
- * while it shows them one at a time.
+ * while it shows them one at a time. Both render the same `CardSendButton`
+ * driven by `send` so desktop and mobile sheet share one send policy.
  */
 export function QuestionCardsFooter({
 	paging,
@@ -27,11 +28,8 @@ export function QuestionCardsFooter({
 	page,
 	sending,
 	planned,
-	approval = null,
 	touch,
-	answering,
-	empty,
-	taking,
+	send,
 	refusal,
 	onTurn,
 	onSend,
@@ -50,20 +48,9 @@ export function QuestionCardsFooter({
 	page: number;
 	sending: boolean;
 	planned: boolean;
-	/**
-	 * A plan's approval question, asked as one Approved checkbox beside
-	 * Send: ticked, the reply approves; unticked, it sends the rest alone.
-	 */
-	approval?: {
-		/** What it approves. */
-		change: string;
-		approved: boolean;
-		onApprove: (approved: boolean) => void;
-	} | null;
 	touch: boolean;
-	answering: boolean;
-	empty: boolean;
-	taking: boolean;
+	/** Shared policy governing disabled state, pending state, and button label. */
+	send: CardSendPolicy;
 	refusal: string | null;
 	onTurn: (to: number) => void;
 	onSend: () => void;
@@ -75,7 +62,6 @@ export function QuestionCardsFooter({
 				data-pinned
 				className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-3"
 			>
-				{approval !== null && <Approved {...approval} roomy />}
 				<div className="flex items-center gap-3">
 					{page > 0 && (
 						<Button
@@ -97,14 +83,7 @@ export function QuestionCardsFooter({
 							<ChevronRightIcon data-icon="inline-end" />
 						</Button>
 					) : (
-						<Button
-							variant="default"
-							className="h-11 flex-1 bg-black text-base text-white hover:bg-black/90 active:bg-black/80"
-							onClick={onSend}
-						>
-							<SendHorizontalIcon data-icon="inline-start" />
-							Send
-						</Button>
+						<CardSendButton policy={send} layout="sheet" onSend={onSend} />
 					)}
 				</div>
 				<Refusal refusal={refusal} className="text-right" />
@@ -122,23 +101,19 @@ export function QuestionCardsFooter({
 			)}
 		>
 			<div className="flex items-center gap-3">
-				{approval !== null ? (
-					<Approved {...approval} />
-				) : (
-					<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-						{!touch && (
-							<>
-								<span>
-									<Kbd>↵</Kbd> next
-								</span>
-								<span>
-									<Kbd>{label("Mod+Enter")}</Kbd>{" "}
-									{answering ? "answers" : "sends"}
-								</span>
-							</>
-						)}
-					</p>
-				)}
+				<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+					{!touch && (
+						<>
+							<span>
+								<Kbd>↵</Kbd> next
+							</span>
+							<span>
+								<Kbd>{label("Mod+Enter")}</Kbd>{" "}
+								{send.label === "Answer" ? "answers" : "sends"}
+							</span>
+						</>
+					)}
+				</p>
 				{steppable && !stepping && (
 					<Button size="sm" variant="ghost" onClick={() => onWhole?.(false)}>
 						One at a time
@@ -167,15 +142,7 @@ export function QuestionCardsFooter({
 						<ChevronRightIcon data-icon="inline-end" />
 					</Button>
 				) : (
-					<Button
-						size="sm"
-						variant="default"
-						disabled={empty && !taking}
-						onClick={onSend}
-					>
-						<SendHorizontalIcon data-icon="inline-start" />
-						<span aria-live="polite">{answering ? "Answer" : "Send"}</span>
-					</Button>
+					<CardSendButton policy={send} layout="inline" onSend={onSend} />
 				)}
 			</div>
 			<Refusal refusal={refusal} className="text-right" />
@@ -183,38 +150,31 @@ export function QuestionCardsFooter({
 	);
 }
 
-/** The Approved checkbox a plan's approval question is asked as. */
-function Approved({
-	change,
-	approved,
-	onApprove,
-	roomy = false,
+/**
+ * The shared Send/Answer button rendered in both desktop cards and mobile
+ * sheets. All disabled, pending, and label logic comes from `policy`, so only
+ * layout sizing varies between sheet and inline modes.
+ */
+export function CardSendButton({
+	policy,
+	layout,
+	onSend,
 }: {
-	change: string;
-	approved: boolean;
-	onApprove: (approved: boolean) => void;
-	/** Whether it sits on the phone's sheet, with room for a larger target. */
-	roomy?: boolean;
+	policy: CardSendPolicy;
+	layout: "sheet" | "inline";
+	onSend: () => void;
 }): JSX.Element {
-	const id = useId();
 	return (
-		<div
-			className={cn(
-				"flex min-w-0 flex-1 items-start gap-2.5 text-sm",
-				roomy && "py-1",
-			)}
+		<Button
+			size={layout === "inline" ? "sm" : "default"}
+			variant="default"
+			disabled={policy.disabled}
+			aria-busy={policy.pending || undefined}
+			className={cn(layout === "sheet" && "h-11 flex-1 text-base")}
+			onClick={onSend}
 		>
-			<Checkbox
-				id={id}
-				aria-label="Approved"
-				checked={approved}
-				onCheckedChange={(checked) => onApprove(checked === true)}
-				className={cn("mt-0.5", roomy && "size-5")}
-			/>
-			<label htmlFor={id} className="min-w-0 cursor-pointer">
-				<span className="font-medium">Approved:</span>{" "}
-				<span className="text-muted-foreground">{change}</span>
-			</label>
-		</div>
+			<SendHorizontalIcon data-icon="inline-start" />
+			<span aria-live="polite">{policy.label}</span>
+		</Button>
 	);
 }

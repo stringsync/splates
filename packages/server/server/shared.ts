@@ -29,7 +29,7 @@ export {
 } from "./premerge";
 export type { DevMachine, Handler, Project, Served } from "./project";
 export type { ProjectWatch } from "./project-watch";
-export type { Behind, Release } from "./release";
+export type { Behind, Release, Stuck } from "./release";
 export { RUNNING } from "./release";
 export type { SplatesDeps } from "./runtime-deps";
 export { installedVersion, projectSkills } from "./skills";

@@ -67,16 +67,14 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 		({ budgets, error }) => ({ budgets, error }),
 		["changed"],
 	);
-	// Plan limits come first because their cards keep one shape, while the
-	// budgets arrive from the CLI a moment later and would shift what is below.
+	// Plan limits sit inside Spend directly below the headline card.
 	// Read each time the page is shown, behind the last answer.
 	useEffect(() => void reading.refresh(), [reading]);
 	const changed = (change: Promise<Budgets>) => reading.changed(change);
 	return (
 		<section aria-label="billing" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Billing" />
-			<SpendSection />
-			<PlanSection talk={talk} />
+			<SpendSection planLimits={<PlanSection talk={talk} />} />
 			<div className="flex min-w-0 flex-col gap-4">
 				<header className="flex flex-wrap items-center gap-2">
 					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
@@ -433,9 +431,9 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 	return (
 		<div className="flex min-w-0 flex-col gap-4">
 			<header className="flex flex-wrap items-center gap-2">
-				<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
+				<h3 className={cn("font-medium text-sm", PHONE_HEADING)}>
 					Plan limits
-				</h2>
+				</h3>
 				<span className="text-muted-foreground text-xs">
 					As each agent last said, from any project.
 				</span>

@@ -124,7 +124,7 @@ export function ShipRunScreen({
 	const targets =
 		run.targets.length === 1 ? "1 target" : `${run.targets.length} targets`;
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex flex-col gap-6">
 			<ShipHeading
 				icon={failed ? ICONS.failed : ICONS.running}
 				title={failed ? "Stopped on a failure" : `Shipping ${targets}`}
@@ -139,25 +139,27 @@ export function ShipRunScreen({
 				}
 			/>
 			{agents}
-			<ShipRunProgress
-				run={run}
-				summary={summary}
-				stop={
-					(run.status === "running" || run.status === "failed") && (
-						<StopRun stopping={stopping} onStop={() => void view.stop()} />
-					)
-				}
-			/>
-			<ShipRunSupervise
-				supervise={run.supervise}
-				disabled={supervising}
-				onFixes={(fixes) => void view.supervise(fixes)}
-			/>
-			<ShipAutoApprove
-				on={run.autoApprove === true}
-				disabled={approving}
-				onOn={(on) => void view.autoApprove(on)}
-			/>
+			<div className="flex flex-col gap-3">
+				<ShipRunProgress
+					run={run}
+					summary={summary}
+					stop={
+						(run.status === "running" || run.status === "failed") && (
+							<StopRun stopping={stopping} onStop={() => void view.stop()} />
+						)
+					}
+				/>
+				<ShipRunSupervise
+					supervise={run.supervise}
+					disabled={supervising}
+					onFixes={(fixes) => void view.supervise(fixes)}
+				/>
+				<ShipAutoApprove
+					on={run.autoApprove === true}
+					disabled={approving}
+					onOn={(on) => void view.autoApprove(on)}
+				/>
+			</div>
 			{broken.map((target) => (
 				<ShipFailureCard
 					key={target.name}
@@ -197,7 +199,7 @@ export function ShipRunScreen({
 					// A step is the targets in it, which a run keeps.
 					key={step.map((each) => each.name).join(" ")}
 					aria-label={`Group ${index + 1}`}
-					className="flex flex-col gap-2"
+					className="flex flex-col gap-2.5"
 				>
 					{(!single || step.length > 1) && (
 						<h3 className="font-semibold text-sm">
@@ -340,13 +342,13 @@ function TargetCard({
 			aria-label={target.name}
 			data-status={target.status}
 			className={cn(
-				"flex gap-2.5 rounded-lg border bg-card px-3.5 py-3",
+				"flex gap-3 rounded-lg border bg-card px-4 py-3.5",
 				!expanded && "max-h-[min(360px,50dvh)] overflow-hidden",
 				target.asking ? "border-foreground/70" : "border-border",
 			)}
 		>
 			{ICONS[target.status]}
-			<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
+			<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
 				<div className="flex shrink-0 items-baseline gap-2">
 					<button
 						type="button"
@@ -392,7 +394,7 @@ function TargetCard({
 						onClick={toggle}
 						aria-controls={details}
 						aria-expanded={false}
-						className="-ml-7.5 my-2 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+						className="-ml-8 my-2 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
 					>
 						<ChevronRightIcon className="size-3" />
 						{preview.completed} completed steps
@@ -400,14 +402,11 @@ function TargetCard({
 				)}
 				<div
 					id={details}
-					className={cn(
-						"-ml-7.5 min-h-0 pl-7.5",
-						!expanded && "overflow-hidden",
-					)}
+					className={cn("-ml-8 min-h-0 pl-8", !expanded && "overflow-hidden")}
 					hidden={done && !expanded}
 				>
 					{(target.steps.length > 1 || expanded) && (
-						<div className="-ml-7.5">
+						<div className="-ml-8">
 							<StepRail
 								run={runId}
 								target={target.name}
@@ -454,7 +453,7 @@ function TargetCard({
 						onClick={toggle}
 						aria-controls={details}
 						aria-expanded={false}
-						className="-ml-7.5 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+						className="-ml-8 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
 					>
 						<ChevronRightIcon className="size-3" />
 						{preview.later} more steps
@@ -466,7 +465,7 @@ function TargetCard({
 						onClick={toggle}
 						aria-controls={details}
 						aria-expanded
-						className="-ml-7.5 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
+						className="-ml-8 flex shrink-0 items-center gap-1 text-left text-xs text-muted-foreground hover:text-foreground"
 					>
 						<ChevronDownIcon className="size-3" />
 						Collapse entry

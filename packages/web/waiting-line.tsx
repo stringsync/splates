@@ -1,13 +1,10 @@
 import { Duration, SystemTimer } from "core/time";
-import { ArchiveIcon, CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
+import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 
 /** How long the line blinks once its shortcut finds nothing: three blinks of `animate-blink`. */
 const NUDGE = Duration.ms(600);
-
-/** How many finished conversations it takes before the line offers to archive them at once. */
-const SWEEP_AT = 3;
 
 /**
  * Tells you in the sidebar how many agents wait on you. Click it to open the
@@ -17,9 +14,7 @@ export function WaitingLine({
 	waiting,
 	nudges,
 	hint,
-	finished = 0,
 	onNext,
-	onSweep,
 }: {
 	/** How many agents wait on you. */
 	waiting: number;
@@ -27,11 +22,7 @@ export function WaitingLine({
 	nudges: number;
 	/** The key to show while ⌥⌘ is held, or null. */
 	hint: string | null;
-	/** How many conversations are over and can be archived at once. */
-	finished?: number;
 	onNext: () => void;
-	/** Opens the sweep that archives the finished ones. */
-	onSweep?: () => void;
 }): JSX.Element {
 	const [lit, setLit] = useState(false);
 	useEffect(() => {
@@ -43,19 +34,13 @@ export function WaitingLine({
 		return () => fade.dispose();
 	}, [nudges]);
 
-	// With nothing to do for you, the line offers to put the finished away.
-	const sweeping =
-		waiting === 0 && finished >= SWEEP_AT && onSweep !== undefined;
-	const said = sweeping
-		? `Archive ${finished} finished`
-		: waiting > 0
-			? `${waiting} waiting on you`
-			: "Nothing waiting on you";
+	const said =
+		waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you";
 	return (
 		<button
 			type="button"
 			data-lit={lit || undefined}
-			onClick={sweeping ? onSweep : onNext}
+			onClick={onNext}
 			className="relative isolate flex min-w-0 flex-none items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
 		>
 			{lit && (
@@ -67,9 +52,7 @@ export function WaitingLine({
 					className="-z-10 pointer-events-none absolute inset-0 animate-blink rounded-md bg-foreground/15 motion-reduce:animate-none"
 				/>
 			)}
-			{sweeping ? (
-				<ArchiveIcon className="size-3.5" />
-			) : waiting > 0 ? (
+			{waiting > 0 ? (
 				<TriangleAlertIcon className="size-3.5 text-warning" />
 			) : (
 				<CircleCheckIcon className="size-3.5" />

@@ -79,13 +79,6 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 						"",
 						"The header wraps now.",
 						"",
-						"### 🎬 Demo: the header on a phone",
-						"",
-						"Open http://localhost:4310 at 390px wide.",
-						"",
-						"1. Open Todos.",
-						"   The header wraps.",
-						"",
 						"1. Which pages need it?",
 						"   - [a] Todos",
 						"   - [b] Tasks",
@@ -110,7 +103,6 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(view.getAllByRole("list", { name: "questions" })).toHaveLength(1);
 		expect(card.textContent).toContain("two calls on the header");
 		expect(card.textContent).toContain("The header wraps now.");
-		expect(card.textContent).toContain("the header on a phone");
 		// The size is a quiet letter, its meaning on hover.
 		expect(
 			within(card).getByLabelText("Large call: hard to undo or outward-facing")

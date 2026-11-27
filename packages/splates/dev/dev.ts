@@ -4,7 +4,6 @@ import type { Cli } from "core/cmd";
 import { serve } from "core/ship";
 import { z } from "zod";
 import { splatesShip } from "../ship";
-import { evalSkill } from "./eval";
 import { ROOT } from "./root";
 
 /** Adds `splates dev`, the commands for working on this repository, to `program`. */
@@ -15,18 +14,6 @@ export function mountDev(program: Cli<SplatesDeps>): void {
 	const dev = program
 		.group("dev")
 		.description("work on the splates repository");
-
-	dev
-		.command("eval")
-		.description(
-			"run the splates skill's eval scenarios on real agents, graded by code checks and a judge; `run` uses tokens billed to an API key or counted against a Claude plan, so run it only when asked",
-		)
-		.rest("args", z.string(), {
-			description:
-				"list | plan | run | report <batch>, with [--scenario id] [--agent agent:model@effort] [--baseline rev] [--reps n] [--parallel n]",
-		})
-		.allowUnknownOption()
-		.action((opts, { ps }) => evalSkill({ ...opts, ps }));
 
 	dev
 		.command("ship")

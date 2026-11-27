@@ -112,6 +112,20 @@ export interface Pace {
 	spent: number;
 }
 
+/**
+ * The plan quota `pick` draws on, which a lineup picks once: falling back
+ * within one plan gets no further. An agent's models share its plan, except
+ * Antigravity's, whose Gemini models and Claude and GPT models are separate.
+ */
+export function planOf(pick: AgentPick): string {
+	if (pick.agent !== "antigravity") {
+		return pick.agent;
+	}
+	// Antigravity's own model, with none named, is a Gemini one.
+	const gemini = pick.model === undefined || pick.model.startsWith("gemini");
+	return `antigravity:${gemini ? "gemini" : "claude-gpt"}`;
+}
+
 const PICK = z.object({
 	agent: z.string().min(1),
 	model: z.string().min(1).optional(),
@@ -128,14 +142,14 @@ const LINEUP = z.object({
 		.superRefine((picks, ctx) => {
 			const at = picks.findIndex(
 				(pick, index) =>
-					picks.findIndex((each) => each.agent === pick.agent) !== index,
+					picks.findIndex((each) => planOf(each) === planOf(pick)) !== index,
 			);
 			if (at >= 0) {
 				ctx.addIssue({
 					code: "custom",
 					path: [at],
 					message:
-						"a lineup allows only one pick per agent; choose a different agent for the fallback",
+						"a lineup allows only one pick per agent plan; choose a different agent for the fallback",
 				});
 			}
 		}),

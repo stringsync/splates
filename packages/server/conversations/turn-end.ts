@@ -1,6 +1,7 @@
 import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import type { Storage } from "../storage";
+import type { RuleSuggestions, TrustStore } from "../trust";
 import type { Conversation } from "./conversation";
 import type { ProjectRoster } from "./host";
 import type { ConversationsOptions } from "./options";
@@ -10,6 +11,10 @@ import { spent } from "./spent";
 export interface LookingBack {
 	adherence: Adherence | null;
 	outcomes: Outcomes | null;
+	trust?: TrustStore | null;
+	trustFiles?: ConversationsOptions["trustFiles"];
+	/** Suggests rules for corrections the user keeps making, once trust records them. */
+	rules?: RuleSuggestions | null;
 	spend: NonNullable<ConversationsOptions["spend"]> | null;
 	storage: Storage;
 	root: string | null;
@@ -33,14 +38,53 @@ export interface Began {
  */
 export function lookBack(
 	conversation: Conversation,
-	{ adherence, outcomes, spend, storage, root, projects }: LookingBack,
+	{
+		adherence,
+		outcomes,
+		trust = null,
+		trustFiles,
+		rules = null,
+		spend,
+		storage,
+		root,
+		projects,
+	}: LookingBack,
 	began: Began,
 ): void {
-	void adherence
-		?.judge(
-			conversation.state,
-			root ?? conversation.cwd ?? "",
-			conversation.now(),
+	const projectRoot = root ?? conversation.cwd ?? "";
+	const now = conversation.now();
+	void adherence?.judge(conversation.state, projectRoot, now).catch(() => {});
+	const state = conversation.state;
+	const task = state.task;
+	void trust
+		?.observeConversation(state, projectRoot, now)
+		.then(async (added) => {
+			if (
+				task !== null &&
+				trustFiles !== undefined &&
+				(await trust.hasScopeHistory(projectRoot))
+			) {
+				const changes = await trustFiles(task).catch(() => null);
+				if (changes !== null) {
+					await trust
+						.rememberTaskFiles({
+							...changes,
+							project: projectRoot,
+							task,
+							endedAt: null,
+						})
+						.catch(() => {});
+				}
+			}
+			return added;
+		})
+		.then((added) =>
+			added === 0 || rules === null
+				? undefined
+				: rules.suggest(
+						projectRoot,
+						conversation.state.task ?? conversation.state.lastTask ?? null,
+					),
 		)
 		.catch(() => {});
 	// A task it merged wrote its outcome before the turn said its usage.

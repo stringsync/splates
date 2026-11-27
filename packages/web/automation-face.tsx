@@ -25,7 +25,6 @@ import { cn } from "#web/lib/utils.ts";
 import { AgentIcon } from "./agent-icons";
 import { AUTO_PICK_NAME, AutoIcon } from "./auto-brand";
 import { Dispatching } from "./dispatching";
-import { dollars } from "./eval-status";
 import { Markdown } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { Stamp } from "./stamp";
@@ -116,11 +115,6 @@ export function AutomationFace({
 							<Badge variant="secondary">Finished</Badge>
 						) : (
 							row.paused === true && <Badge variant="secondary">Paused</Badge>
-						)}
-						{row.hook.kind === "agent" && row.hook.evalBudget !== undefined && (
-							<Badge variant="secondary" className="tabular-nums">
-								{dollars(row.hook.evalBudget)} eval budget
-							</Badge>
 						)}
 					</div>
 					{named !== null && (

@@ -18,6 +18,7 @@ import {
 	taskLog,
 } from "../stats";
 import { type Collection, FsStorage, type Log, type Storage } from "../storage";
+import type { TrustStore } from "../trust";
 import { Finished } from "./finished";
 import { StartedRecords } from "./started-records";
 import {
@@ -60,6 +61,7 @@ export class WorktreeService {
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
+	private readonly trust: TrustStore | null;
 	private readonly worktrees: WorktreeCheckouts;
 	readonly ps: Ps;
 
@@ -76,6 +78,7 @@ export class WorktreeService {
 			opts.store?.storage ?? opts.storage ?? new FsStorage(splatesDir, this.fs);
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
+		this.trust = opts.trust ?? null;
 		this.worktrees = new WorktreeCheckouts(git, this.fs, this.ps);
 		this.records = new StartedRecords(
 			opts.store ?? new TaskStore(this.storage),
@@ -292,6 +295,13 @@ export class WorktreeService {
 	): Promise<GitResult> {
 		// What the outcome reads off the tree and branch, before they go.
 		const ending = await this.ending(worktree, opts);
+		const files =
+			(await this.trust
+				?.hasScopeHistory(this.git.root)
+				.then(async (hasScopes) =>
+					hasScopes ? (opts.changed ?? (await worktree.changedFiles())) : null,
+				)
+				.catch(() => null)) ?? null;
 		const plan = await this.finalPlan(worktree);
 		const record = await this.records.ending(worktree.task);
 		const held = (
@@ -304,6 +314,17 @@ export class WorktreeService {
 		const removed = await this.worktrees.remove(worktree.path, worktree.branch);
 		if (removed.code !== 0) {
 			return removed;
+		}
+		if (worktree.state && files !== null) {
+			await this.trust
+				?.rememberTaskFiles({
+					project: this.git.root,
+					task: worktree.task,
+					startedAt: worktree.state.createdAt,
+					endedAt: new Date().toISOString(),
+					files,
+				})
+				.catch(() => {});
 		}
 		if (record !== null && worktree.state) {
 			await this.finished.record(
@@ -330,7 +351,13 @@ export class WorktreeService {
 		await this.records.end(worktree.task, { unqueue: opts.unqueue });
 		await this.storage.document(`conflicts/${worktree.task}.json`).remove();
 		await this.rememberRemoved(worktree.task);
-		await this.recordOutcome(worktree, ended, ending, record?.board, opts);
+		await this.recordOutcome(
+			worktree,
+			ended,
+			{ ...ending, files },
+			record?.board,
+			opts,
+		);
 		return removed;
 	}
 
@@ -352,7 +379,7 @@ export class WorktreeService {
 	private async ending(
 		worktree: Worktree,
 		{ size }: DiscardOptions,
-	): Promise<Ending> {
+	): Promise<Omit<Ending, "files">> {
 		if (!this.outcomes || !worktree.state) {
 			return { plan: "", size: null };
 		}
@@ -509,6 +536,20 @@ export class WorktreeService {
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,
 			model: ran?.model ?? state.dispatch?.model ?? null,
 		});
+		if (ended === "removed" && opts.reason === "redo" && this.trust !== null) {
+			await this.trust
+				.recordRedo({
+					project: this.git.root,
+					agent: ran?.agent ?? state.dispatch?.agent ?? null,
+					model: ran?.model ?? state.dispatch?.model ?? null,
+					task,
+					conversation,
+					subject: goalLine(ending.plan) ?? undefined,
+					at: endedAt,
+					files: ending.files ?? undefined,
+				})
+				.catch(() => {});
+		}
 	}
 
 	private readRecord(task: string): Promise<TaskState | null> {
@@ -552,6 +593,7 @@ export class WorktreeService {
 
 /** What `discard` reads off a task for its outcome before the tree goes. */
 interface Ending {
+	files: string[] | null;
 	plan: string;
 	/** What it landed or would have; null when there is no branch to read. */
 	size: DiffSize | null;
@@ -567,6 +609,8 @@ export interface WorktreeServiceOptions {
 	outcomes?: Outcomes;
 	/** How closely conversations follow the skill, which an ending's findings read. */
 	adherence?: Adherence;
+	/** Where agent decision outcomes are kept across projects. */
+	trust?: TrustStore;
 	/**
 	 * The numbered records: pass the list of tasks' own so neither undoes
 	 * the other's writes. One of its own by default.

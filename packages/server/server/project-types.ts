@@ -18,9 +18,9 @@ import type { RigSlots } from "../rigs";
 import type { Waiting } from "../ship";
 import type { SignalFunction, SignalRaise } from "../signals";
 import type { Snapshot } from "../tasks";
+import type { TrustStore } from "../trust";
 import type { Assets } from "./assets";
-import type { EvalCardSource } from "./eval-card-watch";
-import type { Behind, Release } from "./release";
+import type { Behind, Release, Stuck } from "./release";
 import type { Replicas } from "./replicas";
 
 /** What `dev` serves a project with: its own records, read and written. */
@@ -71,6 +71,8 @@ export interface DevContext {
 	readonly release: Release | null;
 	/** Commits to splates's own source since this run started, once seen. */
 	readonly behind: Behind | null;
+	/** Upstream server commits the local source checkout has not followed yet. */
+	readonly stuck?: Stuck | null;
 	/** Whether building the page failed, so it serves the one built before. */
 	readonly unbuilt: boolean;
 	/** The slot `splates server --slot` serves under, or null. */
@@ -81,6 +83,8 @@ export interface DevContext {
 	conversationsFor(project: Project): Conversations | null;
 	/** Every served project's conversations, where a caller of one may be. */
 	readonly everywhere: Everywhere;
+	/** Trust scores across projects, which gate merges on plan approval. */
+	readonly trust?: TrustStore;
 	/**
 	 * The other projects' boards, which its tasks may wait on; absent, as in
 	 * a test of one project, none is read.
@@ -94,14 +98,6 @@ export interface DevContext {
 	readonly onRigSlotClaimed?: (slot: Slot) => Promise<void>;
 	/** What starts a ship's steps on a worker and takes them back after a restart; absent, each is a child of this server. */
 	readonly shipLauncher?: Launcher;
-	/** What a run-evals card may name, for the watch that bounces one that cannot run; absent, as in a test of one project, none is checked. */
-	evalCards?: EvalCardSource;
-	/** Seeds a pre-approved eval budget onto a conversation started by an automation; absent, none is seeded. */
-	seedEvalBudget?(
-		conversation: string,
-		usd: number,
-		automation: { id: string; name?: string },
-	): Promise<void>;
 	/** What tasks that close on a signal read of it: its raises, and a probe to run on subscribing; absent, as in a test of one project, none close. */
 	signalTasks?: {
 		raises(): Promise<Record<string, SignalRaise[]>>;
@@ -331,6 +327,7 @@ export interface Served extends AsyncResource {
 	restartConversation: Handler;
 	handOffConversation: Handler;
 	stopBackground: Handler;
+	cancelEval: Handler;
 	backgroundOutput: Handler;
 	unqueueConversation: Handler;
 	sendQueuedNow: Handler;

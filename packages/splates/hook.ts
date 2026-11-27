@@ -1,7 +1,6 @@
 import { commaList } from "@splates/server/comma-list";
 import { fail } from "@splates/server/exit";
 import {
-	evalBudgetNamed,
 	type Hook,
 	HookStore,
 	hookAdd,
@@ -95,26 +94,15 @@ splatesHook
 		default: "",
 		description: "what the agent is told after the event",
 	})
-	.option("eval-budget", z.string(), {
-		default: "",
-		description:
-			"pre-approved eval budget in dollars for each firing, nothing carries over (agent hooks only)",
-	})
 	.option("run", z.string(), {
 		default: "",
 		description: "a shell command to run",
 	})
 	.action(async (opts, ctx) => {
 		const pick = await hookPickIn(ctx, opts);
-		const evalBudget = opts["eval-budget"];
 		let hook: Hook;
 		if (opts.run !== "") {
-			if (
-				pick != null ||
-				opts.agent !== "" ||
-				opts.prompt !== "" ||
-				evalBudget !== ""
-			) {
+			if (pick != null || opts.agent !== "" || opts.prompt !== "") {
 				fail("usage", "--run goes alone: a shell command runs no agent", {});
 			}
 			hook = { kind: "run", command: opts.run };
@@ -129,9 +117,6 @@ splatesHook
 				kind: "agent",
 				prompt: opts.prompt,
 				...(pick ?? {}),
-				...(evalBudget === ""
-					? {}
-					: { evalBudget: evalBudgetNamed(evalBudget) }),
 			};
 		}
 		await hookAdd({ hooks: storeOf(ctx), log: ctx.log }, triggerOf(opts), hook);
@@ -190,28 +175,15 @@ splatesHook
 		default: "",
 		description: "what the agent is told after the event",
 	})
-	.option("eval-budget", z.string(), {
-		default: "",
-		description:
-			"pre-approved eval budget in dollars per firing, or `none` to clear (agent hooks only)",
-	})
 	.option("run", z.string(), {
 		default: "",
 		description: "a shell command to run in place of an agent",
 	})
 	.action(async (opts, ctx) => {
-		const {
-			id,
-			agent,
-			model,
-			effort,
-			"eval-budget": evalBudget,
-			...change
-		} = opts;
+		const { id, agent, model, effort, ...change } = opts;
 		const pick = await hookPickIn(ctx, { agent, model, effort });
 		await hookEdit({ hooks: storeOf(ctx), log: ctx.log }, id, {
 			...change,
-			evalBudget,
 			...(pick === undefined ? {} : { pick }),
 		});
 	});

@@ -8,33 +8,16 @@ export interface PermissionData {
 	permission: PermissionProposal;
 	/** A later queue card names the same lane, so this one folds to an event line. */
 	superseded?: boolean;
-	/** 1-based round number for `run-evals` cards in the thread. */
-	evalRound?: number;
-	/** A later `run-evals` card follows in the thread. */
-	earlierEvalRound?: boolean;
 }
 
 /**
  * `thread` with each queue card marked `superseded` when a later queue card,
- * in this message or a following one, names the same lane, and each
- * `run-evals` card numbered by round with earlier rounds marked.
+ * in this message or a following one, names the same lane.
  */
 export function supersedeQueues(
 	thread: ThreadMessageLike[],
 ): ThreadMessageLike[] {
 	const later: PermissionProposal[] = [];
-	let totalEvalRounds = 0;
-	for (const message of thread) {
-		if (message.role !== "assistant" || typeof message.content === "string") {
-			continue;
-		}
-		for (const part of message.content) {
-			if (isRunEvals(part)) {
-				totalEvalRounds++;
-			}
-		}
-	}
-	let remainingEvalRounds = totalEvalRounds;
 	const out = thread.slice();
 	for (let at = thread.length - 1; at >= 0; at--) {
 		const message = thread[at] as ThreadMessageLike;
@@ -47,20 +30,6 @@ export function supersedeQueues(
 			.map((part) => part)
 			.reverse()
 			.map((part) => {
-				if (isRunEvals(part)) {
-					const round = remainingEvalRounds--;
-					const earlierEvalRound = round < totalEvalRounds;
-					changed = true;
-					const { data } = part as { data: PermissionData };
-					return {
-						...part,
-						data: {
-							...data,
-							evalRound: round,
-							...(earlierEvalRound ? { earlierEvalRound: true } : {}),
-						},
-					} as LikePart;
-				}
 				const permission = queueOf(part);
 				if (permission === null) {
 					return part;
@@ -84,14 +53,6 @@ export function supersedeQueues(
 		}
 	}
 	return out;
-}
-
-function isRunEvals(part: LikePart): boolean {
-	if (part.type !== "data-permission") {
-		return false;
-	}
-	const { permission } = part.data as PermissionData;
-	return permission.action === "run-evals";
 }
 
 function queueOf(part: LikePart): PermissionProposal | null {

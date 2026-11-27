@@ -3,6 +3,7 @@ import { cleared, deferralBlockers } from "@splates/server/board/browser";
 import { isBlocked } from "@splates/server/queue/browser";
 import { HourglassIcon, ListPlusIcon, ListXIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
+import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { queueTodo } from "./api";
 import { upNext } from "./blocked-fix";
@@ -248,10 +249,13 @@ export function StageBar({
 export function QueueToggle({
 	todo,
 	phone,
+	dialog = false,
 }: {
 	todo: TaskRecord;
 	/** Set to draw a round icon button for a list row (taller on the phone). */
 	phone?: boolean;
+	/** Show a labeled action in the task dialog. */
+	dialog?: boolean;
 }): JSX.Element | null {
 	const { refuseTodo } = useContext(Board);
 	const expect = useExpectSnapshot();
@@ -288,6 +292,8 @@ export function QueueToggle({
 				!row && touchArea,
 				row && !phone && "size-6",
 				row && phone && "size-11",
+				dialog && buttonVariants({ variant: "outline", size: "sm" }),
+				dialog && "opacity-100 pointer-coarse:min-h-10",
 			)}
 		>
 			{shown ? (

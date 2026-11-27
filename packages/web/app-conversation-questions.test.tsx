@@ -214,6 +214,28 @@ describe("App's question cards", () => {
 		).toEqual(["aA rail", "bA panel"]);
 	});
 
+	it("draws a run of an agent's media in a reply as one gallery card", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Runs",
+				messages: [
+					message("user", "show the runs"),
+					message(
+						"agent",
+						// The test page serves no files, so recordings stand in for screenshots.
+						"Here:\n\n![first run](/abs/a.webm)\n\n![second run](/abs/b.webm)\n\nThat is all.",
+					),
+				],
+			}),
+		]);
+
+		const run = await waitFor(() =>
+			view.getByRole("button", { name: "view 2 recordings" }),
+		);
+		expect(run.textContent).toContain("first run · second run");
+		expect(view.queryByRole("button", { name: "view first run" })).toBeNull();
+	});
+
 	it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
 		const QUOTED = [
 			"> **Which pages need it?**",

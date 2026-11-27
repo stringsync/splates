@@ -1,4 +1,5 @@
-import { useEffect, useEffectEvent } from "react";
+import { Dispatcher } from "core/events";
+import { useEffect, useEffectEvent, useState } from "react";
 import { toCardTop } from "./card-shell";
 
 /**
@@ -37,8 +38,9 @@ export function toWaiting(within: HTMLElement | null): boolean {
  * shows that agent meet: the agent it opened last, until its view goes to
  * what it waits on you for.
  */
-const arrivals = new EventTarget();
+const arrivals = new Dispatcher<{ arrive: undefined; queued: undefined }>();
 let opening: { open: string; from: string } | null = null;
+let queuedTarget: { conversation: string; task: number } | null = null;
 
 /**
  * Goes to what agent `open` waits on you for once its view shows, from the
@@ -46,7 +48,43 @@ let opening: { open: string; from: string } | null = null;
  */
 export function arriveAt(open: string): void {
 	opening = { open, from: location.hash };
-	arrivals.dispatchEvent(new Event("arrive"));
+	arrivals.dispatch("arrive");
+}
+
+/**
+ * Scrolls `conversation` to the inline bar that enqueued `task` once its view
+ * is ready, revealing earlier turns if needed.
+ */
+export function arriveAtQueued(conversation: string, task: number): void {
+	queuedTarget = { conversation, task };
+	arrivals.dispatch("queued");
+}
+
+/** The queued task `conversation` was asked to scroll to, or null. */
+export function useQueuedTarget(conversation: string): number | null {
+	const [target, setTarget] = useState<number | null>(() =>
+		queuedTarget?.conversation === conversation ? queuedTarget.task : null,
+	);
+	useEffect(() => {
+		const update = () =>
+			setTarget(
+				queuedTarget?.conversation === conversation ? queuedTarget.task : null,
+			);
+		update();
+		return arrivals.events.on("queued", update);
+	}, [conversation]);
+	return target;
+}
+
+/** Clears the pending queued-task arrival once `conversation` has scrolled to it. */
+export function consumeQueuedTarget(conversation: string, task: number): void {
+	if (
+		queuedTarget?.conversation === conversation &&
+		queuedTarget.task === task
+	) {
+		queuedTarget = null;
+		arrivals.dispatch("queued");
+	}
 }
 
 /**
@@ -69,7 +107,6 @@ export function useArrived(
 		void ready;
 		void open;
 		arrive();
-		arrivals.addEventListener("arrive", arrive);
-		return () => arrivals.removeEventListener("arrive", arrive);
+		return arrivals.events.on("arrive", arrive);
 	}, [open, ready]);
 }

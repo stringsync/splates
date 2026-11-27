@@ -81,16 +81,6 @@ export function automated(conversation: ConversationState): boolean {
 	return conversation.automation !== undefined;
 }
 
-/** Whether a run its `run evals` card started is going in `conversation`. */
-export function evaluating(conversation: ConversationState): boolean {
-	return conversation.evaluating === true;
-}
-
-/** Whether a run its `run evals` card started has ever begun in `conversation`. */
-export function evaluated(conversation: ConversationState): boolean {
-	return conversation.evaluated === true;
-}
-
 /**
  * Whether `conversation` runs the adoption task of a ship, which the sidebar
  * and the inbox mark with a ship, as they mark an automation's with a bolt.
@@ -174,34 +164,6 @@ export function goOn(
 		arriveAt(openedBy(next));
 		onOpen(openedBy(next));
 	}
-}
-
-/**
- * The rows whose work is over and can be archived in one sweep: a
- * conversation that ran a task, now merged, removed or reported done, with
- * its agent at rest and nothing pinned, automated or still on the board. A
- * conversation that never had a task is never one.
- */
-export function finished(rows: Needing[]): Needing[] {
-	return rows.filter(({ conversation, need }) => {
-		if (
-			conversation === null ||
-			conversation.archived ||
-			conversation.pinned === true ||
-			automated(conversation) ||
-			conversation.task !== null ||
-			conversation.lastTask == null ||
-			conversation.status === "starting" ||
-			conversation.status === "running" ||
-			need.kind === "waiting" ||
-			need.kind === "working" ||
-			need.kind === "assuming"
-		) {
-			return false;
-		}
-		const ending = reportedAs(conversation);
-		return ending === "merged" || ending === "done" || ending === "removed";
-	});
 }
 
 /** Whether `row` shows as merged, or its lanes finished, in the sidebar. */

@@ -29,14 +29,20 @@ import {
 	useArchiveOffer,
 } from "./archive-offer";
 import { ArchivedBanner } from "./archived-banner";
-import { toWaiting, useArrived } from "./arrivals";
+import {
+	consumeQueuedTarget,
+	toWaiting,
+	useArrived,
+	useQueuedTarget,
+} from "./arrivals";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
+import { AssumedUI } from "./assumed-line";
 import { BackgroundCard, BackgroundUI } from "./background";
 import { BlockedPanel } from "./blocked-panel";
 import { ReplyContext } from "./card-reply";
-import { ChainBanner } from "./chain-card";
+import { ChainBanner, ChainProvider } from "./chain-card";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -49,11 +55,9 @@ import { NEW } from "./conversation-address";
 import { markRead } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { useNameOf } from "./conversation-names";
-import { DemoUI } from "./demo-cards";
 import { HiddenTalkTask } from "./directives";
 import type { Drafts } from "./drafts";
-import { EvalBudgetBanner } from "./eval-budget-banner";
-import { EvalsConversation } from "./evals-card";
+import { EvalRuns, EvalRunUI } from "./eval-live-card";
 import { EventUI } from "./event-lines";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
@@ -79,7 +83,7 @@ import { ReviewUI } from "./review-panel";
 import { heldAfter, queuesNow } from "./sending";
 import { SignalUI, SignalWaits } from "./signal-card";
 import { QueueBanner } from "./start-queue";
-import { StepsUI } from "./steps-card";
+import { StepsConversation, StepsUI } from "./steps-card";
 import { Task } from "./task-dialog";
 import { useThreadActions } from "./thread-actions";
 import { ThreadControls } from "./thread-controls";
@@ -88,6 +92,7 @@ import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
+import { TrustCard, TrustContext, useConversationTrust } from "./trust-widget";
 import { PendingRow, UnsentActionsContext } from "./unsent";
 import { WaitBar, WaitSight } from "./wait-bar";
 import {
@@ -170,7 +175,8 @@ function Conversation({
 		(title: string, error: unknown) => refuseIn(id, title, error),
 		[refuseIn, id],
 	);
-	const thread = useThreadMessages(conversation, feed);
+	const queuedTarget = useQueuedTarget(id);
+	const thread = useThreadMessages(conversation, feed, queuedTarget);
 	const held = conversation.messages.length;
 	// What a reload after a kill reports: which conversation was open, how big.
 	useEffect(() => {
@@ -264,6 +270,41 @@ function Conversation({
 		() => toWaiting(section.current),
 		summary !== true,
 	);
+	const [arrivedTask, setArrivedTask] = useState<number | null>(null);
+	useEffect(() => {
+		if (queuedTarget === null || summary === true) {
+			return;
+		}
+		setArrivedTask(queuedTarget);
+		consumeQueuedTarget(id, queuedTarget);
+	}, [id, queuedTarget, summary]);
+	useEffect(() => {
+		if (arrivedTask === null) {
+			return;
+		}
+		const target = arrivedTask;
+		const scrollToBar = () => {
+			const root = section.current;
+			if (root === null) {
+				return;
+			}
+			const bar =
+				root
+					.querySelector<HTMLElement>(`[data-queued-task="${target}"]`)
+					?.closest<HTMLElement>("[data-queued-tasks]") ??
+				root.querySelector<HTMLElement>('section[aria-label="task chain"]');
+			bar?.scrollIntoView?.({ block: "center", behavior: "instant" });
+		};
+		scrollToBar();
+		const frame = requestAnimationFrame(scrollToBar);
+		const timer = setTimeout(() => {
+			setArrivedTask((current) => (current === target ? null : current));
+		}, 2000);
+		return () => {
+			cancelAnimationFrame(frame);
+			clearTimeout(timer);
+		};
+	}, [arrivedTask]);
 	const projects = useProjects();
 	const references = useReferences(
 		tasks,
@@ -292,8 +333,22 @@ function Conversation({
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	const queuedTask = useQueuedTaskInThread(conversation, refused);
+	const [revision, setRevision] = useState(0);
+	const trust = useConversationTrust(
+		conversation,
+		root,
+		widgets.open,
+		revision,
+	);
 	return (
-		<>
+		<TrustContext
+			value={{
+				trust,
+				agent,
+				project: root,
+				refresh: () => setRevision((previous) => previous + 1),
+			}}
+		>
 			{onBack !== null && archivable && (
 				<EdgeSwipe
 					archive={{ asks: archive.asks, file: swipeAway }}
@@ -368,138 +423,155 @@ function Conversation({
 								value={{ conversation: id, waits: conversation.signals }}
 							>
 								<ProbeCards value={conversation.probes ?? []}>
-									<WaitSight>
-										<AssistantRuntimeProvider runtime={runtime}>
-											<Composing.Provider value={runtime.thread.composer}>
-												<QueueSummaryFor value={conversation}>
-													<QuestionsUI />
-													<ReviewUI />
-													<ReportUI />
-													<PermissionUI />
-													<DemoUI />
-													<AgentQueuedUI />
-													<StepsUI />
-													<WorkUI />
-													<EventUI />
-													<StoppedUI />
-													<CompactionUI />
-													<BackgroundUI />
-													<SignalUI />
-													<ProbeUI />
-													<InterruptedUI />
-													<FailedUI />
-													<EvalsConversation value={id}>
-														<ArchiveConversation
-															value={archivable ? fileAway : null}
-														>
-															<ArchiveOfferProvider value={offer}>
-																<UnsentActionsContext value={unsentActions}>
-																	<ReplyContext value={reply}>
-																		<NamedContext value={named}>
-																			<HiddenTalkTask value={queuedTask.todoId}>
-																				<ThreadView
-																					docked
-																					occupied={
-																						(sending?.length ?? 0) > 0 ||
-																						queued.length > 0
-																					}
-																					historyFailure={historyFailure}
-																					onRead={onRead}
-																					autoFocus={
-																						summary !== true &&
-																						(!asking || typed)
-																					}
-																					stopping={stopping}
-																					mentions={mentions ?? undefined}
-																					references={references}
-																					commands={commands ?? undefined}
-																					placeholder={
-																						archived
-																							? "Send a message to unarchive and continue"
-																							: undefined
-																					}
-																					welcome={
-																						queuedTask.todoId === null
-																							? undefined
-																							: null
-																					}
-																					before={
-																						<>
-																							{summary !== true && (
-																								<ChainBanner
-																									conversation={id}
-																									onOpen={onOpen}
-																								/>
-																							)}
-																							<EvalBudgetBanner
-																								conversation={id}
-																							/>
-																							{queuedTask.before}
-																						</>
-																					}
-																					controls={
-																						<ThreadControls
-																							conversation={conversation}
-																							refused={refused}
-																						/>
-																					}
-																					after={
-																						<BlockedPanel
-																							conversation={conversation}
-																						/>
-																					}
-																					above={
-																						<>
-																							{queuedTask.signal}
-																							<NeedsYouBar />
-																							<WaitBar />
-																							<AgentWaitBar />
-																							<Refusal
-																								refusal={refusal}
-																								className="px-2"
-																							/>
-																							{offer !== null && barred && (
-																								<ArchiveBar offer={offer} />
-																							)}
-																							<QuotaHandoffBar
-																								conversation={conversation}
-																								agent={agent}
-																								feed={feed}
-																								refused={refused}
-																							/>
-																							<PendingRow
-																								messages={agedSending}
-																								held={queued}
-																								edits={heldEdits(conversation, {
-																									sendNow,
-																									edit,
-																									discard,
-																									busy: queueBusy,
-																								})}
-																							/>
-																							{conversation.ask !== null && (
-																								<AskPanel
-																									key={conversation.ask.id}
-																									drafts={drafts}
+									<EvalRuns
+										value={{ conversation: id, runs: conversation.evals ?? [] }}
+									>
+										<WaitSight>
+											<AssistantRuntimeProvider runtime={runtime}>
+												<Composing.Provider value={runtime.thread.composer}>
+													<QueueSummaryFor value={conversation}>
+														<QuestionsUI />
+														<ReviewUI />
+														<ReportUI />
+														<PermissionUI />
+														<AgentQueuedUI />
+														<StepsUI />
+														<WorkUI />
+														<EventUI />
+														<AssumedUI />
+														<StoppedUI />
+														<CompactionUI />
+														<BackgroundUI />
+														<SignalUI />
+														<ProbeUI />
+														<EvalRunUI />
+														<InterruptedUI />
+														<FailedUI />
+														<StepsConversation value={id}>
+															<ArchiveConversation
+																value={archivable ? fileAway : null}
+															>
+																<ArchiveOfferProvider value={offer}>
+																	<UnsentActionsContext value={unsentActions}>
+																		<ReplyContext value={reply}>
+																			<NamedContext value={named}>
+																				<HiddenTalkTask
+																					value={queuedTask.todoId}
+																				>
+																					<ChainProvider
+																						conversation={id}
+																						active={summary !== true}
+																						arrivedTask={arrivedTask}
+																						onOpen={onOpen}
+																					>
+																						<ThreadView
+																							docked
+																							occupied={
+																								(sending?.length ?? 0) > 0 ||
+																								queued.length > 0
+																							}
+																							historyFailure={historyFailure}
+																							onRead={onRead}
+																							autoFocus={
+																								summary !== true &&
+																								(!asking || typed)
+																							}
+																							stopping={stopping}
+																							mentions={mentions ?? undefined}
+																							references={references}
+																							commands={commands ?? undefined}
+																							placeholder={
+																								archived
+																									? "Send a message to unarchive and continue"
+																									: undefined
+																							}
+																							welcome={
+																								queuedTask.todoId === null
+																									? undefined
+																									: null
+																							}
+																							before={
+																								<>
+																									{summary !== true && (
+																										<ChainBanner
+																											conversation={id}
+																											onOpen={onOpen}
+																										/>
+																									)}
+																									{queuedTask.before}
+																								</>
+																							}
+																							controls={
+																								<ThreadControls
 																									conversation={conversation}
-																									agent={agent}
-																									ask={conversation.ask}
+																									refused={refused}
 																								/>
-																							)}
-																						</>
-																					}
-																				/>
-																			</HiddenTalkTask>
-																		</NamedContext>
-																	</ReplyContext>
-																</UnsentActionsContext>
-															</ArchiveOfferProvider>
-														</ArchiveConversation>
-													</EvalsConversation>
-												</QueueSummaryFor>
-											</Composing.Provider>
-										</AssistantRuntimeProvider>
-									</WaitSight>
+																							}
+																							after={
+																								<BlockedPanel
+																									conversation={conversation}
+																								/>
+																							}
+																							above={
+																								<>
+																									{queuedTask.signal}
+																									<NeedsYouBar />
+																									<WaitBar />
+																									<AgentWaitBar />
+																									<Refusal
+																										refusal={refusal}
+																										className="px-2"
+																									/>
+																									{offer !== null && barred && (
+																										<ArchiveBar offer={offer} />
+																									)}
+																									<QuotaHandoffBar
+																										conversation={conversation}
+																										agent={agent}
+																										feed={feed}
+																										refused={refused}
+																									/>
+																									<PendingRow
+																										messages={agedSending}
+																										held={queued}
+																										edits={heldEdits(
+																											conversation,
+																											{
+																												sendNow,
+																												edit,
+																												discard,
+																												busy: queueBusy,
+																											},
+																										)}
+																									/>
+																									{conversation.ask !==
+																										null && (
+																										<AskPanel
+																											key={conversation.ask.id}
+																											drafts={drafts}
+																											conversation={
+																												conversation
+																											}
+																											agent={agent}
+																											ask={conversation.ask}
+																										/>
+																									)}
+																								</>
+																							}
+																						/>
+																					</ChainProvider>
+																				</HiddenTalkTask>
+																			</NamedContext>
+																		</ReplyContext>
+																	</UnsentActionsContext>
+																</ArchiveOfferProvider>
+															</ArchiveConversation>
+														</StepsConversation>
+													</QueueSummaryFor>
+												</Composing.Provider>
+											</AssistantRuntimeProvider>
+										</WaitSight>
+									</EvalRuns>
 								</ProbeCards>
 							</SignalWaits>
 						</MergeCardContext>
@@ -524,11 +596,12 @@ function Conversation({
 								conversation={id}
 								artifacts={conversation.artifacts}
 							/>
+							<TrustCard phone={onBack !== null} />
 							<ReferencesCard conversation={conversation} />
 						</Widgets>
 					</div>
 				</PhoneSheets>
 			</section>
-		</>
+		</TrustContext>
 	);
 }

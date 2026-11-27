@@ -12,7 +12,7 @@ export {
 	projectRootOf,
 	RECENT_FAILED_FILES,
 } from "./premerge";
-export type { Behind, Release } from "./release";
+export type { Behind, Release, Stuck } from "./release";
 export { newest, RUNNING } from "./release";
 export type { SplatesDeps } from "./runtime-deps";
 export type { DevServer } from "./server";

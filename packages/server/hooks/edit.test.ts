@@ -98,44 +98,6 @@ describe("changed", () => {
 				.hook,
 		).toEqual({ kind: "agent", prompt: "hi", agent: "claude" });
 	});
-
-	it("sets, preserves and clears a pre-approved eval budget on an agent hook", () => {
-		const budgeted = changed(NOTIFY, { ...NONE, evalBudget: "2" }).hook;
-		expect(budgeted).toEqual({
-			kind: "agent",
-			prompt: "say hi",
-			agent: "claude",
-			model: "sonnet",
-			evalBudget: 2,
-		});
-		const kept = changed(
-			{ ...NOTIFY, hook: budgeted },
-			{ ...NONE, prompt: "say bye" },
-		).hook;
-		expect(kept).toEqual({
-			kind: "agent",
-			prompt: "say bye",
-			agent: "claude",
-			model: "sonnet",
-			evalBudget: 2,
-		});
-		const cleared = changed(
-			{ ...NOTIFY, hook: budgeted },
-			{ ...NONE, evalBudget: "none" },
-		).hook;
-		expect(cleared).toEqual({
-			kind: "agent",
-			prompt: "say hi",
-			agent: "claude",
-			model: "sonnet",
-		});
-		expect(() =>
-			changed(NOTIFY, { ...NONE, run: "notify", evalBudget: "2" }),
-		).toThrow("--run goes alone");
-		expect(() => changed(NOTIFY, { ...NONE, evalBudget: "0" })).toThrow(
-			"no eval budget",
-		);
-	});
 });
 
 const NONE: HookChange = {

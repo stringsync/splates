@@ -312,6 +312,7 @@ export class ConversationRoutes {
 		);
 		const text = String(form.get("text") ?? "");
 		await conversation.prompt(text, files, from, {
+			person: true,
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
 		});
@@ -427,6 +428,13 @@ export class ConversationRoutes {
 		const conversation = await this.conversationAt(request);
 		const { background } = await body(request);
 		await conversation.stopBackground(String(background ?? ""));
+		return Response.json(conversation.state);
+	};
+
+	readonly cancelEval = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { run } = await body(request);
+		await conversation.cancelEval(String(run ?? ""));
 		return Response.json(conversation.state);
 	};
 

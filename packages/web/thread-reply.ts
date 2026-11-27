@@ -1,6 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import {
 	type PlanCard,
+	type QueuedCard,
 	type Review,
 	type Stretch,
 	stretches,
@@ -8,14 +9,54 @@ import {
 } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
+import { assumedLines, parseAssumedLine } from "@splates/server/trust/browser";
+import type { AssumedData } from "./assumed-line";
 import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./message-questions";
 
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
 /**
+ * `parts` without the inline bar of a `queue add` whose tasks a queued card
+ * later in the same message lists, so each queued task shows once.
+ */
+export function withoutQueuedBars(parts: LikePart[]): LikePart[] {
+	const listed = parts.flatMap((part) => {
+		if (part.type !== "data-queued") {
+			return [];
+		}
+		const { queued } = part.data as { queued: QueuedCard };
+		return [queued];
+	});
+	if (listed.length === 0) {
+		return parts;
+	}
+	return parts.filter((part, index) => {
+		if (part.type !== "data-event") {
+			return true;
+		}
+		const { event } = part.data as { event: Event };
+		if (event.action !== "queue add" || event.reason !== null) {
+			return true;
+		}
+		const ids = new Set(event.tasks.map((task) => task.id));
+		const after = parts.slice(index + 1).some((later) => {
+			if (later.type !== "data-queued") {
+				return false;
+			}
+			const { queued } = later.data as { queued: QueuedCard };
+			return (
+				queued.lane !== undefined ||
+				queued.tasks.some((task) => ids.has(task.id))
+			);
+		});
+		return !after;
+	});
+}
+
+/**
  * `parts` with what the agent wrote of the last escalation splates recorded in
- * them, its report, the questions it ends with and their demo, and its review,
+ * them, its report, the questions it ends with, and its review,
  * taken into the escalation's card rather than drawn as a second one.
  */
 export function withEscalation(parts: LikePart[]): LikePart[] {
@@ -34,7 +75,6 @@ export function withEscalation(parts: LikePart[]): LikePart[] {
 	const { event } = data;
 	const written: Written = {
 		report: null,
-		demo: null,
 		review: null,
 	};
 	const kept = parts.filter((part, index) => {
@@ -49,10 +89,9 @@ export function withEscalation(parts: LikePart[]): LikePart[] {
 			}
 		}
 		if (part.type === "data-questions") {
-			const { escalation, demo } = part.data as QuestionsData;
+			const { escalation } = part.data as QuestionsData;
 			if (escalation?.task === event.task) {
 				written.report = escalation;
-				written.demo = demo;
 				return false;
 			}
 		}
@@ -89,7 +128,7 @@ function escalatedIn(stretch: Stretch | undefined): TaskReport | null {
 
 /**
  * `text` up to where a card starts in it: a `## ` title opened by an emoji,
- * a demo's `### 🎬 Demo`, or a list of questions that already reads as one.
+ * or a list of questions that already reads as one.
  * Fenced code is no card.
  */
 export function beforeCard(text: string): string {
@@ -106,7 +145,6 @@ export function beforeCard(text: string): string {
 		}
 		const card =
 			/^## \P{ASCII}/u.test(line) ||
-			/^### 🎬 Demo/.test(line) ||
 			(/^1\.[ \t]/.test(line) &&
 				stretches(lines.slice(i).join("\n")).some(
 					(each) => each.type === "questions",
@@ -172,12 +210,79 @@ function planText({ title, body }: PlanCard): string {
 /** The reply's turn: the task it ran in, null where the log cannot say. */
 export interface Turn {
 	task: string | null;
+	/**
+	 * How many Assumed lines the conversation's agent wrote before this
+	 * reply, so each of its own is numbered as `[SPLATES OVERTURN <n>]`
+	 * counts them; 0 when unset.
+	 */
+	assumedBefore?: number;
+}
+
+/**
+ * `text` with each Assumed line in it drawn as its own part, numbered on
+ * from `before`, and the text between as text parts; and how many it held.
+ */
+export function withAssumed(
+	text: string,
+	before: number,
+): { parts: LikePart[]; count: number } {
+	const parts: LikePart[] = [];
+	let held: string[] = [];
+	let count = 0;
+	let fenced = false;
+	const flush = () => {
+		const chunk = held.join("\n").trim();
+		if (chunk !== "") {
+			parts.push({ type: "text", text: chunk });
+		}
+		held = [];
+	};
+	for (const line of text.split("\n")) {
+		if (/^[ \t]*(```|~~~)/.test(line)) {
+			fenced = !fenced;
+		}
+		const assumed = fenced ? null : parseAssumedLine(line);
+		if (assumed === null) {
+			held.push(line);
+			continue;
+		}
+		flush();
+		count += 1;
+		parts.push({
+			type: "data-assumed",
+			data: { ...assumed, number: before + count } satisfies AssumedData,
+		});
+	}
+	flush();
+	if (count === 0) {
+		return { parts: text === "" ? [] : [{ type: "text", text }], count };
+	}
+	return { parts, count };
+}
+
+/** How many Assumed lines a card's text holds, which the server counts as well. */
+function assumedIn(stretch: Stretch): number {
+	switch (stretch.type) {
+		case "plan":
+			return assumedLines(planText(stretch.plan)).length;
+		case "questions":
+			return assumedLines(
+				stretch.questions
+					.flatMap((asked) => [
+						asked.text,
+						asked.body,
+						...asked.choices.flatMap((choice) => [choice.text, choice.body]),
+					])
+					.join("\n"),
+			).length;
+		default:
+			return 0;
+	}
 }
 
 /**
  * The parts of the agent's reply: its questions and review as cards once it
- * has stopped writing them, and an escalation's questions and the demo they
- * ask about as one card.
+ * has stopped writing them, and an escalation and its questions as one card.
  */
 export function replied(
 	text: string,
@@ -191,44 +296,41 @@ export function replied(
 		return held === "" ? [] : [{ type: "text", text: held }];
 	}
 	const all = stretches(text);
+	let assumed = turn.assumedBefore ?? 0;
 	return all.flatMap((stretch, at): LikePart[] => {
 		const before = all[at - 1];
 		const after = all[at + 1];
-		// The questions an escalation ends, past the demo between.
-		const asking = all[at + (after?.type === "demo" ? 2 : 1)];
+		if (stretch.type !== "text") {
+			assumed += assumedIn(stretch);
+		}
 		switch (stretch.type) {
 			case "text": {
 				const text =
 					after?.type === "questions"
 						? withoutQuestionsTitle(stretch.text)
 						: stretch.text;
-				return text === "" ? [] : [{ type: "text", text }];
+				const split = withAssumed(text, assumed);
+				assumed += split.count;
+				return split.parts;
 			}
 			case "questions": {
-				const demo = before?.type === "demo" ? before.demo : null;
-				const heading = all[demo === null ? at - 1 : at - 2];
 				return [
 					{
 						type: "data-questions",
 						data: {
 							questions: stretch.questions,
-							escalation: escalatedIn(heading),
-							demo,
+							escalation: escalatedIn(before),
 							task: turn.task,
 							plan: before?.type === "plan" ? before.plan : null,
 						} satisfies QuestionsData,
 					},
 				];
 			}
-			case "demo":
-				return after?.type === "questions"
-					? []
-					: [{ type: "data-demo", data: { demo: stretch.demo } }];
 			case "review":
 				return [{ type: "data-review", data: { review: stretch.review } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
-					asking?.type === "questions"
+					after?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
 			case "permission":
@@ -244,10 +346,20 @@ export function replied(
 				return [{ type: "data-steps", data: { steps: stretch.steps } }];
 			case "plan":
 				// The questions after it decide it, so it is their card's body;
-				// with none, it reads as what it was written as.
+				// with none, the card still asks for a decision.
 				return after?.type === "questions"
 					? []
-					: [{ type: "text", text: planText(stretch.plan) }];
+					: [
+							{
+								type: "data-questions",
+								data: {
+									questions: [],
+									plan: stretch.plan,
+									escalation: null,
+									task: turn.task,
+								} satisfies QuestionsData,
+							},
+						];
 			default:
 				return stretch satisfies never;
 		}

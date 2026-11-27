@@ -67,7 +67,7 @@ describe("the welcome page", () => {
 		await waitFor(() => view.getByRole("region", { name: "welcome" }));
 	});
 
-	it("always suggests the ships and evals journeys while they are left", async () => {
+	it("always suggests the ships journey while it is left", async () => {
 		const progress = setupProgress();
 		const extra = progress.areas.slice(1).flatMap((dictation) =>
 			[
@@ -75,13 +75,11 @@ describe("the welcome page", () => {
 				{ id: "b", title: "b" },
 				{ id: "c", title: "c" },
 				{ id: "ships", title: "Ships" },
-				{ id: "evals", title: "Evals" },
 			].map((area) => ({ ...dictation, ...area })),
 		);
 		testing.setup = { ...progress, areas: [...progress.areas, ...extra] };
 		const view = testing.render();
 		await waitFor(() => view.getByRole("button", { name: "Set up Ships" }));
-		view.getByRole("button", { name: "Set up Evals" });
 		expect(view.queryByRole("button", { name: "Set up c" })).toBeNull();
 	});
 

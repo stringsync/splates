@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 import type { SignalProbe, SignalWait } from "@splates/server/signals";
 import { polls, SignalCard } from "./signal-card";
 import {
@@ -13,7 +13,10 @@ import {
 import { cleanup, render } from "./testing-library";
 
 describe("signal card", () => {
-	afterEach(cleanup);
+	afterEach(() => {
+		cleanup();
+		setSystemTime();
+	});
 
 	it("is an event line with the signal's chip, the time left and no stop", () => {
 		const view = render(<SignalCard wait={wait()} />);
@@ -23,6 +26,33 @@ describe("signal card", () => {
 		expect(view.getByText(/^0[45]:\d\d:\d\d left$/)).toBeTruthy();
 		expect(view.queryByRole("button", { name: "Stop waiting" })).toBeNull();
 		expect(view.getByText("Waiting for")).toBeTruthy();
+	});
+
+	it("counts down to the earlier of a clock firing and the wait timeout", () => {
+		const name =
+			'clock.at({ time: "2026-11-27T14:00:00.000Z", tz: "America/New_York" })';
+		const next = "2026-11-27T14:00:00.000Z";
+		setSystemTime(new Date("2026-11-27T12:00:00.000Z"));
+		const clock = {
+			name,
+			next,
+			tz: "America/New_York",
+			meaning: "Once at the scheduled time",
+			startedAt: "2026-11-27T12:00:00.000Z",
+			recurring: false,
+		};
+		const view = render(<SignalCard wait={wait({ name, clock })} />);
+		expect(view.getByText("02:00:00 left")).toBeTruthy();
+		expect(
+			view.getByRole("link", { name: "clock.at" }).getAttribute("href"),
+		).toBe(`#signals/${encodeURIComponent(name)}`);
+		expect(view.getByText(/9:00 AM EST/).closest("time")?.dateTime).toBe(next);
+		view.rerender(
+			<SignalCard
+				wait={wait({ name, clock, deadline: "2026-11-27T13:00:00.000Z" })}
+			/>,
+		);
+		expect(view.getByText("01:00:00 until timeout")).toBeTruthy();
 	});
 
 	it("counts how many times its probe has polled beside the time left", () => {

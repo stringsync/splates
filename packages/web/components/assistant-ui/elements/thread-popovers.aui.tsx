@@ -246,6 +246,10 @@ export const ReferenceList: FC<{
 	useEffect(
 		() =>
 			registerSelectItemOverride((item) => {
+				const text = references.text(item);
+				if (text !== null) {
+					return writer.current?.type(`#${query}`, text) ?? false;
+				}
 				const chip = references.chip(item);
 				return (
 					chip !== null && (writer.current?.write(`#${query}`, chip) ?? false)

@@ -34,6 +34,8 @@ export class ProjectWatch implements StreamWatcher {
 	private watches: Resource[] = [];
 	private readonly trees = new Map<string, Tree>();
 	private poll: ReturnType<typeof setInterval> | null = null;
+	/** Reads the queue runner's latest sweep error, if any. */
+	private queueError: () => string | null = () => null;
 	/**
 	 * Reads each task, keeping what git said of it until a ref or a
 	 * worktree's file moves, so a board write re-reads only the records.
@@ -206,10 +208,24 @@ export class ProjectWatch implements StreamWatcher {
 				};
 	}
 
+	/** Wires the queue runner's latest sweep error into live snapshots. */
+	setQueueError(read: () => string | null): void {
+		this.queueError = read;
+	}
+
 	/** `snapshot` with what the server says of itself now, which it may have learned since. */
 	private live(snapshot: Snapshot): Snapshot {
-		const { release, behind, unbuilt, slot } = this.context;
-		return { ...snapshot, release, behind, unbuilt, slot };
+		const { release, behind, stuck = null, unbuilt, slot } = this.context;
+		const queueError = this.queueError();
+		return {
+			...snapshot,
+			release,
+			behind,
+			stuck,
+			unbuilt,
+			slot,
+			...(queueError === null ? {} : { queueError }),
+		};
 	}
 
 	/** A read begun at the current move count, kept once it lands. */

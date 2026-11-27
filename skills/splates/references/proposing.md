@@ -1,106 +1,98 @@
 # Proposing
 
-Two principles (1 and 2 in SKILL.md): **get approval for work that is costly
-or hard to undo**, and **build so every task is easy to undo**, approved or
-not. A wrong idea costs a few lines to correct in a plan and a rewrite once
-built, so unless the task is easy to reverse and takes little effort to
-execute, its first reply after its first look is a plan ending in an approval
-question, and code waits for the answer Yes. The same goes when the user asks
-what you think, and for a task the queue started: a non-trivial one waits on
-its question with no one present, as a task waiting on questions does.
+Plan substantial changes while they are easy to revise. Write `## Before`
+and `## After` in `SPLATES.md` first, then use a `## 📝 Plan: <title>` card
+with its ordinary questions at the bottom. The card adds its own decision question, so never ask for approval in the plan's questions. **Approve** accepts the answers. **Approve & review** does the same and asks to see the result before it lands: add `- [ ] Show the user before merging` under `## Next`, build, then ask for a review as SKILL.md (step 6) says; `splates merge` refuses with `review` until the user approves it. **Request changes** invites discussion. Read the reply before starting.
+This applies to queue-started tasks too.
 
-A plan is a **plan card**: a `## 📝 Plan: <title>` heading, the plan under
-it in Markdown, and its questions after it, the approval question last.
-Use this card for all proposal approvals. Write `## Before`
-and `## After` in `SPLATES.md` first. The plan card exists to get a decision,
-so it holds only what could change the user's answer, in this shape and no
-other (not your harness's plan mode, whatever its sections):
+## The plan by trust
 
-- `**Goal:**` one sentence on what goes wrong or is missing today, read
-  back from the request, so a misunderstanding shows at once. Say the
-  problem, not the aim, and why it hurts, not just what happens:
-  "Make large uploads reliable" is After again, and "Uploads use one
-  request" is only today's behavior, while "Large uploads time out after
-  30 seconds, so users lose the file" is a Goal.
-- `**After:**` one sentence on what the user will meet once it lands,
-  phrased as a change, so no Before line is needed.
-- `**Approach:**` at most two sentences on the how the user could disagree
-  with: the mechanism, the place it lives. A call that could go either way
-  is a question with your pick, not a sentence here.
-- `**Hard to undo:**` one line, only when something is (a migration, a
-  public API, a deploy, data that is written or deleted); otherwise leave it
-  out.
-- The picture, when the change needs one (see [visuals.md](visuals.md)):
-  the before and after it shows stand in for any Before line.
+Read the band on your `trust:` line (or your row in `splates trust`).
+
+- **Below ask-and-go** (ask and wait, or trusted decisions paused): the
+  plan asks permission to build. Post one Plan card per design and end your
+  turn there, with no edits before the answer. Approval covers the edits,
+  commits and merge of that design: never post the same plan again, and post
+  a new one only when the design changes. A plain-text approval in chat lets
+  you build, but `splates merge` refuses with `unapproved` until the user
+  approves your latest plan on its card or approves a merge review, so ask
+  for that before merging.
+- **Ask-and-go or above:** post the plan so the user can read it later,
+  then carry on in the same turn on your picks. Wait only when a question
+  always asks (shipping, spending, deletions, security).
+
+Use the following shape for a plan card. Include what could change the user's
+decision.
+
+- `**Goal:**` one sentence on what you are trying to do, read back from
+  the request so a misunderstanding shows at once. Say the aim, not today's
+  status: "Uploads use one request" is only today's behavior, while "Make
+  large uploads finish instead of timing out after 30 seconds" is a Goal.
+- `**Details:**` bullets on how you will do it and anything else the user
+  should know: the mechanism, the place it lives, what it leaves alone.
+  Start every bullet with its action in bold, a few words the user can scan
+  alone (`- **Retry a failed scan three times** with backoff.`), then the
+  specifics in plain text; the card draws them as rows. A call that could
+  go either way is a question with your pick, not a bullet.
+- `**Tags:**` one `- <Tag>: <why>` item per tag, each with a short reason,
+  from this fixed set (use the names exactly):
+  - Undo, exactly one: `Clean revert` (reverting the merge undoes all of
+    it), `Revert + cleanup` (a revert leaves something behind, such as
+    stored records, files or settings; the reason names the cleanup) or
+    `One-way` (some of it cannot be undone; the reason names what). When a
+    ship would make a clean revert one-way, say "until <target> ships" in
+    the reason.
+  - Size, exactly one: `Small`, `Medium` or `Complex`.
+  - Area, one or more: `UI only`, `CLI`, `Server`, `Database`,
+    `Full stack`, `DevOps`, `Evals`, `Skill` or `Library`.
+  - Watch out, only when true: `Breaking`, `Security`, `Costs money`.
+- The picture, when the change needs one (see [showing.md](showing.md)):
+  the before and after it shows.
 
 Keep its prose (pictures and questions aside) near 120 words and never over
-200. Leave out step lists, file and function names, context, the request
-restated, verification and anything the picture shows: the steps go under
-`## Next` in `SPLATES.md` and the detail in its sections. A Done or Merged report says what changed, not how. (See `SKILL.md`
-for the plan card example.)
+200. Keep Details to what the user could weigh, not a step-by-step list,
+and leave out file and function names, the request restated, verification
+and anything the picture shows: the steps go under `## Next` in
+`SPLATES.md` and the detail in its sections. A Done or Merged report says
+what changed, not how. The example below shows the shape.
 
-The page draws it as one card: the plan, headed as a question for the user
-is, then its questions, the approval as its decision. Its questions belong
-to it: never send a plan card and a second questions card in one reply.
-
-**Start low-effort, easily reversible tasks without asking permission.**
-A typo, a small fix, or a rename the compiler checks, for example, needs no
-approval question before building. Judge by execution effort and how easily
-the result can be undone, rather than line count or whether the change is
-visible. Say so in one line, such as `Small and easy to revert: building
-directly.`, then proceed. Tasks that take substantial effort or are hard to
-reverse still need the approval question.
-
-**The approval question.** The plan card ends with its questions, numbered
-as any (see [Questions](questions.md)), whose last is
-`Do you approve <the change, named>?` with unselected `- (a) Yes, approve it`
-and `- (b) No` choices (mark neither `(chosen)`, so both stay unchecked and the
-user decides). Never ask `Do you approve ...?` in a standalone questions card
-without a `## 📝 Plan: <title>` heading, and never attach a `Plan: <file>.html`
-line to a question.
-
-The question names what is approved, so the user can decide from it alone:
-the one thing it does, specific enough to recognize (a database migration, a
-new endpoint, a deploy step, a changed permission), in one short line, with no
-boilerplate like `the code change that adds`. Never `this proposal`, `the
-plan` or `these changes`. Name only the headline; the plan holds the detail,
-so leave out file lists, counts and every secondary effect.
-
-Under the question put at most one plain sentence, and no bullets. It is the
-last question on the card; any other question comes before it.
-
-It is the only question you wait on: write no code until it is answered Yes.
-Every other call the plan rests on that the user has not settled goes in the
-plan card's questions before it, each with your pick, and you carry on with
-that pick once the approval is Yes, so approving with your picks is one
-answer. Send no second questions card, and no run-command, queue or other card
-in the same turn. A call that would change the whole plan (which of several
-mockup variants to build, say) is asked first, in a questions card of its own
-with no plan, and the plan card follows its answer.
+Put ordinary questions in the plan card, using the picks and trust rules in
+[Questions](questions.md). Ask a decision that changes the whole plan first
+in its own turn, then plan from the answer. Which trivial changes skip the
+plan is the Exception in SKILL.md, step 2.
 
 **Before you write one, decide whether it needs a picture.** Any visible
 frontend change, and any backend change across several services, tables or
 flows, is planned with a before and after picture (mockup variants or a D2
-diagram), never in text alone: read [visuals.md](visuals.md), capture them
+diagram), never in text alone: read [showing.md](showing.md), capture them
 first, then write the reply. A small change needs none.
+
+```markdown
+## 📝 Plan: retry failed upload scans
+
+**Goal:** Retry failed upload scans so an upload no longer sticks after one failure, and let support see the ones that still fail.
+
+**Details:**
+- **Retry a failed scan three times** in the worker, with backoff.
+- **Send a scan that still fails to a dead-letter queue**, which writes a failures table support can read.
+
+**Tags:**
+- Revert + cleanup: a revert leaves the failures table; drop it by hand.
+- Medium: a worker change and one new table.
+- Server: the scan worker.
+- Database: a migration adds the failures table.
+
+```
 
 ## Ending the turn and reading the answer
 
-End your turn after the approval question. A turn holds the plan card and
-its questions, nothing after it.
+Proceed with the plan once your trust lets it go on (above), any questions
+that need answers are answered, and any separate permissions are resolved.
+Read any accompanying note and question answers, and if the user changes the
+plan, incorporate those changes before starting work.
+`[SPLATES APPROVE]` is plan feedback. `[SPLATES MERGE]` approves a merge
+review.
 
-A Yes on the approval question, or a reply of "approve" or `[SPLATES APPROVE]`,
-means go ahead as planned, taking in
-each answer to the other questions, after `splates add` when no task is under
-way. A No, or an answer with words that change the plan, means take that in
-and plan again. The page asks it as one Approved checkbox beside Send: ticked,
-the reply answers it Yes; unticked, the reply leaves it unanswered and carries
-only the other answers and any note. An unanswered approval is never a Yes:
-read the note for what it decides. It may approve with a note (`approve, but
-keep the limit in config`), which is a Yes with that taken in, or ask for
-changes, which is a plan again; with no note, or one that leaves it unclear,
-plan again with the answers taken in.
-
-**A Yes carries the pictures into the task.** On approval, before any code,
-put what was approved in `SPLATES.md`, the plan's mock images included, as
-[visuals.md](visuals.md#a-yes-carries-the-pictures-into-the-task) says.
+**Carry the pictures into the task.** Before coding, put the plan's summary,
+mock images and answered choices in `SPLATES.md` as
+[Showing](showing.md#carry-the-pictures-into-the-task) describes.

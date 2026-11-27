@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "core/time";
+import { PENDING_DELAY_MS } from "./pending";
 import { setHeldAfterMs } from "./sending";
 import {
 	act,
@@ -299,7 +300,20 @@ describe("App's sending messages", () => {
 		);
 		// Sending, a moment on, with no turn to stop and nothing working until
 		// the server says the agent works.
-		expect(await within(thread).findByText("Sending…")).toBeTruthy();
+		await act(async () => {
+			for (
+				let index = testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === PENDING_DELAY_MS,
+				);
+				index >= 0;
+				index = testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === PENDING_DELAY_MS,
+				)
+			) {
+				testing.timer.fireTimeout(index);
+			}
+		});
+		expect(within(thread).getByText("Sending…")).toBeTruthy();
 		expect(within(thread).queryByText(/^Working/)).toBeNull();
 		expect(
 			within(thread).queryByRole("button", { name: "Stop generating" }),

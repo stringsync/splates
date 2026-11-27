@@ -22,14 +22,18 @@ happen.
 
 When the user asks whether a fix is out or a release is due:
 
-1. Check what each target has already released: its `plan`, its release step's
-   `done`, and its newest release or deploy tag
-   (`git tag -l --sort=-creatordate`).
-2. Run `git merge-base --is-ancestor <fix> <tag>` to see whether the fix is in
+1. Find the fix commit and check release tags (`git tag -l --sort=-creatordate`)
+   and `splates ships list` first. If neither shows a release, report that
+   there is no recorded release carrying the fix. Look up target configuration
+   when the answer requires details about a configured target or a release
+   outside those records.
+2. Check what each relevant target has already released: its `plan`, its
+   release step's `done`, and its newest release or deploy tag.
+3. Run `git merge-base --is-ancestor <fix> <tag>` to see whether the fix is in
    it (the user may have shipped from the Ships page since you last looked).
-3. If a target already carries the fix, it is not due: say which release
+4. If a target already carries the fix, it is not due: say which release
    carries it and check that the change works there.
-4. If a release is due, say which targets are due, in what order (a target's
+5. If a release is due, say which targets are due, in what order (a target's
    dependency first), and what each release carries; the user ships them from
    the Ships page.
 

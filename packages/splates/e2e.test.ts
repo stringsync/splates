@@ -64,7 +64,6 @@ describe.concurrent("splates", () => {
 
 			expect(exitCode).toBe(0);
 			expect(stdout).toContain("Usage: splates dev <command>");
-			expect(stdout).toContain("  eval ");
 			expect(stdout).toContain("  ship ");
 			expect(stdout).not.toContain("  server ");
 		},

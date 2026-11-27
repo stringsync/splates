@@ -8,8 +8,8 @@ import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "../plans";
 import type { Worktree } from "../tasks";
 
 /**
- * Refuses a merge before it spends anything: a dirty tree, a branch
- * tracking the plan, an exhausted budget, a lease held elsewhere, or
+ * Refuses a merge before it spends anything: a plan still waiting for approval, a review the user asked for and has not
+ * approved, a dirty tree, a branch tracking the plan, an exhausted budget, a lease held elsewhere, or
  * unchecked questions and steps.
  */
 export async function refuseUnready(
@@ -19,8 +19,24 @@ export async function refuseUnready(
 	asking: () => Promise<string[]> = async () => [],
 	/** What the task's work is blocked on that has not ended, each as a line. */
 	blockers: () => Promise<string[]> = async () => [],
+	/** Why the task's plan still needs the user's approval; null when it does not. */
+	unapproved: () => Promise<string | null> = async () => null,
+	/** Why the task waits for the user's merge review; null when it does not. */
+	unreviewed: () => Promise<string | null> = async () => null,
 ): Promise<void> {
 	const { task, base } = worktree;
+	const unapprovedWhy = await unapproved();
+	if (unapprovedWhy !== null) {
+		fail("unapproved", `${unapprovedWhy} No merge attempt was spent.`, {
+			task,
+		});
+	}
+	const unreviewedWhy = await unreviewed();
+	if (unreviewedWhy !== null) {
+		fail("review", `${unreviewedWhy} No merge attempt was spent.`, {
+			task,
+		});
+	}
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(

@@ -46,166 +46,156 @@ async function projectFrom(ctx: {
 }
 
 /**
- * `splates task add` or `defer`: one writes a task its agent groomed, which
- * names its project, the other a rough one. Either lands in Backlog for the
- * groomer unless given a lane.
+ * `splates task add`: queues a task to do later, in Backlog unless given a lane.
  */
-function adding(name: string, description: string, groomed: boolean) {
-	splatesTask
-		.command(name)
-		.use(repository({ needs: "queue" }))
-		.description(description)
-		.arg("subject", z.string(), {
-			description: "what is left to do, in a line",
-		})
-		.arg("text", z.string(), {
-			default: "",
-			description: "whatever more there is to say about it, in markdown",
-		})
-		.option("slug", z.string(), {
-			description:
-				"a short name for the task that takes it (lowercase-with-dashes), naming its branch, worktree and conversation: a few words for what it changes, not the subject cut short",
-		})
-		.option("position", position, {
-			description:
-				"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
-		})
-		.repeated("file", z.string(), {
-			description:
-				"files to attach, comma separated or the flag repeated: copied under .git/splates/tasks/<n>/",
-		})
-		.repeated("blocked-by", z.string(), {
-			description:
-				"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`wren#404`); each has to merge before this one starts",
-		})
-		.option("closes-on", z.string(), {
-			default: "",
-			description:
-				"a signal (`<project>.<name>`) the task closes on, for waiting on an outside fact before work can start: nobody works it and the queue never starts it, and when the signal fires it ends as if merged, so the tasks it blocks clear. The board keeps a probe on that signal running while it is open",
-		})
-		.option("since", z.string(), {
-			default: "",
-			description:
-				"with --closes-on: also take a firing from before it was attached, as `signal wait --since` does: how long ago (30m, 2h, 1d) or an ISO time (default: only later firings count)",
-		})
-		.option("project", z.string(), {
-			default: "",
-			description:
-				"the project of splates.config.ts it changes, which the task that takes it inherits (default: the one whose folder you run it in, else the only project)",
-		})
-		.option("lane", z.string(), {
-			default: "",
-			description:
-				"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: `backlog` for `add`; `defer` leaves it in `backlog` ungroomed)",
-		})
-		.option("agent", z.string(), {
-			default: "",
-			description:
-				"the agent on the roster (`splates agents`) that should work it, which Start on the `splates server` board offers first",
-		})
-		.option("model", z.string(), {
-			default: "",
-			description: "with --agent: the model, by its id or name on the roster",
-		})
-		.option("effort", z.string(), {
-			default: "",
-			description:
-				"with --agent: the thinking level, one the agent offers (default: the agent's own)",
-		})
-		.action(async (opts, ctx) => {
-			if (ctx.elsewhere !== null && opts.lane !== "") {
-				fail(
-					"not_granted",
-					"a task from another project goes in its Backlog, for whoever orchestrates it there to place: leave --lane off",
-					{ subject: opts.subject },
-				);
-			}
-			const from = await here(ctx);
-			const assignee = await assigneeIn(
-				ctx,
-				opts.agent,
-				opts.model,
-				opts.effort,
+splatesTask
+	.command("add")
+	.use(repository({ needs: "queue" }))
+	.description(
+		"queue a task to do later and move on, groomed by you: you checked no task already asks it, and linked what blocks it. Without --lane it lands in Backlog, where a grooming automation or the agent that starts it places it; run from a worktree, it records the task it came up in",
+	)
+	.arg("subject", z.string(), {
+		description: "what is left to do, in a line",
+	})
+	.arg("text", z.string(), {
+		default: "",
+		description:
+			"its detail, in markdown, for an agent that never saw this conversation: what done looks like, then what is wrong and where to see it, how to check it, the choices already made and what is out of scope; required unless --closes-on",
+	})
+	.option("slug", z.string(), {
+		description:
+			"a short name for the task that takes it (lowercase-with-dashes), naming its branch, worktree and conversation: a few words for what it changes, not the subject cut short",
+	})
+	.option("position", position, {
+		description:
+			"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
+	})
+	.repeated("file", z.string(), {
+		description:
+			"files to attach, comma separated or the flag repeated: copied under .git/splates/tasks/<n>/",
+	})
+	.repeated("blocked-by", z.string(), {
+		description:
+			"the tasks blocking it, comma separated or the flag repeated: a number for one here, <project>#<number> for one of another project (`wren#404`); each has to merge before this one starts",
+	})
+	.option("closes-on", z.string(), {
+		default: "",
+		description:
+			"a signal (`<project>.<name>`) the task closes on, for waiting on an outside fact before work can start: nobody works it and the queue never starts it, and when the signal fires it ends as if merged, so the tasks it blocks clear. The board keeps a probe on that signal running while it is open",
+	})
+	.option("since", z.string(), {
+		default: "",
+		description:
+			"with --closes-on: also take a firing from before it was attached, as `signal wait --since` does: how long ago (30m, 2h, 1d) or an ISO time (default: only later firings count)",
+	})
+	.option("project", z.string(), {
+		default: "",
+		description:
+			"the project of splates.config.ts it changes, which the task that takes it inherits (default: the one whose folder you run it in, else the only project)",
+	})
+	.option("lane", z.string(), {
+		default: "",
+		description:
+			"the lane it goes in, at the bottom: a lane's number, `backlog` for the permanent catch-all, or `new` for one of its own (default: `backlog`)",
+	})
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"the agent on the roster (`splates agents`) that should work it, which Start on the `splates server` board offers first",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "with --agent: the model, by its id or name on the roster",
+	})
+	.option("effort", z.string(), {
+		default: "",
+		description:
+			"with --agent: the thinking level, one the agent offers (default: the agent's own)",
+	})
+	.action(async (opts, ctx) => {
+		// A task nobody works, closed by its signal, needs no detail.
+		if (opts.text.trim() === "" && opts["closes-on"] === "") {
+			fail(
+				"usage",
+				"give the task a detail after its subject, for an agent that never saw this conversation: what done looks like first, then what is wrong and where to see it, how to check it, the choices already made and what is out of scope",
+				{ subject: opts.subject },
 			);
-			// Run with `--project`, the working directory is in the other project.
-			const origin =
-				ctx.elsewhere === null
-					? undefined
-					: {
-							project: ctx.elsewhere,
-							task:
-								ctx.project === undefined
-									? null
-									: ctx.service.taskFor(
-											await ctx.git.currentBranch(ctx.ps.cwd()),
-										),
-						};
-			const project = await projectFrom(ctx);
-			// Run with `--project`, the folder is in the other repository, so
-			// only the flag places the task.
-			const scope = pickScope({
-				config: ctx.config,
-				repoName: basename(ctx.git.root),
-				named: opts.project || undefined,
-				folder: ctx.elsewhere === null ? await folderOf(ctx) : "",
-			});
-			if (scope === null && groomed) {
-				fail(
-					"usage",
-					"say which project it changes: `--project <slug>`, or run it from that project's folder",
-					{ subject: opts.subject },
-				);
-			}
-			sinceNeedsSignal(opts["closes-on"], opts.since);
-			using boards = new OpenBoards(ctx, ctx.projects);
-			const { blockedBy, blockedElsewhere } = await blockerFlags({
-				boards,
-				here: ctx.git.root,
-				blockedBy: opts["blocked-by"],
-			});
-			await ctx.journal.record(
-				"task add",
-				from,
-				() =>
-					taskAdd(ctx, opts.subject, from, {
-						slug: opts.slug,
-						text: opts.text,
-						position: opts.position,
-						files: commaList(opts.file.join(",")),
-						blockedBy,
-						blockedElsewhere,
-						lane: laneIn(opts.lane),
-						assignee,
-						origin,
-						project,
-						boards,
-						...(scope === null ? {} : { scope }),
-						...(opts["closes-on"] === ""
-							? {}
-							: {
-									closesOn: closesOnFrom(
-										opts["closes-on"],
-										opts.since,
-										Date.now(),
+		}
+		if (ctx.elsewhere !== null && opts.lane !== "") {
+			fail(
+				"not_granted",
+				"a task from another project goes in its Backlog, for whoever orchestrates it there to place: leave --lane off",
+				{ subject: opts.subject },
+			);
+		}
+		const from = await here(ctx);
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model, opts.effort);
+		// Run with `--project`, the working directory is in the other project.
+		const origin =
+			ctx.elsewhere === null
+				? undefined
+				: {
+						project: ctx.elsewhere,
+						task:
+							ctx.project === undefined
+								? null
+								: ctx.service.taskFor(
+										await ctx.git.currentBranch(ctx.ps.cwd()),
 									),
-								}),
-					}),
-				addedFacts,
-			);
+					};
+		const project = await projectFrom(ctx);
+		// Run with `--project`, the folder is in the other repository, so
+		// only the flag places the task; leave scope unset when it is omitted.
+		const scope = pickScope({
+			config: ctx.config,
+			repoName: basename(ctx.git.root),
+			named: opts.project || undefined,
+			folder: ctx.elsewhere === null ? await folderOf(ctx) : "",
 		});
-}
-
-adding(
-	"add",
-	"queue a task to do later and move on, groomed by you: you checked no task already asks it, and linked what blocks it. Without --lane it lands in Backlog, where a grooming automation or the agent that starts it places it; run from a worktree, it records the task it came up in",
-	true,
-);
-
-adding(
-	"defer",
-	"queue a task as it is, rough, in Backlog for whoever grooms it: to check for one that already asks it, link what blocks it, and place it in a lane; run from a worktree, it records the task it came up in",
-	false,
-);
+		if (scope === null && ctx.elsewhere === null) {
+			fail(
+				"usage",
+				"say which project it changes: `--project <slug>`, or run it from that project's folder",
+				{ subject: opts.subject },
+			);
+		}
+		sinceNeedsSignal(opts["closes-on"], opts.since);
+		using boards = new OpenBoards(ctx, ctx.projects);
+		const { blockedBy, blockedElsewhere } = await blockerFlags({
+			boards,
+			here: ctx.git.root,
+			blockedBy: opts["blocked-by"],
+		});
+		await ctx.journal.record(
+			"task add",
+			from,
+			() =>
+				taskAdd(ctx, opts.subject, from, {
+					slug: opts.slug,
+					text: opts.text,
+					position: opts.position,
+					files: commaList(opts.file.join(",")),
+					blockedBy,
+					blockedElsewhere,
+					lane: laneIn(opts.lane),
+					assignee,
+					origin,
+					project,
+					boards,
+					...(scope === null ? {} : { scope }),
+					...(opts["closes-on"] === ""
+						? {}
+						: {
+								closesOn: closesOnFrom(
+									opts["closes-on"],
+									opts.since,
+									Date.now(),
+								),
+							}),
+				}),
+			addedFacts,
+		);
+	});
 
 splatesTask
 	.command("list")

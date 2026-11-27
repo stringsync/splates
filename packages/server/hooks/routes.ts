@@ -174,15 +174,13 @@ function hookIn(raw: unknown): Hook {
 		typeof given.prompt === "string" &&
 		given.prompt.trim() !== ""
 	) {
-		const evalBudget = evalBudgetIn(given.evalBudget);
-		const budgetField = evalBudget === undefined ? {} : { evalBudget };
 		// No agent named runs on Auto pick, which picks the model and effort too.
 		if (
 			given.agent === undefined ||
 			given.agent === null ||
 			given.agent === ""
 		) {
-			return { kind: "agent", prompt: given.prompt, ...budgetField };
+			return { kind: "agent", prompt: given.prompt };
 		}
 		if (typeof given.agent === "string") {
 			return {
@@ -195,7 +193,6 @@ function hookIn(raw: unknown): Hook {
 				...(typeof given.effort === "string" && given.effort !== ""
 					? { effort: given.effort }
 					: {}),
-				...budgetField,
 			};
 		}
 	}
@@ -204,17 +201,4 @@ function hookIn(raw: unknown): Hook {
 		"say what runs: an agent with a prompt, or a shell command",
 		{},
 	);
-}
-
-/** The optional dollar eval budget a request sent, refusing an invalid value. */
-function evalBudgetIn(raw: unknown): number | undefined {
-	if (raw === undefined || raw === null || raw === "") {
-		return undefined;
-	}
-	if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) {
-		fail("usage", "an eval budget is a dollar amount above 0", {
-			evalBudget: raw,
-		});
-	}
-	return Math.round(raw * 100) / 100;
 }

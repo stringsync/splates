@@ -34,17 +34,20 @@ export function cardRecord(plan: string | null | undefined): CardRecord | null {
  * A record's opening: Before and After stacked as two sections, each under a
  * level-two heading, its words following its own picture. An After with both Expected and
  * Actual switches between them, opening on Actual. Pass `folds` to let each
- * fold to its first line; both start open. `children` follow After as
+ * fold to its first line; both start open. Pass `beside` to set each
+ * label beside its section in a wide container. `children` follow After as
  * sections of the same record.
  */
 export function BeforeAfter({
 	record,
 	folds = false,
+	beside = false,
 	className,
 	children,
 }: {
 	record: CardRecord;
 	folds?: boolean;
+	beside?: boolean;
 	className?: string;
 	children?: ReactNode;
 }): JSX.Element {
@@ -53,8 +56,20 @@ export function BeforeAfter({
 	return (
 		<div className={cn("@container min-w-0 text-sm", className)}>
 			<div className="flex min-w-0 flex-col gap-0">
-				<Column label="Before" side={before} ruled={false} folds={folds} />
-				<Column label="After" side={after} ruled folds={folds} />
+				<Column
+					label="Before"
+					side={before}
+					ruled={false}
+					folds={folds}
+					beside={beside}
+				/>
+				<Column
+					label="After"
+					side={after}
+					ruled
+					folds={folds}
+					beside={beside}
+				/>
 				{children}
 			</div>
 		</div>
@@ -79,11 +94,13 @@ function Column({
 	side,
 	ruled,
 	folds,
+	beside,
 }: {
 	label: string;
 	side: Side;
 	ruled: boolean;
 	folds: boolean;
+	beside: boolean;
 }): JSX.Element {
 	const holds = (each: Variant) =>
 		side.variants[each].pictures.length + side.variants[each].words.length > 0;
@@ -96,6 +113,7 @@ function Column({
 	return (
 		<CardSection
 			ruled={ruled}
+			beside={beside}
 			label={label.toLowerCase()}
 			peek={folds ? plainLine(line ?? "Empty") : undefined}
 			open

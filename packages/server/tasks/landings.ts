@@ -25,6 +25,7 @@ export async function landingsOverlapping(
 	}
 	const mine = new Set(own);
 	const git = worktree.git;
+	const baseRef = await worktree.baseRef();
 	const landings: Landing[] = [];
 	for (const done of await worktree.landed()) {
 		if (
@@ -34,7 +35,7 @@ export async function landingsOverlapping(
 			done.endedAt < state.createdAt ||
 			done.task === worktree.task ||
 			(await git.isAncestor(done.commit, worktree.branch)) ||
-			!(await git.isAncestor(done.commit, worktree.base))
+			!(await git.isAncestor(done.commit, baseRef))
 		) {
 			continue;
 		}

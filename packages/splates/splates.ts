@@ -51,8 +51,15 @@ import { splatesBlocker } from "./blocker";
 import { blockerFlags } from "./blockers";
 import { splatesBoard } from "./board";
 import { splatesCreds } from "./creds";
-import { splatesEvals } from "./evals";
-import { effortIn, folderOf, here, offeredOf, taskIds } from "./flags";
+import {
+	effortIn,
+	folderOf,
+	here,
+	laneIn,
+	limitsOf,
+	offeredOf,
+	taskIds,
+} from "./flags";
 import { splatesHook } from "./hook";
 import { splatesLane } from "./lane";
 import { printMachine } from "./machine";
@@ -65,6 +72,7 @@ import { splatesShips } from "./ships";
 import { splatesSignal } from "./signal";
 import { splatesSlots } from "./slots";
 import { splatesTask } from "./task";
+import { printTrust, splatesTrust } from "./trust";
 import { splatesTunnel } from "./tunnel";
 import { splatesWorker } from "./worker";
 
@@ -181,6 +189,11 @@ splates
 		description:
 			"one or two lines on what done means, written under `## Goal` in the task's SPLATES.md; required unless --task seeds the Goal",
 	})
+	.option("lane", z.string(), {
+		default: "",
+		description:
+			"the lane it goes in, at the bottom, as `task add --lane` takes it: a lane's number, `backlog` or `new`; a queued task (--task) moves there, and a new one goes on the board there instead of staying off it (default: a queued task stays put, a new one stays off the board)",
+	})
 	.option("agent", z.string(), {
 		default: "",
 		description:
@@ -253,6 +266,7 @@ splates
 					goal: opts.goal.trim() || undefined,
 					project: opts.project || undefined,
 					folder,
+					lane: laneIn(opts.lane),
 					dispatch,
 					agents,
 					away: ctx.elsewhere !== null,
@@ -273,6 +287,9 @@ splates
 				model: dispatch?.model ?? null,
 			},
 		);
+		if (dispatch === undefined) {
+			await printTrust(ctx, opts.slug);
+		}
 		if (ctx.elsewhere !== null) {
 			await serveProject(ctx);
 		}
@@ -292,6 +309,7 @@ splates
 			() => claim(ctx, opts.task),
 			(claimed) => claimed,
 		);
+		await printTrust(ctx, opts.task);
 		await printOpenQuestions(ctx, opts.task);
 		await follow(ctx, opts.task);
 	});
@@ -577,17 +595,22 @@ splates
 splates
 	.command("agents")
 	.description(
-		"print the roster of agents splates can start, kept for every project in ~/.splates/agents.json: each agent's launch command and models, with what each model is good at and what it costs, and the thinking levels `--effort` takes, as the agent offered them when last started, for choosing whom to delegate to; writes the defaults (Claude, Codex) there first when there is none, and `splates server` starts conversations with those it lists",
+		"print the roster of agents splates can start, kept for every project in ~/.splates/agents.json: each agent's launch command and models, with what each model is good at and what it costs, and the thinking levels `--effort` takes, as the agent offered them when last started, for choosing whom to delegate to; writes the defaults (Claude, Codex) there first when there is none, and `splates server` starts conversations with those it lists. With --quota, prints instead each agent's and model's share of plan quota left, from the window that leaves least, when it resets and when it was read, as agents last reported to `splates server` on this machine, or unknown",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.option("quota", z.boolean(), {
+		default: false,
+		description: "print each agent's and model's plan quota left",
+	})
 	.action(async (opts, ctx) =>
 		agents(
 			{
 				roster: rosterOf(ctx),
 				offered: await offeredOf(ctx).all(),
 				log: ctx.log,
+				limits: () => limitsOf(ctx).all(),
 			},
-			{ json: opts.json },
+			{ json: opts.json, quota: opts.quota },
 		),
 	);
 
@@ -701,4 +724,4 @@ splates
 	.mount("queue", splatesQueue)
 	.mount("hook", splatesHook)
 	.mount("replica", splatesReplica)
-	.mount("evals", splatesEvals);
+	.mount("trust", splatesTrust);

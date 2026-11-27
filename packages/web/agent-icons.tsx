@@ -1,16 +1,19 @@
 import type { ConversationState } from "@splates/server/conversations";
-import { BotIcon, FlaskConicalIcon, ShipIcon, ZapIcon } from "lucide-react";
+import { BotIcon, ShipIcon, ZapIcon } from "lucide-react";
 import { type JSX, useId } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 import { ANTIGRAVITY_MARKUP, ANTIGRAVITY_PATH } from "./antigravity-brand";
 import { AutoAgentMark, AutoIcon } from "./auto-brand";
-import { automated, evaluated, evaluating, shipped } from "./conversation-rows";
+import { automated, shipped } from "./conversation-rows";
 
 /** Google Gemini's sparkle, from Simple Icons (CC0). */
 const GEMINI_PATH =
 	"M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81";
 const OPENCODE_PATH = "M5 2h14v20H5zM9 6.5v11h6v-11z";
+/** TypeSafe's isometric S, from typesafe.ai, on a 16.5 by 24 box. */
+const TYPESAFE_PATH =
+	"M 12.756 2.928 L 12.756 7.067 L 16.486 9.487 L 16.487 18.652 L 8.244 24 L 3.732 21.073 L 3.732 16.82 L 0 14.399 L 0 5.35 L 0.355 5.118 L 8.244 0 Z M 5.94 20.65 L 8.242 22.144 L 14.275 18.227 L 11.975 16.735 Z M 9.022 10.332 L 9.022 14.4 L 5.29 16.822 L 5.29 19.216 L 11.197 15.383 L 11.197 8.921 Z M 12.756 15.384 L 14.928 16.794 L 14.928 10.332 L 12.756 8.922 Z M 2.21 13.976 L 4.511 15.47 L 6.812 13.976 L 4.512 12.485 Z M 1.559 6.193 L 1.559 12.544 L 3.731 11.134 L 3.731 7.066 L 7.464 4.643 L 7.464 2.36 L 1.56 6.193 Z M 5.291 11.132 L 7.463 12.542 L 7.463 10.332 L 5.292 8.921 L 5.292 11.132 Z M 5.94 7.487 L 8.244 8.981 L 10.544 7.488 L 8.244 5.994 Z M 9.024 4.643 L 11.196 6.054 L 11.196 3.774 L 9.024 2.359 Z";
 
 /**
  * Each agent's mark, by its id on the roster. Paths from Simple Icons (CC0);
@@ -52,19 +55,6 @@ export function RowIcon({
 	name: string;
 	className?: string;
 }): JSX.Element {
-	if (evaluated(conversation) || evaluating(conversation)) {
-		return (
-			<FlaskConicalIcon
-				role="img"
-				aria-label={name}
-				className={cn(
-					"size-4 shrink-0",
-					className,
-					"text-orange-600 dark:text-orange-400",
-				)}
-			/>
-		);
-	}
 	if (shipped(conversation)) {
 		return (
 			<ShipIcon
@@ -178,7 +168,8 @@ export function hasColors(agent: string): boolean {
 		agent === "kimi" ||
 		agent === "opencode" ||
 		agent === "gemini" ||
-		agent === "antigravity"
+		agent === "antigravity" ||
+		agent === "typesafe"
 	);
 }
 
@@ -213,6 +204,18 @@ export function ColoredMark({ agent }: { agent: string }): JSX.Element | null {
 	}
 	if (agent === "gemini") {
 		return <path fill="#3186FF" d={GEMINI_PATH} />;
+	}
+	if (agent === "typesafe") {
+		return (
+			<>
+				<circle cx="12" cy="12" r="12" fill="#E551BA" />
+				<path
+					fill="#1E1E1E"
+					d={TYPESAFE_PATH}
+					transform="translate(6.5 4.25) scale(0.6458)"
+				/>
+			</>
+		);
 	}
 	if (agent !== "codex") {
 		return null;

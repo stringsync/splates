@@ -2,7 +2,13 @@ import { basename } from "node:path";
 import { color, type Logger } from "core/log";
 import { Markdown, MarkdownWriter } from "core/md";
 import type { Fs } from "core/system";
-import { Duration, sleep } from "core/time";
+import {
+	type Clock,
+	Duration,
+	SystemClock,
+	SystemTimer,
+	type Timer,
+} from "core/time";
 import type { Task, Tasks } from "../board";
 import { blockedWarning, checkSlug } from "../board";
 import type { Config } from "../config";
@@ -16,49 +22,6 @@ import { TaskOverlaps } from "./overlaps";
 import type { Dispatched, Worktree } from "./worktree";
 import { taskOf, type WorktreeService } from "./worktree-service";
 
-// vet-ignore objects-over-callbacks: run once inside the add, before the task goes live, so it is part of the call and not a later notification
-export interface AddOptions {
-	/** Branch the task starts from and merges onto. Defaults to the trunk. */
-	base?: string;
-	/**
-	 * The queued task this task starts, as a list of one: its words seed the
-	 * plan's After, and nobody else can take it while the task lives.
-	 */
-	tasks?: number[];
-	/**
-	 * One or two lines on what done means, written under `## After` ahead of
-	 * whatever the queued tasks seed it with.
-	 */
-	goal?: string;
-	/**
-	 * Runs once the worktree exists and before its record makes the task live,
-	 * so whatever it tells of the task is in place before anyone can see it.
-	 */
-	onTree?: () => Promise<void>;
-	/**
-	 * The agent `splates server`'s queue hands the task to, which it starts in
-	 * the task's tree once the tree is ready; its id must be one of `agents`.
-	 * Never from an agent, which starts no agents.
-	 */
-	dispatch?: Dispatched;
-	/** The roster's agents, which `dispatch` must name one of, and its model. */
-	agents?: RosterAgent[];
-	/**
-	 * The project of `splates.config.ts` the task changes, as `--project`
-	 * names it; refused when the config declares no such project, or when
-	 * the queued task it starts is another's.
-	 */
-	project?: string;
-	/**
-	 * Where the add runs, relative to the repository root, without a leading
-	 * `./`: the project that folder is in is the task's when nothing else
-	 * says. Empty at the root.
-	 */
-	folder?: string;
-	/** Added from another project, as `splates --project` does, which is refused. */
-	away?: boolean;
-}
-
 export async function add(
 	{
 		service,
@@ -67,6 +30,8 @@ export async function add(
 		log,
 		fs,
 		tasks: queue,
+		clock = new SystemClock(),
+		timer = new SystemTimer(),
 	}: {
 		service: WorktreeService;
 		shell: Shell;
@@ -74,6 +39,10 @@ export async function add(
 		log: Logger;
 		fs: Fs;
 		tasks: Tasks;
+		/** What the stray settle reads the time from; the system's unless a test drives it. */
+		clock?: Clock;
+		/** What the stray settle waits between looks with; the system's unless a test drives it. */
+		timer?: Timer;
 	},
 	task: string,
 	{
@@ -86,6 +55,7 @@ export async function add(
 		away = false,
 		project,
 		folder = "",
+		lane,
 	}: AddOptions = {},
 ): Promise<void> {
 	if (away) {
@@ -105,7 +75,7 @@ export async function add(
 	checkSlug(task, { task });
 	const scopes = new Scopes(config, basename(service.git.root));
 	// Checked before anything is created, so a project the config lacks refuses early.
-	scopes.pick(project, folder);
+	const picked = scopes.pick(project, folder);
 	// Agents start no agents, so they never multiply: work goes to the queue,
 	// whose worker starts it. The server starts its tasks with neither set.
 	const asking =
@@ -148,7 +118,7 @@ export async function add(
 		);
 	}
 
-	const found = await settled(service, task);
+	const found = await settled(service, task, { clock, timer });
 	if (!found.gone) {
 		refuseFound(found);
 	}
@@ -160,8 +130,24 @@ export async function add(
 	const taken: Task[] = [];
 	const blocked: string[] = [];
 	const tookNow: Task[] = [];
+	// Started straight into a lane, it goes on the board first, as `splates
+	// task add` puts one, so it is taken as a queued one is. Its words are the
+	// Goal already, so they seed the plan once.
+	let placed: Task | null = null;
+	if (lane !== undefined && ids.length === 0) {
+		placed = await queue.add(asked?.trim() || task, null, {
+			slug: task,
+			lane,
+			...(picked === null ? {} : { scope: picked }),
+		});
+	}
+	const letGo = async (tasks: readonly Task[]) => {
+		for (const each of tasks) {
+			await (each.id === placed?.id ? each.remove() : each.release());
+		}
+	};
 	try {
-		for (const id of new Set(ids)) {
+		for (const id of new Set(placed === null ? ids : [placed.id])) {
 			const each = await queue.find(id);
 			const had = each.takenBy === task;
 			// Refuses, naming the task that has it.
@@ -172,6 +158,12 @@ export async function add(
 			// Asked of it as it was, since a task it takes blocks none of it.
 			blocked.push(...blockedWarning(each, await each.blockers(task, ids)));
 			taken.push(took);
+		}
+		if (lane !== undefined && placed === null) {
+			// One queued task at most, as refused above.
+			for (const [at, each] of taken.entries()) {
+				taken[at] = await queue.arrange(each.id, lane);
+			}
 		}
 	} catch (error) {
 		await letGo(tookNow);
@@ -195,7 +187,7 @@ export async function add(
 	if (added.code !== 0) {
 		await letGo(tookNow);
 		// Another add of this name got its branch in first, after we looked.
-		const raced = await settled(service, task);
+		const raced = await settled(service, task, { clock, timer });
 		if (!raced.gone) {
 			refuseFound(raced);
 		}
@@ -231,7 +223,7 @@ export async function add(
 		`${worktree.path}/${PLAN_FILE}`,
 		PLAN(
 			task,
-			[asked?.trim(), taken.length === 0 ? "" : goal(taken)]
+			[asked?.trim(), placed !== null || taken.length === 0 ? "" : goal(taken)]
 				.filter(Boolean)
 				.join("\n\n") || null,
 		),
@@ -298,6 +290,56 @@ export async function add(
 			...overlaps.map((warning) => color.yellow(`  ${warning}`)),
 		].join("\n"),
 	);
+}
+
+// vet-ignore objects-over-callbacks: run once inside the add, before the task goes live, so it is part of the call and not a later notification
+export interface AddOptions {
+	/** Branch the task starts from and merges onto. Defaults to the trunk. */
+	base?: string;
+	/**
+	 * The queued task this task starts, as a list of one: its words seed the
+	 * plan's After, and nobody else can take it while the task lives.
+	 */
+	tasks?: number[];
+	/**
+	 * One or two lines on what done means, written under `## After` ahead of
+	 * whatever the queued tasks seed it with.
+	 */
+	goal?: string;
+	/**
+	 * Runs once the worktree exists and before its record makes the task live,
+	 * so whatever it tells of the task is in place before anyone can see it.
+	 */
+	onTree?: () => Promise<void>;
+	/**
+	 * The agent `splates server`'s queue hands the task to, which it starts in
+	 * the task's tree once the tree is ready; its id must be one of `agents`.
+	 * Never from an agent, which starts no agents.
+	 */
+	dispatch?: Dispatched;
+	/** The roster's agents, which `dispatch` must name one of, and its model. */
+	agents?: RosterAgent[];
+	/**
+	 * The project of `splates.config.ts` the task changes, as `--project`
+	 * names it; refused when the config declares no such project, or when
+	 * the queued task it starts is another's.
+	 */
+	project?: string;
+	/**
+	 * Where the add runs, relative to the repository root, without a leading
+	 * `./`: the project that folder is in is the task's when nothing else
+	 * says. Empty at the root.
+	 */
+	folder?: string;
+	/** Added from another project, as `splates --project` does, which is refused. */
+	away?: boolean;
+	/**
+	 * The lane the task goes in, as `--lane` names it: its queued task moves
+	 * there, and a task started without one goes on the board there, as
+	 * `splates task add --lane` would put it, and is taken. Absent leaves a
+	 * queued task where it is and a new one off the board.
+	 */
+	lane?: number | "new" | null;
 }
 
 /**
@@ -369,11 +411,14 @@ const STRAY_POLL = Duration.ms(50);
 async function settled(
 	service: WorktreeService,
 	task: string,
+	{ clock, timer }: { clock: Clock; timer: Timer },
 ): Promise<Worktree> {
-	const deadline = Date.now() + STRAY_SETTLE.ms;
+	const deadline = clock.now().add(STRAY_SETTLE);
 	let found = await service.find(task);
-	while (found.status === "stray" && Date.now() < deadline) {
-		await sleep(STRAY_POLL);
+	while (found.status === "stray" && clock.now().ms < deadline.ms) {
+		await new Promise<void>((resolve) => {
+			timer.setTimeout(resolve, STRAY_POLL);
+		});
 		found = await service.find(task);
 	}
 	return found;
@@ -459,8 +504,3 @@ function PLAN(task: string, words: string | null): string {
 }
 
 /** Puts back on the list the queued tasks an add took and then gave up on. */
-async function letGo(tasks: readonly Task[]): Promise<void> {
-	for (const each of tasks) {
-		await each.release();
-	}
-}

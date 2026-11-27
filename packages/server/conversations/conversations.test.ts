@@ -133,7 +133,10 @@ describe("Conversations", () => {
 			{
 				argv: ["fake-acp"],
 				cwd: "/repo-splates/login",
-				env: { SPLATES_CONVERSATION: "0" },
+				env: {
+					SPLATES_CONVERSATION: "0",
+					EVALS_LIVE_DIR: "/repo/.git/splates/conversations/evals-live/0",
+				},
 			},
 		]);
 		expect(conversation.state).toMatchObject({
@@ -419,6 +422,7 @@ describe("Conversations", () => {
 		expect(agent.launched.map((each) => each.env)).toEqual([
 			{
 				SPLATES_CONVERSATION: conversation.id,
+				EVALS_LIVE_DIR: `/repo/.git/splates/conversations/evals-live/${conversation.id}`,
 				SPLATES_DEV: "http://localhost:4269",
 			},
 		]);

@@ -64,6 +64,7 @@ describe("splates across projects", () => {
 			"task",
 			"add",
 			"Export the parser",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"parser-export",
 		);
@@ -93,11 +94,35 @@ describe("splates across projects", () => {
 		);
 	});
 
+	it("queues a task in another multi-project repo's Backlog without a scope flag", async () => {
+		await there.fs.write(
+			`${there.root}/splates.config.ts`,
+			`export default { projects: { web: ["web/**"], api: ["api/**"] } };\n`,
+		);
+
+		await onThere(
+			"task",
+			"add",
+			"Export the parser",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"parser-export",
+		);
+
+		const [queued] = await there.tasks.all();
+		expect(queued?.state, here.out()).toMatchObject({
+			subject: "Export the parser",
+			lane: 0,
+			origin: { project: here.root, task: null },
+		});
+	});
+
 	it("refuses a lane for a queued task from another project", async () => {
 		await onThere(
 			"task",
 			"add",
 			"Export the parser",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"parser-export",
 			"--lane",
@@ -113,6 +138,7 @@ describe("splates across projects", () => {
 			"task",
 			"add",
 			"Export the parser",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"parser-export",
 		);
@@ -170,6 +196,7 @@ describe("splates across projects", () => {
 			"task",
 			"add",
 			"Export the parser",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"parser-export",
 		]);

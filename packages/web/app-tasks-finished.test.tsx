@@ -62,30 +62,6 @@ describe("App's finished tasks", () => {
 		).toContain("gamma");
 	});
 
-	it("marks the tasks that have a demo", async () => {
-		testing.finished = [
-			finished({ hasDemo: true }),
-			finished({
-				key: "8-1760000000000",
-				id: 8,
-				task: "gamma",
-				subject: "try gamma",
-			}),
-		];
-		const view = await testing.openTasks({ tasks: [] });
-
-		const list = await waitFor(() =>
-			view.getByRole("list", { name: "finished task list" }),
-		);
-
-		expect(within(list).getAllByLabelText("has a demo")).toHaveLength(1);
-		expect(
-			within(
-				within(list).getByRole("button", { name: /alpha/ }),
-			).getByLabelText("has a demo"),
-		).toBeTruthy();
-	});
-
 	it("lists each with how it ended, and opens the plan it ended on", async () => {
 		testing.finished = [
 			finished(),
@@ -164,7 +140,6 @@ function finished(more: Partial<FinishedPlan> = {}): FinishedPlan {
 		conversation: null,
 		took: [{ id: 7, subject: "Ship alpha" }],
 		plan: "# alpha\n\n## Goal\n\nship alpha\n\n## Notes\n\nkept the old flag\n",
-		hasDemo: false,
 		...more,
 	};
 }

@@ -54,6 +54,7 @@ export function foldersOf(
 							(each) => each.project === project.project,
 						),
 						todos: project.todos,
+						queueError: project.queueError,
 					},
 					project.laneNames,
 					project.lanesTaken,
@@ -116,6 +117,8 @@ export interface Folder {
 	 * last, for the list to draw under its agents; empty where the board is not known.
 	 */
 	queue: Queued[];
+	/** Why the project's queue failed to check on its last sweep; null while healthy. */
+	queueError: string | null;
 }
 
 /** A queued task waiting for an agent, and what holds it back: null when it starts in turn. */
@@ -135,6 +138,8 @@ export interface Here {
 	conversations: ConversationState[];
 	/** The board's tasks where known; other projects' summaries do not hold them. */
 	todos?: readonly TaskRecord[];
+	/** Why the project's queue failed to check on its last sweep; null while healthy. */
+	queueError?: string | null;
 }
 
 /** The page's own project in a folder of its own, for a page without the feed. */
@@ -156,7 +161,7 @@ function atWork(tree: Nested<Needing>): boolean {
 
 function folder(
 	project: string | null,
-	{ repo, trunk, tasks, conversations, todos }: Here,
+	{ repo, trunk, tasks, conversations, todos, queueError }: Here,
 	laneNames: readonly LaneRecord[] | null,
 	lanesTaken: Readonly<Record<string, number>> | null,
 	here: boolean,
@@ -184,6 +189,7 @@ function folder(
 		listed: shown(trees),
 		atWork: shownIn(trees).filter(atWork).length,
 		queue: queuedOf(todos ?? [], conversations),
+		queueError: queueError ?? null,
 	};
 }
 

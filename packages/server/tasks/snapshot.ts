@@ -5,7 +5,7 @@ import type { CredRequest, Creds } from "../creds";
 import { limited, READ_CONCURRENCY } from "../limited";
 import { MergeLine } from "../merge";
 import type { Slot } from "../ports";
-import type { Behind, Release } from "../server/shared";
+import type { Behind, Release, Stuck } from "../server/shared";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
@@ -23,6 +23,7 @@ export async function snapshot({
 	home,
 	release = null,
 	behind = null,
+	stuck = null,
 	unbuilt = false,
 	slot = null,
 }: {
@@ -40,6 +41,7 @@ export async function snapshot({
 	home?: string;
 	release?: Release | null;
 	behind?: Behind | null;
+	stuck?: Stuck | null;
 	unbuilt?: boolean;
 	slot?: Slot | null;
 }): Promise<Snapshot> {
@@ -72,6 +74,7 @@ export async function snapshot({
 		trunk: service.config.trunk,
 		release,
 		behind,
+		stuck,
 		unbuilt,
 		slot,
 	};
@@ -117,6 +120,8 @@ export interface Snapshot {
 	release: Release | null;
 	/** Commits to splates's own source since `splates server` started from it. */
 	behind: Behind | null;
+	/** Upstream server commits the local source checkout has not followed yet; absent from older servers. */
+	stuck?: Stuck | null;
 	/**
 	 * Whether building the page failed as `splates server` started, so the page
 	 * serving is the one built before, and may be out of date.
@@ -124,6 +129,8 @@ export interface Snapshot {
 	unbuilt: boolean;
 	/** The slot `splates server --slot` serves under, shown beside the project's name. */
 	slot: Slot | null;
+	/** Why the queue failed to check on its last sweep; null while healthy, absent from older servers. */
+	queueError?: string | null;
 }
 
 /** `list` and `show` for each task, as {@link snapshot} reads them. */
@@ -152,12 +159,16 @@ export function fingerprint({
 	creds,
 	release,
 	behind,
+	stuck,
+	queueError,
 }: Snapshot): string {
 	// Leaves out the fields that move on their own: `age` ticks every
 	// minute, and hashing it would push to every open page for nothing.
 	return JSON.stringify([
 		release,
 		behind,
+		stuck ?? null,
+		queueError ?? null,
 		todos,
 		boards ?? [],
 		lanes,

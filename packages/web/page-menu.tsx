@@ -1,3 +1,4 @@
+import type { Stuck } from "@splates/server/server";
 import type { Snapshot } from "@splates/server/tasks";
 import { LogOutIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
@@ -31,6 +32,7 @@ export function usePageMenu({
 	outdated,
 	offline,
 	onSettings,
+	onInvestigateStuck,
 	// vet-ignore objects-over-callbacks: a hook's argument that wires the menu's settings item to the page
 }: {
 	snapshot: Snapshot | null;
@@ -38,6 +40,8 @@ export function usePageMenu({
 	outdated: string | null;
 	offline: boolean;
 	onSettings: () => void;
+	/** Sends a stuck server checkout to an agent to investigate. */
+	onInvestigateStuck?: (stuck: Stuck) => Promise<void>;
 }): PageMenu {
 	const machine = useMachine();
 	const email = useSignedIn();
@@ -45,9 +49,13 @@ export function usePageMenu({
 		(snapshot?.release != null || snapshot?.behind != null) &&
 		outdated === null &&
 		!offline;
+	const stuck =
+		!dot && outdated === null && !offline ? (snapshot?.stuck ?? null) : null;
 	return {
 		machine,
 		dot,
+		stuck,
+		onInvestigateStuck,
 		items: (
 			<PageMenuItems
 				email={email}
@@ -67,6 +75,10 @@ export interface PageMenu {
 	items: ReactNode;
 	/** Whether a restart would update splates. */
 	dot: boolean;
+	/** When the server checkout is behind upstream and no local update is ready. */
+	stuck: Stuck | null;
+	/** Sends a stuck server checkout to an agent to investigate. */
+	onInvestigateStuck?: (stuck: Stuck) => Promise<void>;
 }
 
 /** The page menu's items. */

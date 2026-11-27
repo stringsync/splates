@@ -8,6 +8,10 @@ knows what they are handing over before they go to get it; then give
 instructions for getting it in markdown: where to go, what to pick, what to
 paste.
 
+If the work needs a plan, name the credential and its purpose in the plan.
+Request it once the plan is approved and the work needs it. Register a wait
+when the missing credential blocks further work.
+
 ```sh
 splates creds request CLOUDFLARE_TUNNEL_TOKEN --device --purpose 'To add the DNS record that routes `dev.example.com` to the tunnel, through the Cloudflare API.' --instructions '1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token**.
 2. Add Zone · DNS · Edit, and pick your zone.

@@ -101,8 +101,6 @@ export type Need =
 			mergePlace?: number;
 			/** Its running merge leads a batch of several, whose one premerge run gates them all. */
 			leads?: true;
-			/** Its turn is over and a run its eval card started goes on. */
-			evals?: true;
 	  }
 	| { kind: "idle" };
 
@@ -290,13 +288,6 @@ export function need(
 	if (task?.mergeSince != null) {
 		return working(task);
 	}
-	// The run its card started is the work under way, the card done with
-	// until the agent reports on it.
-	if (conversation.evaluating === true) {
-		return first !== undefined
-			? { kind: "assuming", subject: first.text, questions: open }
-			: { ...working(task), evals: true };
-	}
 	const last = conversation.messages.at(-1);
 	const ended = last?.until ?? last?.at ?? null;
 	if (first !== undefined) {
@@ -328,22 +319,20 @@ function askedIn(conversation: ConversationState): Question[] {
 /**
  * What the permission card the agent's last reply still asks for is about.
  * A queue card stops asking once this project's board has its work queued or
- * running; without the board, whether it was acted on is unknown. A run card
- * never asks: the server starts it within the conversation's eval budget.
+ * running; without the board, whether it was acted on is unknown.
  */
 function permissionIn(
 	conversation: ConversationState,
 	todos?: readonly TaskRecord[],
 ): string | null {
 	for (const stretch of stretches(lastWords(conversation) ?? "")) {
+		if (stretch.type === "plan") {
+			return stretch.plan.title || "Plan approval";
+		}
 		if (stretch.type !== "permission") {
 			continue;
 		}
 		const { permission } = stretch;
-		// A run card starts by itself within the conversation's eval budget.
-		if (permission.action === "run-evals") {
-			continue;
-		}
 		if (
 			permission.action === "queue" &&
 			permission.project === undefined &&

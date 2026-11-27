@@ -2,8 +2,6 @@ import type { ConversationState } from "@splates/server/conversations";
 import type { AgentPick } from "@splates/server/models";
 import { effortSettings, thinkingOf } from "@splates/server/models/browser";
 import {
-	type DemoPoint,
-	demoReference,
 	externals,
 	type Need,
 	type Needing,
@@ -225,16 +223,6 @@ export class Dispatch {
 		const text =
 			words === "" ? talkReference(id) : `${talkReference(id)}\n\n${words}`;
 		return this.send(started, text, files);
-	}
-
-	/**
-	 * Asks for a demo of `task` at `point` in a new conversation in the main
-	 * tree, where the agent adds the demo's own task, answering its address
-	 * as `beginWith` does.
-	 */
-	demo(task: string, point: DemoPoint): Promise<string> {
-		const agent = agentFor(NEW, this.agents, this.conversations);
-		return this.beginWith({ agent }, null, demoReference(task, point));
 	}
 
 	/**

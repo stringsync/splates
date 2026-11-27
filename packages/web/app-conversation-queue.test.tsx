@@ -10,6 +10,7 @@ import {
 	message,
 	Testing,
 	textIn,
+	todo,
 	typeIn,
 	waitFor,
 	within,
@@ -89,6 +90,61 @@ describe("App's composer queue", () => {
 		).toMatch(/Task\s*#\s*3/);
 	});
 
+	it("renders a Queued lane heading as a lane caption with a Board link over one slim bar per task", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Triage",
+					messages: [
+						message("user", "Queue the lane"),
+						message(
+							"agent",
+							"## 🤖 Queued lane 349: Testing and engraving rework\n\nWhy: approved split.",
+						),
+					],
+				}),
+			],
+			"c1",
+			{
+				lanes: [{ id: 349, name: "Testing and engraving rework" }],
+				todos: [
+					todo({
+						id: 4133,
+						subject: "Add comparison strip command",
+						lane: 349,
+						stage: "running",
+						takenBy: "rule-comparison-strip",
+					}),
+					todo({
+						id: 4136,
+						subject: "Rewrite engraving guides",
+						lane: 349,
+						stage: "queued",
+						blockedBy: [4133],
+					}),
+				],
+				tasks: [],
+			},
+		);
+
+		expect(await view.findByText(/Auto-queued lane/)).toBeTruthy();
+		expect(view.getByText("Testing and engraving rework")).toBeTruthy();
+		expect(view.getByRole("button", { name: "Board" })).toBeTruthy();
+		const runningRow = view.getByText("#4133").closest("li") as HTMLLIElement;
+		expect(within(runningRow).getByText("running")).toBeTruthy();
+		expect(
+			within(runningRow).queryByRole("button", { name: "View" }),
+		).toBeNull();
+		expect(
+			within(runningRow).getByRole("button", {
+				name: "Add comparison strip command",
+			}),
+		).toBeTruthy();
+		const queuedRow = view.getByText("#4136").closest("li") as HTMLLIElement;
+		expect(within(queuedRow).getByText("queued")).toBeTruthy();
+	});
+
 	it("opens a finished queued task's conversation from its bar", async () => {
 		testing.finished = [
 			{
@@ -104,7 +160,6 @@ describe("App's composer queue", () => {
 				endedAt: "2026-11-01T01:00:00Z",
 				conversation: "c2",
 				took: [{ id: 12, subject: "Fix upload" }],
-				hasDemo: false,
 				plan: "",
 			},
 		];
@@ -127,11 +182,13 @@ describe("App's composer queue", () => {
 			{ todos: [], tasks: [] },
 		);
 
-		expect(await view.findByText("1 task queued")).toBeTruthy();
+		expect(await view.findByText("Auto-queued task")).toBeTruthy();
 		const row = view.getByText("#12").closest("li") as HTMLLIElement;
 		expect(within(row).queryByText("done")).toBeNull();
 		await act(async () =>
-			fireEvent.click(await within(row).findByRole("button", { name: "View" })),
+			fireEvent.click(
+				await within(row).findByRole("button", { name: "Fix upload" }),
+			),
 		);
 		expect(
 			await view.findByRole("region", { name: "Fix upload" }),

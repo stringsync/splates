@@ -7,6 +7,7 @@ import type {
 import type { TaskReport } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
+import { assumedLines } from "@splates/server/trust/browser";
 import { useReactive } from "core/react";
 import { Duration } from "core/time";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,12 +16,13 @@ import { cardPart } from "./card-part";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { carriesOn } from "./directives";
+import { evalRunId } from "./eval-live";
 import { heldPrompt } from "./held-prompt";
 import { failed } from "./reply-endings";
 import { heldAfter, messageOf, queuesNow } from "./sending";
 import { probeId, signalId } from "./signal-of";
 import { supersedeQueues } from "./superseded-queues";
-import { replied, withEscalation } from "./thread-reply";
+import { replied, withEscalation, withoutQueuedBars } from "./thread-reply";
 import { turnsOf } from "./thread-turns";
 import { unsentLikes } from "./unsent-likes";
 import { replyDue, stretchesOf } from "./work";
@@ -36,6 +38,7 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 export function useThreadMessages(
 	conversation: ConversationState,
 	feed: ConversationFeed,
+	queuedTarget: number | null = null,
 ): ThreadMessages {
 	const { id, status } = conversation;
 	const running = status === "running";
@@ -108,11 +111,16 @@ export function useThreadMessages(
 				id: probeId(probe.name, probe.startedAt),
 				startedAt: probe.startedAt,
 			})),
+			...(conversation.evals ?? []).map((run) => ({
+				id: evalRunId(run.name),
+				startedAt: run.startedAt,
+			})),
 		]);
 		// An agent starting again may carry on the turn its last message holds.
 		const resumed = starting
 			? said.findLastIndex((each) => each.role === "agent")
 			: -1;
+		const assumedBefore = assumedCounts(said);
 		const liked = supersedeQueues(
 			said.map((message, index) =>
 				like(
@@ -131,6 +139,7 @@ export function useThreadMessages(
 						: null,
 					said[index + 1]?.steered === true || index === resumed,
 					cardsIn[index],
+					assumedBefore[index],
 				),
 			),
 		);
@@ -249,12 +258,20 @@ export function useThreadMessages(
 	const [first, setFirst] = useState<string | null>(
 		() => messages[windowStart(messages, null)]?.id ?? null,
 	);
-	const start = windowStart(messages, first);
+	const targetIndex =
+		queuedTarget === null ? -1 : messageWithQueued(messages, queuedTarget);
+	const targetId =
+		targetIndex >= 0 ? (messages[targetIndex]?.id ?? null) : null;
+	const currentStart = windowStart(messages, first);
+	const start =
+		targetId === null
+			? currentStart
+			: Math.min(currentStart, windowStart(messages, targetId));
 	useEffect(() => {
-		if (first === null && messages.length > 0) {
+		if (start < currentStart || (first === null && messages.length > 0)) {
 			setFirst(messages[start]?.id ?? null);
 		}
-	}, [first, messages, start]);
+	}, [currentStart, first, messages, start]);
 	const loadEarlier = useCallback(async () => {
 		setFirst(messages[windowStart(messages, first, 20)]?.id ?? null);
 	}, [messages, first]);
@@ -283,6 +300,28 @@ export interface ThreadMessages {
 	messages: ThreadMessageLike[];
 	/** Whether a card asks the person something, to take the focus. */
 	asking: boolean;
+}
+
+/** Index of the message containing a successful `queue add` event for `task`, or -1. */
+function messageWithQueued(
+	messages: readonly ThreadMessageLike[],
+	task: number,
+): number {
+	return messages.findIndex(
+		(message) =>
+			typeof message.content !== "string" &&
+			message.content.some((part) => {
+				if (part.type !== "data-event") {
+					return false;
+				}
+				const event = (part.data as { event?: Event }).event;
+				return (
+					event?.action === "queue add" &&
+					event.reason === null &&
+					event.tasks.some((each) => each.id === task)
+				);
+			}),
+	);
 }
 
 /** Start at a whole turn; once revealed, history stays mounted as new turns arrive. */
@@ -326,6 +365,7 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		waiting = null,
 		cut = false,
 		cards = [],
+		assumedBefore = 0,
 	] = args;
 	let cache = conversions.get(conversation);
 	if (cache === undefined) {
@@ -347,6 +387,7 @@ export function like(...args: Parameters<typeof convert>): ThreadMessageLike {
 		task,
 		waiting,
 		cut,
+		assumedBefore,
 		cards.length,
 		...cards,
 		...events,
@@ -389,6 +430,8 @@ function convert(
 	cut = false,
 	/** The progress cards that began in this message, as `<time> <id>`. */
 	cards: readonly string[] = [],
+	/** How many Assumed lines the agent wrote in earlier messages. */
+	assumedBefore = 0,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -420,10 +463,9 @@ function convert(
 			},
 		};
 	}
-	// Its work and the words it said along the way as one row, but for its
-	// word that it added a task, then the last thing it said. Once the turn is
-	// over, that is its reply, read for cards, even with tool calls after it.
-	// A turn stopped or cut short is over, even before the server says so.
+	// Its work and the words it said along the way. Every finished text stretch
+	// is read for cards: earlier stretches once something follows them, and the
+	// last stretch once the turn is over (stopped or cut short counts as over).
 	const going =
 		!settled &&
 		message.stopped === undefined &&
@@ -441,7 +483,13 @@ function convert(
 			return { at: card.slice(0, space), id: card.slice(space + 1) };
 		}),
 	);
-	const reply = all.findLastIndex((stretch) => stretch.type === "said");
+	// Each Assumed line numbered as the server counts them, in order.
+	let assumed = assumedBefore;
+	const said = (text: string, done: boolean): LikePart[] => {
+		const parts = replied(text, done, { task, assumedBefore: assumed });
+		assumed += assumedLines(text).length;
+		return parts;
+	};
 	return {
 		id,
 		role: "assistant",
@@ -452,40 +500,40 @@ function convert(
 			},
 		},
 		content: [
-			...withEscalation(
-				all.flatMap((stretch, at): LikePart[] =>
-					stretch.type === "work"
-						? [{ type: "data-work", data: { work: stretch.work } }]
-						: stretch.type === "event"
-							? [
-									{
-										type: "data-event",
-										data: {
-											event: stretch.event,
-											also: stretch.also,
-											going,
-										},
-									},
-								]
-							: stretch.type === "compaction"
+			...withoutQueuedBars(
+				withEscalation(
+					all.flatMap((stretch, at): LikePart[] =>
+						stretch.type === "work"
+							? [{ type: "data-work", data: { work: stretch.work } }]
+							: stretch.type === "event"
 								? [
 										{
-											type: "data-compaction",
-											data: { compaction: stretch.compaction, going },
+											type: "data-event",
+											data: {
+												event: stretch.event,
+												also: stretch.also,
+												going,
+											},
 										},
 									]
-								: stretch.type === "progress"
-									? [cardPart(stretch.id)]
-									: stretch.type === "background"
-										? [
-												{
-													type: "data-background",
-													data: { tool: stretch.tool },
-												},
-											]
-										: at === reply
-											? replied(stretch.text, !going, { task })
-											: [{ type: "text", text: stretch.text }],
+								: stretch.type === "compaction"
+									? [
+											{
+												type: "data-compaction",
+												data: { compaction: stretch.compaction, going },
+											},
+										]
+									: stretch.type === "progress"
+										? [cardPart(stretch.id)]
+										: stretch.type === "background"
+											? [
+													{
+														type: "data-background",
+														data: { tool: stretch.tool },
+													},
+												]
+											: said(stretch.text, !going || at < all.length - 1),
+					),
 				),
 			),
 			...(message.stopped === undefined
@@ -501,6 +549,25 @@ function convert(
 					]),
 		],
 	};
+}
+
+/**
+ * How many Assumed lines the agent wrote before each message, counted from
+ * all its words as the server counts them.
+ */
+function assumedCounts(messages: readonly Message[]): number[] {
+	let count = 0;
+	return messages.map((message) => {
+		const before = count;
+		if (message.role === "agent") {
+			count += assumedLines(
+				message.parts
+					.flatMap((part) => (part.type === "text" ? [part.text] : []))
+					.join(""),
+			).length;
+		}
+		return before;
+	});
 }
 
 /**

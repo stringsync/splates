@@ -93,6 +93,43 @@ describe("splates cli", () => {
 		);
 	});
 
+	it("prints each agent's quota left from the limits splates server kept", async () => {
+		await env.fs.write(
+			join(env.splatesHome, "limits.json"),
+			JSON.stringify({
+				format: 1,
+				agents: {
+					claude: [
+						{
+							window: "seven_day",
+							used: 0.25,
+							resets: "2999-01-01T00:00:00.000Z",
+							at: "2026-11-26T11:00:00.000Z",
+						},
+					],
+				},
+			}),
+		);
+		await splates.run(deps, ["agents", "--quota", "--json"]);
+
+		const rows = JSON.parse(String(env.log.entries.at(-1)?.message));
+		const opus = rows.find(
+			(row: { agent: string; model: string }) =>
+				row.agent === "claude" && row.model === "opus",
+		);
+		expect(opus).toEqual({
+			agent: "claude",
+			model: "opus",
+			left: 0.75,
+			window: "seven_day",
+			resets: "2999-01-01T00:00:00.000Z",
+			at: "2026-11-26T11:00:00.000Z",
+		});
+		expect(
+			rows.find((row: { agent: string }) => row.agent === "codex").left,
+		).toBeNull();
+	});
+
 	it("prints setup's progress and skips a step from outside any repository", async () => {
 		const away = join(env.splatesHome, "..");
 		await env.fs.mkdir(away);
@@ -199,12 +236,28 @@ describe("splates cli", () => {
 		});
 	});
 
+	it("refuses to add a task with no detail", async () => {
+		await splates.run(deps, ["task", "add", "Fix it", "  ", "--slug", "f"]);
+		expect(env.out()).toContain('"reason":"usage"');
+
+		await splates.run(deps, ["task", "show", "1"]);
+		expect(env.out()).toContain('"reason":"not_found"');
+	});
+
 	it("logs the task it queues, with where it went", async () => {
-		await splates.run(deps, ["task", "add", "first", "--slug", "first"]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"first",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"first",
+		]);
 		await splates.run(deps, [
 			"task",
 			"add",
 			"Upload retries forever on a 413",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"upload-413",
 			"--position",
@@ -224,7 +277,14 @@ describe("splates cli", () => {
 	});
 
 	it("defers a task with why it stopped and each blocker it names", async () => {
-		await splates.run(deps, ["task", "add", "build the client", "--slug", "c"]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"build the client",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"c",
+		]);
 		await splates.run(deps, ["add", "alpha", "--goal", "retry on 413"]);
 		await splates.run(deps, [
 			"remove",
@@ -244,13 +304,35 @@ describe("splates cli", () => {
 	});
 
 	it("links every task a repeated or comma-listed --blocked-by names", async () => {
-		await splates.run(deps, ["task", "add", "a", "--slug", "a"]);
-		await splates.run(deps, ["task", "add", "b", "--slug", "b"]);
-		await splates.run(deps, ["task", "add", "c", "--slug", "c"]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"a",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"a",
+		]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"b",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"b",
+		]);
+		await splates.run(deps, [
+			"task",
+			"add",
+			"c",
+			"A detail for whoever picks it up.",
+			"--slug",
+			"c",
+		]);
 		await splates.run(deps, [
 			"task",
 			"add",
 			"d",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"d",
 			"--blocked-by",
@@ -322,6 +404,7 @@ describe("splates cli", () => {
 			"task",
 			"add",
 			"Restyle the header",
+			"A detail for whoever picks it up.",
 			"--slug",
 			"header-style",
 			"--agent",

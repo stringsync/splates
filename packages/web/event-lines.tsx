@@ -1,9 +1,10 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { Action, Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
-import type { JSX } from "react";
+import { type JSX, useContext } from "react";
 import { AddedLine } from "./added-line";
 import { AutoPickLine } from "./auto-pick-line";
+import { QueuedBar } from "./chain-card";
 import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
 import { MergeFailedLine } from "./merge-failed-line";
@@ -14,6 +15,7 @@ import {
 	type SplatesEventView,
 	type Words,
 } from "./splates-event";
+import { redoDecisions, TrustBadge, TrustContext } from "./trust-widget";
 
 /**
  * Renders a `data-event` part: something splates did at the agent's word, as
@@ -318,7 +320,36 @@ function OneLine({
 	if (event.action === "merge" && event.reason !== null) {
 		return <MergeFailedLine view={view} event={event} />;
 	}
+	if (event.action === "remove" && event.reason === null) {
+		return <RemovedLine view={view} task={event.task ?? ""} />;
+	}
+	if (
+		event.action === "queue add" &&
+		event.reason === null &&
+		event.tasks.length > 0
+	) {
+		return <QueuedBar tasks={event.tasks} />;
+	}
 	return <SplatesEvent event={view} />;
+}
+
+/** A task removed, ending with what it did to trust when it was removed to redo. */
+function RemovedLine({
+	view,
+	task,
+}: {
+	view: SplatesEventView;
+	task: string;
+}): JSX.Element {
+	const decisions = redoDecisions(useContext(TrustContext), task);
+	return (
+		<SplatesEvent
+			event={{
+				...view,
+				trust: decisions.length > 0 && <TrustBadge decisions={decisions} />,
+			}}
+		/>
+	);
 }
 
 /** What done means for the task an add made: its `--goal`, else the todos it took. */

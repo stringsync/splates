@@ -8,7 +8,6 @@ import type { Drafts } from "./drafts";
 import {
 	AutoPickPage,
 	BillingPage,
-	EvalsPage,
 	RecPage,
 	RigsPage,
 	SetupPage,
@@ -16,6 +15,7 @@ import {
 	SignalsPage,
 	StatsPage,
 	Todos,
+	TrustPage,
 } from "./lazy-pages";
 import type { Page, PageRoute } from "./page-route";
 import type { StatsReport } from "./stats-report";
@@ -40,8 +40,6 @@ export function useAppPages({
 	talk,
 	opens,
 	cell,
-	evals,
-	openEval,
 	shipRun,
 	setup,
 	openSetup,
@@ -60,8 +58,6 @@ export function useAppPages({
 	| "cred"
 	| "cell"
 	| "open"
-	| "evals"
-	| "openEval"
 	| "shipRun"
 	| "setup"
 	| "openSetup"
@@ -130,13 +126,6 @@ export function useAppPages({
 						),
 						rigs: <RigsPage />,
 						rec: <RecPage feed={available ? talk : null} />,
-						evals: (
-							<EvalsPage
-								open={evals}
-								onOpen={openEval}
-								feed={available ? talk : null}
-							/>
-						),
 						creds: (
 							<CredsPage
 								requests={snapshot.creds}
@@ -150,6 +139,7 @@ export function useAppPages({
 								opens={opens}
 							/>
 						),
+						trust: <TrustPage />,
 						billing: <BillingPage talk={talk} />,
 						"auto-pick": (
 							<AutoPickPage
@@ -216,8 +206,6 @@ export function useAppPages({
 			talk,
 			opens,
 			cell,
-			evals,
-			openEval,
 			shipRun,
 			setup,
 			openSetup,

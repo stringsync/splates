@@ -19,6 +19,8 @@ export type {
 	Session,
 } from "./process";
 export { framed, launch, launcherOf, listSessions } from "./process";
+export type { QuotaLeft } from "./quota";
+export { quotaLeft } from "./quota";
 export { prepareScratch, SCRATCH, scratchLaunch } from "./scratch";
 export { StartLock } from "./start-lock";
 export { AgentStream } from "./stream";

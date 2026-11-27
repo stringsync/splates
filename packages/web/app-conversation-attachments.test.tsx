@@ -35,8 +35,7 @@ describe("App's attachments", () => {
 			close() {},
 		})) as unknown as typeof createImageBitmap;
 		opened = [];
-		// A new tab is outside the page.
-		// vet-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks: a new tab is outside the page
 		open = spyOn(window, "open").mockImplementation((url) => {
 			opened.push(url);
 			return null;
@@ -145,8 +144,7 @@ describe("App's attachments", () => {
 		);
 
 		const picked: HTMLInputElement[] = [];
-		// The picker is an input outside the page, which no listener sees clicked.
-		// vet-ignore fakes-over-mocks
+		// vet-ignore fakes-over-mocks: the picker is an input outside the page, which no listener sees clicked
 		const click = spyOn(HTMLInputElement.prototype, "click").mockImplementation(
 			function (this: HTMLInputElement) {
 				picked.push(this);
@@ -274,6 +272,45 @@ describe("App's attachments", () => {
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "hi" } },
+			]),
+		);
+	});
+
+	it("unattaches chips deleted by a mobile soft keyboard or across a selection, renumbering what stays", async () => {
+		const { DELETE_CHARACTER_COMMAND, getNearestEditorFromDOMNode } =
+			await import("./testing-dom");
+		const { box } = await openEmpty();
+		const first = new File(["one"], "one.png", { type: "image/png" });
+		const second = new File(["two"], "two.png", { type: "image/png" });
+		await act(async () => box.focus());
+		await paste(box, [first, second]);
+		await waitFor(() => expect(textIn(box)).toBe("[Image 1] [Image 2] "));
+
+		// Mobile backspace dispatches DELETE_CHARACTER_COMMAND with no keydown.
+		await typeAtCaret(box, "");
+		await act(async () => {
+			getNearestEditorFromDOMNode(box)?.dispatchCommand(
+				DELETE_CHARACTER_COMMAND,
+				true,
+			);
+		});
+		await waitFor(() => expect(textIn(box)).toBe("[Image 1] "));
+
+		// Selecting all and deleting drops the remaining image too.
+		await act(async () =>
+			fireEvent.keyDown(box, { key: "a", code: "KeyA", ctrlKey: true }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Backspace" }));
+		await waitFor(() => expect(textIn(box)).toBe(""));
+
+		const third = new File(["three"], "three.png", { type: "image/png" });
+		await paste(box, [third]);
+		await waitFor(() => expect(textIn(box)).toBe("[Image 1] "));
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[Image 1]", file: [third] } },
 			]),
 		);
 	});

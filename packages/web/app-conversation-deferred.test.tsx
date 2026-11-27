@@ -150,7 +150,7 @@ describe("App's Blocked card", () => {
 		const quiet = await waitFor(() =>
 			queuedAll.view.getByRole("img", { name: "deferred" }),
 		);
-		expect(quiet.innerHTML).toContain("lucide-hourglass");
+		expect(quiet.innerHTML).toContain("mark-ellipsis");
 		expect(queuedAll.view.getByText("Waiting on blockers")).toBeTruthy();
 	});
 

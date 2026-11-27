@@ -15,6 +15,13 @@ import { nameOf, type Shown, useSendBack } from "./lightbox";
 /** A control on the dark around the media, in either theme. */
 const LIGHT = "text-white hover:bg-white/15 hover:text-white";
 
+/** The visible control is 32px inside a 48px hit area. */
+const TOOL = cn(
+	LIGHT,
+	"pointer-events-auto size-12 border-0 bg-transparent p-0 hover:bg-transparent active:bg-transparent",
+	"[&_svg]:box-border [&_svg]:rounded-lg [&_svg]:border [&_svg]:border-[#525457] [&_svg]:bg-[#282a2c] [&_svg]:p-[7px] active:[&_svg]:bg-[#414345]",
+);
+
 /** Where an SVG is kept, which cannot be marked up. */
 const SVG = /\.svg$/i;
 
@@ -135,28 +142,58 @@ export function Lightbox({
 								)}
 								<div
 									className={cn(
-										"flex max-w-full items-center gap-3 text-sm text-white/80",
+										"flex w-full shrink-0 flex-col items-center gap-2 text-sm text-white/80",
 										!shown.video &&
-											"pointer-events-none absolute inset-x-0 bottom-0 z-10 justify-center bg-black/60 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+											"z-10 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
 									)}
 								>
-									{shown.alt && <span className="truncate">{shown.alt}</span>}
+									<div className="flex max-w-full items-center gap-3">
+										{shown.alt && <span className="truncate">{shown.alt}</span>}
+										{many && (
+											<span className="shrink-0 tabular-nums text-white/60">
+												{(index ?? 0) + 1} of {items.length}
+											</span>
+										)}
+									</div>
 									{many && (
-										<span className="shrink-0 tabular-nums text-white/60">
-											{(index ?? 0) + 1} of {items.length}
-										</span>
+										<div className="flex max-w-full items-center gap-2">
+											<Button
+												variant="ghost"
+												size="icon"
+												aria-label="previous"
+												onClick={() => step(-1)}
+												className={cn(TOOL, "shrink-0")}
+											>
+												<ChevronLeftIcon className="size-8" />
+											</Button>
+											<Thumbnails
+												items={items}
+												index={index ?? 0}
+												onIndex={onIndex}
+											/>
+											<Button
+												variant="ghost"
+												size="icon"
+												aria-label="next"
+												onClick={() => step(1)}
+												className={cn(TOOL, "shrink-0")}
+											>
+												<ChevronRightIcon className="size-8" />
+											</Button>
+										</div>
 									)}
 								</div>
-								<div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.75rem,env(safe-area-inset-right))] z-10 flex gap-1 rounded-md bg-black/60">
+								<div className="pointer-events-none absolute top-[max(0.75rem,env(safe-area-inset-top))] right-[max(0.5rem,env(safe-area-inset-right))] left-[max(0.5rem,env(safe-area-inset-left))] z-10 flex gap-0.5">
 									{markable && (
 										<Button
 											variant="ghost"
-											size="sm"
+											size="icon-sm"
+											aria-label="Mark up"
+											title="Mark up"
 											onClick={() => void markUp(shown).catch(() => {})}
-											className={LIGHT}
+											className={TOOL}
 										>
-											<PencilIcon />
-											Mark up
+											<PencilIcon className="size-8" />
 										</Button>
 									)}
 									<a
@@ -164,12 +201,13 @@ export function Lightbox({
 										target="_blank"
 										rel="noreferrer"
 										aria-label="open in a new tab"
+										title="Pop out"
 										className={cn(
 											buttonVariants({ variant: "ghost", size: "icon-sm" }),
-											LIGHT,
+											TOOL,
 										)}
 									>
-										<ExternalLinkIcon />
+										<ExternalLinkIcon className="size-8" />
 									</a>
 									<DialogPrimitive.Close
 										render={
@@ -177,41 +215,14 @@ export function Lightbox({
 												variant="ghost"
 												size="icon-sm"
 												aria-label="close"
-												className={LIGHT}
+												title="Close"
+												className={cn(TOOL, "ml-auto")}
 											/>
 										}
 									>
-										<XIcon />
+										<XIcon className="size-8" />
 									</DialogPrimitive.Close>
 								</div>
-								{many && (
-									<>
-										<Button
-											variant="ghost"
-											size="icon"
-											aria-label="previous"
-											onClick={() => step(-1)}
-											className={cn(
-												"absolute z-10 size-11 bg-black/60 top-1/2 left-2 -translate-y-1/2",
-												LIGHT,
-											)}
-										>
-											<ChevronLeftIcon />
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											aria-label="next"
-											onClick={() => step(1)}
-											className={cn(
-												"absolute z-10 size-11 bg-black/60 top-1/2 right-2 -translate-y-1/2",
-												LIGHT,
-											)}
-										>
-											<ChevronRightIcon />
-										</Button>
-									</>
-								)}
 							</>
 						)}
 					</DialogPrimitive.Popup>
@@ -219,5 +230,62 @@ export function Lightbox({
 			</DialogPrimitive.Root>
 			{sendBack.annotate}
 		</>
+	);
+}
+
+/**
+ * A strip of every item's thumbnail under the one shown, the shown one ringed;
+ * clicking one shows it. It scrolls sideways when they outgrow the screen,
+ * keeping the shown one in view.
+ */
+function Thumbnails({
+	items,
+	index,
+	onIndex,
+}: {
+	items: readonly Shown[];
+	index: number;
+	onIndex: (index: number) => void;
+}): JSX.Element {
+	return (
+		<div className="flex min-w-0 max-w-full gap-2 overflow-x-auto px-1 py-1">
+			{items.map((item, at) => (
+				<button
+					// The same file may be shown twice in one document.
+					// biome-ignore lint/suspicious/noArrayIndexKey: the strip is the document's media in order, which never reorders
+					key={at}
+					type="button"
+					aria-label={`show ${item.alt || (item.video ? "recording" : "image")}`}
+					aria-current={at === index}
+					ref={(button) => {
+						if (at === index) {
+							button?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+						}
+					}}
+					onClick={() => onIndex(at)}
+					className={cn(
+						"size-13 shrink-0 overflow-hidden rounded-lg border-2 bg-white transition-opacity md:size-16",
+						at === index
+							? "border-primary opacity-100"
+							: "border-transparent opacity-50 hover:opacity-80",
+					)}
+				>
+					{item.video ? (
+						<video
+							src={item.url}
+							preload="metadata"
+							muted
+							className="size-full object-cover object-top"
+						/>
+					) : (
+						<img
+							src={item.url}
+							alt=""
+							className="size-full object-cover object-top"
+						/>
+					)}
+				</button>
+			))}
+		</div>
 	);
 }

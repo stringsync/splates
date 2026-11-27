@@ -234,7 +234,7 @@ export interface Member {
 
 /** What a batch came to for one of its followers: landed, or refused. */
 export type Settled =
-	| { kind: "landed"; head: string; batch: string[] }
+	| { kind: "landed"; onto: string; head: string; batch: string[] }
 	| {
 			kind: "failed";
 			attribution: FailureAttribution;

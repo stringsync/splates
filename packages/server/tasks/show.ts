@@ -23,7 +23,7 @@ export async function show(
 	const worktree = await service.find(task);
 	if (worktree.gone) {
 		// A finished task's tree is gone, but its record still says what it
-		// did and where it landed, which a demo of it needs.
+		// did and where it landed.
 		const finished = await finishedNamed(service, task);
 		if (finished === null) {
 			fail(

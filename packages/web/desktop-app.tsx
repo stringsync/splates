@@ -44,10 +44,10 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	rigs: "mx-auto w-full min-w-0 max-w-2xl px-4 pt-5 pb-8",
 	rec: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// Test reports sit beside a run sidebar, so wider than one column.
-	evals: "mx-auto w-full min-w-0 max-w-6xl px-4 pt-5 pb-8",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// A list beside a signal's detail, so wider than one column.
 	signals: "mx-auto w-full min-w-0 max-w-5xl px-4 pt-5 pb-8",
+	trust: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	billing: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	"auto-pick": "mx-auto w-full min-w-0 max-w-5xl px-4 pt-5 pb-8",
 	setup: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
@@ -63,7 +63,6 @@ const DESKTOP_PAGES: Record<Page, string> = {
  */
 export function DesktopApp({
 	page,
-	evalRunOpen,
 	open,
 	go,
 	name,
@@ -80,8 +79,6 @@ export function DesktopApp({
 	menu,
 }: {
 	page: Page;
-	/** A saved run uses the slim toolbar used by conversations. */
-	evalRunOpen: boolean;
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null) => void;
@@ -138,10 +135,7 @@ export function DesktopApp({
 		return () => resized.disconnect();
 	}, [slot]);
 	const area =
-		bodies !== null &&
-		page !== "conversations" &&
-		page !== "welcome" &&
-		!evalRunOpen
+		bodies !== null && page !== "conversations" && page !== "welcome"
 			? pageArea(page)
 			: null;
 	const frame = {
@@ -150,7 +144,7 @@ export function DesktopApp({
 		bannerSlot,
 		banner: (offline || unreachable) && <OfflineBanner reason={reason} />,
 		project: name,
-		status: !evalRunOpen && (
+		status: (
 			<AppStatus
 				snapshot={snapshot}
 				outdated={outdated}
@@ -159,7 +153,9 @@ export function DesktopApp({
 			/>
 		),
 		menu: menu.items,
-		dot: evalRunOpen ? undefined : menu.dot,
+		dot: menu.dot,
+		stuck: menu.stuck,
+		onInvestigateStuck: menu.onInvestigateStuck,
 		area: area === null ? undefined : { page, sidebarHidden: !shown },
 	};
 	return (

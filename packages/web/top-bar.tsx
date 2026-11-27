@@ -1,3 +1,4 @@
+import type { Stuck } from "@splates/server/server";
 import { EllipsisVerticalIcon } from "lucide-react";
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { createPortal } from "react-dom";
@@ -21,52 +22,6 @@ import { DesktopPageHeaderBand, PhonePageHeaderBand } from "./page-header-band";
 import type { Page } from "./page-route";
 import { ProjectSwitcher } from "./projects";
 import { RestartButton } from "./restart-button";
-
-/** Area identity handed to `TopBar` by the desktop and phone shells. */
-export interface PageAreaFrame {
-	/** The active page, for its color, icon, description, and layout width. */
-	page: Page;
-	/** Desktop only: adds left clearance for the fixed `SidebarHead` while the sidebar is hidden. */
-	sidebarHidden?: boolean;
-}
-
-/** What the page's shell gives every bar under it. */
-export interface BarFrame {
-	/**
-	 * The shell's row, where the bar goes, null until it is there, or left
-	 * out to draw the bar in place.
-	 */
-	slot?: HTMLElement | null;
-	/** A phone shows its page header below the project bar. */
-	titleSlot?: HTMLElement | null;
-	/** Said after every title: outdated or a restart under way. */
-	status?: ReactNode;
-	/** The server is updating, even before its streams drop. */
-	refreshing?: boolean;
-	/** A full-width message under the bar. */
-	banner?: ReactNode;
-	/** Where the banner goes when the bar itself goes in `slot`. */
-	bannerSlot?: HTMLElement | null;
-	/** The page menu's items, at the foot of the kebab. */
-	menu?: ReactNode;
-	/** Puts Update before the kebab, once a restart would update splates. */
-	dot?: boolean;
-	/** Marks a bar's way back, as with how many agents wait on you. */
-	badge?: ReactNode;
-	/**
-	 * The project's name, which a phone's bar of the project's own, as a
-	 * conversation's, puts under its title as a switcher, and full page headers
-	 * show in their scope pill.
-	 */
-	project?: string;
-	/**
-	 * Leaves the title out of `slot`, as a phone's project bar does, putting
-	 * the page header in `titleSlot` underneath.
-	 */
-	untitled?: boolean;
-	/** Active page area for the integrated atmospheric header band. */
-	area?: PageAreaFrame;
-}
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
 
@@ -142,7 +97,12 @@ export function TopBar({
 				className="flex w-20 shrink-0 items-center justify-end max-md:empty:hidden md:w-24"
 			>
 				{frame?.dot !== undefined ? (
-					<RestartButton wide={wide} update={frame.dot} />
+					<RestartButton
+						wide={wide}
+						update={frame.dot}
+						stuck={frame.stuck ?? null}
+						onInvestigateStuck={frame.onInvestigateStuck}
+					/>
 				) : (
 					<RefreshStatus updating={frame?.refreshing} />
 				)}
@@ -284,6 +244,56 @@ export function TopBar({
 			{frame?.banner}
 		</>
 	);
+}
+
+/** Area identity handed to `TopBar` by the desktop and phone shells. */
+export interface PageAreaFrame {
+	/** The active page, for its color, icon, description, and layout width. */
+	page: Page;
+	/** Desktop only: adds left clearance for the fixed `SidebarHead` while the sidebar is hidden. */
+	sidebarHidden?: boolean;
+}
+
+/** What the page's shell gives every bar under it. */
+export interface BarFrame {
+	/**
+	 * The shell's row, where the bar goes, null until it is there, or left
+	 * out to draw the bar in place.
+	 */
+	slot?: HTMLElement | null;
+	/** A phone shows its page header below the project bar. */
+	titleSlot?: HTMLElement | null;
+	/** Said after every title: outdated or a restart under way. */
+	status?: ReactNode;
+	/** The server is updating, even before its streams drop. */
+	refreshing?: boolean;
+	/** A full-width message under the bar. */
+	banner?: ReactNode;
+	/** Where the banner goes when the bar itself goes in `slot`. */
+	bannerSlot?: HTMLElement | null;
+	/** The page menu's items, at the foot of the kebab. */
+	menu?: ReactNode;
+	/** Puts Update before the kebab, once a restart would update splates. */
+	dot?: boolean;
+	/** Puts Stuck before the kebab when the server's source checkout fell behind upstream. */
+	stuck?: Stuck | null;
+	/** Sends a stuck server checkout to an agent to investigate. */
+	onInvestigateStuck?: (stuck: Stuck) => Promise<void>;
+	/** Marks a bar's way back, as with how many agents wait on you. */
+	badge?: ReactNode;
+	/**
+	 * The project's name, which a phone's bar of the project's own, as a
+	 * conversation's, puts under its title as a switcher, and full page headers
+	 * show in their scope pill.
+	 */
+	project?: string;
+	/**
+	 * Leaves the title out of `slot`, as a phone's project bar does, putting
+	 * the page header in `titleSlot` underneath.
+	 */
+	untitled?: boolean;
+	/** Active page area for the integrated atmospheric header band. */
+	area?: PageAreaFrame;
 }
 
 /**

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { getPriority } from "node:os";
 import { basename, join } from "node:path";
+import type { Resource } from "core/disposable";
+import { Duration } from "core/time";
+import { FakeClock, FakeTimer } from "core/time/testing";
 
 import { decodeTask } from "../board";
 import { Testing } from "../testing";
@@ -93,6 +96,50 @@ describe("add", () => {
 		expect(plan).toContain("- [ ] stop retrying\n- [ ] tell the user");
 	});
 
+	describe("lane", () => {
+		it("puts a new task on the board in the lane, taken, with its goal as the subject", async () => {
+			const other = await deps.tasks.add("Other work", null, { lane: "new" });
+			await add(deps, "alpha", { goal: "Stop the retries.", lane: other.lane });
+
+			const [placed] = await deps.tasks.takenBy("alpha");
+			expect(placed).toMatchObject({
+				subject: "Stop the retries.",
+				lane: other.lane,
+			});
+			expect(placed?.state.slug).toBe("alpha");
+			expect((await deps.service.find("alpha")).state?.id).toBe(placed?.id);
+			const { path } = await deps.service.find("alpha");
+			const plan = await deps.fs.read(join(path, "SPLATES.md"));
+			expect(plan).toContain("## After\n\nStop the retries.\n");
+			expect(plan).not.toContain("## Details");
+		});
+
+		it("moves the queued task it starts into the lane", async () => {
+			const other = await deps.tasks.add("Other work", null, { lane: "new" });
+			const queued = await deps.tasks.add("Retry on 413", null);
+			await add(deps, "alpha", { tasks: [queued.id], lane: other.lane });
+
+			expect((await deps.tasks.find(queued.id)).lane).toBe(other.lane);
+			expect((await deps.tasks.find(queued.id)).takenBy).toBe("alpha");
+		});
+
+		it("leaves a new task off the board without it", async () => {
+			await add(deps, "alpha", { goal: "Stop the retries." });
+
+			expect(await deps.tasks.takenBy("alpha")).toEqual([]);
+		});
+
+		it("adds nothing to the board when the start is refused", async () => {
+			await add(deps, "alpha", { goal: "First." });
+			const before = (await deps.tasks.all()).length;
+
+			expect(
+				add(deps, "alpha", { goal: "Again.", lane: "new" }),
+			).rejects.toThrow();
+			expect((await deps.tasks.all()).length).toBe(before);
+		});
+	});
+
 	describe("project", () => {
 		const declare = () => {
 			deps.config.projects = { core: ["core/**"], wren: ["wren/**"] };
@@ -178,10 +225,14 @@ describe("add", () => {
 
 	it("refuses a name whose branch was left behind and points at remove", async () => {
 		await deps.gitCli(deps.root, "branch", "task/alpha");
+		const clock = new FakeClock();
+		const timer = new AdvancingTimer(clock);
 
-		await expect(add(deps, "alpha")).toBail("exists", {
+		await expect(add({ ...deps, clock, timer }, "alpha")).toBail("exists", {
 			message: "splates remove alpha",
 		});
+		// It gave a racing add the whole settle to make its tree first.
+		expect(clock.now().ms).toBeGreaterThanOrEqual(Duration.secs(2).ms);
 	});
 
 	it("refuses every add of a name but one when several race", async () => {
@@ -414,3 +465,17 @@ describe("add", () => {
 		});
 	});
 });
+
+/** Each wait moves `clock` on by its delay and ends at once, so a settle runs out without real time passing. */
+class AdvancingTimer extends FakeTimer {
+	constructor(private readonly clock: FakeClock) {
+		super();
+	}
+
+	override setTimeout(callback: () => void, delay: Duration): Resource {
+		const waiting = super.setTimeout(callback, delay);
+		this.clock.advance(delay);
+		queueMicrotask(() => this.fireTimeouts());
+		return waiting;
+	}
+}

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "core/time";
+import { PENDING_DELAY_MS } from "./pending";
 import { setHeldAfterMs } from "./sending";
 import {
 	act,
@@ -45,7 +46,20 @@ describe("App's messages still sending", () => {
 		const thread = view.getByRole("region", { name: "Login" });
 		// Not at once, so a quick answer shows nothing.
 		expect(within(thread).queryByText(/Sending…/)).toBeNull();
-		expect(await within(thread).findByText("Sending…")).toBeTruthy();
+		await act(async () => {
+			for (
+				let index = testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === PENDING_DELAY_MS,
+				);
+				index >= 0;
+				index = testing.timer.timeouts.findIndex(
+					(each) => !each.disposed && each.delay.ms === PENDING_DELAY_MS,
+				)
+			) {
+				testing.timer.fireTimeout(index);
+			}
+		});
+		expect(within(thread).getByText("Sending…")).toBeTruthy();
 
 		await act(async () => {
 			testing.wall.advance(Duration.secs(4));

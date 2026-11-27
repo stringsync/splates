@@ -85,9 +85,9 @@ export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
 }
 
 /**
- * Marks up an image in a conversation and adds it to the composer, to go back
- * to the agent; `markUp` is null where no conversation is open. Render
- * `annotate` beside whatever calls it.
+ * Marks up an image in a conversation and adds it to the composer when marked,
+ * to go back to the agent; `markUp` is null where no conversation is open.
+ * Render `annotate` beside whatever calls it.
  */
 export function useSendBack(): {
 	markUp: ((image: Shown) => Promise<void>) | null;
@@ -98,10 +98,11 @@ export function useSendBack(): {
 	const markUp = async (image: Shown) => {
 		const response = await answered(image.url, { within: WAITS.upload });
 		const blob = await response.blob();
-		const marked = await annotator.open(
-			new File([blob], nameOf(image), { type: blob.type }),
-		);
-		await composer?.addAttachment(marked);
+		const original = new File([blob], nameOf(image), { type: blob.type });
+		const marked = await annotator.open(original);
+		if (marked !== original) {
+			await composer?.addAttachment(marked);
+		}
 	};
 	return {
 		markUp: composer === null ? null : markUp,

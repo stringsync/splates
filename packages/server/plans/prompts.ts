@@ -56,17 +56,6 @@ export function taskReference(task: string): string {
 	return `[SPLATES TASK ${task}]`;
 }
 
-/** Where a demo shows a task: just before its change, with it, or on main now. */
-export type DemoPoint = "before" | "after" | "main";
-
-/**
- * What asks an agent to set up a demo of `task` at `point`, as the task
- * dialog's Demo buttons send: the splates skill says what it means.
- */
-export function demoReference(task: string, point: DemoPoint): string {
-	return `[SPLATES DEMO ${task} ${point}]`;
-}
-
 /**
  * What a chat with an agent takes to mean "claim `task` and carry on with
  * it" from an agent that stopped on it without handing it over, whose last
@@ -122,15 +111,6 @@ export function isUpdate(text: string): boolean {
 }
 
 /**
- * What tells an agent a run its run evals card asked for is done, the batch
- * it wrote named, before its condensed report: the splates skill says what it
- * means.
- */
-export function evalsDoneReference(batch: string): string {
-	return `[SPLATES EVALS DONE ${batch}]`;
-}
-
-/**
  * What tells an agent the last task its work was blocked on has ended, so its
  * merge is open again: the splates skill says what it means.
  */
@@ -170,11 +150,6 @@ export const RUN_ALLOWED = "[SPLATES RUN ALLOWED]";
  */
 export const AUTO_ALLOWED = "Auto-allowed by splates";
 export const RUN_DENIED = "[SPLATES RUN DENIED]";
-
-/** What an agent hears when the person approves its eval budget card, the amount and what is left on the next line. */
-export const EVAL_BUDGET_APPROVED = "[SPLATES EVAL BUDGET APPROVED]";
-/** What an agent hears when the person declines its eval budget card. */
-export const EVAL_BUDGET_DECLINED = "[SPLATES EVAL BUDGET DECLINED]";
 
 /**
  * What tells an agent the person granted its task another round of merge

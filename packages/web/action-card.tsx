@@ -11,6 +11,7 @@ import { cn } from "#web/lib/utils.ts";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, type Tone } from "./card-shell";
+import { ReasonNotice } from "./queue-reason";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -51,6 +52,7 @@ export function ActionCard({
 	settling = false,
 	note,
 	tone = "info",
+	reason = null,
 	children,
 }: {
 	label: string;
@@ -68,6 +70,8 @@ export function ActionCard({
 	note?: string;
 	/** Its header's tint while still to do, `destructive` for what it takes away. */
 	tone?: Tone;
+	/** Why the agent could not do it itself, shown as a notice above its body. */
+	reason?: string | null;
 	/** What it acts on, between its body and its foot. */
 	children?: ReactNode;
 }): JSX.Element {
@@ -88,6 +92,7 @@ export function ActionCard({
 	};
 	const hasAbove =
 		body !== "" ||
+		reason !== null ||
 		(children !== undefined && children !== null && children !== false);
 	return (
 		<CardShell
@@ -96,6 +101,9 @@ export function ActionCard({
 			title={title}
 			tone={done ? "success" : tone}
 		>
+			{reason !== null && !done && (
+				<ReasonNotice reason={reason} last={body === ""} />
+			)}
 			{body !== "" && <CardBody text={body} />}
 			{children}
 			<div

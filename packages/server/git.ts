@@ -312,12 +312,14 @@ export class Git {
 			this.root,
 			"diff",
 			"--name-only",
+			"--no-renames",
+			"-z",
 			`${trunk}...${branch}`,
 		);
 		if (committed.code !== 0) {
 			return null;
 		}
-		const paths = lines(committed.stdout);
+		const paths = committed.stdout.split("\0").filter(Boolean);
 		if (worktree !== null) {
 			const changes = await this.worktreeChanges(worktree);
 			paths.push(...(changes?.edited ?? []), ...(changes?.untracked ?? []));

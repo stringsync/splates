@@ -33,7 +33,6 @@ import { useFolded } from "./folded";
 import { InboxLoading } from "./freshness";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
-import { NextWaiting } from "./next-waiting";
 import { Group, ProjectSection } from "./phone-inbox-groups";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import {
@@ -50,8 +49,7 @@ import { BarButton, TopBar } from "./top-bar";
 
 /**
  * The inbox: every agent listed by what it asks of you, to open, rename, mark
- * unread or archive. A line atop says how many wait on you, and offers to
- * archive the finished conversations when none do. Pass `onMenu` to show it
+ * unread or archive. Pass `onMenu` to show it
  * as the phone's home, opening the drawer; pass null for the page the
  * sidebar's Inbox opens.
  */
@@ -79,7 +77,12 @@ export function Inbox({
 	lanes: LaneRecord[];
 	boards?: BoardRecord[];
 	/** The project the page shows, as its snapshot has it; null before it comes. */
-	here: { root: string; repo: string; trunk: string | null } | null;
+	here: {
+		root: string;
+		repo: string;
+		trunk: string | null;
+		queueError?: string | null;
+	} | null;
 	/** The row of the project's pages under a phone's bar. */
 	chips?: ReactNode;
 	/** Whether the project snapshot is still on its way. */
@@ -223,20 +226,6 @@ export function Inbox({
 				/>
 				{!wide && chips}
 				<div className={cn("flex flex-1 flex-col", wide ? "pb-6" : "pb-28")}>
-					{available && here !== null && (
-						// The group heading below brings its own top padding and a tall
-						// tap target, so pull it up to leave the line even room both sides.
-						<div className="-mb-3 px-3 pt-5">
-							<NextWaiting
-								feed={feed}
-								tasks={tasks}
-								todos={todos}
-								here={here}
-								open={null}
-								onOpen={(id) => id !== null && onOpen(id)}
-							/>
-						</div>
-					)}
 					<UnstartedGroup
 						unstarted={unstarted}
 						agents={agents}

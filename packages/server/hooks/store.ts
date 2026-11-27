@@ -24,8 +24,6 @@ export type Hook =
 	| ({
 			kind: "agent";
 			prompt: string;
-			/** Pre-approved eval budget in dollars for each firing, with no carryover. */
-			evalBudget?: number;
 	  } & Partial<AgentPick>)
 	| { kind: "run"; command: string };
 
@@ -125,7 +123,7 @@ export class HookStore {
 	/** Adds an automation of `hook` on `trigger`, numbered after the others. */
 	async add(given: Trigger, hook: Hook, name?: string): Promise<Automation> {
 		const trigger = checked(given, this.#functions());
-		const checkedHook = normalizedHook(hook);
+		const checkedHook = hook;
 		const createdAt = new Date().toISOString();
 		let added: Automation | undefined;
 		await this.change((automations) => {
@@ -179,7 +177,7 @@ export class HookStore {
 		name?: string,
 	): Promise<Automation> {
 		const trigger = checked(given, this.#functions());
-		const checkedHook = normalizedHook(hook);
+		const checkedHook = hook;
 		let found: Automation | undefined;
 		await this.change((automations) =>
 			automations.map((each) => {
@@ -402,42 +400,6 @@ export function lanesNamed(text: string): number[] {
 		fail("usage", `'${text}' is no list of lane numbers`, { lane: text });
 	}
 	return lanes;
-}
-
-/** The most one automation firing may pre-approve, in dollars. */
-const MOST_EVAL_BUDGET = 100_000;
-
-/** `text` as a positive dollar eval budget, rounded to cents, refusing what is none. */
-export function evalBudgetNamed(text: string): number {
-	const cleaned = text.trim().replace(/^\$/, "");
-	const amount = Number(cleaned);
-	if (
-		cleaned === "" ||
-		!Number.isFinite(amount) ||
-		amount <= 0 ||
-		amount > MOST_EVAL_BUDGET
-	) {
-		fail("usage", `'${text}' is no eval budget: give a dollar amount above 0`, {
-			evalBudget: text,
-		});
-	}
-	return Math.round(amount * 100) / 100;
-}
-
-/** Validates and normalizes `hook`'s eval budget when set. */
-function normalizedHook(hook: Hook): Hook {
-	if (hook.kind !== "agent" || hook.evalBudget === undefined) {
-		return hook;
-	}
-	const amount = hook.evalBudget;
-	if (!Number.isFinite(amount) || amount <= 0 || amount > MOST_EVAL_BUDGET) {
-		fail(
-			"usage",
-			`'${amount}' is no eval budget: give a dollar amount above 0`,
-			{ evalBudget: amount },
-		);
-	}
-	return { ...hook, evalBudget: Math.round(amount * 100) / 100 };
 }
 
 /** Refuses `trigger` when its event is none or its schedule will not read. */

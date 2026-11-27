@@ -32,6 +32,12 @@ export interface CheckpointCause {
 }
 
 export interface PromptOptions {
+	/**
+	 * Whether the person sent this message themselves (typed or from the page),
+	 * rather than the server, an automation, or another agent. Only a person's
+	 * own message can approve a plan.
+	 */
+	person?: boolean;
 	/** The conversation that said it with `splates tell`, when the person did not. */
 	told?: string;
 	/** Whether the person said it into the mic rather than typed it. */

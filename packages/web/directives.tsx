@@ -384,20 +384,3 @@ function wordsOf(
 		}
 	}
 }
-
-/** The parameter lines of an eval loop directive, which its chip's title carries. */
-const LOOP_PARAMETERS = /^(?:Budget|Rounds|Agents|Repetitions):.*(?:\n|$)/gm;
-
-/**
- * `rest`, the words after a message's leading `directives`, without the
- * parameter lines of an eval loop directive among them: the agent reads
- * them in the message, the person sees the chip.
- */
-export function withoutLoopParameters(
-	directives: readonly string[],
-	rest: string,
-): string {
-	return directives.some((each) => each.startsWith("[SPLATES EVAL LOOP "))
-		? rest.replace(LOOP_PARAMETERS, "").trim()
-		: rest;
-}

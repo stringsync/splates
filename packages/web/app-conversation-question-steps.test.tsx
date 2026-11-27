@@ -73,8 +73,9 @@ describe("App's question cards one question at a time on a desktop", () => {
 			"question 1, answered and seen",
 			"question 2, picked, not yet seen",
 			"question 3, unanswered",
+			"question 4, unanswered",
 		]);
-		expect(view.getByText("Question 1 of 3")).toBeTruthy();
+		expect(view.getByText("Question 1 of 4")).toBeTruthy();
 	});
 
 	it("turns with Next and Back, marking a question seen once turned to, and leaves the plan on the first", async () => {
@@ -96,13 +97,23 @@ describe("App's question cards one question at a time on a desktop", () => {
 
 		await click(view, /Next unanswered/);
 		expect(shown(view)).toEqual(["question 3"]);
-		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: /^Next$/ })).toBeNull();
 		await act(async () =>
 			fireEvent.click(
 				within(view.getByRole("listitem", { name: "question 3" })).getByRole(
 					"button",
 					{ name: /Wrap it too/ },
+				),
+			),
+		);
+		await click(view, /Next unanswered/);
+		expect(shown(view)).toEqual(["question 4"]);
+		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: /^Next$/ })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("listitem", { name: "question 4" })).getByRole(
+					"button",
+					{ name: /Yes, approve it/ },
 				),
 			),
 		);
@@ -132,7 +143,12 @@ describe("App's question cards one question at a time on a desktop", () => {
 		await waitFor(() => view.getByRole("button", { name: "Show all" }));
 
 		await click(view, "Show all");
-		expect(shown(view)).toEqual(["question 1", "question 2", "question 3"]);
+		expect(shown(view)).toEqual([
+			"question 1",
+			"question 2",
+			"question 3",
+			"question 4",
+		]);
 		expect(
 			view.queryByRole("navigation", { name: "question steps" }),
 		).toBeNull();
@@ -141,20 +157,22 @@ describe("App's question cards one question at a time on a desktop", () => {
 		expect(shown(view)).toEqual(["question 1"]);
 	});
 
-	it("asks the plan's approval as an Approved checkbox beside Send, not as a step", async () => {
+	it("asks the plan's approval as an ordinary question, with no Approved checkbox", async () => {
 		const view = await testing.openConversations([asked(plan)]);
-		const approved = await waitFor(() =>
-			view.getByRole("checkbox", { name: "Approved" }),
+		await waitFor(() => view.getByRole("button", { name: /^question 4,/ }));
+
+		expect(steps(view)).toHaveLength(4);
+		expect(view.queryByRole("checkbox", { name: "Approved" })).toBeNull();
+		await click(view, /^question 4,/);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("listitem", { name: "question 4" })).getByRole(
+					"button",
+					{ name: /Yes, approve it/ },
+				),
+			),
 		);
-
-		expect(steps(view)).toHaveLength(3);
-		expect(view.getByText("wrapping the header")).toBeTruthy();
-		expect(approved.getAttribute("aria-checked")).toBe("false");
-
-		await act(async () => fireEvent.click(approved));
-		expect(approved.getAttribute("aria-checked")).toBe("true");
-		await click(view, "Show all");
-		expect(shown(view)).toEqual(["question 1", "question 2", "question 3"]);
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
 		await click(view, "Send");
 
 		const [sent] = testing.posted("/api/conversations/c1/prompt") as {
@@ -165,7 +183,7 @@ describe("App's question cards one question at a time on a desktop", () => {
 		);
 	});
 
-	it("sends the other answers without approving while Approved is unticked", async () => {
+	it("sends the other answers without approving while the approval question is unanswered", async () => {
 		const view = await testing.openConversations([asked(plan)]);
 		await waitFor(() => view.getByRole("button", { name: "Show all" }));
 
@@ -177,6 +195,39 @@ describe("App's question cards one question at a time on a desktop", () => {
 		}[];
 		expect(sent?.body.text).toContain("Which pages need it?");
 		expect(sent?.body.text).not.toContain("Do you approve");
+	});
+
+	it("gives a plan's decision a step of its own after its questions, with anything else under it", async () => {
+		const view = await testing.openConversations([
+			asked(
+				"## 📝 Plan: wrap the header\n\n**Goal:** The header overflows.\n\n1. Which pages need it?\n   - (a) Todos (chosen)\n   - (b) Tasks",
+			),
+		]);
+		await waitFor(() => view.getByRole("button", { name: "plan decision" }));
+
+		expect(shown(view)).toEqual(["question 1"]);
+		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
+
+		await click(view, /^Next$/);
+		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+		expect(view.getByText("Approve this plan?")).toBeTruthy();
+		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
+		expect(
+			view
+				.getByRole("button", { name: "plan decision" })
+				.getAttribute("aria-current"),
+		).toBe("step");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Approve" })),
+		);
+		await click(view, "Send");
+		const [sent] = testing.posted("/api/conversations/c1/prompt") as {
+			body: { text: string };
+		}[];
+		expect(sent?.body.text).toStartWith("Approve: wrap the header");
 	});
 
 	it("shows a lone question as it is, with no steps", async () => {

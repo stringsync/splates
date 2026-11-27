@@ -74,17 +74,13 @@ the premerge lock, and agents ask before heavy work when the machine is busy.
 When agents do not start at all, run `splates worker drain local --undo`; the
 user can also pause or resume the queue at the top of the page's Queue tab.
 
-## Ships and evals
+## Ships
 
-Two journeys set up a project rather than the machine. Their steps check the
+The Ships journey sets up a project rather than the machine. Its step checks the
 project's `splates.config.ts`, so run `splates setup` in its main tree, make
-each change in a task (`setup-<step>`), then ask the user to restart `splates
-server`.
+the change in a task (`setup-ships-command`), then ask the user to restart
+`splates server`.
 
 - **Ships** (`ships-command`): list the commands that ship the project under
   `ships` (`["bin/<project> ship"]`), finding its existing release script
   before writing one. Only the user ships, so never run the ship command.
-- **Evals** (`evals-results`, `evals-run`): `evals: { results }` shows results
-  from any framework on the Evals page; adding `list` and `run` (and
-  optionally `plan`) lets the page's run card start a batch. The format is in
-  `docs/evals.md` of the splates repository. Never run evals yourself.

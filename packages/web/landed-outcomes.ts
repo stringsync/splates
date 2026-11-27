@@ -3,12 +3,6 @@ import { stretches } from "@splates/server/plans/browser";
 import type { Landed } from "@splates/server/stats/browser";
 import { taskOutcome } from "./api";
 
-/**
- * How long a thread waits to open on the merges its cards will tell of, so
- * a slow answer shows the thread without them rather than not at all.
- */
-const PRELOAD_MS = 1500;
-
 type Ending = "merged" | "removed";
 
 /**
@@ -24,7 +18,7 @@ export class LandedOutcomes {
 		return `${ended}:${task}`;
 	}
 
-	/** How `task` ended as `ended`; undefined until read, null when it never did. */
+	/** How `task` ended as `ended`; undefined while unread, null if unavailable. */
 	get(task: string, ended: Ending = "merged"): Landed | null | undefined {
 		return this.read.get(LandedOutcomes.keyed(task, ended));
 	}
@@ -40,13 +34,13 @@ export class LandedOutcomes {
 			return Promise.resolve();
 		}
 		const reading = taskOutcome(task, ended)
-			.then(
-				(landed) => {
+			.catch(() => null)
+			.then((landed) => {
+				if (this.reading.get(key) === reading) {
 					this.read.set(key, landed);
-				},
-				() => {},
-			)
-			.finally(() => this.reading.delete(key));
+					this.reading.delete(key);
+				}
+			});
 		this.reading.set(key, reading);
 		return reading;
 	}
@@ -57,7 +51,7 @@ export class LandedOutcomes {
 		this.reading.clear();
 	}
 
-	/** Reads the outcome of every merge and removal `messages` report, skipping any that are slow to load. */
+	/** Settles each report's outcome before the conversation shows its messages. */
 	async preload(messages: readonly Message[]): Promise<void> {
 		const tasks = new Map<string, { task: string; ended: Ending }>();
 		for (const message of messages) {
@@ -80,16 +74,9 @@ export class LandedOutcomes {
 				}
 			}
 		}
-		const wanted = [...tasks.entries()]
-			.filter(([key]) => !this.read.has(key))
-			.map(([, each]) => each);
-		if (wanted.length === 0) {
-			return;
-		}
-		await Promise.race([
-			Promise.all(wanted.map(({ task, ended }) => this.load(task, ended))),
-			new Promise<void>((resolve) => setTimeout(resolve, PRELOAD_MS)),
-		]);
+		await Promise.all(
+			[...tasks.values()].map(({ task, ended }) => this.load(task, ended)),
+		);
 	}
 }
 

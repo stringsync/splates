@@ -1,5 +1,9 @@
 import type { ConversationState } from "@splates/server/conversations";
-import { namedForTask, openingOf } from "@splates/server/conversations/browser";
+import {
+	leftRunning,
+	namedForTask,
+	openingOf,
+} from "@splates/server/conversations/browser";
 import type { Need } from "@splates/server/plans";
 import type { Details } from "@splates/server/tasks";
 import {
@@ -304,6 +308,7 @@ export function Item({
 						hosting={hosting}
 						quiet={quiet}
 						background={backgrounded(conversation)}
+						leftover={leftRunning(conversation).length > 0}
 						blockedNeedsYou={blockedNeedsYou}
 						disconnected={disconnected}
 					/>

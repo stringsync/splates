@@ -68,7 +68,6 @@ export function AutomationForm({
 		kind,
 		pick,
 		prompt,
-		evalBudget,
 		command,
 	} = useReactive(draft, (draft) => draft.fields, ["changed"]);
 	const { refusal, refuse } = useRefusal();
@@ -247,31 +246,13 @@ export function AutomationForm({
 				)}
 			</div>
 			{kind === "agent" ? (
-				<>
-					<MarkdownEditor
-						label="Prompt"
-						required
-						placeholder="What the agent is told, after what set it off"
-						value={prompt}
-						onChange={(value) => draft.set("prompt", value)}
-					/>
-					<div className="flex flex-wrap items-center gap-2">
-						<Input
-							aria-label="Eval budget in dollars"
-							inputMode="decimal"
-							className="w-60 tabular-nums"
-							placeholder="Eval budget $ (optional)"
-							title="Pre-approved eval budget in dollars for each firing; nothing carries over"
-							value={evalBudget}
-							onChange={(change) =>
-								draft.set("evalBudget", change.target.value)
-							}
-						/>
-						<span className="text-muted-foreground text-xs">
-							Pre-approved per firing; nothing carries over.
-						</span>
-					</div>
-				</>
+				<MarkdownEditor
+					label="Prompt"
+					required
+					placeholder="What the agent is told, after what set it off"
+					value={prompt}
+					onChange={(value) => draft.set("prompt", value)}
+				/>
 			) : (
 				<Input
 					aria-label="Command"

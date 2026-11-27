@@ -284,7 +284,7 @@ describe("App's artifacts", () => {
 			"   - (b) No",
 		].join("\n"),
 	]);
-	it("renders consecutive plan fields as separate paragraphs", async () => {
+	it("renders each plan field as its own labelled section, the Goal leading", async () => {
 		const view = await testing.openConversations([
 			turn([
 				[
@@ -303,12 +303,50 @@ describe("App's artifacts", () => {
 		]);
 
 		await waitFor(() => view.getByText("Awaiting approval"));
-		const paragraphs = ["Goal:", "After:", "Approach:", "Hard to undo:"].map(
-			(label) => view.getByText(label).closest("p"),
+		expect(
+			["Goal", "After", "Approach", "Hard to undo"].map(
+				(label) => view.queryByRole("region", { name: label }) !== null,
+			),
+		).toEqual([true, true, true, true]);
+		expect(view.getByRole("region", { name: "Goal" }).textContent).toContain(
+			"Find cells that can use a cheaper lineup.",
 		);
-		expect(paragraphs.every((paragraph) => paragraph !== null)).toBe(true);
-		expect(new Set(paragraphs).size).toBe(paragraphs.length);
 		expect(view.getByText("holdout: true").tagName).toBe("CODE");
+	});
+
+	it("lists a plan's tags with their reasons under Goal and Details", async () => {
+		const view = await testing.openConversations([
+			turn([
+				[
+					"## 📝 Plan: run the evals one at a time",
+					"",
+					"**Goal:** Run each eval once with a short report.",
+					"**Details:**",
+					"- `run` plays each eval once on one agent.",
+					"**Tags:**",
+					"- Clean revert: nothing is stored, so nothing is left behind",
+					"- Medium: one command reworked",
+					"- Evals",
+					"",
+					"1. Should a bare `run` run every eval?",
+					"   - (a) No (chosen)",
+					"   - (b) Yes",
+				].join("\n"),
+			]),
+		]);
+
+		await waitFor(() => view.getByText("Awaiting approval"));
+		const tags = view.getByRole("region", { name: "Tags" });
+		const items = [...tags.querySelectorAll("li")].map((li) => li.textContent);
+		expect(items).toEqual([
+			"Clean revertnothing is stored, so nothing is left behind",
+			"Mediumone command reworked",
+			"Evals",
+		]);
+		expect(tags.querySelectorAll("li svg")).toHaveLength(3);
+		expect(view.getByRole("region", { name: "Details" }).textContent).toContain(
+			"plays each eval once on one agent.",
+		);
 	});
 
 	const prompts = () =>
@@ -316,21 +354,17 @@ describe("App's artifacts", () => {
 			.posted("/api/conversations/c1/prompt")
 			.map((post) => (post.body as { text: string }).text);
 
-	it("ends a plan card with an unticked Approved checkbox in place of its approval question, with no Approve, Reject or full-plan buttons", async () => {
+	it("ends a plan card with its approval question asked as an ordinary question, with no Approved checkbox and no Approve, Reject or full-plan buttons", async () => {
 		const view = await testing.openConversations([planned]);
 
-		await waitFor(() => view.getByText("Plan: rename the Stop button"));
+		await waitFor(() => view.getByText("Plan", { selector: "span" }));
+		expect(view.queryByText("Plan: rename the Stop button")).toBeNull();
 		expect(view.getByText("Awaiting approval")).toBeTruthy();
 		expect(view.getByText("Rename it Pause.")).toBeTruthy();
 		expect(
-			view
-				.getByRole("checkbox", { name: "Approved" })
-				.getAttribute("aria-checked"),
-		).toBe("false");
-		expect(view.getByText("renaming the Stop button")).toBeTruthy();
-		expect(
-			view.queryByText("Do you approve renaming the Stop button?"),
-		).toBeNull();
+			view.getByText("Do you approve renaming the Stop button?"),
+		).toBeTruthy();
+		expect(view.queryByRole("checkbox", { name: "Approved" })).toBeNull();
 		expect(view.getByText("Anything else?")).toBeTruthy();
 		expect(view.queryByText("Request a full plan")).toBeNull();
 		expect(
@@ -344,17 +378,17 @@ describe("App's artifacts", () => {
 		expect(prompts()).toEqual([]);
 	});
 
-	it("approves only once Approved is ticked and sent, with the same reply as a Yes", async () => {
+	it("approves when Yes is picked and sent", async () => {
 		const view = await testing.openConversations([planned]);
 
-		const approved = await waitFor(() =>
-			view.getByRole("checkbox", { name: "Approved" }),
+		const yes = await waitFor(() =>
+			view.getByRole("button", { name: /Yes, approve it/ }),
 		);
-		await act(async () => fireEvent.click(approved));
+		await act(async () => fireEvent.click(yes));
 		expect(prompts()).toEqual([]);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^(Send|Answer)$/ })),
-		);
+		const send = view.getByRole("button", { name: "Send" });
+		expect(send.className).not.toContain("bg-success");
+		await act(async () => fireEvent.click(send));
 
 		await waitFor(() => expect(prompts()).toHaveLength(1));
 		expect(prompts()[0]).toBe(
@@ -362,10 +396,10 @@ describe("App's artifacts", () => {
 		);
 	});
 
-	it("sends a note without approving while Approved is unticked", async () => {
+	it("sends a note without approving while the approval question is unanswered", async () => {
 		const view = await testing.openConversations([planned]);
 
-		await waitFor(() => view.getByRole("checkbox", { name: "Approved" }));
+		await waitFor(() => view.getByRole("button", { name: /Yes, approve it/ }));
 		const box = view.getByRole("textbox", { name: "Anything else" });
 		await typeIn(box, "Call it Hold instead.");
 		await act(async () =>

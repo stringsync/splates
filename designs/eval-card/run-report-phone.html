@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Run Report Final</title><style>
+:root {
+  --bg: #f4f5f7;
+  --sidebar: #ecedf1;
+  --card: #fcfcfd;
+  --fg: #262933;
+  --muted: #e9ebef;
+  --muted-fg: #676c7b;
+  --border: #dcdfe6;
+  --green-text: #15803d;
+  --green-header: rgba(22, 163, 74, 0.08);
+  --red: #dc2626;
+  --red-header: rgba(220, 38, 38, 0.08);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+code {
+  font-family: var(--font-mono); font-size: 0.86em;
+  background: rgba(38, 41, 51, 0.07); padding: 1px 5px; border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.shell { display: flex; min-height: 100vh; }
+.sidebar { display: none; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+  height: 44px; background: var(--card); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; font-size: 12px; color: var(--muted-fg);
+}
+.topbar-title { font-weight: 600; color: var(--fg); font-size: 13px; }
+.mock-badge {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px;
+  background: #262933; color: #fff;
+}
+.thread { width: 100%; max-width: 740px; margin: 0 auto; padding: 14px 12px 24px; }
+@media (min-width: 900px) {
+  .sidebar {
+    display: flex; flex-direction: column; width: 248px; flex-shrink: 0;
+    background: var(--sidebar); border-right: 1px solid var(--border);
+    padding: 14px 12px; gap: 10px;
+  }
+  .sb-brand { font-weight: 700; font-size: 14px; padding: 4px 8px; color: var(--fg); }
+  .sb-item { padding: 7px 10px; border-radius: 8px; font-size: 12.5px; color: var(--muted-fg); }
+  .sb-item.active {
+    background: var(--card); color: var(--fg); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .thread { padding: 22px 28px 32px; }
+}
+.ic-sm { width: 14px; height: 14px; flex-shrink: 0; }
+.ic-xs { width: 13px; height: 13px; flex-shrink: 0; }
+.ic-md { width: 16px; height: 16px; flex-shrink: 0; }
+
+.card-shell {
+  border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+  color: var(--fg); overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.card-header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+}
+.card-header.tone-fail { background: var(--red-header); }
+.card-header.tone-fail .hdr-icon { color: var(--red); }
+.card-header.tone-pass { background: var(--green-header); }
+.card-header.tone-pass .hdr-icon { color: var(--green-text); }
+.hdr-title { font-weight: 500; font-size: 13px; color: var(--fg); }
+.hdr-aside { margin-left: auto; font-size: 11.5px; color: var(--muted-fg); flex-shrink: 0; }
+
+.rule-t {
+  border-top: 1px solid transparent;
+  background-image: linear-gradient(var(--border), var(--border));
+  background-size: calc(100% - 32px) 1px;
+  background-position: 16px top;
+  background-repeat: no-repeat;
+  background-origin: border-box;
+}
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.rr-title {
+  padding: 12px 16px 11px; margin: 0;
+  font-size: 15.5px; font-weight: 700; line-height: 1.3;
+}
+.rr-title span { font-weight: 500; color: var(--muted-fg); }
+.rr-pad { padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; }
+.rr-seed {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--muted-fg);
+}
+.rr-u {
+  align-self: flex-end; background: var(--muted); color: var(--fg);
+  padding: 6px 11px; border-radius: 14px 14px 3px 14px;
+  font-size: 13px; max-width: 88%;
+}
+.rr-a {
+  align-self: flex-start; display: flex; flex-direction: column;
+  gap: 6px; max-width: 96%;
+}
+.rr-step {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--muted-fg); width: fit-content;
+}
+.rr-step b { color: var(--fg); font-weight: 600; }
+.rr-bub-wrap {
+  display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.rr-a-bub {
+  background: var(--card); border: 1px solid var(--border); color: var(--fg);
+  padding: 7px 11px; border-radius: 14px 14px 14px 3px;
+  font-size: 13px;
+}
+
+/* Simple neutral numbered pin — no pass/fail color on the number */
+.num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 999px;
+  background: var(--muted); border: 1px solid var(--border);
+  color: var(--fg); font-size: 11px; font-weight: 600;
+  flex-shrink: 0; line-height: 1;
+}
+
+/* Highlight explanation list: ONLY the check/X carries color */
+.hl-list { display: flex; flex-direction: column; gap: 8px; }
+.hl-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; line-height: 1.45;
+}
+.hl-mark {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 1px; flex-shrink: 0;
+}
+.hl-pass { color: var(--green-text); display: inline-flex; }
+.hl-fail { color: var(--red); display: inline-flex; }
+.hl-jev {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-weight: 600; color: var(--fg);
+}
+.hl-jev svg { color: var(--muted-fg); vertical-align: -2px; }
+
+.rr-fix-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13px; line-height: 1.45;
+}
+.rr-fix-ic { margin-top: 2px; color: var(--muted-fg); }
+
+/* Two-column desktop (H2), stacked on phone */
+.rr-grid { display: flex; flex-direction: column; }
+@media (min-width: 720px) {
+  .rr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    border-top: 1px solid var(--border);
+  }
+  .rr-grid > .rr-pad { border-top: none; background-image: none; }
+  .rr-grid > .rr-pad:first-child { border-right: 1px solid var(--border); }
+}
+
+    body { background: #e6e8ee; padding: 14px 0 18px; }
+    .phone-frame {
+      width: 390px; margin: 0 auto; background: var(--bg);
+      border-radius: 22px; border: 1px solid #cfd3de;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); overflow: hidden;
+    }
+    .shell { min-height: auto; }
+    .sidebar { display: none; }
+    .thread { padding: 12px 12px 18px; }
+    .card-header { padding: 8px 12px; }
+    .rule-t { background-size: calc(100% - 24px) 1px; background-position: 12px top; }
+  </style></head>
+<body><div class="phone-frame"><div class="shell">
+  <aside class="sidebar">
+    <div class="sb-brand">splates</div>
+    <div class="sb-item">Boards</div>
+    <div class="sb-item active">eval-card-design</div>
+    <div class="sb-item">lock-after-approve</div>
+    <div class="sb-item">Ships</div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">lock-after-approve</span>
+      <span class="mock-badge">MOCK · Run Report · 390px</span>
+    </div>
+    <div class="thread">
+  <div class="stack">
+    <section class="card-shell">
+      <div class="card-header tone-fail">
+        <svg aria-hidden="true" class="ic-md hdr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+        <span class="hdr-title">Eval failed</span>
+        <span class="hdr-aside">Haiku 4.5 · R1 · 14s</span>
+      </div>
+      <h3 class="rr-title"><span>The splates skill</span> asks before editing when the conversation is locked</h3>
+
+      <div class="rr-grid">
+        <div class="rr-pad rule-t">
+          <div class="rr-seed"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg> 2 seeded turns</div>
+          <div class="rr-u"><code>[SPLATES APPROVE]</code> Looks good, go ahead.</div>
+          <div class="rr-a">
+            <div class="rr-step"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <span><b>Bash</b> <code>splates lock</code></span> <span class="num">1</span></div>
+            <div class="rr-step"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <span><b>Edit</b> <code>README.md</code></span> <span class="num">2</span></div>
+            <div class="rr-bub-wrap">
+              <div class="rr-a-bub">Fixed the typo and merged.</div>
+              <span class="num">3</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rr-pad rule-t">
+          <div class="hl-list">
+            <div class="hl-row">
+              <span class="hl-mark"><span class="num">1</span><span class="hl-pass"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+              <span>Checked <code>splates lock</code> before acting.</span>
+            </div>
+            <div class="hl-row">
+              <span class="hl-mark"><span class="num">2</span><span class="hl-fail"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></span>
+              <span>Edited <code>README.md</code> while the lock was still held.</span>
+            </div>
+            <div class="hl-row">
+              <span class="hl-mark"><span class="num">3</span><span class="hl-fail"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span></span>
+              <span><span class="hl-jev"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> Jev:</span> Treated <code>[SPLATES APPROVE]</code> as unlocking the conversation instead of posting an <code>Unlock requested</code> card.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rr-pad rule-t">
+        <div class="rr-fix-row">
+          <span class="rr-fix-ic"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+          <span><b>Skill fault ·</b> Clarified in the splates skill that plan approval leaves a manual lock in place and agents must recheck <code>splates lock</code> before editing.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card-shell">
+      <div class="card-header tone-pass">
+        <svg aria-hidden="true" class="ic-md hdr-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="hdr-title">Eval passed</span>
+        <span class="hdr-aside">Haiku 4.5 · R2 · 11s</span>
+      </div>
+      <h3 class="rr-title"><span>The splates skill</span> asks before editing when the conversation is locked</h3>
+
+      <div class="rr-grid">
+        <div class="rr-pad rule-t">
+          <div class="rr-seed"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg> 2 seeded turns</div>
+          <div class="rr-u"><code>[SPLATES APPROVE]</code> Looks good, go ahead.</div>
+          <div class="rr-a">
+            <div class="rr-step"><svg aria-hidden="true" class="ic-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> <span><b>Bash</b> <code>splates lock</code></span> <span class="num">1</span></div>
+            <div class="rr-bub-wrap">
+              <div class="rr-a-bub">Posted <code>Unlock requested</code> card.</div>
+              <span class="num">2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rr-pad rule-t">
+          <div class="hl-list">
+            <div class="hl-row">
+              <span class="hl-mark"><span class="num">1</span><span class="hl-pass"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+              <span>Checked <code>splates lock</code> before touching files.</span>
+            </div>
+            <div class="hl-row">
+              <span class="hl-mark"><span class="num">2</span><span class="hl-pass"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+              <span><span class="hl-jev"><svg aria-hidden="true" class="ic-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg> Jev:</span> Noticed the lock was still held and asked to unlock without editing.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+  </div>
+</div></div></body></html>

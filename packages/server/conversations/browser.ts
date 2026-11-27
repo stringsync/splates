@@ -7,6 +7,8 @@
 // The index brings in the server, agent processes and `bun:` modules with it,
 // so these are re-exported from the files that bring in none.
 
+export { afterDecision, planDecision } from "./decision";
+export { evalRunOf } from "./evals";
 export { eventWaitOf } from "./event-wait";
 export { paused, textOf } from "./messages";
 export {
@@ -19,10 +21,12 @@ export {
 export { conversationReference } from "./reference";
 export { saidIn, snippetOf, wordsOf } from "./search";
 export {
+	awaited,
 	blank,
 	DEVICES,
 	FROM_HEADER,
 	IDLE_STOP,
+	leftRunning,
 	listed,
 	SERVER_TOLD,
 	switched,

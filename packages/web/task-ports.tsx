@@ -25,7 +25,7 @@ export function TaskPorts({ task }: { task: string }): JSX.Element | null {
 		return null;
 	}
 	return (
-		<CardSection label="ports" title="Ports">
+		<CardSection label="ports" title="Ports" beside>
 			<ul className="flex flex-col gap-0.5 text-xs tabular-nums">
 				{ports.map(({ port, remote, local }) => (
 					<li key={port} className="flex min-w-0 flex-wrap gap-x-2">

@@ -41,6 +41,7 @@ export function Mark({
 	picking = false,
 	quiet = null,
 	background = false,
+	leftover = false,
 	signal = false,
 	blockedNeedsYou = false,
 	disconnected = false,
@@ -60,8 +61,10 @@ export function Mark({
 	subagent?: boolean;
 	/** How long it has been quiet, once it may be stuck; null while it is not. */
 	quiet?: Quiet | null;
-	/** Whether it has left a command running in the background. */
+	/** Whether it waits on a command in the background its agent will come back for. */
 	background?: boolean;
+	/** Whether its agent only left commands running, which it will not come back for. */
+	leftover?: boolean;
 	/** Whether its agent waits on a signal. */
 	signal?: boolean;
 	/** Whether its blocked task waits on a blocker nobody has queued. */
@@ -135,6 +138,35 @@ export function Mark({
 			</span>
 		);
 	}
+	const shows = need.kind === "idle";
+	const failedDisconnected =
+		disconnected && need.kind === "waiting" && need.why === "failed";
+	// A process failure can happen after the agent reports its final outcome.
+	if (
+		((shows && !signal) || failedDisconnected) &&
+		(!subagent || disconnected)
+	) {
+		if (reported === "merged" || reported === "done") {
+			return (
+				<Glyph
+					icon={CircleCheckIcon}
+					role="img"
+					aria-label={reported}
+					color="text-success"
+				/>
+			);
+		}
+		if (reported === "removed" && !hosting) {
+			return (
+				<Glyph
+					icon={CircleSlashIcon}
+					role="img"
+					aria-label="removed"
+					color="text-muted-foreground"
+				/>
+			);
+		}
+	}
 	if (subagent && !(need.kind === "waiting" && need.why === "failed")) {
 		return (
 			<Mark
@@ -147,7 +179,7 @@ export function Mark({
 		);
 	}
 	if (need.kind === "waiting") {
-		if (need.why === "failed" && disconnected) {
+		if (failedDisconnected) {
 			return <Disconnected title={need.subject} />;
 		}
 		return (
@@ -162,46 +194,25 @@ export function Mark({
 	}
 	if (signal) {
 		return (
-			<Glyph
-				icon={HourglassIcon}
+			<Ellipsis
 				role="status"
 				aria-label="waiting"
 				title="Waiting to continue automatically"
-				color="text-muted-foreground"
 			/>
 		);
 	}
-	const shows = need.kind === "idle";
-	if ((reported === "merged" || reported === "done") && shows) {
-		return (
-			<Glyph
-				icon={CircleCheckIcon}
-				role="img"
-				aria-label={reported}
-				color="text-success"
-			/>
-		);
-	}
-	if (reported === "removed" && shows && !hosting) {
-		return (
-			<Glyph
-				icon={CircleSlashIcon}
-				role="img"
-				aria-label="removed"
-				color="text-muted-foreground"
-			/>
-		);
-	}
-	// Waiting on blockers: the triangle while a blocker needs queuing, else a
-	// gray hourglass while its blockers are already handled.
+	// Waiting on blockers: the triangle while a blocker needs queuing, else
+	// gray dots while its blockers are already handled.
 	if (reported === "deferred" && shows && !hosting) {
-		return (
+		return blockedNeedsYou ? (
 			<Glyph
-				icon={blockedNeedsYou ? TriangleAlertIcon : HourglassIcon}
+				icon={TriangleAlertIcon}
 				role="img"
 				aria-label="deferred"
-				color={blockedNeedsYou ? "text-warning" : "text-muted-foreground"}
+				color="text-warning"
 			/>
+		) : (
+			<Ellipsis role="img" aria-label="deferred" />
 		);
 	}
 	if (
@@ -226,17 +237,18 @@ export function Mark({
 	if (need.kind === "idle" && !hosting) {
 		if (background) {
 			return (
-				<Glyph
-					icon={HourglassIcon}
+				<Ellipsis
 					role="status"
-					aria-label="agent idle with background commands"
-					title="Agent idle · background commands running"
-					color="text-muted-foreground"
+					aria-label="waiting on background commands"
+					title="Waiting on background commands"
 				/>
 			);
 		}
 		if (disconnected) {
 			return <Disconnected title="Disconnected" />;
+		}
+		if (leftover) {
+			return <Disconnected title="Idle · commands left running" />;
 		}
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
@@ -300,6 +312,47 @@ function Glyph({
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
 			<Icon className={cn("size-3.5", color)} />
+		</span>
+	);
+}
+
+/**
+ * Each dot of `Ellipsis` by its centre, 0.2s behind the one to its left; the
+ * delays are negative so every dot is already in motion at mount.
+ */
+const DOT_DELAYS = [
+	{ cx: 5, delay: "0s" },
+	{ cx: 12, delay: "-1s" },
+	{ cx: 19, delay: "-0.8s" },
+];
+
+/**
+ * Gray dots lighting up in turn, in a mark's box on Lucide's 24-unit grid as
+ * its other icons are: work under way that carries on without anyone, where
+ * the hourglass is for work yet to start.
+ */
+function Ellipsis(box: Omit<ComponentProps<"span">, "className">): JSX.Element {
+	return (
+		<span
+			{...box}
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<svg
+				aria-hidden="true"
+				viewBox="0 0 24 24"
+				className="mark-ellipsis size-3.5 fill-current text-muted-foreground"
+			>
+				{DOT_DELAYS.map(({ cx, delay }) => (
+					<circle
+						key={cx}
+						cx={cx}
+						cy={12}
+						r={2.5}
+						className="animate-dot motion-reduce:animate-none"
+						style={{ animationDelay: delay }}
+					/>
+				))}
+			</svg>
 		</span>
 	);
 }

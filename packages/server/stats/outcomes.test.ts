@@ -71,7 +71,6 @@ describe.concurrent("outcomes", () => {
 			{ kind: "prompt", text: "merge", at: at(6) },
 		]);
 
-		await Bun.sleep(80);
 		await merge(deps, worktree);
 
 		expect(await deps.outcomes.list()).toMatchObject([
@@ -432,7 +431,6 @@ describe.concurrent("outcomes", () => {
 			"report-titled": { passed: 4, failed: 1 },
 		});
 
-		await Bun.sleep(60);
 		await merge(deps, worktree);
 
 		const [outcome] = await deps.outcomes.list();
@@ -666,7 +664,6 @@ describe.concurrent("outcomes", () => {
 			said("on it", at(1)),
 		];
 		await logged(deps, start);
-		await Bun.sleep(20);
 		await merge(deps, worktree);
 		const [recorded] = await deps.outcomes.list();
 		const ended = new Date(Date.now() + 10).toISOString();
@@ -737,11 +734,11 @@ async function listPriced(
 	lines: (at: (step: number) => string) => object[],
 ): Promise<Outcome["usage"]> {
 	deps.proc.env = { ...deps.proc.env, SPLATES_CONVERSATION: "c1" };
-	const worktree = await committed(deps, "one\n");
+	await committed(deps, "one\n");
 	await listPrices(deps);
 	await logged(deps, lines(await stepsFromStart(deps)), agent);
-	await Bun.sleep(60);
-	await merge(deps, worktree);
+	// Removing records the same usage as merging, without a gate or rebase.
+	await remove(deps, "alpha");
 	return (await deps.outcomes.list())[0]?.usage;
 }
 
@@ -784,13 +781,22 @@ async function committed(deps: Testing, text: string): Promise<string> {
 	return worktree;
 }
 
-/** Times 10ms apart from when `alpha` began, all before a merge 60ms on. */
+/**
+ * Times 10ms apart from when `alpha` began, a minute back, so the whole
+ * timeline is already past when it ends, with no wait.
+ */
 async function stepsFromStart(
 	deps: Testing,
 ): Promise<(step: number) => string> {
-	const began = Date.parse(
-		(await deps.service.find("alpha")).state?.createdAt ?? "",
-	);
+	const state = (await deps.service.find("alpha")).state;
+	if (!state) {
+		throw new Error("alpha has no record");
+	}
+	const began = Date.now() - 60_000;
+	await deps.service.saveRecord({
+		...state,
+		createdAt: new Date(began).toISOString(),
+	});
 	return (step) => new Date(began + step * 10).toISOString();
 }
 

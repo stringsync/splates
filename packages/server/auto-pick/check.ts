@@ -4,4 +4,4 @@
  * that edits them.
  */
 export { idFor } from "./cells";
-export { checkRules, lineupFor } from "./rules";
+export { checkRules, lineupFor, planOf } from "./rules";

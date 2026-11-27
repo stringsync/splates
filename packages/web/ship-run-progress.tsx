@@ -36,7 +36,7 @@ export function ShipRunProgress({
 					? `Stopped on a failure, ${done} of ${total} done`
 					: `Shipping · ${done} of ${total} done`;
 	return (
-		<div className="flex flex-col gap-2.5 rounded-xl border bg-card px-3.5 py-3 shadow-xs">
+		<div className="flex flex-col gap-2.5 rounded-xl border bg-card px-4 py-3.5 shadow-xs">
 			<p className="flex items-baseline justify-between gap-3 font-semibold text-sm">
 				<span>{said}</span>
 				<span className="font-normal text-muted-foreground text-xs tabular-nums">

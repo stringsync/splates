@@ -78,6 +78,8 @@ export class QueueRunner implements Resource {
 	#gap: Resource | null = null;
 	/** The agent-queued tasks held for the quota reserve now, by id. */
 	#reserved = new Map<number, ReserveHold>();
+	/** Why the queue failed to check on its last sweep; null while healthy. */
+	#error: string | null = null;
 
 	private constructor(
 		private readonly deps: QueueRunnerDeps,
@@ -106,11 +108,28 @@ export class QueueRunner implements Resource {
 
 	/** Starts the next queued task nothing blocks, when the pace leaves room. */
 	sweep(): Promise<void> {
-		const next = this.#checking.then(() => this.#check());
-		this.#checking = next.catch((error: unknown) =>
-			this.deps.log.error(`could not work the queue: ${String(error)}`),
-		);
+		const next = this.#checking.then(async () => {
+			await this.#check();
+			this.#setError(null);
+		});
+		this.#checking = next.catch((error: unknown) => {
+			this.#setError(refusal(error));
+			this.deps.log.error(`could not work the queue: ${String(error)}`);
+		});
 		return this.#checking;
+	}
+
+	/** Why the queue failed to check on its last sweep; null while healthy. */
+	error(): string | null {
+		return this.#error;
+	}
+
+	#setError(next: string | null): void {
+		if (this.#error === next) {
+			return;
+		}
+		this.#error = next;
+		this.deps.onError?.(next);
 	}
 
 	/** The tasks held for the quota reserve as of the last check, by id. */
@@ -554,6 +573,8 @@ export interface QueueRunnerDeps {
 	 * may start; absent, none is held.
 	 */
 	reserve?: (queued: TaskRecord) => Promise<ReserveHold | null>;
+	/** Called when the queue's sweep error appears, changes, or clears. */
+	onError?: (error: string | null) => void;
 	log: Logger;
 }
 
@@ -643,7 +664,7 @@ export function queuePrompt(queued: TaskRecord): string {
 		...(!ungroomed(queued)
 			? []
 			: [
-					"Groom it first, since it is still ungroomed in Backlog, as the splates skill's `references/groom.md` says under Grooming a task you start.",
+					"Groom it first, since it is still ungroomed in Backlog, as the splates skill's `references/queue.md` says under Grooming.",
 				]),
 		"Work it as the splates skill says, ending in `splates merge` or `splates remove`, or in questions for the user.",
 	].join("\n");

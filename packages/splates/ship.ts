@@ -1,18 +1,17 @@
 // splates's ship target: @stringsync/splates goes to npm through its public
-// mirror, stringsync/splates, whose publish workflow npm trusts. The server,
-// the evals harness and rec are private, so the build folds them in.
+// mirror, stringsync/splates, whose publish workflow npm trusts. The server
+// and rec are private, so the build folds them in.
 // `bin/splates dev ship` serves it.
 
 import { commitsSince, npm, target } from "core/ship";
 
 // What a release carries: the package, the server and the page it serves, the
-// skill it keeps, and what the build folds or bundles in (evals, rec, core).
+// skill it keeps, and what the build folds or bundles in (rec, core).
 const SHIPPED_PATHS = [
 	"splates/packages/splates",
 	"splates/packages/server",
 	"splates/packages/web",
 	"splates/skills/splates",
-	"evals/packages/evals",
 	"rec/packages/rec",
 	"core/packages/core",
 ];
@@ -36,10 +35,10 @@ export const splatesShip = target({
 			// The build compiles without checking types, so the root checks are
 			// its gate; whoever ships is expected to have run the suite.
 			test: "bin/mono fix --check --code-only",
-			// `splates init` installs the skill from the release's tag.
-			keep: ["skills/splates/**"],
+			// `splates init` installs the skill from the release's tag. Its
+			// `evals/` stay private: they grade the skill and import mono's evals.
+			keep: ["skills/splates/*.md", "skills/splates/references/**"],
 			fold: {
-				"@evals/evals": {},
 				// What rec reads from beside its code when it runs: its extension,
 				// its skill, and the control page `prepare` builds ahead.
 				"@mono/rec": {
@@ -64,6 +63,6 @@ export const splatesShip = target({
 			// over the root mixes the page's happy-dom globals and the default 5 s
 			// timeout into the server's tests, which then fail and hang.
 			mirrorTest:
-				'for dir in packages/* skills/splates/evals; do [ -d "$dir" ] || continue; (cd "$dir" && bun test --pass-with-no-tests --timeout 120000) || exit 1; done',
+				'for dir in packages/*; do [ -d "$dir" ] || continue; (cd "$dir" && bun test --pass-with-no-tests --timeout 120000) || exit 1; done',
 		}),
 });

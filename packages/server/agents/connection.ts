@@ -11,7 +11,13 @@ import type {
 	Decision,
 	Setting,
 } from "../conversations";
-import { type Live, LOG_FORMAT, said } from "../conversations";
+import {
+	EVALS_LIVE_DIR,
+	evalsDir,
+	type Live,
+	LOG_FORMAT,
+	said,
+} from "../conversations";
 import { fail } from "../exit";
 import {
 	kimiTurnUsage,
@@ -233,6 +239,8 @@ export class AgentConnection {
 			process = (launch ?? this.deps.launcher.launch)(agent.argv, cwd, {
 				...extra,
 				SPLATES_CONVERSATION: id,
+				// Where `bin/evals run` writes each eval's progress, for its card.
+				[EVALS_LIVE_DIR]: evalsDir(this.deps.dir, id),
 				...(startedBy === null ? {} : { SPLATES_STARTED_BY: startedBy }),
 				...(this.deps.url === null ? {} : { SPLATES_DEV: this.deps.url }),
 				...(slug === undefined ? {} : { SPLATES_PROJECT: slug }),

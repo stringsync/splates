@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Steps } from "@splates/server/plans/browser";
 import { ConversationFeed } from "./conversation-feed";
 import { Drafts } from "./drafts";
-import { EvalsConversation } from "./evals-card";
 import { askedFrom } from "./steps-asked";
-import { StepsCard } from "./steps-card";
+import { StepsCard, StepsConversation } from "./steps-card";
 import { StepsPopOutHost } from "./steps-pop-host";
 import { conversation, message, Testing } from "./testing";
 import { act, cleanup, fireEvent, render, within } from "./testing-library";
@@ -127,9 +126,9 @@ const DRAFTS = new Drafts();
 function page(card: boolean, talk = TALK) {
 	return (
 		<StepsPopOutHost talk={talk} drafts={DRAFTS}>
-			<EvalsConversation value="c1">
+			<StepsConversation value="c1">
 				{card && <StepsCard steps={STEPS} />}
-			</EvalsConversation>
+			</StepsConversation>
 		</StepsPopOutHost>
 	);
 }

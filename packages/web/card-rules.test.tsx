@@ -7,7 +7,6 @@ import { ChecksSection } from "./checks-section";
 import { details, todo } from "./fixtures";
 import { LiveMergeCard } from "./merge-card";
 import { OwnQueueCard } from "./permission-card";
-import { QuestionCards } from "./question-cards";
 import { ReviewPanel } from "./review-panel";
 import { cleanup, render } from "./testing-library";
 
@@ -63,7 +62,6 @@ test("a Ready to merge card joins summary and details without a divider between 
 				task: "header",
 				base: "main",
 				summary: "Opening line:",
-				demo: null,
 				checks: [],
 				failed: [],
 				details: "- One\n- Two",
@@ -73,42 +71,6 @@ test("a Ready to merge card joins summary and details without a divider between 
 	expect(
 		container.querySelectorAll(".divide-y, .border-t, .rule-y, .rule-t"),
 	).toHaveLength(0);
-});
-
-test("a questions card with a report and demo draws no double borders around the demo", () => {
-	const { container } = render(
-		<QuestionCards
-			escalation={{
-				ending: "escalated",
-				task: "header",
-				base: null,
-				reason: "Need a look",
-				body: "Context.",
-				source: "## ⚠️ Escalated header: Need a look\n\nContext.",
-			}}
-			demo={{
-				title: null,
-				intro: "Open the page.",
-				steps: [],
-			}}
-			questions={[
-				{
-					number: "1",
-					done: false,
-					text: "Does it fit?",
-					size: null,
-					body: "",
-					reply: null,
-					followUps: [],
-					choices: [],
-					pick: null,
-				},
-			]}
-		/>,
-	);
-	// Only the card header has border-b; sections use border-t between each other.
-	expect(container.querySelectorAll(".border-b")).toHaveLength(1);
-	expect(ruled(container)).toEqual(["demo"]);
 });
 
 test("a live merge card's batch banner draws no rule directly under the header", () => {

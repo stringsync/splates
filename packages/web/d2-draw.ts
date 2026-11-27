@@ -1,71 +1,92 @@
 import type { Resource } from "core/disposable";
+import { sendJson } from "./api";
 
-/** The browser build of D2, whose instance owns a worker holding the whole WASM runtime. */
-type Engine = InstanceType<typeof import("@terrastruct/d2").D2>;
+/** Transport that turns D2 source and a unique salt into an SVG string. */
+export interface D2Transport {
+	render(source: string, salt: string): Promise<string>;
+}
 
-// How long nothing draws before the worker stops.
-const IDLE_MS = 30_000;
+const MAX_CACHED = 64;
 
 /**
- * Turns D2 source into SVG. Call `draw` with a diagram's source and a unique
- * salt; every caller shares one runtime. Call `dispose` to free it early.
+ * Turns D2 source into SVG through the splates server, deduplicating
+ * in-flight requests and keeping a bounded in-memory cache for the page.
  */
 export class D2Draw implements Resource {
-	// One drawing runs at a time, as the engine answers a single call at once;
-	// the worker stops once nothing has drawn for IDLE_MS.
-	private engine: Promise<Engine> | null = null;
-	private tail: Promise<unknown> = Promise.resolve();
-	private idle: ReturnType<typeof setTimeout> | null = null;
-	private pending = 0;
+	private readonly cache = new Map<string, string>();
+	private readonly inflight = new Map<string, Promise<string>>();
+	private disposed = false;
+
+	constructor(
+		private readonly transport: D2Transport = SERVER_TRANSPORT,
+		private readonly maxCached: number = MAX_CACHED,
+	) {}
 
 	/** The SVG for `source`, its element ids made unique by `salt`. */
 	draw(source: string, salt: string): Promise<string> {
-		this.pending++;
-		if (this.idle !== null) {
-			clearTimeout(this.idle);
-			this.idle = null;
+		if (this.disposed) {
+			return Promise.reject(new Error("D2 drawer is disposed"));
 		}
-		const run = this.tail.then(async () => {
-			const engine = await this.start();
-			const result = await engine.compile(source);
-			const svg = await engine.render(result.diagram, {
-				...result.renderOptions,
-				salt,
-				noXMLTag: true,
+		const key = `${salt}\0${source}`;
+		const cached = this.cache.get(key);
+		if (cached !== undefined) {
+			this.cache.delete(key);
+			this.cache.set(key, cached);
+			return Promise.resolve(cached);
+		}
+		const running = this.inflight.get(key);
+		if (running !== undefined) {
+			return running;
+		}
+		const pending = this.transport
+			.render(source, salt)
+			.then((svg) => {
+				if (!this.disposed) {
+					this.remember(key, svg);
+				}
+				return svg;
+			})
+			.finally(() => {
+				this.inflight.delete(key);
 			});
-			return svg;
-		});
-		this.tail = run.catch(() => {});
-		return run.finally(() => {
-			this.pending--;
-			if (this.pending === 0) {
-				this.idle = setTimeout(() => this.dispose(), IDLE_MS);
-			}
-		});
+		this.inflight.set(key, pending);
+		return pending;
 	}
 
-	/** Stops the engine's worker; a later `draw` starts a new one. */
+	/** Clears cached SVGs and stops accepting new draws. */
 	dispose(): void {
-		if (this.idle !== null) {
-			clearTimeout(this.idle);
-			this.idle = null;
-		}
-		const engine = this.engine;
-		this.engine = null;
-		void engine?.then(
-			(made) =>
-				(
-					made as unknown as { worker?: { terminate?: () => void } }
-				).worker?.terminate?.(),
-			() => {},
-		);
+		this.disposed = true;
+		this.cache.clear();
+		this.inflight.clear();
 	}
 
-	private start(): Promise<Engine> {
-		this.engine ??= import("@terrastruct/d2").then(({ D2 }) => new D2());
-		return this.engine;
+	private remember(key: string, svg: string): void {
+		if (this.maxCached <= 0) {
+			return;
+		}
+		if (this.cache.has(key)) {
+			this.cache.delete(key);
+		} else if (this.cache.size >= this.maxCached) {
+			const oldest = this.cache.keys().next().value;
+			if (oldest !== undefined) {
+				this.cache.delete(oldest);
+			}
+		}
+		this.cache.set(key, svg);
 	}
 }
 
-/** The one engine every diagram on the page draws with. */
+const SERVER_TRANSPORT: D2Transport = {
+	async render(source: string, salt: string): Promise<string> {
+		const body = (await sendJson("/api/d2", "POST", { source, salt })) as {
+			svg?: unknown;
+		};
+		if (typeof body.svg !== "string") {
+			throw new Error("server returned no svg");
+		}
+		return body.svg;
+	},
+};
+
+/** The one drawer every diagram on the page uses. */
 export const D2_DRAW = new D2Draw();

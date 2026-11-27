@@ -16,6 +16,7 @@ import { navPage, PAGES, type Page } from "./page-route";
 import { AddProjectDialog } from "./project-controls";
 import { UpdateDot } from "./release";
 import { SetupDot } from "./setup-state";
+import { ShipRecapIndicator } from "./ship-recap-indicator";
 import { useAutoPickImprovements } from "./use-auto-pick-improvements";
 import { useShipsRunning, useShipsWaiting } from "./use-ships-waiting";
 
@@ -84,6 +85,7 @@ export function Drawer({
 				count: asking,
 				urgent: true,
 				running: shipsRunning,
+				status: <ShipRecapIndicator />,
 			})}
 			onClick={() => go(value)}
 			icon={
@@ -163,6 +165,7 @@ function Entry({
 	count = 0,
 	urgent = false,
 	running = false,
+	status,
 }: {
 	current: boolean;
 	onClick: () => void;
@@ -173,6 +176,7 @@ function Entry({
 	urgent?: boolean;
 	/** Whether work under it runs, shown as a gray spinner. */
 	running?: boolean;
+	status?: ReactNode;
 }): JSX.Element {
 	return (
 		<button
@@ -193,6 +197,7 @@ function Entry({
 					className="animate-spin"
 				/>
 			)}
+			{status}
 			{count > 0 && (
 				<span
 					className={cn(

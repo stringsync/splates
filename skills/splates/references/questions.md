@@ -8,16 +8,13 @@ another way, a call a wrong guess would cost much rework to undo, one hard to
 reverse (a migration, data written, a message sent, anything outside the
 repo), or one that goes against something the user said before. Asking is
 cheap, so when in doubt, ask: the page shows your questions as a card with
-your pick already chosen, the user answers with a tap, and you carry on with
-that pick meanwhile rather than wait. When an answer overturns a pick you
+your pick already chosen, the user answers with a tap, and how long you wait
+for it is your trust band (SKILL.md, step 5). When an answer overturns a pick you
 built on, redo that part.
 
-Approval of a costly or hard-to-undo change goes in a
-[plan card](proposing.md) (`## 📝 Plan: <title>`), whose last question is
-`Do you approve <the change, named>?`; wait for Yes before writing code. Never
-ask `Do you approve ...?` in a standalone questions card. Standalone questions
-go in a single questions card. This holds in every conversation in a splates
-repository, task open or not.
+Keep a proposal's ordinary questions in its [plan card](proposing.md)
+(`## 📝 Plan: <title>`). Standalone questions go in one
+questions card. This holds with or without an open task.
 
 Make the rest yourself, the calls the user would not care to weigh in on (a
 name only the code reads, a helper's shape, a log line), saying nothing of
@@ -39,6 +36,23 @@ it. Keep this lean: never ask a question whose answer changes nothing. When the
 user asks to choose between specific options or says to ask before changing
 anything, ask only that decision: do not add a "should we start?" question or
 unasked follow-ups.
+
+## Beyond the trust bands
+
+The bands are in SKILL.md, step 5. With no `trust:` line and no row in
+`splates trust`, ask and go. The ones that always ask, at any trust, are
+shipping (only the user ships), spending money or paid tokens, deleting data
+or work, and security changes (permissions, auth, secrets, what reaches the
+network). Assuming skips only the ordinary question: separate permissions
+and any review or mockup the skill calls for still apply. The server
+enforces only the limits (a merge below 70 needs an approved plan, only the
+user ships), never that you act on your trust.
+
+**Assuming.** At 90 and up, write one `🛡 Assumed: <what>: <pick> (vs
+<alternative> · <kind>)` line per call, never in a code block or question
+card, and ask any kind the `trust:` line says to `ask first on` as ask and go.
+`[SPLATES OVERTURN <n>]` names the n-th such line: switch to the alternative
+(or what follows it), redo what rests on it, and ask that kind from then on.
 
 ## Writing the card
 
@@ -75,8 +89,8 @@ there, even one raised in passing.
   When the answer is an order (what lands first), use `- a.` lines in the
   order you would go with; the reply lists every letter in the order picked
   (`4. b, a, c`).
-- **Picks.** Always mark a default pick `(chosen)` on every question except a
-  plan's `Do you approve ...?`, even for pure product or user preferences (the
+- **Picks.** Mark a default pick `(chosen)` on every ordinary question,
+  even for pure product or user preferences (the
   user accepts with one tap or picks another). Describe every choice, yours too
   (never a bare "That"), and mark each one you would tick `(chosen)`, so a
   multi-select may carry several.
@@ -112,36 +126,85 @@ there, even one raised in passing.
 **Show what can be seen.** When a question is about something visible, put
 an attached image under the question's line, and for choices picked by
 looking (mockup variants, a style, a layout), one image indented under each
-choice, built before asking. [visuals.md](visuals.md) covers capturing,
+choice, built before asking. [showing.md](showing.md) covers capturing,
 attaching and placing them.
 
-**Propose an eval as an example.** To ask whether to add an eval, put a
-fenced `eval` block under `Approve eval <id>?` with `Approve`, `Edit` and
-`Drop` choices; the page draws it as the user's message, one good reply
-(its tool calls as rows beside a tool icon, its words in a bubble), and how it
-is graded, folded. No wrong reply is drawn; what is wrong goes in a `check`.
-One `key: value` a line: `group` (the `describe` subject) and `title` (the `it`
-string), which the page joins into one sentence, so write them to read as
-one (`The splates skill` + `skips the plan and says so for a trivial fix`);
-then `you`, then `pass` lines in reply
-order (`pass tool: <Tool> <input>` for a tool call, each followed by a `does:` line saying in plain words what it does, `backticks` for code), then `starts`, a `check` per
-code check, `judge` and `judged by` when not Sonnet.
+**Propose an eval as an example.** To propose a new eval or a change to one,
+ask `Approve eval <id>?` as the only question in its message, with a one-line
+why, the fenced `eval` block, and `Approve`, `Edit` and `Drop` choices: the
+page draws one eval card with the approval under its checks, never an eval
+card and a separate question card. Ask anything else in a later turn. Show an
+existing eval with the fence alone, which draws the card with no approval.
+The card is framed in orange: header `Eval · <group>` with optional `id`, bold
+`title`, vertical starting-state rows (`repo`, `files`, `state`, or legacy
+`starts`), an alternating script of user and agent turns, and code and judge
+checks at the bottom. No wrong reply is drawn; what is wrong goes in a `check`.
+One `key: value` a line: `id` (optional), `group` (the `describe` subject),
+`title` (the `it` string), optional `repo`, `files` and `state` lines, then
+alternating turns in order (`you` or `user` for user turns, including server
+directives, and `agent` or `pass` for agent replies, with `tool`, `agent tool`
+or `pass tool`: `<Tool> <input>` and an optional `does:` line in plain words,
+`backticks` for code, for tool calls), then a `check` per code check, `judge`,
+and `judged by` when not Jev. The single-turn `you` + `pass` form keeps working.
 
 ````markdown
-1. Approve eval `core/trivial-skips-plan`?
+1. Approve eval `splates/plan-before-edit`?
    ```eval
+   id: splates/plan-before-edit
    group: The splates skill
-   title: skips the plan and says so for a trivial fix
-   you: README.md says 'teh' in the intro, fix it.
-   pass: Small and easy to revert: building directly.
-   pass tool: Bash splates merge --message "Fix the README typo"
-   does: Lands the README fix with `splates merge`.
-   check: No reply holds a Plan card.
-   judge: Does the agent say in one line that it skips a plan?
+   title: posts a plan and waits before editing below ask-and-go
+   repo: `mono` on `main` (clean)
+   files: `README.md` has `"teh"`
+   state: trust 47
+   you: Fix the typo in `README.md` and merge it.
+   tool: Read README.md
+   does: Reads the file to find the typo.
+   agent: Posts a short Plan card and ends the turn instead of editing.
+   check: No file edits before the plan is approved.
+   judge: Does the agent post a plan and wait rather than editing below ask-and-go?
    ```
    - (a) Approve (chosen)
    - (b) Edit
    - (c) Drop
+````
+
+**Report an eval run.** To show the outcome of `bin/evals run --json` in a
+conversation, put the JSON in a fenced `eval-report` block. Along with the
+runner's fields (`eval`, `agent`, `status`, `error`, `transcript`, `checks`,
+`judge`, `usage`, `fault`), you may add `group`, `round` (e.g. `1` or `"R1"`),
+`change` (what you changed on failure), and zero-based `step` indexes into the
+live transcript on each check or `judge` to link numbered pins between the
+short transcript and the highlight list.
+
+````markdown
+```eval-report
+{
+  "group": "The splates skill",
+  "eval": "posts a plan and waits before editing below ask-and-go",
+  "agent": "claude:haiku-4-5",
+  "round": 1,
+  "status": "fail",
+  "error": null,
+  "transcript": [
+    { "who": "user", "text": "Fix the typo in `README.md` and merge it.", "seeded": true },
+    { "who": "tool", "text": "Read README.md" },
+    { "who": "tool", "text": "Edit README.md" },
+    { "who": "agent", "text": "Fixed the typo and merged." }
+  ],
+  "checks": [
+    { "id": "read-first", "about": "Read `README.md` before acting.", "pass": true, "step": 1 },
+    { "id": "no-edit", "about": "Edited `README.md` before the plan was approved.", "pass": false, "step": 2 }
+  ],
+  "judge": {
+    "pass": false,
+    "reason": "Edited and merged without posting a Plan card at trust 47.",
+    "step": 3
+  },
+  "usage": { "usd": null, "turns": 2, "seconds": 14 },
+  "fault": "skill",
+  "change": "Clarified in the splates skill that a trivial fix below ask-and-go still gets a short plan."
+}
+```
 ````
 
 ## Reading a reply

@@ -663,6 +663,47 @@ describe("QueueRunner", () => {
 			pick: { agent: "codex" },
 		});
 	});
+
+	it("tracks the latest sweep error, notifies on changes, and clears it once a sweep succeeds", async () => {
+		const seen: (string | null)[] = [];
+		let failWith: Error | null = new Error("auto-pick.json is invalid\ndetail");
+		const failing = QueueRunner.watch({
+			queued: async () => {
+				if (failWith !== null) {
+					throw failWith;
+				}
+				return [];
+			},
+			tasks: async () => [],
+			picker: {
+				ahead: async () => {},
+				judging: () => false,
+				guess: async () => new Map(),
+				decide: async () => ({
+					pick: { agent: "claude" },
+					tell: async () => {},
+				}),
+			},
+			start: async () => {},
+			onError: (error) => seen.push(error),
+			log: new MemoryLogger(),
+			timer,
+		});
+		try {
+			await failing.sweep();
+			expect(failing.error()).toBe("auto-pick.json is invalid");
+			// Repeating the same error does not fire onError again.
+			await failing.sweep();
+			expect(seen).toEqual(["auto-pick.json is invalid"]);
+
+			failWith = null;
+			await failing.sweep();
+			expect(failing.error()).toBeNull();
+			expect(seen).toEqual(["auto-pick.json is invalid", null]);
+		} finally {
+			failing.dispose();
+		}
+	});
 });
 
 /**

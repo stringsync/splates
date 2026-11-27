@@ -17,55 +17,6 @@ import type { Details, Snapshot } from "../tasks";
 import type { Projects } from "./projects";
 
 /**
- * What `GET /api/everywhere` answers: every project served so far, its
- * slug first among what it holds, so a page shows all of them at once.
- */
-export interface EverywhereListing {
-	/** By slug, alphabetically. */
-	projects: EverywhereProject[];
-}
-
-/** One project as the every-project feed carries it. */
-export interface EverywhereProject extends EverywhereBoard {
-	/**
-	 * Newest first, as its own page lists them, all as
-	 * summaries; none while they are off.
-	 */
-	conversations: ConversationState[];
-}
-
-/**
- * What of one project's snapshot the every-project feed carries, sent whole
- * as `event: board` whenever any of it moves.
- */
-export interface EverywhereBoard {
-	/** What `?project=` names it by. */
-	project: string;
-	/** Its repository's directory name. */
-	repo: string;
-	/** Its main tree. */
-	root: string;
-	/** The directory that holds each of its tasks' worktrees. */
-	worktreeRoot: string;
-	trunk: string;
-	tasks: Details[];
-	/** Every lane there has been, to name an orchestrator after. */
-	laneNames: LaneRecord[];
-	/** The lane each of its tasks at work on a lane is on, by task name, as `lanesTaken` reads it. */
-	lanesTaken: Record<string, number>;
-	/** Its board's queued and blocked tasks, for every folder to list its queue. */
-	todos?: TaskRecord[];
-}
-
-/** What the global General destination contributes to the same feed. */
-export interface GeneralFeed {
-	root: string;
-	conversations: Conversations;
-	current(): Promise<Snapshot>;
-	listen(heard: Parameters<Served["listen"]>[0]): Resource;
-}
-
-/**
  * Every registered project's tasks and conversations, on one stream: what
  * a page listing them across projects reads. The first ask opens each
  * project not yet served, one at a time behind the focused one, so `owned`
@@ -317,7 +268,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 	): Promise<EverywhereBoard | null> {
 		try {
 			await project.format.check();
-			const { repo, worktreeRoot, trunk, tasks, laneNames, todos } =
+			const { repo, worktreeRoot, trunk, tasks, laneNames, todos, queueError } =
 				await project.current();
 			return {
 				project: await this.slugOf(root),
@@ -329,6 +280,7 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 				laneNames,
 				lanesTaken: lanesTaken(todos),
 				todos,
+				...(queueError ? { queueError } : {}),
 			};
 		} catch (error) {
 			this.home.log.error(`${root} left out of every project's feed: ${error}`);
@@ -380,3 +332,54 @@ export class EverywhereRoutes implements StreamWatcher, AsyncResource {
 }
 
 const encoder = new TextEncoder();
+
+/**
+ * What `GET /api/everywhere` answers: every project served so far, its
+ * slug first among what it holds, so a page shows all of them at once.
+ */
+export interface EverywhereListing {
+	/** By slug, alphabetically. */
+	projects: EverywhereProject[];
+}
+
+/** One project as the every-project feed carries it. */
+export interface EverywhereProject extends EverywhereBoard {
+	/**
+	 * Newest first, as its own page lists them, all as
+	 * summaries; none while they are off.
+	 */
+	conversations: ConversationState[];
+}
+
+/**
+ * What of one project's snapshot the every-project feed carries, sent whole
+ * as `event: board` whenever any of it moves.
+ */
+export interface EverywhereBoard {
+	/** What `?project=` names it by. */
+	project: string;
+	/** Its repository's directory name. */
+	repo: string;
+	/** Its main tree. */
+	root: string;
+	/** The directory that holds each of its tasks' worktrees. */
+	worktreeRoot: string;
+	trunk: string;
+	tasks: Details[];
+	/** Every lane there has been, to name an orchestrator after. */
+	laneNames: LaneRecord[];
+	/** The lane each of its tasks at work on a lane is on, by task name, as `lanesTaken` reads it. */
+	lanesTaken: Record<string, number>;
+	/** Its board's queued and blocked tasks, for every folder to list its queue. */
+	todos?: TaskRecord[];
+	/** Why the queue failed to check on its last sweep; absent while healthy. */
+	queueError?: string | null;
+}
+
+/** What the global General destination contributes to the same feed. */
+export interface GeneralFeed {
+	root: string;
+	conversations: Conversations;
+	current(): Promise<Snapshot>;
+	listen(heard: Parameters<Served["listen"]>[0]): Resource;
+}

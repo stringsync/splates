@@ -1,6 +1,5 @@
 import {
 	ChartColumnIcon,
-	FlaskConicalIcon,
 	GaugeIcon,
 	KanbanIcon,
 	KeyRoundIcon,
@@ -9,6 +8,7 @@ import {
 	MessageSquareIcon,
 	RadioIcon,
 	ServerCogIcon,
+	ShieldCheckIcon,
 	ShipIcon,
 	SparklesIcon,
 	VideoIcon,
@@ -25,8 +25,8 @@ export type PageAreaId =
 	| "stats"
 	| "ships"
 	| "signals"
+	| "trust"
 	| "rec"
-	| "evals"
 	| "billing"
 	| "setup"
 	| "welcome"
@@ -120,19 +120,19 @@ export const PAGE_AREAS: Record<Page, PageArea> = {
 		scope: "everywhere",
 		compact: false,
 	},
+	trust: {
+		area: "trust",
+		Icon: ShieldCheckIcon,
+		description:
+			"How much each model can decide without asking. Ships, spending, deletions and security always ask.",
+		scope: "everywhere",
+		compact: false,
+	},
 	rec: {
 		area: "rec",
 		Icon: VideoIcon,
 		description:
 			"Record narrated browser sessions with console, network, and server logs for agents.",
-		scope: "everywhere",
-		compact: false,
-	},
-	evals: {
-		area: "evals",
-		Icon: FlaskConicalIcon,
-		description:
-			"Benchmark skill scenarios across agents, compare pass rates, and inspect graded failures.",
 		scope: "everywhere",
 		compact: false,
 	},
@@ -148,7 +148,7 @@ export const PAGE_AREAS: Record<Page, PageArea> = {
 		area: "setup",
 		Icon: ListChecksIcon,
 		description:
-			"Guided checklists to configure projects, ships, evals, and credentials.",
+			"Guided checklists to configure projects, ships, and credentials.",
 		scope: "everywhere",
 		compact: false,
 	},

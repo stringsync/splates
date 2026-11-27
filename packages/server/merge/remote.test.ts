@@ -77,8 +77,16 @@ describe("merge with a central remote", () => {
 	it("rebases onto the remote's trunk, lands there, and brings this trunk along", async () => {
 		await pushElsewhere("theirs.txt");
 
-		await merge(deps, tree);
+		const facts: Partial<Facts["merge"]> = {};
+		await merge(deps, tree, facts);
 
+		expect(facts.files).toEqual(["alpha.txt"]);
+		expect(await deps.outcomes.list()).toEqual([
+			expect.objectContaining({
+				task: "alpha",
+				size: { files: 1, added: 1, removed: 0 },
+			}),
+		]);
 		const landed = await onRemote("refs/heads/main");
 		expect(await deps.gitCli(remote, "log", "--format=%s", "main")).toBe(
 			["add alpha", "add theirs.txt", "seed"].join("\n"),
@@ -140,5 +148,43 @@ describe("merge with a central remote", () => {
 			why: expect.stringContaining("no longer held"),
 		});
 		expect(await onRemote("refs/heads/main")).toBe(onto);
+	});
+
+	it("squashes onto the rebased remote trunk so a held merge rebases cleanly next time", async () => {
+		// Remote trunk moves ahead while local main stays behind.
+		await pushElsewhere("shared.txt");
+		const firstRemote = (await onRemote("refs/heads/main")) ?? "";
+
+		// Hold the first merge on an environment failure (no test files named).
+		const ready = join(other, "gate-ready");
+		deps.config.preMerge = `test -f ${ready}`;
+		const facts: Partial<Facts["merge"]> = {};
+		await expect(merge(deps, tree, facts, { message: "Add alpha" })).toBail(
+			"tests_failed",
+		);
+		expect((await deps.service.find("alpha")).mergeAttempts).toBe(0);
+
+		// The squashed commit's parent is the remote trunk it was rebased onto,
+		// not the stale local main, so it only touches the task's own file.
+		expect(await deps.gitCli(tree, "rev-parse", "HEAD^")).toBe(firstRemote);
+		expect(
+			await deps.gitCli(tree, "show", "--name-only", "--format=", "HEAD"),
+		).toBe("alpha.txt");
+
+		// Remote trunk modifies shared.txt again; a squash parented on the old
+		// local main would conflict here on the next rebase.
+		await deps.gitCli(other, "pull", "--quiet", "--ff-only");
+		await deps.commit(other, "shared.txt", "theirs v2\n", "update shared.txt");
+		await deps.gitCli(other, "push", "--quiet", "origin", "main");
+
+		await deps.fs.write(ready, "ok\n");
+		await merge(deps, tree, {}, { message: "Add alpha" });
+
+		expect(await deps.gitCli(remote, "log", "--format=%s", "main")).toBe(
+			["Add alpha", "update shared.txt", "add shared.txt", "seed"].join("\n"),
+		);
+		expect(
+			await deps.gitCli(remote, "show", "--name-only", "--format=", "main"),
+		).toBe("alpha.txt");
 	});
 });

@@ -177,15 +177,17 @@ describe("decide", () => {
 				{ window: "seven_day", used: 0.99, resets: EARLIER, at: null },
 			],
 		};
-		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
-			pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-			reasons: [
-				"K3.1 Pro, high effort",
-				expect.any(String),
-				expect.any(String),
-				"passed over Claude: 96% of five_hour used",
-			],
-		});
+		expect(decide({ ...NO_AGY, limits, classification: DESIGN })).toMatchObject(
+			{
+				pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+				reasons: [
+					"K3.1 Pro, high effort",
+					expect.any(String),
+					expect.any(String),
+					"passed over Claude: 96% of five_hour used",
+				],
+			},
+		);
 	});
 
 	it.each(["five_hour", "seven_day", "month"])(
@@ -260,15 +262,17 @@ describe("decide", () => {
 			codex: [{ window: "primary", used: 0.96, resets: LATER, at: null }],
 			kimi: [{ window: "month", used: 0.97, resets: LATER, at: null }],
 		};
-		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
-			pick: { agent: "codex", model: "gpt-6-astra" },
-			reasons: [
-				"6 Astra, high effort",
-				expect.any(String),
-				expect.any(String),
-				"every pick is past 95% of a plan, so the least used: Codex, 96% of primary used",
-			],
-		});
+		expect(decide({ ...NO_AGY, limits, classification: DESIGN })).toMatchObject(
+			{
+				pick: { agent: "codex", model: "gpt-6-astra" },
+				reasons: [
+					"6 Astra, high effort",
+					expect.any(String),
+					expect.any(String),
+					"every pick is past 95% of a plan, so the least used: Codex, 96% of primary used",
+				],
+			},
+		);
 	});
 
 	it("passes over a pick whose agent uses a window faster than it goes by", () => {
@@ -276,15 +280,17 @@ describe("decide", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
 		};
-		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
-			pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
-			reasons: [
-				"K3.1 Pro, high effort",
-				expect.any(String),
-				expect.any(String),
-				"passed over Claude: 60% of five_hour used, 40% of it gone",
-			],
-		});
+		expect(decide({ ...NO_AGY, limits, classification: DESIGN })).toMatchObject(
+			{
+				pick: { agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
+				reasons: [
+					"K3.1 Pro, high effort",
+					expect.any(String),
+					expect.any(String),
+					"passed over Claude: 60% of five_hour used, 40% of it gone",
+				],
+			},
+		);
 	});
 
 	it("checks Antigravity pressure and pace against only the picked model's quota group", () => {
@@ -388,9 +394,9 @@ describe("decide", () => {
 				{ window: "five_hour", used: 0.3, resets: LATER, at: WINDOW_START },
 			],
 		};
-		expect(decide({ ...BASE, limits, classification: DESIGN }).pick.agent).toBe(
-			"kimi",
-		);
+		expect(
+			decide({ ...NO_AGY, limits, classification: DESIGN }).pick.agent,
+		).toBe("kimi");
 	});
 
 	it("judges a week's window and a window named in minutes", () => {
@@ -400,13 +406,14 @@ describe("decide", () => {
 			],
 		};
 		expect(
-			decide({ ...BASE, limits: week, classification: DESIGN }).pick.agent,
+			decide({ ...NO_AGY, limits: week, classification: DESIGN }).pick.agent,
 		).toBe("kimi");
 		const minutes = {
 			claude: [{ window: "300_minutes", used: 0.6, resets: LATER, at: null }],
 		};
 		expect(
-			decide({ ...BASE, limits: minutes, classification: SHALLOW }).pick.agent,
+			decide({ ...NO_AGY, limits: minutes, classification: SHALLOW }).pick
+				.agent,
 		).toBe("codex");
 	});
 
@@ -425,15 +432,17 @@ describe("decide", () => {
 			codex: [{ window: "five_hour", used: 0.7, resets: LATER, at: null }],
 			kimi: [{ window: "five_hour", used: 0.8, resets: LATER, at: null }],
 		};
-		expect(decide({ ...BASE, limits, classification: DESIGN })).toMatchObject({
-			pick: { agent: "claude", model: "opus" },
-			reasons: [
-				"Opus 5.5, high effort",
-				expect.any(String),
-				expect.any(String),
-				"every pick with plan left is ahead of pace, so the first: Claude, 60% of five_hour used, 40% of it gone",
-			],
-		});
+		expect(decide({ ...NO_AGY, limits, classification: DESIGN })).toMatchObject(
+			{
+				pick: { agent: "claude", model: "opus" },
+				reasons: [
+					"Opus 5.5, high effort",
+					expect.any(String),
+					expect.any(String),
+					"every pick with plan left is ahead of pace, so the first: Claude, 60% of five_hour used, 40% of it gone",
+				],
+			},
+		);
 	});
 
 	it("follows the person's pace", () => {
@@ -441,27 +450,27 @@ describe("decide", () => {
 			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
 		};
 		const off: AutoPickRules = {
-			...DEFAULT_RULES,
+			...NO_AGY.rules,
 			pace: { on: false, slack: 0.1, spent: 0.95 },
 		};
 		expect(
-			decide({ ...BASE, rules: off, limits, classification: DESIGN }).pick
+			decide({ ...NO_AGY, rules: off, limits, classification: DESIGN }).pick
 				.agent,
 		).toBe("claude");
 		const loose: AutoPickRules = {
-			...DEFAULT_RULES,
+			...NO_AGY.rules,
 			pace: { on: true, slack: 0.25, spent: 0.95 },
 		};
 		expect(
-			decide({ ...BASE, rules: loose, limits, classification: DESIGN }).pick
+			decide({ ...NO_AGY, rules: loose, limits, classification: DESIGN }).pick
 				.agent,
 		).toBe("claude");
 		const capped: AutoPickRules = {
-			...DEFAULT_RULES,
+			...NO_AGY.rules,
 			pace: { on: false, slack: 0.1, spent: 0.5 },
 		};
 		expect(
-			decide({ ...BASE, rules: capped, limits, classification: DESIGN }),
+			decide({ ...NO_AGY, rules: capped, limits, classification: DESIGN }),
 		).toMatchObject({
 			pick: { agent: "kimi" },
 			reasons: expect.arrayContaining([
@@ -471,12 +480,12 @@ describe("decide", () => {
 	});
 
 	it("paces a mapping that names no pace as the defaults do", () => {
-		const { pace: _, ...without } = DEFAULT_RULES;
+		const { pace: _, ...without } = NO_AGY.rules;
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.6, resets: LATER, at: null }],
 		};
 		expect(
-			decide({ ...BASE, rules: without, limits, classification: DESIGN }).pick
+			decide({ ...NO_AGY, rules: without, limits, classification: DESIGN }).pick
 				.agent,
 		).toBe("kimi");
 	});
@@ -499,7 +508,7 @@ describe("decide", () => {
 
 	it("passes over a pick whose agent splates can't run here", () => {
 		expect(
-			decide({ ...BASE, runnable: ["codex"], classification: DESIGN }),
+			decide({ ...NO_AGY, runnable: ["codex"], classification: DESIGN }),
 		).toMatchObject({
 			pick: { agent: "codex", model: "gpt-6-astra" },
 			reasons: [
@@ -549,7 +558,7 @@ describe("decide", () => {
 	it("takes the lineup's first pick when none of its picks can see the images", () => {
 		expect(
 			decide({
-				...BASE,
+				...NO_AGY,
 				images: true,
 				sights: { claude: false, codex: false, kimi: false },
 				classification: DESIGN,
@@ -607,11 +616,13 @@ describe("decide", () => {
 		const limits = {
 			claude: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
 		};
-		expect(decide({ ...BASE, limits, classification: SHALLOW }).pick).toEqual({
-			agent: "codex",
-			model: "gpt-6.1-sol",
-			effort: "low",
-		});
+		expect(decide({ ...NO_AGY, limits, classification: SHALLOW }).pick).toEqual(
+			{
+				agent: "codex",
+				model: "gpt-6.1-sol",
+				effort: "low",
+			},
+		);
 	});
 
 	it("falls back to Kimi for deep work alone when Claude and Codex are spent", () => {
@@ -620,9 +631,9 @@ describe("decide", () => {
 			codex: [{ window: "five_hour", used: 0.97, resets: LATER, at: null }],
 		};
 		expect(
-			decide({ ...BASE, limits, classification: SHALLOW }).pick.agent,
+			decide({ ...NO_AGY, limits, classification: SHALLOW }).pick.agent,
 		).not.toBe("kimi");
-		expect(decide({ ...BASE, limits, classification: DESIGN }).pick).toEqual({
+		expect(decide({ ...NO_AGY, limits, classification: DESIGN }).pick).toEqual({
 			agent: "kimi",
 			model: "kimi-code/k3.1-pro",
 			effort: "high",
@@ -631,7 +642,7 @@ describe("decide", () => {
 
 	it("never gives devops work to Codex, at any depth", () => {
 		const shallow = decide({
-			...BASE,
+			...NO_AGY,
 			classification: {
 				kinds: { bugfix: 0.1, design: 0.1, open: 0.1, devops: 0.9 },
 				depth: { shallow: 0.9, moderate: 0.05, deep: 0.05 },
@@ -649,6 +660,7 @@ describe("decide", () => {
 		).toMatchObject({
 			picks: [
 				{ agent: "claude", model: "sonnet", effort: "medium" },
+				{ agent: "antigravity", model: "claude-sonnet-5-5", effort: "medium" },
 				{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 			],
 		});
@@ -687,6 +699,21 @@ const BASE = {
 	limits: {},
 	offered: {},
 	now: NOW,
+};
+
+/**
+ * {@link BASE} with the default lineups' Antigravity picks taken out, so a
+ * Claude pick passed over falls to the next agent, not to Claude on Antigravity.
+ */
+const NO_AGY = {
+	...BASE,
+	rules: {
+		...DEFAULT_RULES,
+		lineups: DEFAULT_RULES.lineups.map((lineup) => ({
+			...lineup,
+			picks: lineup.picks.filter((pick) => pick.agent !== "antigravity"),
+		})),
+	},
 };
 
 const THOUGHT_LEVEL: Setting = {
@@ -731,3 +758,42 @@ const PRICE = {
 	cacheWrite: 1,
 	tiers: [],
 };
+
+it("falls back from Claude to Claude on Antigravity, by Antigravity's Claude quota", () => {
+	const everywhere = BASE;
+	const claudeSpent = [
+		{ window: "five_hour", used: 0.96, resets: LATER, at: null },
+	];
+	const geminiSpent = [
+		{
+			window: "Gemini Models · Five Hour",
+			used: 0.99,
+			resets: LATER,
+			at: null,
+		},
+	];
+	expect(
+		decide({
+			...everywhere,
+			limits: { claude: claudeSpent, antigravity: geminiSpent },
+			classification: DESIGN,
+		}).pick,
+	).toEqual({ agent: "antigravity", model: "claude-opus-5-5", effort: "high" });
+	expect(
+		decide({
+			...everywhere,
+			limits: {
+				claude: claudeSpent,
+				antigravity: [
+					{
+						window: "Claude and GPT models · Five Hour",
+						used: 0.99,
+						resets: LATER,
+						at: null,
+					},
+				],
+			},
+			classification: DESIGN,
+		}).pick,
+	).toEqual({ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" });
+});

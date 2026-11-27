@@ -198,7 +198,7 @@ export function deferralProblem(ask: Partial<DeferralAsk>): string | null {
 		(ask.blockedBy ?? []).length + (ask.blockedElsewhere ?? []).length;
 	if (named === 0) {
 		missing.push(
-			"name at least one blocker: --blocked-by <task number> for a task that has to merge first (`splates task add` it when there is none yet), or <project>#<number> for one in another project (`splates --project <project> task defer` it when there is none yet); " +
+			"name at least one blocker: --blocked-by <task number> for a task that has to merge first (`splates task add` it when there is none yet), or <project>#<number> for one in another project (`splates --project <project> task add` it when there is none yet); " +
 				"for something outside splates, such as an upstream release, add a task that closes when a signal fires (`splates task add --closes-on <signal>`) and block on it; " +
 				"a call only the person can make is a numbered question in your reply, not a blocker",
 		);

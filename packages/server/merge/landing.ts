@@ -91,11 +91,7 @@ export async function landTested(
 			// leave its index and files on the old commit. For trunk that tree is the
 			// main one; for a task created with `--base task/<other>` it is that task's
 			// worktree, and the work lands there rather than on trunk.
-			// Read while the branch is still ahead of its base: once it lands there
-			// is nothing between them to read, and the outcome needs what it touched.
-			const changed = (await current.changedFiles()) ?? [];
-			const commits = (await current.commitMessages()) ?? undefined;
-			const size = (await current.size()) ?? undefined;
+			const changes = await current.committedChanges(onto, testedHead);
 			const landed =
 				remote !== null
 					? await trunk.land({
@@ -177,7 +173,7 @@ export async function landTested(
 				"--short",
 				testedHead,
 			);
-			return { current, head, landing, landed, changed, commits, size };
+			return { current, head, landing, landed, ...changes };
 		} finally {
 			try {
 				const current = await worktree.reload();

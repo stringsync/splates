@@ -22,6 +22,7 @@ export {
 export { QUEUE_RESUME_CPU, QUEUE_RESUME_MEMORY } from "./load";
 export {
 	blockage,
+	holdsBack,
 	isBlocked,
 	queueOrder,
 	unqueuedBlockers,

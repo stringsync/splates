@@ -81,6 +81,7 @@ export async function finishLanding(
 	service.ps.cd(git.root);
 	const discarded = await current.discard("merged", {
 		commit: head,
+		changed,
 		commits,
 		size,
 		testTimes,

@@ -307,16 +307,56 @@ describe("App's queue", () => {
 			within(part)
 				.getAllByRole("listitem")
 				.map((row) => row.textContent),
-		).toEqual([
-			"#1 in Backlogstore licensesavailable",
-			"#2 in Backlogcheck themavailable",
-		]);
+		).toEqual(["#1 · store licensesAvailable", "#2 · check themAvailable"]);
 		expect(
 			within(part).getByRole("button", { name: "Queue 2 blockers" }),
 		).toBeTruthy();
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+	});
+
+	it("names a running dependency and lets the waiting task be unqueued from its dialog", async () => {
+		const blocker = todo({
+			id: 1,
+			subject: "prepare the score",
+			stage: "running",
+			takenBy: "prepare-score",
+		});
+		const waiting = todo({
+			id: 2,
+			subject: "render the score",
+			stage: "queued",
+			blockedBy: [1],
+		});
+		const view = await testing.open({
+			todos: [blocker, waiting],
+			tasks: [details({ task: "prepare-score" })],
+		});
+		expect(view.getByText("Waiting on #1")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "render the score" })),
+		);
+		const dialog = within(await waitFor(() => view.getByRole("dialog")));
+		const part = within(dialog.getByRole("region", { name: "what blocks it" }));
+		expect(
+			part.getByRole("button", { name: "#1 · prepare the score" }),
+		).toBeTruthy();
+		expect(part.getByText("Running")).toBeTruthy();
+		expect(dialog.queryByRole("button", { name: "Start" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(dialog.getByRole("button", { name: "Unqueue #2" })),
+		);
+		expect(testing.posted("/api/todos/2/queued")).toEqual([
+			{ method: "PUT", body: { queued: false } },
+		]);
+		await serve({ todos: [blocker, { ...waiting, stage: "available" }] });
+		await waitFor(() =>
+			expect(
+				dialog.queryByRole("region", { name: "what blocks it" }),
+			).toBeNull(),
+		);
 	});
 
 	it("offers neither in the dialog of a todo under way", async () => {
@@ -341,7 +381,7 @@ describe("App's queue", () => {
 		expect(view.queryByRole("region", { name: "Queue" })).toBeNull();
 	});
 
-	it("strips a queued card gray, even one waiting on a queued blocker, and one under way blue", async () => {
+	it("colors queued badges teal and running badges green", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({
@@ -366,12 +406,13 @@ describe("App's queue", () => {
 
 		const badges = within(view.getByRole("list", { name: "Backlog tasks" }))
 			.getAllByRole("listitem")
-			.map(
-				(card) =>
-					card.querySelector("[data-status]")?.getAttribute("data-status") ??
-					null,
-			);
-		expect(badges).toEqual(["queued", "queued", null, "running"]);
+			.map((card) => card.querySelector("[data-status]"));
+		expect(
+			badges.map((badge) => badge?.getAttribute("data-status") ?? null),
+		).toEqual(["queued", "queued", null, "running"]);
+		expect(badges[0]?.classList.contains("bg-teal-100")).toBe(true);
+		expect(badges[1]?.classList.contains("bg-teal-100")).toBe(true);
+		expect(badges[3]?.classList.contains("bg-green-100")).toBe(true);
 	});
 
 	it("keeps an unqueued todo queued when the server refuses, saying why", async () => {

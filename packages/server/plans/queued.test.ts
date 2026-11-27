@@ -38,3 +38,30 @@ test("a sprout heading from an older skill still groups into the card", () => {
 		},
 	]);
 });
+
+test("Queued lane headings parse as a lane card and stay separate from adjacent queued tasks", () => {
+	const found = stretches(
+		"## 🤖 Queued lane 349: Testing and engraving rework\n\nWhy: approved four-task split.\n\n## 🤖 Queued #821: Fix the flaky test\n\nWhy: failed twice.",
+	);
+	expect(found).toEqual([
+		{
+			type: "queued",
+			queued: {
+				tasks: [],
+				lane: {
+					id: 349,
+					name: "Testing and engraving rework",
+					why: "approved four-task split.",
+				},
+			},
+		},
+		{
+			type: "queued",
+			queued: {
+				tasks: [
+					{ id: 821, subject: "Fix the flaky test", why: "failed twice." },
+				],
+			},
+		},
+	]);
+});

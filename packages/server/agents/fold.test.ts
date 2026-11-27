@@ -80,6 +80,21 @@ describe("fold", () => {
 		});
 	});
 
+	it("marks an agent that says its turn ended as one that comes back for what it leaves", () => {
+		const into = state();
+
+		fold(into, { sessionUpdate: "usage_update", used: 10, size: 100 });
+		expect(into.wakes).toBeUndefined();
+
+		fold(into, {
+			sessionUpdate: "usage_update",
+			used: 10,
+			size: 100,
+			_meta: { "_claude/origin": { kind: "human" } },
+		});
+		expect(into.wakes).toBe(true);
+	});
+
 	it("keeps each window of the plan Claude says, from any turn", () => {
 		const into = state();
 		const limited = (info: object, parent?: string): acp.SessionUpdate => ({

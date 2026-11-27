@@ -106,4 +106,49 @@ describe("App's billing spend", () => {
 		await act(async () => fireEvent.click(later()));
 		expect(title()).toContain("This month");
 	});
+
+	it("places Plan limits inside Spend right below the spend summary card", async () => {
+		testing.unusedQuotaReport = {
+			days: 28,
+			currency: "USD",
+			totalUnusedMonthly: 100,
+			totalPricedMonthly: 200,
+			pricedPlans: 1,
+			plans: [
+				{
+					provider: "claude",
+					plan: "Max 20x",
+					monthlyPrice: 200,
+					window: "seven_day",
+					resets: [],
+					current: null,
+					avgPeak: null,
+					maxPeak: null,
+					unusedShare: null,
+					unusedMonthly: null,
+					tierHint: null,
+					apiEquivalent: 0,
+				},
+			],
+		};
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
+		);
+		await waitFor(() => view.getByLabelText("unused quota"));
+
+		const spend = view.getByRole("region", { name: "spend" });
+		const total = view.getByLabelText("total");
+		const planLimits = view.getByRole("heading", { name: "Plan limits" });
+		const unused = view.getByLabelText("unused quota");
+		expect(spend.contains(planLimits)).toBe(true);
+		expect(
+			total.compareDocumentPosition(planLimits) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(
+			planLimits.compareDocumentPosition(unused) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
 });

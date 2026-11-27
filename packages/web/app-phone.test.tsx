@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { SWIPE_PX } from "./phone-swipe";
 import {
 	act,
@@ -13,6 +13,7 @@ import {
 	todo,
 	tool,
 	toThread,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -175,6 +176,10 @@ describe("App on a phone", () => {
 		});
 		expect(waiting.textContent).toContain("Broke");
 		expect(waiting.textContent).toContain("Failed");
+		// No line atop counts them; the rows' own marks say so.
+		const count = /^(\d+|Nothing) waiting on you$/;
+		expect(within(inbox).queryByRole("button", { name: count })).toBeNull();
+		expect(within(inbox).queryByRole("status", { name: count })).toBeNull();
 	});
 
 	/** The inbox with another project, zebra, listed beside this one. */
@@ -758,12 +763,17 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 1"]);
 		await act(async () => fireEvent.click(button("Next")));
 		expect(shown()).toEqual(["question 2"]);
-		await act(async () =>
-			fireEvent.click(
-				within(sheet).getByRole("button", { name: /A muted card/ }),
-			),
-		);
-		await new Promise((resolve) => setTimeout(resolve, 400));
+		await act(async () => {
+			jest.useFakeTimers();
+			try {
+				fireEvent.click(
+					within(sheet).getByRole("button", { name: /A muted card/ }),
+				);
+				jest.advanceTimersByTime(400);
+			} finally {
+				jest.useRealTimers();
+			}
+		});
 		expect(shown()).toEqual(["question 2"]);
 		expect(within(sheet).queryByRole("button", { name: "Send" })).toBeNull();
 		await act(async () => fireEvent.click(button("Next")));
@@ -794,6 +804,39 @@ describe("App on a phone", () => {
 			fireEvent.click(within(answers).getAllByRole("button")[0] as HTMLElement),
 		);
 		expect(shown()).toEqual(["question 1"]);
+	});
+
+	it("keeps a question sheet's Send off until the reply holds something, as on a desktop", async () => {
+		const asked = "1. Which pages need it?\n   - (a) Todos\n   - (b) Tasks";
+		const view = await testing.openConversations([
+			conversation({
+				title: "Header",
+				messages: [message("user", "fix the header"), message("agent", asked)],
+			}),
+		]);
+		await toThread(view);
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /for you/ }),
+		);
+		const sheet = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		const send = within(sheet).getByRole("button", {
+			name: "Send",
+		}) as HTMLButtonElement;
+
+		expect(send.disabled).toBe(true);
+		await act(async () => fireEvent.click(send));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+
+		await typeIn(
+			within(sheet).getByRole("textbox", { name: "Anything else" }),
+			"Only the todos.",
+		);
+		expect(send.disabled).toBe(false);
 	});
 
 	// vet-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
@@ -1033,6 +1076,102 @@ describe("App on a phone", () => {
 		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
 	});
 
+	it("asks a plan sheet's approval as an ordinary question, sent with Send, with no Approved checkbox", async () => {
+		const plan = [
+			"## 📝 Plan: rename the Stop button",
+			"",
+			"**Goal:** The label says Stop when it pauses.",
+			"**After:** The button says Pause.",
+			"",
+			"1. Do you approve renaming the Stop button?",
+			"   - (a) Yes, approve it",
+			"   - (b) No",
+		].join("\n");
+		const view = await testing.openConversations([
+			conversation({
+				title: "Header",
+				messages: [message("user", "rename Stop"), message("agent", plan)],
+			}),
+		]);
+		await toThread(view);
+
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /A plan for you/ }),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "A plan for you" }),
+		);
+		expect(
+			within(sheet).getByText("Do you approve renaming the Stop button?"),
+		).toBeTruthy();
+		expect(
+			within(sheet).queryByRole("checkbox", { name: "Approved" }),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: /Yes, approve it/ }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		const send = within(sheet).getByRole("button", {
+			name: "Send",
+		}) as HTMLButtonElement;
+		expect(send.disabled).toBe(false);
+		expect(send.className).not.toContain("bg-success");
+		await act(async () => fireEvent.click(send));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1),
+		);
+	});
+
+	it("pins a plan sheet's Send button with the same disabled and undo-decision behavior as desktop", async () => {
+		const plan = [
+			"## 📝 Plan: retry uploads",
+			"",
+			"**Goal:** Retry failed uploads once.",
+		].join("\n");
+		const view = await testing.openConversations([
+			conversation({
+				title: "Uploads",
+				messages: [message("user", "retry uploads"), message("agent", plan)],
+			}),
+		]);
+		await toThread(view);
+
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /A plan for you/ }),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "A plan for you" }),
+		);
+		const send = within(sheet).getByRole("button", {
+			name: "Send",
+		}) as HTMLButtonElement;
+		const approve = within(sheet).getByRole("button", { name: "Approve" });
+
+		expect(send.closest("[data-pinned]")).not.toBeNull();
+		expect(send.className).not.toContain("bg-black");
+		expect(send.disabled).toBe(true);
+
+		await act(async () => fireEvent.click(approve));
+		expect(approve.getAttribute("aria-pressed")).toBe("true");
+		expect(send.disabled).toBe(false);
+
+		// Clicking the picked approval again undoes it and turns Send back off.
+		await act(async () => fireEvent.click(approve));
+		expect(approve.getAttribute("aria-pressed")).toBe("false");
+		expect(send.disabled).toBe(true);
+		await act(async () => fireEvent.click(send));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+	});
+
 	it("leaves a sheet closed when the inbox opens a message with words beside its questions", async () => {
 		const view = await testing.openConversations(
 			[
@@ -1060,9 +1199,10 @@ describe("App on a phone", () => {
 		);
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c1"));
-		await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+		await waitFor(() =>
+			expect(view.getByText("The header wraps now.")).toBeTruthy(),
+		);
 		expect(view.queryByRole("dialog")).toBeNull();
-		expect(view.getByText("The header wraps now.")).toBeTruthy();
 	});
 
 	it("goes from a sheet the inbox opened to the conversation behind it", async () => {
@@ -1130,7 +1270,7 @@ describe("App on a phone", () => {
 		await waitFor(() =>
 			view.getByRole("dialog", { name: "3 questions for you" }),
 		);
-		await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+		await waitFor(() => expect(view.getByText("Worked")).toBeTruthy());
 		expect(
 			view.getByRole("dialog", { name: "3 questions for you" }),
 		).toBeTruthy();
@@ -1520,6 +1660,7 @@ describe("App on a phone", () => {
 					id: "c1",
 					title: "Serve it",
 					status: "stopped",
+					wakes: true,
 					background: [
 						running,
 						{ ...running, id: "b2", name: "Old build", state: "completed" },
@@ -1551,7 +1692,7 @@ describe("App on a phone", () => {
 		expect(recent.textContent).not.toContain("Old build");
 		expect(
 			within(recent).getByRole("status", {
-				name: "agent idle with background commands",
+				name: "waiting on background commands",
 			}),
 		).toBeTruthy();
 

@@ -6,13 +6,16 @@ import { cn } from "#web/lib/utils.ts";
  * label beside the body, or above it in a narrow card. Pass `label` to name
  * the region, and `aside` for a control that sits next to the title. Pass
  * `peek` to let it fold: its title then opens and closes it, and while shut
- * the peek, one line, stands in for the body.
+ * the peek, one line, stands in for the body. The title sits above the body,
+ * so every section starts at the card's edge; pass `beside` to set it in a
+ * column beside the body in a wide container, as the task dialog does.
  */
 export function CardSection({
 	label,
 	title,
 	aside,
 	ruled = true,
+	beside = false,
 	peek,
 	open: startsOpen = false,
 	className,
@@ -23,6 +26,8 @@ export function CardSection({
 	aside?: ReactNode;
 	/** Whether a hairline sits above it; false for a card's first section. */
 	ruled?: boolean;
+	/** Whether the title moves to a column beside the body in a wide container. */
+	beside?: boolean;
 	/** What it shows while folded; leave it out for a section that never folds. */
 	peek?: ReactNode;
 	/** Whether a section that folds starts open. */
@@ -38,14 +43,16 @@ export function CardSection({
 		<section
 			aria-label={label}
 			className={cn(
-				"grid min-w-0 gap-x-6 gap-y-2 py-5 last:pb-0 @md:grid-cols-[6.5rem_1fr]",
+				"grid min-w-0 gap-x-6 gap-y-2 py-5 last:pb-0",
+				beside && "@md:grid-cols-[6.5rem_1fr]",
 				ruled ? "border-t" : "pt-0",
 				className,
 			)}
 		>
 			<h2
 				className={cn(
-					"flex min-w-0 flex-wrap items-center gap-2 font-semibold text-[0.7rem] [overflow-wrap:anywhere] text-muted-foreground uppercase leading-relaxed tracking-[0.08em] @md:flex-col @md:items-start @md:gap-1",
+					"flex min-w-0 flex-wrap items-center gap-2 font-semibold text-[0.7rem] [overflow-wrap:anywhere] text-muted-foreground uppercase leading-relaxed tracking-[0.08em]",
+					beside && "@md:flex-col @md:items-start @md:gap-1",
 					folds && open && "text-foreground",
 				)}
 			>

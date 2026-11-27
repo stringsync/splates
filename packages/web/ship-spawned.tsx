@@ -36,7 +36,7 @@ export function SpawnedStrip({
 	return (
 		<section
 			aria-label="Agents on this ship"
-			className="flex flex-col gap-2 rounded-xl border bg-card px-3.5 py-3"
+			className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3.5"
 		>
 			<h3 className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 font-semibold text-sm">
 				<span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
@@ -47,7 +47,7 @@ export function SpawnedStrip({
 					{tally(work)}
 				</span>
 			</h3>
-			<ul className="flex flex-col gap-1.5">
+			<ul className="flex flex-col gap-2.5">
 				{work.map((each) => (
 					<SpawnedLine
 						key={`${each.todo ?? ""}\n${each.conversation ?? ""}`}
@@ -170,11 +170,11 @@ export function RunNotes({ notes }: { notes: RunNote[] }): JSX.Element | null {
 					{notes.length}
 				</span>
 			</h3>
-			<ol className="flex flex-col rounded-lg border bg-card px-3.5 py-1">
+			<ol className="flex flex-col rounded-lg border bg-card px-4 py-1.5">
 				{newest.map((note, index) => (
 					<li
 						key={`${note.at}\n${note.task}\n${note.text}`}
-						className="relative flex gap-3 py-2.5"
+						className="relative flex gap-3 py-3"
 					>
 						<div className="relative flex w-4 shrink-0 justify-center">
 							<span className="mt-1.5 size-2 rounded-full bg-foreground/70 ring-4 ring-card" />

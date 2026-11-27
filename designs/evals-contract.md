@@ -1,5 +1,11 @@
 # Evals from any framework
 
+## Superseded (2026-11-26)
+
+Per "evals as end-to-end tests" (2026-11-26), splates no longer has an Evals page, eval loop, run/budget/done cards, `evals` config section, or `splates evals` CLI commands. The only eval UI left in splates is the eval card drawn from an `eval` fence in a conversation. The shared `@evals/evals` library stays in `evals/packages/evals`.
+
+<!-- Original settled notes kept below for history. -->
+
 The contract types, `CONTRACT_FORMAT` and the reporter live in the shared
 `evals` project (`evals/packages/evals/contract.ts`, `CONTRACT.md`); splates
 imports them as `@evals/evals/contract` and keeps only the reading half.

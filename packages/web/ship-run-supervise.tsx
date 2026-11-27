@@ -23,7 +23,7 @@ export function ShipRunSupervise({
 	return (
 		<section
 			aria-label="Supervise"
-			className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3"
+			className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5"
 		>
 			<div className="flex items-center gap-2">
 				<span className="flex flex-1 items-center gap-1.5 font-semibold text-sm">

@@ -154,6 +154,41 @@ describe("needs", () => {
 		});
 	});
 
+	it("reads an old unlock card as plain words, waiting on nothing", () => {
+		const at = "2026-11-25T10:07:00.000Z";
+		const said = (text: string) =>
+			talk({
+				status: "idle",
+				unread: true,
+				messages: [
+					{
+						role: "agent",
+						parts: [{ type: "text", text }],
+						plan: null,
+						at,
+						until: at,
+					},
+				],
+			});
+
+		expect(
+			need(
+				null,
+				said(
+					"## 🔒 Unlock requested: Merge the tuplet fix\n\n- [x] Tuplet tests pass: 14 of 14",
+				),
+			),
+		).toMatchObject({ kind: "idle" });
+		expect(
+			need(
+				null,
+				said(
+					"## 🔓 Unlocked automatically: Merging the tuplet fix\n\n- [x] Tuplet tests pass: 14 of 14",
+				),
+			),
+		).toMatchObject({ kind: "idle" });
+	});
+
 	it("stops waiting on a queue card once its work is queued or running, but not on open questions", () => {
 		const at = "2026-10-11T10:07:00.000Z";
 		const asking = talk({
@@ -190,38 +225,6 @@ describe("needs", () => {
 		expect(
 			need(task({ plan: PLAN }), asking, Date.now(), settled),
 		).toMatchObject({ kind: "waiting", why: "questions" });
-	});
-
-	it("works while the run its eval card started goes, not waiting on the card", () => {
-		const at = "2026-10-11T10:07:00.000Z";
-		const running = talk({
-			status: "idle",
-			evaluating: true,
-			messages: [
-				{
-					role: "agent",
-					parts: [
-						{
-							type: "text",
-							text: "## 🔐 Permission: run evals splates: the resource scenarios\n\nChecks the wording.\n\n- `resources/focused-tests`",
-						},
-					],
-					plan: null,
-					at,
-					until: at,
-				},
-			],
-		});
-
-		expect(need(null, running)).toEqual({
-			kind: "working",
-			subject: null,
-			evals: true,
-		});
-		// The card starts by itself within the eval budget, so it never waits on the person.
-		expect(need(null, { ...running, evaluating: undefined })).toMatchObject({
-			kind: "idle",
-		});
 	});
 
 	it("waits on a review its last reply asks for, once its turn ends", () => {

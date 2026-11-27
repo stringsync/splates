@@ -172,14 +172,6 @@ export interface Config {
 	 */
 	dictationWords: string[];
 	/**
-	 * Where the project's evals, run by any framework, leave their results for
-	 * the Evals page, as `{ results: ".evals" }`: relative to the project's
-	 * root, absolute, or under `~`. Each batch is a directory of it holding a
-	 * `batch.json` and a `results.jsonl` in the `splates-evals/1` format
-	 * (`designs/evals-contract.md`). Null shows no Evals page.
-	 */
-	evals: EvalsConfig | null;
-	/**
 	 * The projects inside this repository, each a slug and the path globs
 	 * (relative to the root, as `core/**`) it owns, as
 	 * `{ core: ["core/**"], wren: ["wren/**"] }`. A repository keeps the git
@@ -259,32 +251,6 @@ export interface ProjectConfig {
 	ship?: string | null;
 	/** Overrides `afterBump` for this project. */
 	afterBump?: string | null;
-}
-
-/**
- * Where a project's evals report to splates, and the commands that start
- * them from the page's run card (`docs/evals.md`).
- */
-export interface EvalsConfig {
-	/** The directory holding one directory per batch. */
-	results: string;
-	/**
-	 * Prints the cases a run card can pick, one JSON object a line, as
-	 * `{"case": "refunds/partial", "group": "refunds", "about": "..."}`.
-	 */
-	list?: string;
-	/**
-	 * Runs the cases in `SPLATES_EVALS_CASES` on the targets in
-	 * `SPLATES_EVALS_TARGETS` into a new batch directory under
-	 * `SPLATES_EVALS_RESULTS`. Without it the page only shows results.
-	 */
-	run?: string;
-	/**
-	 * Told what `run` is, prints what the run comes to as
-	 * `{"cells": 12, "usd": 3.6}`, so the card shows a ceiling; exits non-zero
-	 * to refuse the run. Without it the card shows no cost.
-	 */
-	plan?: string;
 }
 
 /**

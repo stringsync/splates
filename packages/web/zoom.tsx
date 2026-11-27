@@ -1,12 +1,13 @@
 import PhotoSwipe from "photoswipe";
 import { type JSX, useEffect, useRef, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 
 /**
- * An image that opens whole, to explore with pinch, drag and double tap, with
- * a button to fit it all on screen. Mark an SVG `vector` so it opens filling
- * the screen rather than at its own, often small, size.
+ * An image that opens whole, to explore with pinch, drag, scroll and double
+ * tap. A tall one opens across the screen's width at its top, to scroll down,
+ * with Fit width and Fit all to switch between that and the whole of it. Mark
+ * an SVG `vector` so it opens filling the screen rather than at its own, often
+ * small, size.
  */
 export function ZoomableImage({
 	src,
@@ -25,6 +26,8 @@ export function ZoomableImage({
 		null,
 	);
 	const [failed, setFailed] = useState(false);
+	/** How a tall image sits, `null` for one that fits on screen as it is. */
+	const [fit, setFit] = useState<Fit | null>(null);
 
 	useEffect(() => {
 		const host = box.current;
@@ -38,7 +41,7 @@ export function ZoomableImage({
 			getViewportSizeFn: () => ({ x: host.clientWidth, y: host.clientHeight }),
 			// Open on the whole image; double tap steps in at the tapped point and
 			// a pinch moves freely between there and the maximum.
-			initialZoomLevel: "fit",
+			initialZoomLevel: (zoom) => levelOf(zoom, isTall(zoom) ? "width" : "all"),
 			secondaryZoomLevel: (zoom) => Math.max(1, zoom.fit * 2.5),
 			// PhotoSwipe springs a pinch released past this back to it, so on a phone
 			// it sits well beyond where a pinch ends.
@@ -86,6 +89,17 @@ export function ZoomableImage({
 				x: wheel.clientX,
 				y: wheel.clientY,
 			});
+		});
+		pswp.on("firstZoomPan", (event) => {
+			const zoom = event.slide.zoomLevels;
+			if (isTall(zoom)) {
+				// Start at its top, as a page is read.
+				// PhotoSwipe's `min` pan is the image's top edge at the top of the screen.
+				event.slide.pan.y = event.slide.bounds.min.y;
+				setFit("width");
+			} else {
+				setFit(null);
+			}
 		});
 		pswp.init();
 		// Avoid a nested dialog: Base UI supplies the accessible name and focus trap.
@@ -136,21 +150,66 @@ export function ZoomableImage({
 					The image could not be loaded. Try opening it in a new tab.
 				</p>
 			)}
-			{size && (
-				<Button
-					variant="secondary"
-					size="sm"
-					className="absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+3rem)] right-[max(0.75rem,env(safe-area-inset-right))] z-10"
-					onClick={() => {
-						const slide = viewer.current?.currSlide;
-						if (slide) {
-							slide.zoomTo(slide.zoomLevels.fit);
-						}
-					}}
-				>
-					Fit image
-				</Button>
+			{size && fit !== null && (
+				<div className="absolute right-[max(0.75rem,env(safe-area-inset-right))] bottom-3 z-10 flex overflow-hidden rounded-md border border-white/25 bg-black/60 text-xs">
+					{(["width", "all"] as const).map((to) => (
+						<button
+							key={to}
+							type="button"
+							aria-pressed={fit === to}
+							onClick={() => {
+								const slide = viewer.current?.currSlide;
+								if (!slide) {
+									return;
+								}
+								slide.zoomTo(levelOf(slide.zoomLevels, to), undefined, 0);
+								if (to === "width") {
+									slide.panTo(slide.pan.x, slide.bounds.min.y);
+								}
+								setFit(to);
+							}}
+							className={cn(
+								"px-2.5 py-1.5 font-medium",
+								fit === to ? "bg-white text-black" : "text-white",
+							)}
+						>
+							{to === "width" ? "Fit width" : "Fit all"}
+						</button>
+					))}
+				</div>
 			)}
 		</div>
 	);
+}
+
+/** How the image sits on screen: across the screen's width, or all of it in view. */
+type Fit = "width" | "all";
+
+/**
+ * How far to zoom `slide` to sit as `fit` says: `width` spans the screen's
+ * width (never past the image's own size), `all` shows the whole image.
+ */
+function levelOf(
+	zoom: {
+		fit: number;
+		panAreaSize: { x: number } | null;
+		elementSize: { x: number } | null;
+	},
+	fit: Fit,
+): number {
+	if (fit === "all" || !zoom.panAreaSize || !zoom.elementSize) {
+		return zoom.fit;
+	}
+	return Math.max(
+		zoom.fit,
+		Math.min(1, zoom.panAreaSize.x / zoom.elementSize.x),
+	);
+}
+
+/**
+ * Whether an image fit whole on screen would be much narrower than it can be,
+ * as a tall full-page capture is: it opens across the width to scroll down.
+ */
+function isTall(zoom: Parameters<typeof levelOf>[0]): boolean {
+	return levelOf(zoom, "width") > zoom.fit * 1.25;
 }

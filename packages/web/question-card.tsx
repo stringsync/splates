@@ -1,6 +1,13 @@
 import type { Answer, Question } from "@splates/server/plans";
 import { chainSpendOf } from "@splates/server/queue/browser";
-import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
+import {
+	CheckCheckIcon,
+	CheckIcon,
+	CircleDotIcon,
+	ListChecksIcon,
+	PencilIcon,
+	XIcon,
+} from "lucide-react";
 import { type JSX, type KeyboardEvent, useState } from "react";
 import {
 	Tooltip,
@@ -11,8 +18,10 @@ import { cn } from "#web/lib/utils.ts";
 import { CardBox } from "./card-box";
 import { ChainMeter } from "./chain-meter";
 import { ChoiceBody, HowToPick, WhyLine, WhySwitch } from "./choice-body";
+import { evalQuestionOf } from "./eval-question";
 import type { Files } from "./files";
 import { Markdown } from "./markdown";
+import { DecisionOption, DecisionPanel } from "./plan-decision";
 import { Ranking } from "./question-ranking";
 
 const UNANSWERED: Answer = { picks: [], words: "" };
@@ -48,7 +57,10 @@ export function QuestionCard({
 	/** Stable dictation owner id when a parent watches this question's take. */
 	dictationOwner?: string;
 }): JSX.Element {
-	const { number, text, size, body, pick } = asked;
+	const { number, text, size, pick } = asked;
+	// An eval it asks about is its own card, above the question's.
+	const evaled = evalQuestionOf(asked.body);
+	const body = evaled?.rest ?? asked.body;
 	// The agent's recommendation first, each keeping its letter.
 	const choices = [
 		...asked.choices.filter((choice) => choice.chosen),
@@ -65,6 +77,10 @@ export function QuestionCard({
 	const [reasons, setReasons] = useState(false);
 	const spend = chainSpendOf(text, body);
 	const reasoned = choices.some((choice) => choice.why !== "");
+	// Approving an eval is decided as a plan is, in the same panel, which
+	// carries the question in place of its heading.
+	const decides = evaled !== null && pick === "one" && choices.length > 0;
+	const heading = headed && !decides;
 	const toggle = (key: string) => {
 		const on = said.picks.includes(key);
 		onAnswer({
@@ -147,9 +163,9 @@ export function QuestionCard({
 				)}
 			>
 				{spend !== null && <ChainMeter spend={spend} />}
-				{(headed || body !== "") && (
+				{(heading || body !== "") && (
 					<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
-						{headed && (
+						{heading && (
 							<div className="flex items-start gap-2">
 								<p
 									className={cn(
@@ -173,7 +189,36 @@ export function QuestionCard({
 						)}
 					</div>
 				)}
-				{pick === "order" ? (
+				{decides ? (
+					<DecisionPanel
+						label="Eval decision"
+						title={<Markdown text={text} inline />}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								onNext();
+							}
+						}}
+					>
+						{choices.map((choice, index) => {
+							const look = evalChoiceLook(choice.text);
+							return (
+								<DecisionOption
+									key={choice.key}
+									picked={said.picks.includes(choice.key)}
+									disabled={!live}
+									onPick={() => toggle(choice.key)}
+									icon={look.icon}
+									accent={look.accent}
+									title={choice.text}
+									detail={choice.why !== "" ? choice.why : look.detail}
+									roomy={roomy}
+									stop={index === 0 ? number : undefined}
+								/>
+							);
+						})}
+					</DecisionPanel>
+				) : pick === "order" ? (
 					<Ranking
 						asked={asked}
 						answer={said}
@@ -312,6 +357,32 @@ export function QuestionCard({
 			</div>
 		</li>
 	);
+}
+
+/** An eval decision's icon and line, by what its choice says it does. */
+function evalChoiceLook(text: string): {
+	icon: JSX.Element;
+	accent: boolean;
+	detail: string;
+} {
+	if (/^approve/i.test(text)) {
+		return {
+			icon: <CheckCheckIcon />,
+			accent: true,
+			detail: "Write the eval as shown",
+		};
+	}
+	if (/^edit/i.test(text)) {
+		return {
+			icon: <PencilIcon />,
+			accent: false,
+			detail: "Revise it from your note",
+		};
+	}
+	if (/^drop/i.test(text)) {
+		return { icon: <XIcon />, accent: false, detail: "Leave it unwritten" };
+	}
+	return { icon: <CircleDotIcon />, accent: false, detail: "" };
 }
 
 /** What each size means, as the skill defines it, for the letter's hover. */

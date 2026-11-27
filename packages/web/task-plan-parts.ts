@@ -12,8 +12,6 @@ export interface PlanParts {
 	checks: string;
 	/** `## Verification`, what was checked and what it showed; "" when none. */
 	verification: string;
-	/** `## Demo`, how to set a demo up; "" when it says none. */
-	demo: string;
 	/** `## Outcome`, what came of the task; "" when it says none. */
 	outcome: string;
 	/**
@@ -32,7 +30,6 @@ export function planParts(plan: string | null): PlanParts {
 			steps: "",
 			checks: "",
 			verification: "",
-			demo: "",
 			outcome: "",
 			notes: "",
 		};
@@ -52,7 +49,6 @@ export function planParts(plan: string | null): PlanParts {
 		"notes",
 		"blocked",
 		"verification",
-		"demo",
 		"outcome",
 	];
 	const others = sections.filter(
@@ -75,7 +71,6 @@ export function planParts(plan: string | null): PlanParts {
 		steps: named("next"),
 		checks: named("checks"),
 		verification: named("verification"),
-		demo: named("demo"),
 		outcome: named("outcome"),
 		notes,
 	};

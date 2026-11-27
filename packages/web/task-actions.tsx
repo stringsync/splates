@@ -57,18 +57,16 @@ export interface Action {
 
 /**
  * Everything to do with a task, in one row: the conversations on it, or a
- * way to start one; a demo with an agent; its changes; another round of
+ * way to start one; its changes; another round of
  * merges once it is out of them. On a phone, past two, the most pressing one
  * and a menu of the rest.
  */
 export function ActionBar({
 	task,
 	retry,
-	demo,
 }: {
 	task: Details;
 	retry: Action | null;
-	demo: Action | null;
 }): JSX.Element {
 	const context = useContext(Dispatching);
 	const review = useContext(ReviewChanges);
@@ -97,9 +95,6 @@ export function ActionBar({
 		<Revive conversation={failed} wide={!wide} />
 	);
 	if (wide) {
-		// Restart and Hand off, or Retry, already crowd the row: the demo waits in the menu.
-		const crowded = failed !== null || retry !== null;
-		const menuDemo = crowded ? demo : null;
 		return (
 			<div
 				role="toolbar"
@@ -125,11 +120,10 @@ export function ActionBar({
 							<EllipsisIcon />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48">
-							{menuDemo !== null && <ActionItem action={menuDemo} />}
 							<ActionItem action={remove.action} />
 						</DropdownMenuContent>
 					</DropdownMenu>
-					{[crowded ? null : demo, retry, changes].map(
+					{[retry, changes].map(
 						(action) =>
 							action !== null && (
 								<ActionButton key={action.label} action={action} outline />
@@ -140,12 +134,8 @@ export function ActionBar({
 			</div>
 		);
 	}
-	// Most pressing first; removing never leads, since it cannot be undone,
-	// nor does a demo, which can wait in the menu.
-	const [lead, ...pressing] = [changes, retry].filter(
-		(action) => action !== null,
-	);
-	const rest = demo === null ? pressing : [...pressing, demo];
+	// Most pressing first; removing never leads, since it cannot be undone.
+	const [lead, ...rest] = [changes, retry].filter((action) => action !== null);
 	const count =
 		(lead === undefined ? 0 : 1) + rest.length + (starts ? 1 : 0) + 1;
 	return (

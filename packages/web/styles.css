@@ -232,6 +232,21 @@
 			opacity: 0;
 		}
 	}
+	/*
+	 * One dot of a mark's ellipsis brightening and dimming; the marks stagger
+	 * three of them, so the light runs left to right.
+	 */
+	--animate-dot: dot 1.2s ease-in-out infinite;
+	@keyframes dot {
+		0%,
+		60%,
+		100% {
+			opacity: 0.25;
+		}
+		30% {
+			opacity: 1;
+		}
+	}
 	@keyframes collapsible-down {
 		from {
 			height: 0;
@@ -343,11 +358,11 @@
 [data-page-area="signals"] {
 	--area-hue: oklch(0.52 0.12 185);
 }
+[data-page-area="trust"] {
+	--area-hue: oklch(0.53 0.13 160);
+}
 [data-page-area="rec"] {
 	--area-hue: oklch(0.55 0.17 12);
-}
-[data-page-area="evals"] {
-	--area-hue: oklch(0.54 0.18 296);
 }
 [data-page-area="billing"] {
 	--area-hue: oklch(0.52 0.13 164);
@@ -383,11 +398,11 @@
 :is(.dark, .dark *)[data-page-area="signals"] {
 	--area-hue: oklch(0.74 0.13 185);
 }
+:is(.dark, .dark *)[data-page-area="trust"] {
+	--area-hue: oklch(0.73 0.13 160);
+}
 :is(.dark, .dark *)[data-page-area="rec"] {
 	--area-hue: oklch(0.73 0.15 12);
-}
-:is(.dark, .dark *)[data-page-area="evals"] {
-	--area-hue: oklch(0.71 0.17 296);
 }
 :is(.dark, .dark *)[data-page-area="billing"] {
 	--area-hue: oklch(0.74 0.13 164);

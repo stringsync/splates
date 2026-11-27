@@ -35,6 +35,9 @@ export const EXIT = {
 	migration_failed: 30,
 	no_runner: 31,
 	checks_failed: 32,
+	// 33 was `locked`, gone with the conversation lock: never reuse it.
+	unapproved: 34,
+	review: 35,
 } as const;
 
 export type Reason = keyof typeof EXIT;

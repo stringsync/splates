@@ -48,7 +48,12 @@ import { ago, timeLeft } from "./signal-of";
 import { historyOf, PollHistory } from "./signal-poll-history";
 import { Raises } from "./signal-raises";
 import { Subscribers } from "./signal-subscribers";
-import { callParts, type RaiseDay, raisesPerDay } from "./signal-summary";
+import {
+	callParts,
+	type RaiseDay,
+	raisesPerDay,
+	subscribersText,
+} from "./signal-summary";
 import { SignalTitle } from "./signal-title";
 
 /**
@@ -93,8 +98,8 @@ export function SignalDetail({
 	};
 	const { probe } = signal;
 	const polling = probe !== null && ["idle", "running"].includes(probe.state);
-	const live = signal.subscribers.filter((each) => each.live);
-	const automations = signal.subscribers.filter(
+	const { subscribers } = signal;
+	const automations = subscribers.filter(
 		(each) => each.kind === "automation",
 	).length;
 	return (
@@ -201,14 +206,10 @@ export function SignalDetail({
 				)}
 				<Fold
 					label="Subscribers"
-					summary={
-						live.length === 0
-							? "Nothing waits on or runs from it"
-							: live.map((each) => each.title ?? each.label).join(" · ")
-					}
+					summary={subscribersText(subscribers.length) ?? "0 subscribers"}
 				>
 					<Subscribers
-						subscribers={signal.subscribers}
+						subscribers={subscribers}
 						now={now}
 						onOpen={onOpen}
 						act={act}

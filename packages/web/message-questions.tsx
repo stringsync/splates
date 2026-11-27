@@ -1,28 +1,23 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import type {
-	Demo,
-	PlanCard,
-	Question,
-	TaskReport,
-} from "@splates/server/plans";
+import type { PlanCard, Question, TaskReport } from "@splates/server/plans";
 import { isUpdate } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
-import type { JSX } from "react";
+import { type JSX, useContext } from "react";
 import { InMessage, textOf } from "./card-reply";
 import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCards } from "./question-cards";
 import { questionHeading } from "./question-heading";
+import { decisionsFor, TrustContext } from "./trust-widget";
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
- * order, the escalation they end, when they do, the demo they follow, which is what they ask about, and the task
- * they are asked in.
+ * order, the escalation they end, when they do, and the task they are asked
+ * in.
  */
 export interface QuestionsData {
 	questions: Question[];
 	escalation: TaskReport | null;
-	demo: Demo | null;
 	task: string | null;
 	/** The plan they decide, which heads them; null or unset for none. */
 	plan?: PlanCard | null;
@@ -47,7 +42,6 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 export function MessageQuestions({
 	questions,
 	escalation,
-	demo,
 	plan = null,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
@@ -78,19 +72,28 @@ export function MessageQuestions({
 		}
 		return names.join("\n");
 	});
+	const stamp = useAuiState((state) => state.message.metadata.custom.at);
 	const sheeted = useSheeted();
+	const thread = useContext(TrustContext);
+	const trust = decisionsFor(
+		thread,
+		message,
+		questions.map((each) => each.text),
+	);
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
 		<Sheeted {...questionHeading(questions.length, escalation, count, plan)}>
 			<QuestionCards
 				questions={questions}
 				escalation={escalation}
-				demo={demo}
 				plan={plan}
+				planAt={typeof stamp === "string" ? stamp : null}
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
 				paged={sheeted}
 				stepped
+				trust={trust}
+				agent={thread.agent}
 			/>
 		</Sheeted>
 	);

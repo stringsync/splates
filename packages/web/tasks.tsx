@@ -166,7 +166,11 @@ export function Tasks({
 					className="relative -mx-4 -mt-1 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pt-1 pb-4 max-md:snap-mandatory"
 				>
 					<BlockedColumn shown={shown} staleness={project.taskStalenessMs} />
-					<QueuedColumn shown={shown} staleness={project.taskStalenessMs} />
+					<QueuedColumn
+						shown={shown}
+						staleness={project.taskStalenessMs}
+						queueError={project.queueError ?? null}
+					/>
 					<QueueColumn
 						title="Running"
 						why="Permanent column: tasks an agent is working on. A card arrives when an agent starts it, and leaves when the task ends."
@@ -218,6 +222,7 @@ type Here = Pick<
 	| "root"
 	| "repo"
 	| "taskStalenessMs"
+	| "queueError"
 >;
 
 /** What the filter reads of a queued task. */

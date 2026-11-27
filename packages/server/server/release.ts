@@ -31,6 +31,26 @@ export interface Behind {
 }
 
 /**
+ * Commits to splates's own source on the checkout's upstream branch that the
+ * local checkout has not fast-forwarded onto yet, so a restart alone would
+ * still run the older local commit.
+ */
+export interface Stuck {
+	/** The upstream branch ahead of local HEAD, e.g. `origin/main`. */
+	upstream: string;
+	/** The last commit to splates's source on local HEAD. */
+	local: string;
+	/** The newest commit to splates's source on `upstream`. */
+	newest: string;
+	/** How many server source commits `upstream` has past local HEAD. */
+	commits: number;
+	/** The source checkout's repository root, absolute. */
+	root: string;
+	/** Tracked uncommitted changes in `root` that may block fast-forwarding. */
+	dirty: number;
+}
+
+/**
  * The directories splates runs from in a checkout: its own, and the wren
  * library it imports, whose commits change what the server runs just as much.
  */
@@ -75,6 +95,93 @@ export async function sourceCommit(
 		]);
 		const commit = stdout.trim();
 		return exitCode === 0 && /^[0-9a-f]{40,64}$/.test(commit) ? commit : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Whether `source`'s local checkout is behind its local remote-tracking
+ * upstream branch on commits touching `source`, without hitting the network.
+ * Returns null when up to date, outside a checkout, detached, or with no
+ * upstream configured. Never throws.
+ */
+export async function stuckSource(
+	ps: Ps,
+	source = SOURCE,
+): Promise<Stuck | null> {
+	const [here = "", ...rest] = source;
+	try {
+		const ahead = await ps.spawnCapture([
+			"git",
+			"-C",
+			here,
+			"log",
+			"--format=%H",
+			"HEAD..@{upstream}",
+			"--",
+			here,
+			...rest,
+		]);
+		if (ahead.exitCode !== 0) {
+			return null;
+		}
+		const commits = ahead.stdout
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => /^[0-9a-f]{40,64}$/.test(line));
+		const newest = commits[0];
+		if (newest === undefined) {
+			return null;
+		}
+		const [upstreamOut, localSource, rootOut, statusOut] = await Promise.all([
+			ps.spawnCapture([
+				"git",
+				"-C",
+				here,
+				"rev-parse",
+				"--abbrev-ref",
+				"@{upstream}",
+			]),
+			sourceCommit(ps, source),
+			ps.spawnCapture(["git", "-C", here, "rev-parse", "--show-toplevel"]),
+			ps.spawnCapture([
+				"git",
+				"-C",
+				here,
+				"status",
+				"--porcelain",
+				"--untracked-files=no",
+			]),
+		]);
+		const local =
+			localSource ??
+			(await ps
+				.spawnCapture(["git", "-C", here, "rev-parse", "HEAD"])
+				.then(({ exitCode, stdout }) =>
+					exitCode === 0 ? stdout.trim() : null,
+				));
+		const root = rootOut.exitCode === 0 ? rootOut.stdout.trim() : "";
+		if (local === null || root === "") {
+			return null;
+		}
+		const upstream =
+			upstreamOut.exitCode === 0 && upstreamOut.stdout.trim() !== ""
+				? upstreamOut.stdout.trim()
+				: "upstream";
+		const dirty =
+			statusOut.exitCode === 0
+				? statusOut.stdout.split("\n").filter((line) => line.trim() !== "")
+						.length
+				: 0;
+		return {
+			upstream,
+			local,
+			newest,
+			commits: commits.length,
+			root,
+			dirty,
+		};
 	} catch {
 		return null;
 	}

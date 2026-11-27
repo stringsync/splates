@@ -1,7 +1,7 @@
 // vet-ignore-file doc-comments-address-users: its doc comments predate the rule
 
-import type { Conversations } from "../conversations";
-import { NoopConversations } from "../conversations";
+import type { Conversation, Conversations } from "../conversations";
+import { NoopConversations, planApproved, reviewHold } from "../conversations";
 import { fail } from "../exit";
 import {
 	MergeAsk,
@@ -10,8 +10,10 @@ import {
 	ServedMerges,
 	WorktreePs,
 } from "../merge";
+import { pickedModel } from "../models";
 import { openRepository } from "../records";
 import { openQuestions, type WorktreeService } from "../tasks";
+import { allows, BAND_LABELS, floorOf, type TrustStore } from "../trust";
 import type { Project } from "./project-types";
 import { refuse } from "./shared";
 
@@ -22,7 +24,8 @@ export const MERGE_READ_WAIT_MS = 20_000;
  * The routes that run the merges `splates merge` asks the server for, so a
  * task's edits to the merge code never run its own landing. Pass the
  * project's conversations to have a merge refuse while its task has a
- * question card nobody answered.
+ * question card nobody answered, and the trust scores to have one refuse
+ * while an agent below ask-and-go trust has no approved plan.
  */
 // `splates merge` asks for the merge, reads what it says until it ends, then
 // says it has read the end.
@@ -33,11 +36,12 @@ export class MergeRoutes {
 		readonly project: Project,
 		open: typeof openRepository = openRepository,
 		conversations: Conversations | null = null,
+		trust: TrustStore | null = null,
 	) {
 		this.merges = new ServedMerges({
 			storage: project.storage,
 			log: project.log,
-			run: servedMerge(project, open, conversations),
+			run: servedMerge(project, open, conversations, trust),
 		});
 	}
 
@@ -93,6 +97,7 @@ function servedMerge(
 	project: Project,
 	open: typeof openRepository,
 	conversations: Conversations | null,
+	trust: TrustStore | null,
 ): RunMerge {
 	return async (ask, log, facts) => {
 		const ps = new WorktreePs(project.ps, ask);
@@ -119,6 +124,22 @@ function servedMerge(
 								task,
 							)
 						).map((asked) => asked.number),
+					unapproved: async (task) =>
+						trust === null || conversations === null
+							? null
+							: unapprovedWhy(
+									project,
+									trust,
+									(await conversations.list()).filter(
+										(each) => each.state.task === task && !each.state.archived,
+									),
+								),
+					unreviewed: async (task) =>
+						unreviewedWhy(
+							(await (conversations ?? new NoopConversations()).list()).filter(
+								(each) => each.state.task === task && !each.state.archived,
+							),
+						),
 				},
 				ask.cwd,
 				facts,
@@ -134,6 +155,62 @@ function servedMerge(
 			}
 		}
 	};
+}
+
+/**
+ * Why a task worked in `talks`, newest first, cannot land yet: its newest
+ * agent is below ask-and-go trust and none of them had a plan approved.
+ * Null when one did, the agent's trust lets it go on its own, or no
+ * conversation works the task.
+ */
+export async function unapprovedWhy(
+	project: Project,
+	trust: TrustStore,
+	talks: readonly Conversation[],
+): Promise<string | null> {
+	const newest = talks[0];
+	if (newest === undefined || talks.some((each) => planApproved(each.state))) {
+		return null;
+	}
+	const task = newest.state.task;
+	const posture = await trust.postureOfWork(
+		{
+			project: project.service.git.root,
+			agent: newest.state.agent,
+			model: pickedModel(newest.state.settings),
+		},
+		async () =>
+			task === null
+				? null
+				: await project.service
+						.find(task)
+						.then((worktree) => worktree.changedFiles())
+						.catch(() => null),
+	);
+	if (allows(posture.band, "merge-without-approval")) {
+		return null;
+	}
+	return `Below ask-and-go trust (${floorOf("merge-without-approval")}+, with trusted decisions enabled), a merge needs the user's approval of the task's plan, and this conversation is in the ${BAND_LABELS[posture.band]} band (${posture.entry.score}/100) with no approved plan: post one Plan card for the design and end your turn; its approval covers the edits through the merge.`;
+}
+
+/**
+ * Why a task worked in `talks` cannot land before the user reviews it: one
+ * of them approved its plan with Approve & review or has a One-way plan
+ * without a merge review approval since. Holds at every trust level. Null
+ * when none did.
+ */
+export function unreviewedWhy(talks: readonly Conversation[]): string | null {
+	const hold = talks
+		.map((each) => reviewHold(each.state))
+		.find((each) => each !== null);
+	if (hold === undefined) {
+		return null;
+	}
+	const lead =
+		hold === "one-way"
+			? "This plan carries the One-way tag, so it lands only after the user approves a merge review"
+			: "The user approved this plan with Approve & review, so it lands only after they approve a merge review";
+	return `${lead}: send the Ready to merge report, keeping \`- [ ] Show the user before merging\` under \`## Next\`, and end your turn; merge once they reply \`[SPLATES MERGE]\`.`;
 }
 
 /** Gives a task the server's merge holds back to the `splates merge` that asked. */

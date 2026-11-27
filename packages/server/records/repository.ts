@@ -23,6 +23,7 @@ import { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
 import { WorktreeService } from "../tasks";
 import { Shell } from "../terminal";
+import { TrustStore } from "../trust";
 import { Format } from "./format";
 import { ProjectHome } from "./home";
 import { Journal } from "./journal";
@@ -444,6 +445,7 @@ export async function openRepository(
 		ps,
 		outcomes,
 		adherence: new Adherence(machine),
+		trust: new TrustStore(machine),
 	});
 	await service.init();
 	if (migrates) {

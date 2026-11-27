@@ -1,24 +1,38 @@
+import { Duration, SystemTimer, type Timer } from "core/time";
 import { LoaderCircleIcon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { cn } from "#web/lib/utils.ts";
 
 /** How long a write must be pending before the page shows it. */
 export const PENDING_DELAY_MS = 150;
+
+const SYSTEM_TIMER: Timer = new SystemTimer();
+
+/** Timer `useShowPending` schedules its delay on; the system timer when unset. */
+export const PendingTimerContext = createContext<Timer | null>(null);
 
 /** Whether to show a pending write, once `pending` has held for `delay` ms. */
 export function useShowPending(
 	pending: boolean,
 	delay: number = PENDING_DELAY_MS,
 ): boolean {
+	const timer = useContext(PendingTimerContext) ?? SYSTEM_TIMER;
 	const [shown, setShown] = useState(false);
 	useEffect(() => {
 		if (!pending) {
 			setShown(false);
 			return;
 		}
-		const timer = setTimeout(() => setShown(true), delay);
-		return () => clearTimeout(timer);
-	}, [pending, delay]);
+		const waiting = timer.setTimeout(() => setShown(true), Duration.ms(delay));
+		return () => waiting.dispose();
+	}, [pending, delay, timer]);
 	return pending && shown;
 }
 

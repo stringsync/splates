@@ -284,7 +284,9 @@ describe("signals page", () => {
 		);
 		const glance = await page.findByRole("status", { name: "how it stands" });
 		expect(glance.textContent).toContain("2subscribers");
-		fireEvent.click(page.getByRole("button", { name: "Subscribers" }));
+		const summary = page.getByRole("button", { name: "Subscribers" });
+		expect(summary.textContent).toContain("2 subscribers");
+		fireEvent.click(summary);
 		const list = await page.findByRole("region", { name: "subscribers" });
 		const rows = within(list).getAllByRole("listitem");
 		expect(rows).toHaveLength(2);
@@ -292,6 +294,45 @@ describe("signals page", () => {
 		expect(rows[0]?.textContent).toContain("Ship vexml");
 		expect(rows[1]?.textContent).toContain("Wait");
 		expect(rows[1]?.textContent).toContain("vexml-upgrade");
+	});
+
+	it("summarizes a retained wait shown in the expanded subscriber list", async () => {
+		const signal: SignalOverview = {
+			name: "mono.task.started",
+			project: "mono",
+			probe: null,
+			raises: [],
+			subscribers: [
+				{
+					kind: "wait",
+					id: "w1",
+					label: "Wait for quota restoration",
+					title: "Run broad Codex eval sweep",
+					conversation: "c1",
+					state: "waiting",
+					live: false,
+				},
+			],
+		};
+		globalThis.fetch = (async () =>
+			Response.json({
+				signals: [signal],
+				subscribers: 0,
+			})) as unknown as typeof fetch;
+		location.hash = "#signals/mono.task.started";
+		const page = render(
+			<SignalsPage
+				onOpen={() => {}}
+				opens={{ todo: () => {}, task: () => {} }}
+			/>,
+		);
+		const summary = await page.findByRole("button", { name: "Subscribers" });
+		expect(summary.textContent).toContain("1 subscriber");
+		fireEvent.click(summary);
+		const list = await page.findByRole("region", { name: "subscribers" });
+		expect(within(list).getByRole("listitem").textContent).toContain(
+			"Run broad Codex eval sweep",
+		);
 	});
 
 	it("opens a firing to its raw payload", async () => {
@@ -358,6 +399,9 @@ describe("signals page", () => {
 		expect(
 			await page.findByRole("region", { name: "signal mono.task.done" }),
 		).toBeTruthy();
+		expect(
+			page.getByRole("button", { name: "Subscribers" }).textContent,
+		).toContain("0 subscribers");
 	});
 });
 

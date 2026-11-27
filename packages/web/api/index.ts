@@ -21,22 +21,6 @@ export {
 	saveCred,
 } from "./creds";
 export {
-	answerEvalBudget,
-	type EvalRunAsk,
-	evalAgents,
-	evalBatch,
-	evalBatches,
-	evalBudget,
-	evalLaunch,
-	evalLaunchOfBatch,
-	evalPlan,
-	evalRun,
-	evalScenarios,
-	evalStates,
-	saveEvalAgents,
-	stopEvalRun,
-} from "./evals";
-export {
 	addBoard,
 	addLane,
 	addTodo,

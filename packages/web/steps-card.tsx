@@ -1,11 +1,10 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import type { Steps } from "@splates/server/plans/browser";
 import { ListChecksIcon, PictureInPicture2Icon } from "lucide-react";
-import { type JSX, use, useMemo } from "react";
+import { createContext, type JSX, use, useMemo } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { InMessage } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
-import { EvalsConversation } from "./evals-card";
 import { canPopOut } from "./pop-out";
 import {
 	changedSteps,
@@ -19,6 +18,9 @@ import { useStepsPlace } from "./steps-place";
 import { isShown, useStepsPopOut } from "./steps-pop-host";
 import { InPopout } from "./steps-popped";
 import { useStepPreview } from "./steps-preview";
+
+/** The conversation id for Steps cards in a thread, used to pop them out. */
+export const StepsConversation = createContext<string | null>(null);
 
 /**
  * Renders a `data-steps` part: instructions the agent gives the person to
@@ -52,7 +54,7 @@ export function StepsCard({
 	const [preview, togglePreview] = useStepPreview(done, newest.steps.length);
 	const title = steps.title === "" ? "Steps" : `Steps: ${steps.title}`;
 	const popOut = useStepsPopOut();
-	const conversation = use(EvalsConversation);
+	const conversation = use(StepsConversation);
 	const card =
 		conversation === null
 			? null

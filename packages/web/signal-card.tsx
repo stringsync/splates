@@ -11,6 +11,7 @@ import {
 import { type JSX, useContext, useEffect, useState } from "react";
 import { buttonVariants } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { ClockTime } from "./clock-meaning";
 import { useNow } from "./hooks/use-now";
 import { probeBroken, probeOn } from "./probe-checks";
 import {
@@ -20,7 +21,7 @@ import {
 	SignalWaits,
 } from "./signal-contexts";
 import { countdown, lasted, probeFor, waitOf } from "./signal-of";
-import { namespaceOf } from "./signal-summary";
+import { callParts, namespaceOf } from "./signal-summary";
 import { SplatesEvent } from "./splates-event";
 
 export { SignalWaits } from "./signal-contexts";
@@ -50,15 +51,20 @@ export function SignalCard({
 	const now = useNow(waiting);
 	const broken = waiting && probe !== null && probeBroken(probe);
 	const count = waiting && probe !== null ? polls(probe) : null;
+	const clock = waiting ? wait.clock : undefined;
 	const detail = waiting
 		? [
 				count === null ? null : `${count} ${count === 1 ? "poll" : "polls"}`,
-				`${countdown(wait.deadline, now)} left`,
+				waitCountdown(wait, now),
 			]
 				.filter((part) => part !== null)
 				.join(" · ")
 		: ended(wait);
-	const named = { kind: "signal", name: wait.name } as const;
+	const named = {
+		kind: "signal",
+		name: wait.name,
+		...(clock === undefined ? {} : { label: callParts(wait.name).fn }),
+	} as const;
 	return (
 		<div ref={setLine} data-card>
 			<SplatesEvent
@@ -74,6 +80,7 @@ export function SignalCard({
 						: waiting
 							? ["Waiting for", named, detail]
 							: ["Signal", named, detail],
+					secondary: <ClockFiring clock={clock} />,
 					title: wait.reason,
 				}}
 			/>
@@ -97,6 +104,8 @@ export function SignalBar({
 	more?: number;
 }): JSX.Element {
 	const waiting = wait.state === "waiting";
+	const clock = waiting ? wait.clock : undefined;
+	const scheduled = clock?.next != null;
 	const now = useNow(waiting);
 	const broken = waiting && probe !== null && probeBroken(probe);
 	const { Icon, tone } = broken ? BROKEN : LOOK[wait.state];
@@ -112,36 +121,46 @@ export function SignalBar({
 			) : (
 				<Icon className={cn("size-4 shrink-0", tone)} />
 			)}
-			<span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-				<span className="shrink-0">
-					{broken ? "Check failing for" : waiting ? "Waiting for" : "Signal"}
-				</span>
-				<span
-					title={`signal ${wait.name}`}
-					className="flex min-w-0 items-baseline font-mono text-sm"
-				>
-					{namespace !== leaf && (
-						<span className="min-w-0 truncate text-muted-foreground">
-							{namespace}.
+			<div className="min-w-0 flex-1">
+				<span className="flex min-w-0 items-baseline gap-1.5">
+					<span className="shrink-0">
+						{broken ? "Check failing for" : waiting ? "Waiting for" : "Signal"}
+					</span>
+					<span
+						title={`signal ${wait.name}`}
+						className="flex min-w-0 items-baseline font-mono text-sm"
+					>
+						{namespace !== leaf && (
+							<span className="min-w-0 truncate text-muted-foreground">
+								{namespace}.
+							</span>
+						)}
+						<span className="shrink-0">{leaf}</span>
+					</span>
+					{more > 0 && (
+						<span className="shrink-0 text-muted-foreground text-xs">
+							+{more}
 						</span>
 					)}
-					<span className="shrink-0">{leaf}</span>
 				</span>
-				{more > 0 && (
-					<span className="shrink-0 text-muted-foreground text-xs">
-						+{more}
-					</span>
+				{scheduled && (
+					<p className="flex flex-wrap items-baseline gap-x-2 text-muted-foreground text-xs">
+						<span className="tabular-nums">{waitCountdown(wait, now)}</span>
+						<ClockFiring clock={clock} />
+					</p>
 				)}
-			</span>
-			<span
-				className={cn(
-					"hidden shrink-0 text-xs tabular-nums @min-[32rem]:block",
-					broken ? "text-warning" : "text-muted-foreground",
-				)}
-				title={wait.reason}
-			>
-				{waiting ? left(wait, probe, now) : ended(wait)}
-			</span>
+			</div>
+			{!scheduled && (
+				<span
+					className={cn(
+						"hidden shrink-0 text-xs tabular-nums @min-[32rem]:block",
+						broken ? "text-warning" : "text-muted-foreground",
+					)}
+					title={wait.reason}
+				>
+					{waiting ? left(wait, probe, now) : ended(wait)}
+				</span>
+			)}
 			<a
 				href={`#signals/${encodeURIComponent(wait.name)}`}
 				aria-label={`View signal ${wait.name}`}
@@ -154,6 +173,29 @@ export function SignalBar({
 			</a>
 		</section>
 	);
+}
+
+/** The exact firing time is secondary to the countdown in both wait views. */
+function ClockFiring({ clock }: { clock: SignalWait["clock"] }) {
+	if (clock?.next == null) {
+		return null;
+	}
+	return (
+		<span className="hidden @min-[32rem]:inline">
+			Fires <ClockTime at={clock.next} zone={clock.tz} />
+		</span>
+	);
+}
+
+/** Count down to the firing, or to the wait's timeout if it comes first. */
+function waitCountdown(wait: SignalWait, now: number): string {
+	const next = wait.clock?.next;
+	if (next == null) {
+		return `${countdown(wait.deadline, now)} left`;
+	}
+	return wait.deadline !== "" && Date.parse(wait.deadline) < Date.parse(next)
+		? `${countdown(wait.deadline, now)} until timeout`
+		: `${countdown(next, now)} left`;
 }
 
 /** The blue dot, pulsing, that leads a bar while its wait runs. */

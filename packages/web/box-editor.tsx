@@ -119,14 +119,14 @@ function Editor({
 			value={(placed) => new AttachmentChips(editor).forget(placed)}
 		>
 			<DirectiveChipProvider value={BoxChip}>
-				<div className="relative min-w-0 flex-1">
+				<div className="relative grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)]">
 					<PlainTextPlugin
 						contentEditable={
 							<ContentEditable
 								{...props}
 								ref={ref}
 								className={cn(
-									"min-w-0 whitespace-pre-wrap break-words outline-none",
+									"col-start-1 row-start-1 min-w-0 whitespace-pre-wrap break-words outline-none",
 									inset,
 									className,
 								)}
@@ -135,7 +135,7 @@ function Editor({
 						placeholder={
 							<div
 								className={cn(
-									"pointer-events-none absolute top-0 left-0 select-none text-muted-foreground/70",
+									"pointer-events-none col-start-1 row-start-1 min-w-0 break-words select-none text-muted-foreground/70",
 									inset,
 									className,
 								)}

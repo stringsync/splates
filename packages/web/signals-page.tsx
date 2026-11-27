@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react";
+import { BrushCleaningIcon, PlusIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -46,32 +46,41 @@ export function SignalsPage({
 		);
 	}
 	const chosen = signals.find((each) => each.name === at.signal);
-	const cleanUp = (
-		<Button
-			size="sm"
-			variant="outline"
-			className="h-11 sm:h-9"
-			onClick={() => {
-				void cleanUpSignals()
-					.then((names) => setCleaned(names.length))
-					.then(read);
-			}}
-		>
-			Clean up idle
-		</Button>
-	);
-	const newPollScript = (
-		<Button
-			size="sm"
-			variant="outline"
-			className="h-11 sm:h-9"
-			onClick={() => {
-				location.hash = checkAddress(NEW);
-			}}
-		>
-			<PlusIcon /> New poll script
-		</Button>
-	);
+	/** The page's actions; `compact` shows each as its icon alone on a phone, beside the filter. */
+	const toolbar = (compact: boolean) => {
+		const face = compact ? PHONE_ICON : "h-11 sm:h-9";
+		const words = compact ? "max-sm:sr-only" : undefined;
+		return (
+			<>
+				<Button
+					size="sm"
+					variant="outline"
+					className={face}
+					title="Clean up idle"
+					onClick={() => {
+						void cleanUpSignals()
+							.then((names) => setCleaned(names.length))
+							.then(read);
+					}}
+				>
+					{compact && <BrushCleaningIcon className="sm:hidden" />}
+					<span className={words}>Clean up idle</span>
+				</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					className={face}
+					title="New poll script"
+					onClick={() => {
+						location.hash = checkAddress(NEW);
+					}}
+				>
+					<PlusIcon />
+					<span className={words}>New poll script</span>
+				</Button>
+			</>
+		);
+	};
 	const viewTabs =
 		at.signal === null ? (
 			<nav aria-label="signals views" className="flex gap-5 text-sm">
@@ -88,12 +97,6 @@ export function SignalsPage({
 				</TabLink>
 			</nav>
 		) : null;
-	const toolbar = (
-		<>
-			{cleanUp}
-			{newPollScript}
-		</>
-	);
 	const hiddenList =
 		at.signal === null && !at.subscriptions ? (
 			<>
@@ -148,7 +151,7 @@ export function SignalsPage({
 				)
 			) : signals.length === 0 ? (
 				<div className="flex flex-col items-start gap-3">
-					{toolbar}
+					<div className="flex flex-wrap gap-3">{toolbar(false)}</div>
 					<p className="text-muted-foreground text-sm">
 						Nothing has been raised, checked or waited on in the last 7 days.
 					</p>
@@ -157,13 +160,16 @@ export function SignalsPage({
 				<SignalIndex
 					signals={signals}
 					address={signalAddress}
-					actions={toolbar}
+					actions={toolbar(true)}
 				/>
 			)}
 			{hiddenList}
 		</section>
 	);
 }
+
+/** A phone's square icon button, the size of the filter beside it; a wider screen shows its words. */
+const PHONE_ICON = "h-11 max-sm:w-11 max-sm:px-0 max-sm:[&_svg]:size-4 sm:h-9";
 
 /** The address of the blank check form, `#signals/new`; no signal is named `new`, every name having a dot. */
 const NEW = "new";

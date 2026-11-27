@@ -1,3 +1,4 @@
+import { leftRunning } from "@splates/server/conversations/browser";
 import { answersTo, type Needing } from "@splates/server/plans/browser";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
@@ -130,6 +131,9 @@ export function Row({
 						subagent={subagent}
 						quiet={quiet}
 						background={conversation != null && backgrounded(conversation)}
+						leftover={
+							conversation != null && leftRunning(conversation).length > 0
+						}
 						blockedNeedsYou={blockedNeedsYou}
 						disconnected={isDisconnected(conversation)}
 					/>

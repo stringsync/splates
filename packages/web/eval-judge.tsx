@@ -1,7 +1,6 @@
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
-import { formatModelLabel } from "./eval-spec-data";
 
 /** A judge as shown: its maker's mark, the model's name and its effort. */
 export interface JudgeDisplay {
@@ -13,7 +12,7 @@ export interface JudgeDisplay {
 /**
  * Reads a judge as evals write it, `claude:sonnet@high` (a verdict's
  * `judge`, a scenario's `judgeWith`), or a bare model such as `opus`, which
- * is Claude's since only Claude judges; null for none.
+ * is Claude's, or `jev`, which is TypeSafe's; null for none.
  */
 export function judgeDisplay(
 	text: string | null | undefined,
@@ -28,6 +27,9 @@ export function judgeDisplay(
 	const at = rest.indexOf("@");
 	const model = at < 0 ? rest : rest.slice(0, at);
 	const effort = at < 0 ? null : rest.slice(at + 1) || null;
+	if (agent === "jev" || /^jev\b/iu.test(model.trim())) {
+		return { agent: "typesafe", name: "Jev", effort };
+	}
 	return { agent, name: formatModelLabel(agent, model), effort };
 }
 
@@ -92,4 +94,46 @@ export function CheckedByCode({
 			Checked by code
 		</span>
 	);
+}
+
+function formatModelLabel(agent: string, model: string | null): string {
+	const trimmed = model?.trim() ?? "";
+	if (trimmed === "") {
+		return capitalizeWord(agent);
+	}
+	const claude = /^claude-(sonnet|opus|haiku)-(\d+)-(\d+)(?:-\d+)?$/iu.exec(
+		trimmed,
+	);
+	if (claude !== null) {
+		return `${capitalizeWord(claude[1] ?? "")} ${claude[2]}.${claude[3]}`;
+	}
+	const claudeShort =
+		/^(sonnet|opus|haiku)(?:[- ](\d+)(?:[.-](\d+))?)?$/iu.exec(trimmed);
+	if (claudeShort !== null) {
+		const name = capitalizeWord(claudeShort[1] ?? "");
+		if (claudeShort[2] === undefined) {
+			return name;
+		}
+		return claudeShort[3] === undefined
+			? `${name} ${claudeShort[2]}`
+			: `${name} ${claudeShort[2]}.${claudeShort[3]}`;
+	}
+	const gemini = /^gemini-([\w.-]+)$/iu.exec(trimmed);
+	if (gemini !== null) {
+		return `Gemini ${(gemini[1] ?? "")
+			.split("-")
+			.map(capitalizeWord)
+			.join(" ")}`;
+	}
+	if (trimmed.includes("/")) {
+		return (trimmed.split("/").pop() ?? trimmed)
+			.split("-")
+			.map(capitalizeWord)
+			.join(" ");
+	}
+	return trimmed;
+}
+
+function capitalizeWord(word: string): string {
+	return word === "" ? "" : `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
 }

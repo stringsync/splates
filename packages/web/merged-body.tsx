@@ -5,8 +5,8 @@ import { CardBody } from "./card-shell";
 /**
  * A merged card's report: a Summary section with the first paragraph of the
  * agent's report (or of the task's `## Outcome` when the report says
- * nothing), then the rest of both, the outcome's demo and verification among
- * them. Pass `ruled` when Before and After sit above it.
+ * nothing), then the rest of both, the outcome's verification among them.
+ * Pass `ruled` when Before and After sit above it.
  */
 export function MergedBody({
 	text,

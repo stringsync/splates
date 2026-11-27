@@ -1,3 +1,4 @@
+import type { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useReactive } from "core/react";
 import { ListTodoIcon, type LucideIcon, MessageSquareIcon } from "lucide-react";
 import {
@@ -37,19 +38,21 @@ const ICONS: Record<Kind, LucideIcon> = {
 };
 
 /**
- * Its shortcut, ⌘K (Ctrl+K) unless set otherwise: one box over the shown project's tasks, conversations,
- * and todos, grouped by kind, the best match first (see `search`). The arrows and
- * Enter pick.
+ * One box over the shown project's tasks, conversations, and todos, opened
+ * with the keyboard shortcut. Results are grouped by kind, best match first.
+ * The arrows and Enter pick.
  */
 export function SearchDialog({
 	searched,
 	feed,
 	pick,
+	handle,
 }: {
 	searched: Omit<Searched, "conversations" | "said">;
 	feed: ConversationFeed;
 	/** Opens what was found. */
 	pick: (found: Found) => void;
+	handle: DialogPrimitive.Handle<unknown>;
 }): JSX.Element {
 	const [finder] = useState(() => new ConversationSearch(feed.timer));
 	useEffect(() => () => finder.dispose(), [finder]);
@@ -70,6 +73,7 @@ export function SearchDialog({
 	);
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
+	const input = useRef<HTMLInputElement>(null);
 	const list = useRef<HTMLUListElement>(null);
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
@@ -111,14 +115,15 @@ export function SearchDialog({
 
 	let at = 0;
 	return (
-		<Dialog open={open} onOpenChange={show}>
+		<Dialog handle={handle} open={open} onOpenChange={show}>
 			<DialogContent
+				initialFocus={input}
 				showCloseButton={false}
 				className="top-[15%] translate-y-0 gap-2 p-2 sm:max-w-xl"
 			>
 				<DialogTitle className="sr-only">Search</DialogTitle>
 				<Input
-					autoFocus
+					ref={input}
 					aria-label="search"
 					placeholder="Search tasks and conversations"
 					value={query}

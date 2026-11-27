@@ -8,13 +8,15 @@ import type { Lineup } from "./rules";
 export const DEFAULT_LINEUPS: readonly Lineup[] = [
 	// Sonnet leads everything short of deep work; K3.1 Pro is kept for deep
 	// work alone, and its highspeed variant, which spends twice the tokens,
-	// is never picked.
+	// is never picked. Each Claude pick falls back to the same model and
+	// effort on Antigravity, whose Claude quota is its own.
 	{
 		id: "quick",
 		name: "Quick",
 		color: "emerald",
 		picks: [
 			{ agent: "claude", model: "sonnet", effort: "low" },
+			{ agent: "antigravity", model: "claude-sonnet-5-5", effort: "low" },
 			{ agent: "codex", model: "gpt-6.1-sol", effort: "low" },
 		],
 	},
@@ -24,6 +26,7 @@ export const DEFAULT_LINEUPS: readonly Lineup[] = [
 		color: "sky",
 		picks: [
 			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "antigravity", model: "claude-sonnet-5-5", effort: "medium" },
 			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
 		],
 	},
@@ -33,6 +36,7 @@ export const DEFAULT_LINEUPS: readonly Lineup[] = [
 		color: "violet",
 		picks: [
 			{ agent: "claude", model: "sonnet", effort: "high" },
+			{ agent: "antigravity", model: "claude-sonnet-5-5", effort: "high" },
 			{ agent: "codex", model: "gpt-6.1-sol", effort: "medium" },
 		],
 	},
@@ -42,6 +46,7 @@ export const DEFAULT_LINEUPS: readonly Lineup[] = [
 		color: "pink",
 		picks: [
 			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "antigravity", model: "claude-opus-5-5", effort: "high" },
 			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
 		],
@@ -53,6 +58,7 @@ export const DEFAULT_LINEUPS: readonly Lineup[] = [
 		picks: [
 			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "max" },
 			{ agent: "claude", model: "opus", effort: "high" },
+			{ agent: "antigravity", model: "claude-opus-5-5", effort: "high" },
 			{ agent: "codex", model: "gpt-6-astra", effort: "high" },
 		],
 	},
@@ -62,6 +68,7 @@ export const DEFAULT_LINEUPS: readonly Lineup[] = [
 		color: "amber",
 		picks: [
 			{ agent: "claude", model: "sonnet", effort: "medium" },
+			{ agent: "antigravity", model: "claude-sonnet-5-5", effort: "medium" },
 			{ agent: "kimi", model: "kimi-code/k3.1-pro", effort: "high" },
 		],
 	},

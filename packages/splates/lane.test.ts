@@ -14,8 +14,9 @@ it("addresses permanent Backlog by name in both task and lane commands", async (
 	};
 	await splates.run(deps, [
 		"task",
-		"defer",
+		"add",
 		"later",
+		"A detail for whoever picks it up.",
 		"--slug",
 		"later",
 		"--lane",
@@ -26,6 +27,12 @@ it("addresses permanent Backlog by name in both task and lane commands", async (
 	testing.log.clear();
 	await splates.run(deps, ["lane", "show", "backlog", "--json"]);
 	expect(JSON.parse(testing.out())).toMatchObject({ lane: 0, name: "Backlog" });
+
+	testing.log.clear();
+	await splates.run(deps, ["task", "defer", "later", "--slug", "later"]);
+	expect(testing.out()).toContain("Usage: splates task <command>");
+	expect(testing.out()).not.toContain("  defer");
+	expect(await testing.tasks.all()).toHaveLength(1);
 });
 
 it(`lets SPLATES_CONVERSATION add and remove empty lanes but keeps lanes containing tasks`, async () => {
@@ -54,6 +61,7 @@ it(`lets SPLATES_CONVERSATION add and remove empty lanes but keeps lanes contain
 		"task",
 		"add",
 		"Keep me",
+		"A detail for whoever picks it up.",
 		"--slug",
 		"keep-me",
 		"--lane",
@@ -104,6 +112,7 @@ it(`lets SPLATES_STARTED_BY add and remove empty lanes but keeps lanes containin
 		"task",
 		"add",
 		"Keep me",
+		"A detail for whoever picks it up.",
 		"--slug",
 		"keep-me",
 		"--lane",

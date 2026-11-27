@@ -31,7 +31,6 @@ export type { SchedulerDeps } from "./scheduler";
 export { Scheduler } from "./scheduler";
 export type { Automation, Hook, Hooks, TaskFilter, Trigger } from "./store";
 export {
-	evalBudgetNamed,
 	eventNamed,
 	fromHooks,
 	HookStore,

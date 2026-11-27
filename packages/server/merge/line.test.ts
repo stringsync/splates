@@ -80,11 +80,12 @@ describe("MergeLine", () => {
 		const again = await line.form("alpha", "main", "tip");
 		line.tell(
 			{ task: "beta", onto: "tip", head: "b" },
-			{ kind: "landed", head: "b", batch: ["alpha", "beta"] },
+			{ kind: "landed", onto: "tip", head: "b", batch: ["alpha", "beta"] },
 		);
 		expect(again).toHaveLength(1);
 		expect(await beta.settled).toEqual({
 			kind: "landed",
+			onto: "tip",
 			head: "b",
 			batch: ["alpha", "beta"],
 		});

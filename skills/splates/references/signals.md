@@ -1,7 +1,8 @@
 # Signals and waiting
 
-Do not poll in a background loop for a fact outside your own process (a site, a
-cloud deploy, another agent's work). Fire and wait on a named signal,
+Do not poll in a background loop, sleep, schedule a wakeup with your harness's
+own tools, or hand the wait back to the user for a fact outside your own
+process (a site, a cloud deploy, another agent's work). Fire and wait on a named signal,
 `<project>.<name>`, which shows a card in the conversation and on the Signals
 page. Your own long command (a build or test run in the background) stays a
 background command: your harness wakes you when it exits.
@@ -58,7 +59,9 @@ preview server or watcher left available is not a continuation.
   command from its checkout (including main), attributed to the rig.
 - **Wait**:
   `splates signal wait mdom.released --timeout 5h --description "mdom 2.4.0 is published on npm, so vexml can adopt it."`
-  puts one card in the conversation, then end your turn. `--description` is
+  puts one card in the conversation, then end your turn. The signal wakes you on
+  its own: add no `[SPLATES WAIT ...]` line, which waits on something else and
+  would wake you early. `--description` is
   required: one or two plain sentences a stranger understands, naming the fact
   that holds when it fires and why it is awaited (never a label like "stack
   up"; under 5 words is refused). `--timeout` is required too (7d at most, or 1
@@ -99,16 +102,23 @@ preview server or watcher left available is not a continuation.
   for one window. The payload holds the agent, window, share used, reset time,
   when the agent last reported it, and `lastUserMessageAt` (when someone last
   sent a user message to that agent across all conversations, or `null`).
-- **Blockers that close on a signal**: When work cannot start until an outside
-  fact holds, do not start it and wait: make the fact a task that closes on its
-  signal and block on it. From a task's worktree,
-  `splates blocker add --closes-on mdom.released "mdom 2.4.0 on npm"` adds a
-  task nobody works and the queue never starts, blocks this task on it, and
-  ends it as merged when the signal fires. `splates task add --closes-on <signal>`
-  and `splates task update <n> --closes-on <signal>` (or `none`) do the same on
-  the board. Only firings after attachment count (`--since` includes earlier
-  ones). The board keeps a probe running while the task is open; timeout,
-  broken check or expiration never closes it: remove the task to give up.
+- **Tasks that close on a signal**: When work cannot start until an outside
+  fact holds and the wait is long (hours or more: a release, an outside fix, a
+  key the user has to get), do not hold it in a conversation: make the fact a
+  task that closes on its signal, defer your task behind it and end.
+  `splates task add --closes-on mdom.released "mdom 2.4.0 on npm"` adds a task
+  nobody works and the queue never starts, which ends as merged when the
+  signal fires; `splates task update <n> --closes-on <signal>` (or `none`)
+  sets it on an existing task. Then `splates remove <task> --reason blocked
+  --blocked-by <n> --why "..."` puts yours back on the board, resumed once the
+  signal fires, and the reply ends with the `## ⏸ Blocked` card
+  (SKILL.md, Core formats). A short wait (minutes) is a
+  `splates signal wait` here instead. `splates blocker add --closes-on` links
+  the same from a worktree but keeps the conversation open, so keep it for a
+  brief wait the conversation will see out. Only firings after attachment
+  count (`--since` includes earlier ones). The board keeps a probe running
+  while the task is open; timeout, broken check or expiration never closes
+  it: remove the task to give up.
 - **Between agents**: One fires (`splates signal fire`) and another waits
   (`splates signal wait`) on the same name.
 

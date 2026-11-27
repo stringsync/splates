@@ -126,6 +126,7 @@ function snapshotOf(
 		trunk: listed.trunk,
 		release: served?.release ?? null,
 		behind: served?.behind ?? null,
+		stuck: served?.stuck ?? null,
 		unbuilt: served?.unbuilt ?? false,
 		slot: served?.slot ?? null,
 	};

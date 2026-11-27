@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { beforeCard, beforeList, replied } from "./thread-reply";
+import type { Event } from "@splates/server/records";
+import {
+	beforeCard,
+	beforeList,
+	replied,
+	withoutQueuedBars,
+} from "./thread-reply";
 
 describe("thread-reply", () => {
 	test("cuts the text at a report title", () => {
@@ -41,10 +47,15 @@ describe("thread-reply", () => {
 		});
 	});
 
-	test("leaves a plan no questions follow as its text", () => {
+	test("makes a standalone plan actionable", () => {
 		expect(
 			replied("## 📝 Plan: retry scans\n\nBody.", true, { task: null }),
-		).toEqual([{ type: "text", text: "## 📝 Plan: retry scans\n\nBody." }]);
+		).toMatchObject([
+			{
+				type: "data-questions",
+				data: { questions: [], plan: { title: "retry scans", body: "Body." } },
+			},
+		]);
 	});
 
 	test("holds a card back while the agent writes", () => {
@@ -81,5 +92,29 @@ describe("thread-reply", () => {
 			turn,
 		);
 		expect(alone.map((part) => part.type)).toEqual(["data-questions"]);
+	});
+
+	test("drops a queue add bar when a queued card later lists its tasks", () => {
+		const event = {
+			id: "e1",
+			at: "2026-11-26T18:00:00Z",
+			action: "queue add",
+			reason: null,
+			task: null,
+			conversation: "c1",
+			tasks: [{ id: 12, subject: "Fix upload" }],
+		} as Event;
+		const bar = { type: "data-event" as const, data: { event } };
+		const card = (queued: unknown) => ({
+			type: "data-queued" as const,
+			data: { queued },
+		});
+		const task = card({ tasks: [{ id: 12, subject: "Fix upload", why: "" }] });
+		const lane = card({ tasks: [], lane: { id: 3, name: "Lane", why: "" } });
+		const other = card({ tasks: [{ id: 99, subject: "Other", why: "" }] });
+		expect(withoutQueuedBars([bar, task])).toEqual([task]);
+		expect(withoutQueuedBars([bar, lane])).toEqual([lane]);
+		expect(withoutQueuedBars([bar, other])).toEqual([bar, other]);
+		expect(withoutQueuedBars([task, bar])).toEqual([task, bar]);
 	});
 });

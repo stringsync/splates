@@ -89,9 +89,11 @@ export interface AutoWords {
  */
 export async function startAutoPick(
 	target: { task: string } | { todo: number } | AutoWords,
+	/** The project it starts in, else the one this page shows. */
+	project?: string,
 ): Promise<ConversationState> {
 	return (await sendJson(
-		"/api/conversations/auto",
+		scoped("/api/conversations/auto", project),
 		"POST",
 		target,
 	)) as ConversationState;
@@ -239,6 +241,11 @@ export async function stopSignalWait(id: string, wait: string): Promise<void> {
 /** Stops the probe on signal `name`; its waits go on waiting. */
 export async function stopSignalProbe(name: string): Promise<void> {
 	await sendJson("/api/signals/probe-stop", "POST", { name });
+}
+
+/** Cancels eval run `run` (its progress file name) the agent in conversation `id` is running. */
+export async function cancelEval(id: string, run: string): Promise<void> {
+	await sendJson(`/api/conversations/${id}/cancel-eval`, "POST", { run });
 }
 
 /** Stops command `background` the agent in conversation `id` left running. */

@@ -10,6 +10,7 @@ import { AddProject } from "./add-project";
 import { App } from "./app";
 import { EverywhereContext, useHoldEverywhere } from "./everywhere-context";
 import { useShownProject } from "./navigation";
+import { PendingTimerContext } from "./pending";
 import { focusProject } from "./project-api";
 import { ProjectFeeds, type ProjectFeedsOptions } from "./project-feeds";
 import { ProjectList, ProjectListContext } from "./project-list";
@@ -65,15 +66,19 @@ export function ProjectApp({
 	const listed = useReactive(projects, (list) => list.projects, ["changed"]);
 	if (listed !== null && listed.length === 0 && project === "") {
 		return (
-			<ProjectListContext value={projects}>
-				<FirstOpen />
-			</ProjectListContext>
+			<PendingTimerContext value={props.timer ?? null}>
+				<ProjectListContext value={projects}>
+					<FirstOpen />
+				</ProjectListContext>
+			</PendingTimerContext>
 		);
 	}
 	return (
-		<ProjectListContext value={projects}>
-			<App {...props} {...feeds.of(project)} />
-		</ProjectListContext>
+		<PendingTimerContext value={props.timer ?? null}>
+			<ProjectListContext value={projects}>
+				<App {...props} {...feeds.of(project)} />
+			</ProjectListContext>
+		</PendingTimerContext>
 	);
 }
 

@@ -1,13 +1,15 @@
 export type {
+	Approval,
 	Ending,
 	PlanCard,
 	Review,
 	Stretch,
 	TaskReport,
 } from "./asked";
-export { stretches } from "./asked";
+export { approvalOf, stretches } from "./asked";
+export type { PlanField, PlanTag } from "./body";
+export { planFields, planHasOneWayTag, planTags } from "./body";
 export { decided, keptDecisions, madeByYou } from "./decided";
-export type { Demo } from "./demo";
 export type { Need, Needing } from "./needs";
 export {
 	ASKED_QUIET,
@@ -21,12 +23,7 @@ export {
 	orphaned,
 	TASK,
 } from "./needs";
-export type {
-	EvalAsk,
-	EvalBudgetAsk,
-	EvalLeftOut,
-	PermissionProposal,
-} from "./permission";
+export type { PermissionProposal } from "./permission";
 export { queueIsSettled } from "./permission";
 export type { Decision, Question } from "./plan";
 export {
@@ -45,7 +42,6 @@ export {
 	unfinished,
 	whatIsLeft,
 } from "./plan";
-export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
 	AUTO_ALLOWED,
@@ -56,8 +52,6 @@ export {
 	DICTATED,
 	DIRECTIVES,
 	directive,
-	EVAL_BUDGET_APPROVED,
-	evalsDoneReference,
 	eventReference,
 	handOffReference,
 	isUpdate,
@@ -75,7 +69,7 @@ export {
 	taskReference,
 	UNTRIAGED,
 } from "./prompts";
-export type { QueuedCard, QueuedTask } from "./queued";
+export type { QueuedCard, QueuedLane, QueuedTask } from "./queued";
 export type { Answer } from "./reply";
 export {
 	answerIn,

@@ -6,7 +6,7 @@
 
 import type { After, Checkpoint } from "@splates/server/conversations";
 import type { Added } from "@splates/server/projects";
-import type { Behind, ServerChoice } from "@splates/server/server";
+import type { Behind, ServerChoice, Stuck } from "@splates/server/server";
 import type { Held } from "@splates/server/terminal";
 import { ApiError, answered, send, sendJson } from "./api";
 
@@ -133,6 +133,8 @@ export interface Projects {
 	newest: string | null;
 	/** Commits to splates's own source since this run started from it. */
 	behind: Behind | null;
+	/** Upstream server commits the local source checkout has not followed yet. */
+	stuck?: Stuck | null;
 	/** Whether `splates server` can restart itself, as under its supervisor. */
 	restartable: boolean;
 	/**

@@ -139,8 +139,8 @@ export const RecPage = onDemand(async () => ({
 export const SignalsPage = onDemand(async () => ({
 	default: (await import("./signals-page")).SignalsPage,
 }));
-export const EvalsPage = onDemand(async () => ({
-	default: (await import("./evals-page")).EvalsPage,
+export const TrustPage = onDemand(async () => ({
+	default: (await import("./trust-page")).TrustPage,
 }));
 
 export const BackgroundPane = onDemand(async () => ({

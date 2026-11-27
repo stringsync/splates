@@ -11,8 +11,8 @@ import { BeforeAfter, cardRecord } from "./before-after";
 import { BoxFiles } from "./box-files";
 import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
+import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
-import { DemoSection } from "./demo-cards";
 import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
 import { MergeCardContext } from "./merge-card";
@@ -94,7 +94,10 @@ export function ReviewPanel({
 		(each) => each.task === review.task,
 	);
 	const record = cardRecord(live?.plan);
-	const body = [review.summary, review.details].filter(Boolean).join("\n\n");
+	// A record's After already says what the summary would.
+	const summary = record === null ? review.summary : "";
+	const notes = notesOf(review.details, record?.after ?? "");
+	const prose = [summary, notes].filter(Boolean).join("\n\n");
 	const card = (
 		<CardShell
 			label={`review ${review.task}`}
@@ -110,38 +113,17 @@ export function ReviewPanel({
 				)
 			}
 		>
-			{/* What deciding to merge takes, in order: the change as its record
-			has it, and the prose (with any demo between summary and details). */}
+			{/* What deciding to merge takes: the change as its record has it,
+			with the agent's Notes; without one, the summary and what follows it
+			as one body. Every section's label sits above it, so all of it
+			starts at the card's edge. */}
 			<div>
-				{record !== null && (
-					<BeforeAfter
-						record={record}
-						className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
-					/>
-				)}
-				{review.demo === null ? (
-					body !== "" && (
-						<div className={record !== null ? "rule-t" : undefined}>
-							<CardBody text={body} />
-						</div>
-					)
+				{record !== null ? (
+					<BeforeAfter record={record} className={PADDED}>
+						{notes !== "" && <Notes text={notes} />}
+					</BeforeAfter>
 				) : (
-					<>
-						{review.summary !== "" && (
-							<div className={record !== null ? "rule-t" : undefined}>
-								<CardBody text={review.summary} />
-							</div>
-						)}
-						<DemoSection
-							demo={review.demo}
-							ruled={record !== null || review.summary !== ""}
-						/>
-						{review.details !== "" && (
-							<div className="rule-t">
-								<CardBody text={review.details} />
-							</div>
-						)}
-					</>
+					prose !== "" && <CardBody text={prose} />
 				)}
 			</div>
 			{sent !== null && !approved && (
@@ -253,4 +235,49 @@ export function MessageReview({ review }: { review: Review }): JSX.Element {
 			<ReviewPanel review={review} draft={`review:${message}`} />
 		</Sheeted>
 	);
+}
+
+/** The padding a card's own text keeps from its edges. */
+const PADDED = "px-4 py-3.5 @max-md:px-3 @max-md:py-2.5";
+
+/** A card's markdown, with no margin above its first paragraph or below its last. */
+const TIGHT =
+	"text-sm [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0";
+
+/** What the agent says beyond the task record, under its own label. */
+function Notes({
+	text,
+	ruled = true,
+}: {
+	text: string;
+	ruled?: boolean;
+}): JSX.Element {
+	return (
+		<CardSection label="notes" title="Notes" ruled={ruled}>
+			<Markdown text={text} className={TIGHT} />
+		</CardSection>
+	);
+}
+
+/** A markdown image, its address in group 1, bare or in angle brackets. */
+const IMAGE = /!\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)[^)]*\)/g;
+
+/**
+ * A review's `details` as its Notes show them: each picture `after` already
+ * shows taken out, and "" when nothing else is left.
+ */
+export function notesOf(details: string, after: string): string {
+	const shown = new Set(
+		Array.from(after.matchAll(IMAGE), (each) => address(each[1] ?? "")),
+	);
+	return details
+		.replace(IMAGE, (image, at: string) =>
+			shown.has(address(at)) ? "" : image,
+		)
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+}
+
+function address(written: string): string {
+	return written.replace(/^<|>$/g, "").trim();
 }

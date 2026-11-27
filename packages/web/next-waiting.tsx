@@ -1,7 +1,6 @@
 import type { TaskRecord } from "@splates/server/board";
 import { lanesTaken } from "@splates/server/board/browser";
 import type { Details } from "@splates/server/tasks";
-import { useReactive } from "core/react";
 import {
 	type JSX,
 	useCallback,
@@ -10,18 +9,11 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { ArchiveFinished } from "./archive-finished";
 import { arriveAt } from "./arrivals";
 import { openedBy } from "./conversation-address";
-import { agentName, type ConversationFeed } from "./conversation-feed";
+import type { ConversationFeed } from "./conversation-feed";
 import { conversationIndex, useConversationIndex } from "./conversation-index";
-import {
-	finished,
-	flatten,
-	nextWaiting,
-	rowsOf,
-	waitsOnYou,
-} from "./conversation-rows";
+import { flatten, nextWaiting, rowsOf, waitsOnYou } from "./conversation-rows";
 import { useEverywhere } from "./everywhere-context";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
@@ -42,8 +34,7 @@ type Waiting = {
  * A line atop the sidebar's agents saying how many wait on you, counting
  * only agents the sidebar lists, here or in another project. Click it, or
  * press ⌥⌘M (Ctrl+Shift+M off a Mac), to open the next one waiting, then the
- * next merged, then unread; it lights when there is none. With none waiting
- * and finished conversations about, it offers to archive them in one sweep.
+ * next merged, then unread; it lights when there is none.
  */
 export function NextWaiting({
 	open,
@@ -86,32 +77,13 @@ export function NextWaiting({
 	};
 	useShortcut("shortcuts.waiting", () => next.current());
 
-	const [sweeping, setSweeping] = useState(false);
-	const over = finished(rows);
-	const { agents } = useReactive(feed, (each) => ({ agents: each.agents }), [
-		"changed",
-	]);
 	return (
-		<>
-			<WaitingLine
-				waiting={waiting}
-				nudges={nudges}
-				hint={held ? waitingKey : null}
-				finished={over.length}
-				onNext={() => next.current()}
-				onSweep={() => setSweeping(true)}
-			/>
-			{sweeping && over.length > 0 && (
-				<ArchiveFinished
-					// Reset the ticks each time it opens.
-					key={over.map(openedBy).join()}
-					rows={over}
-					agentOf={(each) => agentName(agents, each.agent)}
-					open
-					onClose={() => setSweeping(false)}
-				/>
-			)}
-		</>
+		<WaitingLine
+			waiting={waiting}
+			nudges={nudges}
+			hint={held ? waitingKey : null}
+			onNext={() => next.current()}
+		/>
 	);
 }
 

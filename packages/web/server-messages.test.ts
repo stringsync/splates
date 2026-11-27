@@ -55,21 +55,34 @@ describe("server-authored message lines", () => {
 		]);
 		const handoff = handOffReference(
 			"fix-it",
-			"/tmp/with spaces/transcript.md",
+			"/tmp/with spaces/conversations/c-2/transcript.md",
 		);
 		expect(words(handoff)).toEqual([
 			"Restarted",
 			{ kind: "task", task: "fix-it" },
 		]);
 		expect(handOffLines(handoff, null)?.[0]?.words).toEqual([
-			"Handoff",
-			{ kind: "task", task: "fix-it" },
+			"Handed off from",
+			{ kind: "conversation", id: "c-2" },
 		]);
 		expect(handOffLines(handoff, null)?.[0]?.title).toBe(handoff);
 
-		const chatHandoff = conversationHandOffReference("/tmp/transcript.md");
-		expect(handOffLines(chatHandoff, null)?.[0]?.words).toEqual(["Handoff"]);
+		const chatHandoff = conversationHandOffReference(
+			"/home/me/.splates/conversations/c-1/transcript.md",
+		);
+		expect(handOffLines(chatHandoff, null)?.[0]?.words).toEqual([
+			"Handed off from",
+			{ kind: "conversation", id: "c-1" },
+		]);
 		expect(handOffLines(chatHandoff, null)?.[0]?.title).toBe(chatHandoff);
+
+		// A path that names no folder keeps the line as it was.
+		const bare = conversationHandOffReference("/tmp/transcript.md");
+		expect(handOffLines(bare, null)?.[0]?.words).toEqual(["Handoff"]);
+		expect(
+			handOffLines(handOffReference("fix-it", "transcript.md"), null)?.[0]
+				?.words,
+		).toEqual(["Handoff", { kind: "task", task: "fix-it" }]);
 	});
 
 	it("words a completed wait as a finished wait with its outcome", () => {

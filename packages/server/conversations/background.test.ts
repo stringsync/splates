@@ -61,6 +61,14 @@ describe("Conversation background", () => {
 	};
 
 	/** A turn that starts `command` in the background as `id`, then more. */
+	/** What Claude sends as its turn ends, which says it comes back for what it leaves. */
+	const claudeTurnEnded: acp.SessionUpdate = {
+		sessionUpdate: "usage_update",
+		used: 1,
+		size: 10,
+		_meta: { "_claude/origin": { kind: "human" } },
+	};
+
 	const leaves = (
 		id: string,
 		command: string,
@@ -81,6 +89,7 @@ describe("Conversation background", () => {
 			for (const update of [
 				backgroundStarted(id, `Run ${command}`, `t-${id}`),
 				...after,
+				claudeTurnEnded,
 			]) {
 				await client.sessionUpdate({ sessionId, update });
 			}

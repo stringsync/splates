@@ -55,8 +55,8 @@ export function SignalIndex({
 	);
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center gap-3">
-				<div className="relative min-w-0 max-w-sm flex-1 basis-56">
+			<div className="flex items-center gap-3 sm:flex-wrap">
+				<div className="relative min-w-0 max-w-sm flex-1 max-sm:max-w-none sm:basis-56">
 					<SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						aria-label="Filter signals"
@@ -66,7 +66,7 @@ export function SignalIndex({
 						className="h-11 pl-9 sm:h-9"
 					/>
 				</div>
-				<span className="flex-1" />
+				<span className="flex-1 max-sm:hidden" />
 				{actions}
 			</div>
 			{shown.length === 0 && (

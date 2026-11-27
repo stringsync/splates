@@ -14,7 +14,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's review panel and demo cards", () => {
+describe("App's review panel", () => {
 	let testing: Testing;
 
 	beforeEach(() => {
@@ -48,7 +48,7 @@ describe("App's review panel and demo cards", () => {
 			name: "Message input",
 		});
 
-	it("leads with the live task's Before and After, its prose below", async () => {
+	it("leads with the live task's Before and After, leaving out the summary After repeats", async () => {
 		const view = await testing.openConversations([reviewing], undefined, {
 			tasks: [
 				details({
@@ -66,7 +66,63 @@ describe("App's review panel and demo cards", () => {
 			),
 		).toBeTruthy();
 		expect(within(panel).getByText("It fits.")).toBeTruthy();
-		expect(within(panel).getByText("The header wraps on phones.")).toBeTruthy();
+		expect(within(panel).queryByText("The header wraps on phones.")).toBeNull();
+		expect(
+			within(within(panel).getByRole("region", { name: "notes" })).getByText(
+				"Open the page at 390px wide.",
+			),
+		).toBeTruthy();
+	});
+
+	// vet-ignore simple-test-setup: its review repeats the record's After picture, which no other test's does
+	it("leaves out of Notes a picture After shows, and Notes itself once nothing is left", async () => {
+		const review = (...notes: string[]) =>
+			conversation({
+				title: "Header",
+				messages: [
+					message(
+						"agent",
+						[
+							"## 🔍 Ready to merge header onto main",
+							"",
+							"The header fits.",
+							"",
+							...notes,
+							"",
+							'Reply "merge", or say what to change.',
+						].join("\n"),
+					),
+				],
+			});
+		const tasks = [
+			details({
+				task: "header",
+				plan: "# header\n\n## Before\n\nIt wraps.\n\n## After\n\n![fits](</a/fits.png>)\n\nIt fits.",
+			}),
+		];
+		const view = await testing.openConversations(
+			[review("![fits again](/a/fits.png)", "", "- Snapshots re-recorded.")],
+			undefined,
+			{ tasks },
+		);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const notes = within(panel).getByRole("region", { name: "notes" });
+		expect(within(notes).getByText("Snapshots re-recorded.")).toBeTruthy();
+		expect(panel.innerHTML).toContain("fits");
+		expect(panel.innerHTML).not.toContain("fits again");
+		cleanup();
+
+		const only = await testing.openConversations(
+			[review("![fits again](/a/fits.png)")],
+			undefined,
+			{ tasks },
+		);
+		const bare = await waitFor(() =>
+			only.getByRole("region", { name: "review header" }),
+		);
+		expect(within(bare).queryByRole("region", { name: "notes" })).toBeNull();
 	});
 
 	it("switches After between Expected and Actual, opening on Actual, an older As built being Actual", async () => {
@@ -246,103 +302,8 @@ describe("App's review panel and demo cards", () => {
 		expect(within(panel).queryByRole("textbox")).toBeNull();
 	});
 
-	const demo = [
-		"### 🎬 Demo: dragging a card",
-		"",
-		"Open http://localhost:4310. It's a demo repo.",
-		"",
-		"1. Press and hold a card.",
-		"   It lifts.",
-		"2. Drag it to another lane.",
-		"   It lands where you drop it.",
-	];
-
-	it("shows a demo as steps to follow, where it runs a click away", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Demo",
-				messages: [message("agent", demo.join("\n"))],
-			}),
-		]);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "demo dragging a card" }),
-		);
-		expect(
-			within(card).getByRole("link", { name: "Open" }).getAttribute("href"),
-		).toBe("http://localhost:4310");
-		expect(card.textContent).toContain("It lands where you drop it.");
-		expect(card.textContent).toContain("It lands where you drop it.");
-		expect(within(card).queryByRole("checkbox")).toBeNull();
-		expect(card.textContent).not.toContain("tried");
-	});
-
 	// vet-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
-	it("shows an escalation's demo in its questions' card, above them", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Demo",
-				messages: [
-					message(
-						"agent",
-						[
-							"## ⚠️ Escalated board: needs a phone check",
-							"",
-							"Cards drag on phones now.",
-							"",
-							...demo,
-							"",
-							"1. Does dragging feel right?",
-						].join("\n"),
-					),
-				],
-			}),
-		]);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "escalated board" }),
-		);
-		const shown = within(card).getByRole("region", {
-			name: "demo dragging a card",
-		});
-		expect(shown.textContent).toContain("Press and hold a card.");
-		expect(card.textContent).toContain("Does dragging feel right?");
-		expect(view.getAllByRole("region", { name: /^demo/ })).toEqual([shown]);
-	});
-
-	it("shows a review's demo in its panel, above Merge", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Demo",
-				messages: [
-					message(
-						"agent",
-						[
-							"## 🔍 Ready to merge board onto main",
-							"",
-							"Cards drag on phones now.",
-							"",
-							...demo,
-							"",
-							'Reply "merge", or say what to change.',
-						].join("\n"),
-					),
-				],
-			}),
-		]);
-
-		const panel = await waitFor(() =>
-			view.getByRole("region", { name: "review board" }),
-		);
-		expect(
-			within(panel).getByRole("region", { name: "demo dragging a card" })
-				.textContent,
-		).toContain("Drag it to another lane.");
-		expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
-	});
-
-	// vet-ignore simple-test-setup: it opens a conversation of its own, which no other test shares
-	it("orders a review by what deciding takes: summary, demo, checks, then the details under a header", async () => {
+	it("orders a review by what deciding takes: summary, checks, then the details", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Header",
@@ -353,8 +314,6 @@ describe("App's review panel and demo cards", () => {
 							"## 🔍 Ready to merge header onto main",
 							"",
 							"The header wraps on phones.",
-							"",
-							...demo,
 							"",
 							"Checks: `bun run typecheck`, `bun test`",
 							"",
@@ -370,13 +329,9 @@ describe("App's review panel and demo cards", () => {
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
-		const regions = within(panel)
-			.getAllByRole("region")
-			.map((each) => each.getAttribute("aria-label"));
-		expect(regions).toEqual(["demo dragging a card"]);
 		const text = panel.textContent ?? "";
 		expect(text.indexOf("The header wraps on phones.")).toBeLessThan(
-			text.indexOf("Drag it to another lane."),
+			text.indexOf("It breaks at 400px, kept in one constant."),
 		);
 		expect(
 			within(panel).getByText("It breaks at 400px, kept in one constant."),

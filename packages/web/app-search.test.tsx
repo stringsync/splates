@@ -5,6 +5,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	resize,
 	Testing,
 	todo,
 	waitFor,
@@ -25,6 +26,7 @@ describe("App's search", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+		resize(1024, 768);
 		history.replaceState(null, "", " ");
 	});
 
@@ -53,6 +55,20 @@ describe("App's search", () => {
 		});
 	});
 
+	it("shows no search bar in the phone inbox", async () => {
+		resize(390, 844);
+		const view = await testing.open({
+			tasks: [details({ task: "upload-fix" })],
+		});
+		const inbox = view.getByRole("region", { name: "inbox" });
+
+		expect(
+			within(inbox).queryByRole("button", {
+				name: "Search tasks and conversations",
+			}),
+		).toBeNull();
+	});
+
 	it("finds a todo by the start of its number", async () => {
 		const { results } = await searchFor("#7");
 		await waitFor(() =>
@@ -75,7 +91,6 @@ describe("App's search", () => {
 				endedAt: "2026-11-01T01:00:00Z",
 				conversation: null,
 				took: [{ id: 1200, subject: "Queued retry" }],
-				hasDemo: false,
 				plan: "",
 			},
 		];

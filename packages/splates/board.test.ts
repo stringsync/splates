@@ -39,6 +39,7 @@ it("lets an agent manage boards and place lanes on them, deleting only empty boa
 		"task",
 		"add",
 		"Keep me",
+		"A detail for whoever picks it up.",
 		"--slug",
 		"keep-me",
 		"--lane",

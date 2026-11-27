@@ -55,7 +55,7 @@ export function Overview({
 	return (
 		<div className="flex min-w-0 flex-col text-sm">
 			{deferred !== undefined && (
-				<CardSection label="deferral" title="Deferred" ruled={false}>
+				<CardSection label="deferral" title="Deferred" ruled={false} beside>
 					<p>{deferred.why}</p>
 					{open.length > 0 && (
 						<ul className="list-disc pl-5 text-muted-foreground">
@@ -83,6 +83,7 @@ export function Overview({
 						? record !== null && (
 								<BeforeAfter
 									record={record}
+									beside
 									className={
 										plan.verification !== "" || plan.steps !== ""
 											? "pb-5"
@@ -103,6 +104,7 @@ export function Overview({
 					{plan.verification !== "" && (
 						<CardSection
 							label="verification"
+							beside
 							title="Verification"
 							ruled={beforeAfter ? record !== null : goal !== ""}
 						>
@@ -112,6 +114,7 @@ export function Overview({
 					{plan.steps !== "" && (
 						<CardSection
 							label="steps"
+							beside
 							ruled={
 								plan.verification !== "" ||
 								(beforeAfter ? record !== null : goal !== "")

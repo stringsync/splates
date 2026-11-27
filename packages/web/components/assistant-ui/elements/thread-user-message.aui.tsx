@@ -7,7 +7,10 @@ import {
 	type TextMessagePartComponent,
 	useAuiState,
 } from "@assistant-ui/react";
-import { SERVER_TOLD } from "@splates/server/conversations/browser";
+import {
+	afterDecision,
+	SERVER_TOLD,
+} from "@splates/server/conversations/browser";
 import { leadingDirectives, MERGE } from "@splates/server/plans/browser";
 import {
 	CheckIcon,
@@ -23,6 +26,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { OverturnedLine, overturnOf } from "#web/assumed-line.tsx";
 import { linkAttachments } from "#web/attachment-chips.tsx";
 import { Board } from "#web/board.ts";
 import { repliesToReview } from "#web/card-reply.tsx";
@@ -43,7 +47,6 @@ import {
 	soleDirective,
 	unshown,
 	useShownDirectives,
-	withoutLoopParameters,
 } from "#web/directives.tsx";
 import { useHeldConversations } from "#web/handed-out.tsx";
 import { cn } from "#web/lib/utils.ts";
@@ -65,33 +68,34 @@ import { USER_BUBBLE } from "./thread-user-bubble.aui";
 
 /**
  * A message's words without the line a Steps card's pop-out put before them
- * to tell the agent where the person was: the page says that under the
- * bubble instead (see `PoppedNote`).
+ * to tell the agent where the person was, which the page says under the
+ * bubble instead (see `PoppedNote`), and without a plan card's decision
+ * lines, which the card's folded line says instead.
  */
-const wordsOf = (text: string): string => readAsked(text)?.words ?? text;
+const wordsOf = (text: string): string => {
+	const words = readAsked(text)?.words ?? text;
+	return afterDecision(words) ?? words;
+};
 /**
  * What the person typed, as markdown with each line break kept, each todo it
  * mentions a link to it, each system and file a chip, and the directives and
  * attachments after those `Leading` shows as chips where they stand.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
-	const { directives, rest } = leadingDirectives(wordsOf(text));
-	return withoutLoopParameters(directives, rest) === "" ? null : (
-		<MarkdownText typed={afterDirectives} />
-	);
+	const { rest } = leadingDirectives(wordsOf(text));
+	return rest === "" ? null : <MarkdownText typed={afterDirectives} />;
 };
 /**
  * The chips a message starts with, in a row above its words as the composer
  * showed them: the directives its words start with, and each attachment its
  * words never name.
  */
-const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
-	text,
-	sent,
-}) => {
-	const { directives, rest: all } = leadingDirectives(wordsOf(text));
+const Leading: FC<{
+	text: string;
+	sent: readonly Sent[];
+}> = ({ text, sent }) => {
+	const { directives, rest } = leadingDirectives(wordsOf(text));
 	const shown = useShownDirectives(directives);
-	const rest = withoutLoopParameters(directives, all);
 	const loose = unnamed(sent, text);
 	if (shown.length + loose.length === 0) {
 		return null;
@@ -121,10 +125,8 @@ const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
  * directive after them a link the markdown draws as its chip.
  */
 const afterDirectives = (text: string) => {
-	const { directives, rest } = leadingDirectives(wordsOf(text));
-	return linkAttachments(
-		linkDirectives(withoutLoopParameters(directives, rest)),
-	);
+	const { rest } = leadingDirectives(wordsOf(text));
+	return linkAttachments(linkDirectives(rest));
 };
 export const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
@@ -201,6 +203,21 @@ export const UserMessage: FC = () => {
 			</div>
 		);
 	}
+	const overturn = sent.length === 0 ? overturnOf(text) : null;
+	if (overturn !== null) {
+		// What the agent was told to switch to, as splates's line, where the
+		// turn it starts begins.
+		return (
+			<MessagePrimitive.Root
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				className="px-2"
+				data-role="user"
+			>
+				<OverturnedLine {...overturn} at={at} />
+			</MessagePrimitive.Root>
+		);
+	}
 	if (sole !== null && sent.length === 0 && isBare(sole)) {
 		// Not a primitive's root, which assistant-ui would anchor a reply's
 		// turn to: it carries on the turn it comes in (see `carriesOn`).
@@ -236,6 +253,22 @@ export const UserMessage: FC = () => {
 			>
 				<DirectiveLine directive={sole} at={at} />
 			</MessagePrimitive.Root>
+		);
+	}
+	if (
+		sent.length === 0 &&
+		wordsOf(text) === "" &&
+		afterDecision(text) !== null
+	) {
+		// A plan card's bare decision, which the card's folded line says: as
+		// a run-command card's answer, nothing more to see, but still where
+		// its turn starts.
+		return (
+			<MessagePrimitive.Root
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				data-role="user"
+			/>
 		);
 	}
 	const body = (

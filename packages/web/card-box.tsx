@@ -213,6 +213,10 @@ function useBelow(shell: RefObject<HTMLDivElement | null>, value: string) {
 			return;
 		}
 		const measure = () => {
+			if (!editor.textContent) {
+				setBelow(false);
+				return;
+			}
 			const style = getComputedStyle(editor);
 			const line = Number.parseFloat(style.lineHeight) || 20;
 			const padding =

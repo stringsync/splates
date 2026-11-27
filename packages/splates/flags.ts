@@ -4,6 +4,7 @@ import { SYSTEM_STORES } from "@splates/server/creds";
 import { fail } from "@splates/server/exit";
 import {
 	type AgentPick,
+	Limits,
 	Offered,
 	pickAgent,
 	pickEffort,
@@ -89,6 +90,11 @@ export function offeredOf({ ps, fs }: SplatesDeps): Offered {
 	return new Offered(
 		new FsStorage(splatesHome(ps), fs).document("offered.json"),
 	);
+}
+
+/** Each agent's plan limits as last reported, from any project; read only. */
+export function limitsOf({ ps, fs }: SplatesDeps): Limits {
+	return new Limits(new FsStorage(splatesHome(ps), fs).document("limits.json"));
 }
 
 /** The tunnel each slot's home may have saved, for every word of the pool. */

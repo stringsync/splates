@@ -33,7 +33,6 @@ import { BarButton, TopBarFrame } from "./top-bar";
  */
 export function PhoneApp({
 	page,
-	evalRunOpen,
 	open,
 	go,
 	name,
@@ -49,8 +48,6 @@ export function PhoneApp({
 	pageMenu,
 }: {
 	page: Page;
-	/** A saved run uses the slim toolbar used by conversations. */
-	evalRunOpen: boolean;
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	go: (page: Page, conversation?: string | null, how?: Move) => void;
@@ -105,7 +102,7 @@ export function PhoneApp({
 		resized.observe(titleSlot);
 		return () => resized.disconnect();
 	}, [titleSlot]);
-	const showPageHeader = !evalRunOpen && page !== "welcome";
+	const showPageHeader = page !== "welcome";
 	const { conversations } = useReactive(
 		talk,
 		(talk) => ({ conversations: talk.conversations }),
@@ -121,6 +118,8 @@ export function PhoneApp({
 	const kebab = {
 		menu: pageMenu.items,
 		dot: pageMenu.dot,
+		stuck: pageMenu.stuck,
+		onInvestigateStuck: pageMenu.onInvestigateStuck,
 		project: name,
 		refreshing: restartBusy,
 	};
@@ -144,6 +143,7 @@ export function PhoneApp({
 										root: snapshot.root,
 										repo: snapshot.repo,
 										trunk: snapshot.trunk,
+										queueError: snapshot.queueError,
 									}
 						}
 						loading={snapshot === null}
@@ -164,6 +164,7 @@ export function PhoneApp({
 							banner,
 							// An update is for the screens above a conversation.
 							dot: undefined,
+							stuck: undefined,
 							badge: snapshot !== null && (
 								<WaitingBadge
 									feed={talk}
@@ -201,20 +202,18 @@ export function PhoneApp({
 								/>
 							)}
 						</span>
-						{!evalRunOpen && (
-							<ProjectSwitcher
-								name={name}
-								path={false}
-								servers={false}
-								className="mx-0 max-w-3/5 shrink"
-							/>
-						)}
+						<ProjectSwitcher
+							name={name}
+							path={false}
+							servers={false}
+							className="mx-0 max-w-3/5 shrink"
+						/>
 						<div
 							ref={setSlot}
 							className="flex min-w-0 flex-1 items-center gap-1"
 						/>
 						{/* The shell's own, so it is there while a page still loads. */}
-						{available && !evalRunOpen && (
+						{available && (
 							<BarButton label="New conversation" onClick={() => openNew()}>
 								<SquarePenIcon />
 							</BarButton>
@@ -234,10 +233,10 @@ export function PhoneApp({
 							slot,
 							bannerSlot,
 							banner,
-							untitled: !evalRunOpen,
+							untitled: true,
 							titleSlot: showPageHeader ? titleSlot : null,
 							area: showPageHeader ? { page } : undefined,
-							dot: evalRunOpen ? undefined : kebab.dot,
+							dot: kebab.dot,
 						}}
 					>
 						{body}

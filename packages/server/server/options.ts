@@ -20,6 +20,7 @@ import type {
 } from "../workers";
 import type { GeneralOptions } from "./general";
 import type { Project } from "./project";
+import type { Stuck } from "./release";
 import type { ServerChoice } from "./servers";
 
 /** What `dev` lets a caller choose. */
@@ -131,6 +132,11 @@ export interface DevOptions {
 	 * checkout again. Without it, nothing is checked.
 	 */
 	source?: () => Promise<string | null>;
+	/**
+	 * Whether the source checkout is behind its local remote-tracking branch
+	 * on server source commits; asked alongside `source`.
+	 */
+	stuck?: () => Promise<Stuck | null>;
 	/** How often `source` is asked after the first time. */
 	sourceEvery?: Duration;
 	/**

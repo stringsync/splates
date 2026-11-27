@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { blank } from "@splates/server/conversations/browser";
 import { Board, NO_BOARD } from "./board";
+import { Held } from "./handed-out";
 import { SplatesEvent, type SplatesEventView } from "./splates-event";
 import { cleanup, fireEvent, render, within } from "./testing-library";
 
@@ -21,6 +23,62 @@ const merged: SplatesEventView = {
 };
 
 describe("splates events", () => {
+	it("names a conversation it came from and links to it", () => {
+		const old = {
+			...blank("c-old", "claude", null, at(-60)),
+			title: "Fix the gate timeout",
+			archived: true,
+		};
+		const page = render(
+			<Held value={[old]}>
+				<SplatesEvent
+					event={{
+						words: ["Handed off from", { kind: "conversation", id: "c-old" }],
+					}}
+				/>
+			</Held>,
+		);
+
+		const chip = page.getByTitle("Conversation Fix the gate timeout");
+		expect(chip.getAttribute("href")).toBe("#conversations/c-old");
+		expect(chip.textContent).toBe("Fix the gate timeout");
+		if (process.env.HANDOFF_DUMP !== undefined) {
+			require("node:fs").writeFileSync(
+				process.env.HANDOFF_DUMP,
+				page.container.innerHTML,
+			);
+		}
+	});
+
+	it("says a conversation it cannot find is a conversation", () => {
+		const page = render(
+			<SplatesEvent
+				event={{
+					words: ["Handed off from", { kind: "conversation", id: "gone" }],
+				}}
+			/>,
+		);
+
+		const chip = page.getByTitle("Conversation a conversation");
+		expect(chip.getAttribute("href")).toBe("#conversations/gone");
+	});
+
+	it("strikes out a conversation the list no longer has", () => {
+		const other = blank("c-other", "claude", null, at(-5));
+		const page = render(
+			<Held value={[other]}>
+				<SplatesEvent
+					event={{
+						words: ["Handed off from", { kind: "conversation", id: "gone" }],
+					}}
+				/>
+			</Held>,
+		);
+
+		const chip = page.getByTitle("Conversation deleted");
+		expect(chip.getAttribute("href")).toBeNull();
+	});
+
 	it("says what splates did and names what it did it to", () => {
 		const page = render(<SplatesEvent event={merged} />);
 

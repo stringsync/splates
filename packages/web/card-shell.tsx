@@ -6,7 +6,7 @@ import {
 	type LucideIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import type { JSX, ReactNode } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -38,12 +38,14 @@ export function CardShell({
 	base = null,
 	aside,
 	folded = false,
+	centerHeader = false,
+	foldable = false,
 	ringed = true,
 	children,
 }: {
 	label: string;
 	Icon: LucideIcon;
-	title: string;
+	title: ReactNode;
 	tone?: Tone;
 	task?: string;
 	/** Where the task merges, shown after it. */
@@ -52,6 +54,10 @@ export function CardShell({
 	aside?: ReactNode;
 	/** Whether it starts closed, opened by its header: once it is answered. */
 	folded?: boolean;
+	/** Keep header contents vertically centered in narrow threads too. */
+	centerHeader?: boolean;
+	/** Whether its header folds and unfolds it even when it starts open. */
+	foldable?: boolean;
 	/**
 	 * Whether it is ringed in its tone while focus is inside it; off for a
 	 * card that marks the part of it with the focus instead.
@@ -59,6 +65,15 @@ export function CardShell({
 	ringed?: boolean;
 	children?: ReactNode;
 }): JSX.Element {
+	// Folded again whenever `folded` turns on, opened whenever it turns off;
+	// the header toggles it in between.
+	const [open, setOpen] = useState(!folded);
+	const [wasFolded, setWasFolded] = useState(folded);
+	if (wasFolded !== folded) {
+		setWasFolded(folded);
+		setOpen(!folded);
+	}
+	const collapsible = folded || foldable;
 	// Ringed in its tone while focus is inside it, as when it comes up to be
 	// answered, so it is plain where the keys go.
 	const frame = cn(
@@ -74,13 +89,16 @@ export function CardShell({
 			task={task}
 			base={base}
 			aside={aside}
-			folded={folded}
+			folded={collapsible}
+			centered={centerHeader}
 			ruled={children !== undefined}
 		/>
 	);
-	if (folded) {
+	if (collapsible) {
 		return (
 			<Collapsible
+				open={open}
+				onOpenChange={setOpen}
 				render={<section aria-label={label} data-card />}
 				className={frame}
 			>
@@ -215,15 +233,17 @@ function Header({
 	base,
 	aside,
 	folded,
+	centered,
 	ruled,
 }: {
 	Icon: LucideIcon;
-	title: string;
+	title: ReactNode;
 	tone: Tone;
 	task: string | undefined;
 	base: string | null;
 	aside: ReactNode;
 	folded: boolean;
+	centered: boolean;
 	/** Whether a body follows, set apart by a rule while it shows. */
 	ruled: boolean;
 }): JSX.Element {
@@ -231,7 +251,8 @@ function Header({
 		<div
 			className={cn(
 				// Tighter in a narrow thread, as on a phone.
-				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:items-start @max-md:px-3 @max-md:py-2",
+				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:px-3 @max-md:py-2",
+				!centered && "@max-md:items-start",
 				ruled && (folded ? "group-data-[open]/card:border-b" : "border-b"),
 				TONES[tone].header,
 			)}
@@ -239,7 +260,13 @@ function Header({
 			{folded && (
 				<ChevronRightIcon className="size-4 text-muted-foreground transition-transform duration-150 group-data-[open]/card:rotate-90" />
 			)}
-			<Icon className={cn("size-4 shrink-0 @max-md:mt-px", TONES[tone].icon)} />
+			<Icon
+				className={cn(
+					"size-4 shrink-0",
+					!centered && "@max-md:mt-px",
+					TONES[tone].icon,
+				)}
+			/>
 			{/* Narrow, the title takes the row beside its icon and wraps under
 			    itself, rather than dropping below the icon whole. */}
 			<span className="font-medium text-[13px] @max-md:min-w-0 @max-md:flex-1 @max-md:basis-0">
@@ -254,7 +281,13 @@ function Header({
 					className="@max-md:order-last @max-md:basis-full"
 				/>
 			)}
-			{aside !== undefined && <span className="ml-auto shrink-0">{aside}</span>}
+			{aside !== undefined && (
+				<span
+					className={cn("ml-auto shrink-0", centered && "flex items-center")}
+				>
+					{aside}
+				</span>
+			)}
 		</div>
 	);
 }

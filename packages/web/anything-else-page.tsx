@@ -48,32 +48,34 @@ export function AnythingElsePage({
 					className="min-h-28"
 				/>
 			</div>
-			<ol aria-label="your answers" className="flex flex-col gap-2">
-				{questions.map((asked, at) => (
-					<li key={asked.number}>
-						<button
-							type="button"
-							onClick={() => onTurn(at)}
-							className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left active:bg-muted"
-						>
-							<span className="min-w-0 flex-1 truncate text-sm">
-								<Markdown text={asked.text} inline unlinked />
-							</span>
-							{answers[at] === null ? (
-								<span className="shrink-0 text-muted-foreground text-sm">
-									Not answered
+			{questions.length > 0 && (
+				<ol aria-label="your answers" className="flex flex-col gap-2">
+					{questions.map((asked, at) => (
+						<li key={asked.number}>
+							<button
+								type="button"
+								onClick={() => onTurn(at)}
+								className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left active:bg-muted"
+							>
+								<span className="min-w-0 flex-1 truncate text-sm">
+									<Markdown text={asked.text} inline unlinked />
 								</span>
-							) : (
-								<CheckIcon
-									aria-label="answered"
-									className="size-5 shrink-0 text-success"
-								/>
-							)}
-							<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-						</button>
-					</li>
-				))}
-			</ol>
+								{answers[at] === null ? (
+									<span className="shrink-0 text-muted-foreground text-sm">
+										Not answered
+									</span>
+								) : (
+									<CheckIcon
+										aria-label="answered"
+										className="size-5 shrink-0 text-success"
+									/>
+								)}
+								<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+							</button>
+						</li>
+					))}
+				</ol>
+			)}
 		</section>
 	);
 }

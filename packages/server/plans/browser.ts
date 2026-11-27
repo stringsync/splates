@@ -7,6 +7,8 @@ export type {
 	TaskReport,
 } from "./asked";
 export { approvalOf, stretches } from "./asked";
+export type { PlanField, PlanTag } from "./body";
+export { planFields, planHasOneWayTag, planTags } from "./body";
 export { keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
 export {
@@ -22,7 +24,6 @@ export {
 } from "./needs";
 export { queueIsSettled } from "./permission";
 export { goalLine, questions, sectionApart } from "./plan";
-export type { DemoPoint } from "./prompts";
 export {
 	APPROVE,
 	AUTO_ALLOWED,
@@ -31,10 +32,7 @@ export {
 	configChangeReference,
 	conversationHandOffReference,
 	DIRECTIVES,
-	demoReference,
 	directive,
-	EVAL_BUDGET_APPROVED,
-	EVAL_BUDGET_DECLINED,
 	handOffReference,
 	isUpdate,
 	leadingDirectives,
@@ -50,7 +48,7 @@ export {
 	taskReference,
 	UNTRIAGED,
 } from "./prompts";
-export type { QueuedCard, QueuedTask } from "./queued";
+export type { QueuedCard, QueuedLane, QueuedTask } from "./queued";
 export type { Answer } from "./reply";
 export {
 	answerIn,

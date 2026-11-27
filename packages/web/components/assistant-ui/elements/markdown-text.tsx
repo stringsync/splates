@@ -9,6 +9,7 @@ import {
 	type CodeHeaderProps,
 	MarkdownTextPrimitive,
 	unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
+	type SyntaxHighlighterProps,
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import { CheckIcon, CopyIcon, SquareTerminalIcon } from "lucide-react";
@@ -36,6 +37,10 @@ import {
 } from "#web/components/ui/table.tsx";
 import { DiagramView } from "#web/diagram-view.tsx";
 import { DirectiveChip, directiveIn } from "#web/directives.tsx";
+import { evalProposalOf } from "#web/eval-proposal.ts";
+import { EvalProposalCard } from "#web/eval-proposal-card.tsx";
+import { evalReportOf } from "#web/eval-report.ts";
+import { EvalReportCard } from "#web/eval-report-card.tsx";
 import { useCopyToClipboard } from "#web/hooks/use-copy-to-clipboard.ts";
 import { useWaitTail } from "#web/hooks/use-wait-tail.ts";
 import { cn } from "#web/lib/utils.ts";
@@ -48,9 +53,10 @@ import {
 	linkTasks,
 	Mention,
 	mentionIn,
+	outsideCode,
 	taskIn,
 } from "#web/markdown.tsx";
-import { Media } from "#web/media.tsx";
+import { Gallery, joinImageRuns, Media, picturedIn } from "#web/media.tsx";
 import {
 	linkNamed,
 	NamedChip,
@@ -128,14 +134,17 @@ function MarkdownTextImpl({
 					// chip. Another project's task, `wren #404`, is linked
 					// before its `#wren` could be read as the project alone.
 					preprocess={(text: string) =>
-						linkMentions(
-							linkNamed(
-								linkElsewhere(
-									linkTasks(typed ? typed(text) : text),
-									named.projects,
+						outsideCode(
+							linkMentions(
+								linkNamed(
+									linkElsewhere(
+										linkTasks(typed ? typed(text) : text),
+										named.projects,
+									),
+									named,
 								),
-								named,
 							),
+							joinImageRuns,
 						)
 					}
 					className="aui-md"
@@ -189,8 +198,49 @@ const keepBreaks = () => (tree: MdNode) => {
 	visit(tree);
 };
 
-/** A fenced d2 block is drawn as a diagram, with no code header; an empty one stays code. */
+/**
+ * A fence `parse` reads is drawn as the card `draw` makes of it, with no code
+ * header; one it cannot read stays code, under its header.
+ */
+function cardFence<T>(
+	language: string,
+	parse: (source: string) => T | null,
+	draw: (parsed: T) => JSX.Element,
+) {
+	return {
+		CodeHeader: ({ code }: CodeHeaderProps) =>
+			parse(code) === null ? (
+				<CodeHeader language={language} code={code} />
+			) : null,
+		SyntaxHighlighter: ({
+			node,
+			components: { Pre, Code },
+			code,
+		}: SyntaxHighlighterProps) => {
+			const parsed = parse(code);
+			if (parsed === null) {
+				return (
+					<Pre>
+						<Code node={node}>{code}</Code>
+					</Pre>
+				);
+			}
+			return <div className="my-3">{draw(parsed)}</div>;
+		},
+	};
+}
+
+/**
+ * A fenced d2 block is drawn as a diagram, with no code header; an empty one
+ * stays code. An eval proposal or an eval run's report is drawn as its card.
+ */
 const BY_LANGUAGE = {
+	eval: cardFence("eval", evalProposalOf, (proposal) => (
+		<EvalProposalCard proposal={proposal} />
+	)),
+	"eval-report": cardFence("eval-report", evalReportOf, (report) => (
+		<EvalReportCard report={report} />
+	)),
 	d2: {
 		CodeHeader: ({ code }: CodeHeaderProps) =>
 			code.trim() === "" ? <CodeHeader language="d2" code={code} /> : null,
@@ -303,15 +353,27 @@ const defaultComponents = memoizeMarkdownComponents({
 			{...props}
 		/>
 	),
-	p: ({ className, ...props }) => (
-		<p
-			className={cn(
-				"aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0",
-				className,
-			)}
-			{...props}
-		/>
-	),
+	// A paragraph of images and nothing else is drawn as one gallery card.
+	p: ({ className, ...props }) => {
+		const pictured = picturedIn(
+			props.children,
+			(child) =>
+				(child.props.node as { tagName?: string } | undefined)?.tagName ===
+				"img",
+		);
+		const classes = cn(
+			"aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0",
+			className,
+		);
+		if (pictured !== null) {
+			return (
+				<div className={classes}>
+					<Gallery items={pictured} />
+				</div>
+			);
+		}
+		return <p className={classes} {...props} />;
+	},
 	// A link opens in a new tab, so the conversation keeps its place; one to a
 	// spot on the page, such as a footnote, stays in it. A todo's opens it over
 	// the conversation, and a system or file a person named shows as its chip.

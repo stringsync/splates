@@ -31,7 +31,7 @@ ask. A secret, such as an API token, is a cred to request instead (see
 
 1. Leave something to look at, by **absolute path** (start from
    `splates path <task>`): for anything visual, a screenshot or recording you
-   `splates attach` (see [visuals.md](visuals.md)). Ask first if producing it
+   `splates attach` (see [showing.md](showing.md)). Ask first if producing it
    is expensive.
 2. Ask in your reply as [Reporting](reporting.md) says, and end your turn:
    the page shows you waiting on the user. Do not `splates wait` or poll
@@ -40,7 +40,7 @@ ask. A secret, such as an API token, is a cred to request instead (see
 
 Never ask whether the work is ready to merge: once the questions are answered
 and the work is done, merge or ask for a review (see
-[Merge or review](merge.md#merge-or-review)).
+SKILL.md, step 6).
 
 When the user asks to see the work before it lands, add an unchecked
 `- [ ] Show the user before merging` step under `## Next` at once, so the

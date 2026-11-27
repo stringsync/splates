@@ -32,7 +32,8 @@ describe("the splates skill's Directives table", () => {
 				RUN_DENIED,
 				RETRIED,
 				"[SPLATES SIGNAL <name>]",
-				"[SPLATES EVAL LOOP <run>]",
+				"[SPLATES EVAL CANCELLED <eval>]",
+				"[SPLATES OVERTURN <n>]",
 			].toSorted(),
 		);
 	});

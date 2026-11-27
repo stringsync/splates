@@ -1,5 +1,4 @@
 {
-	"@evals/evals": {},
 	"@mono/rec": {
 		"files": [
 			"extension/**",

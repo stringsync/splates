@@ -26,20 +26,6 @@ describe("statusOf", () => {
 		]);
 	});
 
-	it("says an agent whose eval run goes is running evals", () => {
-		const row: Needing = {
-			conversation: null,
-			task: null,
-			need: { kind: "working", subject: "Tighten the wording", evals: true },
-		};
-
-		expect(statusOf(row, "alpha", "main")).toEqual({
-			text: "Running evals",
-			label: "Running evals",
-			urgent: false,
-		});
-	});
-
 	it("says a merged conversation is done", () => {
 		const row: Needing = {
 			conversation: conversation({

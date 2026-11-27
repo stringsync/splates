@@ -32,9 +32,11 @@ import { CopyableCode, CopyablePre } from "./copyable-code";
 import { DiagramView } from "./diagram-view";
 import { evalProposalOf } from "./eval-proposal";
 import { EvalProposalCard } from "./eval-proposal-card";
+import { evalReportOf } from "./eval-report";
+import { EvalReportCard } from "./eval-report-card";
 import { FinishedReferences } from "./finished-references";
 import { GROUP } from "./lightbox";
-import { Alt, Media } from "./media";
+import { Alt, Gallery, joinImageRuns, Media, picturedIn } from "./media";
 import { NamedContext } from "./mentioned";
 import { todoAddress } from "./page-address";
 import { placeKey, projectUrl, shownProject } from "./project-places";
@@ -91,7 +93,9 @@ export const Markdown = memo(function Markdown({
 				className,
 			)}
 		>
-			<Render options={preview ? GLIMPSE : OPTIONS}>{linked}</Render>
+			<Render options={preview ? GLIMPSE : OPTIONS}>
+				{outsideCode(linked, joinImageRuns)}
+			</Render>
 		</div>
 	);
 });
@@ -113,7 +117,10 @@ const OPTIONS: MarkdownToJSX.Options = {
 		h4: heading("h4"),
 		h5: heading("h5"),
 		h6: heading("h6"),
-		p: { props: { className: "my-3 first:mt-0 last:mb-0 leading-relaxed" } },
+		p: {
+			component: Paragraph,
+			props: { className: "my-3 first:mt-0 last:mb-0 leading-relaxed" },
+		},
 		ul: {
 			props: {
 				className:
@@ -440,34 +447,54 @@ function Unlinked({ children }: ComponentProps<"a">): JSX.Element {
 	return <span>{children}</span>;
 }
 
+/** A paragraph of images and nothing else is drawn as one gallery card. */
+function Paragraph(props: ComponentProps<"p">): JSX.Element {
+	const pictured = picturedIn(props.children, (child) => child.type === Image);
+	if (pictured !== null) {
+		return (
+			<div className={props.className}>
+				<Gallery items={pictured} />
+			</div>
+		);
+	}
+	return <p {...props} />;
+}
+
 /** An image shows what it names, when that is a file splates holds. */
 function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
 	return <Media src={src} alt={alt} />;
 }
 
 /**
- * A fenced `d2` block is drawn as a diagram and an `eval` block as a proposed
- * eval; any other fence stays code.
+ * A fenced `d2` block is drawn as a diagram, an `eval` block as the eval
+ * card, and an `eval-report` block as a run report card; any other fence stays code.
  */
 function Pre(props: ComponentProps<"pre">): JSX.Element {
 	const copyable = useContext(CopyableCode);
 	const code = Children.toArray(props.children)[0];
 	if (isValidElement<ComponentProps<"code">>(code)) {
 		const source = code.props.children;
+		const className = code.props.className ?? "";
 		if (
-			/\blang-d2\b/.test(code.props.className ?? "") &&
+			/\blang-d2\b/.test(className) &&
 			typeof source === "string" &&
 			source.trim() !== ""
 		) {
 			return <DiagramView source={source.trim()} />;
 		}
 		const proposal =
-			/\blang-eval\b/.test(code.props.className ?? "") &&
-			typeof source === "string"
+			/\blang-eval(?![\w-])/.test(className) && typeof source === "string"
 				? evalProposalOf(source)
 				: null;
 		if (proposal !== null) {
 			return <EvalProposalCard proposal={proposal} />;
+		}
+		const report =
+			/\blang-eval-report\b/.test(className) && typeof source === "string"
+				? evalReportOf(source)
+				: null;
+		if (report !== null) {
+			return <EvalReportCard report={report} />;
 		}
 	}
 	if (copyable) {

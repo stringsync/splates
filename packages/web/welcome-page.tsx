@@ -165,7 +165,7 @@ function PlateIcon({ className }: { className?: string }): JSX.Element {
 const SUGGESTED = 4;
 
 /** The project journeys the page always suggests while they are left, however many other areas are. */
-const JOURNEYS = ["ships", "evals"];
+const JOURNEYS = ["ships"];
 
 /**
  * The few areas worth doing next: those not done, or with something to put

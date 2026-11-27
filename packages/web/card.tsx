@@ -1,5 +1,7 @@
 import type { TaskRecord } from "@splates/server/board";
+import { elsewhereName } from "@splates/server/board/browser";
 import { taskNumberReference } from "@splates/server/plans/browser";
+import { holdsBack } from "@splates/server/queue/browser";
 import { CircleAlertIcon, MessageSquareIcon } from "lucide-react";
 import {
 	type HTMLAttributes,
@@ -48,6 +50,14 @@ export function Card({
 	// Queued, it has a conversation waiting for an agent once it can start,
 	// as one at work has.
 	const held = todo.takenBy === null && todo.stage === "queued";
+	const waiting = held ? holdsBack(todo, board.todos) : null;
+	const blockers =
+		waiting === null
+			? []
+			: [
+					...waiting.open.map((blocker) => `#${blocker.id}`),
+					...waiting.elsewhere.map((blocker) => elsewhereName(blocker)),
+				];
 	const shown = shownStage(todo, board.todos, board.tasks);
 	const stale =
 		todo.takenBy === null &&
@@ -57,7 +67,10 @@ export function Card({
 	const fix = held ? blockedFix(todo, board.todos) : null;
 	const badgeStage =
 		shown === "blocked" && fix?.kind === "with" ? "queued" : shown;
-	const badge = STATUS_BADGE[badgeStage];
+	const badge =
+		shown === "blocked" && badgeStage === "queued"
+			? BLOCKED_QUEUED_BADGE
+			: STATUS_BADGE[badgeStage];
 	// Cross-lane or unqueued blockers on an available task still show a quiet
 	// warning mark since available cards carry no status badge.
 	const trouble =
@@ -120,6 +133,13 @@ export function Card({
 			>
 				{todo.subject}
 			</button>
+			{blockers.length > 0 && (
+				<p className="text-muted-foreground text-xs">
+					{blockers.length === 1
+						? `Waiting on ${blockers[0]}`
+						: `Waiting on ${blockers.length} blockers`}
+				</p>
+			)}
 			{listed && <LaneChip lane={todo.lane} plain />}
 			{detail !== undefined && detail !== null && (
 				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
@@ -141,13 +161,13 @@ const STATUS_BADGE: Partial<
 > = {
 	running: {
 		label: "Running",
-		chip: "bg-blue-500/15 text-foreground",
-		dot: "bg-blue-500",
+		chip: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
+		dot: "bg-green-600 dark:bg-green-400",
 	},
 	queued: {
 		label: "Queued",
-		chip: "bg-foreground/[0.07] text-muted-foreground",
-		dot: "bg-muted-foreground",
+		chip: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300",
+		dot: "bg-teal-600 dark:bg-teal-400",
 	},
 	blocked: {
 		label: "Blocked",
@@ -159,6 +179,12 @@ const STATUS_BADGE: Partial<
 		chip: "bg-destructive/15 text-foreground",
 		dot: "bg-destructive",
 	},
+};
+
+const BLOCKED_QUEUED_BADGE = {
+	label: "Queued",
+	chip: "bg-foreground/[0.07] text-muted-foreground",
+	dot: "bg-muted-foreground",
 };
 
 /**

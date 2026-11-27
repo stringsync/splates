@@ -125,13 +125,8 @@ export function triggerLabel(trigger: Trigger): string {
 /** `hook` in a few words. */
 export function hookLabel(hook: Hook): string {
 	switch (hook.kind) {
-		case "agent": {
-			const budget =
-				hook.evalBudget === undefined
-					? ""
-					: ` (eval budget $${Number.isInteger(hook.evalBudget) ? hook.evalBudget : hook.evalBudget.toFixed(2)})`;
-			return `tell ${hook.agent === undefined ? "Auto pick" : pickLabel({ ...hook, agent: hook.agent })}${budget}: ${hook.prompt}`;
-		}
+		case "agent":
+			return `tell ${hook.agent === undefined ? "Auto pick" : pickLabel({ ...hook, agent: hook.agent })}: ${hook.prompt}`;
 		case "run":
 			return `run \`${hook.command}\``;
 	}

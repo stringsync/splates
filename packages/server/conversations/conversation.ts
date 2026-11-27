@@ -20,6 +20,7 @@ import { answerWords } from "./answered";
 import { put } from "./archive";
 import { ConversationBackground } from "./background";
 import { choose } from "./choice";
+import { ConversationEvals } from "./evals";
 import { ConversationFiles } from "./files";
 import type {
 	ConversationDeps,
@@ -32,6 +33,7 @@ import { LeftRunning } from "./left-running";
 import { ConversationLog, type Entry, type Live } from "./log";
 import { sent } from "./messages";
 import { NoopHold } from "./noop-hold";
+import { refuseStalePlanDecision } from "./plan-decision";
 import { AWAY, VISIT_KEPT } from "./reminder";
 import { ConversationSignals, type SignalAsk } from "./signals";
 import {
@@ -39,6 +41,7 @@ import {
 	type Ask,
 	type Attached,
 	type AutoPickSet,
+	awaited,
 	blank,
 	type ConversationState,
 	callerAfter,
@@ -81,6 +84,7 @@ export class Conversation
 	private readonly connection: AgentConnection;
 	private readonly turns: ConversationTurns;
 	private readonly background: ConversationBackground;
+	private readonly evals: ConversationEvals;
 	/** The signals its agent waits on. */
 	private readonly signals: ConversationSignals;
 	/** What the agent left running past a turn, from its process tree. */
@@ -170,6 +174,10 @@ export class Conversation
 		});
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
+		this.evals = new ConversationEvals(this, deps, (text) =>
+			this.prompt(text, [], undefined, { told: SERVER_TOLD }),
+		);
+		void this.evals.load().catch(() => {});
 		this.signals = new ConversationSignals(this, deps, (text) =>
 			this.prompt(text, [], undefined, { told: SERVER_TOLD }),
 		);
@@ -483,6 +491,20 @@ export class Conversation
 		from?: Device,
 		opts: PromptOptions = {},
 	): Promise<void> {
+		// Only the person's own message (typed or sent by the page) decides a
+		// plan, so only theirs is checked against the latest one.
+		if (opts.person === true && opts.told === undefined) {
+			refuseStalePlanDecision(text, this.state);
+		}
+		return this.say(text, files, from, opts);
+	}
+
+	private say(
+		text: string,
+		files: Upload[],
+		from: Device | undefined,
+		opts: PromptOptions,
+	): Promise<void> {
 		// What the person says takes the place of a reconnect still due.
 		this.reconnecting?.dispose();
 		this.reconnecting = null;
@@ -616,6 +638,11 @@ export class Conversation
 	/** Stops background command `id`, leaving the agent's turn as it is. */
 	stopBackground(id: string): Promise<void> {
 		return this.background.stop(id);
+	}
+
+	/** Cancels running eval `name` at the person's word, telling the agent. */
+	cancelEval(name: string): Promise<void> {
+		return this.evals.cancel(name);
 	}
 
 	/** What background command `id` has printed, then more as it prints it. */
@@ -988,7 +1015,7 @@ export class Conversation
 	/**
 	 * Moves its agent off a worker being replaced, at its next pause, so the
 	 * worker can update without waiting on the person: one asking does as
-	 * `free` says; one idle, nothing running in the background, ends and
+	 * `free` says; one idle, waiting on nothing in the background, ends and
 	 * frees its place, and the person's next words place it again in a new
 	 * session told `[SPLATES TASK <task>]` first, as `requeue` does for an
 	 * idle one. One at work moves once its turn ends. One in no task has
@@ -999,11 +1026,11 @@ export class Conversation
 			await this.free();
 			return;
 		}
-		const { task, status, background } = this.state;
+		const { task, status } = this.state;
 		if (
 			task === null ||
 			status !== "idle" ||
-			background.length > 0 ||
+			awaited(this.state).length > 0 ||
 			this.grant === null
 		) {
 			return;
@@ -1172,6 +1199,7 @@ export class Conversation
 	}
 
 	dispose(): void {
+		this.evals.dispose();
 		this.signals.dispose();
 		this.leftRunning.dispose();
 		this.resting?.dispose();
@@ -1187,23 +1215,6 @@ export class Conversation
 		}
 		this.log.write({ kind: "unread", unread });
 		this.set(unread ? { unread } : { unread, seen: sent(this.state.messages) });
-	}
-
-	/** Marks whether a run its eval card started is going. */
-	evaluate(running: boolean): void {
-		if ((this.state.evaluating ?? false) === running) {
-			return;
-		}
-		if (running) {
-			this.state.evaluating = true;
-			if (this.state.evaluated !== true) {
-				this.log.write({ kind: "evaluated" });
-				this.state.evaluated = true;
-			}
-		} else {
-			delete this.state.evaluating;
-		}
-		this.changed();
 	}
 
 	/** Back to idle once a turn ends, then on to what was queued meanwhile. */
@@ -1330,21 +1341,19 @@ export class Conversation
 	}
 
 	/**
-	 * Stops an agent left idle `IDLE_STOP`, with no command running in the background,
+	 * Stops an agent left idle `IDLE_STOP`, waiting on no command in the background,
 	 * no question open and no checkpoint, so its process exits and takes what
 	 * it started along, MCP servers and browsers included. The next prompt
 	 * resumes the same session.
 	 */
 	private rest(): void {
 		const idle = (): boolean => {
-			const { status, background, ask, checkpoint } = this.state;
+			const { status, ask, checkpoint } = this.state;
 			return (
 				status === "idle" &&
-				// What only the process table found, such as a dev server, never
-				// wakes the agent, so it does not hold the agent up either.
-				background.every(
-					(each) => each.state !== "running" || each.pid !== undefined,
-				) &&
+				// What the agent will not come back for, such as a dev server it
+				// left, does not hold it up: it ends with the agent's process.
+				awaited(this.state).length === 0 &&
 				ask === null &&
 				checkpoint === null
 			);
@@ -1415,6 +1424,8 @@ export class Conversation
 			if (placement === null) {
 				return;
 			}
+			// Followed beside the launch, never holding it up.
+			void this.evals.follow().catch(() => {});
 			await this.connection.open(agent, cwd, placement?.launch);
 		} finally {
 			this.opening = null;

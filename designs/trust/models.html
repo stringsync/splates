@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Page — Models Tab</title>
+<link rel="stylesheet" href="shared.css">
+<script>if(location.hash==="#phone") { document.documentElement.classList.add("phone"); }</script>
+<style>
+.master-switch {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--card);
+  font-size: 12.5px; font-weight: 500; flex: none;
+}
+.toggle-track { width: 32px; height: 18px; border-radius: 999px; background: var(--success); position: relative; display: inline-block; }
+.toggle-knob { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: absolute; top: 2px; right: 2px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.2); }
+.models-stack { display: flex; flex-direction: column; gap: 10px; }
+.model-row { padding: 12px 14px; }
+.score-big { font-size: 18px; font-weight: 600; min-width: 30px; text-align: right; }
+.row-meter { width: 120px; flex: none; }
+.scope-sub {
+  padding: 9px 14px 9px 36px;
+  background: color-mix(in oklch, var(--background) 45%, var(--card));
+  border-top: 1px solid var(--border);
+}
+.scope-path {
+  font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; padding: 1px 6px; border-radius: 5px; background: var(--muted); color: var(--foreground);
+}
+.expand-panel {
+  background: color-mix(in oklch, var(--background) 60%, var(--card));
+  border-top: 1px solid var(--border); padding: 12px 14px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.ctrl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.slider-wrap { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 170px; }
+.kinds-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 768px) { .kinds-grid { grid-template-columns: repeat(2, 1fr); gap: 8px 18px; } }
+.kind-item { display: flex; flex-direction: column; gap: 4px; }
+.kind-top { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; }
+.num-input {
+  width: 46px; height: 28px; border-radius: 7px; border: 1px solid var(--input);
+  background: var(--card); text-align: center; font-size: 13px; font-weight: 600;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-brand">splates</div>
+    <div class="side-item">Conversations</div>
+    <div class="side-item">Boards</div>
+    <div class="side-sep"></div>
+    <div class="side-label">Workspace</div>
+    <div class="side-item active">
+      <svg aria-hidden="true" class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+      Trust
+    </div>
+    <div class="side-item">Stats</div>
+    <div class="side-item">Evals</div>
+  </aside>
+
+  <div class="main">
+    <div class="phone-bar">
+      <span>← Menu</span>
+      <span class="muted">All projects</span>
+    </div>
+
+    <header class="page-header">
+      <div class="page-header-glow"></div>
+      <div class="page-header-sheen"></div>
+      <div class="page-header-inner has-tabs">
+        <div class="page-icon">
+          <svg aria-hidden="true" class="ic lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <div class="grow">
+          <div class="page-title-row">
+            <h1 class="page-title">Trust</h1>
+            <span class="scope-pill">All projects</span>
+            <div class="master-switch" style="margin-left:auto">
+              <span>Trust</span>
+              <span class="toggle-track"><span class="toggle-knob"></span></span>
+            </div>
+          </div>
+          <p class="page-desc">How much each model can decide without asking. Ships, spending, deletions and security always ask.</p>
+        </div>
+      </div>
+      <nav class="header-tabs">
+        <span class="htab active">Models</span>
+        <span class="htab">Scopes</span>
+        <span class="htab">Assumptions</span>
+      </nav>
+    </header>
+
+    <main class="content">
+      <div class="chips">
+        <span class="chip on">All projects</span>
+        <span class="chip">mono</span>
+        <span class="chip">vexml</span>
+      </div>
+
+      <div class="sec-head">
+        <span class="sec-title">mono</span>
+        <span class="xs muted">3 models</span>
+      </div>
+
+      <div class="models-stack">
+        <section class="card">
+          <div class="model-row row">
+            <span class="agent-badge ag-claude">C</span>
+            <div class="grow">
+              <div class="row" style="gap:6px">
+                <span class="med">Claude Opus 4.6</span>
+                <span class="pill askgo">Ask &amp; go</span>
+              </div>
+              <div class="xs muted">Project default · Dynamic · 38 decisions</div>
+            </div>
+            <div class="row-meter"><div class="meter"><div class="meter-fill mid" style="width:86%"></div></div></div>
+            <span class="score-big tabnum">86</span>
+            <svg aria-hidden="true" class="ic sm muted" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+
+          <div class="scope-sub row">
+            <div class="grow">
+              <div class="row-wrap" style="gap:6px">
+                <span class="scope-path">splates/</span>
+                <span class="pill assume">Assume</span>
+              </div>
+              <div class="xs muted" style="margin-top:2px">Dynamic · 22 decisions</div>
+            </div>
+            <div class="row-meter"><div class="meter"><div class="meter-fill high" style="width:94%"></div></div></div>
+            <span class="score-big tabnum" style="font-size:15px">94</span>
+            <svg aria-hidden="true" class="ic sm muted" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+
+          <div class="scope-sub row">
+            <div class="grow">
+              <div class="row-wrap" style="gap:6px">
+                <span class="scope-path">sound2score/billing/</span>
+                <span class="pill wait">Ask &amp; wait</span>
+                <span class="pill static">Static</span>
+              </div>
+              <div class="xs muted" style="margin-top:2px">Pinned by user</div>
+            </div>
+            <div class="row-meter"><div class="meter"><div class="meter-fill low" style="width:40%"></div></div></div>
+            <span class="score-big tabnum" style="font-size:15px">40</span>
+            <svg aria-hidden="true" class="ic sm muted" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+
+          <div class="expand-panel">
+            <div class="ctrl-bar">
+              <div class="seg"><span class="on">Dynamic</span><span>Static</span></div>
+              <div class="slider-wrap">
+                <div class="slider-track">
+                  <div class="slider-fill" style="width:86%;opacity:.35"></div>
+                  <div class="slider-thumb" style="left:86%;opacity:.45"></div>
+                </div>
+                <div class="num-input tabnum" style="opacity:.6">86</div>
+              </div>
+              <button type="button" class="btn sm-btn">Reset</button>
+            </div>
+            <div class="kinds-grid">
+              <div class="kind-item">
+                <div class="kind-top"><span class="med">Defaults</span><span class="xs muted tabnum">14 kept · 0 overturned · <b style="color:var(--foreground)">94</b></span></div>
+                <div class="meter"><div class="meter-fill high" style="width:94%"></div></div>
+              </div>
+              <div class="kind-item">
+                <div class="kind-top"><span class="med">API / design</span><span class="xs muted tabnum">11 kept · 0 overturned · <b style="color:var(--foreground)">89</b></span></div>
+                <div class="meter"><div class="meter-fill mid" style="width:89%"></div></div>
+              </div>
+              <div class="kind-item">
+                <div class="kind-top"><span class="med">Scope / split</span><span class="xs muted tabnum">6 kept · 0 overturned · <b style="color:var(--foreground)">86</b></span></div>
+                <div class="meter"><div class="meter-fill mid" style="width:86%"></div></div>
+              </div>
+              <div class="kind-item">
+                <div class="kind-top"><span class="med">Visual / UI</span><span class="xs muted tabnum">4 kept · 1 overturned · <b style="color:var(--foreground)">74</b></span></div>
+                <div class="meter"><div class="meter-fill mid" style="width:74%"></div></div>
+              </div>
+              <div class="kind-item">
+                <div class="kind-top"><span class="med">Approval</span><span class="xs muted tabnum">2 kept · 0 overturned · <b style="color:var(--foreground)">84</b></span></div>
+                <div class="meter"><div class="meter-fill mid" style="width:84%"></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="model-row row">
+            <span class="agent-badge ag-codex">X</span>
+            <div class="grow">
+              <div class="row" style="gap:6px">
+                <span class="med">Codex GPT-5.4</span>
+                <span class="pill askgo">Ask &amp; go</span>
+                <span class="pill static">Static</span>
+              </div>
+              <div class="xs muted">Project default · Pinned by user · 19 decisions</div>
+            </div>
+            <div class="row-meter"><div class="meter"><div class="meter-fill mid" style="width:80%"></div></div></div>
+            <span class="score-big tabnum">80</span>
+            <svg aria-hidden="true" class="ic sm muted" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="model-row row">
+            <span class="agent-badge ag-gemini">G</span>
+            <div class="grow">
+              <div class="row" style="gap:6px">
+                <span class="med">Gemini 3.1 Pro</span>
+                <span class="pill wait">Ask &amp; wait</span>
+              </div>
+              <div class="xs muted">Project default · Dynamic · 9 decisions</div>
+            </div>
+            <div class="row-meter"><div class="meter"><div class="meter-fill low" style="width:58%"></div></div></div>
+            <span class="score-big tabnum">58</span>
+            <svg aria-hidden="true" class="ic sm muted" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

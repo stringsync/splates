@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thread Events — Hairline + Shield Delta + Expandable Undo Detail</title>
+<link rel="stylesheet" href="shared.css">
+<script>if(location.hash==="#phone") { document.documentElement.classList.add("phone"); }</script>
+<style>
+.thread {
+  max-width: 660px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 18px 14px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (min-width: 768px) {
+  .thread { padding: 26px 20px 40px; gap: 16px; }
+}
+.ub {
+  align-self: flex-end;
+  background: var(--muted);
+  border-radius: 16px;
+  padding: 9px 14px;
+  max-width: 85%;
+  font-size: 14px;
+}
+.prose { font-size: 14px; line-height: 1.55; }
+
+.sp-event {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin: 2px 0;
+}
+.sp-rule { flex: 1; min-width: 14px; height: 1px; background: var(--border); }
+.sp-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  text-align: center;
+}
+.sp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-weight: 500;
+  font-size: 12px;
+}
+.sp-act {
+  color: var(--foreground);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Clickable shield + delta chip on the event line */
+.trust-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.trust-tag.pos {
+  color: oklch(0.42 0.14 152);
+  border-color: color-mix(in oklch, var(--success) 35%, var(--border));
+}
+.trust-tag.neg {
+  color: oklch(0.48 0.18 27);
+  border-color: color-mix(in oklch, var(--destructive) 35%, var(--border));
+}
+.trust-tag.open {
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+/* Opened trust-change detail card tucked cleanly under the hairline */
+.trust-detail {
+  max-width: 440px;
+  width: 100%;
+  margin: 6px auto 2px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.td-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.td-foot {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mark-shield { color: var(--muted-foreground); }
+.mark-bad { color: var(--destructive); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-brand">splates</div>
+    <div class="side-item active">Conversations</div>
+    <div class="side-item">Boards</div>
+    <div class="side-sep"></div>
+    <div class="side-item">Trust</div>
+    <div class="side-item">Stats</div>
+  </aside>
+
+  <div class="main">
+    <div class="phone-bar">
+      <span>← Conversations</span>
+      <span class="muted">mono/splates/</span>
+    </div>
+
+    <div class="thread">
+      <div class="ub">Retry failed upload scans before moving them to a failures table.</div>
+
+      <!-- 1. Answered question with shield + delta (collapsed) -->
+      <div class="sp-event">
+        <span class="sp-rule"></span>
+        <span class="sp-line">
+          <span>Asked 2 questions</span>
+          <span class="sp-act">Show</span>
+          <span class="trust-tag pos tabnum">
+            <svg aria-hidden="true" class="ic sm" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            +2
+          </span>
+        </span>
+        <span class="sp-rule"></span>
+      </div>
+
+      <!-- 2. Answered question with trust detail OPENED on tap -->
+      <div>
+        <div class="sp-event">
+          <span class="sp-rule"></span>
+          <span class="sp-line">
+            <span>Asked 2 questions</span>
+            <span class="sp-act">Show</span>
+            <span class="trust-tag neg open tabnum">
+              <svg aria-hidden="true" class="ic sm" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+              −1
+            </span>
+          </span>
+          <span class="sp-rule"></span>
+        </div>
+
+        <div class="trust-detail">
+          <div class="td-row">
+            <span class="med">Claude Opus 4.6 <span class="muted">· mono/splates/</span></span>
+            <span class="xs muted tabnum">85 → <b style="color:var(--foreground)">84</b></span>
+          </div>
+          <div class="td-row xs">
+            <span class="muted">1. Keep old endpoint · API / design (kept)</span>
+            <span class="semi tabnum" style="color:oklch(0.42 0.14 152)">+1</span>
+          </div>
+          <div class="td-row xs">
+            <span class="muted">2. Card density · Visual / UI (changed)</span>
+            <span class="semi tabnum" style="color:oklch(0.48 0.18 27)">−2</span>
+          </div>
+          <div class="td-foot">
+            <span class="xs muted">Affects score only; answers stay as sent.</span>
+            <button type="button" class="btn sm-btn">Undo trust effect</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="prose">Wired up the upload worker with exponential backoff and dead-letter persistence.</div>
+
+      <!-- 3. Assumed pick (hairline event, reversible) -->
+      <div class="sp-event">
+        <span class="sp-rule"></span>
+        <span class="sp-line">
+          <svg aria-hidden="true" class="ic sm mark-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>Assumed</span>
+          <span class="sp-chip">Retry limit: 3</span>
+          <span>(vs 5 · Defaults)</span>
+          <span class="sp-act">Overturn</span>
+        </span>
+        <span class="sp-rule"></span>
+      </div>
+
+      <!-- 4. Overturned assumption (shows shield -4, clickable to inspect/undo) -->
+      <div class="sp-event">
+        <span class="sp-rule"></span>
+        <span class="sp-line">
+          <svg aria-hidden="true" class="ic sm mark-bad" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <span>Overturned</span>
+          <span class="sp-chip">Retry limit: 3 → 5</span>
+          <span class="trust-tag neg tabnum">
+            <svg aria-hidden="true" class="ic sm" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            −4
+          </span>
+        </span>
+        <span class="sp-rule"></span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

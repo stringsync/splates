@@ -1,4 +1,4 @@
-import { HourglassIcon } from "lucide-react";
+import { CircleAlertIcon, HourglassIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { queuedAddress } from "./conversation-address";
@@ -27,43 +27,65 @@ export function QueuedRows({
 	}
 	return (
 		<ul aria-label={`${folder.name} queue`} className="flex flex-col">
-			{folder.queue.map((queued, place) => (
-				<li
-					key={queued.todo.id}
-					className={cn("group flex items-center", phone ? "pr-2" : "pr-1")}
-				>
-					<button
-						type="button"
-						data-row
-						title={status(queued, place)}
-						onClick={() => onOpen(queuedAddress(queued.todo.id))}
-						className={cn(
-							"flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-muted-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
-							phone && "gap-3 px-4 py-2.5",
-						)}
+			{folder.queue.map((queued, place) => {
+				const errored =
+					queued.todo.closesOn === undefined &&
+					queued.blockedBy === null &&
+					folder.queueError !== null;
+				const line = errored
+					? `Queue error: ${folder.queueError}`
+					: status(queued, place);
+				return (
+					<li
+						key={queued.todo.id}
+						className={cn("group flex items-center", phone ? "pr-2" : "pr-1")}
 					>
-						<span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-							{/* Hourglass while waiting for an agent or blockers; the yellow
-							    triangle beside it appears when a blocker needs queuing. */}
-							<HourglassIcon aria-hidden className="size-4" />
-						</span>
-						<span className="flex min-w-0 flex-1 flex-col">
-							<span className="truncate text-sm italic">
-								{queued.todo.subject}
+						<button
+							type="button"
+							data-row
+							title={line}
+							onClick={() => onOpen(queuedAddress(queued.todo.id))}
+							className={cn(
+								"flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-muted-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]",
+								phone && "gap-3 px-4 py-2.5",
+							)}
+						>
+							<span
+								className={cn(
+									"flex size-7 shrink-0 items-center justify-center rounded-full",
+									errored ? "bg-destructive/15 text-destructive" : "bg-muted",
+								)}
+							>
+								{/* Alert icon when the queue errored; hourglass while waiting for an agent or blockers. */}
+								{errored ? (
+									<CircleAlertIcon aria-hidden className="size-4" />
+								) : (
+									<HourglassIcon aria-hidden className="size-4" />
+								)}
 							</span>
-							<span className="truncate text-xs italic">
-								{status(queued, place)}
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="truncate text-sm italic">
+									{queued.todo.subject}
+								</span>
+								<span
+									className={cn(
+										"truncate text-xs",
+										errored ? "text-destructive" : "italic",
+									)}
+								>
+									{line}
+								</span>
 							</span>
-						</span>
-					</button>
-					<QueueBlockersIcon
-						todo={queued.todo}
-						chain={queued.unqueued}
-						phone={phone}
-					/>
-					<QueueToggle todo={queued.todo} phone={phone} />
-				</li>
-			))}
+						</button>
+						<QueueBlockersIcon
+							todo={queued.todo}
+							chain={queued.unqueued}
+							phone={phone}
+						/>
+						<QueueToggle todo={queued.todo} phone={phone} />
+					</li>
+				);
+			})}
 		</ul>
 	);
 }

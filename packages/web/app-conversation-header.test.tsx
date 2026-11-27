@@ -473,7 +473,7 @@ describe("App's conversation header", () => {
 		expect(failed.queryByText("bun test")).toBeNull();
 	});
 
-	it("marks an idle conversation with a static icon while it has a command running, without listing the command", async () => {
+	it("marks an idle conversation while it waits on a command its agent comes back for, without listing the command", async () => {
 		const running = {
 			id: "b1",
 			name: "Start the dev server",
@@ -487,12 +487,13 @@ describe("App's conversation header", () => {
 				id: "c1",
 				title: "Serve it",
 				background: [running],
+				wakes: true,
 			}),
 		]);
 		const sidebar = view.getByRole("navigation", { name: "conversations" });
 		expect(
 			within(sidebar).getByRole("status", {
-				name: "agent idle with background commands",
+				name: "waiting on background commands",
 			}),
 		).toBeTruthy();
 		expect(
@@ -504,13 +505,44 @@ describe("App's conversation header", () => {
 				id: "c1",
 				title: "Serve it",
 				background: [{ ...running, state: "completed" }],
+				wakes: true,
 			}),
 		);
 		expect(
 			within(sidebar).queryByRole("status", {
-				name: "agent idle with background commands",
+				name: "waiting on background commands",
 			}),
 		).toBeNull();
+	});
+
+	it("marks a conversation disconnected when its agent only left a command running", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [
+					{
+						id: "b1",
+						name: "Start the dev server",
+						command: "bun dev",
+						subagent: null,
+						state: "running",
+						output: null,
+					},
+				],
+			}),
+		]);
+		const sidebar = view.getByRole("navigation", { name: "conversations" });
+
+		expect(
+			within(sidebar).queryByRole("status", {
+				name: "waiting on background commands",
+			}),
+		).toBeNull();
+		expect(within(sidebar).getByText("Idle · 1 left running")).toBeTruthy();
+		expect(
+			within(sidebar).getByRole("status", { name: "disconnected" }).title,
+		).toBe("Idle · commands left running");
 	});
 
 	it("preserves an unread reply while a background command runs", async () => {

@@ -201,6 +201,7 @@ describe("dev conversations", () => {
 				cwd: tree,
 				env: {
 					SPLATES_CONVERSATION: id,
+					EVALS_LIVE_DIR: expect.stringContaining(`/evals-live/${id}`),
 					SPLATES_DEV: `http://127.0.0.1:${port}`,
 				},
 			},
@@ -255,6 +256,51 @@ describe("dev conversations", () => {
 		expect(played.headers.get("content-type")).toBe("video/mp4");
 		expect(await played.text()).toBe("mp4");
 	}, 15_000);
+
+	it.each([
+		"Approve & start",
+		"Approve",
+		"Approve & review",
+		"Request changes",
+	] as const)(
+		"refuses %s on a plan that is no longer the latest",
+		async (action) => {
+			const { id, conversation } = await opened();
+			conversation.set({
+				messages: [
+					{
+						role: "agent",
+						plan: null,
+						at: "2026-11-26T03:00:00Z",
+						until: null,
+						parts: [
+							{
+								type: "text",
+								text: "## 📝 Plan: Retry uploads\n\nRetry once.",
+							},
+						],
+					},
+				],
+			});
+			const submit = (text: string) => {
+				const url = new URL(
+					`http://127.0.0.1:${port}/api/conversations/${id}/prompt`,
+				);
+				const body = new FormData();
+				body.set("text", text);
+				return fetch(url, {
+					method: "POST",
+					headers: { origin: url.origin },
+					body,
+				});
+			};
+			expect((await submit(`${action}: Older plan`)).status).toBe(400);
+			const result = await submit(
+				`${action}: Retry uploads\r\nPlan from 2026-11-26T03:00:00Z`,
+			);
+			expect(result.ok, await result.text()).toBe(true);
+		},
+	);
 
 	it("pins one, and stops it when archived", async () => {
 		const { id } = await opened();

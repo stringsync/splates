@@ -266,7 +266,7 @@ function Call({
  * on. Its verb shimmers while it goes, the row turns red when it failed,
  * and ends in a caret when it opens to more.
  */
-function Line({
+export function Line({
 	state,
 	verb,
 	resource,

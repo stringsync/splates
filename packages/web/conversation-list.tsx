@@ -85,7 +85,12 @@ export const ConversationList = memo(function ConversationList({
 	lanes: LaneRecord[];
 	boards?: BoardRecord[];
 	/** The project the page shows, as its snapshot has it. */
-	here: { root: string; repo: string; trunk: string | null };
+	here: {
+		root: string;
+		repo: string;
+		trunk: string | null;
+		queueError?: string | null;
+	};
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;

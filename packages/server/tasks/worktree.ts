@@ -256,18 +256,29 @@ export class Worktree {
 		return this.git.run(this.git.root, "branch", "--force", this.base, commit);
 	}
 
-	/** The message of each commit it has that its base does not, oldest first. */
-	commitMessages(): Promise<string[] | null> {
-		return this.git.commitMessages(this.base, this.branch);
+	/**
+	 * The ref to measure this branch against: its remote tracking trunk when
+	 * one is configured and is at or ahead of the local trunk (as when the
+	 * main tree could not fast-forward after a remote landing), else `base`.
+	 */
+	async baseRef(): Promise<string> {
+		const remote = this.service.config.remote;
+		if (remote === null || this.base !== this.service.trunk) {
+			return this.base;
+		}
+		const tracking = `refs/remotes/${remote}/${this.base}`;
+		return (await this.git.isAncestor(`refs/heads/${this.base}`, tracking))
+			? tracking
+			: this.base;
 	}
 
-	commitsAhead(): Promise<number | null> {
-		return this.git.commitsAhead(this.base, this.branch);
+	async commitsAhead(): Promise<number | null> {
+		return this.git.commitsAhead(await this.baseRef(), this.branch);
 	}
 
 	/** Files and lines across all its pending work, as `diff` shows it; null without a branch. */
-	async size(): Promise<DiffSize | null> {
-		const files = await this.diff();
+	async size(range?: { onto: string; head: string }): Promise<DiffSize | null> {
+		const files = await this.diff(range);
 		return (
 			files && {
 				files: files.length,
@@ -281,11 +292,14 @@ export class Worktree {
 	 * Its committed and uncommitted changes, new files among them, parsed;
 	 * null without a branch.
 	 */
-	async diff(): Promise<FileDiff[] | null> {
+	async diff(range?: {
+		onto: string;
+		head: string;
+	}): Promise<FileDiff[] | null> {
 		const diff = await this.git.diff(
-			this.base,
-			this.branch,
-			this.exists ? this.path : null,
+			range?.onto ?? (await this.baseRef()),
+			range?.head ?? this.branch,
+			range === undefined && this.exists ? this.path : null,
 		);
 		return (
 			diff &&
@@ -296,10 +310,19 @@ export class Worktree {
 		);
 	}
 
+	/** What this task landed between its tested base and tip. */
+	async committedChanges(onto: string, head: string) {
+		return {
+			changed: (await this.git.changedFiles(onto, head, null)) ?? [],
+			commits: (await this.git.commitMessages(onto, head)) ?? undefined,
+			size: (await this.size({ onto, head })) ?? undefined,
+		};
+	}
+
 	/** Committed and uncommitted paths this task touches; null without a branch. */
-	changedFiles(): Promise<string[] | null> {
+	async changedFiles(): Promise<string[] | null> {
 		return this.git.changedFiles(
-			this.base,
+			await this.baseRef(),
 			this.branch,
 			this.exists ? this.path : null,
 		);
@@ -340,6 +363,8 @@ export interface DiscardOptions {
 	unqueue?: boolean;
 	/** The commit a merge landed it as. */
 	commit?: string;
+	/** Repository-relative paths in the diff that passed the merge gate. */
+	changed?: string[];
 	/** What a merge lands, read before landing. */
 	size?: DiffSize;
 	/** Each test the merge's passing gate run timed, from its JUnit report. */

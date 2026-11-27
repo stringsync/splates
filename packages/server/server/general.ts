@@ -6,7 +6,7 @@ import { Everywhere, GENERAL, GENERAL_NAME } from "../projects";
 import type { Snapshot } from "../tasks";
 import { type EventSink, eventStream } from "./http";
 import type { Handler, ProjectHeard, Served } from "./project";
-import type { Behind, Release } from "./release";
+import type { Behind, Release, Stuck } from "./release";
 import { body } from "./shared";
 
 /** What the server needs to construct General before its release feed exists. */
@@ -20,6 +20,7 @@ export interface GeneralOptions {
 interface GeneralSettings {
 	release: () => Release | null;
 	behind: () => Behind | null;
+	stuck?: () => Stuck | null;
 	unbuilt: boolean;
 	slot: Snapshot["slot"];
 	/** The registered project `slug` names, served, as a request's `?project=` reaches it. */
@@ -114,6 +115,7 @@ export class General {
 			trunk: "scratch",
 			release: this.opts.release(),
 			behind: this.opts.behind(),
+			stuck: this.opts.stuck?.() ?? null,
 			unbuilt: this.opts.unbuilt,
 			slot: this.opts.slot,
 		});

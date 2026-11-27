@@ -1,11 +1,15 @@
 import { color, type Logger } from "core/log";
-import type { Setting } from "../conversations";
+import { SystemWallClock, type WallClock } from "core/time";
+import type { Limit, Setting } from "../conversations";
 import { effortsOf, type Roster, traitsOf } from "../models";
 import { table } from "../table";
+import { quotaLeft, quotaTable } from "./quota";
 
 export interface AgentsOptions {
 	/** Print the roster as JSON instead of tables. */
 	json?: boolean;
+	/** Print each agent's and model's plan quota left instead of the roster. */
+	quota?: boolean;
 }
 
 /**
@@ -19,16 +23,31 @@ export async function agents(
 		roster,
 		offered,
 		log,
+		limits,
+		clock,
 	}: {
 		roster: Roster;
+		/** Each agent's plan limits as last reported, by its id (`Limits.all()`); needed for `quota`. */
+		limits?: () => Promise<Record<string, Limit[]>>;
+		/** Tells which windows have reset; the system's by default. */
+		clock?: WallClock;
 		/** What each agent's sessions last offered, by its id. */
 		offered: Record<string, Setting[]>;
 		log: Logger;
 	},
-	{ json = false }: AgentsOptions = {},
+	{ json = false, quota = false }: AgentsOptions = {},
 ): Promise<void> {
 	const seeded = await roster.seed();
 	const found = await roster.agents();
+	if (quota) {
+		const rows = quotaLeft(
+			found,
+			(await limits?.()) ?? {},
+			new Date((clock ?? new SystemWallClock()).now()),
+		);
+		log.info(json ? JSON.stringify(rows, null, "\t") : quotaTable(rows));
+		return;
+	}
 	const efforts = (agent: string) => effortsOf(offered[agent] ?? []);
 	if (json) {
 		log.info(

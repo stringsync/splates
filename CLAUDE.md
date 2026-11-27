@@ -60,12 +60,6 @@ release tag with `bunx skills add`.
 - A move rebases every open task that edits the files it takes in, so check
   `splates list --files` and land between those tasks.
 
-Only run `splates dev eval` when the user asks you to, since it uses tokens the
-user pays for: billed to an API key, or counted against their Claude plan's
-usage limits.
-`splates dev eval report`, `splates dev eval show` and the evals' tests (`bun test` in `packages/evals`)
-are free.
-
 Assume any user may clone and run this public repository against their own
 accounts. Personal hosts, ids and email addresses belong in local state, never
 tracked files. Never commit secrets, including encrypted secrets; read them from

@@ -1,5 +1,9 @@
 import { deferralBlockers } from "@splates/server/board/browser";
-import { eventWaitOf } from "@splates/server/conversations/browser";
+import {
+	awaited,
+	eventWaitOf,
+	leftRunning,
+} from "@splates/server/conversations/browser";
 import { type Needing, unanswered } from "@splates/server/plans/browser";
 import type { SignalWait } from "@splates/server/signals";
 import { useContext } from "react";
@@ -99,7 +103,7 @@ export function statusOf(
 	const label =
 		row.need.kind === "working" && text === row.need.subject
 			? "Working"
-			: text.startsWith("Agent idle ·")
+			: text.startsWith("Idle ·")
 				? text
 				: shorten(text);
 	return { text, label, urgent };
@@ -165,9 +169,6 @@ function fullStatus(
 		const place =
 			need.mergePlace === undefined ? "" : ` · ${placeInLine(need.mergePlace)}`;
 		return { text: `Waiting to merge${place}`, urgent: false };
-	}
-	if (need.kind === "working" && need.evals === true) {
-		return { text: "Running evals", urgent: false };
 	}
 	if (conversation?.heldForTask != null) {
 		return { text: "Agent assigned · waiting to start", urgent: false };
@@ -238,8 +239,16 @@ function fullStatus(
 	if (conversation?.unread === true) {
 		return { text: "New reply", urgent: false };
 	}
-	if (conversation?.background.some((command) => command.state === "running")) {
-		return { text: "Agent idle · background commands running", urgent: false };
+	const waits = conversation === null ? 0 : awaited(conversation).length;
+	if (waits > 0) {
+		return {
+			text: `Waiting on ${waits} background ${waits === 1 ? "command" : "commands"}`,
+			urgent: false,
+		};
+	}
+	const left = conversation === null ? 0 : leftRunning(conversation).length;
+	if (left > 0) {
+		return { text: `Idle · ${left} left running`, urgent: false };
 	}
 	// What the agent called it, under the task it goes by.
 	if (conversation?.title != null && conversation.title !== name) {

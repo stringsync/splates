@@ -18,7 +18,7 @@ import {
 	ROUTE_DEPTHS,
 	ROUTE_KINDS,
 } from "@splates/server/auto-pick/browser";
-import { checkRules, idFor } from "@splates/server/auto-pick/check";
+import { checkRules, idFor, planOf } from "@splates/server/auto-pick/check";
 import type { AgentPick } from "@splates/server/models";
 import { Dispatcher, type Eventful } from "core/events";
 import {
@@ -259,15 +259,19 @@ export class RulesEditor implements Eventful<RulesEditorEvents> {
 		this.editLineup(id, (lineup) => ({ ...lineup, color }));
 	}
 
-	/** Whether lineup `id` already names `agent`, apart from its pick `except`. */
+	/**
+	 * Whether lineup `id` already picks the plan `agent` runs `model` on,
+	 * apart from its pick `except`.
+	 */
 	has(
 		id: string,
 		agent: string,
-		_model: string | undefined,
+		model: string | undefined,
 		except?: number,
 	): boolean {
+		const plan = planOf(model === undefined ? { agent } : { agent, model });
 		return (this.lineup(id)?.picks ?? []).some(
-			(each, at) => at !== except && each.agent === agent,
+			(each, at) => at !== except && planOf(each) === plan,
 		);
 	}
 

@@ -1,10 +1,6 @@
 import { age } from "@splates/server/age";
 import type { FinishedPlan, FinishedTask } from "@splates/server/tasks";
-import {
-	BotMessageSquareIcon,
-	CircleCheckIcon,
-	CircleSlashIcon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleSlashIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -18,7 +14,6 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
@@ -28,8 +23,6 @@ import { ReadFailed, ReadingNow } from "./countdown";
 import { Markdown } from "./markdown";
 import { QueueColumn } from "./queue-column";
 import { QueueEmpty } from "./queue-rows";
-import { ActionButton } from "./task-actions";
-import { useDemo } from "./task-demo";
 import { TaskIcon } from "./task-icon";
 import { Overview } from "./task-overview";
 import { planParts } from "./task-plan-parts";
@@ -212,12 +205,6 @@ function FinishedRow({
 					</span>
 				)}
 			</span>
-			{task.hasDemo && (
-				<BotMessageSquareIcon
-					aria-label="has a demo"
-					className="size-3.5 shrink-0 text-muted-foreground"
-				/>
-			)}
 			<span
 				className="shrink-0 text-muted-foreground text-xs tabular-nums"
 				title={new Date(task.endedAt).toLocaleString()}
@@ -260,7 +247,6 @@ function FinishedDialog({
 		() => (read === null || read.plan === "" ? null : planParts(read.plan)),
 		[read],
 	);
-	const demo = useDemo(read?.task ?? "", plan);
 	// Focus lands on the dialog, not its first tab, as a live task's does.
 	const dialog = useRef<HTMLDivElement>(null);
 	return (
@@ -326,17 +312,6 @@ function FinishedDialog({
 					{task !== null && <FactList facts={factsOf(read ?? task)} />}
 				</Section>
 			</SectionTabs>
-			{demo !== null && (
-				<DialogFooter>
-					<div role="toolbar" aria-label="actions" className="flex w-full">
-						<ActionButton
-							action={demo}
-							outline
-							className="pointer-coarse:h-10 pointer-coarse:flex-1"
-						/>
-					</div>
-				</DialogFooter>
-			)}
 		</DialogContent>
 	);
 }

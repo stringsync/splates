@@ -39,7 +39,6 @@ COPY --chown=splates:splates sound2score/packages/player/package.json sound2scor
 COPY --chown=splates:splates sound2score/packages/s2s/package.json sound2score/packages/s2s/
 COPY --chown=splates:splates sound2score/packages/timing/package.json sound2score/packages/timing/
 COPY --chown=splates:splates sound2score/packages/web/package.json sound2score/packages/web/
-COPY --chown=splates:splates splates/packages/evals/package.json splates/packages/evals/
 COPY --chown=splates:splates splates/packages/server/package.json splates/packages/server/
 COPY --chown=splates:splates splates/packages/splates/package.json splates/packages/splates/
 COPY --chown=splates:splates splates/packages/tooling/package.json splates/packages/tooling/

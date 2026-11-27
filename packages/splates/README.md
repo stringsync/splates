@@ -17,7 +17,9 @@ bunx @stringsync/splates server
 
 Running the server is optional. After `init`, your agents already work with
 `splates add` and `splates merge` from the command line; the server adds a
-page to watch and steer them.
+page to watch and steer them. The top bar shows **Update** when the server finds
+a newer npm release or, when running from a source checkout, a new commit
+in one of the source directories it watches.
 
 `init` runs in your repository. Commit what it writes: the splates skill, which it
 installs with [`skills`](https://skills.sh) from this release's tag into
@@ -146,18 +148,13 @@ Start as many conversations as you like, each in a task of its own.
 
 ![Several agents working at once](https://raw.githubusercontent.com/stringsync/splates/main/packages/splates/screenshots/parallel.png)
 
-### Questions and demos
+### Questions
 
 Agents ask as they go instead of guessing. Each question comes with its
 choices, the one the agent would pick, and a screenshot of each when there is
 something to see. Answer in a click.
 
 ![Questions with a screenshot per choice](https://raw.githubusercontent.com/stringsync/splates/main/packages/splates/screenshots/questions.png)
-
-When work is ready, the agent hands you a demo: steps to try, what you should
-see, and a checklist to tick off before you merge or ask for changes.
-
-![A demo to try before merging](https://raw.githubusercontent.com/stringsync/splates/main/packages/splates/screenshots/demo.png)
 
 ### Annotate any image
 

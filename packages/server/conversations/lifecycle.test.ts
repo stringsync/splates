@@ -764,24 +764,36 @@ describe("Conversation lifecycle", () => {
 		expect(agent.killed).toBe(0);
 	});
 
-	it("leaves an agent be while a command it left in the background runs", async () => {
+	const devServer = {
+		id: "b1",
+		name: "dev server",
+		command: "bun dev",
+		subagent: null,
+		state: "running",
+		output: null,
+	} as const;
+
+	it("leaves an agent be while a command it comes back for runs", async () => {
 		const conversation = await started();
-		const running = {
-			id: "b1",
-			name: "dev server",
-			command: "bun dev",
-			subagent: null,
-			state: "running",
-			output: null,
-		} as const;
-		conversation.set({ background: [running] });
+		conversation.set({ background: [devServer], wakes: true });
 
 		restOut();
+		await new Promise((resolve) => setTimeout(resolve, 5));
 		expect(conversation.state.status).toBe("idle");
+		expect(agent.killed).toBe(0);
 
-		conversation.set({ background: [{ ...running, state: "completed" }] });
+		conversation.set({ background: [{ ...devServer, state: "completed" }] });
 		restOut();
 		await until(conversation, "stopped");
+	});
+
+	it("stops an agent idle with only commands it never comes back for running", async () => {
+		const conversation = await started();
+		conversation.set({ background: [devServer] });
+
+		restOut();
+		await until(conversation, "stopped");
+		expect(agent.killed).toBe(1);
 	});
 
 	it("fails with the agent's last words when it dies on its own", async () => {

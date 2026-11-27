@@ -1,17 +1,14 @@
 {
 	"name": "splates",
-	"version": "2.0.19",
+	"version": "2.1.0",
 	"private": true,
 	"type": "module",
 	"workspaces": {
 		"packages": [
-			"packages/evals",
 			"packages/server",
 			"packages/splates",
 			"packages/tooling",
 			"packages/web",
-			"skills/splates/evals",
-			"packages/evals-evals",
 			"packages/rec",
 			"packages/core"
 		],

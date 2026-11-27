@@ -178,6 +178,7 @@ export class Restarts {
 			running: this.versions.running,
 			newest: this.versions.release?.newest ?? null,
 			behind: this.versions.behind,
+			stuck: this.versions.stuck,
 			restartable: this.opts.exit !== null,
 			held: await this.holding(),
 		});

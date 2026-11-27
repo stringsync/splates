@@ -26,8 +26,6 @@ export interface FinishedTask {
 	conversation: string | null;
 	/** The queued tasks it took up, which left the queue with it or went back. */
 	took: { id: number; subject: string }[];
-	/** Whether the plan it ended on has a `## Demo` saying how to show it. */
-	hasDemo: boolean;
 }
 
 /** A finished task with the `SPLATES.md` it ended on, "" when it had none. */
@@ -68,7 +66,7 @@ export class Finished {
 	 * `attached` says is one a task held, the plan rewritten to name the copy.
 	 */
 	async record(
-		finished: Omit<FinishedPlan, "key" | "hasDemo">,
+		finished: Omit<FinishedPlan, "key">,
 		attached: (path: string) => boolean = () => false,
 		/** Attached files the task held, kept whether or not the plan names them. */
 		held: string[] = [],
@@ -229,16 +227,8 @@ export class Finished {
 		const { text, ...facts } = fields as unknown as FinishedTask & {
 			text: string;
 		};
-		return { ...facts, plan: text, hasDemo: hasDemo(text) };
+		return { ...facts, plan: text };
 	}
-}
-
-/** Whether `plan` has a `## Demo` with something under it before the next heading. */
-function hasDemo(plan: string): boolean {
-	const body = /^## Demo[ \t]*\r?\n([\s\S]*?)(?=^#{1,2} |(?![\s\S]))/im.exec(
-		plan,
-	);
-	return body !== null && (body[1] ?? "").trim() !== "";
 }
 
 function recordName(key: string): string {

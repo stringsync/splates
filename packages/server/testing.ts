@@ -152,7 +152,6 @@ export class Testing implements AsyncDisposable {
 			platform: null,
 			replica: null,
 			dictationWords: [],
-			evals: null,
 			projects: null,
 			shared: [],
 			rec: null,

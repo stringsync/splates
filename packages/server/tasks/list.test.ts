@@ -114,4 +114,59 @@ describe("list", () => {
 
 		expect(deps.out()).toContain("no tasks");
 	});
+
+	it("measures a task against remote trunk when local trunk lags behind", async () => {
+		deps.config.remote = "origin";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		// Simulate commits landed on origin/main while local main stays behind.
+		await deps.commit(worktree, "other.txt", "one\ntwo\nthree\n", "trunk move");
+		const remoteTrunk = (
+			await deps.gitCli(worktree, "rev-parse", "HEAD")
+		).trim();
+		await deps.gitCli(
+			deps.root,
+			"update-ref",
+			"refs/remotes/origin/main",
+			remoteTrunk,
+		);
+		await deps.commit(worktree, "own.txt", "mine\n", "own change");
+
+		deps.log.clear();
+		await list(deps, { json: true, files: true });
+		const [row] = JSON.parse(deps.out());
+		expect(row).toMatchObject({
+			task: "alpha",
+			ahead: 1,
+			added: 1,
+			removed: 0,
+			changed: ["own.txt"],
+		});
+	});
+
+	it("falls back to local trunk when local trunk is ahead of remote tracking", async () => {
+		deps.config.remote = "origin";
+		const oldMain = (await deps.gitCli(deps.root, "rev-parse", "main")).trim();
+		await deps.gitCli(
+			deps.root,
+			"update-ref",
+			"refs/remotes/origin/main",
+			oldMain,
+		);
+		await deps.commit(deps.root, "local.txt", "local\n", "unpushed local");
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "own.txt", "mine\n", "own change");
+
+		deps.log.clear();
+		await list(deps, { json: true, files: true });
+		const [row] = JSON.parse(deps.out());
+		expect(row).toMatchObject({
+			task: "alpha",
+			ahead: 1,
+			added: 1,
+			removed: 0,
+			changed: ["own.txt"],
+		});
+	});
 });

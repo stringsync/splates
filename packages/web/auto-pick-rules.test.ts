@@ -44,6 +44,22 @@ describe("RulesEditor", () => {
 		expect(editor.lineup("main")?.picks[1]?.model).toBe("sonnet");
 	});
 
+	it("adds Antigravity's Claude after its Gemini, each plan once", async () => {
+		const editor = new RulesEditor(new FakeRulesStore());
+		await editor.load();
+		editor.addPick("main", "antigravity", "gemini-4-neon");
+		expect(editor.has("main", "antigravity", "gemini-4-carbon")).toBe(true);
+		expect(editor.has("main", "antigravity", undefined)).toBe(true);
+		expect(editor.has("main", "antigravity", "claude-opus-5-5")).toBe(false);
+		editor.addPick("main", "antigravity", "claude-opus-5-5");
+		editor.addPick("main", "antigravity", "claude-sonnet-5-5");
+		expect(editor.lineup("main")?.picks.map((each) => each.model)).toEqual([
+			"opus",
+			"gemini-4-neon",
+			"claude-opus-5-5",
+		]);
+	});
+
 	it("changes a pick to another agent, keeping a thinking level it offers", async () => {
 		const editor = new RulesEditor(new FakeRulesStore());
 		await editor.load();

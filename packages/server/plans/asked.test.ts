@@ -55,7 +55,6 @@ describe("stretches", () => {
 					base: "<base>",
 					summary:
 						"Old upload links now redirect to the new storage, after a migration that moves every stored file.",
-					demo: null,
 					checks: ["bun run typecheck", "bun test"],
 					failed: [],
 					details: "![an old upload link downloading](/abs/path/old-link.png)",
@@ -155,52 +154,6 @@ describe("stretches", () => {
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
-	it("reads the skill's own demo, alone in a message, as a demo", async () => {
-		const example = await skillExample("### 🎬 Demo");
-
-		const found = stretches(example);
-
-		expect(found.map((each) => each.type)).toEqual(["demo"]);
-		const steps = found[0]?.type === "demo" ? found[0].demo.steps : [];
-		expect(steps.map((step) => [step.action, step.expect])).toEqual([
-			["Press and hold a card.", "It lifts after half a second."],
-			[
-				"Drag it to another lane.",
-				"It lands where you drop it.\n![dropped in Doing](/abs/path/drop.png)",
-			],
-		]);
-	});
-
-	it("ends a demo with its steps, leaving what follows as text", () => {
-		expect(
-			stretches(
-				[
-					"### 🎬 Demo",
-					"",
-					"1. Open the board.",
-					"",
-					"   It loads.",
-					"2. Reload.",
-					"",
-					"That is all.",
-				].join("\n"),
-			),
-		).toEqual([
-			{
-				type: "demo",
-				demo: {
-					title: null,
-					intro: "",
-					steps: [
-						{ number: "1", action: "Open the board.", expect: "It loads." },
-						{ number: "2", action: "Reload.", expect: "" },
-					],
-				},
-			},
-			{ type: "text", text: "That is all." },
-		]);
-	});
-
 	it("reads work to queue, a lane whole or tasks one by one, leaving out the command the card shows on its own", () => {
 		const found = stretches(
 			[
@@ -296,141 +249,6 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a run evals permission with its scenarios and baseline", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: run evals splates: the decision probes",
-				"",
-				"Checks the new wording.",
-				"",
-				"- `decisions/local-choice` the local one",
-				"- `decisions/ask-first`",
-				"",
-				"Baseline: `main`",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "permission",
-				permission: {
-					action: "run-evals",
-					lane: null,
-					tasks: [],
-					title: "the decision probes",
-					body: "Checks the new wording.",
-					evals: {
-						skill: "splates",
-						scenarios: ["decisions/local-choice", "decisions/ask-first"],
-						baseline: "main",
-					},
-				},
-			},
-		]);
-	});
-
-	it("reads an eval budget permission with what it asks and a round's ceiling", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: eval budget: the asking specs",
-				"",
-				"Two asking specs fail on codex and kimi.",
-				"",
-				"Asks: $10",
-				"Round: up to $2.40",
-			].join("\n"),
-		);
-
-		expect(found).toEqual([
-			{
-				type: "permission",
-				permission: {
-					action: "eval-budget",
-					lane: null,
-					tasks: [],
-					title: "the asking specs",
-					body: "Two asking specs fail on codex and kimi.",
-					budget: { usd: 10, round: 2.4 },
-				},
-			},
-		]);
-	});
-
-	it("reads an eval budget card asking for more, with no round said", () => {
-		const found = stretches(
-			["## 🔐 Permission: eval budget", "", "Asks: +$5"].join("\n"),
-		);
-
-		expect(found).toMatchObject([
-			{ permission: { title: null, budget: { usd: 5, round: null } } },
-		]);
-	});
-
-	it("reads a run evals card's Repetitions line", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: run evals splates: noise check",
-				"",
-				"- `decisions/local-choice`",
-				"",
-				"Repetitions: 3",
-			].join("\n"),
-		);
-
-		expect(found).toMatchObject([
-			{ permission: { body: "", evals: { reps: 3 } } },
-		]);
-	});
-
-	it("reads a run evals card's Agents line", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: run evals splates: rerun the failing model",
-				"",
-				"- `decisions/local-choice`",
-				"",
-				"Agents: `claude:haiku@high`, `codex`",
-			].join("\n"),
-		);
-
-		expect(found).toMatchObject([
-			{
-				permission: {
-					body: "",
-					evals: { agents: ["claude:haiku@high", "codex"] },
-				},
-			},
-		]);
-	});
-
-	it("reads a run evals card's Left out line, keeping it out of the body", () => {
-		const found = stretches(
-			[
-				"## 🔐 Permission: run evals splates: rerun the failing model",
-				"",
-				"- `decisions/local-choice`",
-				"",
-				"Agents: `codex`",
-				"Left out: `claude:haiku@high` (round 1), `gemini` (round 2)",
-			].join("\n"),
-		);
-
-		expect(found).toMatchObject([
-			{
-				permission: {
-					body: "",
-					evals: {
-						agents: ["codex"],
-						leftOut: [
-							{ agent: "claude:haiku@high", round: 1 },
-							{ agent: "gemini", round: 2 },
-						],
-					},
-				},
-			},
-		]);
-	});
-
 	it("reads an escalation without a reason, or with its emoji's variation selector left off", () => {
 		expect(stretches("## ⚠ Escalated header")).toEqual([
 			{
@@ -461,8 +279,6 @@ describe("stretches", () => {
 				"Failed: `bun run lint`",
 				"",
 				"The old breakpoint stays for tablets.",
-				"",
-				'Reply "merge", or say what to change.',
 			].join("\n"),
 		);
 
@@ -472,7 +288,6 @@ describe("stretches", () => {
 				task: "header",
 				base: "main",
 				summary: "The header wraps on phones.",
-				demo: null,
 				checks: ["bun run typecheck", "bun test"],
 				failed: ["bun run lint"],
 				details:
@@ -481,9 +296,43 @@ describe("stretches", () => {
 		});
 	});
 
-	it("leaves a review title without the line every review ends with as text", () => {
-		const text = "## 🔍 Ready to merge header onto main\n\nStill going.";
-		expect(stretches(text)).toEqual([{ type: "text", text }]);
+	it("ends a review at the next heading", () => {
+		expect(
+			stretches(
+				"## 🔍 Ready to merge header onto main\n\nThe header wraps.\n\n## 🔐 Permission: queue #7: tablets\n\n`splates queue add 7`",
+			)[0],
+		).toEqual({
+			type: "review",
+			review: {
+				task: "header",
+				base: "main",
+				summary: "The header wraps.",
+				checks: [],
+				failed: [],
+				details: "",
+			},
+		});
+	});
+
+	it("leaves an older review's last line out of the card", () => {
+		expect(
+			stretches(
+				'## 🔍 Ready to merge header onto main\n\nThe header wraps.\n\nReply "merge", or say what to change.\n\nAfter it.',
+			),
+		).toEqual([
+			{
+				type: "review",
+				review: {
+					task: "header",
+					base: "main",
+					summary: "The header wraps.",
+					checks: [],
+					failed: [],
+					details: "",
+				},
+			},
+			{ type: "text", text: "After it." },
+		]);
 	});
 
 	it("reads an old proposal's heading as text above ordinary questions", () => {

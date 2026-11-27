@@ -4,7 +4,6 @@ import type { Resource } from "core/disposable";
 import { showAddress } from "./navigation";
 import {
 	cellAddress,
-	evalFileAddress,
 	PageAddress,
 	shipRunAddress,
 	todoAddress,
@@ -105,63 +104,6 @@ describe("PageAddress", () => {
 		address.go("creds");
 
 		expect(address.cred).toBeNull();
-	});
-
-	it("retires old plan links to the read-only catalog", () => {
-		address.openEval("plan", "resources/focused-tests");
-		expect(location.hash).toBe("#evals");
-		expect(address.evals.plan).toBeNull();
-	});
-
-	it("opens Active and History as eval tabs rather than batch reports", () => {
-		history.replaceState(null, "", "#evals/active");
-		window.dispatchEvent(new HashChangeEvent("hashchange"));
-		expect(address.evals).toEqual({
-			batch: null,
-			run: null,
-			plan: null,
-			tab: "active",
-		});
-		history.replaceState(null, "", "#evals/history");
-		window.dispatchEvent(new HashChangeEvent("hashchange"));
-		expect(address.evals).toEqual({
-			batch: null,
-			run: null,
-			plan: null,
-			tab: "history",
-		});
-	});
-
-	it("opens an eval file's page from its address", () => {
-		history.replaceState(
-			null,
-			"",
-			evalFileAddress("skills/splates/evals/core-loop.ts"),
-		);
-		window.dispatchEvent(new HashChangeEvent("hashchange"));
-		expect(location.hash).toBe(
-			"#evals/file/skills%2Fsplates%2Fevals%2Fcore-loop.ts",
-		);
-		expect(address.evals).toEqual({
-			batch: null,
-			run: null,
-			plan: null,
-			file: "skills/splates/evals/core-loop.ts",
-		});
-	});
-
-	it("opens a test of a batch with a run picked, and writes it back", () => {
-		address.openEval("batch#1", "batch#1#cell-3", "skill/asks");
-		expect(location.hash).toBe(
-			"#evals/batch%231/test/skill%2Fasks/batch%231%23cell-3",
-		);
-		window.dispatchEvent(new HashChangeEvent("hashchange"));
-		expect(address.evals).toEqual({
-			batch: "batch#1",
-			run: "batch#1#cell-3",
-			plan: null,
-			test: "skill/asks",
-		});
 	});
 
 	it("sets Setup on a journey and step, and the nav entry returns to them", () => {

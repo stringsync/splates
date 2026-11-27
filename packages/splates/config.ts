@@ -11,7 +11,6 @@
 export type {
 	Config,
 	ConfigFile,
-	EvalsConfig,
 	RecConfig,
 	RecLogSource,
 } from "@splates/server/config";

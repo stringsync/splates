@@ -9,6 +9,7 @@ import type { Prices } from "../prices";
 import type { Spend } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import type { Storage } from "../storage";
+import type { RuleSuggestions, TrustStore } from "../trust";
 import type { WorkerMachine } from "../workers";
 import type { ConversationPlacer, ProjectRoster } from "./host";
 import type { Limit } from "./state";
@@ -67,6 +68,20 @@ export interface ConversationsOptions {
 	 * turn it ended in once that turn ends; nowhere by default.
 	 */
 	outcomes?: Outcomes | null;
+	/**
+	 * Where agent decision outcomes are kept across projects, observed as each
+	 * turn ends; nowhere by default.
+	 */
+	trust?: TrustStore | null;
+	/** The running conversation's task diff, including uncommitted changes. */
+	trustFiles?: (
+		task: string,
+	) => Promise<{ startedAt: string; files: string[] } | null>;
+	/**
+	 * Suggests writing down a rule, as a Backlog task, when the user keeps
+	 * correcting agents the same way; none by default.
+	 */
+	rules?: RuleSuggestions | null;
 	/**
 	 * Asks an agent that does not send its plan's windows for them, after
 	 * each of its turns; none by default.

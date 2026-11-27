@@ -68,7 +68,6 @@ describe("App's composer references", () => {
 				endedAt: "2026-11-01T01:00:00Z",
 				conversation: null,
 				took: [],
-				hasDemo: false,
 				plan: "## Goal\n\nFinished upload",
 			},
 		];
@@ -98,7 +97,6 @@ describe("App's composer references", () => {
 				endedAt: "2026-11-01T01:00:00Z",
 				conversation: null,
 				took: [{ id: 1200, subject: "Queued retry" }],
-				hasDemo: false,
 				plan: "## Goal\n\nFinished upload",
 			},
 		];

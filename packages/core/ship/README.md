@@ -282,7 +282,8 @@ export const mdom = target({
 - **test** runs `test` from mono's root.
 - **version** takes npm's latest version raised by the bump, or the
   package's own the first time, and keeps it beside the mirror's checkout
-  (in mono's git folder, under `ship/npm/`), so a resumed release keeps it.
+  (under `~/.cache/core-ship/npm/`, respecting `XDG_CACHE_HOME`), so OS
+  temp cleanup never reaps either and a resumed release keeps it.
 - **workflow** commits `.github/workflows/publish.yml` to the mirror when
   it differs: the job checks out the release commit, installs, builds the
   package and runs `npm publish` on the build.

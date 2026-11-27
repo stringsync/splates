@@ -27,6 +27,7 @@ export { Limits } from "./limits";
 export {
 	modelOption,
 	modelValue,
+	pickedModel,
 	ranWith,
 	renamedModelOption,
 } from "./models";
@@ -38,6 +39,7 @@ export {
 	observeTokens,
 	safeOpenCodeUpdate,
 } from "./opencode-usage";
+export { limitsForModel, mostUsed } from "./quota";
 export type { AgentPick, RosterAgent, RosterFile, Speed } from "./roster";
 export {
 	DEFAULT_AGENTS,

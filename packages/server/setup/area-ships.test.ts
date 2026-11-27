@@ -22,7 +22,6 @@ describe("SHIPS_AREA", () => {
 					trunk: "main",
 					remote: null,
 					replica: null,
-					evals: null,
 					ship: null,
 					ships,
 				}),

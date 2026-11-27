@@ -149,9 +149,15 @@ export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });
 }
 
-/** Removes a todo, kept for `restoreTodo` to put back. */
-export async function removeTodo(id: number): Promise<void> {
-	await send(`/api/todos/${id}`, { method: "DELETE" });
+/**
+ * Removes a todo, kept for `restoreTodo` to put back. Given `project`, a
+ * slug, removes that project's todo instead of this page's.
+ */
+export async function removeTodo(
+	id: number,
+	project: string | null = null,
+): Promise<void> {
+	await send(scoped(`/api/todos/${id}`, project), { method: "DELETE" });
 }
 
 /** Puts back a todo `removeTodo` removed, under its id, where it stood. */

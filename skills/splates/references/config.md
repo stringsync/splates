@@ -120,7 +120,7 @@ In code, `new Scopes(config, repoName).of(path)` answers
 | `logCapacity`                  | `1000`         | Events the log holds before it is moved aside and a fresh one starts.                                |
 | `attachmentCapacity`           | 100 MiB        | Bytes of `splates attach` files one task may hold.                                                   |
 | `artifactFileCapacity`         | 50 MiB         | Bytes one artifact may be.                                                                           |
-| `artifactConversationCapacity` | 250 MiB        | Bytes of artifacts one conversation may keep ([artifacts.md](artifacts.md)).                         |
+| `artifactConversationCapacity` | 250 MiB        | Bytes of artifacts one conversation may keep ([showing.md](showing.md#artifact-space)).                         |
 | `artifactProjectCapacity`      | 2 GiB          | Bytes of artifacts every conversation in the project may keep together.                              |
 
 Byte and millisecond options take plain numbers, as `100 * 1024 * 1024`.
@@ -130,8 +130,7 @@ Byte and millisecond options take plain numbers, as `100 * 1024 * 1024`.
 | Option           | Default                 | What it sets                                                                                                                                                                                           |
 | ---------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `tunnel`         | `null` (`cloudflared`)  | A `TunnelProvider` of the project's own for `splates server --tunnel`: [setup.md](setup.md), under the tunnel of their own.                                                                            |
-| `replica`        | `null`                  | Where the server keeps a copy of the project's records, to move them to another machine: `{ provider: "s3", endpoint, bucket }`, whose keys the Creds page asks for, or `{ provider: "dir", path }` ([transfer.md](transfer.md)). |
-| `evals`          | `null` (no Evals page)  | `{ results, list?, run?, plan? }`: where eval batches land for the Evals page and the commands its run card lists, prices and starts them with (`docs/evals.md` in the splates repository).            |
+| `replica`        | `null`                  | Where the server keeps a copy of the project's records, to move them to another machine: `{ provider: "s3", endpoint, bucket }`, whose keys the Creds page asks for, or `{ provider: "dir", path }` ([Moving splates state](#moving-splates-state)). |
 | `dictationWords` | `[]`                    | Words the composer's mic spells as written for everyone on the project, as `["wren", "vet"]`; each person adds their own on the Setup page.                                                       |
 | `projects`       | `null` (the repository is one project) | `{ slug: ["globs/**"] }`: the projects inside the repository, each the paths it owns. See [Projects](#projects). |
 | `shared`         | `[]`                    | Path globs that count against no project, such as the root `package.json`. See [Projects](#projects). |
@@ -163,3 +162,27 @@ rec: {
   ],
 },
 ```
+
+## Other splates projects
+
+`splates projects` lists the other splates projects on this machine and what
+each grants this one: **read** (look only), **queue** (the default: `splates
+--project <slug> task add`, saying why this project needs it, with no
+`--lane`) or **tasks** (also `task update`, `task remove`, `lane` and
+`queue` there). Name their tasks as `wren #404` and link them as
+`--blocked-by wren#404`. Never `add`, `claim`, merge or remove a task there,
+nor `cd` there to get around `not_granted`; end with a queue permission card
+(`## 🔐 Permission: queue wren #404: ...`) for the user to start it. When a
+grant is missing, say which reach you need and carry on without it:
+`splates projects grant` is the user's alone. Ask before `splates init` on a
+repository that is not a project yet.
+
+## Moving splates state
+
+A project's tasks, lanes, plans and conversations live under
+`~/.splates/projects`, never in git. Move, back up or restore them only
+through the `replica`, never by copying those directories: checkpoint the
+agents and have the user stop `splates server`; `splates replica status`
+must be caught up; on the new machine, `splates replica restore` (`--force`
+sets existing records aside); the user starts the server there; then here
+`splates replica retire <where it went>`.

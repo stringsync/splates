@@ -1,5 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "../ctx";
 import { type Step, step } from "../step";
@@ -54,6 +54,8 @@ export interface ReleaseOptions {
 	dependencies?: readonly string[];
 	/** Milliseconds before the first retry of a failed registry query, doubling after (default 2000). */
 	retryDelay?: number;
+	/** Where the mirror checkout and in-progress state live (default: `$XDG_CACHE_HOME/core-ship/npm` or `~/.cache/core-ship/npm`). */
+	cacheDir?: string;
 }
 
 /**
@@ -67,8 +69,9 @@ export interface ReleaseOptions {
  */
 export function release(opts: ReleaseOptions): Step[] {
 	const slug = opts.package.replace(/[^\w-]+/g, "-");
-	const statePath = join(tmpdir(), `ship-npm-${slug}.json`);
-	const checkout = join(tmpdir(), `ship-npm-${slug}-mirror`);
+	const cacheDir = opts.cacheDir ?? defaultCacheDir();
+	const statePath = join(cacheDir, `${slug}.json`);
+	const checkout = join(cacheDir, `${slug}-mirror`);
 	const remote = `https://github.com/${opts.repository}.git`;
 
 	const read = async (): Promise<State> =>
@@ -84,16 +87,22 @@ export function release(opts: ReleaseOptions): Step[] {
 	/** Where the package sits in the mirror, whose root is the project folder. */
 	const inMirror = (dir: string) =>
 		opts.scope === "package" ? "." : dir.split("/").slice(1).join("/");
-	const write = (state: State) => writeFile(statePath, JSON.stringify(state));
+	const write = async (state: State) => {
+		await mkdir(cacheDir, { recursive: true });
+		await writeFile(statePath, JSON.stringify(state));
+	};
 	/** Whether a command succeeds, with its output ignored. */
 	const ok = async (ctx: Ctx, command: string) =>
 		(await ctx.sh(`(${command}) >/dev/null 2>&1 && echo ok || true`)).includes(
 			"ok",
 		);
-	/** A fresh clone of the mirror, or an updated one. */
+	/**
+	 * A fresh clone of the mirror, or an updated one. Falls back to a fresh
+	 * clone when a cached checkout is missing, broken, or detached.
+	 */
 	const sync = (ctx: Ctx) =>
 		ctx.sh(
-			`if [ -d ${quote(checkout)}/.git ]; then git -C ${quote(checkout)} fetch origin && git -C ${quote(checkout)} reset --hard origin/HEAD; else rm -rf ${quote(checkout)} && git clone ${quote(remote)} ${quote(checkout)}; fi`,
+			`([ -d ${quote(checkout)}/.git ] && git -C ${quote(checkout)} symbolic-ref -q HEAD >/dev/null && git -C ${quote(checkout)} fetch origin && git -C ${quote(checkout)} reset --hard origin/HEAD) || (rm -rf ${quote(checkout)} && mkdir -p ${quote(cacheDir)} && git clone ${quote(remote)} ${quote(checkout)})`,
 		);
 	/** The mono tag for `version`, as a full ref. */
 	const monoRef = (version: string) =>
@@ -424,6 +433,12 @@ type State = { version: string; dir: string; sha?: string; monoSha?: string };
 
 /** How many times a registry query that fails other than with E404 is tried. */
 const QUERY_ATTEMPTS = 3;
+
+/** Persistent cache outside `tmpdir()` (so OS temp cleanup never reaps it) and outside mono. */
+function defaultCacheDir(): string {
+	const base = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+	return join(base, "core-ship", "npm");
+}
 
 function quote(word: string): string {
 	return /^[\w@%+=:,./-]+$/.test(word)

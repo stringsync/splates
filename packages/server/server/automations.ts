@@ -22,12 +22,7 @@ import {
 	TaskSignals,
 } from "../hooks";
 import { type AgentPick, pickSettings } from "../models";
-import {
-	EVAL_BUDGET_APPROVED,
-	eventReference,
-	scheduleReference,
-	signalReference,
-} from "../plans";
+import { eventReference, scheduleReference, signalReference } from "../plans";
 import type { Journal } from "../records";
 import { dotted } from "../signals";
 import type { Project } from "./project";
@@ -44,13 +39,6 @@ export class Automations implements Resource {
 		| ((name: string, payload: unknown) => Promise<void>)
 		| undefined;
 	readonly #clocks: (() => ClockShelf | undefined) | undefined;
-	readonly #seedEvalBudget:
-		| ((
-				conversation: string,
-				usd: number,
-				automation: { id: string; name?: string },
-		  ) => Promise<void>)
-		| undefined;
 	readonly #slug: () => Promise<string>;
 	readonly #store: HookStore;
 	readonly #runs: RunStore;
@@ -68,16 +56,9 @@ export class Automations implements Resource {
 		raise?: (name: string, payload: unknown) => Promise<void>,
 		/** Where clock schedules are kept, which saved every and cron automations move onto at start. */
 		clocks?: () => ClockShelf | undefined,
-		/** Seeds a pre-approved eval budget onto a conversation started by an automation. */
-		seedEvalBudget?: (
-			conversation: string,
-			usd: number,
-			automation: { id: string; name?: string },
-		) => Promise<void>,
 	) {
 		this.#raise = raise;
 		this.#clocks = clocks;
-		this.#seedEvalBudget = seedEvalBudget;
 		this.#slug = slug;
 		this.#project = project;
 		this.#store = new HookStore(
@@ -310,12 +291,10 @@ export class Automations implements Resource {
 			{
 				automation,
 				automationName,
-				evalBudget,
 				words,
 			}: {
 				automation?: string;
 				automationName?: string;
-				evalBudget?: number;
 				/** What Auto pick judges, for no `pick`: the hook's own prompt. */
 				words?: string;
 			},
@@ -354,25 +333,8 @@ export class Automations implements Resource {
 			if (automationName !== undefined && automationName.trim() !== "") {
 				await conversation.rename(automationName);
 			}
-			let opening = prompt;
-			if (
-				evalBudget !== undefined &&
-				evalBudget > 0 &&
-				automation !== undefined
-			) {
-				await this.#seedEvalBudget?.(conversation.id, evalBudget, {
-					id: automation,
-					...(automationName === undefined ? {} : { name: automationName }),
-				});
-				const dollars = `$${evalBudget.toFixed(2)}`;
-				const who =
-					automationName === undefined || automationName === ""
-						? `automation #${automation}`
-						: `automation "${automationName}"`;
-				opening = `${prompt}\n\n${EVAL_BUDGET_APPROVED}\n\nPre-approved ${dollars} by ${who}: ${dollars} of ${dollars} left.`;
-			}
 			void conversation
-				.prompt(opening, [], undefined, { told: SERVER_TOLD })
+				.prompt(prompt, [], undefined, { told: SERVER_TOLD })
 				.catch((error: unknown) =>
 					log.error(`a hook's agent could not start: ${String(error)}`),
 				);
@@ -406,7 +368,6 @@ export class Automations implements Resource {
 						{
 							automation: id,
 							automationName: name,
-							evalBudget: hook.evalBudget,
 							words: hook.prompt,
 						},
 					),

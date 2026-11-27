@@ -173,5 +173,22 @@ describe("AutoRestart", () => {
 		server.listed = { ...server.listed, restartable: true, behind: null };
 		await pass(130);
 		expect(restart.state.step).toBe("watching");
+
+		// A stuck source checkout needs git recovery, never an auto-restart loop.
+		server.listed = {
+			...server.listed,
+			restartable: true,
+			behind: null,
+			stuck: {
+				upstream: "origin/main",
+				local: "a".repeat(40),
+				newest: "b".repeat(40),
+				commits: 4,
+				root: "/repo",
+				dirty: 2,
+			},
+		};
+		await pass(130);
+		expect(restart.state.step).toBe("watching");
 	});
 });

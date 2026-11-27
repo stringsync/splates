@@ -64,7 +64,6 @@ import { settleTaken, startDispatched, TaskRoutes } from "../tasks";
 import { LOCAL_WORKER, Machine, OsSensors } from "../workers";
 import { Automations } from "./automations";
 import { BusyRunWatch } from "./busy-run-watch";
-import { cardWatches } from "./card-watches";
 import { ConflictWatch } from "./conflict-watch";
 import { EventWaitWatch } from "./event-wait-watch";
 import { heldFor } from "./held";
@@ -116,7 +115,6 @@ export async function serveProject(
 			);
 		},
 		() => context.clockShelf?.(),
-		context.seedEvalBudget,
 	);
 	// Tasks that close on a signal subscribe to it, so a probe on it keeps
 	// running, and end as merged when it fires.
@@ -197,8 +195,10 @@ export async function serveProject(
 					now,
 				});
 			},
+			onError: () => watch.tick(),
 			log,
 		});
+		watch.setQueueError(() => queueRunner?.error() ?? null);
 		const unwatch = context.onWorkerRoom(() => void queueRunner?.sweep());
 		const stopRuns = BusyRunWatch.begin(project, conversations, machine);
 		const stopWaits = EventWaitWatch.begin(project, conversations, machine);
@@ -309,10 +309,6 @@ export async function serveProject(
 		runs: rigRuns,
 	});
 	const shipComposer = new ShipComposer(shipCommands);
-	const shipCards =
-		conversations === null
-			? null
-			: cardWatches(project, conversations, context);
 	const shipEngine = new ShipEngine({
 		storage,
 		processes: new ShellStepProcesses(
@@ -426,11 +422,17 @@ export async function serveProject(
 		project,
 		conversations,
 		context.everywhere,
+		null,
 	);
 	const taskRoutes = new TaskRoutes(project, listed, watch);
 	return {
 		...taskRoutes,
-		...new MergeRoutes(project, undefined, conversations),
+		...new MergeRoutes(
+			project,
+			undefined,
+			conversations,
+			context.trust ?? null,
+		),
 		...new BoardRoutes(project, talks, watch, {
 			boards: context.boards,
 			root: service.git.root,
@@ -633,7 +635,6 @@ export async function serveProject(
 		async disposeAsync() {
 			rigRuns.dispose();
 			await conflicts.disposeAsync();
-			shipCards?.dispose();
 			runWatch.dispose();
 			superviseWatch.dispose();
 			fixWatch?.dispose();

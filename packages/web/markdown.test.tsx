@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it } from "bun:test";
 // `render` hands back bind on call instead.
 import { Board, NO_BOARD } from "./board";
 import { linkElsewhere, linkTasks, Markdown } from "./markdown";
+import { joinImageRuns } from "./media";
 import { NamedContext } from "./mentioned";
 import { knowFocused } from "./project-places";
-import { act, fireEvent, render, waitFor } from "./testing-library";
+import { act, fireEvent, render, waitFor, within } from "./testing-library";
 
 describe("Markdown", () => {
 	// An App test run before this one in the same worker may have focused another
@@ -186,7 +187,7 @@ describe("Markdown", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(page.getByRole("button", { name: "expand first run" })),
+			fireEvent.click(page.getByRole("button", { name: "view 2 recordings" })),
 		);
 		const lightbox = await waitFor(() => page.getByRole("dialog"));
 		expect(lightbox.textContent).toContain("first run1 of 2");
@@ -206,6 +207,59 @@ describe("Markdown", () => {
 			fireEvent.click(page.getByRole("button", { name: "close" })),
 		);
 		await waitFor(() => expect(page.queryByRole("dialog")).toBeNull());
+	});
+
+	it("draws a run of media as one gallery card, and one alone as a card of one", () => {
+		const page = render(
+			<Markdown
+				text={
+					"Look:\n\n![the band](/abs/a.webm)\n\n![the page](/abs/b.mp4)\n![the desk](/abs/c.mov)\n\nThen this.\n\n![lone](/abs/d.webm)"
+				}
+			/>,
+		);
+
+		// The test page serves no files, so recordings stand in for screenshots.
+		const run = page.getByRole("button", { name: "view 3 recordings" });
+		expect(run.textContent).toContain("the band · the page · the desk");
+		expect(run.querySelectorAll("video")).toHaveLength(3);
+		expect(page.getByRole("button", { name: "view lone" })).toBeTruthy();
+		expect(page.container.textContent).toContain("Then this.");
+	});
+
+	it("steps through a document's media from the lightbox's thumbnails", async () => {
+		const page = render(
+			<Markdown text={"![one](/abs/a.webm)\n\n![two](/abs/b.webm)"} />,
+		);
+
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "view 2 recordings" })),
+		);
+		const lightbox = await waitFor(() => page.getByRole("dialog"));
+		expect(lightbox.textContent).toContain("one1 of 2");
+
+		await act(async () =>
+			fireEvent.click(
+				within(lightbox).getByRole("button", { name: "show two" }),
+			),
+		);
+		expect(lightbox.textContent).toContain("two2 of 2");
+		expect(
+			within(lightbox)
+				.getByRole("button", { name: "show two" })
+				.getAttribute("aria-current"),
+		).toBe("true");
+	});
+
+	it("joins only image lines at one indent, leaving code alone", () => {
+		expect(joinImageRuns("![a](/a.png)\n\n![b](/b.png)\ntext")).toBe(
+			"![a](/a.png) ![b](/b.png)\ntext",
+		);
+		expect(
+			joinImageRuns("- (a) one\n  ![a](/a.png)\n- (b) two\n  ![b](/b.png)"),
+		).toBe("- (a) one\n  ![a](/a.png)\n- (b) two\n  ![b](/b.png)");
+		expect(joinImageRuns("![a](/a.png)\n    ![b](/b.png)")).toBe(
+			"![a](/a.png)\n    ![b](/b.png)",
+		);
 	});
 
 	it("renders one line inline, its emphasis and code, without a paragraph", () => {

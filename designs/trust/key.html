@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Page — How it works tab</title>
+<link rel="stylesheet" href="shared.css">
+<script>if(location.hash==="#phone") { document.documentElement.classList.add("phone"); }</script>
+<style>/* biome-ignore-all lint/style/noDescendingSpecificity: a static mock sheet whose rules are read top to bottom */
+.key-content{max-width:768px;margin:0 auto;width:100%}
+.tk{display:flex;flex-direction:column;gap:20px}
+.tk-card{border:1px solid var(--border);background:var(--card);border-radius:12px;overflow:hidden}
+.tk-hd{padding:12px 16px 4px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.tk-hd h3{font-size:14px;font-weight:600}
+.tk-hd p{font-size:12px;color:var(--muted-foreground)}
+.tk-sec{font-weight:500;color:var(--muted-foreground);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:12px 16px 4px}
+.tk-row{display:flex;align-items:flex-start;gap:12px;padding:7px 16px}
+.tk-row+.tk-row{border-top:1px solid color-mix(in oklab,var(--border) 60%,transparent)}
+.tk-row .t{flex:1;min-width:0;font-size:13.5px}
+.tk-row .t small{display:block;font-size:12px;color:var(--muted-foreground);margin-top:1px}
+.tk-d{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
+.up{color:var(--success)}.dn{color:var(--destructive)}.z{color:var(--muted-foreground)}
+.tk-pill{display:inline-flex;align-items:center;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:500}
+.p-wait{background:color-mix(in oklab,var(--warning) 15%,transparent);color:var(--warning)}
+.p-go{background:color-mix(in oklab,var(--info) 12%,transparent);color:var(--info)}
+.p-as{background:color-mix(in oklab,var(--success) 12%,transparent);color:var(--success)}
+.tk-tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:500;border-radius:6px;padding:0 6px;line-height:18px;white-space:nowrap;flex:none;margin-top:1px}
+.tg-e{border:1px solid var(--border);color:var(--foreground);background:var(--background)}
+.tg-s{color:var(--muted-foreground)}
+.tk-band{padding:10px 16px 12px;border-top:1px solid var(--border)}
+.tk-band .h{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tk-band .h span.r{font-size:12px;color:var(--muted-foreground)}
+.tk-band ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
+.tk-band li{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;font-size:13.5px}
+.ruler{position:relative;margin:44px 16px 8px;height:30px}
+.ruler .bar{display:flex;height:8px;border-radius:999px;overflow:hidden}
+.ruler .bar i{display:block;height:100%}
+.ruler .tick{position:absolute;top:13px;font-size:11px;color:var(--muted-foreground);transform:translateX(-50%);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ruler .m{position:absolute;top:-24px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:500;white-space:nowrap}
+.ruler .m b{width:2px;height:14px;background:var(--foreground);margin-top:2px;border-radius:1px}
+.ruler .m.hi{top:-40px}.ruler .m.hi b{height:30px}
+.tk-note{margin:0 16px 14px;font-size:13px;border-radius:10px;padding:9px 12px;background:var(--muted)}
+.tk-note b{font-weight:600}
+.tk-math{padding:4px 16px 14px;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.tk-math div{display:flex;gap:10px}
+.tk-math span.k{flex:none;width:92px;color:var(--muted-foreground);font-size:12.5px;padding-top:1px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-brand">splates</div>
+    <div class="side-item">Boards</div>
+    <div class="side-item">Creds</div>
+    <div class="side-item active">Trust</div>
+    <div class="side-item">Stats</div>
+    <div class="side-item">Evals</div>
+  </aside>
+  <div class="main">
+    <div class="phone-bar"><span>← Menu</span><span class="muted">All projects</span></div>
+    <header class="page-header">
+      <div class="page-header-glow"></div>
+      <div class="page-header-sheen"></div>
+      <div class="page-header-inner has-tabs">
+        <div class="page-icon"><svg aria-hidden="true" class="ic lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <div class="grow">
+          <div class="page-title-row"><h1 class="page-title">Trust</h1><span class="scope-pill">All projects</span></div>
+          <p class="page-desc">How much each model can decide without asking. Ships, spending, deletions and security always ask.</p>
+        </div>
+      </div>
+      <nav class="header-tabs"><span class="htab">Models</span><span class="htab">Scopes</span><span class="htab">Assumptions</span><span class="htab active">How it works</span></nav>
+    </header>
+    <main class="content key-content">
+<div class="tk">
+<section class="tk-card">
+ <div class="tk-hd"><h3>What changes trust</h3><p>Weights, not points</p></div>
+ <div class="tk-sec">Raises it</div>
+ <div class="tk-row"><div class="t">A question’s pick is taken as offered<small>You answer with the agent’s chosen choice and nothing more.</small></div><span class="tk-d up"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>+1</span></div>
+ <div class="tk-row"><div class="t">A mockup’s pick is taken<small>The same, for a question with images.</small></div><span class="tk-d up"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>+1</span></div>
+ <div class="tk-row"><div class="t">A plan is approved as written<small>Approve, with every pick in it kept.</small></div><span class="tk-d up"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>+1</span></div>
+ <div class="tk-sec">Lowers it</div>
+ <div class="tk-row"><div class="t">A question is answered another way<small>Another choice, or words instead of the pick.</small></div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−2</span></div>
+ <div class="tk-row"><div class="t">A mockup is answered another way</div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−2</span></div>
+ <div class="tk-row"><div class="t">A plan is sent back<small>No, or a reply that sends it back.</small></div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−2</span></div>
+ <div class="tk-row"><div class="t">An assumption is overturned or marked wrong<small>That kind of call asks first again until 3 of its picks are kept.</small></div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−3</span></div>
+ <div class="tk-row"><div class="t">A task is removed to be redone</div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−3</span></div>
+ <div class="tk-row"><div class="t">A merged task is reverted on main</div><span class="tk-d dn"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12h6"/></svg>−3</span></div>
+ <div class="tk-sec">Leaves it alone</div>
+ <div class="tk-row"><div class="t">A pick or plan is taken with changes<small>You take it but add words.</small></div><span class="tk-d z"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>0</span></div>
+ <div class="tk-row"><div class="t">An assumption you leave standing<small>A call made without asking never raises trust.</small></div><span class="tk-d z"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>0</span></div>
+ <div class="tk-row"><div class="t">Asking and waiting, at any trust<small>Choosing not to lean on trust never costs any.</small></div><span class="tk-d z"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>0</span></div>
+ <div class="tk-row"><div class="t">A question with no pick, or left unanswered</div><span class="tk-d z"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>0</span></div>
+ <div class="tk-note" style="margin-top:8px">How many points a weight moves depends on history: the same <b>−3</b> moves a model with few decisions further than one with many.</div>
+</section>
+<section class="tk-card">
+ <div class="tk-hd"><h3>What each band allows</h3><p>mono</p></div>
+ <div class="ruler"><div class="bar"><i style="width:70%;background:color-mix(in oklab,var(--warning) 55%,var(--muted))"></i><i style="width:20%;background:color-mix(in oklab,var(--info) 55%,var(--muted))"></i><i style="width:10%;background:color-mix(in oklab,var(--success) 60%,var(--muted))"></i></div>
+  <span class="tick" style="left:0;transform:none">0</span><span class="tick" style="left:50%">50 start</span><span class="tick" style="left:70%">70</span><span class="tick" style="left:90%">90</span><span class="tick" style="left:100%;transform:translateX(-100%)">100</span>
+  <span class="m" style="left:27%">Sonnet 27<b></b></span><span class="m hi" style="left:42%">Astra 42<b></b></span><span class="m" style="left:56%">Opus 56<b></b></span></div>
+ <div class="tk-band"><div class="h"><span class="tk-pill p-wait">Ask &amp; wait</span><span class="r">below 70</span></div><ul>
+  <li><span>Merges only after you approve the plan</span><span class="tk-tag tg-e"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Enforced</span></li>
+  <li><span>Asks, then waits for your answer</span><span class="tk-tag tg-s">Agents follow</span></li></ul></div>
+ <div class="tk-band"><div class="h"><span class="tk-pill p-go">Ask &amp; go</span><span class="r">70 to 89</span></div><ul>
+  <li><span>Merges without waiting on the plan</span><span class="tk-tag tg-e"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Enforced</span></li>
+  <li><span>Asks, and carries on with its pick meanwhile</span><span class="tk-tag tg-s">Agents follow</span></li></ul></div>
+ <div class="tk-band"><div class="h"><span class="tk-pill p-as">Assume</span><span class="r">90 and up, after 10 decisions</span></div><ul>
+  <li><span>Everything Ask &amp; go allows</span><span class="tk-tag tg-e"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Enforced</span></li>
+  <li><span>Makes reversible calls itself, each shown as an Assumed line you can overturn</span><span class="tk-tag tg-s">Agents follow</span></li>
+  <li><span>Asks first on any kind of call overturned lately</span><span class="tk-tag tg-s">Agents follow</span></li></ul></div>
+ <div class="tk-band"><div class="h"><span class="tk-pill" style="background:var(--muted)">Any trust</span></div><ul>
+  <li><span>Only you ship</span><span class="tk-tag tg-e"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Enforced</span></li>
+  <li><span>Always asks before spending money, deleting data or work, or changing security</span><span class="tk-tag tg-s">Agents follow</span></li></ul></div>
+ <div class="tk-note"><b>Trust is a ceiling, not a floor.</b> An agent may ask and wait on any call it judges risky, whatever its score. The server never makes it act on trust.</div>
+</section>
+<section class="tk-card">
+ <div class="tk-hd"><h3>How it adds up</h3></div>
+ <div class="tk-math">
+  <div><span class="k">Start</span><span>Every model starts at 50, worth about 6 decisions, so a few kept picks cannot carry it to 70.</span></div>
+  <div><span class="k">Score</span><span>The share of weight that is for it, as a whole number out of 100.</span></div>
+  <div><span class="k">Recent first</span><span>A decision 20 decisions old counts half as much as the latest one.</span></div>
+  <div><span class="k">Kinds</span><span>Defaults, API / design, Scope / split, Visual / UI and Approval each get their own score; the band uses the overall one.</span></div>
+  <div><span class="k">Scopes</span><span>A decision inside a declared folder moves that folder’s score, not the project’s.</span></div>
+ </div>
+</section>
+<section class="tk-card">
+ <div class="tk-hd"><h3>What you control</h3></div>
+ <div class="tk-row"><div class="t">Undo trust effect<small>On any event line with a shield: drops that one decision from the score.</small></div><span class="tk-d z"></span></div>
+ <div class="tk-row"><div class="t">Static<small>Pins a score. A static 90 assumes at once, with no history needed.</small></div><span class="tk-d z"></span></div>
+ <div class="tk-row"><div class="t">Dynamic, with a set start<small>Starts the score from the value you pick; earlier decisions stop pulling it.</small></div><span class="tk-d z"></span></div>
+ <div class="tk-row"><div class="t">Reset<small>Back to 50, forgetting every decision before it.</small></div><span class="tk-d z"></span></div>
+ <div class="tk-row"><div class="t">Allow trusted decisions: off<small>Every model asks and waits; scores are kept for when it is on again.</small></div><span class="tk-d z"></span></div>
+</section></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

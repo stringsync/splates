@@ -1,5 +1,7 @@
 // vet-ignore-file compact-files: composes the application providers and desktop or phone shell together
+import { Dialog } from "@base-ui/react/dialog";
 import type { TaskRecord } from "@splates/server/board";
+import type { Stuck } from "@splates/server/server";
 import type { Details } from "@splates/server/tasks";
 import { useDisposerEffect, useReactive } from "core/react";
 import { type Duration, SystemClock, SystemTimer, type Timer } from "core/time";
@@ -8,6 +10,7 @@ import {
 	type JSX,
 	type ReactNode,
 	useCallback,
+	useContext,
 	useEffect,
 	useMemo,
 	useState,
@@ -37,7 +40,7 @@ import { FreshnessContext, useFeedsFreshness } from "./freshness";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { WatchMerge } from "./merge-card";
 import { MigrationFailed } from "./migration-failed";
-import { useShownProject } from "./navigation";
+import { NavigationContext, useShownProject } from "./navigation";
 import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
@@ -66,6 +69,7 @@ import { matches } from "./shortcuts";
 import { NestedPanesContext, useSidePanes } from "./side-panes";
 import { StatsReport } from "./stats-report";
 import { StepsPopOutHost } from "./steps-pop-host";
+import { sendStuckToAgent } from "./stuck-update";
 import {
 	OpenTerminalPage,
 	ShellRunning,
@@ -193,19 +197,13 @@ export function App({
 		openLane,
 		cred,
 		cell,
-		evals,
-		openEval,
 		shipRun,
 		setup,
 		openSetup,
 	} = usePageRoute();
-	const evalRunOpen =
-		page === "evals" &&
-		evals.batch !== null &&
-		evals.run !== null &&
-		evals.plan === null;
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	const searched = searchedIn(snapshot);
+	const [searchDialog] = useState(() => Dialog.createHandle());
 	// A todo opens on the board, or as the task that took it.
 	const openTodo = useCallback(
 		(id: number) => {
@@ -260,12 +258,24 @@ export function App({
 		go: openConversation,
 	});
 
+	const navigation = useContext(NavigationContext);
+	const investigateStuck = useCallback(
+		(stuck: Stuck) =>
+			sendStuckToAgent(stuck, {
+				snapshot,
+				feed: talk,
+				navigation,
+				onOpen: openConversation,
+			}),
+		[snapshot, talk, navigation, openConversation],
+	);
 	const [setting, setSetting] = useState(false);
 	const pageMenu = usePageMenu({
 		snapshot,
 		outdated,
 		offline,
 		onSettings: () => setSetting(true),
+		onInvestigateStuck: available ? investigateStuck : undefined,
 	});
 
 	const waiting = useWaiting(talk, tasks, snapshot?.todos);
@@ -322,8 +332,6 @@ export function App({
 		talk,
 		opens,
 		cell,
-		evals,
-		openEval,
 		shipRun,
 		setup,
 		openSetup,
@@ -465,7 +473,6 @@ export function App({
 																								>
 																									{wide ? (
 																										<DesktopApp
-																											evalRunOpen={evalRunOpen}
 																											page={page}
 																											open={open}
 																											go={go}
@@ -484,7 +491,6 @@ export function App({
 																										/>
 																									) : (
 																										<PhoneApp
-																											evalRunOpen={evalRunOpen}
 																											page={page}
 																											open={open}
 																											go={go}
@@ -517,6 +523,7 @@ export function App({
 																									)}
 																									{pane}
 																									<SearchDialog
+																										handle={searchDialog}
 																										searched={searched}
 																										feed={talk}
 																										pick={pick}

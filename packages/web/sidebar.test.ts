@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createElement } from "react";
 import {
 	DEFAULT_WIDTH,
+	MAX_PAGES_HEIGHT,
 	MAX_WIDTH,
 	MIN_WIDTH,
 	Sidebar,
@@ -66,6 +67,34 @@ describe("Sidebar", () => {
 		sidebar.togglePages();
 		expect(new Sidebar(localStorage).pagesShown).toBe(true);
 		expect(new Sidebar().pagesShown).toBe(true);
+	});
+	it("sets, clamps, keeps, folds, and resets a custom pages height", () => {
+		expect(sidebar.pagesHeight).toBeNull();
+
+		sidebar.setPagesHeight(160);
+		expect(sidebar.pagesShown).toBe(true);
+		expect(sidebar.pagesHeight).toBe(160);
+		expect(new Sidebar(localStorage).pagesHeight).toBeNull();
+		sidebar.keepPagesHeight();
+		expect(new Sidebar(localStorage).pagesHeight).toBe(160);
+
+		sidebar.setPagesHeight(9999);
+		expect(sidebar.pagesHeight).toBe(MAX_PAGES_HEIGHT);
+
+		sidebar.setPagesHeight(0);
+		sidebar.keepPagesHeight();
+		expect(sidebar.pagesShown).toBe(false);
+		expect(sidebar.pagesHeight).toBeNull();
+		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBe("1");
+		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBeNull();
+
+		sidebar.setPagesHeight(120);
+		sidebar.keepPagesHeight();
+		sidebar.resetPagesHeight();
+		expect(sidebar.pagesShown).toBe(true);
+		expect(sidebar.pagesHeight).toBeNull();
+		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBeNull();
+		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBeNull();
 	});
 	// vet-ignore simple-test-setup: only the drag case mounts a handle and counts pointer-driven changes; Sidebar is shared in beforeEach
 	it("updates the DOM during a drag and commits the clamped width only on release", () => {

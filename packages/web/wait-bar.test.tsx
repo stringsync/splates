@@ -1,11 +1,14 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 import type { SignalWait } from "@splates/server/signals";
 import { SignalSight, SignalWaits } from "./signal-contexts";
 import { cleanup, render } from "./testing-library";
 import { WaitBar } from "./wait-bar";
 
 describe("wait bar", () => {
-	afterEach(cleanup);
+	afterEach(() => {
+		cleanup();
+		setSystemTime();
+	});
 
 	it("shows the live wait that ends first, with the others counted", () => {
 		const view = bar([
@@ -16,6 +19,33 @@ describe("wait bar", () => {
 		expect(view.getByLabelText("View signal soon.one")).toBeTruthy();
 		expect(view.queryByLabelText("View signal late.one")).toBeNull();
 		expect(view.getByText("+1")).toBeTruthy();
+	});
+
+	it("counts down to firing and shows the clock’s configured time zone", () => {
+		const name =
+			'clock.at({ time: "2026-11-27 09:00", tz: "America/New_York" })';
+		const next = "2026-11-27T14:00:00.000Z";
+		setSystemTime(new Date("2026-11-26T12:00:00.000Z"));
+		const view = bar([
+			wait({
+				id: "clock",
+				name,
+				hours: 28,
+				clock: {
+					name,
+					next,
+					tz: "America/New_York",
+					meaning: "Once at the scheduled time",
+					startedAt: "2026-11-26T12:00:00.000Z",
+					recurring: false,
+				},
+			}),
+		]);
+		const time = view.getByText(/9:00 AM EST/).closest("time");
+		expect(time?.getAttribute("datetime")).toBe(next);
+		expect(time?.parentElement?.textContent).toContain("Fires ");
+		expect(view.getByText("1d 02:00:00 left")).toBeTruthy();
+		expect(view.getByLabelText(`View signal ${name}`)).toBeTruthy();
 	});
 
 	it("keeps the bar visible while the wait's own line is in sight", () => {

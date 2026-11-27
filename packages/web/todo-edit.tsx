@@ -1,5 +1,6 @@
 import type { TaskRecord } from "@splates/server/board";
-import { BACKLOG_LANE, blockerLabel } from "@splates/server/board/browser";
+import { BACKLOG_LANE } from "@splates/server/board/browser";
+import { holdsBack } from "@splates/server/queue/browser";
 import { useReactive } from "core/react";
 import { Trash2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
@@ -23,12 +24,12 @@ import { assigned } from "./board-expectations";
 import { CopyLink } from "./card";
 import { AttachPlus } from "./card-box";
 import { CardSection } from "./card-section";
-import { AssigneeMenu, OnIt } from "./dispatching";
+import { AssigneeMenu, Dispatching, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
 import { useExpectSnapshot } from "./expecting";
 import { Dropped, FileList } from "./files";
 import { Links, Property } from "./links";
-import { Markdown } from "./markdown";
+import { ElsewhereMention, Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { paragraphs } from "./merged-body";
 import { Refusal, useRefusal } from "./refusal";
@@ -36,7 +37,7 @@ import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 import { planParts } from "./task-plan-parts";
 import { TodoEditor } from "./todo-editor";
-import { StageChip, shownStage, stageLabel } from "./todo-queue";
+import { QueueToggle, StageChip, shownStage, stageLabel } from "./todo-queue";
 
 /** The dialog for one todo: reword it, edit its detail, agent and links, then save, start or drop it. */
 export function Edit({
@@ -90,6 +91,13 @@ export function Edit({
 		writing.catch((error: unknown) => board.refuseTodo(todo.id, failed, error));
 	};
 	const stage = shownStage(todo, board.todos, board.tasks);
+	const waiting =
+		stage === "queued" || (stage === "blocked" && todo.takenBy === null)
+			? holdsBack(todo, board.todos)
+			: null;
+	const hasBlockers =
+		waiting !== null &&
+		(waiting.open.length > 0 || waiting.elsewhere.length > 0);
 	// Those that wait on it, which removing it holds for the person.
 	const heldBack = board.todos.filter((other) =>
 		other.blockedBy.includes(todo.id),
@@ -143,7 +151,10 @@ export function Edit({
 					</span>
 				</div>
 			</DialogHeader>
-			<div className="-mx-4 flex min-h-0 flex-col gap-3 overflow-y-auto px-4 pb-1">
+			<div className="-mx-4 flex min-h-0 flex-col gap-3 overflow-y-auto px-4 pb-1 [&>*]:shrink-0">
+				{hasBlockers && (
+					<BlockedPart todo={todo} waiting={waiting} onDone={onDone} />
+				)}
 				{restored && (
 					<p className="flex items-center gap-2 text-muted-foreground text-xs">
 						Unsaved changes kept from before
@@ -170,11 +181,10 @@ export function Edit({
 						/>
 					)
 				)}
-				{stage === "blocked" && <BlockedPart todo={todo} />}
 				<Detail editor={editor} />
 				<FileList files={editor.files} />
 				<Dropped names={dropped} />
-				<div className="border-t pt-3">
+				<div className="border-t pt-3 [&_[data-slot=select-trigger]]:max-w-full [&_[data-slot=select-value]]:truncate">
 					<Links todo={todo}>
 						{todo.takenBy === null && (
 							<Property title="Agent">
@@ -192,6 +202,7 @@ export function Edit({
 						)}
 					</Links>
 					<Refusal refusal={refusal} />
+					<Refusal refusal={board.refusedTodos.get(todo.id)} />
 				</div>
 			</div>
 			{confirming && heldBack.length > 0 && (
@@ -215,7 +226,8 @@ export function Edit({
 					{confirming ? "Remove for good" : "Remove"}
 				</Button>
 				<div className="flex gap-2">
-					{todo.takenBy === null && (
+					{hasBlockers && <QueueToggle todo={todo} dialog />}
+					{todo.takenBy === null && !hasBlockers && (
 						<StartMenu
 							assignment={{ kind: "todo", id: todo.id }}
 							assignee={todo.assignee ?? null}
@@ -347,6 +359,7 @@ function DetailText({ text }: { text: string }): JSX.Element {
 			{details.length > 0 && (
 				<CardSection
 					label="Details"
+					beside
 					title="Details"
 					ruled={goal !== ""}
 					className={goal === "" ? "py-0" : undefined}
@@ -358,45 +371,121 @@ function DetailText({ text }: { text: string }): JSX.Element {
 	);
 }
 
-/**
- * What a blocked task waits on that nothing will start, in its dialog: the
- * chain its card's button queues, blockers first, or the removed blockers
- * it drops, with that button.
- */
-function BlockedPart({ todo }: { todo: TaskRecord }): JSX.Element | null {
-	const { todos, lanes } = useContext(BoardContext);
+/** The open dependencies and the actions that can move a queued task forward. */
+function BlockedPart({
+	todo,
+	waiting,
+	onDone,
+}: {
+	todo: TaskRecord;
+	waiting: ReturnType<typeof holdsBack>;
+	onDone: () => void;
+}): JSX.Element {
+	const { todos, elsewhere } = useContext(BoardContext);
 	const fix = blockedFix(todo, todos);
-	if (fix === null) {
-		return null;
-	}
+	const rows =
+		fix?.kind === "queue"
+			? [
+					...fix.chain,
+					...waiting.open.filter(
+						(blocker) => !fix.chain.some((each) => each.id === blocker.id),
+					),
+				]
+			: waiting.open;
 	return (
 		<section
 			aria-label="what blocks it"
-			className="flex flex-col gap-1.5 rounded-md border border-warning/30 bg-warning/5 p-2.5 text-xs"
+			className="flex flex-col gap-1.5 border-t pt-2 text-sm"
 		>
-			<p className="text-muted-foreground">
-				{fix.kind === "queue"
-					? `It cannot start until ${fix.chain.length === 1 ? "this task is" : "these tasks are"} queued too:`
-					: `It waits on #${fix.id}, blocked by the same tasks.`}
-			</p>
-			{fix.kind === "queue" && (
-				<ul className="flex flex-col gap-0.5">
-					{fix.chain.map((task) => (
-						<li key={task.id} className="flex min-w-0 gap-1.5">
-							<span className="shrink-0 text-muted-foreground tabular-nums">
-								{blockerLabel(task, lanes)}
-							</span>
-							<span className="min-w-0 truncate">{task.subject}</span>
-							<span className="shrink-0 text-muted-foreground">
-								{task.stage}
-							</span>
+			<p className="font-medium text-muted-foreground text-xs">Waiting on</p>
+			<ul className="divide-y">
+				{rows.map((blocker) => (
+					<BlockerLine key={blocker.id} blocker={blocker} onDone={onDone} />
+				))}
+				{waiting.elsewhere.map((blocker) => {
+					const current = elsewhere?.blockers[todo.id]?.find(
+						(each) =>
+							each.project === blocker.project && each.id === blocker.id,
+					);
+					const slug =
+						current?.slug ??
+						blocker.project.split("/").filter(Boolean).at(-1) ??
+						blocker.project;
+					return (
+						<li key={`${blocker.project}#${blocker.id}`} className="py-1.5">
+							<ElsewhereMention project={slug} id={blocker.id} />{" "}
+							{current?.subject ?? blocker.subject}
+							{current && (
+								<p className="text-muted-foreground text-xs capitalize">
+									{current.status}
+								</p>
+							)}
 						</li>
-					))}
-				</ul>
-			)}
-			<span className="text-xs">
+					);
+				})}
+			</ul>
+			<div className="empty:hidden">
 				<BlockedFixButton todo={todo} />
-			</span>
+			</div>
 		</section>
+	);
+}
+
+function BlockerLine({
+	blocker,
+	onDone,
+}: {
+	blocker: TaskRecord;
+	onDone: () => void;
+}): JSX.Element {
+	const board = useContext(BoardContext);
+	const dispatching = useContext(Dispatching);
+	const activity =
+		blocker.takenBy === null
+			? undefined
+			: dispatching?.dispatch
+					.on(blocker.takenBy)
+					.find((each) => each.conversation !== null);
+	const conversation = activity?.conversation;
+	let status = stageLabel(blocker, board.todos, board.tasks);
+	if (blocker.closesOn !== undefined) {
+		status = "Waiting for a signal";
+	} else if (
+		conversation?.status === "stopped" ||
+		conversation?.status === "failed"
+	) {
+		status = "Conversation stopped";
+	} else if (activity?.need.kind === "waiting") {
+		status =
+			activity.need.why === "review" ? "Ready for review" : "Needs attention";
+	}
+
+	return (
+		<li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-1.5">
+			<div className="min-w-0">
+				<button
+					type="button"
+					className="cursor-pointer text-left font-medium wrap-anywhere hover:underline"
+					onClick={() => board.open(blocker.id)}
+				>
+					#{blocker.id} · {blocker.subject}
+				</button>
+				<p className="text-muted-foreground text-xs">{status}</p>
+			</div>
+			{conversation && dispatching && (
+				<Button
+					size="sm"
+					variant="link"
+					className="h-auto px-0 text-sm pointer-coarse:min-h-10"
+					aria-label={`Open conversation for #${blocker.id}`}
+					onClick={() => {
+						onDone();
+						dispatching.open(conversation.id);
+					}}
+				>
+					Open conversation
+				</Button>
+			)}
+		</li>
 	);
 }

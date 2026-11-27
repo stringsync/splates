@@ -25,6 +25,7 @@ import { installedVersion } from "../server/shared";
 import type { Used } from "../spend";
 import type { Adherence, Outcomes } from "../stats";
 import { FsStorage, type Storage } from "../storage";
+import type { RuleSuggestions, TrustStore } from "../trust";
 import { LocalWorkerMachine, type WorkerMachine } from "../workers";
 import { archivedNewestFirst } from "./archive";
 import { Conversation, type Picked } from "./conversation";
@@ -82,6 +83,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	readonly health: Health | null;
 	private readonly adherence: Adherence | null;
 	private readonly outcomes: Outcomes | null;
+	private readonly trust: TrustStore | null;
+	private readonly trustFiles: ConversationsOptions["trustFiles"];
+	private readonly rules: RuleSuggestions | null;
 	private readonly spend: NonNullable<ConversationsOptions["spend"]> | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
@@ -129,6 +133,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.health = opts.health ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.outcomes = opts.outcomes ?? null;
+		this.trust = opts.trust ?? null;
+		this.trustFiles = opts.trustFiles;
+		this.rules = opts.rules ?? null;
 		this.spend = opts.spend ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
@@ -510,6 +517,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 					{
 						adherence: this.adherence,
 						outcomes: this.outcomes,
+						trust: this.trust,
+						trustFiles: this.trustFiles,
+						rules: this.rules,
 						spend: this.spend,
 						storage: this.storage,
 						root: this.root,

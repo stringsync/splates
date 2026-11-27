@@ -83,6 +83,51 @@ describe("App", () => {
 		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBeNull();
 	});
 
+	it("drags the pages divider to a custom height and resets it on click", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open();
+
+		const pages = view.container.querySelector<HTMLElement>(
+			"[data-sidebar-pages]",
+		);
+		expect(pages).not.toBeNull();
+		if (pages === null) {
+			return;
+		}
+		Object.defineProperty(pages, "scrollHeight", {
+			configurable: true,
+			value: 400,
+		});
+		pages.getBoundingClientRect = () => ({ height: 400 }) as DOMRect;
+
+		const divider = view.getByRole("button", { name: /^Fold pages/ });
+		divider.setPointerCapture = () => {};
+
+		await act(async () => {
+			fireEvent.pointerDown(divider, { button: 0, clientY: 400, pointerId: 1 });
+			fireEvent.pointerMove(window, { clientY: 220, pointerId: 1 });
+		});
+		expect(pages.style.height).toBe("220px");
+
+		await act(async () => {
+			fireEvent.pointerUp(window, { pointerId: 1 });
+		});
+		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBe("220");
+		expect(pages.style.height).toBe("220px");
+
+		const resetButton = view.getByRole("button", {
+			name: "Reset pages height",
+		});
+		// Flush the post-drag click suppression timer, then click to reset.
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			fireEvent.click(resetButton);
+		});
+		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBeNull();
+		expect(pages.style.height).toBe("");
+		expect(view.getByRole("button", { name: /^Fold pages/ })).toBeTruthy();
+	});
+
 	it("says in the page menu who Cloudflare Access signed in, with Sign out, and nothing on this machine", async () => {
 		const local = await testing.open();
 		await act(async () =>

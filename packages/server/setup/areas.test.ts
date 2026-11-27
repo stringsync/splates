@@ -36,7 +36,6 @@ describe("SETUP_AREAS", () => {
 			"remote-access",
 			"replica",
 			"dictation",
-			"evals",
 			"ships",
 			"auto-pick",
 		]);

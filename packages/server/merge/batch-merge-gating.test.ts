@@ -70,8 +70,13 @@ describe("merge batches gating", () => {
 		expect(betaFacts.batch).toEqual(["alpha", "beta"]);
 		expect(await deps.outcomes.list()).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ task: "alpha", batch: ["alpha", "beta"] }),
-				expect.objectContaining({ task: "beta", batch: ["alpha", "beta"] }),
+				...["alpha", "beta"].map((task) =>
+					expect.objectContaining({
+						task,
+						batch: ["alpha", "beta"],
+						size: { files: 1, added: 1, removed: 0 },
+					}),
+				),
 			]),
 		);
 		expect(betaFacts.commit).toEqual(expect.any(String));

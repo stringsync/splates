@@ -69,6 +69,8 @@ export async function merge(
 		line = MergeLine.of(git.root, log),
 		clock = new SystemClock(),
 		asking,
+		unapproved,
+		unreviewed,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -93,6 +95,10 @@ export async function merge(
 		clock?: Clock;
 		/** The numbers of a task's question cards no reply has answered, read from its conversation. */
 		asking?: (task: string) => Promise<string[]>;
+		/** Why a task still needs its plan approved before it lands; null when it does not. */
+		unapproved?: (task: string) => Promise<string | null>;
+		/** Why a task waits for the user's merge review before it lands; null when it does not. */
+		unreviewed?: (task: string) => Promise<string | null>;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -142,6 +148,8 @@ export async function merge(
 		worktree,
 		async () => (await asking?.(task)) ?? [],
 		() => openBlockers(tasks, task),
+		async () => (await unapproved?.(task)) ?? null,
+		async () => (await unreviewed?.(task)) ?? null,
 	);
 	const remote = base === config.trunk ? branches.remote() : null;
 
@@ -199,7 +207,7 @@ export async function merge(
 		// Before the wait: a conflict costs the agent none of it.
 		const firstOnto = await rebaseOntoBase();
 		if (message !== "") {
-			const squashed = await git.squash(worktree.path, base, message);
+			const squashed = await git.squash(worktree.path, firstOnto, message);
 			if (squashed !== null && squashed.code !== 0) {
 				fail(
 					"blocked",
@@ -209,14 +217,8 @@ export async function merge(
 			}
 		}
 		// The branch's tip on the base alone, which a batch stacks on its tip
-		// and sends it back to; and what it changes, read while nothing else
-		// is between it and the base, since a batch lands it with others' work.
+		// and sends it back to.
 		const ownHead = await git.head(worktree.path);
-		const own = {
-			changed: (await worktree.changedFiles()) ?? [],
-			commits: (await worktree.commitMessages()) ?? undefined,
-			size: (await worktree.size()) ?? undefined,
-		};
 		let queuedBefore = false;
 		let lastPlace: number | undefined;
 		// On a batch's stack, its gate is this merge's: a place in line that
@@ -346,7 +348,7 @@ export async function merge(
 						),
 						landing: holder ?? git.root,
 						landed: null,
-						...own,
+						...(await worktree.committedChanges(result.onto, result.head)),
 						testTimes: [],
 					},
 					facts,
@@ -604,6 +606,7 @@ export async function merge(
 			for (const member of members) {
 				line.tell(member, {
 					kind: "landed",
+					onto: member.onto,
 					head: member.head,
 					batch: names,
 				});

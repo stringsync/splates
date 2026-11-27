@@ -40,9 +40,10 @@ export async function agyInstalled({
 }
 
 /**
- * The Gemini models Antigravity CLI can offer, depending on the account, by
- * the ids its Model setting takes; its Thinking Level setting is the effort. The Claude
- * and GPT models it also runs are left to their own agents.
+ * The models Antigravity CLI can offer, depending on the account, by the ids
+ * its Model setting takes; its Thinking Level setting is the effort. Its Claude
+ * models draw on a quota apart from its Gemini ones, so a lineup can fall back
+ * to them from Claude's own agent.
  */
 export const ANTIGRAVITY_MODELS: RosterModel[] = [
 	{
@@ -89,5 +90,23 @@ export const ANTIGRAVITY_MODELS: RosterModel[] = [
 		tier: 2,
 		speed: "fast",
 		costRank: 1,
+	},
+	{
+		id: "claude-opus-5-5",
+		name: "Claude Opus 5.5",
+		strengths: "complex work and everyday tasks, on Antigravity's Claude quota",
+		cost: "high",
+		tier: 3,
+		speed: "medium",
+		costRank: 3,
+	},
+	{
+		id: "claude-sonnet-5-5",
+		name: "Claude Sonnet 5.5",
+		strengths: "simpler, well-specified tasks, on Antigravity's Claude quota",
+		cost: "medium",
+		tier: 2,
+		speed: "medium",
+		costRank: 2,
 	},
 ];

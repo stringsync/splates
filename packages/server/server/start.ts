@@ -5,6 +5,7 @@ import { SystemTimer } from "core/time";
 import { StartLock, Watch } from "../agents";
 import { artifactLimits } from "../artifacts";
 import { Health, statusPage } from "../auto-pick";
+import { TaskStore, Tasks } from "../board";
 import {
 	type Config,
 	LEGACY_DIR,
@@ -34,6 +35,8 @@ import { RigSlots } from "../rigs";
 import { Spend } from "../spend";
 import { Adherence, Outcomes } from "../stats";
 import { FsStorage } from "../storage";
+import { Finished } from "../tasks";
+import { RuleSuggestions, TrustStore } from "../trust";
 import {
 	accessConfig,
 	clearWildcardShadow,
@@ -55,7 +58,7 @@ import {
 	workerSocketPath,
 } from "../workers";
 import { LoopWatch } from "./loop-watch";
-import { newest, sourceCommit } from "./release";
+import { newest, sourceCommit, stuckSource } from "./release";
 import type { SplatesDeps } from "./runtime-deps";
 import { type DevServer, dev, devPorts } from "./server";
 import { devServers } from "./servers";
@@ -274,6 +277,7 @@ async function start(
 	const machine = FsStorage.ofMachine(ctx);
 	const outcomes = new Outcomes(machine);
 	const adherence = new Adherence(machine);
+	const trust = new TrustStore(machine);
 	const spend = new Spend(machine);
 	// One for every project, and every other splates process here, so agents
 	// resumed together start one at a time.
@@ -311,6 +315,47 @@ async function start(
 				new Journal(await recordsOf(project), Number.POSITIVE_INFINITY).all(),
 			),
 		)
+		.then(async () => {
+			const merged = (await outcomes.list()).filter(
+				(each) => each.ended === "merged" && each.agent !== null,
+			);
+			const byProject = new Map<string, typeof merged>();
+			for (const each of merged) {
+				const list = byProject.get(each.project) ?? [];
+				list.push(each);
+				byProject.set(each.project, list);
+			}
+			for (const [projectRoot, list] of byProject) {
+				const finished = await new Finished(
+					await recordsOf(projectRoot),
+					ctx.fs,
+					Number.POSITIVE_INFINITY,
+				)
+					.list()
+					.catch(() => []);
+				const byTask = new Map(
+					finished
+						.filter((each) => each.ended === "merged")
+						.map((each) => [each.task, each]),
+				);
+				await trust
+					.scanReverts(
+						new Git(projectRoot, { fs: ctx.fs, ps: ctx.ps }),
+						projectRoot,
+						list.map((each) => {
+							const done = byTask.get(each.task);
+							return {
+								task: each.task,
+								commit: done?.commit ?? null,
+								agent: each.agent ?? null,
+								model: each.model ?? null,
+								subject: done?.subject,
+							};
+						}),
+					)
+					.catch(() => {});
+			}
+		})
 		.catch((error: unknown) => {
 			ctx.log.error(`the merge times backfill failed: ${String(error)}`);
 		})
@@ -446,7 +491,7 @@ async function start(
 				root: generalRoot,
 				scratchRoot: `${generalRoot}/workspaces`,
 			},
-			conversations: ({ dir, storage, git, config }) => {
+			conversations: ({ dir, storage, git, config, service }) => {
 				return new Conversations(`${dir}/conversations`, roster, {
 					fs: ctx.fs,
 					kimiHome:
@@ -463,6 +508,21 @@ async function start(
 					health,
 					adherence,
 					outcomes,
+					trust,
+					trustFiles: async (task) => {
+						const worktree = await service.find(task);
+						const startedAt = worktree.state?.createdAt;
+						const files =
+							startedAt === undefined ? null : await worktree.changedFiles();
+						return startedAt === undefined || files === null
+							? null
+							: { startedAt, files };
+					},
+					rules: new RuleSuggestions(
+						trust,
+						new Tasks(new TaskStore(storage)),
+						storage.document("trust-rule-suggestions.json"),
+					),
 					spend: { ledger: spend, prices: outcomes.prices },
 					readLimits: async (agent) =>
 						isAntigravity(agent)
@@ -499,6 +559,7 @@ async function start(
 			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
 			newest: () => newest(),
 			source: () => sourceCommit(ctx.ps),
+			stuck: () => stuckSource(ctx.ps),
 			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
 			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
 			servers: () => devServers(ctx),

@@ -87,14 +87,9 @@ export const CHECKS: readonly Check[] = [
 			}),
 			...reviews(beats).map((report) => {
 				const title = titleOf(report);
-				const last = report.trim().split("\n").at(-1)?.trim();
-				const titled = TITLES.review.test(title);
 				return {
-					ok: titled && last === REVIEW_ENDS,
-					why:
-						titled && last !== REVIEW_ENDS
-							? `review: ends "${last}"`
-							: `review: "${title}"`,
+					ok: TITLES.review.test(title),
+					why: `review: "${title}"`,
 				};
 			}),
 		],
@@ -229,9 +224,6 @@ const TITLES = {
 
 /** A heading that asks for a review, wherever in a reply it sits. */
 const REVIEW = /^##\s.*Ready to merge\b/m;
-
-/** The line a review ends on, which the page needs to show its Merge button. */
-const REVIEW_ENDS = 'Reply "merge", or say what to change.';
 
 /** `splates <verb>` where a shell would run it, with whatever follows. */
 const SPLATES =

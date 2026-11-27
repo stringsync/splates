@@ -38,7 +38,6 @@ import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { agentList, nameIn, openRow } from "./drivers";
-import { forgetShownEvals } from "./eval-run";
 import { EverywhereContext } from "./everywhere-context";
 import { EverywhereFeed } from "./everywhere-feed";
 import { RepliedIds } from "./fake-conversation-ids";
@@ -181,7 +180,9 @@ export class Testing implements Resource {
 	/** The finished tasks `/api/finished` lists, newest first, each with its plan. */
 	finished: FinishedPlan[] = [];
 	/** How each merged task went, by task, for `/api/tasks/:task/outcome`; null for one absent. */
-	landed: Record<string, Landed> = {};
+	landed: Record<string, Landed | number> = {};
+	/** What the task outcome requests wait on before answering. */
+	readingOutcomes: Promise<void> = Promise.resolve();
 	/** What every write answers with; a test sets it when the page reads it. */
 	reply: unknown = {};
 	/** Refuses every write with this, as the server does, when set. */
@@ -359,6 +360,7 @@ export class Testing implements Resource {
 					running: this.served.release?.running ?? "0.0.1",
 					newest: this.served.release?.newest ?? null,
 					behind: this.served.behind,
+					stuck: this.served.stuck ?? null,
 					restartable: this.restartable,
 					held: this.held,
 				};
@@ -435,12 +437,6 @@ export class Testing implements Resource {
 					? new Response(null, { status: 500 })
 					: Response.json(this.workers);
 			}
-			if (route === "/api/evals") {
-				return Response.json([]);
-			}
-			if (route === "/api/evals/agents") {
-				return Response.json({ agents: [], problem: null, roster: [] });
-			}
 			if (route === "/api/machine") {
 				return this.machine === null
 					? new Response(null, { status: 500 })
@@ -476,9 +472,11 @@ export class Testing implements Resource {
 			}
 			const outcome = /^\/api\/tasks\/([^/]+)\/outcome$/.exec(route ?? "");
 			if (outcome !== null) {
-				return Response.json(
-					this.landed[decodeURIComponent(outcome[1] ?? "")] ?? null,
-				);
+				await this.readingOutcomes;
+				const landed = this.landed[decodeURIComponent(outcome[1] ?? "")];
+				return typeof landed === "number"
+					? new Response(null, { status: landed })
+					: Response.json(landed ?? null);
 			}
 			if (route === "/api/conversations/search") {
 				// What the server finds, from the listed conversations as held whole.
@@ -813,12 +811,8 @@ export class Testing implements Resource {
 		return new Settings(localStorage);
 	}
 
-	/**
-	 * Hands `fetch`, `EventSource` and `WebSocket` back, and forgets what evals
-	 * cards showed, which would otherwise paint the next test's card.
-	 */
+	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
 	dispose(): void {
-		forgetShownEvals();
 		forgetSignals();
 		localStorage.clear();
 		sessionStorage.clear();

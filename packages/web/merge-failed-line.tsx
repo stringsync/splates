@@ -267,6 +267,10 @@ function worded(event: MergeEvent): string {
 			return "The worktree had uncommitted changes.";
 		case "blocked":
 			return "It was not ready to land: open questions under Blocked, unchecked steps under Next, or something else to settle first. No attempt was spent.";
+		case "unapproved":
+			return "Its plan had not been approved yet. No attempt was spent.";
+		case "review":
+			return "It waits for your review, as Approve & review asked. No attempt was spent.";
 		case "budget_exhausted":
 			return "The task had used all its merge attempts.";
 		case "lease_held":

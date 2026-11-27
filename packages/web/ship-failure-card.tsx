@@ -58,7 +58,7 @@ export function ShipFailureCard({
 					{busy ? "agent fixing" : "needs you"}
 				</span>
 			</div>
-			<span className="-mt-1.5 font-semibold text-destructive/80 text-xs uppercase">
+			<span className="-mt-1.5 font-semibold text-destructive/80 text-xs first-letter:uppercase">
 				{steps} failed
 			</span>
 			<p className="break-words text-sm">{target.line}</p>

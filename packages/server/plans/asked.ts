@@ -1,4 +1,3 @@
-import { type Demo, demoAt, isDemoTitle } from "./demo";
 import {
 	asksPermission,
 	type PermissionProposal,
@@ -9,7 +8,7 @@ import {
 	groupQueued,
 	isQueuedTitle,
 	type QueuedCard,
-	queuedTaskOf,
+	queuedCardOf,
 } from "./queued";
 import { isStepsTitle, type Steps, stepsOf } from "./steps";
 
@@ -53,30 +52,19 @@ function cut(text: string): Stretch[] {
 			continue;
 		}
 		const title = REVIEW.exec(line);
-		const end =
-			title === null
-				? -1
-				: lines.findIndex((each, at) => at > i && each.trim() === REVIEW_END);
-		if (title !== null && end !== -1) {
+		if (title !== null) {
+			const end = reviewEnd(lines, i);
 			found.push(...prose(lines.slice(from, i)));
 			found.push({
 				type: "review",
 				review: {
 					task: title[1] as string,
 					base: title[2] as string,
-					...reviewOf(lines.slice(i + 1, end)),
+					...reviewOf(lines.slice(i + 1, end.body)),
 				},
 			});
-			from = end + 1;
-			i = end;
-			continue;
-		}
-		const demo = demoHere(lines, i);
-		if (demo !== null) {
-			found.push(...prose(lines.slice(from, i)));
-			found.push({ type: "demo", demo: demo.demo });
-			from = demo.end;
-			i = demo.end - 1;
+			from = end.next;
+			i = end.next - 1;
 			continue;
 		}
 		const plan = planHere(lines, i);
@@ -128,7 +116,7 @@ function cut(text: string): Stretch[] {
  * it asks the person in the splates skill's format, its report asking them to
  * review a task before it merges, its report of how a
  * task ended or what it waits on, a permission it asks the person
- * to give, a demo for the person to try, or steps for them to follow.
+ * to give, or steps for them to follow.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -137,7 +125,6 @@ export type Stretch =
 	| { type: "report"; report: TaskReport }
 	| { type: "permission"; permission: PermissionProposal }
 	| { type: "queued"; queued: QueuedCard }
-	| { type: "demo"; demo: Demo }
 	| { type: "steps"; steps: Steps }
 	| { type: "plan"; plan: PlanCard };
 
@@ -157,8 +144,6 @@ export interface Review {
 	base: string;
 	/** Its first paragraph: what changed, in a sentence, as markdown. */
 	summary: string;
-	/** The demo it holds, to try before merging. */
-	demo: Demo | null;
 	/** The commands its `Checks:` line says passed, in order. */
 	checks: string[];
 	/** The commands its `Failed:` line says failed, in order. */
@@ -207,9 +192,38 @@ const ENDED =
  */
 const HEADING = /^#{1,3}[ \t]/;
 
-/** A review report's title, and the line every one ends with. */
+/** A review report's title, and the line older ones ended with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
+
+/**
+ * Where the review titled at `start` ends: at the next heading outside a
+ * fence, or the end of the reply. An older review's last line, which the
+ * card no longer needs, ends it too and is left out of it.
+ */
+function reviewEnd(
+	lines: string[],
+	start: number,
+): { body: number; next: number } {
+	let fenced = false;
+	for (let i = start + 1; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (fenced) {
+			continue;
+		}
+		if (line.trim() === REVIEW_END) {
+			return { body: i, next: i + 1 };
+		}
+		if (HEADING.test(line)) {
+			return { body: i, next: i };
+		}
+	}
+	return { body: lines.length, next: lines.length };
+}
 /** A review's line naming the checks that passed, each in a code span. */
 const CHECKS = /^Checks:[ \t]*(.*)$/;
 /** A review's line naming the checks that failed, the same way. */
@@ -235,10 +249,10 @@ function keptAt(
 	const asking = asksPermission(line);
 	if (isQueuedTitle(line)) {
 		const at = endAt(lines, start + 1);
-		const task = queuedTaskOf(line, lines.slice(start + 1, at).join("\n"));
-		return task === null
+		const queued = queuedCardOf(line, lines.slice(start + 1, at).join("\n"));
+		return queued === null
 			? null
-			: { stretch: { type: "queued", queued: { tasks: [task] } }, end: at };
+			: { stretch: { type: "queued", queued }, end: at };
 	}
 	if (!asking && merged === null && done === null && ended === null) {
 		return null;
@@ -294,14 +308,13 @@ function keptAt(
 }
 
 /**
- * What a review's `lines` say: its first paragraph, its demo and its checks
- * taken out, and the rest.
+ * What a review's `lines` say: its first paragraph, its checks taken out,
+ * and the rest.
  */
 function reviewOf(
 	lines: string[],
-): Pick<Review, "summary" | "demo" | "checks" | "failed" | "details"> {
-	const { body, demo } = withDemo(lines);
-	let rest = body.split("\n");
+): Pick<Review, "summary" | "checks" | "failed" | "details"> {
+	let rest = trimmed(lines).split("\n");
 	// Each line naming checks taken out, along with the blank line after it,
 	// so no gap is left doubled.
 	const named = (line: RegExp): string[] => {
@@ -321,40 +334,10 @@ function reviewOf(
 	const gap = rest.findIndex((line) => line.trim() === "");
 	return {
 		summary: trimmed(gap === -1 ? rest : rest.slice(0, gap)),
-		demo,
 		checks,
 		failed,
 		details: gap === -1 ? "" : trimmed(rest.slice(gap)),
 	};
-}
-
-/**
- * A review's `lines`: what they say, with the demo among them taken out,
- * along with anything after it.
- */
-function withDemo(lines: string[]): { body: string; demo: Demo | null } {
-	const at = lines.findIndex((_, index) => demoHere(lines, index) !== null);
-	const found = at === -1 ? null : demoHere(lines, at);
-	if (found === null) {
-		return { body: trimmed(lines), demo: null };
-	}
-	return {
-		body: trimmed([...lines.slice(0, at), ...lines.slice(found.end)]),
-		demo: found.demo,
-	};
-}
-
-/**
- * The demo titled at `start`, up to the next heading or list of questions;
- * null for any other line.
- */
-function demoHere(
-	lines: string[],
-	start: number,
-): { demo: Demo; end: number } | null {
-	return isDemoTitle(lines[start] as string)
-		? demoAt(lines, start, endAt(lines, start + 1))
-		: null;
 }
 
 /**
@@ -532,11 +515,11 @@ function listAt(
 /** An approval question: `Do you approve <the change, named>?`. */
 const APPROVAL = /^Do you approve\b/;
 
-/** A plan's approval question, which the page asks as one checkbox. */
+/** A plan's approval question: `Do you approve <the change>?` with a Yes. */
 export interface Approval {
 	/** Its position among the plan's questions: always the last. */
 	at: number;
-	/** The key of its Yes choice, which ticking it picks. */
+	/** The key of its Yes choice. */
 	yes: string;
 	/** What it approves: the question with `Do you approve` and `?` dropped. */
 	change: string;

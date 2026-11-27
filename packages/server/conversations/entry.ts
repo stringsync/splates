@@ -142,8 +142,6 @@ type Said =
 	| { kind: "visit"; at: string }
 	| { kind: "reminder"; reminder: Reminder }
 	| { kind: "pin"; pinned: boolean }
-	/** A run its `run evals` card started began in it. */
-	| { kind: "evaluated" }
 	| { kind: "parent"; parent: { id: string | null } }
 	/** `at` is missing from logs written before the page showed how long things took. */
 	| {

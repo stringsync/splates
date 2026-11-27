@@ -15,6 +15,12 @@ export type { Picked } from "./conversation";
 export { Conversation } from "./conversation";
 export { ARCHIVED_KEPT, Conversations } from "./conversations";
 export type { Pairing } from "./entry";
+export {
+	EVALS_LIVE_DIR,
+	type EvalRun,
+	evalRunOf,
+	evalsDir,
+} from "./evals";
 export { eventWaitOf } from "./event-wait";
 export { JournalEvents } from "./events";
 export { conversationOf } from "./given";
@@ -42,6 +48,8 @@ export {
 export type { ConversationList } from "./noop-conversations";
 export { NoopConversations } from "./noop-conversations";
 export type { ConversationsOptions } from "./options";
+export type { ReviewHold } from "./plan-decision";
+export { planApproved, reviewHold, reviewPending } from "./plan-decision";
 export { conversationReference } from "./reference";
 export { ConversationRoutes } from "./routes";
 export type { Said } from "./search";
@@ -81,10 +89,12 @@ export type {
 	Usage,
 } from "./state";
 export {
+	awaited,
 	blank,
 	DEVICES,
 	FROM_HEADER,
 	IDLE_STOP,
+	leftRunning,
 	listed,
 	runOn,
 	SERVER_TOLD,

@@ -1,4 +1,5 @@
 // vet-ignore-file doc-comments-address-users: the conversation's state is the server's and the page's own shape, whose doc comments say what each field holds for those who read it
+
 import { Duration } from "core/time";
 import type { Flag } from "../agents";
 import type { Artifact } from "../artifacts";
@@ -6,6 +7,7 @@ import type { OpenCodeUsage } from "../models";
 import { stretches } from "../plans/browser";
 import type { Event } from "../records";
 import type { SignalProbe, SignalWait } from "../signals/types";
+import type { EvalRun } from "./evals";
 
 /** What a session has used before its agent says anything of it. */
 export function unused(): Usage {
@@ -194,19 +196,20 @@ export interface ConversationState {
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
+	/**
+	 * Its agent starts a turn of its own when a command it left in the
+	 * background ends, as Claude does; absent for one that never comes back
+	 * for them, as Codex, or until its first turn ends and says so.
+	 */
+	wakes?: true;
 	/** The signals its agent waits on or waited on, in the order it began each. */
 	signals: SignalWait[];
 	/** The signal probes its agent started, in the order it started each. */
 	probes: SignalProbe[];
+	/** The evals its agent ran with `bin/evals run`, in the order each started. */
+	evals?: EvalRun[];
 	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
 	artifacts: Artifact[];
-	/**
-	 * A run its `run evals` card started is going, which the agent hears of
-	 * once it is done: set by the server while it runs, kept in no log.
-	 */
-	evaluating?: true;
-	/** A run its `run evals` card started has ever begun in it, kept in its log. */
-	evaluated?: true;
 	/**
 	 * Set when this is only a summary, as a listing sends every conversation:
 	 * read `GET /api/conversations/<id>` for its tool calls, thoughts and
@@ -545,6 +548,31 @@ export interface Background {
 
 export type BackgroundState = "running" | "completed" | "failed" | "stopped";
 
+/**
+ * The commands still running that the agent will come back for once they
+ * end, so the conversation waits on them. A process splates found, or one
+ * left by an agent that never comes back for them, is only left running.
+ */
+export function awaited(
+	state: Pick<ConversationState, "background" | "wakes">,
+): Background[] {
+	return state.wakes === true
+		? state.background.filter(
+				(each) => each.state === "running" && each.pid === undefined,
+			)
+		: [];
+}
+
+/** The commands still running that the agent will not come back for. */
+export function leftRunning(
+	state: Pick<ConversationState, "background" | "wakes">,
+): Background[] {
+	const waits = new Set(awaited(state));
+	return state.background.filter(
+		(each) => each.state === "running" && !waits.has(each),
+	);
+}
+
 /** What a task is for, as its record said it when the person came back to its conversation. */
 export interface ReminderCard {
 	task: string;
@@ -745,6 +773,7 @@ export function blank(
 		background: [],
 		signals: [],
 		probes: [],
+		evals: [],
 		artifacts: [],
 	};
 }
@@ -764,6 +793,7 @@ export function listed(state: ConversationState): ConversationState {
 		// Only the open thread reads events, from the conversation read whole;
 		// a merge's failed tests made them half of what a listing weighed.
 		events: [],
+		evals: [],
 		messages: state.messages.flatMap((message, at, all) =>
 			summarized(message, at === all.length - 1, all[at + 1]?.role === "user"),
 		),

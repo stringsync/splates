@@ -164,7 +164,7 @@ describe("App's merged card actions", () => {
 		expect(within(went).queryByText("Decisions")).toBeNull();
 	});
 
-	it("shows an older outcome in full under its own Summary, the agent's words above the card, without a demo action", async () => {
+	it("shows an older outcome in full under its own Summary, the agent's words above the card", async () => {
 		testing.landed.header = {
 			outcome: {
 				...header(),
@@ -189,14 +189,6 @@ describe("App's merged card actions", () => {
 		);
 		expect(within(outcome).getByText("Open the page.")).not.toBeNull();
 		expect(within(card).queryByRole("button", { name: "More" })).toBeNull();
-
-		expect(within(card).queryByRole("button", { name: "Demo it" })).toBeNull();
-		expect(
-			within(view.getByRole("region", { name: "archive" })).queryByRole(
-				"button",
-				{ name: "Demo it" },
-			),
-		).toBeNull();
 	});
 
 	it("leads with the outcome's first paragraph when the report says nothing, with nothing under it when there is no more", async () => {
@@ -213,44 +205,5 @@ describe("App's merged card actions", () => {
 
 		await waitFor(() => within(card).getByText("Moved the header."));
 		expect(within(card).queryByRole("region", { name: "outcome" })).toBeNull();
-	});
-
-	it("offers no demo for an outcome that says none, nor on a merge the conversation carried on past", async () => {
-		testing.landed.header = {
-			outcome: { ...header(), outcome: "Moved the header." },
-			baseline: null,
-		};
-		testing.landed.footer = {
-			outcome: {
-				...header(),
-				task: "footer",
-				outcome: "Moved the footer.\n\n### Demo\n\nOpen the page.",
-			},
-			baseline: null,
-		};
-		const view = await testing.openConversations([
-			conversation({
-				messages: [
-					message("agent", "## ✅ Merged footer onto main\n\nDone."),
-					message("user", "now the header"),
-					message("agent", "## ✅ Merged header onto main\n\nDone."),
-				],
-			}),
-		]);
-		await waitFor(() =>
-			expect(
-				view
-					.getAllByRole("region", { name: /^merged / })
-					.map((card) => card.textContent?.includes("Moved the")),
-			).toEqual([true, true]),
-		);
-		await waitFor(() =>
-			within(view.getByRole("region", { name: "merged header" })).getByRole(
-				"button",
-				{ name: "Archive" },
-			),
-		);
-
-		expect(view.queryByRole("button", { name: "Demo it" })).toBeNull();
 	});
 });

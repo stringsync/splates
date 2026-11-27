@@ -59,6 +59,11 @@ export interface References {
 	 * runs instead.
 	 */
 	chip: (item: TriggerItem) => TriggerItem | null;
+	/**
+	 * The plain text an item writes in place of what was typed, for the person
+	 * to go on typing after and send; null for any other item.
+	 */
+	text: (item: TriggerItem) => string | null;
 }
 
 /** The categories, in the order the list shows them. */
@@ -181,6 +186,18 @@ export function useReferences(
 				categories: () =>
 					CATEGORIES.filter(({ id }) => (items[id] ?? []).length > 0),
 				categoryItems: (id) => items[id] ?? [],
+				search: (query) => {
+					const lower = query.toLowerCase();
+					const matched: TriggerItem[] = [];
+					for (const { id } of CATEGORIES) {
+						for (const item of items[id] ?? []) {
+							if (matchesQuery(item, lower)) {
+								matched.push(item);
+							}
+						}
+					}
+					return matched;
+				},
 			},
 			pick: (item) => {
 				const { action } = item.metadata ?? {};
@@ -210,6 +227,10 @@ export function useReferences(
 				}
 				return null;
 			},
+			text: (item) => {
+				const { text } = item.metadata ?? {};
+				return typeof text === "string" ? text : null;
+			},
 			icon: (item) => {
 				const { action } = item.metadata ?? {};
 				if (typeof action === "number") {
@@ -230,6 +251,18 @@ export function useReferences(
 		namedLanes,
 		finished,
 	]);
+}
+
+/** Matches an item's id, label or description against a lowercased query. */
+function matchesQuery(item: TriggerItem, lower: string): boolean {
+	if (lower.length === 0) {
+		return true;
+	}
+	return (
+		item.id.toLowerCase().includes(lower) ||
+		item.label.toLowerCase().includes(lower) ||
+		(item.description?.toLowerCase().includes(lower) ?? false)
+	);
 }
 
 /** "3h ago · 2m 5s · 4 moments". */

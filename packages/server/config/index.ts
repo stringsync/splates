@@ -1,7 +1,6 @@
 export type {
 	Config,
 	ConfigFile,
-	EvalsConfig,
 	ProjectConfig,
 	RecConfig,
 	RecLogSource,

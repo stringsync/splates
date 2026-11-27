@@ -49,22 +49,20 @@ describe("skill checks", () => {
 				run("splates remove old --reason moot", "removed old"),
 				say("## 🧹 Removed old: moot after the rewrite"),
 				user(),
-				say(
-					'## 🔍 Ready to merge next onto main\n\nChecks: `bun test`\n\nReply "merge", or say what to change.',
-				),
+				say("## 🔍 Ready to merge next onto main\n\nChecks: `bun test`"),
 			]),
 		).toEqual([true, true, true]);
 	});
 
-	it("report-title: fails a review titled otherwise or missing its last line", () => {
+	it("report-title: fails a review titled otherwise", () => {
 		expect(
 			verdicts("report-title", [
 				user(),
 				say(
-					'Done.\n\n## 🔍 Ready to merge next onto main\n\nReply "merge", or say what to change.',
+					"Done.\n\n## 🔍 Ready to merge next onto main\n\nChecks: `bun test`",
 				),
 				user(),
-				say("## 🔍 Ready to merge next onto main\n\nShall I merge?"),
+				say("## Ready to merge next\n\nShall I merge?"),
 			]),
 		).toEqual([false, false]);
 	});

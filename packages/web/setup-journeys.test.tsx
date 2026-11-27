@@ -106,9 +106,9 @@ describe("Setup journeys", () => {
 		).toBeTruthy();
 	});
 
-	it("makes Replica and Evals config changes an agent makes, not edits by hand", () => {
+	it("makes Replica and Ships config changes an agent makes, not edits by hand", () => {
 		const steps = progress.areas.flatMap((area) => area.steps);
-		const chosen = ["replica-place", "evals-results"].map((id) =>
+		const chosen = ["replica-place", "ships-command"].map((id) =>
 			steps.find((each) => each.id === id),
 		);
 		expect(

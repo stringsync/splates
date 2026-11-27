@@ -181,4 +181,42 @@ describe("App's queued rows in the sidebar", () => {
 			]),
 		);
 	});
+
+	it("shows a queue error inline on unblocked rows while leaving blocked rows untouched", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login" })],
+			undefined,
+			{
+				...board,
+				queueError: "auto-pick.json is invalid",
+			},
+		);
+		const queue = await waitFor(() =>
+			view.getByRole("list", { name: /queue$/ }),
+		);
+		const rows = within(queue).getAllByRole("listitem");
+
+		expect(rows.map((row) => row.textContent)).toEqual([
+			"Waits for an agentQueue error: auto-pick.json is invalid",
+			"Needs the thirdWaiting on blockers · #3",
+		]);
+		expect(queue.querySelectorAll(".lucide-circle-alert")).toHaveLength(1);
+		expect(queue.querySelectorAll(".lucide-hourglass")).toHaveLength(1);
+		expect(within(queue).queryByText(/Waiting for an agent/)).toBeNull();
+	});
+
+	it("shows a queue error inline on unblocked cards on the Queue page", async () => {
+		const view = await testing.openTasks({
+			...board,
+			queueError: "auto-pick.json is invalid",
+		});
+		const queued = await waitFor(() =>
+			view.getByRole("list", { name: "queued tasks" }),
+		);
+		expect(within(queued).getByRole("alert").textContent).toBe(
+			"Queue error: auto-pick.json is invalid",
+		);
+		const blocked = view.getByRole("list", { name: "blocked tasks" });
+		expect(within(blocked).queryByRole("alert")).toBeNull();
+	});
 });

@@ -15,10 +15,13 @@ import { ReserveLine, useQuotaReserve } from "./quota-reserve";
 export function QueuedColumn({
 	shown = () => true,
 	staleness,
+	queueError = null,
 }: {
 	/** Which of the queue to list. */
 	shown?: (todo: TaskRecord) => boolean;
 	staleness: number;
+	/** Why the queue failed to check on its last sweep; null while healthy. */
+	queueError?: string | null;
 }): JSX.Element {
 	const { todos } = useContext(Board);
 	const holds = useQuotaReserve();
@@ -41,6 +44,15 @@ export function QueuedColumn({
 								listed
 								detail={
 									<>
+										{queueError !== null && (
+											<p
+												role="alert"
+												title={`Queue error: ${queueError}`}
+												className="w-full truncate text-destructive text-xs"
+											>
+												Queue error: {queueError}
+											</p>
+										)}
 										<AgentQueuedMark todo={todo} />
 										{holds[todo.id] === undefined ? (
 											waited(todo)

@@ -21,24 +21,32 @@ export function ClockMeaning({
 			) : (
 				<p className="flex flex-wrap gap-x-1">
 					<span className="text-muted-foreground">Next:</span>
-					<time dateTime={clock.next}>
-						{new Intl.DateTimeFormat(undefined, {
-							timeZone: clock.tz,
-							weekday: "short",
-							month: "short",
-							day: "numeric",
-							year: "numeric",
-						}).format(new Date(clock.next))}
-						<span className="text-muted-foreground"> · </span>
-						{new Intl.DateTimeFormat(undefined, {
-							timeZone: clock.tz,
-							hour: "numeric",
-							minute: "2-digit",
-							timeZoneName: "short",
-						}).format(new Date(clock.next))}
-					</time>
+					<ClockTime at={clock.next} zone={clock.tz} />
 				</p>
 			)}
 		</div>
+	);
+}
+
+/** A scheduled firing in the clock's configured time zone. */
+export function ClockTime({ at, zone }: { at: string; zone: string }) {
+	const date = new Date(at);
+	return (
+		<time dateTime={at}>
+			{new Intl.DateTimeFormat(undefined, {
+				timeZone: zone,
+				weekday: "short",
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			}).format(date)}
+			<span className="text-muted-foreground"> · </span>
+			{new Intl.DateTimeFormat(undefined, {
+				timeZone: zone,
+				hour: "numeric",
+				minute: "2-digit",
+				timeZoneName: "short",
+			}).format(date)}
+		</time>
 	);
 }

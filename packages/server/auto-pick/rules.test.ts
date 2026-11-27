@@ -89,7 +89,7 @@ describe("checkRules", () => {
 		).toEqual({
 			ok: false,
 			problem:
-				"lineups.0.picks.1: a lineup allows only one pick per agent; choose a different agent for the fallback",
+				"lineups.0.picks.1: a lineup allows only one pick per agent plan; choose a different agent for the fallback",
 		});
 	});
 
@@ -101,10 +101,34 @@ describe("checkRules", () => {
 			).toEqual({
 				ok: false,
 				problem:
-					"lineups.0.picks.2: a lineup allows only one pick per agent; choose a different agent for the fallback",
+					"lineups.0.picks.2: a lineup allows only one pick per agent plan; choose a different agent for the fallback",
 			});
 		},
 	);
+
+	it("lets Antigravity's Claude follow its Gemini, on a quota of its own", () => {
+		const gemini = { agent: "antigravity", model: "gemini-4-neon" };
+		const claude = { agent: "antigravity", model: "claude-sonnet-5-5" };
+		expect(
+			checkRules(single({ ...ONE, picks: [sonnet, gemini, claude] })).ok,
+		).toBe(true);
+		expect(
+			checkRules(
+				single({
+					...ONE,
+					picks: [gemini, { agent: "antigravity", model: "gemini-4-carbon" }],
+				}),
+			),
+		).toEqual({
+			ok: false,
+			problem:
+				"lineups.0.picks.1: a lineup allows only one pick per agent plan; choose a different agent for the fallback",
+		});
+		expect(
+			checkRules(single({ ...ONE, picks: [gemini, { agent: "antigravity" }] }))
+				.ok,
+		).toBe(false);
+	});
 
 	it("refuses two lineups with one name or id", () => {
 		const rules = single(ONE);
@@ -248,7 +272,7 @@ describe("checkRules", () => {
 			threshold: 0.5,
 			rules: [
 				{ kind: "*", depth: "moderate", picks: standard?.picks },
-				{ kind: "*", depth: "*", picks: [sol, sonnet] },
+				{ kind: "*", depth: "*", picks: standard?.picks.toReversed() },
 			],
 		});
 		// The catch-all is Standard's picks in another order, so it joins it.

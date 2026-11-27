@@ -453,6 +453,12 @@ export interface ChipWriter {
 	 * is not just after `typed`.
 	 */
 	write(typed: string, item: TriggerItem): boolean;
+	/**
+	 * Writes `text` as plain text in place of `typed`, the last thing before
+	 * the caret, the caret after it; false when the caret is not just after
+	 * `typed`.
+	 */
+	type(typed: string, text: string): boolean;
 	/** Writes a space after the chip just before the caret, unless one is there. */
 	space(): void;
 	/**
@@ -471,6 +477,7 @@ export function ChipWriterPlugin({
 	useEffect(() => {
 		writer.current = {
 			write: (typed, item) => write(editor, typed, item),
+			type: (typed, text) => type(editor, typed, text),
 			space: () =>
 				editor.update(() => {
 					const chip = $beforeCaret();
@@ -525,6 +532,20 @@ function write(
 		});
 		found.replace(chip);
 		$spaceAfter(chip);
+	});
+	return true;
+}
+function type(editor: LexicalEditor, typed: string, text: string): boolean {
+	if (!editor.getEditorState().read(() => $endsWith(typed))) {
+		return false;
+	}
+	editor.update(() => {
+		const found = $typed(typed);
+		if (found === null) {
+			return;
+		}
+		found.setTextContent(text);
+		found.select(text.length, text.length);
 	});
 	return true;
 }

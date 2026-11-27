@@ -6,7 +6,7 @@ import type {
 } from "@splates/server/spend";
 import { useReactive } from "core/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Figures } from "./billing-figures";
@@ -49,11 +49,15 @@ const BREAKDOWN_COLUMNS =
  * The money spent in a range, from the ledger: one figure for the whole
  * range, stepping back or forward a day, week or month at a time, comparing
  * what was paid against what the same usage would cost at API list prices,
- * with where this month is headed; then each provider's share, opening onto
- * its services; then the days; then agent plans and where billed amounts come
- * from.
+ * with where this month is headed; then each agent's plan limits and unused
+ * quota; then each provider's share, opening onto its services; then the
+ * days; then agent plans and where billed amounts come from.
  */
-export function SpendSection(): JSX.Element {
+export function SpendSection({
+	planLimits,
+}: {
+	planLimits?: ReactNode;
+}): JSX.Element {
 	// What it last read, kept across visits, so it opens on that and reads behind.
 	const last = useReading("spend", () => ({
 		range: "month" as Range,
@@ -189,6 +193,7 @@ export function SpendSection(): JSX.Element {
 					projecting={range === "month" && back === 0}
 					plans={sources?.plans ?? []}
 				/>
+				{planLimits}
 				<UnusedQuota
 					refreshKey={`${sources?.currency ?? "USD"}:${sources?.plans?.map((each) => `${each.provider}:${each.amount ?? ""}`).join(",") ?? ""}`}
 				/>

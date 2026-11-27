@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conversation Trust Widget — Plain text delta, no chip background</title>
+<link rel="stylesheet" href="shared.css">
+<script>if(location.hash==="#phone") { document.documentElement.classList.add("phone"); }</script>
+<style>
+.conv-bar {
+  height: 48px; padding: 0 14px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border); background: var(--background);
+}
+.conv-body { flex: 1; display: flex; flex-direction: column; position: relative; }
+@media (min-width: 768px) {
+  .conv-body { flex-direction: row; padding: 16px 20px; gap: 20px; align-items: flex-start; }
+}
+.thread-col { display: none; }
+@media (min-width: 768px) {
+  .thread-col { display: flex; flex-direction: column; gap: 12px; flex: 1; max-width: 600px; margin: 0 auto; }
+}
+.widgets-rail { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
+@media (min-width: 768px) {
+  .widgets-rail { padding: 0; width: 248px; flex: none; position: relative; }
+}
+.w-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.w-row { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; font-size: 13px; }
+.trust-widget {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+}
+.delta-pos { font-size: 12.5px; font-weight: 600; color: oklch(0.45 0.14 152); }
+.score-chip { font-size: 15px; font-weight: 600; color: var(--foreground); }
+.popover {
+  margin: 0 14px 14px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.14); overflow: hidden;
+}
+@media (min-width: 768px) {
+  .popover { position: absolute; top: 86px; right: 280px; width: 320px; margin: 0; border-radius: 14px; z-index: 20; }
+}
+.pop-head { padding: 11px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.pop-body { padding: 11px 14px; display: flex; flex-direction: column; gap: 10px; }
+.mini-kind { display: grid; grid-template-columns: 84px 1fr 24px; align-items: center; gap: 8px; font-size: 12px; }
+.pick-item { display: flex; align-items: center; gap: 7px; font-size: 12px; line-height: 1.35; }
+.ub { align-self: flex-end; background: var(--muted); border-radius: 16px; padding: 9px 14px; max-width: 82%; }
+.phone-sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600;
+}
+@media (min-width: 768px) { .phone-sheet-head { display: none; } }
+.tap-hint { font-size: 11px; color: var(--muted-foreground); font-weight: 500; padding: 0 14px 4px; }
+@media (min-width: 768px) { .tap-hint { display: none; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="side-brand">splates</div>
+    <div class="side-item active">Conversations</div>
+    <div class="side-item">Boards</div>
+    <div class="side-sep"></div>
+    <div class="side-item">Trust</div>
+    <div class="side-item">Stats</div>
+  </aside>
+
+  <div class="main">
+    <div class="conv-bar">
+      <div class="grow">
+        <div class="med">Retry failed upload scans</div>
+        <div class="xs muted">mono/splates/</div>
+      </div>
+      <span class="btn sm-btn">Widgets</span>
+    </div>
+
+    <div class="phone-sheet-head">
+      <span>Widgets</span>
+      <span class="sm muted">✕ Close</span>
+    </div>
+
+    <div class="conv-body">
+      <div class="thread-col">
+        <div class="ub">Retry failed upload scans three times before moving them to a failures table.</div>
+        <div class="sm">I checked the upload worker and wired up the backoff schedule.</div>
+      </div>
+
+      <section class="widgets-rail">
+        <div class="w-card">
+          <div class="w-row"><span class="muted">⎇</span><span class="grow">task/retry-scans</span></div>
+          <div class="w-row"><span class="muted">◫</span><span class="grow">Changes</span><span class="xs muted tabnum">+84 −12</span></div>
+        </div>
+
+        <div class="trust-widget">
+          <svg aria-hidden="true" class="ic muted" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span class="sm med grow">Trust</span>
+          <span class="delta-pos tabnum">+3</span>
+          <span class="score-chip tabnum">84</span>
+        </div>
+      </section>
+
+      <div class="tap-hint">↓ Opens on tap:</div>
+
+      <div class="popover">
+        <div class="pop-head">
+          <span class="agent-badge ag-claude">C</span>
+          <div class="grow">
+            <div class="sm semi">Claude Opus 4.6 · 84 <span class="delta-pos tabnum" style="margin-left:5px">+3 here</span></div>
+            <div class="xs muted">mono/splates/ · Dynamic · Ask &amp; go</div>
+          </div>
+          <span class="xs med muted" style="text-decoration:underline">Trust →</span>
+        </div>
+        <div class="pop-body">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div class="mini-kind"><span class="muted">Defaults</span><div class="meter"><div class="meter-fill high" style="width:94%"></div></div><span class="tabnum med">94</span></div>
+            <div class="mini-kind"><span class="muted">API / design</span><div class="meter"><div class="meter-fill mid" style="width:86%"></div></div><span class="tabnum med">86</span></div>
+            <div class="mini-kind"><span class="muted">Scope / split</span><div class="meter"><div class="meter-fill mid" style="width:82%"></div></div><span class="tabnum med">82</span></div>
+            <div class="mini-kind"><span class="muted">Visual / UI</span><div class="meter"><div class="meter-fill low" style="width:68%"></div></div><span class="tabnum med">68</span></div>
+            <div class="mini-kind"><span class="muted">Approval</span><div class="meter"><div class="meter-fill mid" style="width:84%"></div></div><span class="tabnum med">84</span></div>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:6px">
+            <div class="xs semi muted" style="text-transform:uppercase;letter-spacing:.04em">This conversation</div>
+            <div class="pick-item">
+              <span class="grow">Keep old endpoint 1 release <span class="muted">· API</span></span>
+              <span class="xs semi tabnum" style="color:oklch(0.45 0.14 152)">+2</span>
+            </div>
+            <div class="pick-item">
+              <span class="grow">Plan approved as written <span class="muted">· Approval</span></span>
+              <span class="xs semi tabnum" style="color:oklch(0.45 0.14 152)">+2</span>
+            </div>
+            <div class="pick-item">
+              <span class="grow">Compact card layout <span class="muted">· Visual</span></span>
+              <span class="xs semi tabnum" style="color:oklch(0.48 0.18 27)">−1</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

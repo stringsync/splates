@@ -24,7 +24,11 @@ export function agentList(view: ConversationsView): HTMLElement {
 	);
 }
 
-/** Opens the conversation listed by `name`, as `agentList` lists it. */
+/**
+ * Opens the conversation listed by `name`, as `agentList` lists it: the row
+ * whose first words are its name, since another row's status can read the
+ * same words ("Done" for a merged one).
+ */
 export async function openRow(
 	view: ConversationsView,
 	name: string,
@@ -32,11 +36,26 @@ export async function openRow(
 	const item = within(agentList(view))
 		.getAllByRole("listitem")
 		.flatMap((row) => within(row).getAllByRole("button"))
-		.find((button) => button.textContent?.includes(name));
+		.find((button) => firstText(button) === name);
 	if (item === undefined) {
 		throw new Error(`no conversation ${name} listed`);
 	}
 	await act(async () => fireEvent.click(item));
+}
+
+/** The first words `element` shows, trimmed. */
+function firstText(element: HTMLElement): string | undefined {
+	const walker = element.ownerDocument.createTreeWalker(
+		element,
+		NodeFilter.SHOW_TEXT,
+	);
+	for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+		const text = node.textContent?.trim();
+		if (text) {
+			return text;
+		}
+	}
+	return undefined;
 }
 
 /**

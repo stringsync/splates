@@ -51,12 +51,12 @@ it("gives questions priority over an automatic wait and completion", () => {
 	expect(view.container.querySelector(".animate-spin")).toBeNull();
 });
 
-it("shows a gray hourglass for an automatic wait even when unread or disconnected", () => {
+it("shows gray dots for an automatic wait even when unread or disconnected", () => {
 	const view = render(
 		<Mark signal unread disconnected need={{ kind: "idle" }} />,
 	);
 	const mark = view.getByRole("status", { name: "waiting" });
-	expect(mark.querySelector(".lucide-hourglass")).not.toBeNull();
+	expect(mark.querySelector(".mark-ellipsis")).not.toBeNull();
 	expect(mark.querySelector(".lucide-unplug")).toBeNull();
 	expect(view.container.querySelector(".animate-spin")).toBeNull();
 });
@@ -64,7 +64,19 @@ it("shows a gray hourglass for an automatic wait even when unread or disconnecte
 it("leaves a background-only idle conversation static", () => {
 	const view = render(<Mark background need={{ kind: "idle" }} />);
 	expect(
-		view.getByRole("status", { name: "agent idle with background commands" }),
+		view.getByRole("status", { name: "waiting on background commands" }),
 	).toBeTruthy();
 	expect(view.container.querySelector(".animate-spin")).toBeNull();
+});
+
+it("marks an idle conversation with only leftover commands disconnected, and a done one checked", () => {
+	const leftover = render(<Mark leftover need={{ kind: "idle" }} />);
+	expect(leftover.getByRole("status", { name: "disconnected" })).toBeTruthy();
+	leftover.unmount();
+
+	const done = render(
+		<Mark leftover reported="done" need={{ kind: "idle" }} />,
+	);
+	expect(done.getByRole("img", { name: "done" })).toBeTruthy();
+	expect(done.queryByRole("status", { name: "disconnected" })).toBeNull();
 });

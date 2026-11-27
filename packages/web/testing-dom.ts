@@ -22,5 +22,6 @@ export const {
 	$getSelection,
 	$isElementNode,
 	$isRangeSelection,
+	DELETE_CHARACTER_COMMAND,
 	getNearestEditorFromDOMNode,
 } = await import("lexical");

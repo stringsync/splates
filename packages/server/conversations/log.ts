@@ -264,8 +264,6 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
-			} else if (entry.kind === "evaluated") {
-				state.evaluated = true;
 			} else if (entry.kind === "pin") {
 				state.pinned = entry.pinned;
 			} else if (entry.kind === "parent") {

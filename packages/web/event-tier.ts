@@ -60,10 +60,11 @@ const LOUD = new Set<Action>([
 	"retry",
 	"escalate",
 	"auto",
+	"queue add",
 ]);
 
 /** Loud actions whose refusal is only a quiet note. */
-const QUIET_WHEN_REFUSED = new Set<Action>(["add", "auto"]);
+const QUIET_WHEN_REFUSED = new Set<Action>(["add", "auto", "queue add"]);
 
 /** Actions that are always quiet. */
 const QUIET = new Set<Action>([
@@ -72,7 +73,6 @@ const QUIET = new Set<Action>([
 	"task take",
 	"task release",
 	"task remove",
-	"queue add",
 	"queue remove",
 	"lane add",
 	"lane update",

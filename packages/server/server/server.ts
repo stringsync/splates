@@ -4,22 +4,11 @@ import { homedir } from "node:os";
 import { AsyncDisposer, type AsyncResource } from "core/disposable";
 import { Duration, SystemTimer } from "core/time";
 import { AutoPickRulesRoutes, HealthRoutes } from "../auto-pick";
+import { TaskStore, Tasks } from "../board";
 import { ConfigFiles } from "../config";
-import { SERVER_TOLD } from "../conversations";
 import { SYSTEM_STORES } from "../creds";
+import { D2Renderer, DiagramRoutes } from "../diagrams";
 import { Dictations, transcriberFor } from "../dictate";
-import {
-	autoStartEvalCard,
-	EvalAgentsRoutes,
-	EvalAgentsStore,
-	EvalBudgetRoutes,
-	EvalLaunches,
-	EvalLaunchRoutes,
-	EvalRoutes,
-	evalBudgetLine,
-	projectEvalCommands,
-	targetOf,
-} from "../evals";
 import { fail } from "../exit";
 import { Limits, splatesHome } from "../models";
 import {
@@ -33,7 +22,7 @@ import {
 import { Everywhere, EverywhereRoutes, GENERAL, Picker } from "../projects";
 import { Pushes } from "../push";
 import { Rec } from "../rec";
-import { OpenBoards, openRepository } from "../records";
+import { OpenBoards, openRepository, ProjectHome } from "../records";
 import { RigSlots } from "../rigs";
 import { SETUP_AREAS, Setup, SetupRoutes, setupProjectAt } from "../setup";
 import {
@@ -55,6 +44,13 @@ import { BillingRoutes, readPlans, Spend } from "../spend";
 import { DevOutcomes } from "../stats";
 import { FsStorage } from "../storage";
 import { Terminals } from "../terminal";
+import {
+	pendingRuleSuggestions,
+	RULE_SUGGESTIONS_DOC,
+	type SuggestedFile,
+	TrustRoutes,
+	TrustStore,
+} from "../trust";
 import { Access, SavedTunnel, startTunnel, tunnelRemove } from "../tunnel";
 import {
 	DevWorkers,
@@ -120,6 +116,7 @@ export async function dev(
 		running = RUNNING,
 		checkEvery = Duration.mins(60), // how often to ask npm for a newer splates
 		source = async () => null,
+		stuck = async () => null,
 		sourceEvery = Duration.secs(15), // so a commit in a checkout shows within seconds
 		unbuilt = false,
 		slot = null,
@@ -140,6 +137,8 @@ export async function dev(
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects, opened = [] } = deps;
+	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
+	const trustStore = new TrustStore(machineStorage);
 	const general =
 		generalOption === null
 			? null
@@ -150,6 +149,7 @@ export async function dev(
 					{
 						release: () => versions.release,
 						behind: () => versions.behind,
+						stuck: () => versions.stuck,
 						unbuilt,
 						slot,
 						projectNamed: (slug) => projectNamed(slug),
@@ -186,7 +186,6 @@ export async function dev(
 	// every other registered one only when a page asks for it.
 	const served = new Map<string, Promise<Served>>();
 	const replicas = new Replicas(log);
-	const machineStorage = FsStorage.ofMachine({ fs, ps, log });
 	const devSlots = Slots.ofMachine({ fs, ps, log });
 	const rigSlots = RigSlots.in(machineStorage, {
 		exists: (path) => fs.exists(path),
@@ -202,6 +201,9 @@ export async function dev(
 		},
 		get behind() {
 			return versions.behind;
+		},
+		get stuck() {
+			return versions.stuck;
 		},
 		unbuilt,
 		slot,
@@ -220,6 +222,7 @@ export async function dev(
 		},
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
+		trust: trustStore,
 		boards: new OpenBoards({ fs, ps, log }, projects),
 		portsBase: portsHost,
 		rigSlots,
@@ -228,62 +231,6 @@ export async function dev(
 			launch: (argv, cwd, env) => workers.local.launch(argv, cwd, env),
 			resume: (handle, held) => workers.local.resume(handle, held),
 		},
-		evalCards: {
-			refs: async (project, cwd) => {
-				const evals = (await configFiles.read(project.service.git.root)).evals;
-				const commands = projectEvalCommands(
-					ps,
-					project.service.git.root,
-					evals ?? null,
-				);
-				if (commands === null) {
-					return null;
-				}
-				return {
-					scenarios:
-						commands.list === null
-							? null
-							: (await evalLaunches.scenarios(commands, cwd)).map(
-									(each) => each.id,
-								),
-					agents: (
-						await new EvalAgentsStore(
-							`${splatesHome(ps)}/eval-agents.json`,
-							fs,
-						).agents()
-					).map(targetOf),
-				};
-			},
-			autoStart: async (project, card) => {
-				const root = project.service.git.root;
-				const commands = projectEvalCommands(
-					ps,
-					root,
-					(await configFiles.read(root)).evals ?? null,
-				);
-				if (commands === null) {
-					return null;
-				}
-				return autoStartEvalCard(
-					{
-						savedAgents: () =>
-							new EvalAgentsStore(
-								`${splatesHome(ps)}/eval-agents.json`,
-								fs,
-							).agents(),
-						launches: evalLaunches,
-					},
-					commands,
-					{
-						...card,
-						cwd:
-							card.cwd !== null && (await fs.exists(card.cwd))
-								? card.cwd
-								: null,
-					},
-				);
-			},
-		},
 		onWorkerRoom: (listener) =>
 			workers.placement.scheduler.events.on("changed", listener),
 		paused: () => workers.records.paused,
@@ -291,13 +238,6 @@ export async function dev(
 			await signals.announce(name, by, payload);
 		},
 		clockShelf: () => signalHome.book,
-		seedEvalBudget: (conversation, usd, automation) =>
-			evalLaunches.rounds.seed(
-				conversation,
-				usd,
-				new Date().toISOString(),
-				automation,
-			),
 		signalTasks: {
 			raises: () => signalHome.book.raises(),
 			subscribed: (name) => probes.subscribed(name),
@@ -492,6 +432,7 @@ export async function dev(
 		newest,
 		checkEvery,
 		source,
+		stuck,
 		sourceEvery,
 	});
 	const restarts = new Restarts(
@@ -548,144 +489,85 @@ export async function dev(
 			}
 		},
 	});
-	const configFiles = new ConfigFiles(fs);
-	// Read at each request, so a project that adds `evals` to its config
-	// shows its Evals page, and runs them, without a restart.
-	const evalCommandsOf = async (request: Request) => {
-		const project = await projectFor(request);
-		return projectEvalCommands(
-			ps,
-			project.root,
-			(await configFiles.read(project.root)).evals ?? null,
-		);
-	};
-	const evalLaunches = new EvalLaunches(ps, machineStorage);
-	const evals = new EvalRoutes({
-		launches: evalLaunches,
-		agents: () =>
-			new EvalAgentsStore(`${splatesHome(ps)}/eval-agents.json`, fs).agents(),
-		directory: async (request) =>
-			(await evalCommandsOf(request))?.results ?? null,
-	});
-	disposer.use(evalLaunches);
-	// The agent whose card started a run hears it is done, with its report,
-	// to take the person through what to do next.
-	const unwatch = evalLaunches.events.on(
-		"finished",
-		({ launch, results, conversation, rules }) => {
-			void (async () => {
-				// However the report goes, the run is over: the row stops saying it runs.
-				let ended = false;
-				const end = async () => {
-					if (ended) {
-						return;
-					}
-					ended = true;
-					const owner = await holding(conversation);
-					const found = await owner?.conversations
-						?.find(conversation)
-						.catch(() => null);
-					found?.evaluate(false);
-				};
-				try {
-					const report = await evals.donePrompt(
-						results,
-						launch.batch ?? "",
-						rules,
+	const trust = new TrustRoutes(
+		trustStore,
+		async (id, task) => {
+			const owner = await findConversation(id);
+			const state = owner?.conversations
+				? (await owner.conversations.find(id)).state
+				: null;
+			return (
+				state !== null &&
+				!state.archived &&
+				(task === null || state.task === task)
+			);
+		},
+		async (onlyProject) => {
+			const list = (await projects.list()).filter(
+				(each) =>
+					!each.gone &&
+					(onlyProject === undefined || each.root === onlyProject),
+			);
+			if (list.length === 0) {
+				return [];
+			}
+			const allDecisions = await trustStore.decisions({ project: onlyProject });
+			const found = await Promise.all(
+				list.map(async (each) => {
+					const decisions = allDecisions.filter(
+						(item) => item.project === each.root,
 					);
-					const budget =
-						report === null || launch.auto !== true
-							? null
-							: await evalLaunches.budget(conversation).catch(() => null);
-					const text =
-						report === null || budget === null
-							? report
-							: `${report}\n\n${evalBudgetLine(budget)}`;
-					let owner = await holding(conversation);
-					if (owner === null) {
-						await everywhere.openAll();
-						owner = await holding(conversation);
+					const ready = opened.find((item) => item.git.root === each.root);
+					if (ready !== undefined) {
+						const [boardTasks, recorded] = await Promise.all([
+							ready.tasks.all(),
+							ready.storage
+								.document<SuggestedFile>(RULE_SUGGESTIONS_DOC)
+								.read(),
+						]);
+						return pendingRuleSuggestions({
+							project: each.root,
+							slug: each.slug,
+							decisions,
+							tasks: boardTasks.map((task) => task.state),
+							recorded,
+						});
 					}
-					if (owner?.conversations == null) {
-						return;
+					const home = new ProjectHome(each.root, { fs, ps, log, projects });
+					if (!(await home.exists())) {
+						return [];
 					}
-					const told = await owner.conversations.find(conversation);
-					if (text === null) {
-						told.evaluate(false);
-						ended = true;
-						return;
+					try {
+						const storage = await home.open();
+						const [boardTasks, recorded] = await Promise.all([
+							new Tasks(new TaskStore(storage)).all(),
+							storage.document<SuggestedFile>(RULE_SUGGESTIONS_DOC).read(),
+						]);
+						return pendingRuleSuggestions({
+							project: each.root,
+							slug: each.slug,
+							decisions,
+							tasks: boardTasks.map((task) => task.state),
+							recorded,
+						});
+					} catch {
+						// A project's database may be unreadable or migrating; skip it.
+						return [];
+					} finally {
+						home.dispose();
 					}
-					// Its turn on the report takes over from the run, with no wait between.
-					const prompting = told.prompt(text, [], undefined, {
-						told: SERVER_TOLD,
-					});
-					told.evaluate(false);
-					ended = true;
-					await prompting;
-				} finally {
-					await end();
-				}
-			})().catch((error: unknown) => log.error(String(error)));
+				}),
+			);
+			return found
+				.flat()
+				.sort(
+					(left, right) =>
+						right.createdAt.localeCompare(left.createdAt) ||
+						right.taskId - left.taskId,
+				);
 		},
 	);
-	disposer.defer(async () => unwatch());
-	// Its row shows it at work while the run goes, not waiting on its card.
-	const unwatchRunning = evalLaunches.events.on(
-		"running",
-		({ conversation, running }) => {
-			void (async () => {
-				let owner = await holding(conversation);
-				if (owner === null) {
-					await everywhere.openAll();
-					owner = await holding(conversation);
-				}
-				const found = await owner?.conversations
-					?.find(conversation)
-					.catch(() => null);
-				found?.evaluate(running);
-			})().catch((error: unknown) => log.error(String(error)));
-		},
-	);
-	disposer.defer(async () => unwatchRunning());
-	const evalLaunchRoutes = new EvalLaunchRoutes(
-		evalLaunches,
-		{ commandsOf: evalCommandsOf },
-		{
-			cwdOf: async (id) => {
-				const owner = await holding(id);
-				const conversation = await owner?.conversations
-					?.find(id)
-					.catch(() => null);
-				return conversation?.cwd ?? null;
-			},
-		},
-	);
-	const evalCommands = await Promise.all(
-		(await projects.list()).map(async (project) =>
-			project.gone
-				? null
-				: projectEvalCommands(
-						ps,
-						project.root,
-						(await configFiles.read(project.root)).evals ?? null,
-					),
-		),
-	);
-	await Promise.all(
-		evalCommands.flatMap((commands) =>
-			commands === null
-				? []
-				: [
-						evalLaunches
-							.resume([commands])
-							.catch((error: unknown) =>
-								log.error(
-									`resuming evals at ${commands.root}: ${String(error)}`,
-								),
-							),
-					],
-		),
-	);
+	const configFiles = new ConfigFiles(fs);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const rec = new Rec(ps, {
@@ -1029,12 +911,9 @@ export async function dev(
 
 	const autoPickRules = new AutoPickRulesRoutes({ fs, home: splatesHome(ps) });
 	const autoPickHealth = new HealthRoutes({ fs, home: splatesHome(ps) });
-	const evalAgents = new EvalAgentsRoutes({ fs, home: splatesHome(ps) });
-	const evalBudgetRoutes = new EvalBudgetRoutes({
-		budget: (id) => evalLaunches.budget(id),
-		rounds: evalLaunches.rounds,
-		now: () => new Date().toISOString(),
-	});
+	const d2 = new D2Renderer();
+	disposer.defer(async () => d2.dispose());
+	const diagrams = new DiagramRoutes(d2);
 
 	disposer.defer(() => workers.disposeAsync());
 	const taskPorts = new DevTaskPorts({
@@ -1084,7 +963,30 @@ export async function dev(
 						),
 					},
 					"/api/focus": { PUT: guarded(picker.focus) },
+					"/api/d2": { POST: guarded(diagrams.render) },
 					"/api/stats": guarded(ended.stats),
+					"/api/trust/enabled": { PUT: guarded(trust.setEnabled) },
+					"/api/trust": {
+						GET: guarded(trust.list),
+						PUT: guarded(trust.update),
+					},
+					"/api/trust/conversation": {
+						GET: guarded(trust.conversation),
+					},
+					"/api/trust/scopes": {
+						POST: guarded(trust.changeScope),
+						DELETE: guarded(trust.changeScope),
+					},
+					"/api/trust/decisions": {
+						GET: guarded(trust.decisions),
+						POST: guarded(trust.record),
+						PUT: guarded(trust.setEffects),
+					},
+					"/api/trust/assumptions": { GET: guarded(trust.assumptions) },
+					"/api/trust/assumptions/wrong": {
+						POST: guarded(trust.markWrong),
+					},
+					"/api/trust/suggestions": { GET: guarded(trust.suggestions) },
 					"/api/auto-pick/scorecard": { GET: guarded(ended.scorecard) },
 					"/api/auto-pick/overrides": guarded(ended.overrides),
 					"/api/auto-pick/overrides/dismiss": {
@@ -1155,25 +1057,6 @@ export async function dev(
 							await ended.improvementsSent(improvements.key);
 							return Response.json({ task });
 						}),
-					},
-					"/api/evals": guarded(evals.list),
-					"/api/evals/agents": {
-						GET: guarded(evalAgents.read),
-						PUT: guarded(evalAgents.save),
-					},
-					"/api/evals/budget": {
-						GET: guarded(evalBudgetRoutes.read),
-						POST: guarded(evalBudgetRoutes.answer),
-					},
-					"/api/evals/batch": guarded(evals.batch),
-					"/api/evals/run": guarded(evals.run),
-					"/api/evals/scenarios": guarded(evalLaunchRoutes.scenarios),
-					"/api/evals/states": guarded(evalLaunchRoutes.states),
-					"/api/evals/order": guarded(evalLaunchRoutes.order),
-					"/api/evals/plan": { POST: guarded(evalLaunchRoutes.plan) },
-					"/api/evals/launch": {
-						GET: guarded(evalLaunchRoutes.read),
-						DELETE: guarded(evalLaunchRoutes.stop),
 					},
 					"/api/identity": guarded(async (request) =>
 						Response.json({
@@ -1543,6 +1426,9 @@ export async function dev(
 					},
 					"/api/conversations/:id/stop-background": {
 						POST: talk(owned((project) => project.stopBackground)),
+					},
+					"/api/conversations/:id/cancel-eval": {
+						POST: talk(owned((project) => project.cancelEval)),
 					},
 					"/api/conversations/:id/unqueue": {
 						POST: talk(owned((project) => project.unqueueConversation)),

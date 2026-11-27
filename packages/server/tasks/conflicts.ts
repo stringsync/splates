@@ -27,8 +27,9 @@ export class ConflictChecks {
 			return null;
 		}
 		const git = worktree.git;
+		const baseRef = await worktree.baseRef();
 		const [base, tip] = await Promise.all([
-			git.run(git.root, "rev-parse", "--verify", worktree.base),
+			git.run(git.root, "rev-parse", "--verify", baseRef),
 			git.run(git.root, "rev-parse", "--verify", worktree.branch),
 		]);
 		if (base.code !== 0 || tip.code !== 0) {

@@ -8,10 +8,14 @@ import {
 } from "@splates/server/queue/browser";
 import { BotIcon, ChevronRightIcon } from "lucide-react";
 import {
+	createContext,
+	Fragment,
 	type JSX,
 	type ReactNode,
 	useCallback,
+	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -24,6 +28,8 @@ import {
 } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { readAgentChain } from "./api";
+import { arriveAtQueued } from "./arrivals";
+import { Board } from "./board";
 import { queuedAddress } from "./conversation-address";
 
 /** How often a conversation in a chain asks the server for the chain again. */
@@ -31,25 +37,137 @@ const REFRESH_MS = 15_000;
 
 /**
  * The chain `conversation` belongs to, kept fresh, or null when it is in none
- * (or the server has not said yet).
+ * (or the server has not said yet, or `conversation` is null).
  */
-export function useChain(conversation: string): ChainView | null {
+export function useChain(conversation: string | null): ChainView | null {
 	const [chain, setChain] = useState<ChainView | null>(null);
-	const load = useCallback(
-		() =>
-			readAgentChain(conversation).then(
-				(next) => setChain(next),
-				() => {},
-			),
-		[conversation],
-	);
+	const load = useCallback(() => {
+		if (conversation === null) {
+			return Promise.resolve();
+		}
+		return readAgentChain(conversation).then(
+			(next) => setChain(next),
+			() => {},
+		);
+	}, [conversation]);
 	useEffect(() => {
+		if (conversation === null) {
+			setChain(null);
+			return;
+		}
 		void load();
 		const timer = setInterval(() => void load(), REFRESH_MS);
 		return () => clearInterval(timer);
-	}, [load]);
+	}, [conversation, load]);
 	return chain;
 }
+
+interface ChainState {
+	conversation: string;
+	chain: ChainView | null;
+	arrivedTask: number | null;
+	onOpen: (address: string) => void;
+	openTree: () => void;
+}
+
+const ChainContext = createContext<ChainState | null>(null);
+
+/**
+ * For an inline list of the queued tasks `ids`: whether the thread just
+ * arrived at one of them, and what opens the chain's tree, null outside a chain.
+ */
+export function useQueuedTree(ids: readonly number[]): {
+	arrived: boolean;
+	openTree: (() => void) | null;
+} {
+	const shared = useContext(ChainContext);
+	return {
+		arrived:
+			shared !== null &&
+			shared.arrivedTask !== null &&
+			ids.includes(shared.arrivedTask),
+		openTree: shared?.chain != null ? shared.openTree : null,
+	};
+}
+
+/**
+ * Shares a conversation's task chain and its tree dialog between the top
+ * `ChainBanner` and any inline `QueuedBar`s in the thread.
+ */
+export function ChainProvider({
+	conversation,
+	active = true,
+	arrivedTask = null,
+	onOpen,
+	children,
+}: {
+	conversation: string;
+	active?: boolean;
+	arrivedTask?: number | null;
+	onOpen: (address: string) => void;
+	children: ReactNode;
+}): JSX.Element {
+	const chain = useChain(active ? conversation : null);
+	const [open, setOpen] = useState(false);
+	const openTree = useCallback(() => setOpen(true), []);
+	const value = useMemo<ChainState>(
+		() => ({ conversation, chain, arrivedTask, onOpen, openTree }),
+		[conversation, chain, arrivedTask, onOpen, openTree],
+	);
+	return (
+		<ChainContext value={value}>
+			{children}
+			{chain !== null && (
+				<ChainDialog
+					open={open}
+					onOpenChange={setOpen}
+					chain={chain}
+					current={conversation}
+					onOpen={onOpen}
+				/>
+			)}
+		</ChainContext>
+	);
+}
+
+function ChainDialog({
+	open,
+	onOpenChange,
+	chain,
+	current,
+	onOpen,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	chain: ChainView;
+	current: string;
+	onOpen: (address: string) => void;
+}): JSX.Element {
+	// Focus lands on the dialog, not its first row, which is no pick.
+	const dialog = useRef<HTMLDivElement>(null);
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent
+				ref={dialog}
+				initialFocus={dialog}
+				className="max-h-[85%] grid-cols-1 gap-0 overflow-y-auto p-0 sm:max-w-md"
+			>
+				<ChainTree
+					chain={chain}
+					current={current}
+					onOpen={(address) => {
+						onOpenChange(false);
+						onOpen(address);
+					}}
+				/>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/** The look of a slim bar in the thread, as the chain banner and queued bars share it. */
+export const SLIM_BAR =
+	"flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm transition-shadow duration-300";
 
 /** Where a chain task opens: its conversation, or its queued page while it waits. */
 function addressOf(node: ChainNode): string {
@@ -66,6 +184,76 @@ function listed(nodes: readonly ChainNode[]): string {
 }
 
 /**
+ * The inline slim bar where an agent enqueued tasks in a conversation, matching
+ * `ChainBanner`'s look with clickable links to each queued task and a View
+ * button for the connected conversations tree.
+ */
+export function QueuedBar({
+	tasks,
+}: {
+	tasks: readonly { id: number; subject: string }[];
+}): JSX.Element {
+	const shared = useContext(ChainContext);
+	const board = useContext(Board);
+	const arrived =
+		shared !== null &&
+		shared.arrivedTask !== null &&
+		tasks.some((task) => task.id === shared.arrivedTask);
+	const openTask = (id: number) => {
+		const node = shared?.chain?.nodes.find((each) => each.id === id);
+		if (node !== undefined && shared !== null) {
+			shared.onOpen(addressOf(node));
+			return;
+		}
+		const todo = board.todos.find((each) => each.id === id);
+		if (board.openQueuedConversation?.(id, todo?.takenBy ?? null, null)) {
+			return;
+		}
+		if (shared !== null) {
+			shared.onOpen(queuedAddress(id));
+			return;
+		}
+		board.open(id);
+	};
+	return (
+		<section
+			role="status"
+			aria-label="queued tasks"
+			data-queued-tasks={tasks.map((task) => task.id).join(",")}
+			className={cn("my-4", SLIM_BAR, arrived && "ring-2 ring-primary/60")}
+		>
+			<BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
+			<p className="min-w-0 flex-1">
+				Queued{" "}
+				{tasks.map((task, index) => (
+					<Fragment key={task.id}>
+						{index > 0 && (index === tasks.length - 1 ? " and " : ", ")}
+						<button
+							type="button"
+							data-queued-task={task.id}
+							className="underline"
+							onClick={() => openTask(task.id)}
+						>
+							#{task.id} {task.subject}
+						</button>
+					</Fragment>
+				))}
+			</p>
+			{shared?.chain != null && (
+				<Button
+					variant="outline"
+					size="sm"
+					className="h-7 shrink-0"
+					onClick={shared.openTree}
+				>
+					View
+				</Button>
+			)}
+		</section>
+	);
+}
+
+/**
  * The banner atop a conversation in a task chain, saying what it is connected
  * to, whose View opens the whole tree and the chain's budget in a dialog.
  * Nothing for a conversation in no chain.
@@ -77,10 +265,11 @@ export function ChainBanner({
 	conversation: string;
 	onOpen: (address: string) => void;
 }): JSX.Element | null {
-	const chain = useChain(conversation);
+	const shared = useContext(ChainContext);
+	const usesShared = shared !== null && shared.conversation === conversation;
+	const ownChain = useChain(usesShared ? null : conversation);
+	const chain = usesShared ? shared.chain : ownChain;
 	const [open, setOpen] = useState(false);
-	// Focus lands on the dialog, not its first row, which is no pick.
-	const dialog = useRef<HTMLDivElement>(null);
 	if (chain === null) {
 		return null;
 	}
@@ -96,8 +285,22 @@ export function ChainBanner({
 		self === undefined
 			? undefined
 			: chain.nodes.find((node) => node.id === parentOf(self));
-	const link = (text: string, address: string) => (
-		<button type="button" className="underline" onClick={() => onOpen(address)}>
+	const openParent = (targetConversation: string | null, address: string) => {
+		if (self !== undefined && targetConversation !== null) {
+			arriveAtQueued(targetConversation, self.id);
+		}
+		onOpen(address);
+	};
+	const link = (
+		text: string,
+		targetConversation: string | null,
+		address: string,
+	) => (
+		<button
+			type="button"
+			className="underline"
+			onClick={() => openParent(targetConversation, address)}
+		>
 			{text}
 		</button>
 	);
@@ -115,8 +318,12 @@ export function ChainBanner({
 					<>
 						Queued by{" "}
 						{by === undefined
-							? link(chain.root.title, chain.root.conversation)
-							: link(`#${by.id} ${by.title}`, addressOf(by))}
+							? link(
+									chain.root.title,
+									chain.root.conversation,
+									chain.root.conversation,
+								)
+							: link(`#${by.id} ${by.title}`, by.conversation, addressOf(by))}
 						{queued.length > 0 && <> · queued {queued.length} more</>}
 					</>
 				)}
@@ -125,26 +332,19 @@ export function ChainBanner({
 				variant="outline"
 				size="sm"
 				className="h-7 shrink-0"
-				onClick={() => setOpen(true)}
+				onClick={() => (usesShared ? shared.openTree() : setOpen(true))}
 			>
 				View
 			</Button>
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent
-					ref={dialog}
-					initialFocus={dialog}
-					className="max-h-[85%] grid-cols-1 gap-0 overflow-y-auto p-0 sm:max-w-md"
-				>
-					<ChainTree
-						chain={chain}
-						current={conversation}
-						onOpen={(address) => {
-							setOpen(false);
-							onOpen(address);
-						}}
-					/>
-				</DialogContent>
-			</Dialog>
+			{!usesShared && (
+				<ChainDialog
+					open={open}
+					onOpenChange={setOpen}
+					chain={chain}
+					current={conversation}
+					onOpen={onOpen}
+				/>
+			)}
 		</section>
 	);
 }

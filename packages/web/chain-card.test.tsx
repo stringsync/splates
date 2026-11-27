@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { ChainView } from "@splates/server/queue/browser";
-import { ChainBanner } from "./chain-card";
-import { cleanup, fireEvent, render, waitFor } from "./testing";
+import type { Event } from "@splates/server/records";
+import { consumeQueuedTarget, useQueuedTarget } from "./arrivals";
+import { ChainBanner, ChainProvider, QueuedBar } from "./chain-card";
+import { tierOf } from "./event-tier";
+import { act, cleanup, fireEvent, render, waitFor, within } from "./testing";
 
 describe("ChainBanner", () => {
 	const chain: ChainView = {
@@ -105,5 +108,72 @@ describe("ChainBanner", () => {
 		);
 		await waitFor(() => expect(calls.length).toBeGreaterThan(0));
 		expect(view.container.textContent).toBe("");
+	});
+
+	it("targets the enqueued task in the origin conversation when clicking Queued by", async () => {
+		serve(chain);
+		const opened: string[] = [];
+		function TargetProbe({ conversation }: { conversation: string }) {
+			const target = useQueuedTarget(conversation);
+			return <output data-testid="target">{target ?? "none"}</output>;
+		}
+		const view = render(
+			<>
+				<ChainBanner
+					conversation="c-821"
+					onOpen={(address) => opened.push(address)}
+				/>
+				<TargetProbe conversation="c-root" />
+			</>,
+		);
+		fireEvent.click(await view.findByText("root-slug"));
+		expect(opened).toEqual(["c-root"]);
+		expect(view.getByTestId("target").textContent).toBe("821");
+		act(() => consumeQueuedTarget("c-root", 821));
+	});
+
+	it("renders an inline QueuedBar with clickable tasks, View dialog, and arrival ring", async () => {
+		serve(chain);
+		const opened: string[] = [];
+		const view = render(
+			<ChainProvider
+				conversation="c-root"
+				arrivedTask={821}
+				onOpen={(address) => opened.push(address)}
+			>
+				<QueuedBar
+					tasks={[
+						{ id: 821, subject: "Fix flaky test" },
+						{ id: 822, subject: "Note the setting" },
+					]}
+				/>
+			</ChainProvider>,
+		);
+		const bar = view.getByRole("status", { name: "queued tasks" });
+		expect(bar.dataset.queuedTasks).toBe("821,822");
+		expect(bar.className).toContain("ring-2");
+		const viewButton = await within(bar).findByText("View");
+		fireEvent.click(within(bar).getByText("#821 Fix flaky test"));
+		fireEvent.click(within(bar).getByText("#822 Note the setting"));
+		expect(opened).toEqual(["c-821", "queued/822"]);
+		fireEvent.click(viewButton);
+		await waitFor(() => {
+			expect(view.getByText("Connected conversations")).toBeTruthy();
+		});
+	});
+
+	it("makes successful queue add events loud and keeps refused ones quiet", () => {
+		const ok = {
+			id: "e1",
+			at: "2026-11-26T18:00:00Z",
+			action: "queue add",
+			reason: null,
+			task: null,
+			conversation: "c-root",
+			tasks: [{ id: 821, subject: "Fix flaky test" }],
+		} as Event;
+		const refused = { ...ok, reason: "cap" } as Event;
+		expect(tierOf(ok)).toBe("loud");
+		expect(tierOf(refused)).toBe("quiet");
 	});
 });

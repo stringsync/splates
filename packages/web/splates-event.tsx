@@ -1,4 +1,5 @@
 import {
+	CheckCheckIcon,
 	CheckIcon,
 	ClockIcon,
 	FileIcon,
@@ -8,7 +9,10 @@ import {
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	MessageSquareIcon,
+	PencilIcon,
 	RadioIcon,
+	ShieldCheckIcon,
 	TerminalIcon,
 	XIcon,
 	ZapIcon,
@@ -19,7 +23,9 @@ import { cn } from "#web/lib/utils.ts";
 import { useOpenArtifact } from "./artifact-open";
 import { Board } from "./board";
 import { BoardChip } from "./board-chip";
+import { useNameOf } from "./conversation-names";
 import { distinctNames } from "./file-chip";
+import { useHeldConversations } from "./handed-out";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
@@ -63,7 +69,7 @@ export function SplatesEvent({
 			aria-label="splates"
 			data-slot="splates-event"
 			data-live={live || undefined}
-			className="my-6 text-muted-foreground text-xs"
+			className="@container my-6 text-muted-foreground text-xs"
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
@@ -113,11 +119,15 @@ export type Named =
 			version: number;
 	  }
 	| { kind: "cred"; name: string }
+	/** A conversation, by its id, which opens it. */
+	| { kind: "conversation"; id: string }
 	/** A signal, which opens on the Signals page. */
-	| { kind: "signal"; name: string }
+	| { kind: "signal"; name: string; label?: string }
 	| { kind: "automation"; name: string; scheduled?: boolean }
 	/** A shell command, as a run-command card asked to run it. */
-	| { kind: "command"; command: string };
+	| { kind: "command"; command: string }
+	/** A call an agent made, as its Assumed line says it: `Retry limit: 3`. */
+	| { kind: "pick"; pick: string };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -136,6 +146,8 @@ export interface SplatesEventView {
 	mark?: Mark | null;
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
+	/** Optional context displayed after the main event text. */
+	secondary?: ReactNode;
 	/**
 	 * When, as an ISO time, to place it among the thread's messages; shown at
 	 * the line's end while the conversation's stamps are on. Null for one with
@@ -150,15 +162,28 @@ export interface SplatesEventView {
 	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
+	/** A shield badge of what it did to trust, last on the line, when it moved it. */
+	trust?: ReactNode;
 }
 
 /**
  * A command that failed, marked by a red X, or landed or approved, by a green
- * check; or an
+ * check; a plan approved to build and merge, by a green double check, as the
+ * plan card's Approve wears, or sent back with changes, by its muted pencil;
+ * or an
  * early warning of a conflict with the base or an overlap with another task,
- * each by its muted icon.
+ * each by its muted icon; or a call an agent made without asking, by a
+ * shield.
  */
-export type Mark = "failed" | "landed" | "approved" | "conflict" | "overlap";
+export type Mark =
+	| "failed"
+	| "landed"
+	| "approved"
+	| "plan-approved"
+	| "changes-requested"
+	| "conflict"
+	| "overlap"
+	| "assumed";
 
 /**
  * A wait an event counts down to `until`. Once what it waited on comes, it is
@@ -215,6 +240,15 @@ function Line({
 					className="size-3.5 shrink-0 text-success"
 				/>
 			)}
+			{mark === "plan-approved" && (
+				<CheckCheckIcon
+					aria-label="Approved"
+					className="size-3.5 shrink-0 text-success"
+				/>
+			)}
+			{mark === "changes-requested" && (
+				<PencilIcon aria-hidden className="size-3.5 shrink-0" />
+			)}
 			{mark === "landed" && (
 				<CheckIcon
 					aria-label="Landed"
@@ -230,13 +264,21 @@ function Line({
 			{mark === "overlap" && (
 				<FilesIcon aria-label="Overlap" className="size-3.5 shrink-0" />
 			)}
+			{mark === "assumed" && (
+				<ShieldCheckIcon
+					aria-label="Assumed"
+					className="size-3.5 shrink-0 text-primary"
+				/>
+			)}
 			<Words words={event.words} />
+			{event.secondary}
 			{stamped && event.at != null && <Stamp at={event.at} />}
 			{left !== null ? (
 				<span className="shrink-0 tabular-nums">{countdown(left)}</span>
 			) : (
 				act !== null && <Action act={act} />
 			)}
+			{event.trust}
 		</p>
 	);
 }
@@ -406,6 +448,20 @@ export function NamedChip({
 					{named.command}
 				</Chip>
 			);
+		case "pick":
+			return (
+				<span
+					title={named.pick}
+					className={cn(
+						"flex h-6 max-w-80 items-center rounded-md border px-1.5 text-foreground max-sm:max-w-full",
+						GIVES_WAY_FIRST,
+					)}
+				>
+					<span className="min-w-0 truncate">{named.pick}</span>
+				</span>
+			);
+		case "conversation":
+			return <ConversationChip id={named.id} />;
 		case "cred":
 			return (
 				<Chip
@@ -425,7 +481,7 @@ export function NamedChip({
 					href={`#signals/${encodeURIComponent(named.name)}`}
 					className={cn("font-mono", GIVES_WAY)}
 				>
-					{named.name}
+					{named.label ?? named.name}
 				</Chip>
 			);
 		case "automation":
@@ -441,6 +497,30 @@ export function NamedChip({
 				</Chip>
 			);
 	}
+}
+
+/**
+ * Conversation `id` by its name, opening it. One the list has but lost, as an
+ * old archived one deleted, is struck through, opening nothing; "a
+ * conversation" stands in for its name until the list comes.
+ */
+function ConversationChip({ id }: { id: string }): JSX.Element {
+	const nameOf = useNameOf();
+	const held = useHeldConversations();
+	const found = held.find((each) => each.id === id);
+	const gone = found === undefined && held.length > 0;
+	const name = found === undefined ? "a conversation" : nameOf(found);
+	return (
+		<Chip
+			Icon={MessageSquareIcon}
+			title={gone ? "Conversation deleted" : `Conversation ${name}`}
+			href={gone ? undefined : `#conversations/${encodeURIComponent(id)}`}
+			missing={gone}
+			className={GIVES_WAY_FIRST}
+		>
+			{name}
+		</Chip>
+	);
 }
 
 /**

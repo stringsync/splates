@@ -468,6 +468,20 @@ Cap upload retries
 				status: "stopped",
 				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
 			}),
+			conversation({
+				id: "c6",
+				title: "Done before failure",
+				status: "failed",
+				messages: [message("agent", "## ✅ Done: checked results\n\nDone.")],
+			}),
+			conversation({
+				id: "c7",
+				title: "Removed before failure",
+				status: "failed",
+				messages: [
+					message("agent", "## 🧹 Removed footer: superseded\n\nIt moved."),
+				],
+			}),
 		];
 
 		const unplugged = (marks: HTMLElement[]) =>
@@ -491,6 +505,8 @@ Cap upload retries
 		// Idle stopped, Restart stopped, Crashed, and Zebra stopped.
 		expect(unplugged(sidebarMarks)).toEqual([true, true, true, true]);
 		expect(sidebar.getByRole("img", { name: "merged" })).toBeTruthy();
+		expect(sidebar.getByRole("img", { name: "done" })).toBeTruthy();
+		expect(sidebar.getByRole("img", { name: "removed" })).toBeTruthy();
 		expect(
 			sidebar
 				.getByLabelText("Pinned")
@@ -510,9 +526,11 @@ Cap upload retries
 		});
 		expect(unplugged(inboxMarks)).toEqual([true, true, true, true]);
 		expect(inbox.getByRole("img", { name: "merged" })).toBeTruthy();
+		expect(inbox.getByRole("img", { name: "done" })).toBeTruthy();
+		expect(inbox.getByRole("img", { name: "removed" })).toBeTruthy();
 	});
 
-	it("shows a gray hourglass ahead of disconnected for waiting conversations in the sidebar and inbox", async () => {
+	it("shows gray dots ahead of disconnected for waiting conversations in the sidebar and inbox", async () => {
 		localStorage.clear();
 		const deadline = new Date(Date.now() + 4 * 3_600_000).toISOString();
 		const signalWait = {
@@ -588,9 +606,9 @@ Cap upload retries
 			}),
 		];
 
-		const grayHourglass = (marks: HTMLElement[]) =>
+		const grayDots = (marks: HTMLElement[]) =>
 			marks.map((mark) => {
-				const icon = mark.querySelector(".lucide-hourglass");
+				const icon = mark.querySelector(".mark-ellipsis");
 				const classes = icon?.getAttribute("class") ?? "";
 				return (
 					icon !== null &&
@@ -607,10 +625,10 @@ Cap upload retries
 			name: "waiting",
 		});
 		// Signal stopped, Task wait stopped, and Zebra waiting.
-		expect(grayHourglass(waitingSidebar)).toEqual([true, true, true]);
-		expect(
-			grayHourglass([sidebar.getByRole("img", { name: "deferred" })]),
-		).toEqual([true]);
+		expect(grayDots(waitingSidebar)).toEqual([true, true, true]);
+		expect(grayDots([sidebar.getByRole("img", { name: "deferred" })])).toEqual([
+			true,
+		]);
 		expect(
 			sidebar.getAllByRole("status", { name: "disconnected" }),
 		).toHaveLength(1);
@@ -631,10 +649,10 @@ Cap upload retries
 		const waitingInbox = await inbox.findAllByRole("status", {
 			name: "waiting",
 		});
-		expect(grayHourglass(waitingInbox)).toEqual([true, true, true]);
-		expect(
-			grayHourglass([inbox.getByRole("img", { name: "deferred" })]),
-		).toEqual([true]);
+		expect(grayDots(waitingInbox)).toEqual([true, true, true]);
+		expect(grayDots([inbox.getByRole("img", { name: "deferred" })])).toEqual([
+			true,
+		]);
 		expect(inbox.getAllByRole("status", { name: "disconnected" })).toHaveLength(
 			1,
 		);

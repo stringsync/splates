@@ -38,12 +38,8 @@ export function questionHeading(
 			// Found as questions are: a plan is what they ask about.
 			label: "questions for you",
 			Icon: FileTextIcon,
-			title:
-				count !== undefined
-					? "A plan for you"
-					: plan.title === ""
-						? "Plan"
-						: `Plan: ${plan.title}`,
+			// The card says only that it is a plan; its Goal says what for.
+			title: count !== undefined ? "A plan for you" : "Plan",
 			tone: "plan",
 		};
 	}
