@@ -63,7 +63,7 @@ describe("App's sidebar keys", () => {
 		expect(
 			within(view.getByRole("tablist")).getByRole("button", { name: /^New/ })
 				.textContent,
-		).toBe("NewN");
+		).toBe("New conversationN");
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
 				code: "Digit1",
@@ -202,7 +202,7 @@ describe("App's sidebar keys", () => {
 		expect(location.hash).toBe("#conversations/c1");
 		await press("Comma");
 		expect(location.hash).toBe("#conversations/c1");
-		expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull();
+		expect(view.queryByRole("region", { name: "Settings" })).toBeNull();
 
 		await press("Period");
 		expect(location.hash).toBe("#conversations/c2");
@@ -306,7 +306,9 @@ describe("App's sidebar keys", () => {
 			[conversation({ id: "c1", agent: "codex" })],
 			"c1",
 		);
-		const button = view.getByRole("button", { name: "New" });
+		const button = within(view.getByRole("tablist")).getByRole("button", {
+			name: "New conversation",
+		});
 		expect(button.title).toBe("⌥⌘N");
 		expect(button.hasAttribute("aria-haspopup")).toBe(false);
 		await act(async () => fireEvent.click(button));
@@ -328,9 +330,9 @@ describe("App's sidebar keys", () => {
 
 		// Picked twice: the second time, the conversation is already open.
 		const pick = async () => {
-			view.getByRole("button", { name: "New" }).focus();
+			view.getByRole("button", { name: "New conversation" }).focus();
 			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "New" })),
+				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
 			);
 			return {
 				// Not the element, whose printout on a failure overwhelms Bun.

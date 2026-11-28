@@ -9,32 +9,8 @@ import {
 } from "./setup";
 import { StepProblem } from "./step-problem";
 
-const HOME = "/home/.splates";
-
-/** A step whose check answers whatever `done` holds for its id. */
-function fake(
-	id: string,
-	done: Set<string>,
-	{
-		optional = false,
-		extra = false,
-		after = [],
-	}: { optional?: boolean; extra?: boolean; after?: SetupStep[] } = {},
-): SetupStep {
-	return {
-		id,
-		title: `Set up ${id}`,
-		why: `${id} matters.`,
-		user: `Do ${id}.`,
-		agent: `Help with ${id}.`,
-		optional,
-		extra,
-		after,
-		check: async () => done.has(id),
-	};
-}
-
 describe("Setup", () => {
+	const HOME = "/home/.splates";
 	let machine: SetupMachine;
 	let done: Set<string>;
 
@@ -392,3 +368,26 @@ describe("Setup", () => {
 		});
 	});
 });
+
+/** A step whose check answers whatever `done` holds for its id. */
+function fake(
+	id: string,
+	done: Set<string>,
+	{
+		optional = false,
+		extra = false,
+		after = [],
+	}: { optional?: boolean; extra?: boolean; after?: SetupStep[] } = {},
+): SetupStep {
+	return {
+		id,
+		title: `Set up ${id}`,
+		why: `${id} matters.`,
+		user: `Do ${id}.`,
+		agent: `Help with ${id}.`,
+		optional,
+		extra,
+		after,
+		check: async () => done.has(id),
+	};
+}

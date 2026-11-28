@@ -1,5 +1,6 @@
 import { fail } from "../exit";
 import type { Handler } from "../server/shared";
+import { isTrustBand } from "./band";
 import { scopePath } from "./scopes";
 import type { TrustStore } from "./store";
 import {
@@ -8,6 +9,7 @@ import {
 	type DecisionOutcome,
 	type DecisionSource,
 	type RuleSuggestionView,
+	type TrustBand,
 	type TrustMode,
 	type TrustSetting,
 } from "./types";
@@ -75,7 +77,7 @@ export class TrustRoutes {
 
 	/**
 	 * `PUT /api/trust`: updates a project × agent/model trust setting.
-	 * Accepts `{ project, agent, model?, scope?, mode?, value?, reset? }`.
+	 * Accepts `{ project, agent, model?, scope?, mode?, band?, value?, reset? }`.
 	 */
 	readonly update: Handler = async (request) => {
 		const body = (await request.json().catch(() => null)) as Record<
@@ -121,12 +123,35 @@ export class TrustRoutes {
 					`mode must be "static" or "dynamic", got ${String(body.mode)}`,
 				);
 			}
-			const value = body.value === undefined ? undefined : Number(body.value);
-			setting = await this.trust.setMode(key, body.mode as TrustMode, value);
+			let bandOrValue: TrustBand | number | undefined;
+			if (body.band !== undefined) {
+				if (!isTrustBand(body.band)) {
+					fail(
+						"usage",
+						`band must be "ask-and-wait", "ask-and-go", or "assume", got ${String(body.band)}`,
+					);
+				}
+				bandOrValue = body.band;
+			} else if (body.value !== undefined) {
+				bandOrValue = Number(body.value);
+			}
+			setting = await this.trust.setMode(
+				key,
+				body.mode as TrustMode,
+				bandOrValue,
+			);
+		} else if (body.band !== undefined) {
+			if (!isTrustBand(body.band)) {
+				fail(
+					"usage",
+					`band must be "ask-and-wait", "ask-and-go", or "assume", got ${String(body.band)}`,
+				);
+			}
+			setting = await this.trust.setStatic(key, body.band);
 		} else if (body.value !== undefined) {
 			setting = await this.trust.setValue(key, Number(body.value));
 		} else {
-			fail("usage", "specify mode, value, or reset");
+			fail("usage", "specify mode, band, value, or reset");
 		}
 
 		const entry = await this.trust.entryFor(key);

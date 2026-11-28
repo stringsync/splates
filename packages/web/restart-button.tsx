@@ -13,7 +13,10 @@ import { useCheckpoint } from "./checkpoint";
 import { RefreshStatus, useFreshness } from "./freshness";
 import { short } from "./release";
 
-/** The bar's Update or Stuck button, or the current version when no update is available. */
+/**
+ * The bar's Update, Updated, or Stuck button, active refresh/update spinner,
+ * or the current version on desktop when up to date.
+ */
 export function RestartButton({
 	wide,
 	update,

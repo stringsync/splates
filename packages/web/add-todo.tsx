@@ -1,5 +1,5 @@
 import { useReactive } from "core/react";
-import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import {
 	type FormEvent,
 	type JSX,
@@ -14,6 +14,7 @@ import { type Drafts, todoDraft } from "./drafts";
 import { useExpectSnapshot } from "./expecting";
 import { Dropped, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
+import { Spinner } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 import { TodoDraft } from "./todo-draft";
 
@@ -135,9 +136,7 @@ function Composer({
 					aria-busy={submitting}
 					className="pointer-coarse:h-10 pointer-coarse:px-3"
 				>
-					{submitting && (
-						<LoaderCircleIcon aria-hidden className="animate-spin" />
-					)}
+					{submitting && <Spinner aria-hidden className="animate-spin" />}
 					Add task
 				</Button>
 				<Button

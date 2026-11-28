@@ -54,6 +54,9 @@ describe("App coming back to a project", () => {
 	it("comes back to the page it left a project on", async () => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
 		);
 		await waitFor(() => expect(location.hash).toBe("#creds"));
@@ -65,6 +68,10 @@ describe("App coming back to a project", () => {
 
 		visit(there.toString());
 		const back = await testing.open();
+		const more = back.queryByRole("button", { name: /^More \(/ });
+		if (more !== null) {
+			await act(async () => fireEvent.click(more));
+		}
 		await act(async () =>
 			fireEvent.click(back.getByRole("tab", { name: /Creds/ })),
 		);
@@ -104,6 +111,9 @@ describe("App coming back to a project", () => {
 
 	it("stays on a project-scoped page over where the project was left", async () => {
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
 		);

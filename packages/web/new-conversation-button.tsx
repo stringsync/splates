@@ -47,12 +47,12 @@ export function NewConversation({
 	return (
 		<Button
 			variant="outline"
-			className="mt-2 mb-3 h-10 flex-none justify-start gap-2.5 px-3"
+			className="mt-2 mb-2 h-9 flex-none justify-start gap-2.5 rounded-[10px] border-foreground/8 bg-foreground/[0.04] px-3 hover:bg-foreground/[0.07]"
 			title={shortcut ?? undefined}
 			onClick={another}
 		>
 			<PlusIcon data-icon="inline-start" />
-			<span className="flex-1 text-left">New</span>
+			<span className="flex-1 text-left">New conversation</span>
 			{held && newKey !== null && <Kbd aria-hidden>{newKey}</Kbd>}
 		</Button>
 	);

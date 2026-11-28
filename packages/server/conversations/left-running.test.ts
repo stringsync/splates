@@ -23,6 +23,7 @@ const entry = (pid: number, ppid: number, command: string): ProcessEntry => ({
 
 describe("What an agent left running", () => {
 	let fs: FakeFs;
+	let ps: FakePs;
 	let timer: FakeTimer;
 	let agent: FakeAgent;
 	let table: ProcessEntry[];
@@ -33,13 +34,14 @@ describe("What an agent left running", () => {
 		for (const tree of ["/repo", "/repo-splates/login"]) {
 			await fs.mkdir(tree);
 		}
+		ps = new FakePs();
 		timer = new FakeTimer();
 		agent = new FakeAgent();
 		agent.pid = PID;
 		// The agent, and the MCP server it opened its session with.
 		table = [entry(PID, 1, "fake-acp"), entry(501, PID, "node playwright")];
-		const machine = new LocalWorkerMachine(new FakePs(), fs);
-		machine.processes = async () => [...table];
+		ps.setProcesses(table);
+		const machine = new LocalWorkerMachine(ps, fs);
 		conversations = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],
@@ -65,6 +67,7 @@ describe("What an agent left running", () => {
 		await until(conversation, "idle");
 		agent.turn = async () => {
 			table.push(...left);
+			ps.setProcesses(table);
 			return "end_turn";
 		};
 		await conversation.prompt("serve it");
@@ -101,8 +104,8 @@ describe("What an agent left running", () => {
 		]);
 		expect(conversation.state.background[0]).toMatchObject({
 			command: "/bin/zsh -c bun dev",
-			canStop: false,
 		});
+		expect(conversation.state.background[0]?.canStop).toBeUndefined();
 	});
 
 	it("says one ended once it is gone from the table", async () => {
@@ -110,6 +113,7 @@ describe("What an agent left running", () => {
 		await eventually(() => conversation.state.background.length > 0);
 
 		table = table.filter((each) => each.pid !== 600);
+		ps.setProcesses(table);
 		check();
 
 		await eventually(
@@ -163,6 +167,7 @@ describe("What an agent left running", () => {
 			table.push(
 				entry(600, PID, "/bin/zsh -c source snap.sh && eval 'bun dev'"),
 			);
+			ps.setProcesses(table);
 			return "end_turn";
 		};
 
@@ -173,13 +178,20 @@ describe("What an agent left running", () => {
 		expect(conversation.state.background.map(({ id }) => id)).toEqual(["b1"]);
 	});
 
-	it("refuses to stop one, which only the agent can", async () => {
-		const conversation = await turnLeaving(entry(600, PID, "sleep 60"));
+	it("stops one by terminating its process tree on the worker", async () => {
+		const conversation = await turnLeaving(
+			entry(600, PID, "/bin/zsh -c bun dev"),
+			entry(601, 600, "bun run vite"),
+		);
 		await eventually(() => conversation.state.background.length > 0);
 
-		expect(conversation.stopBackground("pid:600")).rejects.toThrow(
-			"cannot be stopped from here",
-		);
+		await conversation.stopBackground("pid:600");
+
+		expect(ps.getCalls()).toEqual(["kill -TERM 600 601"]);
+		expect(agent.stoppedBackground).toEqual([]);
+		expect(listed(conversation.state)).toEqual([
+			{ id: "pid:600", name: "bun dev", state: "stopped", pid: 600 },
+		]);
 	});
 
 	it("names a command by what the shell runs", () => {

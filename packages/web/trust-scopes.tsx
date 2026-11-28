@@ -1,7 +1,10 @@
 import type { TrustEntry, TrustScope } from "@splates/server/trust";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
+import { PageSection } from "./page-section";
+import { ScopeChip } from "./trust-badges";
 
 export function TrustScopes({
 	projects,
@@ -33,8 +36,9 @@ export function TrustScopes({
 	return (
 		<>
 			{projects.length > 0 && (
-				<form
-					className="grid grid-cols-[minmax(0,1fr)_auto] gap-2.5 rounded-xl border bg-card p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+				<Card
+					render={<form />}
+					className="grid grid-cols-[minmax(0,1fr)_auto] gap-2.5 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
 					onSubmit={(event) => {
 						event.preventDefault();
 						if (!saving && project !== "" && path.trim() !== "") {
@@ -70,7 +74,7 @@ export function TrustScopes({
 					>
 						Add scope
 					</Button>
-				</form>
+				</Card>
 			)}
 			{projects
 				.filter((each) => selected === null || each.path === selected)
@@ -79,71 +83,65 @@ export function TrustScopes({
 						.filter((each) => each.project === path)
 						.toSorted((left, right) => left.path.localeCompare(right.path));
 					return (
-						<section
+						<PageSection
 							key={path}
 							aria-label={name}
-							className="flex flex-col gap-2.5"
+							title={<span title={path}>{name}</span>}
+							count={
+								declared.length === 0
+									? "No custom scopes"
+									: counted(declared.length, "scope")
+							}
 						>
-							<div className="flex items-baseline justify-between px-0.5 text-muted-foreground text-xs">
-								<h2
-									title={path}
-									className="font-medium uppercase tracking-wider"
-								>
-									{name}
-								</h2>
-								<span>
-									{declared.length === 0
-										? "No custom scopes"
-										: counted(declared.length, "scope")}
-								</span>
-							</div>
 							{declared.length === 0 ? (
-								<p className="rounded-xl border bg-card p-3.5 text-muted-foreground text-sm">
-									All models in <b>{name}</b> use the project default.
-								</p>
+								<Card className="p-3.5 text-muted-foreground text-sm">
+									<p>
+										All models in <b>{name}</b> use the project default.
+									</p>
+								</Card>
 							) : (
-								<ul className="divide-y overflow-hidden rounded-xl border bg-card">
-									{declared.map((scope) => {
-										const models = entries.filter(
-											(entry) =>
-												entry.project === scope.project &&
-												entry.scope === scope.path,
-										);
-										const decisions = models.reduce(
-											(total, each) => total + each.counts.total,
-											0,
-										);
-										return (
-											<li
-												key={scope.path}
-												className="flex items-center justify-between gap-3 px-3.5 py-3"
-											>
-												<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-													<code className="wrap-anywhere rounded-md bg-muted px-1.5 py-0.5">
-														{scope.path}
-													</code>
-													<span className="text-muted-foreground text-xs">
-														{counted(models.length, "model")} ·{" "}
-														{counted(decisions, "decision")}
-													</span>
-												</div>
-												<Button
-													type="button"
-													variant="outline"
-													className="h-9 shrink-0 text-destructive hover:text-destructive"
-													size="sm"
-													aria-label={`Remove ${scope.path}`}
-													disabled={saving}
-													onClick={() => void change("DELETE", scope)}
+								<Card>
+									<CardList>
+										{declared.map((scope) => {
+											const models = entries.filter(
+												(entry) =>
+													entry.project === scope.project &&
+													entry.scope === scope.path,
+											);
+											const sessions = models.reduce(
+												(total, each) => total + each.standing.sessions,
+												0,
+											);
+											return (
+												<li
+													key={scope.path}
+													className="flex items-center justify-between gap-3 px-3.5 py-3"
 												>
-													Remove
-												</Button>
-											</li>
-										);
-									})}
-								</ul>
+													<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+														<ScopeChip path={scope.path} />
+														<span className="text-muted-foreground text-xs">
+															{counted(models.length, "model")} ·{" "}
+															{counted(sessions, "session")}
+														</span>
+													</div>
+													<Button
+														type="button"
+														variant="outline"
+														className="h-9 shrink-0 text-destructive hover:text-destructive"
+														size="sm"
+														aria-label={`Remove ${scope.path}`}
+														disabled={saving}
+														onClick={() => void change("DELETE", scope)}
+													>
+														Remove
+													</Button>
+												</li>
+											);
+										})}
+									</CardList>
+								</Card>
 							)}
-						</section>
+						</PageSection>
 					);
 				})}
 			{projects.length === 0 && (

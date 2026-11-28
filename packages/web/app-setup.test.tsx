@@ -35,6 +35,9 @@ describe("App's setup", () => {
 	const openSetup = async (journey: string | null = "Agents") => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {
@@ -66,6 +69,9 @@ describe("App's setup", () => {
 		testing.setup = setupProgress();
 		const view = await testing.open();
 
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
 		await waitFor(() =>
 			within(tab).getByRole("img", { name: "setup unfinished" }),
@@ -76,6 +82,9 @@ describe("App's setup", () => {
 		testing.setup = setupProgress({ agents: "done", required: false });
 		const view = await testing.open();
 
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		const tab = await waitFor(() => view.getByRole("tab", { name: /Setup$/ }));
 		expect(
 			within(tab).queryByRole("img", { name: "setup unfinished" }),

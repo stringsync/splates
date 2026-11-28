@@ -12,50 +12,69 @@ import { SERVER_WAIT_MS } from "@splates/server/tasks";
 import { serverOf } from "@splates/server/workers";
 import { here } from "./flags";
 
+/** Which failed step `retryStep` sends round again, in which run. */
+export interface RetryStepOptions {
+	run: string;
+	target: string;
+	step: string;
+	dev: string;
+}
+
+/** What `noteOnRun` posts, and to which run, target and step. */
+export interface NoteOnRunOptions {
+	run: string;
+	text: string;
+	target: string;
+	step: string;
+	link: string;
+	dev: string;
+}
+
+/** The run `postToRun` posts to, and the dev server to find. */
+interface PostToRunOptions {
+	run: string;
+	dev: string;
+}
+
 /**
  * Asks the server to send failed step `step` of `target` in run `run` round
  * again for the task this worktree is: any task may carry a ship on.
  */
 export async function retryStep(
 	ctx: SplatesDeps & Repository,
-	opts: { run: string; target: string; step: string; dev: string },
+	opts: RetryStepOptions,
 ): Promise<string> {
-	await postToRun(ctx, opts, "retry", {
-		target: opts.target,
-		step: opts.step,
-	});
+	await postToRun(ctx, "retry", { target: opts.target, step: opts.step }, opts);
 	return `${opts.target}/${opts.step} goes round again: \`splates ships show ${opts.run}\` follows it`;
 }
 
 /** Adds a note from the task this worktree is to ship run `run`. */
 export async function noteOnRun(
 	ctx: SplatesDeps & Repository,
-	opts: {
-		run: string;
-		text: string;
-		target: string;
-		step: string;
-		link: string;
-		dev: string;
-	},
+	opts: NoteOnRunOptions,
 ): Promise<string> {
 	if ((opts.target === "") !== (opts.step === "")) {
 		fail("usage", "name both --target and --step, or neither", {});
 	}
-	await postToRun(ctx, opts, "note", {
-		text: opts.text,
-		...(opts.target !== "" && { target: opts.target, step: opts.step }),
-		...(opts.link !== "" && { link: opts.link }),
-	});
+	await postToRun(
+		ctx,
+		"note",
+		{
+			text: opts.text,
+			...(opts.target !== "" && { target: opts.target, step: opts.step }),
+			...(opts.link !== "" && { link: opts.link }),
+		},
+		opts,
+	);
 	return `noted on ship run ${opts.run}: \`splates ships show ${opts.run}\` lists it`;
 }
 
 /** Posts `body`, with this worktree's task, to the server's `action` for run `opts.run`. */
 async function postToRun(
 	ctx: SplatesDeps & Repository,
-	opts: { run: string; dev: string },
 	action: "retry" | "note",
 	body: Record<string, unknown>,
+	opts: PostToRunOptions,
 ): Promise<void> {
 	const task = await here(ctx);
 	if (task === null) {

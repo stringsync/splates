@@ -31,7 +31,7 @@ export function AppHeader({
 	machine: MachineStatus | null;
 }): JSX.Element {
 	return (
-		<header className="flex min-w-0 flex-col">
+		<header className="flex min-w-0 shrink-0 flex-col">
 			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
 				<ProjectSwitcher
 					name={name}
@@ -53,9 +53,8 @@ export function AppHeader({
 }
 
 /**
- * What every bar says after its title beside a sidebar: whether the page is
- * updating, the server's state, how a restart goes, and why a checkpoint could
- * not start. The offline banner sits below the bar instead.
+ * Server status shown in the desktop top bar: outdated, build failed, routine
+ * machine, merge, and queue badges, and active restart or checkpoint feedback.
  */
 export function AppStatus({
 	snapshot,
@@ -82,20 +81,17 @@ export function AppStatus({
 }
 
 /**
- * A badge when the server is outdated, unbuilt or offline, or the machine is
- * strained. Silent while connected, which is the normal case: once the server
- * stops answering the page says so, since what it shows may no longer be true.
+ * Critical server alerts that always surface at the top edge: outdated or
+ * build-failed server states.
  */
-function ServerBadges({
+function CriticalBadges({
 	snapshot,
 	outdated,
 	offline,
-	machine,
 }: {
 	snapshot: Snapshot | null;
 	outdated: string | null;
 	offline: boolean;
-	machine: MachineStatus | null;
 }): JSX.Element {
 	return (
 		<>
@@ -118,6 +114,32 @@ function ServerBadges({
 					Build failed
 				</span>
 			)}
+		</>
+	);
+}
+
+/**
+ * Server badges inside the phone drawer header: critical alerts plus routine
+ * machine, merge, and start-queue status.
+ */
+function ServerBadges({
+	snapshot,
+	outdated,
+	offline,
+	machine,
+}: {
+	snapshot: Snapshot | null;
+	outdated: string | null;
+	offline: boolean;
+	machine: MachineStatus | null;
+}): JSX.Element {
+	return (
+		<>
+			<CriticalBadges
+				snapshot={snapshot}
+				outdated={outdated}
+				offline={offline}
+			/>
 			{!offline && <MachineBadge reading={machine} />}
 			{!offline && <MergeBadge snapshot={snapshot} />}
 			{!offline && <QueueBadge queue={machine?.queue ?? []} />}

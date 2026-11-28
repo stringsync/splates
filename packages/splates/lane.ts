@@ -161,7 +161,7 @@ splatesLane
 	.command("remove")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"remove a lane and its tasks, kept to restore; a lane whose last task merges goes on its own; agents may remove an empty lane; for one containing tasks, ask with a permission card",
+		"remove a lane and its tasks, kept to restore; a lane whose last task merges goes on its own; agents may remove only an empty lane",
 	)
 	.arg("lane", laneNumber, {
 		description: "lane number",

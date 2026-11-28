@@ -10,6 +10,7 @@ import {
 	type PropsWithChildren,
 	type ReactNode,
 } from "react";
+import type { ThreadAgent } from "#web/buddy-avatar.tsx";
 import { AssistantMessage } from "#web/components/assistant-ui/elements/thread-assistant-message.aui.tsx";
 import { ToolFallback } from "#web/components/assistant-ui/elements/tool-fallback.aui.tsx";
 import type { References } from "#web/references.tsx";
@@ -39,6 +40,8 @@ export type ThreadComponents = {
 };
 // vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
 export type ThreadProps = {
+	/** Active agent identity for the thread's live Buddy avatar; omitted for recorded threads. */
+	agent?: ThreadAgent | undefined;
 	/** A failed history read, with its retry control, without replacing the composer. */
 	historyFailure?: ReactNode;
 	components?: ThreadComponents | undefined;
@@ -96,6 +99,7 @@ export type ThreadProps = {
 export const ThreadExtrasContext = createContext<
 	Pick<
 		ThreadProps,
+		| "agent"
 		| "above"
 		| "before"
 		| "after"

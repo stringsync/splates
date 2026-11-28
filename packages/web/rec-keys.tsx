@@ -1,8 +1,10 @@
 import type { JSX } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import { keptCreds, saveCred } from "./api";
 import { Paste } from "./cred-paste";
+import { PageSection } from "./page-section";
 
 interface OptionalKey {
 	name: string;
@@ -57,15 +59,12 @@ export function RecKeys(): JSX.Element | null {
 		return null;
 	}
 	return (
-		<div className="flex flex-col gap-3">
-			<span className="text-muted-foreground text-xs">
-				Optional: rec works without these
-			</span>
+		<PageSection
+			title="Optional keys"
+			description="Optional: rec works without these"
+		>
 			{shown.map((each) => (
-				<div
-					key={each.name}
-					className="flex flex-col gap-2 rounded-lg border bg-card p-4 text-sm"
-				>
+				<Card key={each.name} className="flex flex-col gap-2 p-4 text-sm">
 					<div className="flex flex-col gap-0.5">
 						<span className="font-medium">{each.title}</span>
 						<code className="text-muted-foreground text-xs">{each.name}</code>
@@ -99,9 +98,9 @@ export function RecKeys(): JSX.Element | null {
 							</>
 						}
 					/>
-				</div>
+				</Card>
 			))}
-		</div>
+		</PageSection>
 	);
 }
 

@@ -1,16 +1,6 @@
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import type { Artifact, ArtifactVersion } from "@splates/server/artifacts";
 import { viewerOf } from "@splates/server/artifacts/browser";
-import { ExternalLinkIcon, XIcon } from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useState,
-} from "react";
-import { Button, buttonVariants } from "#web/components/ui/button.tsx";
-import { Dialog, DialogContent } from "#web/components/ui/dialog.tsx";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { conversationArtifact } from "./conversation-api";
 import { type Shown, useLightbox } from "./lightbox";
 
@@ -23,6 +13,11 @@ export type OpenArtifact = (
 
 const Opening = createContext<OpenArtifact | null>(null);
 
+const HeldArtifacts = createContext<{
+	conversation: string;
+	artifacts: readonly Artifact[];
+} | null>(null);
+
 /**
  * What opens an artifact from its row beside the thread or its chip in a
  * line: the viewer of the conversation it sits in, or, outside one, a
@@ -33,9 +28,30 @@ export function useOpenArtifact(): OpenArtifact {
 }
 
 /**
+ * Looks up `version` of artifact `name` inside the current conversation's
+ * `ArtifactViewer`, or returns null when rendered outside one.
+ */
+export function useArtifactVersion(
+	name: string,
+	version: number,
+): {
+	conversation: string;
+	artifact: Artifact | undefined;
+	version: ArtifactVersion | undefined;
+} | null {
+	const held = useContext(HeldArtifacts);
+	if (held === null) {
+		return null;
+	}
+	const artifact = held.artifacts.find((each) => each.name === name);
+	const kept = artifact?.versions.find((each) => each.version === version);
+	return { conversation: held.conversation, artifact, version: kept };
+}
+
+/**
  * Wrap a conversation's thread in it so its artifacts open where they are
- * clicked: images and recordings in the lightbox, pages in a sandboxed
- * frame, the rest as downloads.
+ * clicked: images, recordings, and HTML pages together in the unified
+ * lightbox, and the rest as downloads.
  */
 export function ArtifactViewer({
 	conversation,
@@ -48,7 +64,6 @@ export function ArtifactViewer({
 	children: ReactNode;
 }): JSX.Element {
 	const { show, lightbox } = useLightbox();
-	const [page, setPage] = useState<Shown | null>(null);
 	const open: OpenArtifact = (from, name, version) => {
 		const kept = artifacts
 			.find((each) => each.name === name)
@@ -67,27 +82,22 @@ export function ArtifactViewer({
 		}
 		const { listed, hidden } = shelves(artifacts);
 		const onListed = listed.some((each) => each.version === kept);
-		if (viewer === "page") {
-			setPage(shown(conversation, { name, version: kept }, !onListed));
-			return;
-		}
-		const media = (onListed ? listed : hidden).filter((each) => {
-			const kind = viewerOf(each.version.mimeType);
-			return (
-				each.version.gone === null && (kind === "image" || kind === "video")
-			);
-		});
+		const viewable = (onListed ? listed : hidden).filter(
+			(each) =>
+				each.version.gone === null && viewerOf(each.version.mimeType) !== null,
+		);
 		show(
-			media.map((each) => shown(conversation, each, !onListed)),
-			media.findIndex((each) => each.version === kept),
+			viewable.map((each) => shown(conversation, each, !onListed)),
+			viewable.findIndex((each) => each.version === kept),
 		);
 	};
 	return (
-		<Opening.Provider value={open}>
-			{children}
-			{lightbox}
-			<PageViewer page={page} onClose={() => setPage(null)} />
-		</Opening.Provider>
+		<HeldArtifacts.Provider value={{ conversation, artifacts }}>
+			<Opening.Provider value={open}>
+				{children}
+				{lightbox}
+			</Opening.Provider>
+		</HeldArtifacts.Provider>
 	);
 }
 
@@ -143,80 +153,14 @@ function shown(
 	{ name, version }: Shelved,
 	numbered: boolean,
 ): Shown {
+	const viewer = viewerOf(version.mimeType);
 	return {
 		url: conversationArtifact(conversation, name, version.version),
 		alt: labelOf(name, version.version, numbered),
-		video: viewerOf(version.mimeType) === "video",
+		video: viewer === "video",
+		html: viewer === "page",
 		name,
 	};
-}
-
-/**
- * A page an agent made, in a frame over the thread at nearly the size of the
- * window. The frame lets it run its scripts and nothing more: no origin of
- * the page's, so none of its cookies, storage or DOM, and no forms, popups
- * or navigating the page away. The route's own policy keeps it from the
- * network, so it is a single file.
- */
-function PageViewer({
-	page,
-	onClose,
-}: {
-	page: Shown | null;
-	onClose: () => void;
-}): JSX.Element {
-	return (
-		<Dialog
-			open={page !== null}
-			onOpenChange={(open) => {
-				if (!open) {
-					onClose();
-				}
-			}}
-		>
-			<DialogContent
-				showCloseButton={false}
-				className="flex h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100%-2rem)]"
-			>
-				{page !== null && (
-					<>
-						<div className="flex h-10 shrink-0 items-center gap-1 border-b pr-1 pl-3">
-							<DialogPrimitive.Title className="min-w-0 flex-1 truncate font-medium text-sm">
-								{page.alt}
-							</DialogPrimitive.Title>
-							<a
-								href={page.url}
-								target="_blank"
-								rel="noreferrer"
-								aria-label="open in a new tab"
-								className={buttonVariants({
-									variant: "ghost",
-									size: "icon-sm",
-								})}
-							>
-								<ExternalLinkIcon />
-							</a>
-							<DialogPrimitive.Close
-								render={
-									<Button variant="ghost" size="icon-sm" aria-label="close" />
-								}
-							>
-								<XIcon />
-							</DialogPrimitive.Close>
-						</div>
-						<iframe
-							key={page.url}
-							src={page.url}
-							title={page.alt}
-							sandbox="allow-scripts"
-							referrerPolicy="no-referrer"
-							className="min-h-0 w-full flex-1 bg-white"
-						/>
-					</>
-				)}
-			</DialogContent>
-		</Dialog>
-	);
 }
 
 /** Downloads a version of an artifact, under its name. */

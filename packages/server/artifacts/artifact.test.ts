@@ -146,6 +146,18 @@ describe("artifact", () => {
 		expect(calls).toBe(2);
 	});
 
+	it("extracts HTML titles and warns when an HTML artifact loads blocked external assets", async () => {
+		const added = await addArtifact(deps, ID, {
+			name: "sim.html",
+			bytes: bytes(
+				'<!doctype html><html><head><title>Pricing &amp; Margin</title><script src="https://cdn.example.com/lib.js"></script></head><body></body></html>',
+			),
+		});
+
+		expect(added.title).toBe("Pricing & Margin");
+		expect(deps.out()).toContain("https://cdn.example.com/lib.js");
+	});
+
 	it("needs a conversation of this repository", async () => {
 		await expect(conversationOf(deps.service, "")).toBail("usage");
 		await expect(conversationOf(deps.service, "nope")).toBail("not_found");

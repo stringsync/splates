@@ -20,7 +20,13 @@ export interface Reply {
 	 * is typed as it is; null where nothing can be sent from the page, as to
 	 * an external agent.
 	 */
-	send: ((text: string, files?: readonly File[]) => Promise<void>) | null;
+	send:
+		| ((
+				text: string,
+				files?: readonly File[],
+				options?: ReplySendOptions,
+		  ) => Promise<void>)
+		| null;
 	/**
 	 * Notes that words in one of the cards' boxes were dictated, so the next
 	 * `send` tells the agent, as the composer's does; any take into a box
@@ -40,23 +46,8 @@ export interface Reply {
 /** The open conversation's; none outside one, where cards only show. */
 export const ReplyContext = createContext<Reply | null>(null);
 
-/**
- * The reply the person sent to the message a card is in, or null while they
- * have yet to: what `InMessage` reads from the thread.
- */
-const SentContext = createContext<string | null>(null);
-
-/**
- * Whether the agent asked again in a later message before the person replied:
- * what `InMessage` reads from the thread.
- */
-const AskedAgainContext = createContext(false);
-
-/**
- * Whether the reply `SentContext` holds is still on its way, shown ahead of
- * the server's word, which may yet refuse it.
- */
-const UnconfirmedContext = createContext(false);
+/** True while rendered inside an assistant-ui message (`InMessage`). */
+export const InMessageContext = createContext(false);
 
 /**
  * What a card answers through while the person has yet to reply to its
@@ -76,6 +67,10 @@ export function useCardReply(): {
 		? { reply: askedAgain ? null : live, sent: null, askedAgain }
 		: { reply: null, sent, askedAgain: false };
 }
+
+const SentContext = createContext<string | null>(null);
+const AskedAgainContext = createContext(false);
+const UnconfirmedContext = createContext(false);
 
 /** The parts of a message that ask the person something, by name. */
 const ASKING = ["questions", "review"];
@@ -106,13 +101,15 @@ export function InMessage({ children }: { children: ReactNode }): JSX.Element {
 	const unconfirmed =
 		next?.role === "user" && next.metadata.custom.sending != null;
 	return (
-		<SentContext value={sent}>
-			<UnconfirmedContext value={unconfirmed}>
-				<AskedAgainContext value={next?.role === "assistant"}>
-					{children}
-				</AskedAgainContext>
-			</UnconfirmedContext>
-		</SentContext>
+		<InMessageContext value={true}>
+			<SentContext value={sent}>
+				<UnconfirmedContext value={unconfirmed}>
+					<AskedAgainContext value={next?.role === "assistant"}>
+						{children}
+					</AskedAgainContext>
+				</UnconfirmedContext>
+			</SentContext>
+		</InMessageContext>
 	);
 }
 
@@ -275,4 +272,10 @@ export function useArrival(
 			arrive();
 		}
 	}, [live]);
+}
+
+/** Optional behavior flags sent alongside a card's reply. */
+export interface ReplySendOptions {
+	/** Arms archiving the conversation once the approved task merges cleanly. */
+	archiveAfterMerge?: boolean;
 }

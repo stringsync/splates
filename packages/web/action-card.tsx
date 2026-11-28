@@ -2,17 +2,16 @@ import {
 	ArchiveIcon,
 	CheckIcon,
 	CopyIcon,
-	LoaderCircleIcon,
 	type LucideIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { ArchiveConversation } from "./archive-offer";
 import { copiedLabel, useCopy } from "./card";
+import { CardFooter, type CardFooterAction } from "./card-footer";
 import { CardBody, CardShell, type Tone } from "./card-shell";
+import { Spinner } from "./pending";
 import { ReasonNotice } from "./queue-reason";
-import { Refusal, useRefusal } from "./refusal";
+import { useRefusal } from "./refusal";
 
 /**
  * What a card asks splates to do for an agent, which splates refuses agents:
@@ -77,6 +76,7 @@ export function ActionCard({
 }): JSX.Element {
 	const { refusal, attempt } = useRefusal();
 	const archive = useContext(ArchiveConversation);
+	const { copied, copy } = useCopy();
 	const [running, setRunning] = useState(false);
 	const pending = running || settling;
 	const run = async (): Promise<void> => {
@@ -94,6 +94,56 @@ export function ActionCard({
 		body !== "" ||
 		reason !== null ||
 		(children !== undefined && children !== null && children !== false);
+	const copiedDone = copied.state === "copied";
+	const footerNote =
+		gone !== null ? (
+			gone
+		) : done ? (
+			<span className="flex items-center gap-1 text-success text-xs">
+				<CheckIcon className="size-3.5" strokeWidth={3} />
+				{action.done}
+			</span>
+		) : (
+			note
+		);
+	const actions: CardFooterAction[] =
+		gone !== null
+			? []
+			: done
+				? archive !== null
+					? [
+							{
+								label: "Archive",
+								Icon: ArchiveIcon,
+								tone: "outline",
+								primary: true,
+								onClick: archive,
+							},
+						]
+					: []
+				: [
+						...(action.command !== undefined
+							? [
+									{
+										label: copiedDone ? "Copied" : "Copy command",
+										Icon: copiedDone ? CheckIcon : CopyIcon,
+										ariaLabel: `copy ${action.command}`,
+										title:
+											copied.state === "failed" ? copied.error : action.command,
+										onClick: () => copy(action.command as string),
+									},
+								]
+							: []),
+						{
+							label: pending ? "Working…" : action.verb,
+							Icon: pending ? (Spinner as LucideIcon) : action.VerbIcon,
+							tone: tone === "destructive" ? "destructive" : "default",
+							primary: true,
+							disabled: pending,
+							busy: pending,
+							onClick: () => void run(),
+						},
+					];
 	return (
 		<CardShell
 			label={label}
@@ -106,86 +156,18 @@ export function ActionCard({
 			)}
 			{body !== "" && <CardBody text={body} />}
 			{children}
-			<div
-				className={cn(
-					"flex flex-wrap items-center justify-end gap-2 px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full",
-					hasAbove && "rule-t",
-				)}
-			>
-				{gone === null && !done && note !== undefined && (
-					<span className="mr-auto text-muted-foreground text-xs">{note}</span>
-				)}
-				{gone !== null ? (
-					<span className="text-muted-foreground text-xs">{gone}</span>
-				) : done ? (
-					<>
-						<span className="flex items-center gap-1 text-success text-xs">
-							<CheckIcon className="size-3.5" strokeWidth={3} />
-							{action.done}
-						</span>
-						{archive !== null && (
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={archive}
-								className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-							>
-								<ArchiveIcon data-icon="inline-start" />
-								Archive
-							</Button>
-						)}
-					</>
-				) : (
-					<>
-						{action.command !== undefined && (
-							<Command command={action.command} />
-						)}
-						<Button
-							size="sm"
-							onClick={run}
-							disabled={pending}
-							aria-busy={pending}
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-						>
-							{pending ? (
-								<LoaderCircleIcon
-									data-icon="inline-start"
-									className="animate-spin"
-								/>
-							) : (
-								<action.VerbIcon data-icon="inline-start" />
-							)}
-							{pending ? "Working…" : action.verb}
-						</Button>
-					</>
-				)}
-			</div>
-			<Refusal refusal={refusal} />
+			{action.command !== undefined && (
+				<span aria-live="polite" className="sr-only">
+					{copiedLabel(copied, "")}
+				</span>
+			)}
+			<CardFooter
+				note={footerNote}
+				sheetNote={gone !== null || done ? footerNote : undefined}
+				actions={actions}
+				refusal={refusal}
+				className={!hasAbove ? "border-t-0" : undefined}
+			/>
 		</CardShell>
-	);
-}
-
-/**
- * The command to run it from a terminal instead, which copies: a button that
- * says so, since an icon alone read as something else.
- */
-function Command({ command }: { command: string }): JSX.Element {
-	const { copied, copy } = useCopy();
-	const done = copied.state === "copied";
-	return (
-		<Button
-			size="sm"
-			variant="outline"
-			aria-label={`copy ${command}`}
-			title={copied.state === "failed" ? copied.error : command}
-			onClick={() => copy(command)}
-			className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-		>
-			{done ? <CheckIcon /> : <CopyIcon />}
-			{done ? "Copied" : "Copy command"}
-			<span aria-live="polite" className="sr-only">
-				{copiedLabel(copied, "")}
-			</span>
-		</Button>
 	);
 }

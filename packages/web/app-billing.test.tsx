@@ -71,6 +71,9 @@ describe("App's billing spend", () => {
 		};
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		await waitFor(() => view.getByLabelText("range"));
@@ -89,6 +92,9 @@ describe("App's billing spend", () => {
 
 	it("steps the range back a month and forward again, never past today", async () => {
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
@@ -132,6 +138,9 @@ describe("App's billing spend", () => {
 			],
 		};
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);

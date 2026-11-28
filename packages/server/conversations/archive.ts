@@ -23,6 +23,9 @@ export async function put(
 		...(withConversation === undefined ? {} : { with: withConversation }),
 	});
 	await host.log.flush();
+	if (archived) {
+		delete host.state.archiveAfterMerge;
+	}
 	host.set({
 		archived,
 		archivedAt: archived ? now : null,

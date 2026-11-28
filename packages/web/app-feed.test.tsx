@@ -248,10 +248,6 @@ describe("App's feed", () => {
 				view.getByRole("button", { name: "Update" }),
 			);
 			expect(view.queryByTitle("Current version: splates 0.0.1")).toBeNull();
-			expect(restart.textContent).toBe("Update");
-			expect(
-				restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),
-			).toBe("More");
 			await act(async () => fireEvent.click(restart));
 
 			await waitFor(() => view.getByRole("button", { name: "Updating" }));
@@ -285,7 +281,9 @@ describe("App's feed", () => {
 		});
 		testing.refuseWrites = { reason: "cannot restart", message: "Try again" };
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Update" })),
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Update" })),
+			),
 		);
 		await waitFor(() =>
 			expect(
@@ -311,7 +309,10 @@ describe("App's feed", () => {
 
 		testing.goAway();
 		await act(async () => testing.stream?.onmessage?.());
-		await waitFor(() => expect(icon.href).toContain("saturate"));
+		await waitFor(() => {
+			expect(icon.href).toContain("0.55");
+			expect(icon.href).toContain("line");
+		});
 
 		view.unmount();
 		expect(icon.href).toBe("data:image/svg+xml,tree");

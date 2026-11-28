@@ -62,7 +62,7 @@ export class LeftRunning implements Resource {
 			this.known.add(each);
 		}
 		for (const root of roots) {
-			if (ignored(root.command) || this.reported(root.command)) {
+			if (ignoredProcess(root.command) || this.reported(root.command)) {
 				continue;
 			}
 			this.say({
@@ -72,7 +72,6 @@ export class LeftRunning implements Resource {
 				taskType: "process",
 				description: named(root.command),
 				command: root.command,
-				canStop: false,
 				pid: root.pid,
 			});
 		}
@@ -129,7 +128,7 @@ export class LeftRunning implements Resource {
 
 	/** Whether the agent already listed `command` itself, as Claude does. */
 	private reported(command: string): boolean {
-		const running = plain(command);
+		const running = plainCommand(command);
 		return this.host.state.background.some((each) => {
 			if (each.pid !== undefined || each.command === null) {
 				return false;
@@ -140,7 +139,7 @@ export class LeftRunning implements Resource {
 			if (this.host.state.agent === "antigravity") {
 				return each.state === "running";
 			}
-			const said = plain(each.command).slice(0, 60);
+			const said = plainCommand(each.command).slice(0, 60);
 			return said !== "" && running.includes(said);
 		});
 	}
@@ -163,7 +162,7 @@ export class LeftRunning implements Resource {
  * an MCP server started on first use, or macOS's `caffeinate` held while it
  * works.
  */
-function ignored(command: string): boolean {
+export function ignoredProcess(command: string): boolean {
 	// `ps` prints an exited process nobody has reaped yet as `(name)`.
 	if (/^\([^()\s]+\)$/.test(command.trim())) {
 		return true;
@@ -172,7 +171,7 @@ function ignored(command: string): boolean {
 }
 
 /** `command` without quotes, escapes or runs of spaces, for comparing. */
-function plain(command: string): string {
+export function plainCommand(command: string): string {
 	return command
 		.replace(/["'\\]/g, "")
 		.replace(/\s+/g, " ")
@@ -187,6 +186,6 @@ export function named(command: string): string {
 		/\beval\s+(['"])(.*?)\1/.exec(command)?.[2] ??
 		/\s-l?c(?:\s+-l)?\s+(.*)$/.exec(command)?.[1] ??
 		command;
-	const words = plain(run);
+	const words = plainCommand(run);
 	return words.length > 80 ? `${words.slice(0, 79)}…` : words;
 }

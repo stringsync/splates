@@ -65,67 +65,95 @@ describe("App", () => {
 		);
 	});
 
-	it("folds the pages away from the border above the agents, and keeps them folded", async () => {
+	it("collapses secondary workspace pages behind More and keeps that choice across visits", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open();
 
-		const board = view.getByRole("tab", { name: /Board/ });
+		expect(view.queryByRole("tab", { name: /Stats/ })).toBeNull();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^Fold pages/ })),
+			fireEvent.click(view.getByRole("button", { name: /^More \(7\)/ })),
 		);
-		expect(board.hidden).toBe(true);
-		expect(board.getAttribute("aria-selected")).toBe("true");
-		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBe("1");
+		expect(view.getByRole("tab", { name: /Stats/ }).hidden).toBe(false);
+		expect(localStorage.getItem("splates.sidebarMorePages")).toBe("1");
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^Show pages/ })),
+			fireEvent.click(view.getByRole("button", { name: /^Less/ })),
 		);
-		expect(board.hidden).toBe(false);
-		expect(localStorage.getItem("splates.sidebarPagesFolded")).toBeNull();
+		expect(view.queryByRole("tab", { name: /Stats/ })).toBeNull();
+		expect(localStorage.getItem("splates.sidebarMorePages")).toBeNull();
 	});
 
-	it("drags the pages divider to a custom height and resets it on click", async () => {
+	it("places Conversations above Workspace in the desktop sidebar inside an inset shell", async () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open();
 
-		const pages = view.container.querySelector<HTMLElement>(
-			"[data-sidebar-pages]",
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const workspace = view.getByRole("tab", { name: /Boards/ });
+		expect(
+			nav.compareDocumentPosition(workspace) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		const layout = view.container.querySelector("[data-sidebar-layout]");
+		expect(layout?.className).toContain("bg-sidebar");
+		expect(view.container.querySelector(".page-header-glow")).toBeNull();
+		expect(view.container.querySelector(".page-header-sheen")).toBeNull();
+	});
+
+	it("uses canonical 14px menu items across Workspace, More, Archived, and Settings with no sidebar status pill", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		testing.machine = {
+			cpu: 0.1,
+			memory: 0.2,
+			load: 1,
+			cores: 8,
+			kind: "Mac",
+			temperature: null,
+			splates: null,
+			queue: [],
+		};
+		const view = await testing.open();
+
+		const boards = view.getByRole("tab", { name: /Boards/ });
+		const more = view.getByRole("button", { name: /^More \(7\)/ });
+		const archived = view.getByRole("button", { name: "Archived" });
+		const settings = view.getByRole("button", { name: "Settings" });
+		expect(
+			view.container.querySelector('[data-slot="sidebar-status-pill"]'),
+		).toBeNull();
+		expect(
+			[boards, more, archived, settings].map((item) => ({
+				textSm: item.className.includes("text-sm"),
+				h9: item.className.includes("h-9"),
+				px25: item.className.includes("px-2.5"),
+			})),
+		).toEqual([
+			{ textSm: true, h9: true, px25: true },
+			{ textSm: true, h9: true, px25: true },
+			{ textSm: true, h9: true, px25: true },
+			{ textSm: true, h9: true, px25: true },
+		]);
+		expect(
+			archived.compareDocumentPosition(settings) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
+	it("opens Settings from the desktop sidebar footer below Archived with its shortcut hint while keeping the page menu entry", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open();
+
+		expect(await menuItem(view, "Settings")).toBeTruthy();
+
+		const archived = view.getByRole("button", { name: "Archived" });
+		const settings = view.getByRole("button", { name: "Settings" });
+		expect(
+			archived.compareDocumentPosition(settings) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(settings.querySelector("span[aria-hidden]")?.textContent).toContain(
+			",",
 		);
-		expect(pages).not.toBeNull();
-		if (pages === null) {
-			return;
-		}
-		Object.defineProperty(pages, "scrollHeight", {
-			configurable: true,
-			value: 400,
-		});
-		pages.getBoundingClientRect = () => ({ height: 400 }) as DOMRect;
 
-		const divider = view.getByRole("button", { name: /^Fold pages/ });
-		divider.setPointerCapture = () => {};
-
-		await act(async () => {
-			fireEvent.pointerDown(divider, { button: 0, clientY: 400, pointerId: 1 });
-			fireEvent.pointerMove(window, { clientY: 220, pointerId: 1 });
-		});
-		expect(pages.style.height).toBe("220px");
-
-		await act(async () => {
-			fireEvent.pointerUp(window, { pointerId: 1 });
-		});
-		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBe("220");
-		expect(pages.style.height).toBe("220px");
-
-		const resetButton = view.getByRole("button", {
-			name: "Reset pages height",
-		});
-		// Flush the post-drag click suppression timer, then click to reset.
-		await act(async () => {
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			fireEvent.click(resetButton);
-		});
-		expect(localStorage.getItem("splates.sidebarPagesHeight")).toBeNull();
-		expect(pages.style.height).toBe("");
-		expect(view.getByRole("button", { name: /^Fold pages/ })).toBeTruthy();
+		await act(async () => fireEvent.click(settings));
+		expect(view.getByRole("region", { name: "Settings" })).toBeTruthy();
 	});
 
 	it("says in the page menu who Cloudflare Access signed in, with Sign out, and nothing on this machine", async () => {

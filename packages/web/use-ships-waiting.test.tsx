@@ -14,25 +14,6 @@ afterEach(() => {
 	localStorage.removeItem("splates.ships.recap-seen");
 });
 
-function Status() {
-	const ready = useShipRecapReady();
-	const running = useShipsRunning();
-	return <div>{running ? "running" : ready ? "recap ready" : "idle"}</div>;
-}
-
-function Failed() {
-	return <div>{useShipFailed() ? "failed" : "fine"}</div>;
-}
-
-function serve(status: string) {
-	globalThis.fetch = (async (input: RequestInfo | URL) =>
-		Response.json(
-			(input instanceof Request ? input.url : String(input)).includes("waiting")
-				? []
-				: { runs: [{ id: "latest", status }] },
-		)) as typeof fetch;
-}
-
 test("successful ship marks its recap until opened", async () => {
 	serve("done");
 	const view = render(<Status />);
@@ -64,3 +45,22 @@ test("shows the running status while a ship runs", async () => {
 	const view = render(<Status />);
 	await waitFor(() => expect(view.getByText("running")).toBeTruthy());
 });
+
+function Status() {
+	const ready = useShipRecapReady();
+	const running = useShipsRunning();
+	return <div>{running ? "running" : ready ? "recap ready" : "idle"}</div>;
+}
+
+function Failed() {
+	return <div>{useShipFailed() ? "failed" : "fine"}</div>;
+}
+
+function serve(status: string) {
+	globalThis.fetch = (async (input: RequestInfo | URL) =>
+		Response.json(
+			(input instanceof Request ? input.url : String(input)).includes("waiting")
+				? []
+				: { runs: [{ id: "latest", status }] },
+		)) as typeof fetch;
+}

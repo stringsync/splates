@@ -1,16 +1,10 @@
 import { useAuiState } from "@assistant-ui/react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import {
-	ChevronRightIcon,
-	type LucideIcon,
-	MessageSquareIcon,
-	XIcon,
-} from "lucide-react";
+import { type LucideIcon, XIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
 	type ReactNode,
-	type Ref,
 	useCallback,
 	useContext,
 	useEffect,
@@ -23,9 +17,9 @@ import { raises } from "#web/hooks/use-touch.ts";
 import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
 import { useArrived } from "./arrivals";
-import { useCardReply } from "./card-reply";
+import { InMessageContext, useCardReply } from "./card-reply";
 import { CARD_SPACE, TONES, type Tone } from "./card-shell";
-import { backTo } from "./page-address";
+import { ThreadBar } from "./thread-bar";
 
 /** A card an agent waits on you through, opened in a sheet of its own. */
 interface Sheet {
@@ -40,11 +34,8 @@ interface Sheet {
 	 * which are read in the thread first.
 	 */
 	bare: boolean;
-	/**
-	 * Opens it, over the thread, or over where the page was at `from` when it
-	 * came from there, going back to it on a close.
-	 */
-	open: (from?: string) => void;
+	/** Opens the sheet over the thread. */
+	open: () => void;
 }
 
 /**
@@ -64,6 +55,14 @@ interface Sheets {
 const IN_VIEW = 0.5;
 
 const SheetsContext = createContext<Sheets | null>(null);
+
+/** True while rendering inside a mobile `Sheeted` popup. */
+export const InSheetContext = createContext(false);
+
+/** Whether the current tree is rendered inside a mobile card sheet. */
+export function useInSheet(): boolean {
+	return useContext(InSheetContext);
+}
 
 /**
  * Holds the waiting cards of the thread in `children` in sheets, and opens
@@ -89,8 +88,8 @@ export function PhoneSheets({
 }): JSX.Element {
 	const all = useRef<Sheet[]>([]);
 	// An arrival before any card came up, or before the thread was whole, as
-	// while it loads, by the address it came from: the first to come up opens.
-	const arriving = useRef<string | null>(null);
+	// while it loads: the first to come up opens.
+	const arriving = useRef(false);
 	const complete = useRef(whole);
 	complete.current = whole;
 	const [shown, setShown] = useState<Sheet[]>([]);
@@ -115,11 +114,11 @@ export function PhoneSheets({
 			sheet,
 		];
 		setShown(all.current);
-		if (arriving.current !== null && complete.current) {
+		if (arriving.current && complete.current) {
 			if (sheet.bare) {
-				sheet.open(arriving.current);
+				sheet.open();
 			}
-			arriving.current = null;
+			arriving.current = false;
 		}
 		return () => {
 			all.current = all.current.filter((each) => each.id !== sheet.id);
@@ -131,12 +130,12 @@ export function PhoneSheets({
 		[add, shown, sight, inView],
 	);
 	// Beside a sidebar, the thread scrolls to it instead.
-	useArrived(on ? conversation : "", (from) => {
+	useArrived(on ? conversation : "", () => {
 		const latest = all.current.at(-1);
 		if (latest === undefined || !complete.current) {
-			arriving.current = from;
+			arriving.current = true;
 		} else if (latest.bare) {
-			latest.open(from);
+			latest.open();
 		}
 	});
 	return <SheetsContext value={on ? sheets : null}>{children}</SheetsContext>;
@@ -157,96 +156,100 @@ export function useSheeted(): boolean {
  */
 export function Sheeted({
 	title,
+	subtitle,
 	Icon,
 	tone,
 	action = "Answer",
+	always = false,
+	waiting = true,
 	children,
 }: {
 	title: string;
+	/** Quiet second line below the title inside the sheet header. */
+	subtitle?: ReactNode;
 	Icon: LucideIcon;
 	tone: Tone;
 	/** What a tap on its line or the bar does, "Answer" unless it asks nothing. */
 	action?: string;
+	/** Open in a sheet on mobile even when the card is not waiting on a reply. */
+	always?: boolean;
+	/** Whether this card is waiting on user action (registers with `NeedsYouBar` and arrivals). */
+	waiting?: boolean;
 	children: ReactNode;
 }): ReactNode {
 	const sheets = useContext(SheetsContext);
 	const { reply, sent } = useCardReply();
-	const live = sent === null && reply?.send != null;
-	// Whether the message holds no words beside the card.
-	const bare = useAuiState((state) =>
-		state.message.content.every(
-			(part) => part.type !== "text" || part.text.trim() === "",
-		),
-	);
+	const live = waiting && sent === null && reply?.send != null;
+	const hasSubtitle =
+		subtitle !== undefined && subtitle !== null && subtitle !== false;
 	const [open, setOpen] = useState(false);
-	// The address it was opened from, to go back to on a close, or null.
-	const from = useRef<string | null>(null);
-	const show = useCallback((at?: string) => {
-		from.current = at ?? null;
+	const show = useCallback(() => {
 		setOpen(true);
 	}, []);
-	const close = (back: boolean) => {
-		setOpen(false);
-		const at = from.current;
-		from.current = null;
-		if (back && at !== null) {
-			backTo(at);
-		}
-	};
 	const id = useId();
 	// Pinned above the keyboard, so "Anything else" stays in sight as it is typed.
 	const { top, height, keyboard } = useViewport();
 	const [body, setBody] = useState<HTMLDivElement | null>(null);
 	useTypedInView(body, height);
-	const add = sheets?.add;
-	useEffect(() => {
-		if (add !== undefined && live) {
-			return add({ id, title, Icon, tone, action, bare, open: show });
-		}
-	}, [add, live, id, title, Icon, tone, action, bare, show]);
-	const [line, setLine] = useState<HTMLButtonElement | null>(null);
-	useLineInSight(line, id, sheets?.sight);
-	if (sheets === null || !live) {
+	const [line, setLine] = useState<HTMLElement | null>(null);
+	useLineInSight(line, id, live ? sheets?.sight : undefined);
+	if (sheets === null || (!live && !always)) {
 		return children;
 	}
 	return (
 		<>
-			<SheetLine
+			{live && (
+				<RegisterSheet
+					add={sheets.add}
+					id={id}
+					title={title}
+					Icon={Icon}
+					tone={tone}
+					action={action}
+					open={show}
+				/>
+			)}
+			<ThreadBar
 				ref={setLine}
-				title={title}
 				Icon={Icon}
-				tone={tone}
-				action={action}
-				onOpen={() => show()}
+				iconTone={tone}
+				label={title}
+				cta={action}
+				onPress={() => show()}
+				className={CARD_SPACE}
 			/>
-			<DialogPrimitive.Root
-				open={open}
-				onOpenChange={(next) => (next ? setOpen(true) : close(true))}
-			>
+			<DialogPrimitive.Root open={open} onOpenChange={setOpen}>
 				<DialogPrimitive.Portal>
 					<DialogPrimitive.Popup
 						style={{ top, height }}
-						className="fixed inset-x-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top)] outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
+						className="fixed inset-x-0 z-50 flex flex-col bg-background outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
 					>
-						<header className="flex h-14 shrink-0 items-center gap-2 border-b px-2">
+						<header
+							className={cn(
+								"box-content flex h-(--top-bar-height) shrink-0 items-center gap-2 border-b pt-[env(safe-area-inset-top)] pr-2 pl-4",
+								TONES[tone].header,
+							)}
+						>
+							<Icon
+								aria-hidden
+								className={cn("size-4 shrink-0", TONES[tone].icon)}
+							/>
+							<div className="flex min-w-0 flex-1 flex-col">
+								<DialogPrimitive.Title className="min-w-0 truncate font-medium text-sm">
+									{title}
+								</DialogPrimitive.Title>
+								{hasSubtitle && (
+									<div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-muted-foreground text-[11px] leading-4 [&>*]:min-w-0 [&>*]:truncate [&>span]:text-[11px] [&>span]:leading-4 [&>span_span]:text-[11px] [&>span_span]:leading-4 [&_button]:shrink-0">
+										{subtitle}
+									</div>
+								)}
+							</div>
 							<DialogPrimitive.Close
 								aria-label="Close"
-								className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-5"
+								className="flex size-11 shrink-0 items-center justify-center rounded-full outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-5"
 							>
 								<XIcon />
 							</DialogPrimitive.Close>
-							<DialogPrimitive.Title className="flex-1 truncate font-semibold text-base">
-								{title}
-							</DialogPrimitive.Title>
-							{/* Into the thread behind it, wherever it was opened from. */}
-							<button
-								type="button"
-								onClick={() => close(false)}
-								className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium text-muted-foreground text-sm outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-4"
-							>
-								<MessageSquareIcon />
-								Conversation
-							</button>
 						</header>
 						<div
 							ref={setBody}
@@ -259,13 +262,74 @@ export function Sheeted({
 									"[&:not(:has([data-pinned]))]:pb-[env(safe-area-inset-bottom)] [&_[data-pinned]]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
 							)}
 						>
-							{children}
+							<InSheetContext value={true}>{children}</InSheetContext>
 						</div>
 					</DialogPrimitive.Popup>
 				</DialogPrimitive.Portal>
 			</DialogPrimitive.Root>
 		</>
 	);
+}
+
+/** Registers a live waiting card with `PhoneSheets` so arrivals and `NeedsYouBar` can open it. */
+function RegisterSheet(props: {
+	add: Sheets["add"];
+	id: string;
+	title: string;
+	Icon: LucideIcon;
+	tone: Tone;
+	action: string;
+	open: () => void;
+}): JSX.Element {
+	const inMessage = useContext(InMessageContext);
+	return inMessage ? (
+		<RegisterMessageSheet {...props} />
+	) : (
+		<RegisterStandaloneSheet {...props} bare />
+	);
+}
+
+function RegisterMessageSheet(props: {
+	add: Sheets["add"];
+	id: string;
+	title: string;
+	Icon: LucideIcon;
+	tone: Tone;
+	action: string;
+	open: () => void;
+}): JSX.Element {
+	// Whether the message holds no words beside the card.
+	const bare = useAuiState((state) =>
+		state.message.content.every(
+			(part) => part.type !== "text" || part.text.trim() === "",
+		),
+	);
+	return <RegisterStandaloneSheet {...props} bare={bare} />;
+}
+
+function RegisterStandaloneSheet({
+	add,
+	id,
+	title,
+	Icon,
+	tone,
+	action,
+	bare,
+	open,
+}: {
+	add: Sheets["add"];
+	id: string;
+	title: string;
+	Icon: LucideIcon;
+	tone: Tone;
+	action: string;
+	bare: boolean;
+	open: () => void;
+}): null {
+	useEffect(() => {
+		return add({ id, title, Icon, tone, action, bare, open });
+	}, [add, id, title, Icon, tone, action, bare, open]);
+	return null;
 }
 
 /**
@@ -354,29 +418,14 @@ export function NeedsYouBar(): ReactNode {
 	// Its own landmark, apart from the line in the thread that reads the same.
 	return (
 		<aside aria-label="Waiting on you">
-			<button
-				type="button"
-				onClick={() => open()}
-				className="group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs"
-			>
-				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-				<span className="min-w-0 flex-1 truncate">{title}</span>
-				<Action label={action} />
-			</button>
+			<ThreadBar
+				Icon={Icon}
+				iconTone={tone}
+				label={title}
+				cta={action}
+				onPress={() => open()}
+			/>
 		</aside>
-	);
-}
-
-/**
- * What a tap on a waiting card's line or bar does, the same on both, so
- * either reads as the way to the sheet.
- */
-function Action({ label }: { label: string }): JSX.Element {
-	return (
-		<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium text-[0.8rem] shadow-xs group-active:bg-muted">
-			{label}
-			<ChevronRightIcon className="size-4 text-muted-foreground" />
-		</span>
 	);
 }
 
@@ -408,37 +457,4 @@ function useLineInSight(
 			sight(id, false);
 		};
 	}, [line, id, sight]);
-}
-
-/** A line naming a waiting card, opening its sheet on a tap. */
-function SheetLine({
-	ref,
-	title,
-	Icon,
-	tone,
-	action,
-	onOpen,
-}: {
-	ref: Ref<HTMLButtonElement>;
-	title: string;
-	Icon: LucideIcon;
-	tone: Tone;
-	action: string;
-	onOpen: () => void;
-}): JSX.Element {
-	return (
-		<button
-			ref={ref}
-			type="button"
-			onClick={onOpen}
-			className={cn(
-				"group flex w-full items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-left text-sm shadow-xs",
-				CARD_SPACE,
-			)}
-		>
-			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 flex-1 truncate">{title}</span>
-			<Action label={action} />
-		</button>
-	);
 }

@@ -44,110 +44,106 @@ export function DesktopPageHeaderBand({
 	statedRef: RefObject<HTMLDivElement | null>;
 }): JSX.Element {
 	return (
-		<>
-			<div aria-hidden="true" className="page-header-glow" />
-			<div aria-hidden="true" className="page-header-sheen" />
-			<div className={cn("relative", sidebarHidden && "pl-(--top-bar-start)")}>
+		<div className={cn("relative", sidebarHidden && "pl-(--top-bar-start)")}>
+			<div
+				className={cn(
+					"w-full min-w-0",
+					area.compact
+						? "px-5 py-4"
+						: cn("px-4 pt-[18px]", tabs ? "pb-0" : "pb-[18px]"),
+				)}
+			>
 				<div
+					ref={roomRef}
 					className={cn(
-						"w-full min-w-0",
-						area.compact
-							? "px-5 py-4"
-							: cn("px-4 pt-[18px]", tabs ? "pb-0" : "pb-[18px]"),
+						"relative flex min-w-0 justify-between gap-4",
+						area.compact ? "items-center" : "items-start",
 					)}
 				>
 					<div
-						ref={roomRef}
 						className={cn(
-							"relative flex min-w-0 justify-between gap-4",
+							"flex min-w-0 flex-1 gap-3.5",
 							area.compact ? "items-center" : "items-start",
 						)}
 					>
 						<div
+							aria-hidden="true"
 							className={cn(
-								"flex min-w-0 flex-1 gap-3.5",
-								area.compact ? "items-center" : "items-start",
+								"page-header-icon flex shrink-0 items-center justify-center",
+								area.compact
+									? "size-[34px] rounded-[9px] [&_svg]:size-[17px]"
+									: "size-10 rounded-[10px] [&_svg]:size-5",
 							)}
 						>
-							<div
-								aria-hidden="true"
-								className={cn(
-									"page-header-icon flex shrink-0 items-center justify-center",
-									area.compact
-										? "size-[34px] rounded-[9px] [&_svg]:size-[17px]"
-										: "size-10 rounded-[10px] [&_svg]:size-5",
-								)}
-							>
-								<area.Icon />
-							</div>
-							<div className="flex min-w-0 flex-1 flex-col gap-1">
-								<div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-									<div
-										ref={titledRef}
-										className="flex min-w-0 items-center gap-1.5"
-									>
-										{typeof title === "string" ? (
-											<h2
-												title={title}
-												className={cn(
-													"min-w-0 truncate font-semibold text-foreground leading-[1.2]",
-													area.compact
-														? "text-[15px] tracking-[-0.01em]"
-														: "text-[21px] tracking-[-0.02em]",
-												)}
-											>
-												{title}
-											</h2>
-										) : (
-											title
-										)}
-									</div>
-									{badge !== null && (
-										<span
+							<area.Icon />
+						</div>
+						<div className="flex min-w-0 flex-1 flex-col gap-1">
+							<div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+								<div
+									ref={titledRef}
+									className="flex min-w-0 items-center gap-1.5"
+								>
+									{typeof title === "string" ? (
+										<h2
+											title={title}
 											className={cn(
-												"page-header-pill inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 leading-tight",
+												"min-w-0 truncate font-semibold text-foreground leading-[1.2]",
 												area.compact
-													? "font-mono text-[10.5px]"
-													: "font-medium text-[11px]",
+													? "text-[15px] tracking-[-0.01em]"
+													: "text-[21px] tracking-[-0.02em]",
 											)}
 										>
-											{badge}
-										</span>
+											{title}
+										</h2>
+									) : (
+										title
 									)}
-									{Boolean(detail) && (
-										<div
-											ref={detailedRef}
-											className="flex min-w-0 max-w-60 shrink-0 items-center text-muted-foreground"
-										>
-											{detail}
-										</div>
-									)}
-									<div
-										ref={statedRef}
-										className="flex shrink-0 items-center gap-2 empty:hidden"
-									>
-										{status}
-									</div>
 								</div>
-								{description !== null && (
-									<FittingDescription
-										className={
+								{badge !== null && (
+									<span
+										className={cn(
+											"page-header-pill inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 leading-tight",
 											area.compact
-												? "text-[12.5px] leading-[1.35]"
-												: "text-[13.5px] leading-[1.45]"
-										}
+												? "font-mono text-[10.5px]"
+												: "font-medium text-[11px]",
+										)}
 									>
-										{description}
-									</FittingDescription>
+										{badge}
+									</span>
 								)}
+								{Boolean(detail) && (
+									<div
+										ref={detailedRef}
+										className="flex min-w-0 max-w-60 shrink-0 items-center text-muted-foreground"
+									>
+										{detail}
+									</div>
+								)}
+								<div
+									ref={statedRef}
+									className="flex shrink-0 items-center gap-2 empty:hidden"
+								>
+									{status}
+								</div>
 							</div>
+							{description !== null && (
+								<FittingDescription
+									className={
+										area.compact
+											? "text-[12.5px] leading-[1.35]"
+											: "text-[13.5px] leading-[1.45]"
+									}
+								>
+									{description}
+								</FittingDescription>
+							)}
 						</div>
-						<div className="flex shrink-0 items-center gap-1">{controls}</div>
 					</div>
-					{tabs && <div className="mt-3.5">{tabs}</div>}
+					<div className="flex shrink-0 items-center gap-1">{controls}</div>
 				</div>
+				{tabs && <div className="mt-3.5">{tabs}</div>}
 			</div>
-		</>
+		</div>
 	);
 }
 
@@ -170,85 +166,81 @@ export function PhonePageHeaderBand({
 	tabs?: ReactNode;
 }): JSX.Element {
 	return (
-		<>
-			<div aria-hidden="true" className="page-header-glow" />
-			<div aria-hidden="true" className="page-header-sheen" />
+		<div
+			className={cn(
+				"relative w-full min-w-0 px-4",
+				area.compact ? "py-[15px]" : cn("pt-4", tabs ? "pb-0" : "pb-4"),
+			)}
+		>
 			<div
 				className={cn(
-					"relative w-full min-w-0 px-4",
-					area.compact ? "py-[15px]" : cn("pt-4", tabs ? "pb-0" : "pb-4"),
+					"flex min-w-0 gap-3",
+					area.compact ? "items-center" : "items-start",
 				)}
 			>
 				<div
+					aria-hidden="true"
 					className={cn(
-						"flex min-w-0 gap-3",
-						area.compact ? "items-center" : "items-start",
+						"page-header-icon flex shrink-0 items-center justify-center",
+						area.compact
+							? "size-8 rounded-lg [&_svg]:size-4"
+							: "size-9 rounded-[9px] [&_svg]:size-[18px]",
 					)}
 				>
+					<area.Icon />
+				</div>
+				<div className="flex min-w-0 flex-1 flex-col gap-1">
 					<div
-						aria-hidden="true"
 						className={cn(
-							"page-header-icon flex shrink-0 items-center justify-center",
-							area.compact
-								? "size-8 rounded-lg [&_svg]:size-4"
-								: "size-9 rounded-[9px] [&_svg]:size-[18px]",
+							"flex min-w-0 items-center gap-2",
+							area.compact ? "justify-between" : "flex-wrap",
 						)}
 					>
-						<area.Icon />
-					</div>
-					<div className="flex min-w-0 flex-1 flex-col gap-1">
-						<div
-							className={cn(
-								"flex min-w-0 items-center gap-2",
-								area.compact ? "justify-between" : "flex-wrap",
-							)}
-						>
-							<div className="flex min-w-0 items-center gap-1.5">
-								{typeof title === "string" ? (
-									<h2
-										title={title}
-										className={cn(
-											"min-w-0 truncate font-semibold text-foreground leading-[1.2]",
-											area.compact
-												? "text-[15px] tracking-[-0.01em]"
-												: "text-[19px] tracking-[-0.02em]",
-										)}
-									>
-										{title}
-									</h2>
-								) : (
-									title
-								)}
-							</div>
-							{badge !== null && (
-								<span
+						<div className="flex min-w-0 items-center gap-1.5">
+							{typeof title === "string" ? (
+								<h2
+									title={title}
 									className={cn(
-										"page-header-pill inline-flex shrink-0 items-center rounded-full px-2 py-0.5 leading-tight",
+										"min-w-0 truncate font-semibold text-foreground leading-[1.2]",
 										area.compact
-											? "font-mono text-[10px]"
-											: "font-medium text-[10.5px]",
+											? "text-[15px] tracking-[-0.01em]"
+											: "text-[19px] tracking-[-0.02em]",
 									)}
 								>
-									{badge}
-								</span>
+									{title}
+								</h2>
+							) : (
+								title
 							)}
 						</div>
-						{description !== null && (
-							<FittingDescription
-								className={
+						{badge !== null && (
+							<span
+								className={cn(
+									"page-header-pill inline-flex shrink-0 items-center rounded-full px-2 py-0.5 leading-tight",
 									area.compact
-										? "text-[12.5px] leading-[1.35]"
-										: "text-[13px] leading-[1.4]"
-								}
+										? "font-mono text-[10px]"
+										: "font-medium text-[10.5px]",
+								)}
 							>
-								{description}
-							</FittingDescription>
+								{badge}
+							</span>
 						)}
 					</div>
+					{description !== null && (
+						<FittingDescription
+							className={
+								area.compact
+									? "text-[12.5px] leading-[1.35]"
+									: "text-[13px] leading-[1.4]"
+							}
+						>
+							{description}
+						</FittingDescription>
+					)}
 				</div>
-				{tabs && <div className="mt-3">{tabs}</div>}
 			</div>
-		</>
+			{tabs && <div className="mt-3">{tabs}</div>}
+		</div>
 	);
 }
 

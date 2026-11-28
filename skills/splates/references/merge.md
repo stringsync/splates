@@ -9,7 +9,7 @@ SKILL.md (step 6). This guide is for when it refuses.
 
 A `tests_failed` or `timeout` leaves the worktree rebased onto the base commit the gate ran on. When the base moved, `tests_failed` lists the newly landed commits touching the failing files first: read those before the test, reproduce locally (`bun test <paths>`), fix, commit, and merge again. On a batch `tests_failed`, the refusal names the stack commit if the failure only reproduces with the batch. If `splates server` restarts mid-merge, keep waiting for it to reconnect rather than merging again.
 
-- **`review`:** the user approved the plan with Approve & review or the plan carries the One-way Undo tag: send the Ready to merge report and end your turn; merge after their `[SPLATES MERGE]`.
+- **`review`:** the user approved the plan with Approve & review or the plan carries the One-way or Invasive tag: send the Ready to merge report and end your turn; merge after their `[SPLATES MERGE]`.
 - **`timeout`:** the gate hit its deadline without spending an attempt, so merge again.
 - **`blocked` (`index.lock`):** wait for the live Git operation to finish and merge again; never delete a live lock.
 - **`conflict`:** resolve the conflict in the worktree, `git add`, `git rebase --continue`, and merge again right away. Conflicts are expected: say nothing of them in `SPLATES.md`, a report, or a task. (A failed rebase with no unmerged paths is `merge_failed`, not `conflict`.)

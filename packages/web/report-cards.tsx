@@ -113,6 +113,17 @@ export function ReportCard({
 				task={report.task === "" ? undefined : report.task}
 				base={report.base}
 				folded={resumed}
+				sheet={
+					merged
+						? {
+								title:
+									report.task === ""
+										? look.title
+										: `${look.title} · ${report.task}`,
+								action: "Open",
+							}
+						: false
+				}
 				aside={
 					resumed ? (
 						<span className="text-muted-foreground text-xs">
@@ -137,7 +148,7 @@ export function ReportCard({
 							<BeforeAfter
 								record={record}
 								folds
-								className="px-4 py-3.5 @max-md:px-3 @max-md:py-2.5"
+								className="px-4 py-3.5 @max-md:py-2.5"
 							>
 								<ChecksSection text={record.checks ?? ""} />
 							</BeforeAfter>

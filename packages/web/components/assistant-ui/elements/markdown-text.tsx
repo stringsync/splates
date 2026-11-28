@@ -12,9 +12,12 @@ import {
 	type SyntaxHighlighterProps,
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
+import { parseInlineArtifactRef } from "@splates/server/artifacts/browser";
 import { CheckIcon, CopyIcon, SquareTerminalIcon } from "lucide-react";
 import {
+	Children,
 	type FC,
+	isValidElement,
 	type JSX,
 	memo,
 	useContext,
@@ -355,15 +358,26 @@ const defaultComponents = memoizeMarkdownComponents({
 	),
 	// A paragraph of images and nothing else is drawn as one gallery card.
 	p: ({ className, ...props }) => {
+		const hasArtifact = Children.toArray(props.children).some(
+			(child) =>
+				isValidElement<Record<string, unknown>>(child) &&
+				(child.props.node as { tagName?: string } | undefined)?.tagName ===
+					"img" &&
+				typeof child.props.src === "string" &&
+				parseInlineArtifactRef(child.props.src) !== null,
+		);
+		const classes = cn(
+			"aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0",
+			className,
+		);
+		if (hasArtifact) {
+			return <div className={classes}>{props.children}</div>;
+		}
 		const pictured = picturedIn(
 			props.children,
 			(child) =>
 				(child.props.node as { tagName?: string } | undefined)?.tagName ===
 				"img",
-		);
-		const classes = cn(
-			"aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0",
-			className,
 		);
 		if (pictured !== null) {
 			return (

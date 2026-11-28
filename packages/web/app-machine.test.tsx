@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { MachineStatus } from "./api";
+import { details } from "./fixtures";
 import {
 	act,
 	cleanup,
@@ -145,6 +146,36 @@ describe("App's machine stats", () => {
 
 		await waitFor(() => view.getByRole("menuitem", { name: "Settings" }));
 		expect(view.queryByRole("region", { name: /^This / })).toBeNull();
+	});
+
+	it("surfaces critical and routine server status badges in the top bar without a sidebar footer pill", async () => {
+		testing.machine = reading({ cpu: 0.94, load: 12.4 });
+		const view = await testing.open({
+			unbuilt: true,
+			tasks: [
+				details({
+					task: "alpha",
+					status: "merging",
+					gate: "running",
+					mergeSince: new Date(Date.now() - 2 * 60_000).toISOString(),
+					takenBy: "c-alpha",
+				}),
+			],
+		});
+
+		const busy = await waitFor(() => view.getByText("Busy"));
+		const header = view.container.querySelector("header[data-page-area]");
+		expect(header?.textContent).toContain("Build failed");
+		expect(header?.textContent).toContain("Busy");
+		expect(
+			view.container.querySelector('[data-slot="sidebar-status-pill"]'),
+		).toBeNull();
+
+		await act(async () => fireEvent.click(busy));
+		expect(
+			await waitFor(() => view.getByText(/Load 12\.4 on 16 cores/)),
+		).toBeTruthy();
+		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 });
 

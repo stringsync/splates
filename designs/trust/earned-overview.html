@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Page: How It Works Overview</title>
+<link rel="stylesheet" href="earned-shared.css">
+<script>if(location.hash==="#phone"){document.documentElement.classList.add("phone");}</script>
+<style>/* biome-ignore-all lint/style/noDescendingSpecificity: static design mock sheet */
+.steps-band {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 10px;
+	padding: 16px;
+	background: color-mix(in oklab, var(--muted) 35%, var(--card));
+}
+@media (min-width: 700px) {
+	.steps-band {
+		grid-template-columns: repeat(3, 1fr);
+		gap: 12px;
+	}
+}
+html.phone .steps-band {
+	grid-template-columns: 1fr;
+}
+.step-card {
+	background: var(--card);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	padding: 12px 13px;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+.step-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+}
+.step-desc {
+	font-size: 13px;
+	color: var(--muted-foreground);
+	line-height: 1.45;
+}
+.rules-list {
+	list-style: none;
+	border-top: 1px solid var(--border);
+}
+.rules-list li {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 11px 16px;
+	font-size: 13.5px;
+	line-height: 1.45;
+}
+.rules-list li + li {
+	border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+.r-ic {
+	color: var(--muted-foreground);
+	margin-top: 2px;
+	flex: none;
+}
+</style>
+</head>
+<body>
+<span class="mock-badge">Mock · How it works</span>
+<div class="shell">
+	<aside class="sidebar">
+		<div class="side-brand">splates</div>
+		<div class="side-item">Conversations</div>
+		<div class="side-item">Boards</div>
+		<div class="side-sep"></div>
+		<div class="side-label">Workspace</div>
+		<div class="side-item active">
+			<svg aria-hidden="true" class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+			Trust
+		</div>
+		<div class="side-item">Stats</div>
+		<div class="side-item">Evals</div>
+	</aside>
+
+	<div class="main">
+		<div class="phone-bar"><span>← Menu</span><span class="muted">All projects</span></div>
+		<header class="page-header">
+			<div class="page-header-glow"></div>
+			<div class="page-header-sheen"></div>
+			<div class="page-header-inner">
+				<div class="page-icon"><svg aria-hidden="true" class="ic lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></div>
+				<div class="grow">
+					<div class="page-title-row"><h1 class="page-title">Trust</h1><span class="scope-pill">All projects</span></div>
+					<p class="page-desc">Earned autonomy by project and model. Ships, spending, deletions, and security always ask.</p>
+				</div>
+			</div>
+			<nav class="header-tabs">
+				<span class="htab active">How it works</span>
+				<span class="htab">Models</span>
+				<span class="htab">Scopes</span>
+				<span class="htab">Assumptions</span>
+			</nav>
+		</header>
+
+		<main class="content narrow">
+			<section class="page-section">
+				<div class="ps-head"><h2 class="ps-title">Overview</h2></div>
+				<div class="card">
+					<div class="steps-band">
+						<div class="step-card">
+							<div class="step-top"><span class="badge wait">Ask &amp; wait</span><span class="badge secondary">Start</span></div>
+							<div class="step-desc">Waits for plan approval and question answers before building or merging.</div>
+						</div>
+						<div class="step-card">
+							<div class="step-top"><span class="badge go">Ask &amp; go</span><span class="badge secondary">Days</span></div>
+							<div class="step-desc">Asks questions and posts plans, carrying on with its pick meanwhile.</div>
+						</div>
+						<div class="step-card">
+							<div class="step-top"><span class="badge assume">Assume</span><span class="badge secondary">Weeks</span></div>
+							<div class="step-desc">Makes reversible calls on its own as Assumed lines with an Overturn action.</div>
+						</div>
+					</div>
+
+					<ul class="rules-list">
+						<li>
+							<svg aria-hidden="true" class="ic r-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+							<div><b>Earned over time:</b> Each chat counts at most once across active days, so one long review never skips ahead.</div>
+						</li>
+						<li>
+							<svg aria-hidden="true" class="ic r-ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+							<div><b>Steady through exploration:</b> Normal mockup and answer tweaks stay light; only reverts, redos, and bad assumptions step a level back.</div>
+						</li>
+						<li>
+							<svg aria-hidden="true" class="ic r-ic" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+							<div><b>Hard limits always hold:</b> Only you ship, and spending, deletions, and security always ask; override any model on Models.</div>
+						</li>
+					</ul>
+				</div>
+			</section>
+		</main>
+	</div>
+</div>
+</body>
+</html>

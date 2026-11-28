@@ -27,7 +27,7 @@ export function MergedBody({
 		text !== "" && outcome !== undefined ? outcome : "",
 	].filter((each) => each !== "");
 	return (
-		<div className="flex flex-col gap-0 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5">
+		<div className="flex flex-col gap-0 px-4 py-3.5 @max-md:py-2.5">
 			<CardSection label="Summary" title="Summary" ruled={ruled}>
 				<CardBody className="p-0 @max-md:p-0" text={first} />
 				{more.length > 0 && (

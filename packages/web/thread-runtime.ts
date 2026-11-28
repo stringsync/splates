@@ -8,6 +8,7 @@ import type { ConversationState } from "@splates/server/conversations";
 import { aborts } from "core/abort";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAdapters } from "./adapters";
+import type { ReplySendOptions } from "./card-reply";
 import {
 	filesOf,
 	named,
@@ -49,7 +50,12 @@ export function useThreadRuntime(
 		}
 	}, [running]);
 	const send = useCallback(
-		async (text: string, files: File[], dictated = false) => {
+		async (
+			text: string,
+			files: File[],
+			dictated = false,
+			options?: ReplySendOptions,
+		) => {
 			// Shown at once, with its reply's place or among what is queued,
 			// rather than once the server says it back: the round trip, slow over
 			// a tunnel and longer still while the agent comes back up, would leave
@@ -70,6 +76,8 @@ export function useThreadRuntime(
 				dictated,
 				sending?.id,
 				controller.signal,
+				undefined,
+				options,
 			);
 			const answer = aborts.race(controller.signal, request);
 			// The same pending write as any other to this conversation, so

@@ -1,7 +1,11 @@
+import { basename } from "node:path";
 import {
 	capturedFileName,
+	findInlineHtml,
 	findInlineMedia,
+	formatInlineArtifactRef,
 	type InlineMediaScanOptions,
+	isValidHtml,
 	ownsConversationAttached,
 	readValidatedMedia,
 	rewriteInlineMedia,
@@ -80,6 +84,11 @@ export class ConversationMedia {
 	private queue: Promise<void> = Promise.resolve();
 	/** Rejected local files cached by `mtimeMs:size` so streaming chunks skip re-reading them. */
 	private readonly rejected = new Map<string, string>();
+	/** Captured HTML embeds cached by resolved path -> `{ stamp, ref }` so streaming chunks do not duplicate versions. */
+	private readonly capturedHtml = new Map<
+		string,
+		{ stamp: string; ref: string }
+	>();
 
 	constructor(
 		private readonly host: ConversationHost,
@@ -87,9 +96,9 @@ export class ConversationMedia {
 	) {}
 
 	/**
-	 * Scans the latest agent message for uncaptured local media references,
-	 * validates and stores each within size limits, logs the rewrites, and
-	 * updates the in-memory message parts.
+	 * Scans the latest agent message for uncaptured local media and HTML embed
+	 * references, validates and stores each within size limits, logs the
+	 * rewrites, and updates the in-memory message parts.
 	 */
 	capture(opts: InlineMediaScanOptions = {}): Promise<void> {
 		const next = this.queue.then(() => this.captureNow(opts));
@@ -99,7 +108,7 @@ export class ConversationMedia {
 
 	private async captureNow(opts: InlineMediaScanOptions): Promise<void> {
 		const host = this.host;
-		const deps = this.deps;
+		const _deps = this.deps;
 		const last = host.state.messages.findLast((each) => each.role === "agent");
 		if (last === undefined) {
 			return;
@@ -107,9 +116,32 @@ export class ConversationMedia {
 		const refs = last.parts.flatMap((part) =>
 			part.type === "text" ? findInlineMedia(part.text, host.cwd, opts) : [],
 		);
-		if (refs.length === 0) {
+		const htmlRefs = last.parts.flatMap((part) =>
+			part.type === "text" ? findInlineHtml(part.text, host.cwd, opts) : [],
+		);
+		if (refs.length === 0 && htmlRefs.length === 0) {
 			return;
 		}
+		const captured: CapturedMedia[] = [
+			...(await this.captureMediaRefs(refs)),
+			...(await this.captureHtmlRefs(htmlRefs)),
+		];
+		if (captured.length === 0) {
+			return;
+		}
+		if (applyCapturedMedia(last, captured)) {
+			host.log.write({ kind: "media", files: captured });
+			host.changed();
+		}
+	}
+
+	private async captureMediaRefs(
+		refs: ReturnType<typeof findInlineMedia>,
+	): Promise<CapturedMedia[]> {
+		if (refs.length === 0) {
+			return [];
+		}
+		const { host, deps } = this;
 		const conversationsDir = deps.storage.locate("");
 		const isOwned = (path: string): boolean => {
 			const normalized = movedPath(path);
@@ -204,15 +236,130 @@ export class ConversationMedia {
 			resolvedStored.set(ref.resolved, stored);
 			captured.push({ from: ref.raw, to: stored, source: ref.resolved });
 		}
+		return captured;
+	}
 
-		if (captured.length === 0) {
-			return;
+	private async captureHtmlRefs(
+		refs: ReturnType<typeof findInlineHtml>,
+	): Promise<CapturedMedia[]> {
+		if (refs.length === 0) {
+			return [];
 		}
-		if (applyCapturedMedia(last, captured)) {
-			host.log.write({ kind: "media", files: captured });
-			host.changed();
+		const { host, deps } = this;
+		const seenRaw = new Set<string>();
+		const resolvedRef = new Map<string, string | null>();
+		const captured: CapturedMedia[] = [];
+
+		for (const ref of refs) {
+			if (seenRaw.has(ref.raw)) {
+				continue;
+			}
+			seenRaw.add(ref.raw);
+
+			if (resolvedRef.has(ref.resolved)) {
+				const target = resolvedRef.get(ref.resolved) ?? null;
+				if (target !== null) {
+					captured.push({ from: ref.raw, to: target, source: ref.resolved });
+				}
+				continue;
+			}
+
+			const stat = await deps.fs.stat(ref.resolved).catch(() => null);
+			if (
+				stat === null ||
+				stat.isDirectory() ||
+				stat.size <= 0 ||
+				stat.size > deps.artifacts.file
+			) {
+				resolvedRef.set(ref.resolved, null);
+				continue;
+			}
+			const stamp = `${stat.mtimeMs}:${stat.size}`;
+			if (this.rejected.get(ref.resolved) === stamp) {
+				resolvedRef.set(ref.resolved, null);
+				continue;
+			}
+			const prior = this.capturedHtml.get(ref.resolved);
+			if (prior !== undefined && prior.stamp === stamp) {
+				resolvedRef.set(ref.resolved, prior.ref);
+				captured.push({ from: ref.raw, to: prior.ref, source: ref.resolved });
+				continue;
+			}
+
+			const bytes = await deps.fs.readBytes(ref.resolved).catch(() => null);
+			if (
+				bytes === null ||
+				bytes.length === 0 ||
+				bytes.length > deps.artifacts.file ||
+				!isValidHtml(bytes)
+			) {
+				this.rejected.set(ref.resolved, stamp);
+				resolvedRef.set(ref.resolved, null);
+				continue;
+			}
+
+			const name = basename(ref.resolved);
+			const existing = await matchingCurrentVersion(host, name, bytes);
+			let versionNumber: number;
+			if (existing !== null) {
+				versionNumber = existing;
+			} else {
+				const added = await host.artifacts
+					.add({ name, mimeType: "text/html", bytes })
+					.catch(() => null);
+				if (added === null) {
+					resolvedRef.set(ref.resolved, null);
+					continue;
+				}
+				versionNumber = added.version;
+			}
+			const target = formatInlineArtifactRef(name, versionNumber);
+			this.capturedHtml.set(ref.resolved, { stamp, ref: target });
+			resolvedRef.set(ref.resolved, target);
+			captured.push({ from: ref.raw, to: target, source: ref.resolved });
+		}
+		return captured;
+	}
+}
+
+async function matchingCurrentVersion(
+	host: ConversationHost,
+	name: string,
+	bytes: Uint8Array,
+): Promise<number | null> {
+	const existing = host.state.artifacts.find(
+		(each) => each.name === name && each.removedAt === null,
+	);
+	if (existing === undefined) {
+		return null;
+	}
+	const current = existing.versions.find(
+		(each) => each.version === existing.current,
+	);
+	if (
+		current === undefined ||
+		current.gone !== null ||
+		current.bytes !== bytes.length
+	) {
+		return null;
+	}
+	const stored = await host.artifacts.read(name, current.version);
+	if (stored === null || !sameBytes(stored.bytes, bytes)) {
+		return null;
+	}
+	return current.version;
+}
+
+function sameBytes(first: Uint8Array, second: Uint8Array): boolean {
+	if (first.length !== second.length) {
+		return false;
+	}
+	for (let i = 0; i < first.length; i++) {
+		if (first[i] !== second[i]) {
+			return false;
 		}
 	}
+	return true;
 }
 
 function safeBucket(name: string): string {

@@ -8,6 +8,7 @@ import { useReactive } from "core/react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { Figures } from "./billing-figures";
 import { Headline } from "./billing-headline";
@@ -30,7 +31,7 @@ import { SpendTrend } from "./billing-trend";
 import { UnusedQuota } from "./billing-unused-quota";
 import { Meter } from "./meter";
 import { useReading } from "./page-readings";
-import { PHONE_HEADING } from "./phone-rows";
+import { PageSection } from "./page-section";
 
 const RANGES: { range: Range; label: string }[] = [
 	{ range: "day", label: "Today" },
@@ -110,12 +111,13 @@ export function SpendSection({
 			: spanTitle(range, Date.now(), back);
 	return (
 		<Currency.Provider value={report?.currency ?? "USD"}>
-			<section aria-label="spend" className="flex min-w-0 flex-col gap-4">
-				<header className="flex flex-wrap items-center gap-2">
-					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>Spend</h2>
+			<PageSection
+				aria-label="spend"
+				title="Spend"
+				aside={
 					<fieldset
 						aria-label="range"
-						className="ml-auto flex flex-wrap items-center gap-0.5 rounded-lg bg-muted p-0.5"
+						className="flex flex-wrap items-center gap-0.5 rounded-lg bg-muted p-0.5"
 					>
 						{RANGES.map((each) => (
 							<button
@@ -134,7 +136,8 @@ export function SpendSection({
 							</button>
 						))}
 					</fieldset>
-				</header>
+				}
+			>
 				{range === "custom" && (
 					<div className="flex flex-wrap items-center gap-2 text-xs">
 						<input
@@ -222,7 +225,7 @@ export function SpendSection({
 					}
 					onClearPlan={(provider) => controller.removePlan(provider)}
 				/>
-			</section>
+			</PageSection>
 		</Currency.Provider>
 	);
 }
@@ -242,34 +245,38 @@ function Breakdown({
 }): JSX.Element {
 	const all = providers.reduce((total, each) => total + whole(each), 0);
 	return (
-		<div className="flex flex-col rounded-xl border bg-card shadow-xs">
-			<div
-				className={cn(
-					"grid items-center gap-x-3 border-b px-4 py-2.5",
-					BREAKDOWN_COLUMNS,
-				)}
-			>
-				<h3 className="font-medium text-sm">By provider</h3>
-				<span aria-hidden className="max-md:hidden" />
-				<span className="text-right font-medium text-[11px] text-muted-foreground uppercase tracking-wider max-md:hidden">
-					You pay
-				</span>
-				<span className="pr-5 text-right font-medium text-[11px] text-muted-foreground uppercase tracking-wider max-md:hidden">
-					At API
-				</span>
-			</div>
-			<ul className={cn("grid gap-x-3 px-4 py-1", BREAKDOWN_COLUMNS)}>
-				{providers.map((each) => (
-					<ProviderRow
-						key={each.provider}
-						spent={each}
-						all={all}
-						plan={plans.find((plan) => plan.provider === each.provider)}
-						hasUpcoming={upcoming.some((row) => row.provider === each.provider)}
-					/>
-				))}
-			</ul>
-		</div>
+		<PageSection as="h3" title="By provider">
+			<Card className="flex flex-col">
+				<div
+					className={cn(
+						"grid items-center gap-x-3 border-b px-4 py-2.5 max-md:hidden",
+						BREAKDOWN_COLUMNS,
+					)}
+				>
+					<span aria-hidden />
+					<span aria-hidden />
+					<span className="text-right font-medium text-[11px] text-muted-foreground uppercase tracking-wider max-md:hidden">
+						You pay
+					</span>
+					<span className="pr-5 text-right font-medium text-[11px] text-muted-foreground uppercase tracking-wider max-md:hidden">
+						At API
+					</span>
+				</div>
+				<ul className={cn("grid gap-x-3 px-4 py-1", BREAKDOWN_COLUMNS)}>
+					{providers.map((each) => (
+						<ProviderRow
+							key={each.provider}
+							spent={each}
+							all={all}
+							plan={plans.find((plan) => plan.provider === each.provider)}
+							hasUpcoming={upcoming.some(
+								(row) => row.provider === each.provider,
+							)}
+						/>
+					))}
+				</ul>
+			</Card>
+		</PageSection>
 	);
 }
 

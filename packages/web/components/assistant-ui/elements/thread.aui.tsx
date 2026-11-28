@@ -50,6 +50,7 @@ export const COMPOSER_LOOK: Record<string, string> = {
 };
 
 export const Thread: FC<ThreadProps> = ({
+	agent,
 	components = EMPTY_COMPONENTS,
 	autoFocus = true,
 	above,
@@ -77,6 +78,7 @@ export const Thread: FC<ThreadProps> = ({
 		<ThreadComponentsContext.Provider value={components}>
 			<ThreadExtrasContext.Provider
 				value={{
+					agent,
 					above,
 					before,
 					after,

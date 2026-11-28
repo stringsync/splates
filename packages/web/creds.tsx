@@ -2,14 +2,15 @@ import type { CredRequest, Provider } from "@splates/server/creds";
 import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardHeader, CardList } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { dismissCred, type KeptCreds, keptCreds, saveCred } from "./api";
 import { RequestBody } from "./cred-how";
 import { Paste } from "./cred-paste";
 import { ProviderPicker, ScopeChip } from "./cred-scope";
 import { AddCred, KeptRow } from "./kept-creds";
+import { PageSection } from "./page-section";
 import { usePendingWrites } from "./pending";
-import { PHONE_HEADING } from "./phone-rows";
 import { TaskChip } from "./reference-chip";
 import { TopBar } from "./top-bar";
 
@@ -37,15 +38,13 @@ function RequestRow({
 	const [provider, setProvider] = useState<Provider>(request.provider);
 	const writes = usePendingWrites();
 	return (
-		<li
+		<Card
+			render={<li />}
 			aria-label={`requested ${request.name}`}
 			data-cred={request.name}
-			className={cn(
-				"overflow-hidden rounded-xl border bg-card shadow-xs",
-				picked && "ring-2 ring-ring",
-			)}
+			className={cn(picked && "ring-2 ring-ring")}
 		>
-			<header className="flex flex-wrap items-center gap-2 border-b bg-warning/[0.08] px-4 py-2.5">
+			<CardHeader render={<header />} variant="warning">
 				<KeyRoundIcon className="size-4 text-warning" />
 				<code className="font-medium font-mono text-[13px]">
 					{request.name}
@@ -65,7 +64,7 @@ function RequestRow({
 						for <TaskChip task={request.task} inline />
 					</span>
 				)}
-			</header>
+			</CardHeader>
 			<RequestBody request={request} />
 			<div className="px-4 pb-4">
 				<Paste
@@ -96,7 +95,7 @@ function RequestRow({
 					{error}
 				</p>
 			)}
-		</li>
+		</Card>
 	);
 }
 /**
@@ -161,15 +160,7 @@ export function CredsPage({
 		>
 			<TopBar title="Creds" />
 			{open.length > 0 && (
-				<div className="flex flex-col gap-3">
-					<header className="flex items-baseline gap-2">
-						<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
-							Requested
-						</h2>
-						<span className="text-muted-foreground text-xs tabular-nums">
-							{open.length}
-						</span>
-					</header>
+				<PageSection title="Requested" count={open.length}>
 					<ul className="flex flex-col gap-4">
 						{open.map((request) => (
 							<RequestRow
@@ -182,27 +173,26 @@ export function CredsPage({
 							/>
 						))}
 					</ul>
-				</div>
+				</PageSection>
 			)}
-			<div className="flex flex-col gap-3">
-				<header className="flex flex-wrap items-center gap-x-2 gap-y-1">
-					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>Kept</h2>
-					{system !== null && (
-						// Under the heading on a phone, so neither is squeezed.
-						<span className="order-last w-full text-muted-foreground text-xs sm:order-none sm:w-auto">
-							in {system}. Values never come back to this page.
-						</span>
-					)}
+			<PageSection
+				title="Kept"
+				description={
+					system !== null
+						? `in ${system}. Values never come back to this page.`
+						: undefined
+				}
+				aside={
 					<Button
 						variant="outline"
 						size="sm"
-						className="ml-auto"
 						aria-expanded={adding}
 						onClick={() => setAdding(!adding)}
 					>
 						<PlusIcon /> Add
 					</Button>
-				</header>
+				}
+			>
 				{(adding || unkept) && (
 					<AddCred
 						project={project}
@@ -229,25 +219,27 @@ export function CredsPage({
 						</p>
 					) : (
 						// On a phone, the inbox's rows out to the screen's edges.
-						<ul className="divide-y rounded-xl border bg-card max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
-							{kept.kept.map((each) => (
-								<KeptRow
-									key={`${each.provider}:${each.scope}:${each.name}`}
-									{...each}
-									picked={each.name === cred}
-									project={project}
-									request={requests.find(
-										(request) =>
-											request.name === each.name &&
-											request.scope === each.scope &&
-											request.status === "saved",
-									)}
-									onChanged={read}
-								/>
-							))}
-						</ul>
+						<Card className="max-md:-mx-4 max-md:rounded-none max-md:border-x-0">
+							<CardList>
+								{kept.kept.map((each) => (
+									<KeptRow
+										key={`${each.provider}:${each.scope}:${each.name}`}
+										{...each}
+										picked={each.name === cred}
+										project={project}
+										request={requests.find(
+											(request) =>
+												request.name === each.name &&
+												request.scope === each.scope &&
+												request.status === "saved",
+										)}
+										onChanged={read}
+									/>
+								))}
+							</CardList>
+						</Card>
 					))}
-			</div>
+			</PageSection>
 		</section>
 	);
 }

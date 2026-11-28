@@ -1,7 +1,7 @@
 ---
 name: splates
 description: Use the splates CLI to land work on trunk from an isolated git worktree without pull requests. Read it before investigating a possible code change, before running tests or anything heavy, before any command that deletes or overwrites data or spends money (even when asked to), before asking the user a question, before comparing options, explaining tradeoffs, or showing the user a screenshot, image, recording, diagram, or HTML artifact, before answering when they ask what you think of a change or idea (use the plan card for proposals), and before waiting on, polling for or scheduling a later check of anything that finishes outside the conversation (a deploy, a release, another agent's work, a time, spare quota), in a splates repository, and first whenever a message holds a `[SPLATES ...]` directive, a `#rec:<name>` reference to a recorded session, or a `#<project>.<name>` reference to a signal. It also covers adding, claiming, merging, removing, listing, deferring and queueing tasks and lanes.
-version: 2.1.1
+version: 2.1.2
 ---
 
 # Using splates
@@ -31,12 +31,17 @@ only after `[SPLATES RUN ALLOWED]` or plain-text approval.
 ## Before waiting on anything
 
 Never poll in a loop, sleep, schedule your own wakeup or ask the user to say
-when something happens: use a signal for the fact itself
+when something happens, and when work depends on an outside prerequisite that
+is not ready yet (an unreleased package, an upstream fix, a pending deploy),
+do not write unverified code against it: leave the repo untouched and use a
+signal for the prerequisite itself
 ([references/signals.md](references/signals.md)). For a short wait (minutes),
 `splates signal wait` on it and report here when it fires. For a long or
-unsure one, put the work back on the board: a task with `splates task add
---closes-on <signal>`, your task deferred behind it (`splates remove <task>
---reason blocked --blocked-by <n>`), and the `## ⏸ Blocked` card.
+unsure one (hours or more), put the work on the board instead of holding the
+conversation: add a task with `splates task add --closes-on <signal>`, then
+block the work behind it (queueing it `--blocked-by <n>`, or deferring a
+started task with `splates remove <task> --reason blocked --blocked-by <n>`
+and the `## ⏸ Blocked` card).
 
 ## Workflow
 
@@ -76,7 +81,7 @@ The agent that starts each task handles its implementation plan.
    feature, behavior change, data deletion or API/design choice gets a Plan
    card ([references/proposing.md](references/proposing.md); never your
    harness's plan mode), even for a one-line diff:
-   - **Below ask-and-go** (under 70, or paused): the plan asks to build.
+   - **Below ask-and-go** (`ask and wait`, or paused): the plan asks to build.
      Post one per design and end your turn; its approval covers the edits
      through the merge, and `splates merge` refuses with `unapproved` until
      the user approves your latest plan.
@@ -120,12 +125,13 @@ The agent that starts each task handles its implementation plan.
    in one question card (Core formats), never prose, bold lines, or the
    harness's question tool. The `trust:` line from `splates add` or `claim`
    (else your row in `splates trust`) sets how you ask:
-   - **ask and wait** (below 70, or paused): ask, end your turn, and build on
-     your pick only after the answer ([references/waiting.md](references/waiting.md)).
-   - **ask and go** (70 to 89, or 90 and up with fewer than 10 decisions): ask
-     and carry on with your pick meanwhile.
-   - **assume** (90 and up): decide, writing one `🛡 Assumed: Retry limit: 3
-     (vs 5 · defaults)` line per call ([references/questions.md](references/questions.md)).
+   - **ask and wait** (starting level, or paused): ask, end your turn, and build
+     on your pick only after the answer ([references/waiting.md](references/waiting.md)).
+   - **ask and go** (earned with consistent agreement, or pinned): ask and
+     carry on with your pick meanwhile.
+   - **assume** (earned with sustained clean agreement, or pinned): decide,
+     writing one `🛡 Assumed: Retry limit: 3 (vs 5 · defaults)` line per call
+     ([references/questions.md](references/questions.md)).
    Shipping, spending, deletions, and security changes always ask. Trust is a
    ceiling: you may ask and wait on any risky call at no cost.
 
@@ -138,7 +144,7 @@ The agent that starts each task handles its implementation plan.
    - **Ask for a review** when the change is invasive (reworks something the
      user relies on, or much of the project) or hard to reverse (a migration,
      data written, anything sent outside the repo), when the plan was approved
-     with **Approve & review** or carries the **One-way** tag, or when a
+     with **Approve & review** or carries the **One-way** or **Invasive** tag, or when a
      `## Next` step asks to show the user. Send `Ready to merge`
      ([references/reporting.md](references/reporting.md)) only when nothing
      beyond merge approval is still open: if any other decision or question
@@ -193,7 +199,7 @@ choices carry an image (`![what](/abs/path.png)`) indented under each choice.
 Use `## 📝 Plan: <title>`, with `**Goal:**` (the aim, in one sentence),
 `**Details:**` (bullets each leading with its action in bold) and `**Tags:**`
 (`- <Tag>: <why>` bullets using the exact fixed tag names in
-[Proposing](references/proposing.md), never `Undo:`/`Size:`/`Area:`/`Watch out:`
+[Proposing](references/proposing.md), never `Undo:`/`Size:`/`Invasiveness:`/`Area:`/`Watch out:`
 prefixes, bold tag names, or comma-separated lines), plus a picture when
 needed. Keep the colons inside the bold labels, put ordinary questions inside
 the plan, and read [Proposing](references/proposing.md) before writing one.
@@ -264,7 +270,7 @@ Both kept their tests; the notes needed no change.
 - **D2 diagrams:** Always use a fenced block tagged exactly `d2` (never
   untagged, `D2`, or `text`).
 - **Other cards:** For `Ready to merge`, `Run command`, and
-  `Queue` / `Remove lane` permission cards, read
+  `Queue` permission cards, read
   [references/reporting.md](references/reporting.md).
 
 ## SPLATES.md
@@ -353,7 +359,7 @@ new session.
 
 - **On `#<project>.<name>`, `[SPLATES SIGNAL ...]`, `[SPLATES WAIT ...]`, or
   before waiting on anything (another task landing, an idle machine, an
-  outside fact, a timer):** [references/signals.md](references/signals.md).
+  unreleased dependency or outside prerequisite, an outside fact, a timer):** [references/signals.md](references/signals.md).
 - **On releases, deploys, ship-started tasks, failed ship steps, or "is this
   fix out?":** [references/ships.md](references/ships.md).
 - **When writing an `eval` card or eval report in a conversation:**

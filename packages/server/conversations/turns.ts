@@ -49,6 +49,11 @@ export interface PromptOptions {
 	 * it, for a change of plans.
 	 */
 	stop?: boolean;
+	/**
+	 * Whether approving this plan also arms archiving the conversation once the
+	 * task lands cleanly without mid-build interruptions.
+	 */
+	archiveAfterMerge?: boolean;
 }
 
 /** What a message's options mark it with, in the log and the thread alike. */

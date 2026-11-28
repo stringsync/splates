@@ -26,8 +26,11 @@ export {
 	ASSUME_AT,
 	askingKinds,
 	BAND_LABELS,
+	bandFromLegacyScore,
 	bandOf,
+	isTrustBand,
 	KEPT_TO_ASSUME_AGAIN,
+	legacyScoreOfBand,
 	WAIT_BELOW,
 } from "./band";
 export { classifyQuestion, hasImage } from "./classify";
@@ -50,18 +53,22 @@ export {
 } from "./repeats";
 export { TrustRoutes } from "./routes";
 export type { TrustScope } from "./scopes";
-export type { ScoredDecision } from "./score";
+export type { EarnedTrust, ScoredDecision, TrustSession } from "./score";
 export {
 	CAUTIOUS_Z,
 	conversationDecisions,
 	countDecisions,
 	DECAY_HALF_LIFE,
+	evaluateTrust,
+	groupSessions,
 	NEUTRAL_TRUST,
 	outcomeWeights,
 	PRIOR_ALPHA,
 	PRIOR_BETA,
+	pinnedBandOf,
 	scoreDecisions,
 	summarizeTrust,
+	TRUST_MILESTONES,
 } from "./score";
 export { TrustStore } from "./store";
 export {
@@ -89,5 +96,6 @@ export type {
 	TrustMode,
 	TrustPosture,
 	TrustSetting,
+	TrustStanding,
 } from "./types";
 export { DECISION_KINDS, trustKey } from "./types";

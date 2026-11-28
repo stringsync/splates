@@ -54,6 +54,33 @@ import { MoveUnder, usePlaces } from "./reparent";
 import { useRowRefusal } from "./row-refusal";
 import { automaticWait, boardRef, useRowStatus } from "./row-status";
 
+/** Compact borderless `#id` pill marking a sidebar blocker reference. */
+export function BlockerPill({
+	id,
+	subtle = false,
+	className,
+}: {
+	id: number;
+	/** Softer treatment for blocker rows that are not the active hovered/selected source. */
+	subtle?: boolean;
+	className?: string;
+}): JSX.Element {
+	return (
+		<span
+			title={`Blocker #${id}`}
+			className={cn(
+				"inline-flex shrink-0 items-center rounded px-1 font-medium font-mono text-[11px] not-italic leading-4 tabular-nums",
+				subtle
+					? "bg-(--blocker-pill-subtle-bg) text-(--blocker-pill-subtle-fg)"
+					: "bg-(--blocker-pill-bg) text-(--blocker-pill-fg)",
+				className,
+			)}
+		>
+			#{id}
+		</span>
+	);
+}
+
 /** The round mark of a conversation's agent at the left of its row, tinted for an automation, an eval, or a ship. */
 export function ItemIcon({
 	conversation,
@@ -111,6 +138,8 @@ export function Item({
 	hosting = false,
 	nested = false,
 	task = null,
+	blockerId = null,
+	onHoverChange,
 }: {
 	conversation: ConversationState;
 	agent: string;
@@ -135,6 +164,10 @@ export function Item({
 	nested?: boolean;
 	/** The live task it runs in, whose tags and status the line under its name says. */
 	task?: Details | null;
+	/** The blocker task number this conversation holds for the hovered or selected blocked row. */
+	blockerId?: number | null;
+	/** Called when pointer hover enters or leaves this row in the desktop sidebar. */
+	onHoverChange?: (hovered: boolean) => void;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
@@ -163,8 +196,17 @@ export function Item({
 	const pinned = pins && conversation.pinned;
 	const Pin = pinned ? PinOffIcon : PinIcon;
 	const pin = pinned ? "Unpin" : "Pin";
+	const highlighted = blockerId !== null;
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: pointer hover previews blocker links without changing focus or click behavior
 		<div
+			data-blocker-id={blockerId ?? undefined}
+			onMouseEnter={
+				onHoverChange === undefined ? undefined : () => onHoverChange(true)
+			}
+			onMouseLeave={
+				onHoverChange === undefined ? undefined : () => onHoverChange(false)
+			}
 			{...pendingRow(
 				pending,
 				showPending,
@@ -201,6 +243,7 @@ export function Item({
 				// Reserve the status column even when idle so new marks cannot overlap text.
 				className={cn(
 					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-9 pl-3 text-left group-focus-within/item:pr-20 group-hover/item:pr-20 pointer-coarse:pr-28",
+					highlighted && "pr-[4.75rem]",
 					renaming && "hidden",
 					menu && "pr-20",
 				)}
@@ -217,7 +260,7 @@ export function Item({
 					<span className="flex items-center gap-1.5">
 						<span
 							className={cn(
-								"min-w-0 flex-1 truncate text-sm",
+								"min-w-0 flex-1 truncate text-[13px]",
 								unnamed(conversation) && "text-muted-foreground italic",
 							)}
 						>
@@ -287,7 +330,7 @@ export function Item({
 			</button>
 			<span
 				className={cn(
-					"pointer-events-none absolute right-2 flex items-center pointer-coarse:right-22",
+					"pointer-events-none absolute right-2 flex items-center gap-1.5 pointer-coarse:right-22",
 					renaming && "hidden",
 					menu
 						? "hidden"
@@ -298,21 +341,24 @@ export function Item({
 				{hint !== null ? (
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
-					<Mark
-						signal={waiting}
-						queued={conversation?.heldForTask != null}
-						starting={conversation.status === "starting"}
-						picking={conversation.picking}
-						need={need}
-						reported={reported}
-						unread={conversation.unread}
-						hosting={hosting}
-						quiet={quiet}
-						background={backgrounded(conversation)}
-						leftover={leftRunning(conversation).length > 0}
-						blockedNeedsYou={blockedNeedsYou}
-						disconnected={disconnected}
-					/>
+					<>
+						{blockerId !== null && <BlockerPill id={blockerId} subtle />}
+						<Mark
+							signal={waiting}
+							queued={conversation?.heldForTask != null}
+							starting={conversation.status === "starting"}
+							picking={conversation.picking}
+							need={need}
+							reported={reported}
+							unread={conversation.unread}
+							hosting={hosting}
+							quiet={quiet}
+							background={backgrounded(conversation)}
+							leftover={leftRunning(conversation).length > 0}
+							blockedNeedsYou={blockedNeedsYou}
+							disconnected={disconnected}
+						/>
+					</>
 				)}
 			</span>
 			<span
@@ -477,7 +523,7 @@ export function Rename({
 					onDone();
 				}
 			}}
-			className="mx-1 h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className="mx-1 h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-[13px] pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		/>
 	);
 }

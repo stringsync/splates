@@ -1,6 +1,8 @@
 import type { RuleCorrection, RuleSuggestionView } from "@splates/server/trust";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
+import { PageSection } from "./page-section";
 import { modelName, projectName } from "./trust-page";
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-US", {
@@ -35,13 +37,11 @@ export function TrustRuleSuggestions({
 		? `${suggestions.length} suggestions`
 		: projectName(selectedProject ?? suggestions[0]?.project ?? "");
 	return (
-		<section aria-label="Rule suggestions" className="flex flex-col gap-2.5">
-			<div className="flex items-baseline justify-between px-0.5">
-				<h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-					Rule suggestions
-				</h2>
-				<span className="text-muted-foreground text-xs">{headerDetail}</span>
-			</div>
+		<PageSection
+			aria-label="Rule suggestions"
+			title="Rule suggestions"
+			count={headerDetail}
+		>
 			{suggestions.map((suggestion) => (
 				<RuleSuggestionCard
 					key={`${suggestion.project}\0${suggestion.taskId}`}
@@ -51,7 +51,7 @@ export function TrustRuleSuggestions({
 					onDismiss={() => onDismiss(suggestion)}
 				/>
 			))}
-		</section>
+		</PageSection>
 	);
 }
 
@@ -88,9 +88,10 @@ function RuleSuggestionCard({
 		.filter(Boolean)
 		.join(" · ");
 	return (
-		<article
+		<Card
+			render={<article />}
 			aria-label={suggestion.subject}
-			className="overflow-hidden rounded-xl border bg-card p-3.5 sm:p-4"
+			className="p-3.5 sm:p-4"
 		>
 			<h3 className="font-semibold text-[15px] leading-snug tracking-tight">
 				{suggestion.subject}
@@ -143,7 +144,7 @@ function RuleSuggestionCard({
 					{busy === "dismiss" ? "Dismissing…" : "Dismiss"}
 				</Button>
 			</div>
-		</article>
+		</Card>
 	);
 }
 

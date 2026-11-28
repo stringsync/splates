@@ -6,6 +6,7 @@ import {
 	cleanup,
 	conversation,
 	fireEvent,
+	message,
 	Testing,
 	waitFor,
 	within,
@@ -130,7 +131,7 @@ describe("QuotaHandoffBar", () => {
 		]);
 	});
 
-	it("shows above the composer when low or out of quota, disables out-of-quota agents in the dropdown, hands off, and dismisses", async () => {
+	it("shows above the composer when low or out of quota, opens a handoff dialog with meters and dismiss, disables out-of-quota agents, and hands off", async () => {
 		const reset = hours(2);
 		const agents = [
 			{
@@ -161,31 +162,49 @@ describe("QuotaHandoffBar", () => {
 		const view = await testing.openConversations([c1], "c1", {}, agents);
 
 		const bar = view.getByRole("complementary", { name: "Quota handoff" });
-		expect(bar.textContent).toContain("Claude is low on quota");
-		expect(bar.textContent).toContain("94% of 5-hour");
+		expect(bar.textContent).toContain("Claude is low on quota · 94%");
+		expect(bar.textContent).toContain("of 5-hour");
 
-		// Open the dropdown and check available vs disabled agents.
+		// Open the dialog and check current meters, reset time, and available vs disabled agents.
 		await act(async () =>
 			fireEvent.click(within(bar).getByRole("button", { name: /Hand off/ })),
 		);
-		const codexItem = await waitFor(() =>
-			view.getByRole("menuitem", { name: /Codex/ }),
-		);
-		const kimiItem = view.getByRole("menuitem", { name: /Kimi/ });
-		expect(codexItem.getAttribute("aria-disabled")).not.toBe("true");
-		expect(kimiItem.getAttribute("aria-disabled")).toBe("true");
-		expect(kimiItem.textContent).toContain("Out of quota");
-		expect(view.queryByRole("menuitem", { name: /Claude/ })).toBeNull();
+		const dialog = await view.findByRole("dialog");
+		const currentQuota = within(dialog).getByRole("list", {
+			name: "Current quota",
+		});
+		expect(currentQuota.textContent).toContain("5-hour");
+		expect(currentQuota.textContent).toContain("94%");
+		expect(currentQuota.textContent).toContain("resets ");
 
-		// Dismiss hides the bar for the low-quota cycle...
+		const candidates = within(dialog).getByRole("list", {
+			name: "Candidate agents",
+		});
+		const codexItem = within(candidates).getByRole("button", {
+			name: /Codex/,
+		}) as HTMLButtonElement;
+		const kimiItem = within(candidates).getByRole("button", {
+			name: /Kimi/,
+		}) as HTMLButtonElement;
+		expect(codexItem.disabled).toBe(false);
+		expect(codexItem.textContent).toContain("22% used");
+		expect(kimiItem.disabled).toBe(true);
+		expect(kimiItem.textContent).toContain("Out of quota");
+		expect(
+			within(candidates).queryByRole("button", { name: /Claude/ }),
+		).toBeNull();
+
+		// Dismiss for cycle hides the bar for the low-quota cycle...
 		await act(async () =>
 			fireEvent.click(
-				within(bar).getByRole("button", { name: "Dismiss quota handoff" }),
+				within(dialog).getByRole("button", { name: "Dismiss for cycle" }),
 			),
 		);
-		expect(
-			view.queryByRole("complementary", { name: "Quota handoff" }),
-		).toBeNull();
+		await waitFor(() =>
+			expect(
+				view.queryByRole("complementary", { name: "Quota handoff" }),
+			).toBeNull(),
+		);
 
 		// ...and escalating to out of quota brings it back.
 		await testing.say(
@@ -219,9 +238,10 @@ describe("QuotaHandoffBar", () => {
 				within(escalated).getByRole("button", { name: /Hand off/ }),
 			),
 		);
-		const codexPick = await waitFor(() =>
-			view.getByRole("menuitem", { name: /Codex/ }),
-		);
+		const escalatedDialog = await view.findByRole("dialog");
+		const codexPick = within(escalatedDialog).getByRole("button", {
+			name: /Codex/,
+		});
 		await act(async () => fireEvent.click(codexPick));
 
 		await waitFor(() =>
@@ -332,5 +352,129 @@ describe("QuotaHandoffBar", () => {
 		expect(
 			view.queryByRole("complementary", { name: "Quota handoff" }),
 		).toBeNull();
+	});
+
+	it("stays hidden when the conversation is already Done or Removed, and returns on continuation or escalation", async () => {
+		const reset = hours(2);
+		const agents = [
+			{
+				id: "claude",
+				name: "Claude",
+				settings: [],
+				limits: [limit("five_hour", 0.96, at, reset)],
+			},
+			{
+				id: "codex",
+				name: "Codex",
+				settings: [],
+				limits: [limit("five_hour", 0.2, at, reset)],
+			},
+		];
+		const base = {
+			id: "c1",
+			agent: "claude",
+			task: null,
+			status: "idle" as const,
+		};
+
+		const view = await testing.openConversations(
+			[
+				conversation({
+					...base,
+					messages: [
+						message(
+							"agent",
+							"## ✅ Done: checked both files\n\nEverything looks good.",
+						),
+					],
+				}),
+			],
+			"c1",
+			{},
+			agents,
+		);
+		expect(
+			view.queryByRole("complementary", { name: "Quota handoff" }),
+		).toBeNull();
+
+		// A merged or removed ending while stopped also stays hidden.
+		await testing.say(
+			conversation({
+				...base,
+				status: "stopped",
+				messages: [
+					message(
+						"agent",
+						"## ✅ Merged fix-it onto main\n\nThe fix is on main.",
+					),
+				],
+			}),
+		);
+		expect(
+			view.queryByRole("complementary", { name: "Quota handoff" }),
+		).toBeNull();
+
+		await testing.say(
+			conversation({
+				...base,
+				status: "stopped",
+				messages: [
+					message("agent", "## 🧹 Removed fix-it: moot\n\nAlready fixed."),
+				],
+			}),
+		);
+		expect(
+			view.queryByRole("complementary", { name: "Quota handoff" }),
+		).toBeNull();
+
+		// Continuing the conversation brings the bar back.
+		await testing.say(
+			conversation({
+				...base,
+				messages: [
+					message(
+						"agent",
+						"## ✅ Done: checked both files\n\nEverything looks good.",
+					),
+					message("user", "Can you also check the third file?"),
+				],
+			}),
+		);
+		await waitFor(() =>
+			expect(
+				view.getByRole("complementary", { name: "Quota handoff" }),
+			).toBeTruthy(),
+		);
+
+		// Escalated and blocked conversations still offer handoff.
+		await testing.say(
+			conversation({
+				...base,
+				messages: [
+					message(
+						"agent",
+						"## ⚠️ Escalated fix-it: needs a call\n\nNeeds a decision.",
+					),
+				],
+			}),
+		);
+		expect(
+			view.getByRole("complementary", { name: "Quota handoff" }),
+		).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				...base,
+				messages: [
+					message(
+						"agent",
+						"## ⏸ Blocked fix-it: waiting on #12\n\nBack on the board.",
+					),
+				],
+			}),
+		);
+		expect(
+			view.getByRole("complementary", { name: "Quota handoff" }),
+		).toBeTruthy();
 	});
 });

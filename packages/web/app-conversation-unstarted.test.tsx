@@ -59,7 +59,11 @@ describe("App's new conversations not started yet", () => {
 
 	it("opens the new conversation already there on every shortcut and click, keeping its text and files", async () => {
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
+			fireEvent.click(
+				within(view.getByRole("tablist")).getByRole("button", {
+					name: "New conversation",
+				}),
+			),
 		);
 		const first = location.hash;
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
@@ -76,7 +80,11 @@ describe("App's new conversations not started yet", () => {
 			expect(textIn(box(view))).toContain("keep this [Image 1]"),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
+			fireEvent.click(
+				within(view.getByRole("tablist")).getByRole("button", {
+					name: "New conversation",
+				}),
+			),
 		);
 		expect(location.hash).toStartWith(first);
 		expect(location.hash).not.toContain("draft=");

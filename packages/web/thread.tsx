@@ -95,8 +95,6 @@ import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadHistory } from "./thread-history";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
-import { BELOW_BAR } from "./top-bar";
-import { TrustContext, useConversationTrust } from "./trust-widget";
 import { PendingRow, UnsentActionsContext } from "./unsent";
 import { WaitBar, WaitSight } from "./wait-bar";
 import {
@@ -114,16 +112,11 @@ export const Thread = memo(function Thread(
 	const history = useThreadHistory(props.conversation, props.feed);
 	const { conversation } = history;
 	return (
-		<ArtifactViewer
-			conversation={conversation.id}
-			artifacts={conversation.artifacts}
-		>
-			<Conversation
-				{...props}
-				conversation={conversation}
-				historyFailure={history.failure}
-			/>
-		</ArtifactViewer>
+		<Conversation
+			{...props}
+			conversation={conversation}
+			historyFailure={history.failure}
+		/>
 	);
 });
 
@@ -236,8 +229,15 @@ function Conversation({
 		[conversation.events],
 	);
 	const mergeCard = useMemo(
-		() => ({ conversation: id, task, tasks, superseded, newest }),
-		[id, task, tasks, superseded, newest],
+		() => ({
+			conversation: id,
+			task,
+			tasks,
+			superseded,
+			newest,
+			archiveAfterMerge: conversation.archiveAfterMerge === true,
+		}),
+		[id, task, tasks, superseded, newest, conversation.archiveAfterMerge],
 	);
 	const section = useRef<HTMLElement>(null);
 	const reply = useReply(id, drafts, send);
@@ -293,10 +293,9 @@ function Conversation({
 				return;
 			}
 			const bar =
-				root
-					.querySelector<HTMLElement>(`[data-queued-task="${target}"]`)
-					?.closest<HTMLElement>("[data-queued-tasks]") ??
-				root.querySelector<HTMLElement>('section[aria-label="task chain"]');
+				[...root.querySelectorAll<HTMLElement>("[data-queued-tasks]")].find(
+					(el) => el.dataset.queuedTasks?.split(",").includes(String(target)),
+				) ?? root.querySelector<HTMLElement>('[aria-label="task chain"]');
 			bar?.scrollIntoView?.({ block: "center", behavior: "instant" });
 		};
 		scrollToBar();
@@ -338,17 +337,8 @@ function Conversation({
 	const imagePreviews = useConversationImagePreviews(id);
 	const nameOf = useNameOf();
 	const queuedTask = useQueuedTaskInThread(conversation, refused);
-	const [revision, setRevision] = useState(0);
-	const trust = useConversationTrust(conversation, root, revision);
 	return (
-		<TrustContext
-			value={{
-				trust,
-				agent,
-				project: root,
-				refresh: () => setRevision((previous) => previous + 1),
-			}}
-		>
+		<>
 			{onBack !== null && archivable && (
 				<EdgeSwipe
 					archive={{ asks: archive.asks, file: swipeAway }}
@@ -370,10 +360,10 @@ function Conversation({
 						edit,
 					})
 				}
-				// A phone's fills the screen; beside a sidebar, the pane's padding.
+				// Fills the inset panel on desktop or the screen on a phone.
 				className={cn(
-					"@container flex min-h-0 min-w-0 flex-col bg-background",
-					onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
+					"@container flex min-h-0 min-w-0 flex-1 flex-col bg-background",
+					onBack === null ? "gap-3" : "gap-1",
 				)}
 			>
 				<ThreadHeader
@@ -407,212 +397,233 @@ function Conversation({
 					/>
 				)}
 				<ImagePreviewsContext value={imagePreviews.expanded}>
-					<PhoneSheets
-						conversation={id}
-						on={onBack !== null}
-						whole={summary !== true}
-					>
-						<div
-							className="relative min-h-0 flex-1"
-							style={{
-								["--thread-inset-end" as string]:
-									widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-							}}
+					<Composing.Provider value={runtime.thread.composer}>
+						<ArtifactViewer
+							conversation={conversation.id}
+							artifacts={conversation.artifacts}
 						>
-							<MergeCardContext value={mergeCard}>
-								<SignalWaits
-									value={{ conversation: id, waits: conversation.signals }}
+							<PhoneSheets
+								conversation={id}
+								on={onBack !== null}
+								whole={summary !== true}
+							>
+								<div
+									className="relative min-h-0 flex-1"
+									style={{
+										["--thread-inset-end" as string]:
+											widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+									}}
 								>
-									<ProbeCards value={conversation.probes ?? []}>
-										<EvalRuns
-											value={{
-												conversation: id,
-												runs: conversation.evals ?? [],
-											}}
+									<MergeCardContext value={mergeCard}>
+										<SignalWaits
+											value={{ conversation: id, waits: conversation.signals }}
 										>
-											<WaitSight>
-												<AssistantRuntimeProvider runtime={runtime}>
-													<Composing.Provider value={runtime.thread.composer}>
-														<QueueSummaryFor value={conversation}>
-															<QuestionsUI />
-															<ReviewUI />
-															<ReportUI />
-															<PermissionUI />
-															<AgentQueuedUI />
-															<StepsUI />
-															<WorkUI />
-															<EventUI />
-															<AssumedUI />
-															<StoppedUI />
-															<CompactionUI />
-															<BackgroundUI />
-															<SignalUI />
-															<ProbeUI />
-															<EvalRunUI />
-															<InterruptedUI />
-															<FailedUI />
-															<StepsConversation value={id}>
-																<ArchiveConversation
-																	value={archivable ? fileAway : null}
-																>
-																	<ArchiveOfferProvider value={offer}>
-																		<UnsentActionsContext value={unsentActions}>
-																			<ReplyContext value={reply}>
-																				<NamedContext value={named}>
-																					<HiddenTalkTask
-																						value={queuedTask.todoId}
-																					>
-																						<ChainProvider
-																							conversation={id}
-																							active={summary !== true}
-																							arrivedTask={arrivedTask}
-																							onOpen={onOpen}
+											<ProbeCards value={conversation.probes ?? []}>
+												<EvalRuns
+													value={{
+														conversation: id,
+														runs: conversation.evals ?? [],
+													}}
+												>
+													<WaitSight>
+														<AssistantRuntimeProvider runtime={runtime}>
+															<QueueSummaryFor value={conversation}>
+																<QuestionsUI />
+																<ReviewUI />
+																<ReportUI />
+																<PermissionUI />
+																<AgentQueuedUI />
+																<StepsUI />
+																<WorkUI />
+																<EventUI />
+																<AssumedUI />
+																<StoppedUI />
+																<CompactionUI />
+																<BackgroundUI />
+																<SignalUI />
+																<ProbeUI />
+																<EvalRunUI />
+																<InterruptedUI />
+																<FailedUI />
+																<StepsConversation value={id}>
+																	<ArchiveConversation
+																		value={archivable ? fileAway : null}
+																	>
+																		<ArchiveOfferProvider value={offer}>
+																			<UnsentActionsContext
+																				value={unsentActions}
+																			>
+																				<ReplyContext value={reply}>
+																					<NamedContext value={named}>
+																						<HiddenTalkTask
+																							value={queuedTask.todoId}
 																						>
-																							<ThreadView
-																								docked
-																								occupied={
-																									(sending?.length ?? 0) > 0 ||
-																									queued.length > 0
-																								}
-																								historyFailure={historyFailure}
-																								onRead={onRead}
-																								autoFocus={
-																									summary !== true &&
-																									(!asking || typed)
-																								}
-																								stopping={stopping}
-																								mentions={mentions ?? undefined}
-																								references={references}
-																								commands={commands ?? undefined}
-																								placeholder={
-																									archived
-																										? "Send a message to unarchive and continue"
-																										: undefined
-																								}
-																								welcome={
-																									queuedTask.todoId === null
-																										? undefined
-																										: null
-																								}
-																								before={
-																									<>
-																										{summary !== true && (
-																											<ChainBanner
-																												conversation={id}
-																												onOpen={onOpen}
-																											/>
-																										)}
-																										{queuedTask.before}
-																									</>
-																								}
-																								controls={
-																									<ThreadControls
-																										conversation={conversation}
-																										refused={refused}
-																									/>
-																								}
-																								after={
-																									<BlockedPanel
-																										conversation={conversation}
-																									/>
-																								}
-																								above={
-																									<>
-																										{queuedTask.signal}
-																										<NeedsYouBar />
-																										<WaitBar />
-																										<AgentWaitBar />
-																										<Refusal
-																											refusal={refusal}
-																											className="px-2"
-																										/>
-																										{offer !== null &&
-																											barred && (
-																												<ArchiveBar
-																													offer={offer}
+																							<ChainProvider
+																								conversation={id}
+																								active={summary !== true}
+																								arrivedTask={arrivedTask}
+																								onOpen={onOpen}
+																							>
+																								<ThreadView
+																									agent={{
+																										id: conversation.agent,
+																										name: agent,
+																									}}
+																									docked
+																									occupied={
+																										(sending?.length ?? 0) >
+																											0 || queued.length > 0
+																									}
+																									historyFailure={
+																										historyFailure
+																									}
+																									onRead={onRead}
+																									autoFocus={
+																										summary !== true &&
+																										(!asking || typed)
+																									}
+																									stopping={stopping}
+																									mentions={
+																										mentions ?? undefined
+																									}
+																									references={references}
+																									commands={
+																										commands ?? undefined
+																									}
+																									placeholder={
+																										archived
+																											? "Send a message to unarchive and continue"
+																											: undefined
+																									}
+																									welcome={
+																										queuedTask.todoId === null
+																											? undefined
+																											: null
+																									}
+																									before={
+																										<>
+																											{summary !== true && (
+																												<ChainBanner
+																													conversation={id}
+																													onOpen={onOpen}
 																												/>
 																											)}
-																										<QuotaHandoffBar
+																											{queuedTask.before}
+																										</>
+																									}
+																									controls={
+																										<ThreadControls
 																											conversation={
 																												conversation
 																											}
-																											agent={agent}
-																											feed={feed}
 																											refused={refused}
 																										/>
-																										<PendingRow
-																											messages={agedSending}
-																											held={queued}
-																											edits={heldEdits(
-																												conversation,
-																												{
-																													sendNow,
-																													edit,
-																													discard,
-																													busy: queueBusy,
-																												},
-																											)}
+																									}
+																									after={
+																										<BlockedPanel
+																											conversation={
+																												conversation
+																											}
 																										/>
-																										{conversation.ask !==
-																											null && (
-																											<AskPanel
-																												key={
-																													conversation.ask.id
-																												}
-																												drafts={drafts}
+																									}
+																									above={
+																										<>
+																											{queuedTask.signal}
+																											<NeedsYouBar />
+																											<WaitBar />
+																											<AgentWaitBar />
+																											<Refusal
+																												refusal={refusal}
+																												className="px-2"
+																											/>
+																											{offer !== null &&
+																												barred && (
+																													<ArchiveBar
+																														offer={offer}
+																													/>
+																												)}
+																											<QuotaHandoffBar
 																												conversation={
 																													conversation
 																												}
 																												agent={agent}
-																												ask={conversation.ask}
+																												feed={feed}
+																												refused={refused}
 																											/>
-																										)}
-																									</>
-																								}
-																							/>
-																						</ChainProvider>
-																					</HiddenTalkTask>
-																				</NamedContext>
-																			</ReplyContext>
-																		</UnsentActionsContext>
-																	</ArchiveOfferProvider>
-																</ArchiveConversation>
-															</StepsConversation>
-														</QueueSummaryFor>
-													</Composing.Provider>
-												</AssistantRuntimeProvider>
-											</WaitSight>
-										</EvalRuns>
-									</ProbeCards>
-								</SignalWaits>
-							</MergeCardContext>
-							<Widgets
-								phone={onBack !== null}
-								roomy={widgets.roomy}
-								open={widgets.open}
-								onClose={widgets.close}
-								actions={where === null ? actions : [where, ...actions]}
-							>
-								<QuotaCard
-									conversation={conversation}
-									agent={agent}
-									feed={feed}
-									open={widgets.open}
-								/>
-								<BackgroundCard
-									conversation={id}
-									background={conversation.background}
-								/>
-								<ArtifactsCard
-									conversation={id}
-									artifacts={conversation.artifacts}
-								/>
-								<ReferencesCard conversation={conversation} />
-							</Widgets>
-						</div>
-					</PhoneSheets>
+																											<PendingRow
+																												messages={agedSending}
+																												held={queued}
+																												edits={heldEdits(
+																													conversation,
+																													{
+																														sendNow,
+																														edit,
+																														discard,
+																														busy: queueBusy,
+																													},
+																												)}
+																											/>
+																											{conversation.ask !==
+																												null && (
+																												<AskPanel
+																													key={
+																														conversation.ask.id
+																													}
+																													drafts={drafts}
+																													conversation={
+																														conversation
+																													}
+																													agent={agent}
+																													ask={conversation.ask}
+																												/>
+																											)}
+																										</>
+																									}
+																								/>
+																							</ChainProvider>
+																						</HiddenTalkTask>
+																					</NamedContext>
+																				</ReplyContext>
+																			</UnsentActionsContext>
+																		</ArchiveOfferProvider>
+																	</ArchiveConversation>
+																</StepsConversation>
+															</QueueSummaryFor>
+														</AssistantRuntimeProvider>
+													</WaitSight>
+												</EvalRuns>
+											</ProbeCards>
+										</SignalWaits>
+									</MergeCardContext>
+									<Widgets
+										phone={onBack !== null}
+										roomy={widgets.roomy}
+										open={widgets.open}
+										onClose={widgets.close}
+										actions={where === null ? actions : [where, ...actions]}
+									>
+										<QuotaCard
+											conversation={conversation}
+											agent={agent}
+											feed={feed}
+											open={widgets.open}
+										/>
+										<BackgroundCard
+											conversation={id}
+											background={conversation.background}
+										/>
+										<ArtifactsCard
+											conversation={id}
+											artifacts={conversation.artifacts}
+										/>
+										<ReferencesCard conversation={conversation} />
+									</Widgets>
+								</div>
+							</PhoneSheets>
+						</ArtifactViewer>
+					</Composing.Provider>
 				</ImagePreviewsContext>
 			</section>
-		</TrustContext>
+		</>
 	);
 }

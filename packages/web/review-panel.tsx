@@ -4,20 +4,19 @@ import { directive, MERGE, replyOf } from "@splates/server/plans/browser";
 import { useReactive, useResource } from "core/react";
 import { GitMergeIcon, SendHorizontalIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { useTouch } from "#web/hooks/use-touch.ts";
 import { BeforeAfter, cardRecord } from "./before-after";
 import { BoxFiles } from "./box-files";
 import { CardBox, useBoxTaking, useCardDictationTurn } from "./card-box";
+import { CardFooter } from "./card-footer";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterWhileTaking } from "./enter-while-taking";
 import { Markdown } from "./markdown";
 import { MergeCardContext } from "./merge-card";
-import { Sheeted } from "./phone-sheets";
-import { Refusal, useRefusal } from "./refusal";
+import { useRefusal } from "./refusal";
 import { SplatesEvent } from "./splates-event";
 
 /** The name of a review's changes box among its boxes. */
@@ -63,7 +62,7 @@ export function ReviewPanel({
 		}
 	};
 	const box = useRef<HTMLDivElement>(null);
-	const footer = useRef<HTMLElement>(null);
+	const footer = useRef<HTMLDivElement>(null);
 	const finishThen = useCardDictationTurn(footer);
 	const taking = useBoxTaking();
 	// A take under way sends once it is done, from the render that holds its
@@ -107,6 +106,15 @@ export function ReviewPanel({
 			task={review.task}
 			base={review.base}
 			folded={sent !== null && !approved}
+			sheet={
+				approved
+					? false
+					: {
+							title: "Ready to merge",
+							action: send !== null ? "Answer" : "Open",
+							waiting: send !== null,
+						}
+			}
 			aside={
 				sent === null || approved ? undefined : (
 					<span className="text-muted-foreground text-xs">Changes asked</span>
@@ -128,39 +136,52 @@ export function ReviewPanel({
 			</div>
 			{sent !== null && !approved && (
 				// What the person replied, as it was sent: the card keeps it.
-				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
-					<span className="shrink-0 text-muted-foreground">Asked for</span>
-					<Markdown
-						text={sent}
-						className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-					/>
-				</footer>
+				<CardFooter
+					note={
+						<span className="flex items-start gap-2 text-foreground text-sm">
+							<span className="shrink-0 text-muted-foreground">Asked for</span>
+							<Markdown
+								text={sent}
+								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+							/>
+						</span>
+					}
+					sheetNote={
+						<span className="flex items-start gap-2 text-foreground text-sm">
+							<span className="shrink-0 text-muted-foreground">Asked for</span>
+							<Markdown
+								text={sent}
+								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+							/>
+						</span>
+					}
+					actions={[]}
+				/>
 			)}
 			{send !== null && (
-				<footer
-					ref={footer}
-					className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3"
-				>
-					<CardBox
-						ref={box}
-						aria-label={`Changes to ${review.task}`}
-						value={changes}
-						placeholder="Say what to change…"
-						onValue={setChanges}
-						files={files.of(CHANGES)}
-						onKeyDown={(event) => {
-							// Enter sends, as in the composer; Shift+Enter is a new line.
-							if (event.key === "Enter" && !event.shiftKey) {
-								event.preventDefault();
-								ask();
-							}
-						}}
-						className="min-h-9 pointer-coarse:min-h-11"
-					/>
-					<div className="flex items-center gap-2">
-						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs in-data-sheet:hidden">
-							{!touch &&
-								(asked === "" ? (
+				<>
+					<div ref={footer} className="border-t px-4 py-3">
+						<CardBox
+							ref={box}
+							aria-label={`Changes to ${review.task}`}
+							value={changes}
+							placeholder="Say what to change…"
+							onValue={setChanges}
+							files={files.of(CHANGES)}
+							onKeyDown={(event) => {
+								// Enter sends, as in the composer; Shift+Enter is a new line.
+								if (event.key === "Enter" && !event.shiftKey) {
+									event.preventDefault();
+									ask();
+								}
+							}}
+							className="min-h-9 pointer-coarse:min-h-11"
+						/>
+					</div>
+					<CardFooter
+						note={
+							!touch ? (
+								asked === "" ? (
 									<span>
 										<Kbd>Tab</Kbd> to merge
 									</span>
@@ -168,33 +189,32 @@ export function ReviewPanel({
 									<span>
 										<Kbd>↵</Kbd> sends changes
 									</span>
-								))}
-						</p>
-						{/* One button, for what the box holds: written changes go
-						out as they are, and nothing written merges, unless a take is
-						under way, whose words will be changes. */}
-						{asked === "" && !attached && !taking ? (
-							<Button
-								size="sm"
-								onClick={() => void attempt(send(MERGE), "Not sent")}
-								className="bg-success text-white hover:bg-success/90 in-data-sheet:flex-1 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
-							>
-								<GitMergeIcon data-icon="inline-start" />
-								Merge
-							</Button>
-						) : (
-							<Button
-								size="sm"
-								onClick={() => finishThen(() => setSendTaken(true))}
-								className="in-data-sheet:flex-1 pointer-coarse:h-11 pointer-coarse:px-4 pointer-coarse:text-base"
-							>
-								<SendHorizontalIcon data-icon="inline-start" />
-								Send
-							</Button>
-						)}
-					</div>
-					<Refusal refusal={refusal} className="text-right" />
-				</footer>
+								)
+							) : undefined
+						}
+						actions={
+							asked === "" && !attached && !taking
+								? [
+										{
+											label: "Merge",
+											Icon: GitMergeIcon,
+											tone: "success",
+											primary: true,
+											onClick: () => void attempt(send(MERGE), "Not sent"),
+										},
+									]
+								: [
+										{
+											label: "Send",
+											Icon: SendHorizontalIcon,
+											primary: true,
+											onClick: () => finishThen(() => setSendTaken(true)),
+										},
+									]
+						}
+						refusal={refusal}
+					/>
+				</>
 			)}
 		</CardShell>
 	);
@@ -230,15 +250,11 @@ export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 /** The review of the message it is in, kept as a draft under that message. */
 export function MessageReview({ review }: { review: Review }): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
-	return (
-		<Sheeted title="Ready to merge" Icon={GitMergeIcon} tone="success">
-			<ReviewPanel review={review} draft={`review:${message}`} />
-		</Sheeted>
-	);
+	return <ReviewPanel review={review} draft={`review:${message}`} />;
 }
 
 /** The padding a card's own text keeps from its edges. */
-const PADDED = "px-4 py-3.5 @max-md:px-3 @max-md:py-2.5";
+const PADDED = "px-4 py-3.5 @max-md:py-2.5";
 
 /** A card's markdown, with no margin above its first paragraph or below its last. */
 const TIGHT =

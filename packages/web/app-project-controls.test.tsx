@@ -123,7 +123,7 @@ describe("Project controls in conversation lists", () => {
 		expect(within(shop).getByText("Shop chat")).toBeTruthy();
 	});
 
-	it("offers adding a project in the phone's drawer", async () => {
+	it("leaves adding a project out of the phone's drawer, keeping it in the header project picker", async () => {
 		resize(390, 844);
 		const view = await testing.openConversations([], null, { tasks: [] });
 		await act(async () =>
@@ -132,18 +132,18 @@ describe("Project controls in conversation lists", () => {
 		const drawer = await waitFor(() =>
 			view.getByRole("dialog", { name: "Pages" }),
 		);
+		expect(
+			within(drawer).queryByRole("button", { name: "Add a project" }),
+		).toBeNull();
 		await act(async () =>
 			fireEvent.click(
-				within(drawer).getByRole("button", { name: "Add a project" }),
+				within(drawer).getByRole("button", { name: /^Switch project/ }),
 			),
 		);
 		const add = await waitFor(() =>
-			view.getByRole("dialog", { name: "Add a project" }),
+			view.getByRole("button", { name: "Add a project" }),
 		);
-		expect(
-			within(add).getByRole("textbox", { name: "project path" }),
-		).toBeTruthy();
-		expect(view.queryByRole("dialog", { name: "Pages" })).toBeNull();
+		expect(add).toBeTruthy();
 	});
 
 	it("empties the page's own project after archiving its last conversation from the action sheet and lists it again when unarchived", async () => {

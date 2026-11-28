@@ -81,17 +81,27 @@ export function planTags(body: string): PlanTag[] {
 		.map((name) => ({ name, why: "" }));
 }
 
-/** Whether a plan's body carries the One-way Undo tag under `**Tags:**`. */
-export function planHasOneWayTag(body: string): boolean {
+/** Whether a plan's body carries the named tag under `**Tags:**`, stripping any `until …` suffix. */
+export function planHasTag(body: string, name: string): boolean {
 	const parsed = planFields(body);
 	if (parsed === null) {
 		return false;
 	}
+	const target = name.toLowerCase();
 	return parsed.fields
 		.filter((field) => /^tags$/i.test(field.label))
 		.flatMap((field) => planTags(field.body))
 		.some(
-			(tag) =>
-				tag.name.toLowerCase().replace(/\s+until\b.*$/, "") === "one-way",
+			(tag) => tag.name.toLowerCase().replace(/\s+until\b.*$/, "") === target,
 		);
+}
+
+/** Whether a plan's body carries the One-way Undo tag under `**Tags:**`. */
+export function planHasOneWayTag(body: string): boolean {
+	return planHasTag(body, "one-way");
+}
+
+/** Whether a plan's body carries the Invasive tag under `**Tags:**`. */
+export function planHasInvasiveTag(body: string): boolean {
+	return planHasTag(body, "invasive");
 }

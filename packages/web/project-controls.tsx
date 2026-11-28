@@ -1,37 +1,10 @@
 import type { JSX } from "react";
 import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "#web/components/ui/dialog.tsx";
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
 } from "#web/components/ui/empty.tsx";
 import { cn } from "#web/lib/utils.ts";
-import { AddProject } from "./add-project";
-
-/** The dialog that adds a registered project, wherever it is opened from. */
-export function AddProjectDialog({
-	open,
-	onOpenChange,
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-}): JSX.Element {
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Add a project</DialogTitle>
-				</DialogHeader>
-				<AddProject autoFocus />
-			</DialogContent>
-		</Dialog>
-	);
-}
 
 /**
  * A compact empty folder, leaving its header and New action available. It
@@ -51,7 +24,9 @@ export function ProjectEmpty({
 			)}
 		>
 			<EmptyHeader>
-				<EmptyDescription>No conversations</EmptyDescription>
+				<EmptyDescription className={phone ? "text-[13px]" : "text-xs"}>
+					No conversations
+				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);

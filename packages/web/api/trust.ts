@@ -1,6 +1,7 @@
 import type {
 	AssumptionView,
 	RuleSuggestionView,
+	TrustBand,
 	TrustEntry,
 	TrustKey,
 	TrustScope,
@@ -60,10 +61,10 @@ export async function readRuleSuggestions(
 	return body.suggestions;
 }
 
-/** What a change to one model's trust does: pin it, set or switch to dynamic, or reset to neutral. */
+/** What a change to one model's trust does: pin a level, switch to Auto, or reset history. */
 export type TrustChange =
-	| { mode: "static"; value: number }
-	| { mode: "dynamic"; value?: number }
+	| { mode: "static"; band: TrustBand }
+	| { mode: "dynamic" }
 	| { reset: true };
 
 /** Changes `key`'s trust as `change` says, answering with its entry after. */

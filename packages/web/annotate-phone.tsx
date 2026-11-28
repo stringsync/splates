@@ -109,7 +109,7 @@ export function NoteBar({
 	return (
 		<section
 			aria-label="marks"
-			className="-mx-3 flex w-[calc(100%+1.5rem)] shrink-0 flex-col gap-2.5 border-white/10 border-t bg-[#141416] px-3 pt-2.5 pb-2"
+			className="flex w-full shrink-0 flex-col gap-2.5 border-white/10 border-t bg-[#141416] px-3 pt-2.5 pb-2"
 		>
 			<ul
 				ref={chips}

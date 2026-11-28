@@ -39,9 +39,8 @@ export function AnythingElseSection({
 		<div
 			data-more
 			className={cn(
-				"relative flex gap-3",
+				"relative flex gap-3 px-4 py-4",
 				ruled && "rule-t",
-				roomy ? "px-5 py-4" : "px-4 py-4",
 				live &&
 					"transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
 			)}

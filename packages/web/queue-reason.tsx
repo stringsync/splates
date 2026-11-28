@@ -39,7 +39,7 @@ export function ReasonNotice({
 	return (
 		<div
 			className={cn(
-				"px-4 pt-3.5 @max-md:px-3 @max-md:pt-2.5",
+				"px-4 pt-3.5 @max-md:pt-2.5",
 				last && "pb-3.5 @max-md:pb-2.5",
 			)}
 		>

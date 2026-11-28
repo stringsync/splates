@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trust Page: Earned Levels Models Tab</title>
+<link rel="stylesheet" href="earned-shared.css">
+<script>if(location.hash==="#phone"){document.documentElement.classList.add("phone");}</script>
+<style>/* biome-ignore-all lint/style/noDescendingSpecificity: static design mock sheet */
+.m-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 13px 16px;
+	position: relative;
+}
+html.phone .m-row {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 9px;
+}
+.m-info {
+	display: flex;
+	align-items: flex-start;
+	gap: 11px;
+	min-width: 0;
+	flex: 1;
+}
+.m-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 7px;
+}
+.m-name {
+	font-weight: 500;
+	font-size: 14px;
+}
+.m-stand {
+	font-size: 12px;
+	color: var(--muted-foreground);
+	margin-top: 2px;
+	line-height: 1.4;
+}
+.m-ctrls {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	flex: none;
+}
+html.phone .m-ctrls {
+	justify-content: flex-start;
+	padding-left: 37px;
+}
+.sel-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	height: 30px;
+	min-width: 112px;
+	padding: 0 10px;
+	border-radius: 8px;
+	border: 1px solid var(--input);
+	background: var(--card);
+	color: var(--foreground);
+	font-size: 12.5px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.sel-trigger.dirty {
+	border-color: var(--foreground);
+}
+.apply-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 30px;
+	padding: 0 12px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: var(--brand);
+	color: var(--brand-foreground);
+	font-size: 12.5px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.sel-menu {
+	position: absolute;
+	top: 48px;
+	right: 16px;
+	z-index: 30;
+	width: 184px;
+	background: var(--card);
+	border: 1px solid var(--border);
+	border-radius: 10px;
+	box-shadow: 0 10px 28px rgb(0 0 0 / 0.12);
+	padding: 4px;
+	font-size: 12.5px;
+}
+html.phone .sel-menu {
+	top: 112px;
+	left: 53px;
+	right: auto;
+}
+.sel-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 9px;
+	border-radius: 6px;
+}
+.sel-item.on {
+	background: var(--muted);
+	font-weight: 500;
+}
+.sel-sep {
+	height: 1px;
+	background: var(--border);
+	margin: 4px 2px;
+}
+.scope-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 11px 16px 12px 53px;
+	border-top: 1px solid var(--border);
+	background: color-mix(in oklab, var(--muted) 22%, var(--card));
+}
+html.phone .scope-row {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 9px;
+	padding-left: 16px;
+}
+html.phone .scope-row .m-ctrls {
+	padding-left: 0;
+}
+</style>
+</head>
+<body>
+<span class="mock-badge">Mock · Models</span>
+<div class="shell">
+	<aside class="sidebar">
+		<div class="side-brand">splates</div>
+		<div class="side-item">Conversations</div>
+		<div class="side-item">Boards</div>
+		<div class="side-sep"></div>
+		<div class="side-label">Workspace</div>
+		<div class="side-item active">
+			<svg aria-hidden="true" class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+			Trust
+		</div>
+		<div class="side-item">Stats</div>
+		<div class="side-item">Evals</div>
+	</aside>
+
+	<div class="main">
+		<div class="phone-bar"><span>← Menu</span><span class="muted">All projects</span></div>
+		<header class="page-header">
+			<div class="page-header-glow"></div>
+			<div class="page-header-sheen"></div>
+			<div class="page-header-inner">
+				<div class="page-icon"><svg aria-hidden="true" class="ic lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></div>
+				<div class="grow">
+					<div class="page-title-row"><h1 class="page-title">Trust</h1><span class="scope-pill">All projects</span></div>
+					<p class="page-desc">Earned autonomy by project and model. Ships, spending, deletions, and security always ask.</p>
+				</div>
+			</div>
+			<nav class="header-tabs">
+				<span class="htab">How it works</span>
+				<span class="htab active">Models</span>
+				<span class="htab">Scopes</span>
+				<span class="htab">Assumptions</span>
+			</nav>
+		</header>
+
+		<main class="content">
+			<div class="card switch-card">
+				<div>
+					<div class="sm med">Allow trusted decisions</div>
+					<div class="xs muted">Applies to every project and model.</div>
+				</div>
+				<div class="sw-track"><span class="sw-knob"></span></div>
+			</div>
+
+			<div class="filter-bar" role="radiogroup" aria-label="Projects">
+				<span class="fbtn on">All projects</span>
+				<span class="fbtn">mono</span>
+				<span class="fbtn">vexml</span>
+			</div>
+
+			<section class="page-section">
+				<div class="ps-head">
+					<div class="ps-title-wrap"><h2 class="ps-title">mono</h2><span class="ps-count">3 models</span></div>
+				</div>
+
+				<article class="card" style="overflow:visible;position:relative;z-index:20">
+					<div class="m-row">
+						<div class="m-info">
+							<span class="agent-badge ag-claude" style="margin-top:1px">C</span>
+							<div class="grow">
+								<div class="m-head">
+									<span class="m-name">Claude Opus 4.6</span>
+									<span class="badge go">Ask &amp; go</span>
+								</div>
+								<div class="m-stand tabnum">Toward Assume · 18/35 sessions · 6/10 days · 86% agreed</div>
+							</div>
+						</div>
+						<div class="m-ctrls">
+							<button type="button" class="sel-trigger">
+								<span>Auto</span>
+								<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="muted"><path d="m6 9 6 6 6-6"/></svg>
+							</button>
+						</div>
+						<div class="sel-menu">
+							<div class="sel-item on"><span>Auto (earned)</span><span>✓</span></div>
+							<div class="sel-item"><span>Ask &amp; wait</span></div>
+							<div class="sel-item"><span>Ask &amp; go</span></div>
+							<div class="sel-item"><span>Assume</span></div>
+							<div class="sel-sep"></div>
+							<div class="sel-item" style="color:var(--destructive)"><span>Reset history…</span></div>
+						</div>
+					</div>
+
+					<div class="scope-row">
+						<div class="grow">
+							<div class="m-head">
+								<span class="folder-chip mono"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="muted"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>splates/</span>
+								<span class="badge assume">Assume</span>
+							</div>
+							<div class="m-stand tabnum">Earned · 41 sessions · 12 days · 93% agreed</div>
+						</div>
+						<div class="m-ctrls">
+							<button type="button" class="sel-trigger">
+								<span>Auto</span>
+								<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="muted"><path d="m6 9 6 6 6-6"/></svg>
+							</button>
+						</div>
+					</div>
+				</article>
+
+				<article class="card">
+					<div class="m-row">
+						<div class="m-info">
+							<span class="agent-badge ag-codex" style="margin-top:1px">X</span>
+							<div class="grow">
+								<div class="m-head">
+									<span class="m-name">Codex 6.2 Sol</span>
+									<span class="badge go">Ask &amp; go</span>
+									<span class="badge outline">Pinned</span>
+								</div>
+								<div class="m-stand tabnum">Earned Ask &amp; wait · 10/12 sessions · 2/4 days · 99% agreed</div>
+							</div>
+						</div>
+						<div class="m-ctrls">
+							<button type="button" class="sel-trigger">
+								<span>Ask &amp; go</span>
+								<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="muted"><path d="m6 9 6 6 6-6"/></svg>
+							</button>
+						</div>
+					</div>
+				</article>
+
+				<article class="card">
+					<div class="m-row">
+						<div class="m-info">
+							<span class="agent-badge ag-gemini" style="margin-top:1px">G</span>
+							<div class="grow">
+								<div class="m-head">
+									<span class="m-name">Gemini 4 Carbon</span>
+									<span class="badge wait">Ask &amp; wait</span>
+								</div>
+								<div class="m-stand tabnum">Toward Ask &amp; go · 5/12 sessions · 2/4 days · 88% agreed</div>
+							</div>
+						</div>
+						<div class="m-ctrls">
+							<button type="button" class="sel-trigger dirty">
+								<span>Ask &amp; go</span>
+								<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="muted"><path d="m6 9 6 6 6-6"/></svg>
+							</button>
+							<button type="button" class="apply-btn">Apply</button>
+							<button type="button" class="icon-btn" title="Cancel change" aria-label="Cancel change">
+								<svg aria-hidden="true" class="ic sm" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+							</button>
+						</div>
+					</div>
+				</article>
+			</section>
+		</main>
+	</div>
+</div>
+</body>
+</html>

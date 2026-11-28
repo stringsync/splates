@@ -14,7 +14,7 @@ import { Markdown } from "#web/markdown.tsx";
  * button below it.
  */
 export const USER_BUBBLE =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:pe-4 max-sm:leading-relaxed min-w-0 max-w-full wrap-anywhere";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:rounded-3xl max-sm:border-0 max-sm:px-5 max-sm:py-3 max-sm:leading-relaxed min-w-0 max-w-full wrap-anywhere";
 
 export const RecordedUserMessage: FC = () => (
 	<MessagePrimitive.Root
@@ -25,7 +25,7 @@ export const RecordedUserMessage: FC = () => (
 		<div
 			className={cn(
 				USER_BUBBLE,
-				"max-w-[85%] rounded-2xl border-0 px-3.5 py-2 leading-relaxed",
+				"max-w-[85%] rounded-2xl border-0 px-3.5 py-2 max-sm:px-3.5 max-sm:py-2 leading-relaxed",
 			)}
 		>
 			<MessagePrimitive.Parts components={{ Text: RecordedUserText }} />

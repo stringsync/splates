@@ -8,7 +8,12 @@ export type {
 } from "./asked";
 export { approvalOf, stretches } from "./asked";
 export type { PlanField, PlanTag } from "./body";
-export { planFields, planHasOneWayTag, planTags } from "./body";
+export {
+	planFields,
+	planHasInvasiveTag,
+	planHasOneWayTag,
+	planTags,
+} from "./body";
 export { decided, keptDecisions, madeByYou } from "./decided";
 export type { Need, Needing } from "./needs";
 export {

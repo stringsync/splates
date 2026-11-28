@@ -64,7 +64,7 @@ describe("App's offer to archive a conversation whose task is over", () => {
 		expect(archiveIn("removed sidebar")).toBeTruthy();
 
 		await act(async () =>
-			fireEvent.click(within(bar).getByRole("button", { name: "Archive" })),
+			fireEvent.click(within(bar).getByRole("button", { name: /Archive/ })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([

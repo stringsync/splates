@@ -7,7 +7,6 @@ import {
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleDashedIcon,
-	LoaderCircleIcon,
 	SquareIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -24,8 +23,11 @@ import {
 	stopShipTarget,
 	superviseShipRun,
 } from "./api/ship";
+import { Card } from "./components/ui/card";
 import { cn } from "./lib/utils";
 import { todoAddress } from "./page-address";
+import { PageSection } from "./page-section";
+import { Spinner } from "./pending";
 import { ShipAutoApprove } from "./ship-auto-approve";
 import { FixLine, ShipFailureCard } from "./ship-failure-card";
 import { ShipHeading } from "./ship-heading";
@@ -195,29 +197,25 @@ export function ShipRunScreen({
 				</p>
 			)}
 			{summary.steps.map((step, index) => (
-				<section
+				<PageSection
 					// A step is the targets in it, which a run keeps.
 					key={step.map((each) => each.name).join(" ")}
-					aria-label={`Group ${index + 1}`}
-					className="flex flex-col gap-2.5"
+					label={`Group ${index + 1}`}
+					as="h3"
+					title={
+						!single || step.length > 1
+							? !single
+								? `Group ${index + 1}`
+								: `${step.length} at the same time`
+							: undefined
+					}
+					count={
+						!single && step.length > 1
+							? `· ${step.length} at the same time`
+							: undefined
+					}
+					className="gap-2.5"
 				>
-					{(!single || step.length > 1) && (
-						<h3 className="font-semibold text-sm">
-							{!single ? (
-								<>
-									Group {index + 1}
-									{step.length > 1 && (
-										<span className="font-normal text-muted-foreground text-xs">
-											{" "}
-											· {step.length} at the same time
-										</span>
-									)}
-								</>
-							) : (
-								`${step.length} at the same time`
-							)}
-						</h3>
-					)}
 					{step.map((target) => (
 						<TargetCard
 							key={target.name}
@@ -231,7 +229,7 @@ export function ShipRunScreen({
 							}
 						/>
 					))}
-				</section>
+				</PageSection>
 			))}
 			<SpawnedStrip work={work} />
 			<RunNotes notes={run.notes} />
@@ -275,7 +273,7 @@ const ICONS = {
 		<CircleAlertIcon aria-hidden className="size-5 shrink-0 text-destructive" />
 	),
 	running: (
-		<LoaderCircleIcon
+		<Spinner
 			aria-hidden
 			className="size-5 shrink-0 animate-spin text-muted-foreground"
 		/>
@@ -323,7 +321,7 @@ function TargetCard({
 	const railed = new Set(
 		target.steps.length > 1 || expanded ? shown.map((each) => each.id) : [],
 	);
-	const card = useRef<HTMLElement>(null);
+	const card = useRef<HTMLDivElement>(null);
 	const toggle = () => {
 		setDisclosure({ done, expanded: !expanded });
 		Scroll.reveal(
@@ -337,12 +335,13 @@ function TargetCard({
 		);
 	};
 	return (
-		<article
+		<Card
+			render={<article />}
 			ref={card}
 			aria-label={target.name}
 			data-status={target.status}
 			className={cn(
-				"flex gap-3 rounded-lg border bg-card px-4 py-3.5",
+				"flex gap-3 px-4 py-3.5",
 				!expanded && "max-h-[min(360px,50dvh)] overflow-hidden",
 				target.asking ? "border-foreground/70" : "border-border",
 			)}
@@ -472,6 +471,6 @@ function TargetCard({
 					</button>
 				)}
 			</div>
-		</article>
+		</Card>
 	);
 }

@@ -2,7 +2,7 @@ import type { ConversationState } from "../conversations";
 import { fail } from "../exit";
 import type { Git } from "../git";
 import type { Document, Log, Storage } from "../storage";
-import { askingKinds, bandOf } from "./band";
+import { askingKinds, bandFromLegacyScore, bandOf, isTrustBand } from "./band";
 import {
 	extractAssumptions,
 	extractConversationDecisions,
@@ -20,7 +20,7 @@ import {
 } from "./scopes";
 import {
 	conversationDecisions,
-	NEUTRAL_TRUST,
+	pinnedBandOf,
 	type ScoredDecision,
 	summarizeTrust,
 } from "./score";
@@ -28,6 +28,7 @@ import {
 	type AssumptionView,
 	type DecisionKind,
 	type TrustAssumption,
+	type TrustBand,
 	type TrustDecision,
 	type TrustEntry,
 	type TrustKey,
@@ -538,112 +539,72 @@ export class TrustStore {
 			: filtered.slice(0, filter.limit);
 	}
 
-	/** All stored per-model trust settings. */
+	/** All stored per-model trust settings, with legacy numeric values migrated to bands. */
 	async settings(): Promise<TrustSetting[]> {
 		const file = await this.settingsDoc.read();
-		return Object.values(file?.settings ?? {});
+		return Object.values(file?.settings ?? {}).map(normalizeSetting);
 	}
 
-	/** Sets a model's trust to static with `value` (0–100). */
+	/** Pins a model's trust to `band` (accepting a `TrustBand` or legacy 0–100 score). */
 	async setStatic(
 		key: TrustKey,
-		value: number,
+		band: TrustBand | number,
 		at: string = new Date().toISOString(),
 	): Promise<TrustSetting> {
-		assertTrustValue(value);
+		const resolved = parseBandInput(band);
 		return this.upsertSetting(key, (prev) => ({
 			...key,
 			mode: "static",
-			value: Math.round(value),
-			dynamicBase: prev?.dynamicBase ?? null,
-			dynamicAt: prev?.dynamicAt ?? null,
+			band: resolved,
 			resetAt: prev?.resetAt ?? null,
 			updatedAt: at,
 		}));
 	}
 
-	/** Sets a model's dynamic trust starting point to `value` (0–100) without switching to static. */
+	/** Switches a model back to earned (`dynamic`) trust, preserving its history. */
 	async setDynamic(
 		key: TrustKey,
-		value: number,
 		at: string = new Date().toISOString(),
 	): Promise<TrustSetting> {
-		assertTrustValue(value);
-		const rounded = Math.round(value);
 		return this.upsertSetting(key, (prev) => ({
 			...key,
 			mode: "dynamic",
-			value: prev?.value ?? rounded,
-			dynamicBase: rounded,
-			dynamicAt: at,
+			band: prev?.band ?? null,
 			resetAt: prev?.resetAt ?? null,
 			updatedAt: at,
 		}));
 	}
 
-	/** Sets a model's trust value (0–100) while keeping its current mode (dynamic by default). */
+	/**
+	 * @deprecated Legacy 0–100 setter kept until CLI (#4649) migrates; maps the
+	 * number to its band and pins static.
+	 */
 	async setValue(
 		key: TrustKey,
 		value: number,
 		at: string = new Date().toISOString(),
 	): Promise<TrustSetting> {
-		assertTrustValue(value);
-		const rounded = Math.round(value);
-		return this.upsertSetting(key, (prev) => {
-			const mode = prev?.mode ?? "dynamic";
-			if (mode === "static") {
-				return {
-					...key,
-					mode: "static",
-					value: rounded,
-					dynamicBase: prev?.dynamicBase ?? null,
-					dynamicAt: prev?.dynamicAt ?? null,
-					resetAt: prev?.resetAt ?? null,
-					updatedAt: at,
-				};
-			}
-			return {
-				...key,
-				mode: "dynamic",
-				value: prev?.value ?? rounded,
-				dynamicBase: rounded,
-				dynamicAt: at,
-				resetAt: prev?.resetAt ?? null,
-				updatedAt: at,
-			};
-		});
+		return this.setStatic(key, value, at);
 	}
 
-	/** Switches a model between `static` and `dynamic` mode (optionally setting its value). */
+	/** Switches a model between `static` and `dynamic` mode (optionally pinning a band). */
 	async setMode(
 		key: TrustKey,
 		mode: TrustMode,
-		value?: number,
+		band?: TrustBand | number,
 		at: string = new Date().toISOString(),
 	): Promise<TrustSetting> {
-		if (value !== undefined) {
-			assertTrustValue(value);
+		if (mode === "dynamic") {
+			return this.setDynamic(key, at);
 		}
-		if (mode === "dynamic" && value !== undefined) {
-			return this.setDynamic(key, value, at);
-		}
-		const fallback =
-			value !== undefined
-				? Math.round(value)
-				: (await this.entryFor(key)).score;
-		return this.upsertSetting(key, (prev) => ({
-			...key,
-			mode,
-			value:
-				value !== undefined ? Math.round(value) : (prev?.value ?? fallback),
-			dynamicBase: prev?.dynamicBase ?? null,
-			dynamicAt: prev?.dynamicAt ?? null,
-			resetAt: prev?.resetAt ?? null,
-			updatedAt: at,
-		}));
+		const resolved =
+			band !== undefined
+				? parseBandInput(band)
+				: (await this.entryFor(key)).earnedBand;
+		return this.setStatic(key, resolved, at);
 	}
 
-	/** Resets a model's trust history (ignoring earlier decisions) and returns to dynamic neutral (50). */
+	/** Resets a model's trust history (ignoring earlier decisions) and returns to earned `ask-and-wait`. */
 	async reset(
 		key: TrustKey,
 		at: string = new Date().toISOString(),
@@ -651,9 +612,7 @@ export class TrustStore {
 		return this.upsertSetting(key, () => ({
 			...key,
 			mode: "dynamic",
-			value: NEUTRAL_TRUST,
-			dynamicBase: null,
-			dynamicAt: null,
+			band: null,
 			resetAt: at,
 			updatedAt: at,
 		}));
@@ -670,7 +629,7 @@ export class TrustStore {
 	): Promise<TrustEntry[]> {
 		const file = await this.settingsDoc.read();
 		const decisions = await this.attributedDecisions(file?.scopes ?? []);
-		const settings = Object.values(file?.settings ?? {});
+		const settings = Object.values(file?.settings ?? {}).map(normalizeSetting);
 		const scopes = Map.groupBy(
 			(file?.scopes ?? []).filter((each) => each.removedAt === null),
 			(each) => each.project,
@@ -763,7 +722,10 @@ export class TrustStore {
 				fail("usage", "This directory scope is no longer declared");
 			}
 			const settings = { ...(current?.settings ?? {}) };
-			next = update(settings[id]);
+			const existing = settings[id];
+			next = normalizeSetting(
+				update(existing === undefined ? undefined : normalizeSetting(existing)),
+			);
 			settings[id] = next;
 			return { ...current, settings };
 		});
@@ -777,6 +739,35 @@ export class TrustStore {
 		}
 		return this.knownIds;
 	}
+}
+
+function normalizeSetting(raw: TrustSetting): TrustSetting {
+	const { project, agent, model, scope, mode, resetAt, updatedAt } = raw;
+	return {
+		project,
+		agent,
+		model,
+		...(scope === undefined ? {} : { scope }),
+		mode,
+		band: pinnedBandOf(raw),
+		resetAt: resetAt ?? null,
+		updatedAt,
+	};
+}
+
+function parseBandInput(input: TrustBand | number): TrustBand {
+	if (isTrustBand(input)) {
+		return input;
+	}
+	if (typeof input === "number") {
+		assertTrustValue(input);
+		return bandFromLegacyScore(input);
+	}
+	fail(
+		"usage",
+		`trust band must be "ask-and-wait", "ask-and-go", or "assume", got ${String(input)}`,
+		{ band: input },
+	);
 }
 
 function assertTrustValue(value: number): void {

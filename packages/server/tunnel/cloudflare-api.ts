@@ -17,6 +17,11 @@ const Envelope = z.object({
 /** How many items a list asks for at once, the most every list allows. */
 const PER_PAGE = 50;
 
+/** What `CloudflareApi` can be given in place of the global `fetch`. */
+export interface CloudflareApiOptions {
+	fetch?: typeof fetch;
+}
+
 /**
  * The few calls `splates tunnel setup` makes of Cloudflare's v4 API, over plain
  * `fetch` rather than the `cloudflare` SDK, which every `bunx` of splates would
@@ -28,7 +33,7 @@ export class CloudflareApi {
 
 	constructor(
 		private readonly token: string,
-		opts: { fetch?: typeof fetch } = {},
+		opts: CloudflareApiOptions = {},
 	) {
 		this.fetch = opts.fetch ?? fetch;
 	}

@@ -97,14 +97,14 @@ describe("App's pages and the project switcher", () => {
 			null,
 			[
 				"Boards",
+				"Signals",
+				"Ships",
+				"Rec",
 				"Creds",
 				"Autopick",
-				"Rigs",
 				"Stats",
-				"Ships",
-				"Signals",
+				"Rigs",
 				"Trust",
-				"Rec",
 				"Billing",
 				"Setup",
 			],
@@ -272,6 +272,10 @@ async function goTo(
 	view: ReturnType<typeof within>,
 	name: string,
 ): Promise<void> {
+	const more = view.queryByRole("button", { name: /^More \(/ });
+	if (view.queryByRole("tab", { name: new RegExp(name) }) === null && more) {
+		await act(async () => fireEvent.click(more));
+	}
 	await act(async () =>
 		fireEvent.click(view.getByRole("tab", { name: new RegExp(name) })),
 	);

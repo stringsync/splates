@@ -149,7 +149,7 @@ Cap upload retries
 		await waitFor(() =>
 			expect(
 				view
-					.getByRole("generic", { name: "permission" })
+					.getByRole("region", { name: "permission" })
 					.contains(document.activeElement),
 			).toBe(true),
 		);

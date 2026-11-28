@@ -158,7 +158,7 @@ describe("App's conversation header", () => {
 			"main",
 			"Terminal⌃`",
 			"Hand to a new agent",
-			"Image previewsCollapsed⌥⌘P",
+			"Inline previewsCollapsed⌥⌘P",
 			"Show timestamps",
 			"Archive⌥⌘⌫",
 		]);

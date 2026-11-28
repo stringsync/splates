@@ -1,10 +1,12 @@
 import type { JSX } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import type { Figure, FlowBar, FlowRates } from "./flow-rates";
+import { PageSection } from "./page-section";
 import { duration } from "./stats-advice";
 import { NONE } from "./stats-columns";
 import { type Axis, decimal, type Period } from "./stats-report";
@@ -28,14 +30,11 @@ export function Closing({
 }): JSX.Element {
 	const { unit, closed, toClose } = rates;
 	return (
-		<section
-			aria-label="Closing"
-			className="flex min-w-0 flex-col gap-4 text-foreground"
-		>
-			<h3 className="font-medium text-xs">Closing</h3>
-			<figure
+		<PageSection title="Closing" as="h3" className="text-foreground">
+			<Card
+				render={<figure />}
 				aria-label="Tasks closed over the period"
-				className="flex flex-col gap-3 rounded-lg border p-3"
+				className="flex flex-col gap-3 p-4"
 			>
 				<figcaption className="grid grid-cols-2 gap-3">
 					<Side
@@ -68,8 +67,8 @@ export function Closing({
 						`${bar.label}: ${decimal(bar.closed)} tasks closed, per ${unit}`
 					}
 				/>
-			</figure>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }
 
@@ -89,14 +88,11 @@ export function TimePerTask({
 }): JSX.Element {
 	const { toClose } = rates;
 	return (
-		<section
-			aria-label="Time per task"
-			className="flex min-w-0 flex-col gap-4 text-foreground"
-		>
-			<h3 className="font-medium text-xs">Time per task</h3>
-			<figure
+		<PageSection title="Time per task" as="h3" className="text-foreground">
+			<Card
+				render={<figure />}
 				aria-label="Time per task over the period"
-				className="flex flex-col gap-3 rounded-lg border p-3"
+				className="flex flex-col gap-3 p-4"
 			>
 				<figcaption>
 					<Side
@@ -124,8 +120,8 @@ export function TimePerTask({
 							: `${bar.label}: ${duration(bar.toCloseMinutes * 60_000)} per task, over ${plural(bar.timed, "task")}`
 					}
 				/>
-			</figure>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }
 

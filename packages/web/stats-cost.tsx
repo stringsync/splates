@@ -1,10 +1,12 @@
 import type { JSX } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
 import type { CostBar, CostRates } from "./cost-rates";
+import { PageSection } from "./page-section";
 import { NONE } from "./stats-columns";
 import type { Axis, Period } from "./stats-report";
 
@@ -25,14 +27,11 @@ export function CostPerTask({
 	const { perTask } = rates;
 	const moved = movement(perTask.cost, perTask.before, period);
 	return (
-		<section
-			aria-label="Cost per task"
-			className="flex min-w-0 flex-col gap-4 text-foreground"
-		>
-			<h3 className="font-medium text-xs">Cost per task</h3>
-			<figure
+		<PageSection title="Cost per task" as="h3" className="text-foreground">
+			<Card
+				render={<figure />}
 				aria-label="Cost per task over the period"
-				className="flex flex-col gap-3 rounded-lg border p-3"
+				className="flex flex-col gap-3 p-4"
 			>
 				<figcaption className="flex flex-col gap-0.5">
 					<span className="flex items-center gap-1.5 text-muted-foreground text-xs">
@@ -55,8 +54,8 @@ export function CostPerTask({
 					</span>
 				</figcaption>
 				<Chart bars={rates.bars} axis={rates.axis} weekly={weekly} />
-			</figure>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }
 

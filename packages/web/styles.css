@@ -32,36 +32,47 @@
 	}
 }
 
-/* Two soft, cool grays, with color kept for what matters: the accent marks
-   what you can act on and what is selected, and success, warning and
-   destructive mark state. Cards sit a step off the page so they read without
-   heavy borders. `dark` is toggled on <html> by appearance.ts, from the
-   Theme setting or the device. */
+/* Neutral grays in light and dark mode, with color kept for what matters:
+   success, warning and destructive mark state, while primary actions stay crisp
+   high-contrast monochrome. `dark` is toggled on <html> by appearance.ts, from
+   the Theme setting or the device. */
 :root {
 	color-scheme: light;
 	--radius: 0.625rem;
-	--background: oklch(0.968 0.004 264);
-	--foreground: oklch(0.255 0.014 264);
-	--card: oklch(0.993 0.002 264);
+	--background: #fafafa;
+	--foreground: #18181b;
+	--card: #ffffff;
 	--card-foreground: var(--foreground);
-	--popover: oklch(0.993 0.002 264);
+	--popover: #ffffff;
 	--popover-foreground: var(--foreground);
-	--sidebar: oklch(0.945 0.005 264);
+	--sidebar: #f2f2f4;
+	--blocker-pill-bg: color-mix(in oklab, var(--warning) 14%, var(--sidebar));
+	--blocker-pill-fg: oklch(0.49 0.13 55);
+	--blocker-pill-subtle-bg: color-mix(
+		in oklab,
+		var(--warning) 7.5%,
+		transparent
+	);
+	--blocker-pill-subtle-fg: color-mix(
+		in oklab,
+		var(--blocker-pill-fg) 62%,
+		var(--muted-foreground)
+	);
 	--primary: var(--brand);
 	--primary-foreground: var(--brand-foreground);
-	--secondary: oklch(0.928 0.006 264);
+	--secondary: #ededf0;
 	--secondary-foreground: var(--foreground);
-	--muted: oklch(0.928 0.006 264);
-	--muted-foreground: oklch(0.52 0.014 264);
-	--accent: color-mix(in oklab, var(--brand) 12%, var(--card));
+	--muted: #ededf0;
+	--muted-foreground: #686872;
+	--accent: color-mix(in oklab, var(--brand) 8%, var(--card));
 	--accent-foreground: var(--foreground);
 	--destructive: oklch(0.577 0.215 27.3);
 	--success: oklch(0.6 0.15 152);
 	--success-foreground: oklch(0.15 0.014 152);
 	--warning: oklch(0.666 0.157 58.3);
 	--info: oklch(0.588 0.158 241.966);
-	--border: oklch(0.885 0.007 264);
-	--input: oklch(0.86 0.008 264);
+	--border: oklch(0 0 0 / 8%);
+	--input: oklch(0 0 0 / 12%);
 	--ring: var(--brand);
 	/* The Stats page's decision line: the first slot of the dataviz
 	   reference palette, validated on each surface. */
@@ -80,17 +91,25 @@
 
 .dark {
 	color-scheme: dark;
-	--background: oklch(0.238 0.009 264);
-	--foreground: oklch(0.9 0.007 264);
-	--card: oklch(0.272 0.01 264);
+	--background: #18181b;
+	--foreground: #ededef;
+	--card: #202024;
 	--card-foreground: var(--foreground);
-	--popover: oklch(0.29 0.011 264);
+	--popover: #25252a;
 	--popover-foreground: var(--foreground);
-	--sidebar: oklch(0.215 0.009 264);
-	--secondary: oklch(0.31 0.011 264);
-	--muted: oklch(0.31 0.011 264);
-	--muted-foreground: oklch(0.685 0.013 264);
-	--accent: color-mix(in oklab, var(--brand) 20%, var(--card));
+	--sidebar: #121215;
+	--blocker-pill-bg: color-mix(in oklab, var(--warning) 15%, var(--sidebar));
+	--blocker-pill-fg: oklch(0.82 0.115 74);
+	--blocker-pill-subtle-bg: color-mix(in oklab, var(--warning) 8%, transparent);
+	--blocker-pill-subtle-fg: color-mix(
+		in oklab,
+		var(--blocker-pill-fg) 62%,
+		var(--muted-foreground)
+	);
+	--secondary: #27272d;
+	--muted: #27272d;
+	--muted-foreground: #9696a0;
+	--accent: color-mix(in oklab, var(--brand) 10%, var(--card));
 	--destructive: oklch(0.68 0.17 22.2);
 	--success: oklch(0.74 0.15 152);
 	--warning: oklch(0.78 0.14 72);
@@ -141,8 +160,8 @@
 }
 :root:not([data-accent]),
 [data-accent="graphite"] {
-	--brand: oklch(0.32 0.014 264);
-	--brand-foreground: oklch(0.97 0.004 264);
+	--brand: #18181b;
+	--brand-foreground: #fafafa;
 }
 :is(.dark, .dark *)[data-accent="indigo"] {
 	--brand: oklch(0.7 0.14 274);
@@ -174,8 +193,8 @@
 }
 .dark:not([data-accent]),
 :is(.dark, .dark *)[data-accent="graphite"] {
-	--brand: oklch(0.88 0.006 264);
-	--brand-foreground: oklch(0.24 0.01 264);
+	--brand: #f4f4f5;
+	--brand-foreground: #111113;
 }
 
 /* The fonts build.ts inlines, then each system's own for what they lack. */
@@ -335,157 +354,25 @@
 	cursor: default;
 }
 
-/* Per-page area hues (light, then dark) for integrated page headers and active
-   sidebar icons. */
-[data-page-area="boards"] {
-	--area-hue: oklch(0.52 0.17 272);
-}
-[data-page-area="creds"] {
-	--area-hue: oklch(0.59 0.15 72);
-}
-[data-page-area="auto-pick"] {
-	--area-hue: oklch(0.54 0.19 305);
-}
-[data-page-area="rigs"] {
-	--area-hue: oklch(0.55 0.16 32);
-}
-[data-page-area="stats"] {
-	--area-hue: oklch(0.53 0.15 232);
-}
-[data-page-area="ships"] {
-	--area-hue: oklch(0.52 0.16 252);
-}
-[data-page-area="signals"] {
-	--area-hue: oklch(0.52 0.12 185);
-}
-[data-page-area="trust"] {
-	--area-hue: oklch(0.53 0.13 160);
-}
-[data-page-area="rec"] {
-	--area-hue: oklch(0.55 0.17 12);
-}
-[data-page-area="billing"] {
-	--area-hue: oklch(0.52 0.13 164);
-}
-[data-page-area="setup"] {
-	--area-hue: oklch(0.52 0.1 212);
-}
-[data-page-area="welcome"] {
-	--area-hue: oklch(0.53 0.16 282);
-}
-[data-page-area="conversations"] {
-	--area-hue: oklch(0.53 0.14 152);
-}
-
-:is(.dark, .dark *)[data-page-area="boards"] {
-	--area-hue: oklch(0.69 0.15 272);
-}
-:is(.dark, .dark *)[data-page-area="creds"] {
-	--area-hue: oklch(0.77 0.14 72);
-}
-:is(.dark, .dark *)[data-page-area="auto-pick"] {
-	--area-hue: oklch(0.72 0.16 305);
-}
-:is(.dark, .dark *)[data-page-area="rigs"] {
-	--area-hue: oklch(0.73 0.14 34);
-}
-:is(.dark, .dark *)[data-page-area="stats"] {
-	--area-hue: oklch(0.73 0.13 232);
-}
-:is(.dark, .dark *)[data-page-area="ships"] {
-	--area-hue: oklch(0.68 0.16 250);
-}
-:is(.dark, .dark *)[data-page-area="signals"] {
-	--area-hue: oklch(0.74 0.13 185);
-}
-:is(.dark, .dark *)[data-page-area="trust"] {
-	--area-hue: oklch(0.73 0.13 160);
-}
-:is(.dark, .dark *)[data-page-area="rec"] {
-	--area-hue: oklch(0.73 0.15 12);
-}
-:is(.dark, .dark *)[data-page-area="billing"] {
-	--area-hue: oklch(0.74 0.13 164);
-}
-:is(.dark, .dark *)[data-page-area="setup"] {
-	--area-hue: oklch(0.72 0.1 212);
-}
-:is(.dark, .dark *)[data-page-area="welcome"] {
-	--area-hue: oklch(0.71 0.15 282);
-}
-:is(.dark, .dark *)[data-page-area="conversations"] {
-	--area-hue: oklch(0.73 0.14 152);
-}
-
-/* Integrated full-bleed page header band (Variant A): neutral bottom hairline,
-   top-left area glow and opaque surfaces. */
+/* Restrained monochrome page header band with a neutral bottom hairline and
+   subtle card-framed icon box. */
 .page-header-band {
 	overflow: hidden;
 	background: var(--background);
 	border-bottom: 1px solid var(--border);
 }
-.page-header-glow {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	background: radial-gradient(
-		ellipse 48% 155% at 0% 0%,
-		color-mix(in oklch, var(--area-hue) 13%, transparent),
-		transparent 68%
-	);
-}
-.dark .page-header-glow {
-	background: radial-gradient(
-		ellipse 48% 155% at 0% 0%,
-		color-mix(in oklch, var(--area-hue) 22%, transparent),
-		transparent 68%
-	);
-}
-@media (width < 768px) {
-	.page-header-glow {
-		background: radial-gradient(
-			ellipse 75% 135% at 0% 0%,
-			color-mix(in oklch, var(--area-hue) 14%, transparent),
-			transparent 72%
-		);
-	}
-	.dark .page-header-glow {
-		background: radial-gradient(
-			ellipse 75% 135% at 0% 0%,
-			color-mix(in oklch, var(--area-hue) 22%, transparent),
-			transparent 72%
-		);
-	}
-}
-.page-header-sheen {
-	position: absolute;
-	inset-inline: 0;
-	top: 0;
-	height: 2px;
-	pointer-events: none;
-	background: linear-gradient(
-		to right,
-		color-mix(in oklch, var(--area-hue) 85%, transparent),
-		color-mix(in oklch, var(--area-hue) 32%, transparent) 44%,
-		transparent 84%
-	);
-}
 .page-header-icon {
-	border: 1px solid color-mix(in oklch, var(--area-hue) 30%, var(--border));
-	background: color-mix(in oklch, var(--area-hue) 11%, var(--card));
-	color: var(--area-hue);
-}
-.dark .page-header-icon {
-	border-color: color-mix(in oklch, var(--area-hue) 36%, var(--border));
-	background: color-mix(in oklch, var(--area-hue) 16%, var(--card));
+	border: 1px solid var(--border);
+	background: var(--card);
+	color: color-mix(in oklab, var(--foreground) 78%, var(--card));
 }
 .page-header-pill {
-	border: 1px solid color-mix(in oklch, var(--foreground) 13%, var(--card));
+	border: 1px solid var(--border);
 	background: var(--card);
-	color: color-mix(in oklch, var(--foreground) 78%, var(--card));
+	color: var(--muted-foreground);
 }
 .page-header-desc {
-	color: color-mix(in oklch, var(--foreground) 76%, var(--background));
+	color: var(--muted-foreground);
 }
 
 /* Scorecard verdicts use the theme's status colors on the page's card surface. */
@@ -495,14 +382,66 @@
 	border-color: color-mix(in oklab, var(--verdict) 33%, var(--card));
 }
 
+/* Buddy C1 expressive motion in conversation threads: subtle idle blink,
+   gentle working bob and eye look. Disabled when reduced motion is preferred. */
+@keyframes buddy-blink {
+	0%,
+	90%,
+	100% {
+		transform: scaleY(1);
+	}
+	95% {
+		transform: scaleY(0.12);
+	}
+}
+@keyframes buddy-bob {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-1.5px);
+	}
+}
+@keyframes buddy-look {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+	25% {
+		transform: translate(1.2px, -0.4px);
+	}
+	70% {
+		transform: translate(-1.2px, -0.4px);
+	}
+}
+.buddy-eyes-blink {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: buddy-blink 4.6s ease-in-out infinite;
+}
+.buddy-working-bob {
+	animation: buddy-bob 2.2s ease-in-out infinite;
+}
+.buddy-eyes-look {
+	animation: buddy-look 2.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.buddy-eyes-blink,
+	.buddy-working-bob,
+	.buddy-eyes-look {
+		animation: none;
+	}
+}
+
 /* A card's hairline between sections, held in from its sides by the card's
-   padding (1rem, 0.75rem in a narrow card) so it lines up with the text above
-   and below, as Before and After's does. `rule-t` and `rule-b` draw it above
-   or below an element, `rule-y` between a list's children; set `--rule-inset`
-   where the text sits further in. Lines that edge a shaded band (the header, a
-   tinted footer) stay full width. Drawn as a sized background image in a
-   transparent border, so it lands on whole pixels and leaves the element's
-   position and background color alone. */
+   1rem horizontal padding so it lines up with the text above and below, as
+   Before and After's does. `rule-t` and `rule-b` draw it above or below an
+   element, `rule-y` between a list's children; set `--rule-inset` where the
+   text sits further in. Lines that edge a shaded band (the header, a tinted
+   footer) stay full width. Drawn as a sized background image in a transparent
+   border, so it lands on whole pixels and leaves the element's position and
+   background color alone. */
 @utility rule-t {
 	--rule-pad: 1rem;
 	border-top: 1px solid transparent;
@@ -511,9 +450,6 @@
 	background-position: var(--rule-inset, var(--rule-pad)) top;
 	background-repeat: no-repeat;
 	background-origin: border-box;
-	@container (width < 28rem) {
-		--rule-pad: 0.75rem;
-	}
 }
 @utility rule-b {
 	--rule-pad: 1rem;
@@ -523,9 +459,6 @@
 	background-position: var(--rule-inset, var(--rule-pad)) bottom;
 	background-repeat: no-repeat;
 	background-origin: border-box;
-	@container (width < 28rem) {
-		--rule-pad: 0.75rem;
-	}
 }
 @utility rule-y {
 	--rule-pad: 1rem;
@@ -536,8 +469,5 @@
 		background-position: var(--rule-inset, var(--rule-pad)) top;
 		background-repeat: no-repeat;
 		background-origin: border-box;
-	}
-	@container (width < 28rem) {
-		--rule-pad: 0.75rem;
 	}
 }

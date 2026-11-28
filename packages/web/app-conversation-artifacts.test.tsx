@@ -59,13 +59,13 @@ describe("App's artifacts", () => {
 		};
 	};
 
-	it("draws an add and a remove as the artifact, opening the version it names", async () => {
+	it("draws non-HTML adds and removes as quiet events in the work timeline, opening the version named", async () => {
 		const { thread } = await opened(
-			[artifact("report.html", [version(1), version(2)])],
+			[artifact("notes.csv", [version(1), version(2)])],
 			[
-				added(1, "report.html", 1),
-				added(2, "report.html", 2),
-				removed(3, "report.html", 2),
+				added(1, "notes.csv", 1),
+				added(2, "notes.csv", 2),
+				removed(3, "notes.csv", 2),
 				{ ...added(4, "big.png", 1), reason: "too_large" },
 			],
 		);
@@ -76,26 +76,147 @@ describe("App's artifacts", () => {
 			return found;
 		});
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Addedreport.html",
-			"Addedreport.html(v2)",
-			"Removedreport.html",
+			"Addednotes.csv",
+			"Addednotes.csv(v2)",
+			"Removednotes.csv",
 			"artifact add: too_large",
 		]);
 		await act(async () =>
 			fireEvent.click(
 				within(lines[1] as HTMLElement).getByRole("button", {
-					name: "report.html",
+					name: "notes.csv",
 				}),
 			),
 		);
 		expect(followed).toEqual([
 			{
 				href: expect.stringContaining(
-					"/api/conversations/c1/artifacts/report.html/2",
+					"/api/conversations/c1/artifacts/notes.csv/2",
 				),
-				download: "report.html",
+				download: "notes.csv",
 			},
 		]);
+	});
+
+	it("renders HTML artifacts inline as a single-line bar when collapsed (folding same-turn updates) and as a sandboxed framed card when expanded", async () => {
+		const { view, thread } = await opened(
+			[
+				artifact("pricing-sim.html", [
+					{
+						...version(1, 300, "text/html"),
+						title: "Pricing Draft",
+					},
+					{
+						...version(2, 4096, "text/html"),
+						title: "Pricing & Margin Simulator",
+					},
+				]),
+			],
+			[added(1, "pricing-sim.html", 1), added(2, "pricing-sim.html", 2)],
+		);
+
+		// Collapsed by default: one bar for v2 (v1 folded), zero iframes mounted.
+		const bar = await waitFor(() =>
+			within(thread).getByRole("button", { name: "Open pricing-sim.html v2" }),
+		);
+		expect(bar.textContent).toContain("Pricing & Margin Simulator");
+		expect(bar.textContent).toContain("v2 · 4 KB");
+		expect(bar.textContent).toContain("Open");
+		expect(thread.querySelectorAll("iframe")).toHaveLength(0);
+
+		// Clicking the collapsed bar opens the fullscreen viewer dialog.
+		await act(async () => fireEvent.click(bar));
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "pricing-sim.html v2" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "close" })),
+		);
+
+		// Expanding Inline previews in Widgets mounts the sandboxed iframe with labelled footer actions.
+		const toggle = within(
+			view.getByRole("navigation", { name: "actions" }),
+		).getByRole("button", { name: /^Inline previews/ });
+		await act(async () => fireEvent.click(toggle));
+
+		const card = await waitFor(() =>
+			within(thread).getByRole("region", { name: "pricing-sim.html v2" }),
+		);
+		const frame = within(card).getByTitle("pricing-sim.html v2");
+		expect(frame.tagName).toBe("IFRAME");
+		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
+		expect(frame.getAttribute("loading")).toBe("lazy");
+		expect(frame.getAttribute("src")).toContain(
+			"/api/conversations/c1/artifacts/pricing-sim.html/2",
+		);
+		expect(
+			within(card).getByRole("link", { name: "New tab" }).getAttribute("href"),
+		).toContain("/api/conversations/c1/artifacts/pricing-sim.html/2");
+
+		// Per-card Collapse unmounts this iframe without changing the conversation policy.
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Collapse" })),
+		);
+		expect(thread.querySelectorAll("iframe")).toHaveLength(0);
+		expect(
+			within(thread).getByRole("button", { name: "Open pricing-sim.html v2" }),
+		).toBeTruthy();
+
+		// Toggling conversation policy off and back on resets the per-card override.
+		await act(async () => fireEvent.click(toggle));
+		await act(async () => fireEvent.click(toggle));
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("region", { name: "pricing-sim.html v2" }),
+			).toBeTruthy(),
+		);
+	});
+
+	it("renders auto-captured Markdown HTML embeds inline and deduplicates matching artifact events", async () => {
+		const view = await testing.openConversations([
+			{
+				...turn(["See ![Simulator](#splates-artifact=sim.html/1)"]),
+				artifacts: [
+					artifact("sim.html", [
+						{ ...version(1, 2048, "text/html"), title: "Simulator" },
+					]),
+				],
+				events: [added(1, "sim.html", 1)],
+			},
+		]);
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "Tests" }),
+		);
+		const bars = await waitFor(() => {
+			const found = within(thread).getAllByRole("button", {
+				name: "Open sim.html",
+			});
+			expect(found).toHaveLength(1);
+			return found;
+		});
+		expect(bars[0]?.textContent).toContain("Simulator");
+	});
+
+	it("shows a non-openable placeholder when an inline HTML artifact's bytes are gone", async () => {
+		const { thread } = await opened(
+			[
+				artifact("gone.html", [
+					{
+						...version(1, 512, "text/html"),
+						title: "Expired Page",
+						gone: { at: second(5), why: "evicted" },
+					},
+				]),
+			],
+			[added(1, "gone.html", 1)],
+		);
+		const status = await waitFor(() =>
+			within(thread).getByRole("status", { name: "gone.html unavailable" }),
+		);
+		expect(status.textContent).toContain("Expired Page");
+		expect(status.textContent).toContain("evicted for space");
+		expect(thread.querySelectorAll("iframe")).toHaveLength(0);
 	});
 
 	it("lists the artifacts it keeps beside the thread, each opening its current version", async () => {
@@ -246,6 +367,47 @@ describe("App's artifacts", () => {
 		);
 	});
 
+	it("closes an HTML preview when the sandboxed iframe forwards Escape", async () => {
+		const { view } = await opened([
+			artifact("report.html", [version(1, 10, "text/html")]),
+		]);
+
+		const card = view.getByRole("region", { name: "artifacts" });
+		await act(async () =>
+			fireEvent.click(
+				within(card).getByRole("button", { name: "report.html" }),
+			),
+		);
+		const viewer = await waitFor(() =>
+			view.getByRole("dialog", { name: "report.html" }),
+		);
+		const frame = within(viewer).getByTitle("report.html") as HTMLIFrameElement;
+
+		// Unrelated sources are ignored.
+		await act(async () => {
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: { splates: "escape" },
+					source: window,
+				}),
+			);
+		});
+		expect(view.getByRole("dialog", { name: "report.html" })).toBeTruthy();
+
+		// Escape forwarded from the preview's own iframe closes the lightbox.
+		await act(async () => {
+			window.dispatchEvent(
+				new MessageEvent("message", {
+					data: { splates: "escape" },
+					source: frame.contentWindow,
+				}),
+			);
+		});
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "report.html" })).toBeNull(),
+		);
+	});
+
 	it("renders a standalone Do you approve question as an ordinary question with no plan tile or approval footer", async () => {
 		const view = await testing.openConversations([
 			{
@@ -326,6 +488,7 @@ describe("App's artifacts", () => {
 					"**Tags:**",
 					"- Clean revert: nothing is stored, so nothing is left behind",
 					"- Medium: one command reworked",
+					"- Targeted: adjusts the eval runner without touching other commands",
 					"- Evals",
 					"",
 					"1. Should a bare `run` run every eval?",
@@ -341,9 +504,10 @@ describe("App's artifacts", () => {
 		expect(items).toEqual([
 			"Clean revertnothing is stored, so nothing is left behind",
 			"Mediumone command reworked",
+			"Targetedadjusts the eval runner without touching other commands",
 			"Evals",
 		]);
-		expect(tags.querySelectorAll("li svg")).toHaveLength(3);
+		expect(tags.querySelectorAll("li svg")).toHaveLength(4);
 		expect(view.getByRole("region", { name: "Details" }).textContent).toContain(
 			"plays each eval once on one agent.",
 		);
@@ -411,7 +575,7 @@ describe("App's artifacts", () => {
 		expect(prompts()[0]).not.toContain("Yes, approve it");
 	});
 
-	it("opens an image or a recording in the lightbox among the others beside it, and downloads anything else", async () => {
+	it("opens an image, recording, or HTML page in the unified lightbox among the others beside it, and downloads anything else", async () => {
 		const { view } = await opened([
 			artifact("a.png", [version(1, 10, "image/png")]),
 			artifact("notes.pdf", [version(1, 10, "application/pdf")]),
@@ -433,10 +597,17 @@ describe("App's artifacts", () => {
 		expect(lightbox.querySelector("video")?.getAttribute("src")).toContain(
 			"/artifacts/run.mp4/1",
 		);
-		// The listed images and recordings, the removed one apart.
-		expect(within(lightbox).getByText("2 of 2")).toBeTruthy();
+		// The listed images, recordings, and HTML pages, the removed one apart.
+		expect(within(lightbox).getByText("2 of 3")).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(within(lightbox).getByRole("button", { name: "next" })),
+		);
+		const htmlView = await waitFor(() =>
+			view.getByRole("dialog", { name: "page.html" }),
+		);
+		expect(within(htmlView).getByTitle("page.html").tagName).toBe("IFRAME");
+		await act(async () =>
+			fireEvent.click(within(htmlView).getByRole("button", { name: "next" })),
 		);
 		await waitFor(() => view.getByRole("dialog", { name: "a.png" }));
 		await act(async () =>

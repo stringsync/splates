@@ -1129,7 +1129,7 @@ describe("App on a phone", () => {
 		);
 	});
 
-	it("pins a plan sheet's Send button with the same disabled and undo-decision behavior as desktop", async () => {
+	it("steps a plan sheet through Decide then Review & send with desktop step pills, disabled Send, and undo-decision behavior", async () => {
 		const plan = [
 			"## 📝 Plan: retry uploads",
 			"",
@@ -1151,24 +1151,85 @@ describe("App on a phone", () => {
 		const sheet = await waitFor(() =>
 			view.getByRole("dialog", { name: "A plan for you" }),
 		);
+		const header = sheet.querySelector("header");
+		expect(header?.textContent).toContain("Awaiting approval");
+		expect(sheet.querySelector("[data-card]")?.textContent).not.toContain(
+			"Awaiting approval",
+		);
+		// Uses the desktop step pill bar without desktop's Show all button.
+		const steps = within(sheet).getByRole("navigation", {
+			name: "question steps",
+		});
+		expect(
+			within(steps)
+				.getByRole("button", { name: "plan decision" })
+				.getAttribute("aria-current"),
+		).toBe("step");
+		expect(
+			within(steps).getByRole("button", { name: "review and send" }),
+		).toBeTruthy();
+		expect(
+			within(steps).queryByRole("button", { name: "Show all" }),
+		).toBeNull();
+		// Decide step has no Anything else box beside it.
+		expect(
+			within(sheet).queryByRole("textbox", { name: "Anything else" }),
+		).toBeNull();
+
+		// Jumping to Review before picking a decision keeps pinned Send disabled.
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
 		const send = within(sheet).getByRole("button", {
 			name: "Send",
 		}) as HTMLButtonElement;
-		const approve = within(sheet).getByRole("button", { name: "Approve" });
-
 		expect(send.closest("[data-pinned]")).not.toBeNull();
 		expect(send.className).not.toContain("bg-black");
 		expect(send.disabled).toBe(true);
+		await act(async () => fireEvent.click(send));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 
+		// Tap the decision prompt card to return to Decide, pick Approve, then Review.
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "Choose plan decision" }),
+			),
+		);
+		const approve = within(sheet).getByRole("button", { name: "Approve" });
 		await act(async () => fireEvent.click(approve));
 		expect(approve.getAttribute("aria-pressed")).toBe("true");
-		expect(send.disabled).toBe(false);
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		expect(
+			within(sheet).getByRole("button", {
+				name: /Plan decision: Approve\. Change/,
+			}),
+		).toBeTruthy();
+		expect(
+			(within(sheet).getByRole("button", { name: "Send" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(false);
 
-		// Clicking the picked approval again undoes it and turns Send back off.
-		await act(async () => fireEvent.click(approve));
-		expect(approve.getAttribute("aria-pressed")).toBe("false");
-		expect(send.disabled).toBe(true);
-		await act(async () => fireEvent.click(send));
+		// Clicking Change and clicking the picked approval again undoes it and turns Send back off.
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", {
+					name: /Plan decision: Approve\. Change/,
+				}),
+			),
+		);
+		const approveAgain = within(sheet).getByRole("button", { name: "Approve" });
+		await act(async () => fireEvent.click(approveAgain));
+		expect(approveAgain.getAttribute("aria-pressed")).toBe("false");
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
+		);
+		const sendAfterUndo = within(sheet).getByRole("button", {
+			name: "Send",
+		}) as HTMLButtonElement;
+		expect(sendAfterUndo.disabled).toBe(true);
+		await act(async () => fireEvent.click(sendAfterUndo));
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
@@ -1205,7 +1266,7 @@ describe("App on a phone", () => {
 		expect(view.queryByRole("dialog")).toBeNull();
 	});
 
-	it("goes from a sheet the inbox opened to the conversation behind it", async () => {
+	it("closes a sheet the inbox opened onto the conversation behind it", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -1233,10 +1294,11 @@ describe("App on a phone", () => {
 		const sheet = await waitFor(() =>
 			view.getByRole("dialog", { name: "3 questions for you" }),
 		);
+		expect(
+			within(sheet).queryByRole("button", { name: "Conversation" }),
+		).toBeNull();
 		await act(async () =>
-			fireEvent.click(
-				within(sheet).getByRole("button", { name: "Conversation" }),
-			),
+			fireEvent.click(within(sheet).getByRole("button", { name: "Close" })),
 		);
 
 		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
@@ -1274,47 +1336,6 @@ describe("App on a phone", () => {
 		expect(
 			view.getByRole("dialog", { name: "3 questions for you" }),
 		).toBeTruthy();
-	});
-
-	it("goes back to the inbox on closing a sheet the inbox opened", async () => {
-		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					title: "Header",
-					task: "alpha",
-					messages: [
-						message("user", "fix the header"),
-						message("agent", bareReport),
-					],
-				}),
-			],
-			null,
-			{ tasks: [asking] },
-		);
-
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("region", { name: "Conversations" })).getByRole(
-					"button",
-					{ name: /alpha/ },
-				),
-			),
-		);
-		const sheet = await waitFor(() =>
-			view.getByRole("dialog", { name: "3 questions for you" }),
-		);
-		await act(
-			() =>
-				new Promise<void>((resolve) => {
-					addEventListener("popstate", () => resolve(), { once: true });
-					fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
-				}),
-		);
-
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(location.hash).toBe("#conversations");
-		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
 	});
 
 	it("counts on its header's way back the other agents waiting on you", async () => {
@@ -1536,6 +1557,9 @@ describe("App on a phone", () => {
 			fireEvent.click(view.getByRole("button", { name: "More" })),
 		);
 		await waitFor(() => view.getByText(/^splates v/));
+		await waitFor(() =>
+			view.getByRole("menuitem", { name: "Power: restart to update" }),
+		);
 		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
 
 		await act(async () =>
@@ -1707,6 +1731,92 @@ describe("App on a phone", () => {
 				view.getByRole("button", { name: "Back to conversations" }),
 			),
 		);
+	});
+
+	it("matches phone queued row circles and Archived row sizing and placement to conversation rows", async () => {
+		testing.everywhere = [
+			{
+				project: "wren",
+				repo: "wren",
+				root: "/repo",
+				trunk: "main",
+				tasks: [],
+				laneNames: [],
+				worktreeRoot: "/code/worktrees",
+				lanesTaken: {},
+				conversations: [],
+			},
+		];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login" })],
+			null,
+			{
+				todos: [
+					todo({
+						id: 1,
+						subject: "Blocked follow-up",
+						stage: "queued",
+						blockedBy: [2],
+					}),
+					todo({ id: 2, subject: "Unqueued blocker", stage: "available" }),
+				],
+				lanes: [],
+			},
+		);
+
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const queue = await waitFor(() =>
+			within(inbox).getByRole("list", { name: /queue$/ }),
+		);
+		const queuedRow = queue.querySelector("button[data-row]") as HTMLElement;
+		expect(queuedRow.className).toContain("min-h-16");
+		expect(queuedRow.className).toContain("pl-4");
+		const queuedCircle = queuedRow.querySelector(
+			"span.rounded-full",
+		) as HTMLElement;
+		expect(queuedCircle.className).toContain("size-10");
+		expect(queuedCircle.querySelector("svg")?.getAttribute("class")).toContain(
+			"size-5",
+		);
+
+		const archived = within(inbox).getByRole("button", { name: "Archived" });
+		expect(archived.parentElement?.className).toContain("border-t");
+		expect(archived.className).toContain("w-full");
+		expect(archived.className).toContain("min-h-16");
+		expect(archived.className).toContain("px-4");
+		const archivedCircle = archived.querySelector(
+			"span.rounded-full",
+		) as HTMLElement;
+		expect(archivedCircle.className).toContain("size-10");
+		expect(
+			archivedCircle.querySelector("svg")?.getAttribute("class"),
+		).toContain("size-5");
+	});
+
+	it("opens Settings from the phone drawer footer without duplicating Archived from Inbox", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open();
+
+		expect(view.getByRole("button", { name: "Archived" })).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const drawer = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+		expect(
+			within(drawer).queryByRole("button", { name: "Archived" }),
+		).toBeNull();
+
+		const settings = within(drawer).getByRole("button", { name: "Settings" });
+		expect(settings.className).toContain("h-12");
+
+		await act(async () => fireEvent.click(settings));
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "Pages" })).toBeNull(),
+		);
+		expect(view.getByRole("region", { name: "Settings" })).toBeTruthy();
 	});
 });
 

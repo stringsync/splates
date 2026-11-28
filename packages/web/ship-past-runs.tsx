@@ -3,8 +3,9 @@ import { waitingIn } from "@splates/server/ship/browser";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { shipRuns } from "./api/ship";
+import { Card, CardList } from "./components/ui/card";
 import { shipRunAddress } from "./page-address";
-import { ShipHeading } from "./ship-heading";
+import { PageSection } from "./page-section";
 
 const SAID = {
 	running: "Shipping now",
@@ -24,17 +25,17 @@ export function ShipPastRuns({
 		read().then(setRuns, () => setRuns("failed"));
 	}, [read]);
 	return (
-		<section aria-label="Runs" className="flex flex-col gap-3">
-			<ShipHeading
-				title="Past ships"
-				line={
-					Array.isArray(runs) && runs.length > 0
-						? runs.length === 1
-							? "1 run."
-							: `${runs.length} runs, newest first.`
-						: undefined
-				}
-			/>
+		<PageSection
+			label="Runs"
+			title="Past ships"
+			description={
+				Array.isArray(runs) && runs.length > 0
+					? runs.length === 1
+						? "1 run."
+						: `${runs.length} runs, newest first.`
+					: undefined
+			}
+		>
 			{runs === null ? (
 				<p className="text-muted-foreground text-sm">Reading runs…</p>
 			) : runs === "failed" ? (
@@ -44,7 +45,7 @@ export function ShipPastRuns({
 			) : (
 				<ShipRunList runs={runs} />
 			)}
-		</section>
+		</PageSection>
 	);
 }
 
@@ -58,11 +59,13 @@ export function ShipRunList({
 	bar?: boolean;
 }): JSX.Element {
 	return (
-		<ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card">
-			{runs.map((run) => (
-				<RunRow key={run.id} run={run} bar={bar} />
-			))}
-		</ul>
+		<Card>
+			<CardList>
+				{runs.map((run) => (
+					<RunRow key={run.id} run={run} bar={bar} />
+				))}
+			</CardList>
+		</Card>
 	);
 }
 

@@ -4,39 +4,36 @@ import {
 	antigravityModelInGroup,
 } from "@splates/server/models/browser";
 import { useReactive } from "core/react";
-import {
-	ChevronDownIcon,
-	CircleAlertIcon,
-	TriangleAlertIcon,
-	XIcon,
-} from "lucide-react";
+import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-} from "#web/components/ui/dropdown-menu.tsx";
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentMark } from "./agent-icons";
-import { touchItems } from "./board";
+import { endedReport } from "./archive-offer";
 import { settingsFor } from "./conversation-address";
 import { handOffConversation } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Dispatching } from "./dispatching";
 import { useMinute } from "./hooks/use-minute";
-import { toneOf } from "./meter";
+import { Meter, toneOf } from "./meter";
 import {
 	antigravityModelLimits,
 	antigravityPlanLimits,
 	limitRow,
 	limitsOf,
+	pacedReset,
 } from "./plan-limits";
 import { quotaLimitsFor } from "./quota-card";
 import type { Refuse } from "./refusal";
+import { ThreadBar } from "./thread-bar";
 
 /**
  * A dismissible slim bar above the conversation composer when the active agent
@@ -58,6 +55,7 @@ export function QuotaHandoffBar({
 	const context = useContext(Dispatching);
 	const now = useMinute();
 	const [handingOff, setHandingOff] = useState(false);
+	const [open, setOpen] = useState(false);
 	const [dismissedKey, setDismissedKey] = useState<string | null>(() =>
 		readDismissed(conversation.id),
 	);
@@ -90,7 +88,11 @@ export function QuotaHandoffBar({
 		["changed"],
 	);
 
-	if (conversation.archived || context === null) {
+	if (
+		conversation.archived ||
+		context === null ||
+		isConversationEnded(conversation)
+	) {
 		return null;
 	}
 
@@ -137,6 +139,7 @@ export function QuotaHandoffBar({
 			: `${pct}% of ${state.window} used`;
 
 	const dismiss = (): void => {
+		setOpen(false);
 		writeDismissed(conversation.id, state.cycleKey);
 		setDismissedKey(state.cycleKey);
 	};
@@ -145,6 +148,7 @@ export function QuotaHandoffBar({
 		if (handingOff) {
 			return;
 		}
+		setOpen(false);
 		setHandingOff(true);
 		handOffConversation(conversation.id)
 			.then(({ state: archived, prompt }) => {
@@ -166,108 +170,151 @@ export function QuotaHandoffBar({
 			});
 	};
 
+	const { limits: currentLimits } = quotaLimitsFor(
+		conversation,
+		snapshot.agents,
+		snapshot.conversations,
+	);
+
 	return (
 		<aside aria-label="Quota handoff">
-			<section
-				data-card
-				className="relative flex items-center gap-3 overflow-hidden rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
-			>
-				{out ? (
-					<CircleAlertIcon
-						aria-hidden
-						className="size-4 shrink-0 text-destructive"
-					/>
-				) : (
-					<TriangleAlertIcon
-						aria-hidden
-						className="size-4 shrink-0 text-warning"
-					/>
-				)}
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span className="truncate">
-						{out ? `${agent} is out of quota` : `${agent} is low on quota`}
+			<ThreadBar
+				Icon={out ? CircleAlertIcon : TriangleAlertIcon}
+				iconTone={out ? "destructive" : "warning"}
+				disabled={handingOff}
+				onPress={() => setOpen(true)}
+				cta={handingOff ? "Handing off…" : "Hand off"}
+				label={
+					<span>
+						{out
+							? `${agent} is out of quota`
+							: `${agent} is low on quota · ${pct}%`}
+						<span className="hidden @min-[26rem]:inline">
+							{out ? ` · ${state.window}` : ` of ${state.window}`}
+						</span>
 					</span>
-					<span className="truncate text-muted-foreground text-xs tabular-nums">
-						{subtitle}
-					</span>
-				</span>
-				<div className="-mr-1.5 flex shrink-0 items-center gap-1">
-					<DropdownMenu>
-						<DropdownMenuTrigger
-							render={
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={handingOff}
-									className="bg-background"
-								/>
-							}
-						>
-							{handingOff ? "Handing off…" : "Hand off"}
-							<ChevronDownIcon
-								data-icon="inline-end"
-								className="text-muted-foreground"
+				}
+			/>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="max-h-[85%] overflow-y-auto sm:max-w-md">
+					<DialogHeader className="min-w-0">
+						<DialogTitle className="flex min-w-0 items-center gap-2">
+							<AgentMark
+								agent={conversation.agent}
+								className="size-4 shrink-0"
 							/>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent
-							side="top"
-							align="end"
-							className={cn("w-56", touchItems)}
+							<span className="min-w-0 truncate">
+								{out ? `${agent} is out of quota` : `${agent} is low on quota`}
+							</span>
+						</DialogTitle>
+						<DialogDescription className="tabular-nums">
+							{subtitle}
+						</DialogDescription>
+					</DialogHeader>
+					{currentLimits.length > 0 && (
+						<ul
+							aria-label="Current quota"
+							className="flex min-w-0 flex-col gap-2.5 rounded-lg border bg-muted/30 p-3"
 						>
-							<DropdownMenuGroup>
-								<DropdownMenuLabel>Hand off to</DropdownMenuLabel>
-								{candidates.map(
-									({
-										key,
-										agent: candidate,
-										label,
-										model,
-										out: exhausted,
-										used,
-										tone,
-									}) => (
-										<DropdownMenuItem
-											key={key}
+							{currentLimits.map((limit) => {
+								const row = limitRow(limit, now);
+								const resetLine = pacedReset(row);
+								return (
+									<li
+										key={limit.window}
+										aria-label={row.name}
+										className="flex min-w-0 flex-col gap-1 tabular-nums"
+									>
+										<div className="flex items-baseline justify-between gap-2 text-xs">
+											<span className="min-w-0 truncate font-medium">
+												{row.name}
+											</span>
+											<span
+												className={cn(
+													"shrink-0 font-medium",
+													row.tone === "warning" && "text-warning",
+													row.tone === "destructive" && "text-destructive",
+												)}
+											>
+												{Math.round(row.used * 100)}%
+											</span>
+										</div>
+										<Meter used={row.used} className="block w-full" />
+										{resetLine !== "" && (
+											<span className="text-muted-foreground text-[11px] leading-tight">
+												{resetLine}
+											</span>
+										)}
+									</li>
+								);
+							})}
+						</ul>
+					)}
+					<div className="flex min-w-0 flex-col gap-2">
+						<p className="font-medium text-muted-foreground text-xs">
+							Hand off to
+						</p>
+						<ul
+							aria-label="Candidate agents"
+							className="flex min-w-0 flex-col gap-1.5"
+						>
+							{candidates.map(
+								({
+									key,
+									agent: candidate,
+									label,
+									model,
+									out: exhausted,
+									used,
+									tone,
+								}) => (
+									<li key={key} className="min-w-0">
+										<button
+											type="button"
 											disabled={exhausted || handingOff}
 											onClick={() => handOff(candidate.id, model)}
+											className="flex min-h-11 w-full min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
 										>
-											<AgentMark agent={candidate.id} name={candidate.name} />
-											<span className="min-w-0 flex-1 truncate">{label}</span>
-											{exhausted ? (
-												<span className="shrink-0 font-medium text-destructive text-xs">
-													Out of quota
+											<div className="flex w-full items-center gap-2">
+												<AgentMark agent={candidate.id} name={candidate.name} />
+												<span className="min-w-0 flex-1 truncate font-medium text-sm">
+													{label}
 												</span>
-											) : used !== null ? (
-												<span
-													className={cn(
-														"shrink-0 text-xs tabular-nums",
-														tone === "destructive"
-															? "font-medium text-destructive"
-															: tone === "warning"
-																? "font-medium text-warning"
-																: "text-muted-foreground",
-													)}
-												>
-													{Math.round(used * 100)}% used
-												</span>
-											) : null}
-										</DropdownMenuItem>
-									),
-								)}
-							</DropdownMenuGroup>
-						</DropdownMenuContent>
-					</DropdownMenu>
-					<Button
-						size="icon-sm"
-						variant="ghost"
-						aria-label="Dismiss quota handoff"
-						onClick={dismiss}
-						className="text-muted-foreground hover:text-foreground"
-					>
-						<XIcon />
-					</Button>
-				</div>
-			</section>
+												{exhausted ? (
+													<span className="shrink-0 font-medium text-destructive text-xs">
+														Out of quota
+													</span>
+												) : used !== null ? (
+													<span
+														className={cn(
+															"shrink-0 text-xs tabular-nums",
+															tone === "destructive"
+																? "font-medium text-destructive"
+																: tone === "warning"
+																	? "font-medium text-warning"
+																	: "text-muted-foreground",
+														)}
+													>
+														{Math.round(used * 100)}% used
+													</span>
+												) : null}
+											</div>
+											{used !== null && (
+												<Meter used={used} className="block w-full" />
+											)}
+										</button>
+									</li>
+								),
+							)}
+						</ul>
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={dismiss}>
+							Dismiss for cycle
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</aside>
 	);
 }
@@ -498,6 +545,18 @@ function shortReset(reset: string): string {
 	}
 	const comma = reset.indexOf(", ");
 	return comma === -1 ? reset : reset.slice(0, comma);
+}
+
+/** Whether the conversation is already finished (Done or Removed) and idle. */
+function isConversationEnded(conversation: ConversationState): boolean {
+	if (
+		(conversation.status !== "idle" && conversation.status !== "stopped") ||
+		conversation.ask !== null
+	) {
+		return false;
+	}
+	const report = endedReport(conversation);
+	return report !== null && report.ending !== "deferred";
 }
 
 function sameLimitSources(

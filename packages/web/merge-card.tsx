@@ -49,6 +49,8 @@ export const MergeCardContext = createContext<{
 	superseded: ReadonlySet<string>;
 	/** Ids of the newest merge each task began, the only one that can still be live. */
 	newest: ReadonlySet<string>;
+	/** Whether the conversation is armed to archive once its task merges cleanly. */
+	archiveAfterMerge?: boolean;
 } | null>(null);
 
 /** Where `task` stands in the batch gating it: its leader, and who else is in it; null outside one. */
@@ -186,7 +188,7 @@ function BatchRole({
 			label="Batch"
 			title="Batch"
 			ruled={false}
-			className="rule-b px-4 py-2 @max-md:px-3"
+			className="rule-b px-4 py-2"
 		>
 			<div
 				role="note"
@@ -239,12 +241,13 @@ export function EndedMergeCard({
 	const superseded =
 		useContext(MergeCardContext)?.superseded.has(end.id) ?? false;
 	const [why, setWhy] = useState(false);
+	const title = `${refused ? "Merge failed" : "Merged"} in ${spanOf(ms)}`;
 	return (
 		<>
 			<CardShell
 				label="Merge"
 				Icon={refused ? XIcon : GitMergeIcon}
-				title={`${refused ? "Merge failed" : "Merged"} in ${spanOf(ms)}`}
+				title={title}
 				tone={refused ? "destructive" : "success"}
 				task={end.task ?? ""}
 				base={end.base ?? null}

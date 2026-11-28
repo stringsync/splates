@@ -14,6 +14,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import { CardSection } from "./card-section";
 import { CardShell } from "./card-shell";
 import { judgeDisplay } from "./eval-judge";
 import { Coded } from "./eval-proposal-card";
@@ -84,6 +85,7 @@ export function EvalReportCard({
 				Icon={passed ? CircleCheckIcon : XCircleIcon}
 				title={headerTitle}
 				tone={passed ? "success" : "destructive"}
+				sheet={{ title: headerTitle, action: "Open" }}
 				aside={
 					asideParts.length > 0 ? (
 						<span className="text-[11.5px] text-muted-foreground">
@@ -92,7 +94,7 @@ export function EvalReportCard({
 					) : undefined
 				}
 			>
-				<h3 className="m-0 px-4 pt-3 pb-2.5 font-bold text-[15.5px] leading-[1.3] @max-md:px-3">
+				<h3 className="m-0 px-4 pt-3 pb-2.5 font-bold text-[15.5px] leading-[1.3]">
 					{report.group !== null && (
 						<span className="font-medium text-muted-foreground">
 							<Coded text={`${report.group} `} />
@@ -107,7 +109,7 @@ export function EvalReportCard({
 
 						<section
 							aria-label="Highlights"
-							className="rule-t flex flex-col gap-2 px-4 py-3 @max-md:px-3 @xl:border-t-0 @xl:[background-image:none]"
+							className="rule-t flex flex-col gap-2 px-4 py-3 @xl:border-t-0 @xl:[background-image:none]"
 						>
 							{highlights.length > 0 && (
 								<ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -157,17 +159,14 @@ export function EvalReportCard({
 							)}
 
 							{faults.length > 0 && (
-								<section
-									aria-label="What went wrong"
+								<CardSection
+									label="What went wrong"
+									title="What went wrong"
+									ruled={highlights.length > 0}
 									className={
-										highlights.length > 0
-											? "mt-1.5 flex flex-col gap-2 border-t pt-2.5"
-											: "flex flex-col gap-2"
+										highlights.length > 0 ? "mt-1.5 py-2.5 last:pb-0" : "py-0"
 									}
 								>
-									<span className="font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.04em]">
-										What went wrong
-									</span>
 									<ul className="m-0 flex list-none flex-col gap-[7px] p-0">
 										{faults.map((item, index) => (
 											<li
@@ -186,7 +185,7 @@ export function EvalReportCard({
 											</li>
 										))}
 									</ul>
-								</section>
+								</CardSection>
 							)}
 						</section>
 					</div>
@@ -254,7 +253,7 @@ export function EvalTranscript({
 	return (
 		<section
 			aria-label="Short transcript"
-			className="rule-t flex min-w-0 flex-col gap-2 px-4 py-3 @max-md:px-3 @xl:border-t-0 @xl:border-r @xl:[background-image:none]"
+			className="rule-t flex min-w-0 flex-col gap-2 px-4 py-3 @xl:border-t-0 @xl:border-r @xl:[background-image:none]"
 		>
 			{seededCount > 0 && (
 				<div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">

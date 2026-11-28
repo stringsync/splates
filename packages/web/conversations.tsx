@@ -271,7 +271,7 @@ export const Conversations = memo(function Conversations({
 	return (
 		<Board value={board}>
 			{/* What a view transition fades, as `slide` starts a conversation. */}
-			<div className="flex h-full flex-col gap-4 [view-transition-name:conversation]">
+			<div className="flex min-h-0 flex-1 flex-col gap-4 [view-transition-name:conversation]">
 				{startsOne(open) || open === null ? (
 					phone ? (
 						<PhoneHome

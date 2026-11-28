@@ -6,12 +6,10 @@ import {
 	type JSX,
 	type ReactNode,
 	useCallback,
-	useContext,
 	useEffect,
 	useRef,
 	useState,
 } from "react";
-import { UpdateDot } from "./release";
 import { setup } from "./setup-api";
 import { HeldJourneys } from "./setup-held";
 
@@ -146,17 +144,4 @@ export function SetupProvider({
 }): JSX.Element {
 	const state = useSetupState(JSON.stringify(creds));
 	return <SetupContext value={state}>{children}</SetupContext>;
-}
-
-/**
- * A dot on Setup's nav entry while a step it needs, not an optional one, is
- * neither done nor skipped.
- */
-export function SetupDot({ ring }: { ring: string }): ReactNode {
-	const { progress } = useContext(SetupContext);
-	return progress?.required ? (
-		<span role="img" aria-label="setup unfinished">
-			<UpdateDot ring={ring} />
-		</span>
-	) : null;
 }

@@ -25,7 +25,7 @@ import { WaitingPanel } from "./queued-status";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
 import { SignalBar } from "./signal-card";
 import { shownStage } from "./todo-queue";
-import { type BarAction, BarButton, BELOW_BAR, TopBar } from "./top-bar";
+import { type BarAction, BarButton, TopBar } from "./top-bar";
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
 
@@ -101,8 +101,8 @@ export function QueuedTask({
 		<section
 			aria-label={`queued task ${id}`}
 			className={cn(
-				"@container bg-background flex min-h-0 min-w-0 flex-col",
-				onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
+				"@container bg-background flex min-h-0 min-w-0 flex-1 flex-col",
+				onBack === null ? "gap-3" : "gap-1",
 			)}
 		>
 			<TopBar

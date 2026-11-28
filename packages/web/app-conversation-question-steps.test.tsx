@@ -91,7 +91,7 @@ describe("App's question cards one question at a time on a desktop", () => {
 		expect(shown(view)).toEqual(["question 1"]);
 	});
 
-	it("goes to the first question with no answer, and sends from the last, with anything else under it", async () => {
+	it("goes to the first question with no answer, then ends on Review & send with grouped answers and Anything else", async () => {
 		const view = await testing.openConversations([asked(plan)]);
 		await waitFor(() => view.getByRole("button", { name: /Next unanswered/ }));
 
@@ -107,8 +107,7 @@ describe("App's question cards one question at a time on a desktop", () => {
 		);
 		await click(view, /Next unanswered/);
 		expect(shown(view)).toEqual(["question 4"]);
-		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: /^Next$/ })).toBeNull();
+		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
 		await act(async () =>
 			fireEvent.click(
 				within(view.getByRole("listitem", { name: "question 4" })).getByRole(
@@ -118,6 +117,16 @@ describe("App's question cards one question at a time on a desktop", () => {
 			),
 		);
 		expect(view.queryByRole("button", { name: /Next unanswered/ })).toBeNull();
+
+		await click(view, /^Next$/);
+		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
+		expect(view.queryByRole("button", { name: /^Next$/ })).toBeNull();
+		const review = view.getByRole("button", { name: "review and send" });
+		expect(review.getAttribute("aria-current")).toBe("step");
+		const answers = view.getByRole("list", { name: "your answers" });
+		expect(answers.textContent).toContain("Todos");
+		expect(answers.textContent).toContain("Wrap it too");
 
 		await click(view, "Send");
 
@@ -173,6 +182,7 @@ describe("App's question cards one question at a time on a desktop", () => {
 			),
 		);
 		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
+		await click(view, /^Next$/);
 		await click(view, "Send");
 
 		const [sent] = testing.posted("/api/conversations/c1/prompt") as {
@@ -197,7 +207,7 @@ describe("App's question cards one question at a time on a desktop", () => {
 		expect(sent?.body.text).not.toContain("Do you approve");
 	});
 
-	it("gives a plan's decision a step of its own after its questions, with anything else under it", async () => {
+	it("gives a plan's decision its own focused step, followed by a Review & send step with decision summary and Anything else", async () => {
 		const view = await testing.openConversations([
 			asked(
 				"## 📝 Plan: wrap the header\n\n**Goal:** The header overflows.\n\n1. Which pages need it?\n   - (a) Todos (chosen)\n   - (b) Tasks",
@@ -206,23 +216,47 @@ describe("App's question cards one question at a time on a desktop", () => {
 		await waitFor(() => view.getByRole("button", { name: "plan decision" }));
 
 		expect(shown(view)).toEqual(["question 1"]);
+		expect(
+			view.getByRole("button", { name: "plan decision" }).getAttribute("class"),
+		).toContain("text-success");
+		expect(view.getByRole("button", { name: "review and send" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: "Approve" })).toBeNull();
 		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
 		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
 
+		// Dedicated Decide step: only the decision choices, no Anything else or answer list.
 		await click(view, /^Next$/);
 		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
 		expect(view.getByText("Approve this plan?")).toBeTruthy();
-		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
-		expect(
-			view
-				.getByRole("button", { name: "plan decision" })
-				.getAttribute("aria-current"),
-		).toBe("step");
+		expect(view.queryByRole("textbox", { name: "Anything else" })).toBeNull();
+		expect(view.queryByRole("list", { name: "your answers" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Send" })).toBeNull();
+		const decide = view.getByRole("button", { name: "plan decision" });
+		expect(decide.getAttribute("aria-current")).toBe("step");
+		expect(decide.getAttribute("class")).toContain("bg-success");
+		expect(decide.getAttribute("class")).toContain("border-success");
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Approve" })),
 		);
+
+		// Review & send step: highlighted Decision card, grouped answers, and Anything else.
+		await click(view, /^Next$/);
+		expect(view.queryByText("Approve this plan?")).toBeNull();
+		const decisionSummary = view.getByRole("button", {
+			name: /Plan decision: Approve\. Change/,
+		});
+		expect(decisionSummary.textContent).toContain("Build and merge");
+		const answers = view.getByRole("list", { name: "your answers" });
+		expect(answers.textContent).toContain("Which pages need it?");
+		expect(answers.textContent).toContain("Todos");
+		expect(view.getByRole("textbox", { name: "Anything else" })).toBeTruthy();
+
+		// Clicking the highlighted Decision card jumps back to Decide to change it.
+		await act(async () => fireEvent.click(decisionSummary));
+		expect(view.getByText("Approve this plan?")).toBeTruthy();
+		await click(view, "review and send");
+
 		await click(view, "Send");
 		const [sent] = testing.posted("/api/conversations/c1/prompt") as {
 			body: { text: string };

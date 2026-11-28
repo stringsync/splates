@@ -25,6 +25,18 @@ describe("Annotating on a phone", () => {
 		window.matchMedia = media;
 	});
 
+	it("shows a single Done button in the phone header without a duplicate close button", () => {
+		const marks = drawn(1);
+		marks.select(null);
+		const board = opened(marks);
+		const header = board.querySelector("header");
+		if (!header) {
+			throw new Error("header missing");
+		}
+		expect(within(header).getByRole("button", { name: "Done" })).toBeTruthy();
+		expect(within(header).queryByRole("button", { name: "close" })).toBeNull();
+	});
+
 	it("docks the tools at its foot and lists the marks as chips, not a sheet", () => {
 		const marks = drawn(1);
 		marks.select(null);

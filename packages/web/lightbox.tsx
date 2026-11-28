@@ -1,17 +1,26 @@
-import { type JSX, useContext, useState } from "react";
+import { type JSX, type RefObject, useContext, useState } from "react";
 import { useAnnotate } from "./annotate";
 import { answered, WAITS } from "./api";
 import { Composing } from "./composing";
 import { Lightbox } from "./lazy-pages";
 
-/** One screenshot or recording the lightbox can show. */
+/** One screenshot, recording, or HTML page preview the lightbox can show. */
 export interface Shown {
 	/** Where the page loads it from. */
 	url: string;
 	alt: string;
 	video: boolean;
+	/** True for a sandboxed HTML artifact preview. */
+	html?: boolean;
 	/** Its file's name, where `url` does not end in it. */
 	name?: string;
+}
+
+/** Custom in-place markup loader and saver (e.g. replacing a composer attachment). */
+export interface MarkUpInPlace {
+	load: (image: Shown) => Promise<File | null>;
+	save: (marked: File, original: File) => Promise<void>;
+	finalFocus?: RefObject<HTMLElement | null>;
 }
 
 /** Marks the media one lightbox steps through: the media of one document. */
@@ -37,10 +46,10 @@ export function gallery(from: Element): Shown[] {
 /**
  * A lightbox to render beside the media, and `open`, which shows the media
  * `from` is, or sits in, among the others of its document. Given `markUp`,
- * its Mark up button hands it the image shown, rather than adding a marked
- * up copy to the composer.
+ * its Mark up button edits the image in place and hands the flattened copy to
+ * `markUp.save`, rather than adding a new attachment to the composer.
  */
-export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
+export function useLightbox(markUp?: MarkUpInPlace): {
 	open: (from: Element) => void;
 	/** Shows `items[at]`, stepping through `items`. */
 	show: (items: Shown[], at: number) => void;

@@ -30,6 +30,9 @@ describe("the welcome page", () => {
 	it("is where every open lands, not only the first", async () => {
 		const first = testing.render();
 		await waitFor(() => first.getByRole("region", { name: "welcome" }));
+		await act(async () =>
+			fireEvent.click(first.getByRole("button", { name: /^More \(/ })),
+		);
 		const tab = await waitFor(() => first.getByRole("tab", { name: /Setup$/ }));
 		await act(async () => fireEvent.click(tab));
 		await waitFor(() => first.getByRole("region", { name: "setup" }));
@@ -57,6 +60,9 @@ describe("the welcome page", () => {
 	it("is reachable again from the Setup page", async () => {
 		testing.welcome = false;
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);

@@ -37,9 +37,7 @@ describe("App's plan an agent went ahead on with trust", () => {
 
 	it("folds the plan into a green line saying trust approved it, not the person", async () => {
 		const view = await testing.openConversations([posted()]);
-		const line = await view.findByText(
-			"Plan approved on trust, not by you · 78/100",
-		);
+		const line = await view.findByText("Plan approved on trust, not by you");
 		const shield = line.closest("p")?.querySelector(".lucide-shield-check");
 		expect(shield?.getAttribute("class")).toContain("text-success");
 		expect(view.queryByText("Awaiting approval")).toBeNull();
@@ -58,9 +56,7 @@ describe("App's plan an agent went ahead on with trust", () => {
 			posted(message("agent", PLAN)),
 		]);
 		expect(await view.findByText("Retry once.")).toBeTruthy();
-		expect(
-			view.queryByText("Plan approved on trust, not by you · 78/100"),
-		).toBeNull();
+		expect(view.queryByText("Plan approved on trust, not by you")).toBeNull();
 	});
 
 	it("leaves a plan below ask-and-go as it was", async () => {
@@ -74,7 +70,7 @@ describe("App's plan an agent went ahead on with trust", () => {
 		try {
 			const view = await testing.openConversations([posted()]);
 			expect(
-				await view.findByText("Plan approved on trust, not by you · 78/100"),
+				await view.findByText("Plan approved on trust, not by you"),
 			).toBeTruthy();
 			expect(
 				view.queryByRole("complementary", { name: "Waiting on you" }),

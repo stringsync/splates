@@ -19,7 +19,7 @@ import {
 import { pickedModel } from "../models";
 import { openRepository } from "../records";
 import { openQuestions, type WorktreeService } from "../tasks";
-import { allows, BAND_LABELS, floorOf, type TrustStore } from "../trust";
+import { allows, BAND_LABELS, type TrustStore } from "../trust";
 import type { Project } from "./project-types";
 import { refuse } from "./shared";
 
@@ -230,14 +230,14 @@ export async function unapprovedWhy(
 	if (allows(posture.band, "merge-without-approval")) {
 		return null;
 	}
-	return `Below ask-and-go trust (${floorOf("merge-without-approval")}+, with trusted decisions enabled), a merge needs the user's approval of the task's plan, and this conversation is in the ${BAND_LABELS[posture.band]} band (${posture.entry.score}/100) with no approved plan: post one Plan card for the design and end your turn; its approval covers the edits through the merge.`;
+	return `Below ask-and-go trust (with trusted decisions enabled), a merge needs the user's approval of the task's plan, and this conversation is in the ${BAND_LABELS[posture.band]} band with no approved plan: post one Plan card for the design and end your turn; its approval covers the edits through the merge.`;
 }
 
 /**
  * Why a task worked in `talks` cannot land before the user reviews it: one
- * of them approved its plan with Approve & review or has a One-way plan
- * without a merge review approval since. Holds at every trust level. Null
- * when none did.
+ * of them approved its plan with Approve & review or has a One-way or
+ * Invasive plan without a merge review approval since. Holds at every trust
+ * level. Null when none did.
  */
 export function unreviewedWhy(talks: readonly Conversation[]): string | null {
 	const hold = talks
@@ -249,7 +249,9 @@ export function unreviewedWhy(talks: readonly Conversation[]): string | null {
 	const lead =
 		hold === "one-way"
 			? "This plan carries the One-way tag, so it lands only after the user approves a merge review"
-			: "The user approved this plan with Approve & review, so it lands only after they approve a merge review";
+			: hold === "invasive"
+				? "This plan carries the Invasive tag, so it lands only after the user approves a merge review"
+				: "The user approved this plan with Approve & review, so it lands only after they approve a merge review";
 	return `${lead}: send the Ready to merge report, keeping \`- [ ] Show the user before merging\` under \`## Next\`, and end your turn; merge once they reply \`[SPLATES MERGE]\`.`;
 }
 

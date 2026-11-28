@@ -3,6 +3,7 @@ import { LinkIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Board } from "./board";
 import { TaskIcon } from "./task-icon";
+import { WidgetCard } from "./widget-card";
 
 /**
  * The tasks a conversation references: the one it runs in, any it acted on
@@ -21,15 +22,7 @@ export function ReferencesCard({
 		return null;
 	}
 	return (
-		<section
-			aria-label="references"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
-		>
-			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">
-				<LinkIcon />
-				References
-			</h3>
+		<WidgetCard label="references" Icon={LinkIcon} title="References">
 			<ul aria-label="referenced tasks">
 				{tasks.map((task) => {
 					return (
@@ -47,7 +40,7 @@ export function ReferencesCard({
 					);
 				})}
 			</ul>
-		</section>
+		</WidgetCard>
 	);
 }
 

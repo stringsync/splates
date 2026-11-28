@@ -32,15 +32,22 @@ describe("BackgroundPane", () => {
 		page.unmount();
 	});
 
-	it("says where a process found running came from, with no Stop", () => {
-		const page = pane(
-			command({ id: "pid:600", pid: 600, canStop: false, name: "sleep 60" }),
-		);
+	it("offers Stop for a process found running in the agent's processes", () => {
+		const page = pane(command({ id: "pid:600", pid: 600, name: "sleep 60" }));
 
-		expect(page.queryByRole("button", { name: /Stop/ })).toBeNull();
+		expect(page.queryByRole("button", { name: /Stop/ })).not.toBeNull();
 		expect(page.container.textContent).toContain(
 			"Found running in the agent's processes, pid 600",
 		);
+		page.unmount();
+	});
+
+	it("hides Stop when a command is marked canStop: false", () => {
+		const page = pane(
+			command({ id: "b2", canStop: false, name: "unstoppable" }),
+		);
+
+		expect(page.queryByRole("button", { name: /Stop/ })).toBeNull();
 		page.unmount();
 	});
 });

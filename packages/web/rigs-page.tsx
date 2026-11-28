@@ -10,6 +10,8 @@ import { type JSX, useEffect, useState } from "react";
 import { renderAnsiLine } from "./ansi-line";
 import { rigsPage, stopRun } from "./api/rigs";
 import { Button } from "./components/ui/button";
+import { Card, CardHeader, CardList } from "./components/ui/card";
+import { PageSection } from "./page-section";
 import { RigRunPage } from "./rig-run-page";
 import { RigStartDialog } from "./rig-start-dialog";
 import { RunDot } from "./rig-state";
@@ -181,15 +183,17 @@ function Listing({
 	return (
 		<>
 			{runs.length > 0 && (
-				<Section title={runsTitle(runs)}>
-					<ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-						{runs.map((run) => (
-							<li key={run.id}>
-								<RunRow run={run} group={label(run.group)} />
-							</li>
-						))}
-					</ul>
-				</Section>
+				<PageSection title={runsTitle(runs)}>
+					<Card>
+						<CardList>
+							{runs.map((run) => (
+								<li key={run.id}>
+									<RunRow run={run} group={label(run.group)} />
+								</li>
+							))}
+						</CardList>
+					</Card>
+				</PageSection>
 			)}
 			{listing.errors.map((each) => (
 				<p
@@ -203,9 +207,9 @@ function Listing({
 			{listing.groups.length === 0 && listing.errors.length === 0 ? (
 				<NoRigs />
 			) : (
-				<Section
+				<PageSection
 					title={listing.runs.length > 0 ? "Can start" : undefined}
-					lead="Dev servers each project declares. A run on a task's worktree stops when the task ends."
+					description="Dev servers each project declares. A run on a task's worktree stops when the task ends."
 				>
 					{listing.groups.map((group) => (
 						<RigGroup
@@ -219,33 +223,9 @@ function Listing({
 							onStart={(rig) => onStart(group, rig)}
 						/>
 					))}
-				</Section>
+				</PageSection>
 			)}
 		</>
-	);
-}
-
-function Section({
-	title,
-	lead,
-	children,
-}: {
-	title?: string;
-	lead?: string;
-	children: React.ReactNode;
-}): JSX.Element {
-	return (
-		<section className="flex flex-col gap-3">
-			{title !== undefined && (
-				<h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-					{title}
-				</h2>
-			)}
-			{lead !== undefined && (
-				<p className="-mt-1 text-muted-foreground text-sm">{lead}</p>
-			)}
-			{children}
-		</section>
 	);
 }
 
@@ -299,11 +279,15 @@ function RigGroup({
 	onStart: (rig: Rig) => void;
 }): JSX.Element {
 	return (
-		<section
+		<Card
+			render={<section />}
 			aria-label={`rigs of ${group.label ?? group.name}`}
-			className="overflow-hidden rounded-xl border bg-card shadow-xs"
 		>
-			<header className="flex items-baseline gap-2.5 border-b bg-muted px-4 py-3">
+			<CardHeader
+				render={<header />}
+				variant="muted"
+				className="items-baseline"
+			>
 				<h3 className="font-bold font-mono text-[15px]">
 					{group.label ?? group.name}
 				</h3>
@@ -312,8 +296,8 @@ function RigGroup({
 						{running} running
 					</span>
 				)}
-			</header>
-			<ul className="divide-y">
+			</CardHeader>
+			<CardList>
 				{group.rigs.map((rig) => (
 					<li
 						key={rig.name}
@@ -336,8 +320,8 @@ function RigGroup({
 						</Button>
 					</li>
 				))}
-			</ul>
-		</section>
+			</CardList>
+		</Card>
 	);
 }
 

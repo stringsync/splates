@@ -138,6 +138,7 @@ type Said =
 			/** The conversation whose archiving took this one with it. */
 			with?: string;
 	  }
+	| { kind: "archive-after-merge"; armed: boolean }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
 	| { kind: "read"; read: number }

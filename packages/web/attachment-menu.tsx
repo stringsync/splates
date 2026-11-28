@@ -8,13 +8,7 @@ import {
 	KEY_DOWN_COMMAND,
 	type LexicalEditor,
 } from "lexical";
-import {
-	AlertCircleIcon,
-	EyeIcon,
-	LoaderCircleIcon,
-	PencilIcon,
-	XIcon,
-} from "lucide-react";
+import { AlertCircleIcon, EyeIcon, PencilIcon, XIcon } from "lucide-react";
 import { type JSX, use, useEffect, useRef, useState } from "react";
 import { useAnnotate } from "./annotate";
 import { Annotation } from "./annotation";
@@ -54,6 +48,7 @@ import { useFileSrc } from "./hooks/use-file-src";
 import { useBinding, useShortcutLabel } from "./hooks/use-shortcut";
 import { cn } from "./lib/utils";
 import { useLightbox } from "./lightbox";
+import { Spinner } from "./pending";
 import { matches } from "./shortcuts";
 
 /** Where an SVG is kept, which cannot be marked up. */
@@ -152,7 +147,22 @@ export function AttachedMenu({
 			input.current?.focus();
 		}
 	};
-	const { open, lightbox } = useLightbox(markable ? markUp : undefined);
+	const { open, lightbox } = useLightbox(
+		markable
+			? {
+					load: async () => {
+						input.current = editor.getRootElement();
+						return file ?? null;
+					},
+					save: async (marked) => {
+						chippedAlready(marked);
+						await attached.replace(marked);
+						input.current?.focus();
+					},
+					finalFocus: input,
+				}
+			: undefined,
+	);
 	const chip = useRef<HTMLButtonElement>(null);
 	const offering = useMarkUpAtCaret(
 		editor,
@@ -185,7 +195,7 @@ export function AttachedMenu({
 					)}
 				>
 					{uploading ? (
-						<LoaderCircleIcon
+						<Spinner
 							aria-hidden
 							className="size-3 shrink-0 text-muted-foreground"
 						/>

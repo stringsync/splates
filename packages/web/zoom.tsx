@@ -2,6 +2,15 @@ import PhotoSwipe from "photoswipe";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 
+/** How the image sits on screen: across the screen's width, or all of it in view. */
+export type Fit = "width" | "all";
+
+/** Lifted fit state so a caller's chrome (such as the lightbox top bar) can control tall-image fit. */
+export interface FitControl {
+	fit: Fit;
+	setFit: (to: Fit) => void;
+}
+
 /**
  * An image that opens whole, to explore with pinch, drag, scroll and double
  * tap. A tall one offers Fit width and Fit all to switch between spanning the
@@ -13,21 +22,55 @@ export function ZoomableImage({
 	src,
 	alt,
 	vector = false,
+	onFitControl,
 	className,
 }: {
 	src: string;
 	alt: string;
 	vector?: boolean;
+	/** When supplied, hands the tall-image Fit toggle to the caller's chrome instead of floating it over the image. */
+	onFitControl?: (control: FitControl | null) => void;
 	className?: string;
 }): JSX.Element {
 	const box = useRef<HTMLDivElement>(null);
 	const viewer = useRef<PhotoSwipe | null>(null);
+	const fitControlRef = useRef(onFitControl);
+	fitControlRef.current = onFitControl;
 	const [size, setSize] = useState<{ width: number; height: number } | null>(
 		null,
 	);
 	const [failed, setFailed] = useState(false);
 	/** How a tall image sits, `null` for one that fits on screen as it is. */
 	const [fit, setFit] = useState<Fit | null>(null);
+
+	const applyFit = (to: Fit) => {
+		const slide = viewer.current?.currSlide;
+		if (!slide) {
+			return;
+		}
+		slide.zoomTo(levelOf(slide.zoomLevels, to), undefined, 0);
+		if (to === "width") {
+			slide.panTo(slide.pan.x, slide.bounds.min.y);
+		}
+		setFit(to);
+	};
+
+	const applyFitRef = useRef(applyFit);
+	applyFitRef.current = applyFit;
+
+	useEffect(() => {
+		const notify = fitControlRef.current;
+		if (!notify) {
+			return;
+		}
+		if (size && fit !== null) {
+			notify({ fit, setFit: (to) => applyFitRef.current(to) });
+		} else {
+			notify(null);
+		}
+	}, [size, fit]);
+
+	useEffect(() => () => fitControlRef.current?.(null), []);
 
 	useEffect(() => {
 		const host = box.current;
@@ -153,24 +196,14 @@ export function ZoomableImage({
 					The image could not be loaded. Try opening it in a new tab.
 				</p>
 			)}
-			{size && fit !== null && (
+			{onFitControl === undefined && size && fit !== null && (
 				<div className="absolute right-[max(0.75rem,env(safe-area-inset-right))] bottom-3 z-10 flex overflow-hidden rounded-md border border-white/25 bg-black/60 text-xs">
 					{(["width", "all"] as const).map((to) => (
 						<button
 							key={to}
 							type="button"
 							aria-pressed={fit === to}
-							onClick={() => {
-								const slide = viewer.current?.currSlide;
-								if (!slide) {
-									return;
-								}
-								slide.zoomTo(levelOf(slide.zoomLevels, to), undefined, 0);
-								if (to === "width") {
-									slide.panTo(slide.pan.x, slide.bounds.min.y);
-								}
-								setFit(to);
-							}}
+							onClick={() => applyFit(to)}
 							className={cn(
 								"px-2.5 py-1.5 font-medium",
 								fit === to ? "bg-white text-black" : "text-white",
@@ -184,9 +217,6 @@ export function ZoomableImage({
 		</div>
 	);
 }
-
-/** How the image sits on screen: across the screen's width, or all of it in view. */
-type Fit = "width" | "all";
 
 /**
  * How far to zoom `slide` to sit as `fit` says: `width` spans the screen's

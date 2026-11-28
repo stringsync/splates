@@ -7,14 +7,15 @@ import type {
 import {
 	CheckIcon,
 	ChevronDownIcon,
-	Loader2Icon,
 	SquareIcon,
 	TerminalIcon,
 	XIcon,
 } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { Spinner } from "./pending";
 import { SplatesEvent } from "./splates-event";
+import { WidgetCard } from "./widget-card";
 
 /**
  * Opens what a conversation's background command printed in the pane beside
@@ -57,25 +58,21 @@ export function BackgroundCard({
 	const newest = background.toReversed();
 	const more = newest.length - SHOWN;
 	return (
-		<section
-			aria-label="background commands"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
+		<WidgetCard
+			label="background commands"
+			Icon={TerminalIcon}
+			title="Background"
+			aside={
+				running.length > 0 ? (
+					<>
+						<span aria-hidden className="size-2 rounded-full bg-success" />
+						{running.length} running
+					</>
+				) : (
+					background.length
+				)
+			}
 		>
-			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">
-				<TerminalIcon />
-				<span className="flex-1">Background</span>
-				<span className="flex items-center gap-1.5 font-normal text-muted-foreground">
-					{running.length > 0 ? (
-						<>
-							<span aria-hidden className="size-2 rounded-full bg-success" />
-							{running.length} running
-						</>
-					) : (
-						background.length
-					)}
-				</span>
-			</h3>
 			<ul>
 				{(expanded ? newest : newest.slice(0, SHOWN)).map((each) => (
 					<li key={each.id}>
@@ -115,7 +112,7 @@ export function BackgroundCard({
 					{expanded ? "Show fewer" : `Show ${more} more`}
 				</button>
 			)}
-		</section>
+		</WidgetCard>
 	);
 }
 
@@ -193,7 +190,7 @@ export function StateMark({ state }: { state: BackgroundState }): JSX.Element {
 export function RunningMark(): JSX.Element {
 	// A loader, since a green dot reads as done.
 	return (
-		<Loader2Icon
+		<Spinner
 			role="img"
 			aria-label="running"
 			className="size-3.5 shrink-0 animate-spin text-muted-foreground"

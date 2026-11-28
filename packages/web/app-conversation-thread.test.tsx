@@ -130,7 +130,7 @@ describe("App's conversation thread", () => {
 		const toggle = () =>
 			within(view.getByRole("navigation", { name: "actions" })).getByRole(
 				"button",
-				{ name: /^Image previews/ },
+				{ name: /^Inline previews/ },
 			);
 
 		await waitFor(() =>
@@ -138,11 +138,11 @@ describe("App's conversation thread", () => {
 				within(first()).getByRole("button", { name: "view 2 recordings" }),
 			).toBeTruthy(),
 		);
-		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().textContent).toBe("Inline previewsCollapsed⌥⌘P");
 		expect(toggle().getAttribute("aria-pressed")).toBe("false");
 
 		await act(async () => fireEvent.click(toggle()));
-		expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P");
+		expect(toggle().textContent).toBe("Inline previewsExpanded⌥⌘P");
 		expect(toggle().getAttribute("aria-pressed")).toBe("true");
 		expect(
 			within(first()).queryByRole("button", { name: "view 2 recordings" }),
@@ -162,13 +162,13 @@ describe("App's conversation thread", () => {
 				within(second).getByRole("button", { name: "view 2 recordings" }),
 			).toBeTruthy(),
 		);
-		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().textContent).toBe("Inline previewsCollapsed⌥⌘P");
 		expect(toggle().getAttribute("aria-pressed")).toBe("false");
 
 		// Returning to the first conversation remembers its expanded state.
 		await openRow(view, "First thread");
 		await waitFor(() =>
-			expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P"),
+			expect(toggle().textContent).toBe("Inline previewsExpanded⌥⌘P"),
 		);
 		expect(
 			within(first()).queryByRole("button", { name: "view 2 recordings" }),
@@ -182,7 +182,7 @@ describe("App's conversation thread", () => {
 				metaKey: true,
 			}),
 		);
-		expect(toggle().textContent).toBe("Image previewsCollapsed⌥⌘P");
+		expect(toggle().textContent).toBe("Inline previewsCollapsed⌥⌘P");
 		expect(toggle().getAttribute("aria-pressed")).toBe("false");
 		expect(
 			within(first()).getByRole("button", { name: "view 2 recordings" }),
@@ -196,7 +196,7 @@ describe("App's conversation thread", () => {
 				metaKey: true,
 			}),
 		);
-		expect(toggle().textContent).toBe("Image previewsExpanded⌥⌘P");
+		expect(toggle().textContent).toBe("Inline previewsExpanded⌥⌘P");
 		expect(toggle().getAttribute("aria-pressed")).toBe("true");
 		expect(
 			within(first()).queryByRole("button", { name: "view 2 recordings" }),

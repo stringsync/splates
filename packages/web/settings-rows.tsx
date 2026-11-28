@@ -1,29 +1,19 @@
 import { useReactive } from "core/react";
-import { RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
+import { RotateCcwIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
-import {
-	Dialog,
-	DialogContent,
-	DialogTitle,
-} from "#web/components/ui/dialog.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
-import { useTouch } from "#web/hooks/use-touch.ts";
 import { cn } from "#web/lib/utils.ts";
-import { AgentSettings, matchesAgentSettings } from "./agent-settings";
-import { CannedEditor, matchesCanned } from "./canned-editor";
 import { Refusal, useRefusal } from "./refusal";
 import {
-	CATEGORIES,
-	type Category,
 	type Choice,
 	definitionOf,
 	type Key,
 	type Settings,
 	type ShortcutKey,
-	search,
 } from "./settings";
 import {
 	label,
@@ -35,157 +25,152 @@ import {
 } from "./shortcuts";
 
 /**
- * The page's settings: pick a category to change its settings, or search for
- * one. The category picked is kept when the dialog closes.
+ * A softly rounded card holding a list of setting rows with hairline dividers,
+ * optionally headed by a quiet group label above the card.
  */
-export function SettingsDialog({
+export function SettingsGroup({
+	heading,
 	settings,
-	open,
-	onOpenChange,
-	onWelcome,
-	project,
+	keys,
+	query,
 }: {
+	heading?: string;
 	settings: Settings;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	/** Opens the Welcome page, once the dialog has closed. */
-	onWelcome: () => void;
-	/** The active project's display name, shown in server-saved sections. */
-	project?: string;
+	keys: readonly Key[];
+	query: string;
 }): JSX.Element {
-	const [query, setQuery] = useState("");
-	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
-	// A touch device has no keyboard to press them on.
-	const touch = useTouch();
-	const found = search(query).filter(
-		(key) => !(touch && definitionOf(key).shortcut),
-	);
-	const shown = CATEGORIES.map((category) => ({
-		category,
-		keys: found.filter((key) => definitionOf(key).category === category),
-	})).filter(
-		({ category, keys }) =>
-			keys.length > 0 ||
-			matchesCanned(category, query) ||
-			matchesAgentSettings(category, query),
-	);
-	const searching = query !== "";
-	const pages = searching
-		? shown
-		: shown.filter(({ category }) => category === picked);
-
 	return (
-		<Dialog
-			open={open}
-			onOpenChange={(open) => {
-				onOpenChange(open);
-				if (!open) {
-					setQuery("");
-				}
-			}}
-		>
-			<DialogContent className="flex h-[min(36rem,85dvh)] flex-col gap-0 p-0 sm:max-w-3xl">
-				<div className="flex items-center gap-4 border-b py-3 pr-12 pl-4">
-					<DialogTitle className="shrink-0">Settings</DialogTitle>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => {
-							onOpenChange(false);
-							onWelcome();
-						}}
-					>
-						Welcome page
-					</Button>
-					<div className="relative flex-1">
-						<SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							type="search"
-							aria-label="Search settings"
-							placeholder="Search settings"
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							className="pl-8"
+		<div className="flex flex-col gap-2">
+			{heading !== undefined && (
+				<div className="px-1 text-muted-foreground text-xs font-medium">
+					{heading}
+				</div>
+			)}
+			<Card className="rounded-2xl">
+				<CardList>
+					{keys.map((key) => (
+						<SettingRow
+							key={key}
+							settings={settings}
+							name={key}
+							query={query}
 						/>
-					</div>
-				</div>
-				<div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-					<div className="flex shrink-0 flex-col border-b sm:w-48 sm:border-r sm:border-b-0">
-						<nav
-							aria-label="setting categories"
-							className="flex shrink-0 gap-0.5 overflow-x-auto p-2 sm:flex-1 sm:flex-col sm:overflow-x-visible"
-						>
-							{shown.map(({ category, keys }) => (
-								<button
-									key={category}
-									type="button"
-									aria-current={category === picked ? "true" : undefined}
-									onClick={() => {
-										setPicked(category);
-										if (searching) {
-											document
-												.getElementById(sectionId(category))
-												?.scrollIntoView({ block: "start" });
-										}
-									}}
-									className={cn(
-										"flex shrink-0 items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
-										category === picked &&
-											"bg-accent font-medium hover:bg-accent",
-									)}
-								>
-									<span className="flex-1">{category}</span>
-									{searching && (
-										<span className="text-muted-foreground text-xs tabular-nums">
-											{keys.length}
-										</span>
-									)}
-								</button>
-							))}
-						</nav>
-					</div>
-					<div className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-						{pages.length === 0 ? (
-							<p className="py-8 text-center text-muted-foreground">
-								No settings match “{query}”
-							</p>
-						) : (
-							pages.map(({ category, keys }) => (
-								<section
-									key={category}
-									id={sectionId(category)}
-									aria-label={category}
-									className="mb-6"
-								>
-									<h3 className="mb-2 font-medium text-base">{category}</h3>
-									{category === "Canned replies" ? (
-										<CannedEditor />
-									) : category === "Agents" ? (
-										<AgentSettings project={project} />
-									) : (
-										<ul className="flex flex-col divide-y">
-											{keys.map((key) => (
-												<SettingRow
-													key={key}
-													settings={settings}
-													name={key}
-													query={query}
-												/>
-											))}
-										</ul>
-									)}
-								</section>
-							))
-						)}
-					</div>
-				</div>
-			</DialogContent>
-		</Dialog>
+					))}
+				</CardList>
+			</Card>
+		</div>
 	);
 }
 
-function sectionId(category: Category): string {
-	return `settings-${category.toLowerCase().replaceAll(/\W+/g, "-")}`;
+/**
+ * Visual Light, System, and Dark theme preview cards with an active accent
+ * ring. Keeps standard radio group semantics for keyboard and screen readers.
+ */
+export function ThemeCardPicker({
+	settings,
+	query,
+}: {
+	settings: Settings;
+	query: string;
+}): JSX.Element {
+	const definition = definitionOf("appearance.theme");
+	const value = useReactive(
+		settings,
+		(store) => store.get("appearance.theme"),
+		["changed"],
+	);
+	const choices = definition.choices ?? [];
+
+	return (
+		<div className="flex flex-col gap-2.5">
+			<div className="px-1 text-muted-foreground text-xs font-medium">
+				<Marked text={definition.title} query={query} />
+			</div>
+			<fieldset
+				id="setting-appearance.theme"
+				aria-label={definition.title}
+				className="grid grid-cols-3 gap-3"
+			>
+				{choices.map((choice) => {
+					const checked = choice.value === value;
+					return (
+						<label
+							key={choice.value}
+							className={cn(
+								"group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-card transition-all focus-within:ring-2 focus-within:ring-ring",
+								checked
+									? "border-primary ring-2 ring-primary/35"
+									: "border-border hover:border-foreground/25",
+							)}
+						>
+							<input
+								type="radio"
+								name="setting-appearance.theme"
+								value={choice.value}
+								checked={checked}
+								onChange={() =>
+									void settings.set("appearance.theme", choice.value)
+								}
+								className="sr-only"
+							/>
+							<ThemePreview mode={choice.value} />
+							<span
+								className={cn(
+									"flex items-center justify-center border-t border-border/60 py-2 text-xs font-medium transition-colors",
+									checked
+										? "text-foreground"
+										: "text-muted-foreground group-hover:text-foreground",
+								)}
+							>
+								{choice.label}
+							</span>
+						</label>
+					);
+				})}
+			</fieldset>
+		</div>
+	);
+}
+
+/** Miniature Light, System, or Dark surface preview inside a theme card. */
+function ThemePreview({ mode }: { mode: string }): JSX.Element {
+	if (mode === "light") {
+		return (
+			<span
+				aria-hidden="true"
+				className="flex h-20 w-full items-center justify-center bg-[#f4f4f6] text-[#18181b] sm:h-24"
+			>
+				<span className="font-semibold text-[11px] tracking-[0.14em]">
+					SPLATES
+				</span>
+			</span>
+		);
+	}
+	if (mode === "dark") {
+		return (
+			<span
+				aria-hidden="true"
+				className="flex h-20 w-full items-center justify-center bg-[#141416] text-[#f4f4f5] sm:h-24"
+			>
+				<span className="font-semibold text-[11px] tracking-[0.14em]">
+					SPLATES
+				</span>
+			</span>
+		);
+	}
+	return (
+		<span
+			aria-hidden="true"
+			className="relative flex h-20 w-full items-center justify-center overflow-hidden sm:h-24"
+		>
+			<span className="absolute inset-y-0 left-0 w-1/2 bg-[#f4f4f6]" />
+			<span className="absolute inset-y-0 right-0 w-1/2 bg-[#141416]" />
+			<span className="relative flex items-center justify-center font-semibold text-[11px] tracking-[0.14em]">
+				<span className="text-[#52525b]">SPL</span>
+				<span className="text-[#a1a1aa]">ATES</span>
+			</span>
+		</span>
+	);
 }
 
 /**
@@ -194,7 +179,7 @@ function sectionId(category: Category): string {
  * under the words. One under a switch that is off is greyed out, and so is one
  * this browser cannot do.
  */
-function SettingRow({
+export function SettingRow({
 	settings,
 	name,
 	query,
@@ -223,17 +208,19 @@ function SettingRow({
 	return (
 		<li
 			className={cn(
-				"flex items-start gap-6 py-3",
-				wide && "max-sm:flex-col max-sm:gap-2",
+				"flex items-start gap-6 px-4 py-3.5 sm:px-5 sm:py-4",
+				wide && "max-sm:flex-col max-sm:gap-2.5",
 				disabled && "opacity-60",
 			)}
-			style={{ paddingLeft: `${depth * 1.25}rem` }}
+			style={
+				depth > 0 ? { paddingLeft: `${1.25 + depth * 1.25}rem` } : undefined
+			}
 		>
 			<div className="min-w-0 flex-1">
-				<label htmlFor={id} className="font-medium">
+				<label htmlFor={id} className="font-medium text-sm">
 					<Marked text={definition.title} query={query} />
 				</label>
-				<p className="mt-0.5 text-muted-foreground text-xs">
+				<p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">
 					<Marked text={definition.description} query={query} />
 					{!supported && " This browser cannot do it."}
 				</p>
@@ -444,7 +431,7 @@ function ShortcutField({
 						if (!recording) {
 							return;
 						}
-						// Every key is the recording's, none the page's or the dialog's.
+						// Every key is the recording's, none the page's or the view's.
 						event.preventDefault();
 						event.stopPropagation();
 						if (event.key === "Escape") {
@@ -507,7 +494,13 @@ function ShortcutField({
 }
 
 /** `text`, with each word of `query` it holds marked. */
-function Marked({ text, query }: { text: string; query: string }): JSX.Element {
+export function Marked({
+	text,
+	query,
+}: {
+	text: string;
+	query: string;
+}): JSX.Element {
 	const words = query
 		.toLowerCase()
 		.split(/\s+/)

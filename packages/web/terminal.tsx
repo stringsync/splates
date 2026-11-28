@@ -26,7 +26,7 @@ import { useShortcutLabel } from "./hooks/use-shortcut";
 import { KeyBar } from "./terminal-keys";
 import type { TerminalSession } from "./terminal-session";
 import type { Terminals } from "./terminals";
-import { type BarAction, BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
+import { type BarAction, BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
  * Shows a conversation's terminal in the pane beside the page, or hides it;
@@ -420,10 +420,7 @@ function PageScreen({
 	return (
 		<section
 			aria-label="terminal"
-			className={cn(
-				"flex min-h-0 min-w-0 flex-col gap-2",
-				onBack === null ? BELOW_BAR : "h-full",
-			)}
+			className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
 		>
 			<TopBar
 				leading={
@@ -434,6 +431,7 @@ function PageScreen({
 					)
 				}
 				title={
+					// vet-ignore splates-page-section-card: TopBar title for the terminal workspace, not a PageSection
 					<h2 className={cn(TITLE, "flex items-center gap-2")}>
 						<SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
 						<span className="truncate">{name}</span>

@@ -1,5 +1,6 @@
 import type { SpendTotal } from "@splates/server/spend";
 import type { JSX } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -13,6 +14,7 @@ import {
 	shortDay,
 	useMoney,
 } from "./billing-sums";
+import { PageSection } from "./page-section";
 import { axis } from "./stats-report";
 
 /**
@@ -42,64 +44,66 @@ export function SpendTrend({
 			totalOf(filled, other) - totalOf(filled, one) || one.localeCompare(other),
 	);
 	return (
-		<figure
-			aria-label="Spend per day"
-			className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 shadow-xs"
-		>
-			<figcaption className="font-medium text-sm">Per day</figcaption>
-			<div className="flex gap-2">
-				<div
-					aria-hidden
-					className="relative h-40 w-12 shrink-0 text-right text-muted-foreground text-xs tabular-nums"
-				>
-					{top.ticks.map((tick) => (
-						<span
-							key={tick.at}
-							className="absolute right-0 translate-y-1/2 leading-none"
-							style={{ bottom: `${(tick.at / top.max) * 100}%` }}
-						>
-							{dollars(tick.at)}
-						</span>
-					))}
-				</div>
-				<div className="relative h-40 min-w-0 flex-1 border-b">
-					{top.ticks.slice(1).map((tick) => (
-						<div
-							key={tick.at}
-							aria-hidden
-							className="pointer-events-none absolute inset-x-0 border-border/60 border-t border-dashed"
-							style={{ bottom: `${(tick.at / top.max) * 100}%` }}
-						/>
-					))}
-					<div className="absolute inset-0 flex">
-						{filled.map((day) => (
-							<Bar key={day.day} day={day} max={top.max} order={providers} />
+		<PageSection as="h3" title="Per day">
+			<Card
+				render={<figure />}
+				aria-label="Spend per day"
+				className="flex flex-col gap-3 px-4 py-3"
+			>
+				<div className="flex gap-2">
+					<div
+						aria-hidden
+						className="relative h-40 w-12 shrink-0 text-right text-muted-foreground text-xs tabular-nums"
+					>
+						{top.ticks.map((tick) => (
+							<span
+								key={tick.at}
+								className="absolute right-0 translate-y-1/2 leading-none"
+								style={{ bottom: `${(tick.at / top.max) * 100}%` }}
+							>
+								{dollars(tick.at)}
+							</span>
 						))}
 					</div>
-				</div>
-			</div>
-			<div className="flex justify-between pl-14 text-muted-foreground text-xs tabular-nums">
-				<span>{shortDay(filled[0]?.day ?? since.slice(0, 10))}</span>
-				<span>{shortDay(filled.at(-1)?.day ?? since.slice(0, 10))}</span>
-			</div>
-			{providers.length > 0 && (
-				<ul
-					aria-label="legend"
-					className="flex flex-wrap gap-x-4 gap-y-1 pl-14 text-muted-foreground text-xs"
-				>
-					{providers.map((provider) => (
-						<li key={provider} className="flex items-center gap-1.5">
-							<span
+					<div className="relative h-40 min-w-0 flex-1 border-b">
+						{top.ticks.slice(1).map((tick) => (
+							<div
+								key={tick.at}
 								aria-hidden
-								className="size-2.5 rounded-sm"
-								style={{ background: colorOf(provider) }}
+								className="pointer-events-none absolute inset-x-0 border-border/60 border-t border-dashed"
+								style={{ bottom: `${(tick.at / top.max) * 100}%` }}
 							/>
-							{nameOf(provider)}
-						</li>
-					))}
-				</ul>
-			)}
-		</figure>
+						))}
+						<div className="absolute inset-0 flex">
+							{filled.map((day) => (
+								<Bar key={day.day} day={day} max={top.max} order={providers} />
+							))}
+						</div>
+					</div>
+				</div>
+				<div className="flex justify-between pl-14 text-muted-foreground text-xs tabular-nums">
+					<span>{shortDay(filled[0]?.day ?? since.slice(0, 10))}</span>
+					<span>{shortDay(filled.at(-1)?.day ?? since.slice(0, 10))}</span>
+				</div>
+				{providers.length > 0 && (
+					<ul
+						aria-label="legend"
+						className="flex flex-wrap gap-x-4 gap-y-1 pl-14 text-muted-foreground text-xs"
+					>
+						{providers.map((provider) => (
+							<li key={provider} className="flex items-center gap-1.5">
+								<span
+									aria-hidden
+									className="size-2.5 rounded-sm"
+									style={{ background: colorOf(provider) }}
+								/>
+								{nameOf(provider)}
+							</li>
+						))}
+					</ul>
+				)}
+			</Card>
+		</PageSection>
 	);
 }
 

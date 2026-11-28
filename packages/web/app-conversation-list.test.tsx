@@ -36,7 +36,7 @@ describe("App's conversation list", () => {
 		expect(
 			view.queryByRole("button", { name: /^(\d+|Nothing) waiting on you$/ }),
 		).toBeNull();
-		expect(view.queryByRole("button", { name: "New" })).toBeNull();
+		expect(view.queryByRole("button", { name: "New conversation" })).toBeNull();
 	});
 
 	it("shows the board of a task's lane as a chip on its row", async () => {
@@ -69,8 +69,10 @@ describe("App's conversation list", () => {
 		const tabs = view.getByRole("tablist");
 		const nav = view.getByRole("navigation", { name: "conversations" });
 
-		expect(tabs.firstElementChild?.textContent).toBe("New");
-		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
+		expect(tabs.firstElementChild?.textContent).toBe("New conversation");
+		expect(
+			within(nav).queryByRole("button", { name: "New conversation" }),
+		).toBeNull();
 	});
 
 	it("lists an automation among the rest by recency, before the feed of every project comes", async () => {
@@ -135,9 +137,10 @@ describe("App's conversation list", () => {
 		// Pinned at the sidebar's foot, under the list rather than in it.
 		expect(within(nav).queryByRole("button", { name: /Archived/ })).toBeNull();
 		expect(
-			within(view.getByRole("tablist")).getAllByRole("button").at(-1)
-				?.textContent,
-		).toMatch(/^Archived/);
+			within(view.getByRole("tablist")).getByRole("button", {
+				name: "Archived",
+			}).textContent,
+		).toBe("Archived");
 		await openArchived(view);
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
@@ -324,8 +327,9 @@ describe("App's conversation list", () => {
 		);
 
 		expect(
-			within(view.getByRole("tablist")).getAllByRole("button").at(-1)
-				?.textContent,
+			within(view.getByRole("tablist")).getByRole("button", {
+				name: "Archived",
+			}).textContent,
 		).toBe("Archived");
 	});
 

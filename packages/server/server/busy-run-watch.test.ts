@@ -57,28 +57,34 @@ test("the answer carries the directive and the reading", () => {
 	expect(text).toContain("CPU 12%");
 });
 
-function watching(options: { enabled: boolean; cpu: number; text: string }) {
+interface WatchingOptions {
+	enabled: boolean;
+	cpu: number;
+	text: string;
+}
+
+function watching(opts: WatchingOptions) {
 	const said: string[] = [];
 	const conversation = {
 		state: {
 			id: "c1",
 			archived: false,
 			status: "idle",
-			messages: [agent(options.text)],
+			messages: [agent(opts.text)],
 		},
 		prompt: async (text: string) => {
 			said.push(text);
 		},
 	};
 	const watch = new BusyRunWatch({
-		enabled: () => options.enabled,
+		enabled: () => opts.enabled,
 		conversations: {
 			list: async () => [conversation],
 		} as unknown as ConversationList,
 		read: async () => ({
 			kind: "Mac",
 			splates: null,
-			cpu: options.cpu,
+			cpu: opts.cpu,
 			memory: 0.3,
 			load: 1,
 			cores: 8,

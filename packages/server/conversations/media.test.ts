@@ -329,4 +329,75 @@ describe("Conversation inline media auto-capture", () => {
 			await replayed.disposeAsync();
 		}
 	});
+
+	it("auto-captures embedded local HTML files as conversation artifacts while leaving plain HTML links alone", async () => {
+		const html = new TextEncoder().encode(
+			"<!doctype html><html><head><title>Pricing Simulator</title></head><body><p>Hi</p></body></html>",
+		);
+		await fs.writeBytes("/tmp/pricing-sim.html", html);
+		await fs.writeBytes("/tmp/index.html", html);
+		agent.turn = async (client, sessionId) => {
+			for (const text of [
+				"Try ![Pricing](/tmp/pricing-sim.html) and see [index.html](/tmp/index.html).",
+			]) {
+				await client.sessionUpdate({
+					sessionId,
+					update: {
+						sessionUpdate: "agent_message_chunk",
+						content: { type: "text", text },
+					},
+				});
+			}
+			return "end_turn";
+		};
+
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-splates/login",
+		});
+		await until(conversation, "idle");
+		await conversation.prompt("show html");
+		await until(conversation, "idle");
+		await conversation.saved();
+
+		const reply = conversation.state.messages
+			.findLast((each) => each.role === "agent")
+			?.parts.map((part) => (part.type === "text" ? part.text : ""))
+			.join("");
+		expect(reply).toBe(
+			"Try ![Pricing](#splates-artifact=pricing-sim.html/1) and see [index.html](/tmp/index.html).",
+		);
+		expect(conversation.state.artifacts).toMatchObject([
+			{
+				name: "pricing-sim.html",
+				current: 1,
+				versions: [
+					{
+						version: 1,
+						mimeType: "text/html",
+						title: "Pricing Simulator",
+					},
+				],
+			},
+		]);
+
+		// Deleting the original file and replaying still keeps the artifact and rewrite.
+		await fs.rm("/tmp/pricing-sim.html");
+		await conversation.stop();
+		const replayed = makeConversations();
+		try {
+			const read = await replayed.find(conversation.id);
+			const replayedReply = read.state.messages
+				.findLast((each) => each.role === "agent")
+				?.parts.map((part) => (part.type === "text" ? part.text : ""))
+				.join("");
+			expect(replayedReply).toBe(reply);
+			expect(read.state.artifacts).toHaveLength(1);
+			expect((await read.artifacts.read("pricing-sim.html", 1))?.bytes).toEqual(
+				html,
+			);
+		} finally {
+			await replayed.disposeAsync();
+		}
+	});
 });

@@ -68,6 +68,7 @@ describe("dev artifacts", () => {
 				disposition: "attachment; filename*=UTF-8''notes%20%C3%BC.pdf",
 				referrer: "no-referrer",
 			});
+			expect(DIAGRAM_REQUEST).toContain('splates: "escape"');
 		} finally {
 			await server.disposeAsync();
 		}

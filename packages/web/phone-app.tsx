@@ -1,5 +1,4 @@
 import type { Snapshot } from "@splates/server/tasks";
-import { useReactive } from "core/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import {
 	type CSSProperties,
@@ -14,7 +13,6 @@ import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { OfflineBanner, useFreshness } from "./freshness";
-import { orphanCount } from "./orphans";
 import type { Move } from "./page-address";
 import { pageArea } from "./page-areas";
 import type { PageMenu } from "./page-menu";
@@ -46,6 +44,7 @@ export function PhoneApp({
 	drafts,
 	terminals,
 	pageMenu,
+	onSettings,
 }: {
 	page: Page;
 	/** The conversation open, by its address, or null. */
@@ -68,6 +67,7 @@ export function PhoneApp({
 	drafts: Drafts;
 	terminals: Terminals;
 	pageMenu: PageMenu;
+	onSettings: () => void;
 }): JSX.Element {
 	// The inbox is home; an open conversation takes the whole screen with its
 	// own way back, and every other page sits under a bar whose menu opens the
@@ -103,11 +103,6 @@ export function PhoneApp({
 		return () => resized.disconnect();
 	}, [titleSlot]);
 	const showPageHeader = page !== "welcome";
-	const { conversations } = useReactive(
-		talk,
-		(talk) => ({ conversations: talk.conversations }),
-		["changed"],
-	);
 	useHomeIsInbox(page, go);
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
@@ -249,15 +244,10 @@ export function PhoneApp({
 				header={header}
 				page={page}
 				conversation={open}
-				available={available}
 				waiting={waiting}
-				orphans={
-					available && snapshot !== null
-						? orphanCount(snapshot.tasks, conversations)
-						: 0
-				}
 				snapshot={snapshot}
 				onGo={go}
+				onSettings={onSettings}
 			/>
 		</div>
 	);

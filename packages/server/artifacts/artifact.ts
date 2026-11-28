@@ -13,6 +13,8 @@ import {
 	applyArtifact,
 	artifactLimits,
 } from "./artifacts";
+import { externalHtmlRefs } from "./html";
+import { viewerOf } from "./viewers";
 
 /** What `fetch` is used for here, so a test can stand in for it. */
 type Send = (url: string, init: RequestInit) => Promise<Response>;
@@ -69,6 +71,16 @@ export async function addArtifact(
 	deps.log.info(
 		`${color.green("added")} ${file.name} as version ${added.version}, ${megabytes(added.bytes)}`,
 	);
+	if (viewerOf(mimeType) === "page") {
+		const external = externalHtmlRefs(file.bytes);
+		if (external.length > 0) {
+			const sample = external.slice(0, 3).join(", ");
+			const more = external.length > 3 ? ` (+${external.length - 3} more)` : "";
+			deps.log.error(
+				`${color.yellow("warning:")} ${file.name} references external assets (${sample}${more}) that the sandboxed artifact frame blocks. Inline scripts, styles, and images so the artifact works self-contained.`,
+			);
+		}
+	}
 	return added;
 }
 

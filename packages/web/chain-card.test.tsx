@@ -66,7 +66,7 @@ describe("ChainBanner", () => {
 		});
 	});
 
-	it("says who queued a task and how many it queued, opening the parent", async () => {
+	it("says who queued a task and how many it queued, opening the parent from the chain dialog", async () => {
 		serve(chain);
 		const opened: string[] = [];
 		const view = render(
@@ -76,9 +76,13 @@ describe("ChainBanner", () => {
 			/>,
 		);
 		await waitFor(() => {
-			expect(view.getByText(/queued 1 more/)).toBeTruthy();
+			expect(
+				view.getByText(/Queued by root-slug · queued 1 more/),
+			).toBeTruthy();
 		});
-		fireEvent.click(view.getByText("root-slug"));
+		fireEvent.click(view.getByRole("button", { name: /Queued by root-slug/ }));
+		const dialog = await view.findByRole("dialog");
+		fireEvent.click(within(dialog).getByText("root-slug"));
 		expect(opened).toEqual(["c-root"]);
 	});
 
@@ -110,7 +114,7 @@ describe("ChainBanner", () => {
 		expect(view.container.textContent).toBe("");
 	});
 
-	it("targets the enqueued task in the origin conversation when clicking Queued by", async () => {
+	it("targets the enqueued task in the origin conversation when opening the parent from the chain dialog", async () => {
 		serve(chain);
 		const opened: string[] = [];
 		function TargetProbe({ conversation }: { conversation: string }) {
@@ -126,13 +130,15 @@ describe("ChainBanner", () => {
 				<TargetProbe conversation="c-root" />
 			</>,
 		);
-		fireEvent.click(await view.findByText("root-slug"));
+		fireEvent.click(await view.findByRole("button", { name: /View/ }));
+		const dialog = await view.findByRole("dialog");
+		fireEvent.click(within(dialog).getByText("root-slug"));
 		expect(opened).toEqual(["c-root"]);
 		expect(view.getByTestId("target").textContent).toBe("821");
 		act(() => consumeQueuedTarget("c-root", 821));
 	});
 
-	it("renders an inline QueuedBar with clickable tasks, View dialog, and arrival ring", async () => {
+	it("renders an inline QueuedBar as a single-line ThreadBar opening ChainDialog with arrival ring", async () => {
 		serve(chain);
 		const opened: string[] = [];
 		const view = render(
@@ -151,15 +157,21 @@ describe("ChainBanner", () => {
 		);
 		const bar = view.getByRole("status", { name: "queued tasks" });
 		expect(bar.dataset.queuedTasks).toBe("821,822");
-		expect(bar.className).toContain("ring-2");
-		const viewButton = await within(bar).findByText("View");
-		fireEvent.click(within(bar).getByText("#821 Fix flaky test"));
-		fireEvent.click(within(bar).getByText("#822 Note the setting"));
-		expect(opened).toEqual(["c-821", "queued/822"]);
-		fireEvent.click(viewButton);
-		await waitFor(() => {
-			expect(view.getByText("Connected conversations")).toBeTruthy();
+		expect(bar.querySelector("[data-thread-bar]")?.className).toContain(
+			"ring-2",
+		);
+		expect(bar.textContent).toContain("Queued #821 and #822");
+		const viewButton = await within(bar).findByRole("button", {
+			name: /View/,
 		});
+		fireEvent.click(viewButton);
+		const dialog = await view.findByRole("dialog");
+		expect(dialog.textContent).toContain("Connected conversations");
+		fireEvent.click(within(dialog).getByText("#821 Fix flaky test"));
+		fireEvent.click(viewButton);
+		const reopened = await view.findByRole("dialog");
+		fireEvent.click(within(reopened).getByText("#822 Note the setting"));
+		expect(opened).toEqual(["c-821", "queued/822"]);
 	});
 
 	it("makes successful queue add events loud and keeps refused ones quiet", () => {

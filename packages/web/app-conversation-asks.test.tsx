@@ -68,7 +68,7 @@ describe("App's asks", () => {
 			}),
 		]);
 
-		const card = view.getByRole("generic", { name: "permission" });
+		const card = view.getByRole("region", { name: "permission" });
 		expect(card.querySelector("code")?.textContent).toBe(command);
 	});
 

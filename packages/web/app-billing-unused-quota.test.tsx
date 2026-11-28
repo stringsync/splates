@@ -58,6 +58,9 @@ describe("App's billing unused quota", () => {
 	it("shows the ranked unused quota card, tier-fit hint, and expands onto reset history", async () => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		await waitFor(() => view.getByLabelText("unused quota"));
@@ -81,6 +84,9 @@ describe("App's billing unused quota", () => {
 
 	it("switches between 4-week and 90-day lookbacks", async () => {
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);

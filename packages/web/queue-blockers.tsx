@@ -1,9 +1,10 @@
 import type { TaskRecord } from "@splates/server/board";
-import { Loader2Icon, TriangleAlertIcon } from "lucide-react";
+import { TriangleAlertIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { chainLines, useApplyFix } from "./blocked-fix";
 import { Board } from "./board";
+import { Spinner } from "./pending";
 
 /**
  * Queues `chain`, the blockers of `todo` nothing will start, blockers
@@ -69,7 +70,7 @@ export function QueueBlockersCta({
 				onClick={run}
 				className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 font-medium text-primary-foreground text-sm outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
 			>
-				{busy && <Loader2Icon aria-hidden className="size-4 animate-spin" />}
+				{busy && <Spinner aria-hidden className="size-4 animate-spin" />}
 				{label(chain.length)}
 			</button>
 		</div>
@@ -106,7 +107,7 @@ export function QueueBlockersIcon({
 			)}
 		>
 			{busy ? (
-				<Loader2Icon aria-hidden className="size-3.5 animate-spin" />
+				<Spinner aria-hidden className="size-3.5 animate-spin" />
 			) : (
 				<TriangleAlertIcon aria-hidden className="size-3.5" />
 			)}

@@ -69,7 +69,7 @@ export function PhoneHome({
 		<section
 			ref={section}
 			aria-label="new conversation"
-			className="flex h-full min-h-0 min-w-0 flex-col"
+			className="flex min-h-0 min-w-0 flex-1 flex-col"
 		>
 			<TopBar
 				leading={

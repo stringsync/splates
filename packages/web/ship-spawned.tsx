@@ -8,14 +8,16 @@ import {
 	CircleXIcon,
 	GitMergeIcon,
 	LinkIcon,
-	LoaderCircleIcon,
 	SquareCheckBigIcon,
 	WrenchIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import { Card, CardContent } from "./components/ui/card";
 import { cn } from "./lib/utils";
 import { spanOf } from "./merge-lines";
 import { todoAddress } from "./page-address";
+import { PageSection } from "./page-section";
+import { Spinner } from "./pending";
 import type { SpawnedStatus, SpawnedWork } from "./ship-spawned-work";
 
 type RunNote = RunState["notes"][number];
@@ -34,28 +36,18 @@ export function SpawnedStrip({
 		return null;
 	}
 	return (
-		<section
-			aria-label="Agents on this ship"
-			className="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3.5"
-		>
-			<h3 className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 font-semibold text-sm">
-				<span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-					<BotIcon aria-hidden className="size-4 text-muted-foreground" />
-					Agents on this ship
-				</span>
-				<span className="font-normal text-muted-foreground text-xs">
-					{tally(work)}
-				</span>
-			</h3>
-			<ul className="flex flex-col gap-2.5">
-				{work.map((each) => (
-					<SpawnedLine
-						key={`${each.todo ?? ""}\n${each.conversation ?? ""}`}
-						work={each}
-					/>
-				))}
-			</ul>
-		</section>
+		<PageSection as="h3" title="Agents on this ship" aside={tally(work)}>
+			<Card>
+				<CardContent render={<ul />} className="flex flex-col gap-2.5">
+					{work.map((each) => (
+						<SpawnedLine
+							key={`${each.todo ?? ""}\n${each.conversation ?? ""}`}
+							work={each}
+						/>
+					))}
+				</CardContent>
+			</Card>
+		</PageSection>
 	);
 }
 
@@ -163,55 +155,51 @@ export function RunNotes({ notes }: { notes: RunNote[] }): JSX.Element | null {
 	}
 	const newest = [...notes].reverse();
 	return (
-		<section aria-label="Notes" className="flex flex-col gap-2">
-			<h3 className="flex items-baseline gap-2 font-semibold text-sm">
-				Notes
-				<span className="rounded-full bg-muted px-1.5 font-medium text-[11px] text-muted-foreground tabular-nums">
-					{notes.length}
-				</span>
-			</h3>
-			<ol className="flex flex-col rounded-lg border bg-card px-4 py-1.5">
-				{newest.map((note, index) => (
-					<li
-						key={`${note.at}\n${note.task}\n${note.text}`}
-						className="relative flex gap-3 py-3"
-					>
-						<div className="relative flex w-4 shrink-0 justify-center">
-							<span className="mt-1.5 size-2 rounded-full bg-foreground/70 ring-4 ring-card" />
-							{index < newest.length - 1 && (
-								<span className="absolute top-4 -bottom-2.5 w-px bg-border" />
-							)}
-						</div>
-						<div className="flex min-w-0 flex-1 flex-col gap-1">
-							<div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-								<a
-									href={`#tasks/${note.task}`}
-									className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] text-foreground/90 hover:bg-muted"
-								>
-									<BotIcon
-										aria-hidden
-										className="size-3 text-muted-foreground"
-									/>
-									{note.task}
-								</a>
-								<span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-									{note.target === undefined
-										? "Whole run"
-										: `${note.target} · ${note.step}`}
-								</span>
-								<span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-									{spanOf(Date.now() - note.at)} ago
-								</span>
+		<PageSection as="h3" title="Notes" count={notes.length}>
+			<Card>
+				<CardContent render={<ol />} className="flex flex-col py-1.5">
+					{newest.map((note, index) => (
+						<li
+							key={`${note.at}\n${note.task}\n${note.text}`}
+							className="relative flex gap-3 py-3"
+						>
+							<div className="relative flex w-4 shrink-0 justify-center">
+								<span className="mt-1.5 size-2 rounded-full bg-foreground/70 ring-4 ring-card" />
+								{index < newest.length - 1 && (
+									<span className="absolute top-4 -bottom-2.5 w-px bg-border" />
+								)}
 							</div>
-							<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
-								{note.text}
-							</p>
-							{note.link !== undefined && <NoteLink link={note.link} />}
-						</div>
-					</li>
-				))}
-			</ol>
-		</section>
+							<div className="flex min-w-0 flex-1 flex-col gap-1">
+								<div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+									<a
+										href={`#tasks/${note.task}`}
+										className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] text-foreground/90 hover:bg-muted"
+									>
+										<BotIcon
+											aria-hidden
+											className="size-3 text-muted-foreground"
+										/>
+										{note.task}
+									</a>
+									<span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+										{note.target === undefined
+											? "Whole run"
+											: `${note.target} · ${note.step}`}
+									</span>
+									<span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+										{spanOf(Date.now() - note.at)} ago
+									</span>
+								</div>
+								<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
+									{note.text}
+								</p>
+								{note.link !== undefined && <NoteLink link={note.link} />}
+							</div>
+						</li>
+					))}
+				</CardContent>
+			</Card>
+		</PageSection>
 	);
 }
 
@@ -255,7 +243,7 @@ const STATUS: Record<
 	},
 	working: {
 		label: "Working",
-		icon: <LoaderCircleIcon aria-hidden className="animate-spin" />,
+		icon: <Spinner aria-hidden className="animate-spin" />,
 		tone: SKY,
 	},
 	asking: {

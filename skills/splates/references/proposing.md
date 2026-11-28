@@ -36,19 +36,24 @@ could change the user's decision.
   specifics in plain text; the card draws them as rows. A call that could
   go either way is a question with your pick, not a bullet.
 - `**Tags:**` one `- <Tag>: <why>` bullet per line, plain text (no bold on
-  `<Tag>`, no `Undo:` / `Size:` / `Area:` / `Watch out:` category prefix, and
-  never comma-separated), each with a short reason, from this fixed set (use
-  the names exactly):
-  - Undo, exactly one: `Clean revert` (reverting the merge undoes all of
-    it), `Revert + cleanup` (a revert leaves something behind, such as
-    stored records, files or settings; the reason names the cleanup) or
+  `<Tag>`, no `Undo:` / `Size:` / `Invasiveness:` / `Area:` / `Watch out:`
+  category prefix, and never comma-separated), each with a short reason,
+  from this fixed set (use the names exactly):
+  - Undo, exactly one: `Reversible` (reverting the merge undoes all of
+    it), `Cleanup` (a revert leaves something behind, such as stored
+    records, files or settings; the reason names the cleanup) or
     `One-way` (some of it cannot be undone; the reason names what). When a
-    ship would make a clean revert one-way, say "until <target> ships" in
+    ship would make a reversible merge one-way, say "until <target> ships" in
     the reason.
   - Size, exactly one: `Small`, `Medium` or `Complex`.
-  - Area, one or more: `UI only`, `CLI`, `Server`, `Database`,
-    `Full stack`, `DevOps`, `Evals`, `Skill` or `Library`.
-  - Watch out, only when true: `Breaking`, `Security`, `Costs money`.
+  - Invasiveness, exactly one: `Self-contained` (adds beside existing flows
+    or stays isolated without altering shared behavior), `Targeted` (adjusts
+    existing behavior or wiring in a bounded area) or `Invasive` (reworks
+    something relied on or cuts across much of the project; requires a merge
+    review before landing).
+  - Area, one or more: `UI`, `CLI`, `Server`, `Database`,
+    `Fullstack`, `DevOps`, `Evals`, `Skill` or `Library`.
+  - Watch out, only when true: `Breaking`, `Security`, `Paid`.
 - The picture, when the change needs one (see [showing.md](showing.md)):
   the before and after it shows.
 
@@ -80,8 +85,9 @@ first, then write the reply. A small change needs none.
 - **Send a scan that still fails to a dead-letter queue**, which writes a failures table support can read.
 
 **Tags:**
-- Revert + cleanup: a revert leaves the failures table; drop it by hand.
+- Cleanup: a revert leaves the failures table; drop it by hand.
 - Medium: a worker change and one new table.
+- Targeted: adjusts the scan worker without changing the upload flow.
 - Server: the scan worker.
 - Database: a migration adds the failures table.
 

@@ -107,17 +107,20 @@ export class Scopes {
 	}
 }
 
+/** What `pickScope` reads: the config, the repo's name, the named project and the folder. */
+export interface PickScopeOptions {
+	config: Pick<Config, "projects" | "shared">;
+	repoName: string;
+	named: string | undefined;
+	folder: string;
+}
+
 /**
  * The project a task added from `folder` changes, as `Scopes.pick` says, for
  * a caller that needs nothing else of the config's projects. `repoName` names
  * the one project of a config with no `projects`.
  */
-export function pickScope(opts: {
-	config: Pick<Config, "projects" | "shared">;
-	repoName: string;
-	named: string | undefined;
-	folder: string;
-}): string | null {
+export function pickScope(opts: PickScopeOptions): string | null {
 	return new Scopes(opts.config, opts.repoName).pick(opts.named, opts.folder);
 }
 

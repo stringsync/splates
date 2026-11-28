@@ -1,3 +1,4 @@
+import { isHtmlArtifactName } from "@splates/server/artifacts/browser";
 import type { Action, Event } from "@splates/server/records";
 
 /**
@@ -21,6 +22,13 @@ export function tierOf(event: Event): Tier | null {
 	}
 	if (action === "add" && event.reason === null && event.agent !== null) {
 		return "quiet";
+	}
+	if (
+		action === "artifact add" &&
+		event.reason === null &&
+		isHtmlArtifactName(event.name)
+	) {
+		return "loud";
 	}
 	if (ALWAYS_LOUD.has(action)) {
 		return "loud";

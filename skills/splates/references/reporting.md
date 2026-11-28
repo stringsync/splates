@@ -70,17 +70,14 @@ Checks: `bun run typecheck`, `bun test`
 ```
 
 What you may not do yourself, you ask the user to allow with a permission
-card: `## 🔐 Permission: queue lane <n>: <name>`, `## 🔐 Permission: queue
-#<n>, #<n>: <what>` or `## 🔐 Permission: remove lane <n>: <name>`, then the
-command that does it in a code span on its own line, for a queue card a
-`Why not auto-queued:` line (see [queue.md](queue.md), Asking the user to queue),
-and a line or two on what it comes to. The page lists the tasks it queues or removes and gives the
-user Now. The queue card ends your reply with work you added (see
-[queue.md](queue.md), Asking the user to queue), after any report, a merge or
-remove report too. Removing a lane takes its tasks with it, kept to restore,
-and an agent may remove only an empty lane. For a lane containing tasks,
-ask with the card, naming the lane and how many tasks go. The old `## 📥 Queue ...` titles still read
-as queue cards.
+card: `## 🔐 Permission: queue lane <n>: <name>` or `## 🔐 Permission: queue
+#<n>, #<n>: <what>`, then the command that does it in a code span on its own
+line, a `Why not auto-queued:` line (see [queue.md](queue.md), Asking the user
+to queue), and a line or two on what it comes to. The page lists the tasks it
+queues and gives the user Now. The queue card ends your reply with work you
+added (see [queue.md](queue.md), Asking the user to queue), after any report, a
+merge or remove report too. The old `## 📥 Queue ...` titles still read as
+queue cards.
 
 Ask every question to the user as an item of a list numbered from 1 at the
 margin, outside code blocks, wherever you ask it, even a lone one as

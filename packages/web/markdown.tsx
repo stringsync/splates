@@ -1,3 +1,4 @@
+import { parseInlineArtifactRef } from "@splates/server/artifacts/browser";
 import { elsewhereMention, MENTION } from "@splates/server/board/browser";
 import { ArchiveIcon, FolderGit2Icon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
@@ -449,6 +450,9 @@ function Unlinked({ children }: ComponentProps<"a">): JSX.Element {
 
 /** A paragraph of images and nothing else is drawn as one gallery card. */
 function Paragraph(props: ComponentProps<"p">): JSX.Element {
+	if (hasInlineArtifact(props.children)) {
+		return <div className={props.className}>{props.children}</div>;
+	}
 	const pictured = picturedIn(props.children, (child) => child.type === Image);
 	if (pictured !== null) {
 		return (
@@ -458,6 +462,16 @@ function Paragraph(props: ComponentProps<"p">): JSX.Element {
 		);
 	}
 	return <p {...props} />;
+}
+
+function hasInlineArtifact(children: ReactNode): boolean {
+	return Children.toArray(children).some(
+		(child) =>
+			isValidElement<Record<string, unknown>>(child) &&
+			child.type === Image &&
+			typeof child.props.src === "string" &&
+			parseInlineArtifactRef(child.props.src) !== null,
+	);
 }
 
 /** An image shows what it names, when that is a file splates holds. */

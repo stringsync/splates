@@ -121,6 +121,28 @@ export function findInlineMedia(
 	cwd: string | null = null,
 	opts: InlineMediaScanOptions = {},
 ): InlineMediaRef[] {
+	return findInlineRefs(text, cwd, mediaExtension, opts);
+}
+
+/**
+ * Every Markdown embed (`![alt](path)`) outside code blocks in `text` that
+ * names a local `.html` or `.htm` file. Plain links (`[alt](path)`) are
+ * ignored so code references stay links.
+ */
+export function findInlineHtml(
+	text: string,
+	cwd: string | null = null,
+	opts: InlineMediaScanOptions = {},
+): InlineMediaRef[] {
+	return findInlineRefs(text, cwd, htmlExtension, opts);
+}
+
+function findInlineRefs(
+	text: string,
+	cwd: string | null,
+	extensionOf: (path: string) => string | null,
+	opts: InlineMediaScanOptions,
+): InlineMediaRef[] {
 	if (!text.includes("![")) {
 		return [];
 	}
@@ -134,7 +156,7 @@ export function findInlineMedia(
 			if (resolved === null) {
 				continue;
 			}
-			const ext = mediaExtension(resolved);
+			const ext = extensionOf(resolved);
 			if (ext === null) {
 				continue;
 			}
@@ -142,6 +164,16 @@ export function findInlineMedia(
 		}
 	}
 	return found;
+}
+
+function htmlExtension(path: string): string | null {
+	const name = basename(path);
+	const dot = name.lastIndexOf(".");
+	if (dot <= 0 || dot === name.length - 1) {
+		return null;
+	}
+	const ext = name.slice(dot + 1).toLowerCase();
+	return ext === "html" || ext === "htm" ? ext : null;
 }
 
 /**

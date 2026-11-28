@@ -6,9 +6,14 @@ import {
 	MessagePrimitive,
 	useAuiState,
 } from "@assistant-ui/react";
+import type { TaskReport } from "@splates/server/plans/browser";
 import { SystemTimer } from "core/time";
-import { ChevronRightIcon } from "lucide-react";
 import { type FC, useContext, useEffect, useRef, useState } from "react";
+import {
+	BuddyAvatar,
+	BuddyStatusRow,
+	LiveBuddyContext,
+} from "#web/buddy-avatar.tsx";
 import { MarkdownText } from "#web/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	Reasoning,
@@ -19,6 +24,7 @@ import {
 } from "#web/components/assistant-ui/elements/reasoning.aui.tsx";
 import {
 	ThreadComponentsContext,
+	ThreadExtrasContext,
 	type ThreadGroupPart,
 } from "#web/components/assistant-ui/elements/thread-context.aui.ts";
 import { ToolFallback } from "#web/components/assistant-ui/elements/tool-fallback.aui.tsx";
@@ -27,6 +33,7 @@ import {
 	ToolGroupRoot,
 	ToolGroupTrigger,
 } from "#web/components/assistant-ui/elements/tool-group.aui.tsx";
+import { Spinner } from "#web/pending.tsx";
 import { Stamp, useStamps } from "#web/stamp.tsx";
 import { SAID, type Work } from "#web/work.ts";
 
@@ -77,6 +84,7 @@ export const AssistantMessage: FC = () => {
 		ReasoningGroup,
 		TaskGroup: TaskGroupComponent,
 	} = useContext(ThreadComponentsContext);
+	const { agent } = useContext(ThreadExtrasContext);
 	const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 	const id = useAuiState((s) => s.message.id);
 	const stamps = useStamps();
@@ -85,6 +93,62 @@ export const AssistantMessage: FC = () => {
 		return typeof at === "string" ? at : null;
 	});
 	const at = stamps.shown ? stamped : null;
+	const isLatestAssistant = useAuiState((s) => {
+		for (let i = s.thread.messages.length - 1; i >= 0; i--) {
+			if (s.thread.messages[i]?.role === "assistant") {
+				return i === s.message.index;
+			}
+		}
+		return false;
+	});
+	const buddy = isLatestAssistant && agent !== undefined ? agent : null;
+	const tail = useAuiState((s) => {
+		const last = s.message.parts.at(-1);
+		return last?.type === "text" ? last.text : null;
+	});
+	const streaming = useStreaming(tail);
+	const sending = useAuiState(
+		(s) =>
+			s.thread.messages[s.message.index - 1]?.metadata.custom.pending === true,
+	);
+	const hasWorkingRow = useAuiState((s) =>
+		s.message.parts.some(
+			(part) =>
+				part.type === "data" &&
+				part.name === "work" &&
+				(part.data as { work: Work }).work.working,
+		),
+	);
+	const stopped = useAuiState((s) =>
+		s.message.parts.some(
+			(part) =>
+				part.type === "data" &&
+				(part.name === "stopped" || part.name === "interrupted"),
+		),
+	);
+	const lastIsReasoning = useAuiState(
+		(s) => s.message.parts.at(-1)?.type === "reasoning",
+	);
+	const running = useAuiState((s) => s.message.status?.type === "running");
+	const outcomeKey = useAuiState((s) => {
+		for (let i = s.message.parts.length - 1; i >= 0; i--) {
+			const part = s.message.parts[i];
+			if (part?.type === "data" && part.name === "report") {
+				const report = (part.data as { report: TaskReport }).report;
+				if (report.ending === "merged") {
+					return report.base ? `merged:${report.base}` : "merged";
+				}
+				if (report.ending === "done") {
+					return "done";
+				}
+			}
+		}
+		return "";
+	});
+	const liveRunning = running && !stopped;
+	const showIndicator =
+		liveRunning && !hasWorkingRow && !lastIsReasoning && !streaming && !sending;
+	const showFooterBuddy = buddy !== null && !hasWorkingRow && !showIndicator;
 
 	return (
 		<MessagePrimitive.Root
@@ -101,64 +165,90 @@ export const AssistantMessage: FC = () => {
 				data-slot="aui_assistant-message-content"
 				className="text-foreground px-2 leading-relaxed wrap-break-word"
 			>
-				<MessagePrimitive.GroupedParts groupBy={groupBy} indicator="always">
-					{({ part, children }) => {
-						switch (part.type) {
-							case "group-chainOfThought":
-								return <div data-slot="aui_chain-of-thought">{children}</div>;
-							case "group-task":
-								return TaskGroupComponent ? (
-									<TaskGroupComponent group={part} />
-								) : null;
-							case "group-tool":
-								if (ToolGroup) {
-									return <ToolGroup group={part}>{children}</ToolGroup>;
-								}
-								return (
-									<ToolGroupRoot variant="ghost">
-										<ToolGroupTrigger
-											count={part.indices.length}
-											active={part.status.type === "running"}
-										/>
-										<ToolGroupContent>{children}</ToolGroupContent>
-									</ToolGroupRoot>
-								);
-							case "group-reasoning": {
-								if (ReasoningGroup) {
+				<LiveBuddyContext value={buddy}>
+					<MessagePrimitive.GroupedParts groupBy={groupBy} indicator="always">
+						{({ part, children }) => {
+							switch (part.type) {
+								case "group-chainOfThought":
+									return <div data-slot="aui_chain-of-thought">{children}</div>;
+								case "group-task":
+									return TaskGroupComponent ? (
+										<TaskGroupComponent group={part} />
+									) : null;
+								case "group-tool":
+									if (ToolGroup) {
+										return <ToolGroup group={part}>{children}</ToolGroup>;
+									}
 									return (
-										<ReasoningGroup group={part}>{children}</ReasoningGroup>
+										<ToolGroupRoot variant="ghost">
+											<ToolGroupTrigger
+												count={part.indices.length}
+												active={part.status.type === "running"}
+											/>
+											<ToolGroupContent>{children}</ToolGroupContent>
+										</ToolGroupRoot>
+									);
+								case "group-reasoning": {
+									if (ReasoningGroup) {
+										return (
+											<ReasoningGroup group={part}>{children}</ReasoningGroup>
+										);
+									}
+									const reasoningRunning = part.status.type === "running";
+									return (
+										<ReasoningRoot streaming={reasoningRunning}>
+											<ReasoningTrigger
+												active={reasoningRunning}
+												duration={reasoningDuration(part.timing)}
+											/>
+											<ReasoningContent aria-busy={reasoningRunning}>
+												<ReasoningText>{children}</ReasoningText>
+											</ReasoningContent>
+										</ReasoningRoot>
 									);
 								}
-								const running = part.status.type === "running";
-								return (
-									<ReasoningRoot streaming={running}>
-										<ReasoningTrigger
-											active={running}
-											duration={reasoningDuration(part.timing)}
-										/>
-										<ReasoningContent aria-busy={running}>
-											<ReasoningText>{children}</ReasoningText>
-										</ReasoningContent>
-									</ReasoningRoot>
-								);
+								case "text":
+									return <AssistantText {...part} />;
+								case "reasoning":
+									return <Reasoning {...part} />;
+								case "tool-call":
+									return part.toolUI ?? <ToolFallbackComponent {...part} />;
+								case "data":
+									return part.dataRendererUI;
+								case "indicator":
+									return showIndicator ? <WorkingRow /> : null;
+								default:
+									return null;
 							}
-							case "text":
-								return <AssistantText {...part} />;
-							case "reasoning":
-								return <Reasoning {...part} />;
-							case "tool-call":
-								return part.toolUI ?? <ToolFallbackComponent {...part} />;
-							case "data":
-								return part.dataRendererUI;
-							case "indicator":
-								return <WorkingIndicator />;
-							default:
-								return null;
-						}
-					}}
-				</MessagePrimitive.GroupedParts>
+						}}
+					</MessagePrimitive.GroupedParts>
+				</LiveBuddyContext>
 				<MessageError />
-				{at !== null && <Stamp at={at} className="mt-1 block w-fit" />}
+				{showFooterBuddy ? (
+					liveRunning && !sending ? (
+						<BuddyStatusRow agent={buddy} state="working" />
+					) : outcomeKey !== "" ? (
+						<BuddyStatusRow
+							agent={buddy}
+							state="merged"
+							label={
+								outcomeKey === "done"
+									? "Done"
+									: outcomeKey.startsWith("merged:")
+										? `Merged onto ${outcomeKey.slice("merged:".length)}`
+										: "Merged"
+							}
+						>
+							{at !== null && <Stamp at={at} />}
+						</BuddyStatusRow>
+					) : (
+						<BuddyStatusRow agent={buddy} state="idle">
+							{at !== null && <Stamp at={at} />}
+						</BuddyStatusRow>
+					)
+				) : (
+					at !== null && <Stamp at={at} className="mt-1 block w-fit" />
+				)}
 			</div>
 		</MessagePrimitive.Root>
 	);
@@ -225,13 +315,17 @@ export const WorkingIndicator: FC = () => {
  * reply yet to hold it.
  */
 export const WorkingRow: FC = () => {
+	const buddy = useContext(LiveBuddyContext);
 	return (
 		<div
 			data-slot="aui_assistant-message-indicator"
 			role="status"
-			className="mt-1 mb-5 flex items-center gap-x-1.5 text-muted-foreground/70 text-xs tabular-nums"
+			className="mt-1 mb-5 flex items-center gap-x-2 text-muted-foreground/70 text-xs tabular-nums"
 		>
-			<ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
+			{buddy !== null && (
+				<BuddyAvatar agent={buddy.id} name={buddy.name} state="working" />
+			)}
+			<Spinner className="size-3.5 shrink-0" />
 			<span className="min-w-0 truncate shimmer motion-reduce:animate-none">
 				Working
 			</span>

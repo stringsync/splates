@@ -138,6 +138,8 @@ export async function promptConversation(
 	signal?: AbortSignal,
 	/** The project the conversation is in, else the one this page shows. */
 	project?: string,
+	/** Additional behavior flags for this prompt. */
+	opts?: PromptConversationOptions,
 ): Promise<ConversationState> {
 	const form = new FormData();
 	form.set("text", text);
@@ -147,6 +149,9 @@ export async function promptConversation(
 	if (dictated) {
 		form.set("dictated", "true");
 	}
+	if (opts?.archiveAfterMerge) {
+		form.set("archiveAfterMerge", "true");
+	}
 	for (const file of files) {
 		form.append("file", file, file.name);
 	}
@@ -155,6 +160,12 @@ export async function promptConversation(
 		signal,
 		headers: { [FROM_HEADER]: matchMedia(WIDE).matches ? "desktop" : "phone" },
 	})) as ConversationState;
+}
+
+/** Optional behavior flags for `promptConversation`. */
+export interface PromptConversationOptions {
+	/** Arms archiving the conversation once the approved task merges cleanly. */
+	archiveAfterMerge?: boolean;
 }
 
 /** Where the page reads `file`, one the person sent in conversation `id`. */

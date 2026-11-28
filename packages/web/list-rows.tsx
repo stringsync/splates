@@ -143,7 +143,7 @@ export function TerminalRow({
 				<SquareTerminalIcon className="size-3.5 text-foreground/70" />
 				<span
 					className={cn(
-						"min-w-0 flex-1 truncate text-sm",
+						"min-w-0 flex-1 truncate text-[13px]",
 						nested && "text-muted-foreground italic",
 					)}
 				>
@@ -213,7 +213,7 @@ export function RenameBox({
 					onDone(null);
 				}
 			}}
-			className="mx-1 h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className="mx-1 h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-[13px] pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		/>
 	);
 }

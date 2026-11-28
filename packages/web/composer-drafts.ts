@@ -6,7 +6,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Annotation } from "#web/annotation.ts";
 import { ATTACHMENT_REFERENCE, attachmentName } from "./attachment-chips";
-import type { Reply } from "./card-reply";
+import type { Reply, ReplySendOptions } from "./card-reply";
 import { SEEN } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { fileShelf } from "./files";
@@ -208,7 +208,12 @@ export function useReply(
 	id: string,
 	drafts: Drafts,
 	send:
-		| ((text: string, files: File[], dictated?: boolean) => Promise<void>)
+		| ((
+				text: string,
+				files: File[],
+				dictated?: boolean,
+				options?: ReplySendOptions,
+		  ) => Promise<void>)
 		| null,
 ): Reply {
 	// Whether a take went into a card's box since the last send.
@@ -218,10 +223,14 @@ export function useReply(
 			send:
 				send === null
 					? null
-					: (said: string, files: readonly File[] = []) => {
+					: (
+							said: string,
+							files: readonly File[] = [],
+							opts?: ReplySendOptions,
+						) => {
 							const was = dictated.current && said !== "";
 							dictated.current = false;
-							return send(said, [...files], was);
+							return send(said, [...files], was, opts);
 						},
 			dictated: () => {
 				dictated.current = true;

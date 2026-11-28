@@ -1,15 +1,30 @@
 import type {
-	DecisionKind,
 	RuleSuggestionView,
+	TrustBand,
 	TrustEntry,
 	TrustKey,
-	TrustKindBreakdown,
 	TrustScope,
 } from "@splates/server/trust";
-import { bandOf as bandFor } from "@splates/server/trust/browser";
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import {
+	bandOf,
+	KIND_LABELS,
+	TRUST_BANDS,
+	TRUST_MILESTONES,
+} from "@splates/server/trust/browser";
+import { ChevronDownIcon, XIcon } from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "#web/components/ui/dropdown-menu.tsx";
 import { Switch } from "#web/components/ui/switch.tsx";
 import {
 	Tabs,
@@ -31,23 +46,24 @@ import {
 } from "./api/trust";
 import { nameOf } from "./billing-sums";
 import { useProjects } from "./composer-triggers";
+import { PageSection } from "./page-section";
 import { TopBar } from "./top-bar";
 import { TrustAssumptions } from "./trust-assumptions";
+import { BAND_META, BandBadge, ScopeChip } from "./trust-badges";
 import { TrustHowItWorks } from "./trust-how-it-works";
 import { TrustRuleSuggestions } from "./trust-rule-suggestions";
 import { TrustScopes } from "./trust-scopes";
 
 /**
- * The Trust page, at `#trust`: every project × agent/model's 0–100 trust,
- * grouped by project, each model a card that opens on its controls (dynamic or
- * static, a pinned value, reset) and its breakdown by kind of decision.
+ * The Trust page, at `#trust`: every project × agent/model's earned autonomy
+ * level, milestone standing, and Auto or pinned level override.
  */
 export function TrustPage(): JSX.Element {
 	const [overview, setOverview] = useState<TrustOverview | null>(null);
 	const [suggestions, setSuggestions] = useState<RuleSuggestionView[]>([]);
 	const [failed, setFailed] = useState<string | null>(null);
 	const [project, setProject] = useState<string | null>(null);
-	const [open, setOpen] = useState<string | null>(null);
+	const [tab, setTab] = useState("models");
 	const [enabled, setEnabled] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const roots = useProjects();
@@ -140,7 +156,12 @@ export function TrustPage(): JSX.Element {
 		(each) => project === null || each.project === project,
 	);
 	return (
-		<Tabs defaultValue="models" aria-label="trust" className="min-w-0 gap-5">
+		<Tabs
+			value={tab}
+			onValueChange={setTab}
+			aria-label="trust"
+			className="min-w-0 gap-5"
+		>
 			<TopBar
 				title="Trust"
 				tabs={
@@ -160,8 +181,8 @@ export function TrustPage(): JSX.Element {
 					</TabsList>
 				}
 			/>
-			{overview !== null && (
-				<div className="flex items-center justify-between gap-4 rounded-xl border bg-card px-4 py-3">
+			{overview !== null && tab === "models" && (
+				<Card className="flex items-center justify-between gap-4 px-4 py-3">
 					<div>
 						<label htmlFor="trust-enabled" className="text-sm font-medium">
 							Allow trusted decisions
@@ -177,14 +198,14 @@ export function TrustPage(): JSX.Element {
 						disabled={saving}
 						onCheckedChange={toggle}
 					/>
-				</div>
+				</Card>
 			)}
 			{failed !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{failed}
 				</p>
 			)}
-			{projects.length > 0 && (
+			{projects.length > 0 && tab !== "key" && (
 				<ProjectChips
 					projects={projects}
 					picked={project}
@@ -217,8 +238,6 @@ export function TrustPage(): JSX.Element {
 								models={models}
 								enabled={enabled}
 								scoped={scoped}
-								open={open}
-								onOpen={setOpen}
 								onChange={change}
 							/>
 						))}
@@ -247,7 +266,7 @@ export function TrustPage(): JSX.Element {
 	);
 }
 
-/** `All projects`, then a chip for each project, the one shown filled. */
+/** `All projects`, then one filter button per project, matching StatsPage. */
 function ProjectChips({
 	projects,
 	picked,
@@ -257,61 +276,54 @@ function ProjectChips({
 	picked: string | null;
 	onPick: (project: string | null) => void;
 }): JSX.Element {
-	const chip = (label: string, value: string | null) => (
-		<button
-			key={value ?? ""}
-			type="button"
-			aria-pressed={picked === value}
-			onClick={() => onPick(value)}
-			className={cn(
-				"h-9 rounded-full border px-3.5 text-sm",
-				picked === value
-					? "border-foreground bg-foreground text-background"
-					: "bg-card hover:bg-muted",
-			)}
-		>
-			{label}
-		</button>
-	);
+	const chip = (label: string, value: string | null) => {
+		const active = picked === value;
+		return (
+			<Button
+				key={value ?? ""}
+				type="button"
+				role="radio"
+				aria-checked={active}
+				variant={active ? "secondary" : "ghost"}
+				size="sm"
+				onClick={() => onPick(value)}
+			>
+				{label}
+			</Button>
+		);
+	};
 	return (
-		<nav aria-label="projects" className="flex flex-wrap gap-2">
+		<div
+			role="radiogroup"
+			aria-label="Projects"
+			className="flex flex-wrap items-center gap-1"
+		>
 			{chip("All projects", null)}
 			{projects.map((path) => chip(projectName(path), path))}
-		</nav>
+		</div>
 	);
 }
 
-/** One project's heading and its models, each in a card of its own. */
+/** One project's section and its models, each in a card of its own. */
 function ProjectModels({
 	enabled,
 	path,
 	models,
 	scoped,
-	open,
-	onOpen,
 	onChange,
 }: {
 	enabled: boolean;
 	path: string;
 	models: TrustEntry[];
 	scoped: Map<string, TrustEntry[]>;
-	open: string | null;
-	onOpen: (id: string | null) => void;
 	onChange: (key: TrustKey, how: TrustChange) => Promise<void>;
 }): JSX.Element {
 	return (
-		<section aria-label={projectName(path)} className="flex flex-col gap-2.5">
-			<div className="flex items-baseline justify-between px-0.5">
-				<h2
-					title={path}
-					className="font-medium text-muted-foreground text-xs uppercase tracking-wider"
-				>
-					{projectName(path)}
-				</h2>
-				<span className="text-muted-foreground text-xs">
-					{models.length} {models.length === 1 ? "model" : "models"}
-				</span>
-			</div>
+		<PageSection
+			aria-label={projectName(path)}
+			title={<span title={path}>{projectName(path)}</span>}
+			count={`${models.length} ${models.length === 1 ? "model" : "models"}`}
+		>
 			{models.map((entry) => {
 				const id = idOf(entry);
 				return (
@@ -320,356 +332,301 @@ function ProjectModels({
 						key={id}
 						entry={entry}
 						scopes={scoped.get(id) ?? []}
-						open={open}
-						onOpen={onOpen}
 						onChange={onChange}
 					/>
 				);
 			})}
-		</section>
+		</PageSection>
 	);
 }
 
-/** A model's card: its score and band, opening on its controls and breakdown. */
+/** A model's card: its effective level, earned standing, override dropdown, and nested scope rows. */
 function ModelCard({
 	enabled,
 	entry,
 	scopes,
-	open,
-	onOpen,
 	onChange,
 }: {
 	enabled: boolean;
 	entry: TrustEntry;
 	scopes: TrustEntry[];
-	open: string | null;
-	onOpen: (id: string | null) => void;
 	onChange: (key: TrustKey, how: TrustChange) => Promise<void>;
 }): JSX.Element {
 	return (
-		<article
-			aria-label={modelName(entry)}
-			className="overflow-hidden rounded-xl border bg-card"
-		>
-			{[entry, ...scopes].map((row) => {
-				const id = idOf(row);
-				return (
-					<ModelRow
-						key={id}
-						entry={row}
-						enabled={enabled}
-						open={open === id}
-						onToggle={() => onOpen(open === id ? null : id)}
-						onChange={(how) => onChange(keyOf(row), how)}
-					/>
-				);
-			})}
-		</article>
+		<Card render={<article />} aria-label={modelName(entry)}>
+			{[entry, ...scopes].map((row) => (
+				<ModelRow
+					key={idOf(row)}
+					entry={row}
+					enabled={enabled}
+					onChange={(how) => onChange(keyOf(row), how)}
+				/>
+			))}
+		</Card>
+	);
+}
+
+type OverrideSelection =
+	| { mode: "dynamic" }
+	| { mode: "static"; band: TrustBand };
+
+function savedSelection(entry: TrustEntry): OverrideSelection {
+	return entry.mode === "static"
+		? { mode: "static", band: entry.pinnedBand ?? bandOf(entry) }
+		: { mode: "dynamic" };
+}
+
+function sameSelection(
+	left: OverrideSelection,
+	right: OverrideSelection,
+): boolean {
+	return (
+		left.mode === right.mode &&
+		(left.mode === "dynamic" ||
+			(right.mode === "static" && left.band === right.band))
 	);
 }
 
 function ModelRow({
 	enabled,
 	entry,
-	open,
-	onToggle,
 	onChange,
 }: {
 	enabled: boolean;
 	entry: TrustEntry;
-	open: boolean;
-	onToggle: () => void;
 	onChange: (how: TrustChange) => Promise<void>;
 }): JSX.Element {
-	const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
 	const scope = entry.scope;
+	const saved = savedSelection(entry);
+	const [staged, setStaged] = useState<OverrideSelection | null>(null);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [resetting, setResetting] = useState(false);
+	const [saving, setSaving] = useState(false);
+
+	useEffect(() => {
+		setStaged(null);
+		setMenuOpen(false);
+		setResetting(false);
+	}, []);
+
+	const active = staged ?? saved;
+	const dirty = staged !== null && !sameSelection(staged, saved);
+	const effectiveBand = bandOf(entry, enabled);
+	const triggerLabel =
+		active.mode === "dynamic" ? "Auto" : BAND_META[active.band].label;
+	const menuValue = active.mode === "dynamic" ? "auto" : active.band;
+
+	const apply = async () => {
+		if (!dirty || staged === null) {
+			return;
+		}
+		setSaving(true);
+		try {
+			await onChange(
+				staged.mode === "dynamic"
+					? { mode: "dynamic" }
+					: { mode: "static", band: staged.band },
+			);
+			setStaged(null);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const confirmReset = async () => {
+		setSaving(true);
+		try {
+			await onChange({ reset: true });
+			setResetting(false);
+			setStaged(null);
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	return (
-		<>
-			<button
-				type="button"
-				aria-expanded={open}
-				onClick={onToggle}
-				className={cn(
-					"flex w-full items-center gap-3 px-3.5 py-3 text-left hover:bg-muted/40",
-					scope !== undefined && "border-t bg-muted/20 pl-9 sm:pl-14",
-				)}
-			>
+		<div
+			className={cn(
+				"flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+				scope !== undefined && "border-t bg-muted/20 sm:pl-[53px]",
+			)}
+		>
+			<div className="flex min-w-0 flex-1 items-start gap-2.5">
 				{scope === undefined && (
-					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
+					<span className="mt-0.5 flex size-[26px] shrink-0 items-center justify-center rounded-md bg-muted">
 						<AgentMark agent={entry.agent} />
 					</span>
 				)}
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span className="flex flex-wrap items-center gap-1.5">
+				<div className="min-w-0 flex-1">
+					<div className="flex flex-wrap items-center gap-1.5">
 						{scope === undefined ? (
-							<span className="font-medium">{modelName(entry)}</span>
+							<span className="font-medium text-sm">{modelName(entry)}</span>
 						) : (
-							<code className="min-w-0 wrap-anywhere rounded-md bg-muted px-1.5 py-0.5">
-								{scope}
-							</code>
+							<ScopeChip path={scope} />
 						)}
-						<BandPill enabled={enabled} entry={entry} />
-						{entry.mode === "static" && <StaticPill />}
-					</span>
-					<span className="text-muted-foreground text-xs">
-						{[
-							...(scope === undefined ? ["Project default"] : []),
-							entry.mode === "static" ? "Pinned by user" : "Dynamic",
-							decisionsOf(entry.counts.total),
-						].join(" · ")}
-					</span>
-				</span>
-				<ScoreMeter score={entry.score} className="w-30 max-sm:hidden" />
-				<span className="min-w-8 text-right font-semibold text-lg tabular-nums">
-					{entry.score}
-				</span>
-				<Chevron
-					aria-hidden
-					className="size-4 shrink-0 text-muted-foreground"
-				/>
-			</button>
-			{open && <ModelControls entry={entry} onChange={onChange} />}
-		</>
-	);
-}
-
-/**
- * The controls under an open model: dynamic or static, the value by slider or
- * number (in either mode), reset, and its 5-kind breakdown.
- */
-function ModelControls({
-	entry,
-	onChange,
-}: {
-	entry: TrustEntry;
-	onChange: (how: TrustChange) => Promise<void>;
-}): JSX.Element {
-	const [value, setValue] = useState(entry.score);
-	const [resetting, setResetting] = useState(false);
-	useEffect(() => setValue(entry.score), [entry.score]);
-	const apply = (next: number) => {
-		const clamped = Math.min(100, Math.max(0, Math.round(next)));
-		setValue(clamped);
-		if (clamped !== entry.score) {
-			void onChange({ mode: entry.mode, value: clamped });
-		}
-	};
-	return (
-		<div className="flex flex-col gap-3 border-t bg-muted/30 px-3.5 pt-3 pb-3.5">
-			<div className="flex flex-wrap items-center gap-2.5">
-				<fieldset
-					aria-label="mode"
-					className="flex rounded-lg border bg-muted p-0.5 text-sm"
-				>
-					{(["dynamic", "static"] as const).map((mode) => (
-						<button
-							key={mode}
-							type="button"
-							aria-pressed={entry.mode === mode}
-							onClick={() => {
-								if (entry.mode !== mode) {
-									void onChange(mode === "static" ? { mode, value } : { mode });
-								}
-							}}
-							className={cn(
-								"h-9 rounded-md px-3 capitalize sm:h-7",
-								entry.mode === mode
-									? "bg-card font-medium shadow-xs"
-									: "text-muted-foreground",
-							)}
-						>
-							{mode}
-						</button>
-					))}
-				</fieldset>
-				<div className="flex min-w-40 flex-1 items-center gap-2.5">
-					<input
-						type="range"
-						aria-label="trust"
-						min={0}
-						max={100}
-						value={value}
-						onChange={(event) => setValue(Number(event.target.value))}
-						onPointerUp={(event) => apply(Number(event.currentTarget.value))}
-						onKeyUp={(event) => apply(Number(event.currentTarget.value))}
-						className="h-9 min-w-0 flex-1 accent-foreground"
-					/>
-					<input
-						type="number"
-						aria-label="trust value"
-						min={0}
-						max={100}
-						value={value}
-						onChange={(event) => setValue(Number(event.target.value))}
-						onBlur={(event) => apply(Number(event.currentTarget.value))}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								apply(Number(event.currentTarget.value));
-							}
-						}}
-						className="h-9 w-14 rounded-md border bg-card text-center font-semibold text-sm tabular-nums sm:h-7"
-					/>
+						<BandBadge band={effectiveBand} />
+						{entry.mode === "static" && <Badge variant="outline">Pinned</Badge>}
+					</div>
+					<p className="mt-0.5 text-muted-foreground text-xs tabular-nums leading-snug">
+						{standingText(entry)}
+					</p>
 				</div>
+			</div>
+			<div
+				className={cn(
+					"flex shrink-0 flex-wrap items-center gap-1.5",
+					scope === undefined && "pl-[36px] sm:pl-0",
+				)}
+			>
 				{resetting ? (
-					<span className="flex items-center gap-2">
+					<>
 						<span className="text-muted-foreground text-xs">
-							Forget {decisionsOf(entry.counts.total)}?
+							{entry.standing.sessions > 0
+								? `Forget ${entry.standing.sessions} ${entry.standing.sessions === 1 ? "session" : "sessions"}?`
+								: "Reset history?"}
 						</span>
 						<Button
+							type="button"
 							size="sm"
 							variant="destructive"
-							className="h-9 sm:h-7"
-							onClick={() => {
-								setResetting(false);
-								void onChange({ reset: true });
-							}}
+							disabled={saving}
+							onClick={() => void confirmReset()}
 						>
 							Reset
 						</Button>
 						<Button
+							type="button"
 							size="sm"
 							variant="ghost"
-							className="h-9 sm:h-7"
+							disabled={saving}
 							onClick={() => setResetting(false)}
 						>
 							Cancel
 						</Button>
-					</span>
+					</>
 				) : (
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-9 sm:h-7"
-						onClick={() => setResetting(true)}
-					>
-						Reset
-					</Button>
+					<>
+						<DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+							<DropdownMenuTrigger
+								render={
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										aria-label={`${scope ?? modelName(entry)} trust level`}
+										disabled={saving}
+										className={cn(
+											"min-w-[112px] justify-between gap-2 px-2.5 font-medium text-xs",
+											dirty && "border-foreground",
+										)}
+									/>
+								}
+							>
+								<span>{triggerLabel}</span>
+								<ChevronDownIcon
+									aria-hidden
+									className="size-3.5 text-muted-foreground"
+								/>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-48">
+								<DropdownMenuRadioGroup
+									value={menuValue}
+									onValueChange={(next) => {
+										const picked: OverrideSelection =
+											next === "auto"
+												? { mode: "dynamic" }
+												: { mode: "static", band: next as TrustBand };
+										setStaged(sameSelection(picked, saved) ? null : picked);
+										setMenuOpen(false);
+									}}
+								>
+									<DropdownMenuRadioItem closeOnClick value="auto">
+										Auto (earned)
+									</DropdownMenuRadioItem>
+									{TRUST_BANDS.map((band) => (
+										<DropdownMenuRadioItem closeOnClick key={band} value={band}>
+											{BAND_META[band].label}
+										</DropdownMenuRadioItem>
+									))}
+								</DropdownMenuRadioGroup>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
+									variant="destructive"
+									onClick={() => {
+										setStaged(null);
+										setResetting(true);
+									}}
+								>
+									Reset history…
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+						{dirty && (
+							<>
+								<Button
+									type="button"
+									size="sm"
+									disabled={saving}
+									onClick={() => void apply()}
+								>
+									Apply
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									disabled={saving}
+									aria-label="Cancel change"
+									title="Cancel change"
+									onClick={() => setStaged(null)}
+								>
+									<XIcon />
+								</Button>
+							</>
+						)}
+					</>
 				)}
 			</div>
-			<KindBreakdown kinds={entry.kinds} />
 		</div>
 	);
 }
 
-/** Each kind of decision's kept and overturned counts and its own score. */
-function KindBreakdown({
-	kinds,
-}: {
-	kinds: TrustKindBreakdown[];
-}): JSX.Element {
-	const byKind = new Map(kinds.map((each) => [each.kind, each]));
-	return (
-		<ul aria-label="by kind" className="grid gap-x-4.5 gap-y-2 md:grid-cols-2">
-			{KINDS.map(([kind, label]) => {
-				const each = byKind.get(kind);
-				const score = each?.score ?? null;
-				return (
-					<li key={kind} className="flex flex-col gap-1">
-						<span className="flex items-center justify-between text-[13px]">
-							<span className="font-medium">{label}</span>
-							<span className="text-muted-foreground text-xs tabular-nums">
-								{each === undefined
-									? "No decisions"
-									: `${each.counts.kept + each.counts.amended} kept · ${each.counts.overturned} overturned · `}
-								{score !== null && <b className="text-foreground">{score}</b>}
-							</span>
-						</span>
-						<ScoreMeter score={score ?? 0} />
-					</li>
-				);
-			})}
-		</ul>
-	);
-}
+/** Formats the milestone standing line shown under a model or scope row. */
+export function standingText(entry: TrustEntry): string {
+	const { earnedBand, mode, standing, asking } = entry;
+	const prefix =
+		mode === "static"
+			? `Earned ${BAND_META[earnedBand].label}`
+			: earnedBand === "ask-and-wait"
+				? `Toward ${BAND_META["ask-and-go"].label}`
+				: earnedBand === "ask-and-go"
+					? `Toward ${BAND_META.assume.label}`
+					: "Earned";
 
-/** The five kinds in the order the page lists them, with their names. */
-const KINDS: [DecisionKind, string][] = [
-	["defaults", "Defaults"],
-	["design", "API / design"],
-	["scope", "Scope / split"],
-	["visual", "Visual / UI"],
-	["approval", "Approval"],
-];
+	const sessionsText =
+		earnedBand === "ask-and-wait"
+			? `${standing.sessions}/${TRUST_MILESTONES.askAndGo.sessions} sessions`
+			: earnedBand === "ask-and-go"
+				? `${standing.sessions}/${TRUST_MILESTONES.assume.sessions} sessions`
+				: `${standing.sessions} ${standing.sessions === 1 ? "session" : "sessions"}`;
 
-/**
- * What a model's trust lets it do, as agents read it: `Assume` from 90 (with
- * 10 decisions behind a dynamic score), `Ask & go` from 70, else `Ask & wait`.
- */
-export function bandOf(
-	entry: Pick<TrustEntry, "score" | "mode" | "counts">,
-): "assume" | "go" | "wait" {
-	const band = bandFor(entry);
-	return band === "assume" ? "assume" : band === "ask-and-go" ? "go" : "wait";
-}
+	const daysText =
+		earnedBand === "ask-and-wait"
+			? `${standing.activeDays}/${TRUST_MILESTONES.askAndGo.activeDays} days`
+			: earnedBand === "ask-and-go"
+				? `${standing.activeDays}/${TRUST_MILESTONES.assume.activeDays} days`
+				: `${standing.activeDays} ${standing.activeDays === 1 ? "day" : "days"}`;
 
-const BANDS = {
-	assume: {
-		label: "Assume",
-		pill: "bg-success/12 text-success",
-		fill: "bg-success",
-	},
-	go: {
-		label: "Ask & go",
-		pill: "bg-info/12 text-info",
-		fill: "bg-info",
-	},
-	wait: {
-		label: "Ask & wait",
-		pill: "bg-warning/15 text-warning",
-		fill: "bg-warning",
-	},
-} as const;
-
-function BandPill({
-	enabled,
-	entry,
-}: {
-	enabled: boolean;
-	entry: Pick<TrustEntry, "score" | "mode" | "counts">;
-}): JSX.Element {
-	const band = BANDS[enabled ? bandOf(entry) : "wait"];
-	return (
-		<span
-			className={cn("rounded-full px-2 py-px font-medium text-xs", band.pill)}
-		>
-			{band.label}
-		</span>
-	);
-}
-
-function StaticPill(): JSX.Element {
-	return (
-		<span className="rounded-full border px-2 py-px font-medium text-xs">
-			Static
-		</span>
-	);
-}
-
-/** A thin bar filled to `score` of 100, in the color of the band the score alone reaches. */
-function ScoreMeter({
-	score,
-	className,
-}: {
-	score: number;
-	className?: string;
-}): JSX.Element {
-	return (
-		<span
-			aria-hidden
-			className={cn(
-				"relative block h-1.5 overflow-hidden rounded-full bg-foreground/10",
-				className,
-			)}
-		>
-			<span
-				className={cn(
-					"absolute inset-y-0 left-0 rounded-full",
-					BANDS[score >= 90 ? "assume" : score >= 70 ? "go" : "wait"].fill,
-				)}
-				style={{ width: `${Math.min(Math.max(score, 0), 100)}%` }}
-			/>
-		</span>
-	);
+	const parts = [prefix, sessionsText, daysText];
+	if (standing.agreement !== null) {
+		parts.push(`${standing.agreement}% agreed`);
+	}
+	if (asking.length > 0) {
+		parts.push(
+			`asks first on ${asking.map((kind) => KIND_LABELS[kind]).join(", ")}`,
+		);
+	}
+	return parts.join(" · ");
 }
 
 /** Entries grouped by project, by the project's name, each project's models by name. */
@@ -714,8 +671,4 @@ export function projectName(path: string): string {
 /** `Claude Opus 4.6`, or the agent's name alone when the model is unknown. */
 export function modelName({ agent, model }: TrustKey): string {
 	return model === null ? nameOf(agent) : `${nameOf(agent)} ${model}`;
-}
-
-function decisionsOf(count: number): string {
-	return `${count} ${count === 1 ? "decision" : "decisions"}`;
 }

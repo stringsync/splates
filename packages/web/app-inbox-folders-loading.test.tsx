@@ -58,9 +58,12 @@ describe("App's folders while every project's listing is on its way", () => {
 		const view = await testing.openConversations(mine, null);
 
 		const nav = agentList(view);
-		expect(
-			within(nav).getByRole("status", { name: "Loading conversations" }),
-		).toBeTruthy();
+		const loading = within(nav).getByRole("status", {
+			name: "Loading conversations",
+		});
+		expect(loading.className).toContain("py-1.5");
+		expect(loading.className).toContain("text-xs");
+		expect(loading.querySelector("span")?.className).toContain("truncate");
 		expect(within(nav).queryByText("Mine")).toBeNull();
 
 		testing.unhang();

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Dialog,
 	DialogClose,
@@ -26,7 +27,7 @@ import { AutomationFace, type RunOpens } from "./automation-face";
 import { AutomationForm } from "./automation-form";
 import { ReadFailed, ReadingNow } from "./countdown";
 import { useReading } from "./page-readings";
-import { PHONE_HEADING } from "./phone-rows";
+import { PageSection } from "./page-section";
 import { listProjects } from "./project-api";
 import { Refusal } from "./refusal";
 import { type Subscribed, SubscriptionBook } from "./subscription-book";
@@ -223,16 +224,10 @@ export function SubscriptionsPanel({
 				once as it starts.
 			</p>
 			{config.length > 0 && (
-				<div className="flex flex-col gap-3">
-					<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-						<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
-							Checked in
-						</h2>
-						<span className="text-muted-foreground text-xs">
-							The `on` commands in splates.config.ts, which run for everyone on
-							the project.
-						</span>
-					</header>
+				<PageSection
+					title="Checked in"
+					description="The `on` commands in splates.config.ts, which run for everyone on the project."
+				>
 					<ul className="flex flex-col gap-3">
 						{config.map((each) => (
 							<SubscriptionCard
@@ -244,7 +239,7 @@ export function SubscriptionsPanel({
 							/>
 						))}
 					</ul>
-				</div>
+				</PageSection>
 			)}
 			<Dialog
 				open={editing !== null}
@@ -406,11 +401,12 @@ function SubscriptionCard({
 	const [confirmingRemove, setConfirmingRemove] = useState(false);
 	const state = stateOf(row);
 	return (
-		<li
+		<Card
+			render={<li />}
 			aria-label={`subscription ${row.name ?? row.id}`}
 			aria-busy={saving}
 			className={cn(
-				"flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-xs",
+				"flex flex-col gap-2 p-3",
 				(state !== "active" || saving) && "opacity-60",
 			)}
 		>
@@ -505,6 +501,6 @@ function SubscriptionCard({
 					</DialogContent>
 				</Dialog>
 			)}
-		</li>
+		</Card>
 	);
 }

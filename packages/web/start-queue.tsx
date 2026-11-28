@@ -376,8 +376,6 @@ export function QueueBadge({
 	/** What to call the conversation `id`, when the page holds it. */
 	nameOf?: (id: string) => string | null;
 }): JSX.Element | null {
-	const now = useNow(queue.length > 0);
-	const { move, moving, error } = useMove();
 	if (queue.length === 0) {
 		return null;
 	}
@@ -392,44 +390,62 @@ export function QueueBadge({
 				{queue.length} queued
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80">
-				<p className="font-medium text-sm">Waiting to start</p>
-				<p className="text-muted-foreground text-xs">
-					First come, first served; each starts once the queue resumes or the
-					worker is up.
-				</p>
-				<ol aria-label="Queue" className="flex flex-col gap-1">
-					{queue.map((entry) => (
-						<li key={entry.id} className="flex items-center gap-2 text-sm">
-							<span className="w-5 shrink-0 text-right text-muted-foreground tabular-nums">
-								{entry.position}
-							</span>
-							<span className="min-w-0 flex-1">
-								<span className="block truncate">
-									{entry.task ?? nameOf?.(entry.id) ?? "a conversation"}
-								</span>
-								<span className="block truncate text-muted-foreground text-xs">
-									{basename(entry.project)} · {waited(entry.since, now)} ·{" "}
-									{entry.reason}
-								</span>
-							</span>
-							{entry.position > 1 && (
-								<Button
-									variant="ghost"
-									size="icon"
-									aria-label={`Move ${entry.task ?? "it"} up`}
-									title="Move up"
-									disabled={moving(entry.id)}
-									onClick={() => move(entry.id, entry.position - 1)}
-								>
-									<ArrowUpIcon />
-								</Button>
-							)}
-						</li>
-					))}
-				</ol>
-				{error !== null && <p className="text-destructive text-xs">{error}</p>}
+				<QueueDetails queue={queue} nameOf={nameOf} />
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+/** The waiting-to-start list and reorder controls shown inside a status popover. */
+function QueueDetails({
+	queue,
+	nameOf,
+}: {
+	queue: QueueListing[];
+	/** What to call the conversation `id`, when the page holds it. */
+	nameOf?: (id: string) => string | null;
+}): JSX.Element {
+	const now = useNow(queue.length > 0);
+	const { move, moving, error } = useMove();
+	return (
+		<>
+			<p className="font-medium text-sm">Waiting to start</p>
+			<p className="text-muted-foreground text-xs">
+				First come, first served; each starts once the queue resumes or the
+				worker is up.
+			</p>
+			<ol aria-label="Queue" className="flex flex-col gap-1">
+				{queue.map((entry) => (
+					<li key={entry.id} className="flex items-center gap-2 text-sm">
+						<span className="w-5 shrink-0 text-right text-muted-foreground tabular-nums">
+							{entry.position}
+						</span>
+						<span className="min-w-0 flex-1">
+							<span className="block truncate">
+								{entry.task ?? nameOf?.(entry.id) ?? "a conversation"}
+							</span>
+							<span className="block truncate text-muted-foreground text-xs">
+								{basename(entry.project)} · {waited(entry.since, now)} ·{" "}
+								{entry.reason}
+							</span>
+						</span>
+						{entry.position > 1 && (
+							<Button
+								variant="ghost"
+								size="icon"
+								aria-label={`Move ${entry.task ?? "it"} up`}
+								title="Move up"
+								disabled={moving(entry.id)}
+								onClick={() => move(entry.id, entry.position - 1)}
+							>
+								<ArrowUpIcon />
+							</Button>
+						)}
+					</li>
+				))}
+			</ol>
+			{error !== null && <p className="text-destructive text-xs">{error}</p>}
+		</>
 	);
 }
 

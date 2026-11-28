@@ -6,6 +6,7 @@ import type { Agent, Launch, Launcher, Watch } from "../agents";
 import type {
 	ArtifactLimits,
 	ArtifactRoom,
+	Artifacts,
 	InlineMediaScanOptions,
 } from "../artifacts";
 import type { Reach } from "../projects";
@@ -28,6 +29,8 @@ import type {
  */
 export interface ConversationHost {
 	readonly state: ConversationState;
+	/** The files its agent kept as its outputs, read and changed here. */
+	readonly artifacts: Artifacts;
 	/**
 	 * The person set the model or effort since the last turn ended, which
 	 * Autopick leaves alone for the turn under way; a turn's end clears it.

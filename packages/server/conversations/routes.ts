@@ -289,12 +289,20 @@ export class ConversationRoutes {
 	// names the base is written, and handing out a part leaves it be as well.
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		const { task, from, base: sent } = await body(request);
+		const { task, from, base: sent, ended } = await body(request);
 		const [named, cwd, recorded, caller, autoQueued] = await this.treeFor(task);
 		const base = typeof sent === "string" ? sent : recorded;
 		const leaving = from === undefined || from === conversation.state.task;
 		if (leaving && !(await this.isPartOf(base, conversation.state.task))) {
-			conversation.move(named, cwd, base, caller);
+			const merged =
+				named === null &&
+				(ended === "merged" ||
+					(ended === undefined &&
+						conversation.state.task !== null &&
+						(await this.projectService().finished.list()).find(
+							(each) => each.task === conversation.state.task,
+						)?.ended === "merged"));
+			conversation.move(named, cwd, base, caller, { merged });
 			if (named !== null) {
 				conversation.markAutoQueued(autoQueued);
 			}
@@ -318,6 +326,7 @@ export class ConversationRoutes {
 			person: true,
 			dictated: form.get("dictated") === "true",
 			id: form.get("id")?.toString() || undefined,
+			archiveAfterMerge: form.get("archiveAfterMerge") === "true",
 		});
 		return Response.json(conversation.state);
 	};

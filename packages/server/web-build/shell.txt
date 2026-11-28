@@ -4,11 +4,11 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 		<title>splates</title>
-		<!-- The emoji drawn as SVG inline, so there is no file for the server to
-		     serve. The page grays it out when the server goes away. -->
+		<!-- The stacked-plate buddy drawn as SVG inline, so there is no file for
+		     the server to serve. The page dims it with sleeping eyes when offline. -->
 		<link
 			rel="icon"
-			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>🍽️</text></svg>"
+			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'%3E%3Crect x='4' y='11' width='24' height='17' rx='6' fill='%2318181d' stroke='rgba(255,255,255,0.2)' stroke-width='1.2'/%3E%3Crect x='3' y='6' width='26' height='19' rx='6.5' fill='%232c2c34' stroke='rgba(255,255,255,0.28)' stroke-width='1.2'/%3E%3Crect x='11.8' y='12.2' width='2.8' height='5.6' rx='1.4' fill='%23f4f4f5'/%3E%3Crect x='17.4' y='12.2' width='2.8' height='5.6' rx='1.4' fill='%23f4f4f5'/%3E%3C/svg%3E"
 		/>
 		<!-- What makes the page installable as an app. The manifest is fetched
 		     without cookies unless asked, and through a tunnel, Cloudflare Access
@@ -16,7 +16,7 @@
 		     theme once the app is running: see web/appearance.ts. -->
 		<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
 		<link rel="apple-touch-icon" href="/icon-192.png" />
-		<meta name="theme-color" content="#1d1f23" />
+		<meta name="theme-color" content="#18181b" />
 		<!-- The theme as web/appearance.ts sets it, its bare background until the
 		     app mounts over it, so opening the app never paints white while the
 		     styles and script are on their way. -->
@@ -37,7 +37,7 @@
 				const theme = JSON.parse(localStorage.getItem("splates.settings") ?? "{}")["appearance.theme"];
 				const dark = theme === "dark" || (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
 				document.documentElement.classList.toggle("dark", dark);
-				document.querySelector('meta[name="theme-color"]').content = dark ? "#1d1f23" : "#f3f4f7";
+				document.querySelector('meta[name="theme-color"]').content = dark ? "#18181b" : "#fafafa";
 			} catch {}
 		</script>
 		<!-- The page's first reads, started now rather than once its script has
@@ -53,8 +53,8 @@
 			} catch {}
 		</script>
 		<style>
-			html { background: #f3f4f7; }
-			html.dark { background: #1d1f23; }
+			html { background: #fafafa; }
+			html.dark { background: #18181b; }
 		</style>
 		<!-- Both are routes the server builds on request, not files next to this
 		     one. See assets.ts in splates for why they are not Bun's HTML import. -->

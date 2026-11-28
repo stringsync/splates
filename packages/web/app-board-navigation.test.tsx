@@ -42,6 +42,9 @@ it("opens the chooser each time Boards is opened", async () => {
 		),
 	).toBeTruthy();
 	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+	);
+	await act(async () =>
 		fireEvent.click(view.getByRole("tab", { name: "Autopick" })),
 	);
 	await act(async () =>

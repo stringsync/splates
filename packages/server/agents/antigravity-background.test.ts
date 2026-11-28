@@ -12,6 +12,7 @@ import { FakeAgent } from "./testing";
 
 describe("Antigravity's backgrounded commands", () => {
 	let fs: FakeFs;
+	let ps: FakePs;
 	let timer: FakeTimer;
 	let agent: FakeAgent;
 	let table: ProcessEntry[];
@@ -23,13 +24,14 @@ describe("Antigravity's backgrounded commands", () => {
 		for (const tree of ["/repo", "/repo-splates/login"]) {
 			await fs.mkdir(tree);
 		}
+		ps = new FakePs();
 		timer = new FakeTimer();
 		agent = new FakeAgent();
 		agent.pid = PID;
 		table = [entry(PID, 1, "agy acp")];
+		ps.setProcesses(table);
 		later = null;
-		const machine = new LocalWorkerMachine(new FakePs(), fs);
-		machine.processes = async () => [...table];
+		const machine = new LocalWorkerMachine(ps, fs);
 		conversations = new Conversations(
 			"/repo/.git/splates/conversations",
 			[AGENT],
@@ -79,6 +81,7 @@ describe("Antigravity's backgrounded commands", () => {
 			await waitPassed();
 			await eventually(() => conversation.state.background.length > 0);
 			table.push(entry(600, PID, "bun /repo/mono/packages/cli/index.ts fix"));
+			ps.setProcesses(table);
 			return "end_turn";
 		};
 		await conversation.prompt("test it");
@@ -96,9 +99,9 @@ describe("Antigravity's backgrounded commands", () => {
 				command: COMMAND,
 				state: "running",
 				output: `${HOME}/brain/${session}/.system_generated/tasks/task-7.log`,
-				canStop: false,
 			}),
 		]);
+		expect(conversation.state.background[0]?.canStop).toBeUndefined();
 		const tool = conversation.state.messages
 			.flatMap((each) => each.parts)
 			.find((each) => each.type === "tool");
@@ -114,6 +117,37 @@ describe("Antigravity's backgrounded commands", () => {
 		expect(conversation.state.background.map(({ pid }) => pid)).toEqual([
 			undefined,
 		]);
+	});
+
+	it("stops a backgrounded command by terminating its descendant process tree, skipping agent machinery", async () => {
+		const conversation = await backgrounding(true);
+		table.push(
+			entry(501, PID, "npx @playwright/mcp@latest"),
+			entry(502, PID, "caffeinate -i -t 300"),
+			entry(601, 600, "bun test"),
+		);
+		ps.setProcesses(table);
+
+		await conversation.stopBackground("s1/task-7");
+
+		expect(ps.getCalls()).toEqual(["kill -TERM 600 601"]);
+		expect(agent.stoppedBackground).toEqual([]);
+		expect(conversation.state.background[0]?.state).toBe("stopped");
+	});
+
+	it("targets only the matching process tree when multiple commands run under Antigravity", async () => {
+		const conversation = await backgrounding(true);
+		table = [
+			entry(PID, 1, "agy acp"),
+			entry(600, PID, `/bin/zsh -c ${COMMAND}`),
+			entry(601, 600, "bun test"),
+			entry(700, PID, "sleep 60"),
+		];
+		ps.setProcesses(table);
+
+		await conversation.stopBackground("s1/task-7");
+
+		expect(ps.getCalls()).toEqual(["kill -TERM 600 601"]);
 	});
 
 	it("ends it failed with its exit code once the command exits", async () => {

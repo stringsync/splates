@@ -1,5 +1,7 @@
 import type { Composed, ComposedTarget } from "@splates/server/ship";
 import type { JSX } from "react";
+import { Card } from "./components/ui/card";
+import { PageSection } from "./page-section";
 
 /**
  * Shows `plan` as numbered groups run in order, each a card per target
@@ -11,35 +13,31 @@ export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
 			{plan.waves.map((wave, index) => (
-				<section
+				<PageSection
 					key={wave.join(" ")}
-					aria-label={`Group ${index + 1}`}
-					className="flex flex-col gap-2"
+					label={`Group ${index + 1}`}
+					as="h3"
+					title={
+						count > 1 || wave.length > 1
+							? count > 1
+								? `Group ${index + 1}`
+								: `${wave.length} at the same time`
+							: undefined
+					}
+					count={
+						count > 1 && wave.length > 1
+							? `· ${wave.length} at the same time`
+							: undefined
+					}
+					className="gap-2"
 				>
-					{(count > 1 || wave.length > 1) && (
-						<h3 className="font-semibold text-sm">
-							{count > 1 ? (
-								<>
-									Group {index + 1}
-									{wave.length > 1 && (
-										<span className="font-normal text-muted-foreground text-xs">
-											{" "}
-											· {wave.length} at the same time
-										</span>
-									)}
-								</>
-							) : (
-								`${wave.length} at the same time`
-							)}
-						</h3>
-					)}
 					{wave.map((name) => {
 						const target = byName.get(name);
 						return target === undefined ? null : (
 							<TargetCard key={name} target={target} />
 						);
 					})}
-				</section>
+				</PageSection>
 			))}
 		</div>
 	);
@@ -48,9 +46,10 @@ export function ShipReview({ plan }: { plan: Composed }): JSX.Element {
 /** One target's card: its name, the version it resolved and its bump, and its error when composing failed. */
 function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
 	return (
-		<article
+		<Card
+			render={<article />}
 			aria-label={target.name}
-			className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3.5 py-3"
+			className="flex flex-col gap-1 px-3.5 py-3"
 		>
 			<span className="font-semibold text-sm">
 				{target.name}
@@ -67,6 +66,6 @@ function TargetCard({ target }: { target: ComposedTarget }): JSX.Element {
 			{target.error !== undefined && (
 				<p className="text-destructive text-xs">{target.error}</p>
 			)}
-		</article>
+		</Card>
 	);
 }

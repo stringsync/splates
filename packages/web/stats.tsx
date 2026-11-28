@@ -1,8 +1,10 @@
 import { useReactive } from "core/react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { quarantined } from "./api";
 import { ReadFailed, ReadingNow } from "./countdown";
+import { PageSection } from "./page-section";
 import { TasksByBoard } from "./stats-boards";
 import { BY_MODEL } from "./stats-columns";
 import { CostPerTask } from "./stats-cost";
@@ -122,56 +124,61 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 /** Essential task averages by model, visible together without horizontal scrolling. */
 function ModelStats({ rows }: { rows: Row[] }): JSX.Element {
 	return (
-		<section aria-label="By model" className="flex min-w-0 flex-col gap-2">
-			<table
-				aria-label="Task stats by model"
-				className="w-full table-fixed text-xs tabular-nums sm:text-sm"
-			>
-				<thead className="text-muted-foreground text-xs">
-					<tr className="border-b text-right">
-						<th scope="col" className="w-[36%] py-2 pr-2 text-left font-normal">
-							Model
-						</th>
-						{BY_MODEL.map((column) => (
+		<PageSection title="By model" as="h3">
+			<Card className="px-4">
+				<table
+					aria-label="Task stats by model"
+					className="w-full table-fixed text-xs tabular-nums sm:text-sm"
+				>
+					<thead className="text-muted-foreground text-xs">
+						<tr className="border-b text-right">
 							<th
 								scope="col"
-								key={column.head}
-								className="wrap-anywhere px-1 py-2 font-normal"
+								className="w-[36%] py-2 pr-2 text-left font-normal"
 							>
-								{column.head}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{rows.map((row) => (
-						<tr key={row.name} className="border-b text-right last:border-0">
-							<th
-								scope="row"
-								className="wrap-anywhere py-2 pr-2 text-left font-normal"
-							>
-								{row.name}
+								Model
 							</th>
 							{BY_MODEL.map((column) => (
-								<td key={column.head} className="wrap-anywhere px-1 py-2">
-									{column.cell(row)}
-								</td>
+								<th
+									scope="col"
+									key={column.head}
+									className="wrap-anywhere px-1 py-2 font-normal"
+								>
+									{column.head}
+								</th>
 							))}
 						</tr>
-					))}
-				</tbody>
-			</table>
-			{rows.length === 0 && (
-				<p className="text-muted-foreground text-sm">
-					No tasks ended in this period.
-				</p>
-			)}
+					</thead>
+					<tbody>
+						{rows.map((row) => (
+							<tr key={row.name} className="border-b text-right last:border-0">
+								<th
+									scope="row"
+									className="wrap-anywhere py-2 pr-2 text-left font-normal"
+								>
+									{row.name}
+								</th>
+								{BY_MODEL.map((column) => (
+									<td key={column.head} className="wrap-anywhere px-1 py-2">
+										{column.cell(row)}
+									</td>
+								))}
+							</tr>
+						))}
+					</tbody>
+				</table>
+				{rows.length === 0 && (
+					<p className="py-3 text-muted-foreground text-sm">
+						No tasks ended in this period.
+					</p>
+				)}
+			</Card>
 			<p className="text-muted-foreground text-xs">
 				Tasks includes merges and removals. Time and cost are averages per task
 				with recorded data. Duration runs from add to end; working time is the
 				agent's active time. A dash means no recorded data.
 			</p>
-		</section>
+		</PageSection>
 	);
 }
 
@@ -190,24 +197,28 @@ function QuarantinedTests(): JSX.Element | null {
 		return null;
 	}
 	return (
-		<section aria-label="Quarantined tests" className="flex flex-col gap-2">
-			<h2 className="font-medium text-sm">Quarantined tests</h2>
-			<ul className="flex flex-col gap-1 text-sm">
-				{tests.map((test) => (
-					<li key={`${test.file ?? ""}:${test.name}`} className="wrap-anywhere">
-						{test.name}
-						<span className="text-muted-foreground text-xs">
-							{test.file === undefined ? "" : ` ${test.file}`} · flaked in{" "}
-							{test.flakes} merges, last{" "}
-							{new Date(test.last).toLocaleDateString()}
-						</span>
-					</li>
-				))}
-			</ul>
+		<PageSection title="Quarantined tests" as="h3">
+			<Card>
+				<CardList className="text-sm">
+					{tests.map((test) => (
+						<li
+							key={`${test.file ?? ""}:${test.name}`}
+							className="wrap-anywhere px-4 py-3"
+						>
+							{test.name}
+							<span className="text-muted-foreground text-xs">
+								{test.file === undefined ? "" : ` ${test.file}`} · flaked in{" "}
+								{test.flakes} merges, last{" "}
+								{new Date(test.last).toLocaleDateString()}
+							</span>
+						</li>
+					))}
+				</CardList>
+			</Card>
 			<p className="text-muted-foreground text-xs">
 				A test that flakes in two merges within a week stops refusing merges;
 				each has a task queued to fix it.
 			</p>
-		</section>
+		</PageSection>
 	);
 }

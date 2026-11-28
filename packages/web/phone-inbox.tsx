@@ -291,14 +291,20 @@ export function Inbox({
 						</Placing>
 					)}
 					{available && (
-						<button
-							type="button"
-							onClick={() => onOpen(ARCHIVED)}
-							className="mx-4 mt-6 flex items-center gap-2 self-start rounded-md px-3 py-1.5 text-muted-foreground text-xs hover:bg-muted active:bg-muted"
-						>
-							<ArchiveIcon className="size-3.5" />
-							<span>Archived</span>
-						</button>
+						<div className="mt-2 border-t">
+							<button
+								type="button"
+								onClick={() => onOpen(ARCHIVED)}
+								className="flex min-h-16 w-full select-none items-center gap-3 px-4 py-2.5 text-left text-muted-foreground hover:bg-muted active:bg-muted"
+							>
+								<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+									<ArchiveIcon aria-hidden className="size-5" />
+								</span>
+								<span className="min-w-0 flex-1 truncate font-medium text-[15px]">
+									Archived
+								</span>
+							</button>
+						</div>
 					)}
 				</div>
 				{confirm}

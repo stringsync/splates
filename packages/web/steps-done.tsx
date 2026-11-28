@@ -1,14 +1,15 @@
 import type { Steps } from "@splates/server/plans/browser";
 import { CheckIcon } from "lucide-react";
-import { type JSX, type ReactNode, useContext, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { type JSX, useContext, useState } from "react";
+import { CardFooter } from "./card-footer";
 import { ReplyContext } from "./card-reply";
 import { doneFrom, type Finished } from "./steps-asked";
 
 /**
  * The foot of a Steps card: Done tells the agent, once, that the person is
  * finished, checked off or not. With steps left unchecked it asks first, in
- * a strip in its place. Once told, it stays finished and sends nothing more.
+ * a confirmation strip in its place. Once told, it stays finished and sends
+ * nothing more.
  */
 export function DoneBar({
 	steps,
@@ -32,8 +33,8 @@ export function DoneBar({
 	const count = steps.steps.length;
 	const told = finished ?? sent;
 	if (told !== null) {
-		return (
-			<Foot>
+		const toldNote = (
+			<span className="flex w-full items-center gap-2">
 				<span className="min-w-0 flex-1 text-muted-foreground text-xs">
 					The agent was told you finished, with {told.checked} of {told.count}{" "}
 					checked off.
@@ -45,8 +46,9 @@ export function DoneBar({
 					<CheckIcon className="size-3.5" />
 					Done
 				</span>
-			</Foot>
+			</span>
 		);
+		return <CardFooter note={toldNote} sheetNote={toldNote} actions={[]} />;
 	}
 	if (send === null) {
 		return null;
@@ -68,57 +70,47 @@ export function DoneBar({
 	};
 	if (asking) {
 		return (
-			<Foot warn>
-				<div className="min-w-0 flex-1 text-sm">
-					<div className="font-medium">{unchecked(done, count)}</div>
-					<div className="text-muted-foreground text-xs">
-						Tell the agent you're done anyway?
+			<CardFooter
+				note={
+					<div className="min-w-0 flex-1 text-sm">
+						<div className="font-medium text-foreground">
+							{unchecked(done, count)}
+						</div>
+						<div className="text-muted-foreground text-xs">
+							Tell the agent you're done anyway?
+						</div>
 					</div>
-				</div>
-				<Button variant="ghost" size="sm" onClick={() => setAsking(false)}>
-					Keep going
-				</Button>
-				<Button size="sm" disabled={sending} onClick={finish}>
-					<CheckIcon />
-					I'm done
-				</Button>
-			</Foot>
+				}
+				sheetNote={`${unchecked(done, count)} Tell the agent you're done anyway?`}
+				actions={[
+					{
+						label: "Keep going",
+						onClick: () => setAsking(false),
+					},
+					{
+						label: "I'm done",
+						Icon: CheckIcon,
+						primary: true,
+						disabled: sending,
+						onClick: finish,
+					},
+				]}
+			/>
 		);
 	}
 	return (
-		<Foot>
-			<span className="min-w-0 flex-1 text-muted-foreground text-xs">
-				Finished? Tell the agent so it can check your work.
-			</span>
-			<Button
-				size="sm"
-				disabled={sending}
-				onClick={() => (done >= count ? finish() : setAsking(true))}
-			>
-				<CheckIcon />
-				Done
-			</Button>
-		</Foot>
-	);
-}
-
-function Foot({
-	warn = false,
-	children,
-}: {
-	warn?: boolean;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<div
-			className={
-				warn
-					? "flex items-center gap-2 border-t bg-warning/10 px-4 py-2.5 animate-in fade-in duration-200"
-					: "flex items-center gap-2 border-t bg-muted/40 px-4 py-2"
-			}
-		>
-			{children}
-		</div>
+		<CardFooter
+			note="Finished? Tell the agent so it can check your work."
+			actions={[
+				{
+					label: "Done",
+					Icon: CheckIcon,
+					primary: true,
+					disabled: sending,
+					onClick: () => (done >= count ? finish() : setAsking(true)),
+				},
+			]}
+		/>
 	);
 }
 

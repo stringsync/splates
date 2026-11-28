@@ -69,6 +69,24 @@ describe("App's queued rows in the sidebar", () => {
 		expect(within(queue).queryByText("Not queued yet")).toBeNull();
 	});
 
+	it("applies the row highlight on the list item so it covers trailing action buttons", async () => {
+		const view = await testing.openConversations([], undefined, board);
+		const queue = await waitFor(() =>
+			view.getByRole("list", { name: /queue$/ }),
+		);
+		const [row] = within(queue).getAllByRole("listitem");
+		if (row === undefined) {
+			throw new Error("expected a queued row");
+		}
+		const rowButton = row.querySelector("button[data-row]");
+
+		expect(row.className).toContain("rounded-md");
+		expect(row.className).toContain("hover:bg-foreground/[0.05]");
+		expect(row.className).toContain("active:bg-foreground/[0.08]");
+		expect(rowButton?.className).not.toContain("hover:bg-foreground/[0.05]");
+		expect(rowButton?.className).not.toContain("active:bg-foreground/[0.08]");
+	});
+
 	it("names queued and running dependencies instead of waiting for an agent", async () => {
 		const view = await testing.openConversations([], undefined, {
 			todos: [
@@ -218,5 +236,94 @@ describe("App's queued rows in the sidebar", () => {
 		);
 		const blocked = view.getByRole("list", { name: "blocked tasks" });
 		expect(within(blocked).queryByRole("alert")).toBeNull();
+	});
+
+	it("highlights conversations holding blockers when hovering or selecting a blocked queued row", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", task: "upstream", title: "Upstream fix" }),
+				conversation({ id: "c2", task: "other", title: "Unrelated work" }),
+			],
+			undefined,
+			{
+				todos: [
+					todo({
+						id: 12,
+						subject: "Upstream fix",
+						stage: "running",
+						takenBy: "upstream",
+					}),
+					todo({
+						id: 18,
+						subject: "Blocked task",
+						stage: "queued",
+						blockedBy: [12],
+					}),
+					todo({
+						id: 19,
+						subject: "Chained task",
+						stage: "queued",
+						blockedBy: [18],
+					}),
+				],
+				lanes: [],
+			},
+		);
+		const queue = await view.findByRole("list", { name: /queue$/ });
+		const blockedLi = within(queue)
+			.getByText("Blocked task")
+			.closest("li") as HTMLLIElement;
+		const chainedLi = within(queue)
+			.getByText("Chained task")
+			.closest("li") as HTMLLIElement;
+		const upstreamRow = view
+			.getByText("Upstream fix")
+			.closest("[data-blocker-id], div") as HTMLElement;
+		const unrelatedRow = view.getByText("Unrelated work").closest("button")
+			?.parentElement as HTMLElement;
+
+		// Hovering Blocked task marks the conversation holding #12 with a softer dependency pill and no row tint.
+		fireEvent.mouseEnter(blockedLi);
+		expect(upstreamRow.getAttribute("data-blocker-id")).toBe("12");
+		expect(upstreamRow.className).not.toContain("blocker-wash");
+		const blockerPill = within(upstreamRow).getByText("#12");
+		const sourcePill = within(blockedLi).getByText("#12");
+		expect(sourcePill.className).toContain("bg-(--blocker-pill-bg)");
+		expect(sourcePill.className).toContain("text-(--blocker-pill-fg)");
+		expect(blockerPill.className).toContain("bg-(--blocker-pill-subtle-bg)");
+		expect(blockerPill.className).toContain("text-(--blocker-pill-subtle-fg)");
+		expect(unrelatedRow.getAttribute("data-blocker-id")).toBeNull();
+
+		// Leaving clears the hover highlight while another conversation is open.
+		fireEvent.mouseLeave(blockedLi);
+		expect(upstreamRow.getAttribute("data-blocker-id")).toBeNull();
+		expect(within(upstreamRow).queryByText("#12")).toBeNull();
+
+		// Selecting Blocked task keeps #12 highlighted even when hovering an unrelated row.
+		fireEvent.click(
+			within(blockedLi).getByRole("button", { name: /Blocked task/ }),
+		);
+		await waitFor(() =>
+			expect(
+				within(blockedLi)
+					.getByRole("button", { name: /Blocked task/ })
+					.getAttribute("aria-current"),
+			).toBe("page"),
+		);
+		expect(upstreamRow.getAttribute("data-blocker-id")).toBe("12");
+		fireEvent.mouseEnter(unrelatedRow);
+		expect(upstreamRow.getAttribute("data-blocker-id")).toBe("12");
+
+		// Hovering Chained task switches the highlight to the queued row holding #18 with the subtle pill.
+		fireEvent.mouseEnter(chainedLi);
+		expect(blockedLi.getAttribute("data-blocker-id")).toBe("18");
+		const queuedBlockerPill = within(blockedLi).getByText("#18");
+		expect(queuedBlockerPill.className).toContain(
+			"bg-(--blocker-pill-subtle-bg)",
+		);
+		expect(queuedBlockerPill.className).toContain(
+			"text-(--blocker-pill-subtle-fg)",
+		);
+		expect(upstreamRow.getAttribute("data-blocker-id")).toBeNull();
 	});
 });

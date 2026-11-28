@@ -46,8 +46,8 @@ export const SETTINGS = {
 		description: "Light or dark, or whichever this device is set to.",
 		default: "system",
 		choices: [
-			{ value: "system", label: "System" },
 			{ value: "light", label: "Light" },
+			{ value: "system", label: "System" },
 			{ value: "dark", label: "Dark" },
 		],
 	},
@@ -206,8 +206,8 @@ export const SETTINGS = {
 	),
 	"shortcuts.sidebar": shortcut("Sidebar", "Show or hide the sidebar.", NONE),
 	"shortcuts.sidebarPages": shortcut(
-		"Sidebar pages",
-		"Fold or unfold the pages above the sidebar's conversations.",
+		"More workspace pages",
+		"Show or hide the secondary workspace pages in the sidebar.",
 		NONE,
 	),
 	"shortcuts.widgets": shortcut(
@@ -216,8 +216,8 @@ export const SETTINGS = {
 		"Alt+Mod+Slash",
 	),
 	"shortcuts.imagePreviews": shortcut(
-		"Image previews",
-		"Expand or collapse all image previews in the open conversation.",
+		"Inline previews",
+		"Expand or collapse inline images, recordings, and HTML artifacts in the open conversation.",
 		"Alt+Mod+KeyP",
 	),
 	"shortcuts.terminal": shortcut(

@@ -193,6 +193,7 @@ export function QuestionCard({
 					<DecisionPanel
 						label="Eval decision"
 						title={<Markdown text={text} inline />}
+						flat={roomy}
 						onKeyDown={(event) => {
 							if (event.key === "Enter") {
 								event.preventDefault();

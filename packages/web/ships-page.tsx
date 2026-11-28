@@ -16,6 +16,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
 import { SHIP_HISTORY, shipRunAddress } from "./page-address";
+import { PageSection } from "./page-section";
 import { RouteTrail } from "./route-trail";
 import { ShipAgents } from "./ship-agents";
 import { ShipAutoApprove } from "./ship-auto-approve";
@@ -262,10 +263,9 @@ export function ShipsPage({
 					/>
 				)}
 				{active !== null && (
-					<section aria-label="Shipping now" className="flex flex-col gap-2.5">
-						<h3 className="font-semibold text-sm">Shipping now</h3>
+					<PageSection title="Shipping now" as="h3">
 						<ShipRunList runs={[active]} bar />
-					</section>
+					</PageSection>
 				)}
 				{stage.at === "pick" && (
 					<>
@@ -288,7 +288,7 @@ export function ShipsPage({
 						{active !== null &&
 							listing !== null &&
 							listing.targets.length > 0 && (
-								<h3 className="font-semibold text-sm">Targets</h3>
+								<PageSection title="Targets" as="h3" className="gap-0" />
 							)}
 						{listing !== null && listing.targets.length > 0 && (
 							<ShipPickList

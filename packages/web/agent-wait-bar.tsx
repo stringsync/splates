@@ -1,17 +1,18 @@
 import { useAuiState } from "@assistant-ui/react";
+import { RadioIcon } from "lucide-react";
 import { type JSX, useContext, useMemo } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { Board } from "./board";
 import { useMinute } from "./hooks/use-minute";
-import { PulsingDot } from "./signal-card";
 import { lasted } from "./signal-of";
+import { ThreadBar } from "./thread-bar";
 import { type WaitRequest, waitIn } from "./wait-request";
 
 /**
  * The bar above the composer while the agent waits on a task or an idle
- * machine, in the signal bar's look, led by its pulsing dot: one row saying what it waits for, how
- * long so far, and View to open a waited-on task. It goes once the wait ends,
- * which is when a message follows the reply that asked for it.
+ * machine, unified with the signal-wait `ThreadBar` (leading `RadioIcon` in
+ * info tone): one single line saying what it waits for, how long so far, and
+ * View to open a waited-on task. It goes once the wait ends, which is when a
+ * message follows the reply that asked for it.
  * @internal
  */
 export function AgentWaitBar(): JSX.Element | null {
@@ -64,46 +65,44 @@ export function AgentWaitBarView({
 			? () => board.openTask(wait.task)
 			: null;
 	return (
-		<section
-			data-card
-			className="@container relative flex min-h-[50px] items-center gap-3 overflow-hidden rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
-		>
-			<PulsingDot />
-			<span className="flex min-w-0 flex-1 items-baseline gap-1.5 whitespace-nowrap">
-				<span className="shrink-0">Waiting for</span>
-				{wait.type === "task" ? (
-					<>
-						<span
-							title={`Task ${wait.task}`}
-							className="min-w-0 max-w-full shrink-0 truncate font-mono"
-						>
-							{wait.task}
+		<ThreadBar
+			Icon={RadioIcon}
+			iconTone="info"
+			aria-label={
+				wait.type === "task" && open !== null
+					? `View task ${wait.task}`
+					: undefined
+			}
+			cta={open === null ? undefined : "View"}
+			onPress={open ?? undefined}
+			label={
+				<span className="flex min-w-0 items-baseline gap-1.5">
+					<span className="shrink-0">Waiting for</span>
+					{wait.type === "task" ? (
+						<>
+							<span
+								title={`Task ${wait.task}`}
+								className="min-w-0 truncate font-mono"
+							>
+								{wait.task}
+							</span>
+							{/* Gone, not cut short, where the name leaves it no room. */}
+							<span className="hidden shrink-0 @min-[26rem]:inline">
+								to finish
+							</span>
+						</>
+					) : (
+						<span className="min-w-0 truncate">
+							the machine to stay idle {wait.duration}
 						</span>
-						{/* Gone, not cut short, where the name leaves it no room. */}
-						<span className="hidden @min-[26rem]:inline">to finish</span>
-					</>
-				) : (
-					<span className="min-w-0 truncate">
-						the machine to stay idle {wait.duration}
-					</span>
-				)}
-			</span>
-			{at !== null && (
-				<span className="hidden shrink-0 text-muted-foreground text-xs tabular-nums @min-[32rem]:block">
-					{lasted(at, new Date(now).toISOString())} so far
+					)}
+					{at !== null && (
+						<span className="hidden shrink-0 text-muted-foreground text-xs tabular-nums @min-[32rem]:inline">
+							· <span>{lasted(at, new Date(now).toISOString())} so far</span>
+						</span>
+					)}
 				</span>
-			)}
-			{open !== null && (
-				<Button
-					size="sm"
-					variant="outline"
-					aria-label={`View task ${wait.type === "task" ? wait.task : ""}`}
-					onClick={open}
-					className="bg-background"
-				>
-					View
-				</Button>
-			)}
-		</section>
+			}
+		/>
 	);
 }

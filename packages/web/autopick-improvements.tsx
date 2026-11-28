@@ -5,6 +5,7 @@ import {
 	dismissAutopickImprovements,
 	sendAutopickImprovements,
 } from "./autopick-api";
+import { PageSection } from "./page-section";
 import {
 	refreshAutopickImprovements,
 	useAutopickImprovements,
@@ -38,8 +39,7 @@ export function AutopickImprovements(): JSX.Element | null {
 		}
 	};
 	return (
-		<section aria-label="Possible improvements" className="flex flex-col gap-3">
-			<h3 className="font-semibold text-sm">Possible improvements</h3>
+		<PageSection title="Possible improvements">
 			<div className="flex flex-wrap items-center gap-3.5 rounded-lg border border-warning/35 bg-warning/10 px-4 py-3.5">
 				<span className="flex size-8 flex-none items-center justify-center rounded-lg bg-warning/20 text-warning">
 					<ArrowDownIcon aria-hidden className="size-4" />
@@ -84,6 +84,6 @@ export function AutopickImprovements(): JSX.Element | null {
 					)}
 				</div>
 			</div>
-		</section>
+		</PageSection>
 	);
 }

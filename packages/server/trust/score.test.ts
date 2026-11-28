@@ -1,12 +1,347 @@
 import { describe, expect, it } from "bun:test";
-import { classifyQuestion } from "./classify";
 import {
-	conversationDecisions,
-	outcomeWeights,
-	scoreDecisions,
+	evaluateTrust,
+	groupSessions,
 	summarizeTrust,
+	TRUST_MILESTONES,
 } from "./score";
 import type { TrustDecision, TrustSetting } from "./types";
+
+describe("earned trust scoring", () => {
+	it("caps a 30-question sweep in one conversation to 1 counted session", () => {
+		const sweep = Array.from({ length: 30 }, (_, i) =>
+			makeDecision({
+				id: `q-${i}`,
+				conversation: "sweep-conv",
+				at: `2026-11-01T10:${String(i).padStart(2, "0")}:00.000Z`,
+				source: "mockup",
+				outcome: "kept",
+			}),
+		);
+		const sessions = groupSessions(sweep);
+		expect(sessions).toHaveLength(1);
+		expect(sessions[0]).toMatchObject({
+			id: "sweep-conv",
+			kept: 30,
+			taste: 0,
+			planBack: 0,
+			broken: 0,
+			forCredit: 1,
+			againstCredit: 0,
+		});
+
+		const earned = evaluateTrust(sweep);
+		expect(earned.band).toBe("ask-and-wait");
+		expect(earned.standing).toEqual({
+			sessions: 1,
+			activeDays: 1,
+			agreement: 100,
+			cleanStreak: 1,
+			brokenInLast5: 0,
+			brokenInLast10: 0,
+		});
+	});
+
+	it("leaves amended-only sessions uncounted and groups standalone incidents by id", () => {
+		const decisions = [
+			makeDecision({
+				id: "am-1",
+				conversation: "amended-only",
+				at: "2026-11-01T10:00:00.000Z",
+				outcome: "amended",
+			}),
+			makeDecision({
+				id: "revert:abc",
+				conversation: null,
+				at: "2026-11-02T10:00:00.000Z",
+				source: "revert",
+				outcome: "overturned",
+			}),
+			makeDecision({
+				id: "redo:t2",
+				conversation: null,
+				at: "2026-11-03T10:00:00.000Z",
+				source: "redo",
+				outcome: "overturned",
+			}),
+		];
+		const sessions = groupSessions(decisions);
+		expect(sessions.map((each) => each.id)).toEqual(["revert:abc", "redo:t2"]);
+		expect(sessions[0]).toMatchObject({
+			forCredit: 0,
+			againstCredit: 2,
+			broken: 1,
+		});
+		const earned = evaluateTrust(decisions);
+		expect(earned.standing.sessions).toBe(2);
+		expect(earned.standing.activeDays).toBe(2);
+		expect(earned.standing.agreement).toBe(0);
+		expect(earned.standing.cleanStreak).toBe(0);
+		expect(earned.standing.brokenInLast5).toBe(2);
+	});
+
+	it("weighs taste half inside a session, plans full, and broken trust 2x", () => {
+		const sessions = groupSessions([
+			makeDecision({
+				id: "d1",
+				conversation: "mix",
+				at: "2026-11-01T10:00:00.000Z",
+				source: "question",
+				outcome: "kept",
+			}),
+			makeDecision({
+				id: "d2",
+				conversation: "mix",
+				at: "2026-11-01T10:01:00.000Z",
+				source: "mockup",
+				outcome: "overturned",
+			}),
+			makeDecision({
+				id: "d3",
+				conversation: "mix",
+				at: "2026-11-01T10:02:00.000Z",
+				source: "plan",
+				outcome: "overturned",
+			}),
+			makeDecision({
+				id: "d4",
+				conversation: "mix",
+				at: "2026-11-01T10:03:00.000Z",
+				source: "unasked",
+				outcome: "overturned",
+			}),
+		]);
+		expect(sessions).toHaveLength(1);
+		// M = 1 kept + 1 taste + 1 planBack = 3
+		// for = 1/3, against = (0.5*1 + 1.0*1)/3 + 2.0*1 = 0.5 + 2 = 2.5
+		expect(sessions[0]?.forCredit).toBeCloseTo(1 / 3, 6);
+		expect(sessions[0]?.againstCredit).toBeCloseTo(2.5, 6);
+	});
+
+	it("enforces calendar-day pacing for Ask & go (12 sessions, 4 days) and Assume (35 sessions, 10 days)", () => {
+		// 12 clean sessions over only 3 calendar days stays ask-and-wait.
+		const tooFastGo = cleanSessions(12, 3);
+		expect(evaluateTrust(tooFastGo).band).toBe("ask-and-wait");
+		expect(evaluateTrust(tooFastGo).standing.activeDays).toBe(3);
+
+		// Adding a 4th day promotes to ask-and-go.
+		const readyGo = [
+			...tooFastGo,
+			makeDecision({
+				id: "day4",
+				conversation: "day4",
+				at: "2026-11-04T12:00:00.000Z",
+				outcome: "kept",
+			}),
+		];
+		expect(evaluateTrust(readyGo).band).toBe("ask-and-go");
+		expect(evaluateTrust(readyGo).standing.activeDays).toBe(4);
+
+		// 35 clean sessions over only 9 calendar days stays ask-and-go.
+		const tooFastAssume = cleanSessions(35, 9);
+		expect(evaluateTrust(tooFastAssume).band).toBe("ask-and-go");
+		expect(evaluateTrust(tooFastAssume).standing.activeDays).toBe(9);
+
+		// Adding a 10th calendar day promotes to assume.
+		const readyAssume = [
+			...tooFastAssume,
+			makeDecision({
+				id: "day10",
+				conversation: "day10",
+				at: "2026-11-10T12:00:00.000Z",
+				outcome: "kept",
+			}),
+		];
+		expect(evaluateTrust(readyAssume).band).toBe("assume");
+		expect(evaluateTrust(readyAssume).standing.activeDays).toBe(10);
+	});
+
+	it("absorbs a rough exploratory chat via hysteresis without demoting Ask & go", () => {
+		const base = cleanSessions(12, 4);
+		expect(evaluateTrust(base).band).toBe("ask-and-go");
+
+		// A rough exploratory conversation with 5 taste overturns + 1 kept pick
+		// counts as only 1 session with light taste weighting, keeping agreement well above 65%.
+		const roughChat = [
+			makeDecision({
+				id: "r0",
+				conversation: "rough-chat",
+				at: "2026-11-05T10:00:00.000Z",
+				source: "question",
+				outcome: "kept",
+			}),
+			...Array.from({ length: 5 }, (_, i) =>
+				makeDecision({
+					id: `r-${i + 1}`,
+					conversation: "rough-chat",
+					at: `2026-11-05T10:0${i + 1}:00.000Z`,
+					source: "mockup",
+					outcome: "overturned",
+				}),
+			),
+		];
+		const afterRough = evaluateTrust([...base, ...roughChat]);
+		expect(afterRough.band).toBe("ask-and-go");
+		expect(afterRough.standing.sessions).toBe(13);
+		expect(afterRough.standing.agreement).toBeGreaterThanOrEqual(
+			TRUST_MILESTONES.askAndGo.demoteAgreement,
+		);
+	});
+
+	it("demotes Assume immediately on broken trust and requires 10 clean sessions to re-enter", () => {
+		const base = cleanSessions(35, 10);
+		expect(evaluateTrust(base).band).toBe("assume");
+
+		// One reverted merge immediately steps Assume down to Ask & go.
+		const revert = makeDecision({
+			id: "revert:sha1",
+			conversation: null,
+			at: "2026-11-11T12:00:00.000Z",
+			source: "revert",
+			outcome: "overturned",
+		});
+		const afterRevert = evaluateTrust([...base, revert]);
+		expect(afterRevert.band).toBe("ask-and-go");
+		expect(afterRevert.standing.cleanStreak).toBe(0);
+		expect(afterRevert.standing.brokenInLast5).toBe(1);
+
+		// 9 clean sessions are not enough to re-enter Assume (cleanStreak === 9).
+		const nineClean = cleanSessions(9, 3, { startDay: 12, prefix: "rec" });
+		const afterNine = evaluateTrust([...base, revert, ...nineClean]);
+		expect(afterNine.band).toBe("ask-and-go");
+		expect(afterNine.standing.cleanStreak).toBe(9);
+
+		// The 10th clean session re-enters Assume.
+		const tenthClean = makeDecision({
+			id: "rec-10",
+			conversation: "rec-10",
+			at: "2026-11-16T12:00:00.000Z",
+			outcome: "kept",
+		});
+		const afterTen = evaluateTrust([...base, revert, ...nineClean, tenthClean]);
+		expect(afterTen.band).toBe("assume");
+		expect(afterTen.standing.cleanStreak).toBe(10);
+	});
+
+	it("falls through from Assume to Ask & wait when two broken incidents occur in the last 10 sessions", () => {
+		const base = cleanSessions(35, 10);
+		expect(evaluateTrust(base).band).toBe("assume");
+
+		const twoBroken = [
+			makeDecision({
+				id: "b1",
+				conversation: "b1",
+				at: "2026-11-11T10:00:00.000Z",
+				source: "unasked",
+				outcome: "overturned",
+			}),
+			makeDecision({
+				id: "b2",
+				conversation: "b2",
+				at: "2026-11-11T11:00:00.000Z",
+				source: "redo",
+				outcome: "overturned",
+			}),
+		];
+		const after = evaluateTrust([...base, ...twoBroken]);
+		expect(after.band).toBe("ask-and-wait");
+		expect(after.standing.brokenInLast10).toBe(2);
+	});
+
+	it("steps up at most one level per session when recovering after demotion", () => {
+		const base = cleanSessions(35, 10);
+		// Two broken incidents in one session drop Assume straight to Ask & wait.
+		const doubleBroken = [
+			makeDecision({
+				id: "b1",
+				conversation: "bad-chat",
+				at: "2026-11-11T10:00:00.000Z",
+				source: "unasked",
+				outcome: "overturned",
+			}),
+			makeDecision({
+				id: "b2",
+				conversation: "bad-chat",
+				at: "2026-11-11T10:01:00.000Z",
+				source: "unasked",
+				outcome: "overturned",
+			}),
+		];
+		expect(evaluateTrust([...base, ...doubleBroken]).band).toBe("ask-and-wait");
+
+		// 5 clean sessions promote back to ask-and-go (not straight to assume).
+		const fiveClean = cleanSessions(5, 2, { startDay: 12, prefix: "up" });
+		expect(evaluateTrust([...base, ...doubleBroken, ...fiveClean]).band).toBe(
+			"ask-and-go",
+		);
+	});
+
+	it("computes agreement over only the last 25 counted sessions", () => {
+		// 10 bad sessions followed by 25 clean sessions: the old 10 fall out of the 25-session window.
+		const bad = Array.from({ length: 10 }, (_, i) =>
+			makeDecision({
+				id: `bad-${i}`,
+				conversation: `bad-${i}`,
+				at: `2026-11-01T${String(i).padStart(2, "0")}:00:00.000Z`,
+				source: "plan",
+				outcome: "overturned",
+			}),
+		);
+		const good = cleanSessions(25, 10, { startDay: 2, prefix: "good" });
+		const earned = evaluateTrust([...bad, ...good]);
+		expect(earned.standing.sessions).toBe(35);
+		expect(earned.standing.agreement).toBe(100);
+		expect(earned.band).toBe("assume");
+	});
+
+	it("summarizes buckets with resetAt, static band overrides, legacy value migration, and askingKinds", () => {
+		const decisions = [
+			...cleanSessions(12, 4),
+			makeDecision({
+				id: "unasked-1",
+				conversation: "c-overturn",
+				at: "2026-11-05T12:00:00.000Z",
+				kind: "defaults",
+				source: "unasked",
+				outcome: "overturned",
+			}),
+		];
+		const settings: TrustSetting[] = [
+			{
+				project: "/repo",
+				agent: "claude",
+				model: "Opus 4.6",
+				mode: "static",
+				band: "assume",
+				resetAt: null,
+				updatedAt: "2026-11-06T00:00:00.000Z",
+			},
+			// Legacy numeric setting without `band` migrates transparently.
+			{
+				project: "/repo",
+				agent: "codex",
+				model: "GPT-5",
+				mode: "static",
+				band: null,
+				value: 82,
+				resetAt: null,
+				updatedAt: "2026-11-06T00:00:00.000Z",
+			},
+		];
+		const entries = summarizeTrust(decisions, settings);
+		const claude = entries.find((each) => each.agent === "claude");
+		expect(claude?.mode).toBe("static");
+		expect(claude?.band).toBe("assume");
+		expect(claude?.pinnedBand).toBe("assume");
+		expect(claude?.earnedBand).toBe("ask-and-go");
+		expect(claude?.asking).toEqual(["defaults"]);
+
+		const codex = entries.find((each) => each.agent === "codex");
+		expect(codex?.band).toBe("ask-and-go");
+		expect(codex?.pinnedBand).toBe("ask-and-go");
+		expect(codex?.earnedBand).toBe("ask-and-wait");
+	});
+});
 
 function makeDecision(
 	overrides: Partial<TrustDecision> & {
@@ -28,369 +363,30 @@ function makeDecision(
 	};
 }
 
-describe("trust scoring", () => {
-	it("weighs every outcome in whole numbers, with amended leaving trust alone", () => {
-		const sources = [
-			"question",
-			"mockup",
-			"plan",
-			"unasked",
-			"redo",
-			"revert",
-		] as const;
-		const weights = sources.map((source) => ({
-			source,
-			kept: outcomeWeights({ source, outcome: "kept" }),
-			amended: outcomeWeights({ source, outcome: "amended" }),
-			overturned: outcomeWeights({ source, outcome: "overturned" }),
-		}));
-		const kept = { alpha: 1, beta: 0 };
-		const amended = { alpha: 0, beta: 0 };
-		expect(weights).toEqual([
-			{ source: "question", kept, amended, overturned: { alpha: 0, beta: 2 } },
-			{ source: "mockup", kept, amended, overturned: { alpha: 0, beta: 2 } },
-			{ source: "plan", kept, amended, overturned: { alpha: 0, beta: 2 } },
-			{ source: "unasked", kept, amended, overturned: { alpha: 0, beta: 3 } },
-			{ source: "redo", kept, amended, overturned: { alpha: 0, beta: 3 } },
-			{ source: "revert", kept, amended, overturned: { alpha: 0, beta: 3 } },
-		]);
-	});
-
-	it("leaves the score alone on an amended decision but still counts it", () => {
-		const kept = [
-			{
-				at: "2026-11-01T00:00:00Z",
-				source: "question" as const,
-				outcome: "kept" as const,
-			},
-		];
-		const amended = {
-			at: "2026-11-02T00:00:00Z",
-			source: "plan" as const,
-			outcome: "amended" as const,
-		};
-		expect(scoreDecisions([...kept, amended])).toBe(scoreDecisions(kept));
-		const [entry] = summarizeTrust(
-			[
-				makeDecision({ at: "2026-11-01T00:00:00Z", outcome: "kept" }),
-				makeDecision({
-					at: "2026-11-02T00:00:00Z",
-					outcome: "amended",
-					source: "plan",
-				}),
-			],
-			[],
-		);
-		expect(entry?.counts).toEqual({
-			kept: 1,
-			amended: 1,
-			overturned: 0,
-			total: 2,
-		});
-	});
-
-	it("starts neutral at 50 with zero decisions and does not jump to 100 or ask-and-go after 3 of 3 kept", () => {
-		const empty = scoreDecisions([]);
-		expect(empty).toBe(50);
-
-		const threeKept = scoreDecisions([
-			{ at: "2026-11-01T00:00:00Z", source: "question", outcome: "kept" },
-			{ at: "2026-11-02T00:00:00Z", source: "question", outcome: "kept" },
-			{ at: "2026-11-03T00:00:00Z", source: "question", outcome: "kept" },
-		]);
-		expect(threeKept).toBeGreaterThan(empty);
-		expect(threeKept).toBeLessThan(70);
-	});
-
-	it("starts from a manually set base and moves dynamically with later decisions", () => {
-		expect(scoreDecisions([], 75)).toBe(75);
-		expect(scoreDecisions([], 0)).toBe(0);
-		expect(scoreDecisions([], 100)).toBe(100);
-
-		const afterKept = scoreDecisions(
-			[{ at: "2026-11-01T00:00:00Z", source: "question", outcome: "kept" }],
-			75,
-		);
-		const afterOverturned = scoreDecisions(
-			[
-				{
-					at: "2026-11-01T00:00:00Z",
-					source: "question",
-					outcome: "overturned",
-				},
-			],
-			75,
-		);
-		expect(afterKept).toBeGreaterThan(75);
-		expect(afterOverturned).toBeLessThan(75);
-	});
-
-	it("climbs toward high trust over ~30 kept decisions", () => {
-		const many = Array.from({ length: 30 }, (_, i) => ({
-			at: `2026-11-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-			source: "question" as const,
-			outcome: "kept" as const,
-		}));
-		const score = scoreDecisions(many);
-		expect(score).toBeGreaterThanOrEqual(75);
-		expect(score).toBeLessThanOrEqual(95);
-	});
-
-	it("weighs overturns of unasked picks, redo removals, and reverts more heavily than question or plan overturns, which weigh the same", () => {
-		const base = Array.from({ length: 10 }, (_, i) => ({
-			at: `2026-11-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-			source: "question" as const,
-			outcome: "kept" as const,
-		}));
-		const withQuestionOverturn = scoreDecisions([
-			...base,
-			{ at: "2026-11-15T00:00:00Z", source: "question", outcome: "overturned" },
-		]);
-		const withPlanOverturn = scoreDecisions([
-			...base,
-			{ at: "2026-11-15T00:00:00Z", source: "plan", outcome: "overturned" },
-		]);
-		const withRedoOverturn = scoreDecisions([
-			...base,
-			{ at: "2026-11-15T00:00:00Z", source: "redo", outcome: "overturned" },
-		]);
-		const withRevertOverturn = scoreDecisions([
-			...base,
-			{ at: "2026-11-15T00:00:00Z", source: "revert", outcome: "overturned" },
-		]);
-		expect(withQuestionOverturn).toBe(withPlanOverturn);
-		expect(withPlanOverturn).toBeGreaterThan(withRedoOverturn);
-		expect(withRedoOverturn).toBe(withRevertOverturn);
-	});
-
-	it("weights recent decisions more strongly than old ones", () => {
-		const oldOverturnsThenKept = [
-			...Array.from({ length: 10 }, (_, i) => ({
-				at: `2026-10-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-				source: "question" as const,
-				outcome: "overturned" as const,
-			})),
-			...Array.from({ length: 20 }, (_, i) => ({
-				at: `2026-11-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-				source: "question" as const,
-				outcome: "kept" as const,
-			})),
-		];
-		const oldKeptThenOverturns = [
-			...Array.from({ length: 20 }, (_, i) => ({
-				at: `2026-10-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-				source: "question" as const,
-				outcome: "kept" as const,
-			})),
-			...Array.from({ length: 10 }, (_, i) => ({
-				at: `2026-11-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
-				source: "question" as const,
-				outcome: "overturned" as const,
-			})),
-		];
-		expect(scoreDecisions(oldOverturnsThenKept)).toBeGreaterThan(
-			scoreDecisions(oldKeptThenOverturns) + 15,
-		);
-	});
-
-	it("respects static overrides and resetAt in summarizeTrust", () => {
-		const decisions: TrustDecision[] = [
+/** Generates `count` clean kept sessions spread across `days` calendar dates starting at `startDay`. */
+function cleanSessions(
+	count: number,
+	days: number,
+	{ startDay = 1, prefix = "s" }: { startDay?: number; prefix?: string } = {},
+): TrustDecision[] {
+	const out: TrustDecision[] = [];
+	for (let i = 0; i < count; i += 1) {
+		const dayOffset = Math.min(days - 1, Math.floor((i * days) / count));
+		const day = startDay + dayOffset;
+		const month = day <= 30 ? 11 : 12;
+		const dom = day <= 30 ? day : day - 30;
+		const dd = String(dom).padStart(2, "0");
+		const mm = String(month).padStart(2, "0");
+		const hh = String(i % 24).padStart(2, "0");
+		const min = String((i * 7) % 60).padStart(2, "0");
+		out.push(
 			makeDecision({
-				at: "2026-11-01T00:00:00Z",
-				outcome: "overturned",
-				source: "redo",
-			}),
-			makeDecision({
-				at: "2026-11-10T00:00:00Z",
+				id: `${prefix}-${i}`,
+				conversation: `${prefix}-${i}`,
+				at: `2026-${mm}-${dd}T${hh}:${min}:00.000Z`,
 				outcome: "kept",
-				kind: "visual",
-				source: "mockup",
 			}),
-			makeDecision({
-				at: "2026-11-11T00:00:00Z",
-				outcome: "kept",
-				kind: "approval",
-				source: "plan",
-			}),
-		];
-		const settings: TrustSetting[] = [
-			{
-				project: "/repo",
-				agent: "claude",
-				model: "Opus 4.6",
-				mode: "static",
-				value: 80,
-				resetAt: "2026-11-05T00:00:00Z",
-				updatedAt: "2026-11-12T00:00:00Z",
-			},
-		];
-		const [entry] = summarizeTrust(decisions, settings);
-		expect(entry).toBeDefined();
-		expect(entry?.score).toBe(80);
-		expect(entry?.mode).toBe("static");
-		expect(entry?.counts.total).toBe(2);
-		expect(entry?.counts.overturned).toBe(0);
-		expect(entry?.dynamicScore).toBeGreaterThan(50);
-		const visual = entry?.kinds.find((k) => k.kind === "visual");
-		expect(visual?.counts.kept).toBe(1);
-	});
-
-	it("anchors dynamic scoring at a manual base while keeping decision counts", () => {
-		const decisions: TrustDecision[] = [
-			makeDecision({ at: "2026-11-01T00:00:00Z", outcome: "overturned" }),
-			makeDecision({ at: "2026-11-10T00:00:00Z", outcome: "kept" }),
-		];
-		const settings: TrustSetting[] = [
-			{
-				project: "/repo",
-				agent: "claude",
-				model: "Opus 4.6",
-				mode: "dynamic",
-				value: 50,
-				dynamicBase: 80,
-				dynamicAt: "2026-11-05T00:00:00Z",
-				resetAt: null,
-				updatedAt: "2026-11-05T00:00:00Z",
-			},
-		];
-		const [entry] = summarizeTrust(decisions, settings);
-		expect(entry?.mode).toBe("dynamic");
-		expect(entry?.counts.total).toBe(2);
-		expect(entry?.score).toBe(scoreDecisions(decisions.slice(1), 80));
-		expect(entry?.score).toBeGreaterThan(80);
-
-		const { decisions: scored } = conversationDecisions(
-			decisions,
-			settings,
-			"c1",
 		);
-		expect(scored[1]?.after).toBe(entry?.score);
-		expect(scored[1]?.delta).toBe((entry?.score ?? 0) - 80);
-	});
-});
-
-describe("conversationDecisions", () => {
-	it("gives each of a conversation's decisions its score change, after others' decisions", () => {
-		const decisions = [
-			makeDecision({
-				at: "2026-01-01T00:00:00Z",
-				outcome: "kept",
-				conversation: "other",
-			}),
-			makeDecision({ at: "2026-01-02T00:00:00Z", outcome: "kept" }),
-			makeDecision({
-				at: "2026-01-03T00:00:00Z",
-				outcome: "kept",
-				conversation: "other",
-			}),
-			makeDecision({ at: "2026-01-04T00:00:00Z", outcome: "overturned" }),
-		];
-		const { decisions: mine, net } = conversationDecisions(decisions, [], "c1");
-		expect(mine.map((each) => each.at)).toEqual([
-			"2026-01-02T00:00:00Z",
-			"2026-01-04T00:00:00Z",
-		]);
-		const one = scoreDecisions(decisions.slice(0, 1));
-		const two = scoreDecisions(decisions.slice(0, 2));
-		const three = scoreDecisions(decisions.slice(0, 3));
-		const four = scoreDecisions(decisions);
-		expect(mine[0]?.delta).toBe(two - one);
-		expect(mine[1]?.delta).toBe(four - three);
-		expect(mine[1]?.after).toBe(four);
-		expect(mine[0]?.delta).toBeGreaterThan(0);
-		expect(mine[1]?.delta).toBeLessThan(0);
-		expect(net).toBe(two - one + four - three);
-	});
-
-	it("leaves out decisions from before the model's reset", () => {
-		const decisions = [
-			makeDecision({ at: "2026-01-01T00:00:00Z", outcome: "kept" }),
-			makeDecision({ at: "2026-01-05T00:00:00Z", outcome: "kept" }),
-		];
-		const setting: TrustSetting = {
-			project: "/repo",
-			agent: "claude",
-			model: "Opus 4.6",
-			mode: "dynamic",
-			value: 50,
-			resetAt: "2026-01-03T00:00:00Z",
-			updatedAt: "2026-01-03T00:00:00Z",
-		};
-		const { decisions: mine } = conversationDecisions(
-			decisions,
-			[setting],
-			"c1",
-		);
-		expect(mine).toHaveLength(1);
-		expect(mine[0]?.delta).toBe(
-			scoreDecisions(decisions.slice(1)) - scoreDecisions([]),
-		);
-	});
-});
-
-describe("classifyQuestion", () => {
-	it("always classifies questions with images as visual", () => {
-		expect(
-			classifyQuestion({
-				text: "Which retry timeout should we use?",
-				body: "![shot](/abs/path.png)",
-				choices: [],
-			}),
-		).toBe("visual");
-		expect(
-			classifyQuestion({
-				text: "Pick a default",
-				body: "",
-				choices: [
-					{
-						key: "a",
-						text: "Option A",
-						body: "![a](/a.png)",
-						why: "",
-						chosen: true,
-					},
-				],
-			}),
-		).toBe("visual");
-	});
-
-	it("classifies plan approvals as approval", () => {
-		expect(
-			classifyQuestion(
-				{ text: "Do you approve adding the table?", body: "", choices: [] },
-				{ approval: true },
-			),
-		).toBe("approval");
-	});
-
-	it("classifies defaults, scope, visual, and design by wording", () => {
-		expect(
-			classifyQuestion({
-				text: "What retry limit should the worker use?",
-				body: "",
-				choices: [],
-			}),
-		).toBe("defaults");
-		expect(
-			classifyQuestion({
-				text: "Should we split this into two tasks?",
-				body: "",
-				choices: [],
-			}),
-		).toBe("scope");
-		expect(
-			classifyQuestion({
-				text: "Which button color fits the card header?",
-				body: "",
-				choices: [],
-			}),
-		).toBe("visual");
-		expect(
-			classifyQuestion({
-				text: "Should the endpoint accept JSON or form data?",
-				body: "",
-				choices: [],
-			}),
-		).toBe("design");
-	});
-});
+	}
+	return out;
+}

@@ -17,8 +17,8 @@ import {
 	useEffect,
 	useMemo,
 	useRef,
+	useState,
 } from "react";
-import { cn } from "#web/lib/utils.ts";
 import { BoardScope } from "./board-chip";
 import { ARCHIVED, NEW, openedBy } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
@@ -40,6 +40,7 @@ import { useHeld } from "./hooks/use-held";
 import { useShortcut } from "./hooks/use-shortcut";
 import { useBeneath } from "./list-beneath";
 import { Rows, TerminalRow } from "./list-rows";
+import { NavMenuItem } from "./nav-menu-item";
 import { NavigationContext } from "./navigation";
 import { newConversationUrl } from "./new-conversation-project";
 import {
@@ -52,8 +53,14 @@ import {
 	type Folder,
 	folderKey,
 	foldersOf,
+	hereAlone,
 } from "./project-folders";
 import { Placing, placesOf } from "./reparent";
+import {
+	type BlockerSource,
+	blockerRowKey,
+	resolveSidebarBlockers,
+} from "./sidebar-blockers";
 import type { Terminals } from "./terminals";
 
 /** How many rows ⌥⌘ and a digit can open. */
@@ -235,7 +242,30 @@ export const ConversationList = memo(function ConversationList({
 		}),
 		[nested, agents],
 	);
-	const renderHere = (row: Needing, nested: boolean): ReactNode =>
+	const [hoveredBlocker, setHoveredBlocker] = useState<BlockerSource | null>(
+		null,
+	);
+	const onHoverRow = useCallback((source: BlockerSource, hovered: boolean) => {
+		setHoveredBlocker((current) => {
+			if (hovered) {
+				return source;
+			}
+			return sameBlockerSource(current, source) ? null : current;
+		});
+	}, []);
+	const blockerFolders = useMemo(
+		() => grouped ?? hereAlone({ ...here, tasks, conversations, todos }),
+		[grouped, here, tasks, conversations, todos],
+	);
+	const highlights = useMemo(
+		() => resolveSidebarBlockers(blockerFolders, open, hoveredBlocker),
+		[blockerFolders, open, hoveredBlocker],
+	);
+	const renderHere = (
+		row: Needing,
+		nested: boolean,
+		folder: string,
+	): ReactNode =>
 		row.conversation !== null ? (
 			<ListItem
 				conversation={row.conversation}
@@ -248,12 +278,22 @@ export const ConversationList = memo(function ConversationList({
 				hosting={hosting.has(row.conversation.id)}
 				nested={nested}
 				task={row.task}
+				folder={folder}
+				blockerId={
+					highlights.conversations.get(
+						blockerRowKey(folder, row.conversation.id),
+					) ?? null
+				}
+				onHoverRow={onHoverRow}
 			/>
 		) : null;
-	const renderRow: RenderRow = (folder, row, nested) =>
-		folder.here ? (
-			renderHere(row, nested)
-		) : (
+	const renderRow: RenderRow = (folder, row, nested) => {
+		const key = folderKey(folder);
+		if (folder.here) {
+			return renderHere(row, nested, key);
+		}
+		const conversationId = row.conversation?.id ?? null;
+		return (
 			<ForeignItem
 				row={row}
 				agent={
@@ -263,9 +303,26 @@ export const ConversationList = memo(function ConversationList({
 				}
 				hint={held ? hintOf(shown, row) : null}
 				nested={nested}
+				blockerId={
+					conversationId === null
+						? null
+						: (highlights.conversations.get(
+								blockerRowKey(key, conversationId),
+							) ?? null)
+				}
+				onHoverChange={
+					conversationId === null
+						? undefined
+						: (hovered) =>
+								onHoverRow(
+									{ kind: "conversation", folder: key, conversationId },
+									hovered,
+								)
+				}
 				onOpen={() => openEntry({ folder, row })}
 			/>
 		);
+	};
 	const beneathOf = (folder: Folder, row: Needing) =>
 		folder.here ? beneath(row) : [];
 	return (
@@ -324,6 +381,9 @@ export const ConversationList = memo(function ConversationList({
 									: navigation.show(newConversationUrl(folder.project))
 							}
 							onOpen={onOpen}
+							open={open}
+							highlights={highlights}
+							onHoverChange={onHoverRow}
 							render={renderRow}
 							beneath={beneathOf}
 						/>
@@ -335,7 +395,7 @@ export const ConversationList = memo(function ConversationList({
 							label="conversation list"
 							rows={listed}
 							beneath={beneath}
-							render={(row, nested) => renderHere(row, nested)}
+							render={(row, nested) => renderHere(row, nested, "")}
 						/>
 					</Placing>
 				)}
@@ -356,20 +416,12 @@ export function ArchivedEntry({
 	onOpen: (id: string | null) => void;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
-			aria-current={open === ARCHIVED ? "page" : undefined}
+		<NavMenuItem
+			current={open === ARCHIVED}
 			onClick={() => onOpen(ARCHIVED)}
-			// As the page tabs above it look, so it reads as one of the menu's.
-			className={cn(
-				"flex h-9 w-full flex-none items-center gap-3 rounded-md px-3 text-left font-medium text-foreground/60 text-sm hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0",
-				open === ARCHIVED &&
-					"bg-accent text-foreground dark:text-foreground [&_svg]:text-primary",
-			)}
-		>
-			<ArchiveIcon />
-			<span className="flex-1">Archived</span>
-		</button>
+			icon={<ArchiveIcon aria-hidden />}
+			label="Archived"
+		/>
 	);
 }
 
@@ -384,19 +436,46 @@ const ListItem = memo(function ListItem({
 	conversation,
 	need,
 	onOpen,
+	folder,
+	onHoverRow,
 	...props
 	// vet-ignore objects-over-callbacks: a React component's props, which are how React passes events
-}: Omit<Parameters<typeof Item>[0], "need" | "onOpen"> & {
+}: Omit<Parameters<typeof Item>[0], "need" | "onOpen" | "onHoverChange"> & {
 	need: string;
+	folder: string;
 	onOpen: (id: string) => void;
+	onHoverRow: (source: BlockerSource, hovered: boolean) => void;
 }): JSX.Element {
 	const parsed = useMemo(() => JSON.parse(need) as Needing["need"], [need]);
+	const handleHover = useCallback(
+		(hovered: boolean) =>
+			onHoverRow(
+				{ kind: "conversation", folder, conversationId: conversation.id },
+				hovered,
+			),
+		[onHoverRow, folder, conversation.id],
+	);
 	return (
 		<Item
 			{...props}
 			conversation={conversation}
 			need={parsed}
 			onOpen={() => onOpen(conversation.id)}
+			onHoverChange={handleHover}
 		/>
 	);
 });
+
+function sameBlockerSource(
+	one: BlockerSource | null,
+	other: BlockerSource,
+): boolean {
+	if (one === null || one.kind !== other.kind || one.folder !== other.folder) {
+		return false;
+	}
+	return one.kind === "queued" && other.kind === "queued"
+		? one.todoId === other.todoId
+		: one.kind === "conversation" &&
+				other.kind === "conversation" &&
+				one.conversationId === other.conversationId;
+}

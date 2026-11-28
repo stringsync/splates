@@ -97,12 +97,18 @@ preview server or watcher left available is not a continuation.
 - **Quota signals**: from the plan limits agents report, the server fires
   `quota.low` when a window reaches 90% used, `quota.unused` in the last 10%
   of its weekly or monthly window while under half is used, and
-  `quota.restored` when a window resets, each once per reset. Subscribe bare
-  (`quota.unused`) for any agent, pass an agent (`quota.unused("claude")`) for
-  one agent, or add `window` (`quota.low({ agent: "claude", window: "seven_day" })`)
-  for one window. The payload holds the agent, window, share used, reset time,
-  when the agent last reported it, and `lastUserMessageAt` (when someone last
-  sent a user message to that agent across all conversations, or `null`).
+  `quota.restored` when a window resets, each once per reset. When waiting on a
+  specific agent's quota, pass that agent in the signal argument (quoted in the
+  shell, e.g. `splates signal wait 'quota.unused("claude")'` or
+  `--closes-on 'quota.unused("claude")'`); use bare `quota.unused` only when any
+  agent's quota will do, or add `window`
+  (`'quota.low({ agent: "claude", window: "seven_day" })'`) for one window. For
+  a one-off run or task waiting on spare quota, use `splates signal wait` or
+  `splates task add --closes-on`, never `splates hook add` (hooks are recurring
+  automations that keep firing on every future window reset). The
+  payload holds the agent, window, share used, reset time, when the agent last
+  reported it, and `lastUserMessageAt` (when someone last sent a user message to
+  that agent across all conversations, or `null`).
 - **Tasks that close on a signal**: When work cannot start until an outside
   fact holds and the wait is long (hours or more: a release, an outside fix, a
   key the user has to get), do not hold it in a conversation: make the fact a

@@ -1,11 +1,6 @@
 import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
 import { useReactive } from "core/react";
-import {
-	LoaderCircleIcon,
-	MicIcon,
-	MicOffIcon,
-	SquareIcon,
-} from "lucide-react";
+import { MicIcon, MicOffIcon, SquareIcon } from "lucide-react";
 import { useContext } from "react";
 import { TooltipIconButton } from "#web/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Kbd } from "#web/components/ui/kbd.tsx";
@@ -19,6 +14,7 @@ import { cn } from "#web/lib/utils.ts";
 import type { BoxDictation } from "./box-dictation";
 import type { Dictation, DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
+import { Spinner } from "./pending";
 
 /** What the mic button does in each phase, as a tooltip and a screen reader say it. */
 const ACTIONS: Record<DictationPhase, string> = {
@@ -111,7 +107,7 @@ function DictationControl({ phase }: { phase: DictationPhase }) {
 	return phase === "recording" ? (
 		<SquareIcon aria-hidden="true" strokeWidth={1.75} />
 	) : (
-		<LoaderCircleIcon aria-hidden="true" className="opacity-60" />
+		<Spinner aria-hidden="true" className="opacity-60" />
 	);
 }
 

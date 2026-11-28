@@ -20,6 +20,7 @@ import {
 import { cn } from "#web/lib/utils.ts";
 import { ShortcutSettings, useShortcut } from "./hooks/use-shortcut";
 import { PendingSpinner, useShowPending } from "./pending";
+import { WidgetCard } from "./widget-card";
 
 /** Something to do with a conversation, or a place in it to go to. */
 export interface Action {
@@ -233,7 +234,10 @@ export function Widgets({
 			>
 				{fullScreen && (
 					<header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2">
-						<h2 className="font-medium">Widgets</h2>
+						{
+							// vet-ignore splates-page-section-card: fullscreen phone widgets overlay header, not a PageSection
+							<h2 className="font-medium">Widgets</h2>
+						}
 						<Button
 							variant="ghost"
 							className="min-h-12 min-w-12"
@@ -252,23 +256,19 @@ export function Widgets({
 							"flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&_button]:min-h-12 [&_button]:min-w-12 [&_button]:touch-manipulation [&_button]:active:bg-accent [&_[data-card]]:shrink-0 [&_[data-widget]]:shrink-0",
 					)}
 				>
-					<nav
-						aria-label="actions"
-						data-widget
-						className="flex flex-col overflow-hidden rounded-lg border bg-background"
+					<WidgetCard
+						as="nav"
+						label="actions"
+						className={actions.length === 0 ? "py-0" : undefined}
 					>
-						{actions.length > 0 && (
-							<div className="py-1">
-								{actions.map((action) => (
-									<ActionRow
-										key={action.label}
-										action={run(action)}
-										touch={fullScreen}
-									/>
-								))}
-							</div>
-						)}
-					</nav>
+						{actions.map((action) => (
+							<ActionRow
+								key={action.label}
+								action={run(action)}
+								touch={fullScreen}
+							/>
+						))}
+					</WidgetCard>
 					{children}
 				</div>
 			</section>

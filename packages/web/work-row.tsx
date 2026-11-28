@@ -6,7 +6,6 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	FoldVerticalIcon,
-	LoaderCircleIcon,
 	ShieldIcon,
 	SquareIcon,
 	TriangleAlertIcon,
@@ -19,9 +18,11 @@ import {
 	CollapsibleTrigger,
 } from "#web/components/ui/collapsible.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { BuddyAvatar, LiveBuddyContext } from "./buddy-avatar";
 import { InMessage, useCardReply } from "./card-reply";
 import { useNow } from "./hooks/use-now";
 import { Markdown } from "./markdown";
+import { Spinner } from "./pending";
 import { QuietCounts } from "./quiet-events";
 import { ThreadAction } from "./thread-action";
 import { timeline } from "./timeline";
@@ -90,6 +91,9 @@ export function WorkRow({
 	const steps = items.filter((item) => item.type !== "decision");
 	const quiet = work.events ?? [];
 	const trees = use(TreesContext);
+	const buddy = use(LiveBuddyContext);
+	const liveBuddy =
+		work.working && buddy !== null && recorded === undefined ? buddy : null;
 	const short = (path: string) => relative(path, trees);
 	// Folded until the person opens it, while the agent works too, and open
 	// from then on.
@@ -128,8 +132,19 @@ export function WorkRow({
 					}}
 					className="group/work"
 				>
-					<CollapsibleTrigger className="flex w-full cursor-pointer flex-wrap items-center gap-x-1.5 text-muted-foreground/70 tabular-nums hover:text-foreground md:flex-nowrap rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-open/work:rotate-90 motion-reduce:transition-none" />
+					<CollapsibleTrigger className="flex w-full cursor-pointer flex-wrap items-center gap-x-2 text-muted-foreground/70 tabular-nums hover:text-foreground md:flex-nowrap rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						{liveBuddy !== null ? (
+							<>
+								<BuddyAvatar
+									agent={liveBuddy.id}
+									name={liveBuddy.name}
+									state="working"
+								/>
+								<Spinner className="size-3.5 shrink-0" />
+							</>
+						) : (
+							<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-open/work:rotate-90 motion-reduce:transition-none" />
+						)}
 						<span
 							className={cn(
 								"min-w-0 truncate",
@@ -144,6 +159,9 @@ export function WorkRow({
 									? "Working"
 									: `Working ${workingSpan(work, waiting ? Date.now() : now)}`}
 						</span>
+						{liveBuddy !== null && (
+							<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-open/work:rotate-90 motion-reduce:transition-none" />
+						)}
 						{/* On a phone they wrap under Worked, past the chevron. */}
 						<QuietCounts
 							events={quiet}
@@ -304,7 +322,7 @@ function Plan({ steps }: { steps: Step[] }): JSX.Element {
 						{step.status === "completed" ? (
 							<CheckIcon className="size-3.5" />
 						) : step.status === "in_progress" ? (
-							<LoaderCircleIcon className="size-3.5 animate-spin" />
+							<Spinner className="size-3.5 animate-spin" />
 						) : (
 							<CircleIcon className="size-3.5 opacity-60" />
 						)}

@@ -381,7 +381,7 @@ splates
 					`could not queue tasks for what the merge found: ${error}`,
 				),
 			);
-			await follow(ctx, null, { from: task });
+			await follow(ctx, null, { from: task, ended: "merged" });
 		}
 	});
 
@@ -490,7 +490,7 @@ splates
 				}),
 			({ released }) => ({ why: opts.reason ?? null, released }),
 		);
-		await follow(ctx, null, { from: opts.task });
+		await follow(ctx, null, { from: opts.task, ended: "removed" });
 	});
 
 splates

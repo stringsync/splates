@@ -10,7 +10,9 @@ import { type JSX, useEffect, useRef } from "react";
 import { renderAnsiLine } from "./ansi-line";
 import { runLog } from "./api/rigs";
 import { Button } from "./components/ui/button";
+import { Card } from "./components/ui/card";
 import { cn } from "./lib/utils";
+import { PageSection } from "./page-section";
 import { RunStatePill } from "./rig-state";
 import { type RunLogApi, RunLogReader } from "./run-log-reader";
 
@@ -55,51 +57,58 @@ export function RigRunPage({
 	const exited = run.state === "exited";
 
 	return (
-		<section
-			aria-label={`Run of ${run.label} on ${run.tree}`}
-			className="flex flex-col gap-4"
-		>
-			<div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-				<RunStatePill state={run.state} exitCode={run.exitCode} />
-				{run.health !== null && <span>{run.health}</span>}
-			</div>
-			<dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-2 text-sm">
-				{run.ports.map((port, index) => (
-					<Links
-						key={port.name}
-						port={port}
-						named={run.ports.length > 1}
-						slotEmoji={run.slot?.emoji ?? null}
-						waitingForPublic={index === 0 && run.exposure === "self" && !exited}
-					/>
-				))}
-				<dt className="text-muted-foreground">Options</dt>
-				<dd className="break-words font-mono text-xs leading-5">
-					{options || "none"}
-				</dd>
-				{run.preset !== null && (
-					<>
-						<dt className="text-muted-foreground">Preset</dt>
-						<dd>{run.preset}</dd>
-					</>
-				)}
-				{run.tree !== "main" && (
-					<>
-						<dt className="text-muted-foreground">Stops</dt>
-						<dd>when {run.tree} merges or is removed</dd>
-					</>
-				)}
-			</dl>
-			<div
-				ref={log}
-				className="h-[45dvh] min-h-48 overflow-auto rounded-lg bg-[oklch(0.22_0.01_264)] p-3 font-mono text-[11.5px] text-[oklch(0.88_0.01_264)] leading-relaxed"
-			>
-				{lines.length === 0 ? (
-					<p className="opacity-60">Nothing logged yet.</p>
-				) : (
-					lines.map((line) => <LogLine key={line.n} text={line.text} />)
-				)}
-			</div>
+		<PageSection label={`Run of ${run.label} on ${run.tree}`} className="gap-4">
+			<PageSection title="Run" as="h3">
+				<Card className="flex flex-col gap-3 p-4">
+					<div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+						<RunStatePill state={run.state} exitCode={run.exitCode} />
+						{run.health !== null && <span>{run.health}</span>}
+					</div>
+					<dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-2 text-sm">
+						{run.ports.map((port, index) => (
+							<Links
+								key={port.name}
+								port={port}
+								named={run.ports.length > 1}
+								slotEmoji={run.slot?.emoji ?? null}
+								waitingForPublic={
+									index === 0 && run.exposure === "self" && !exited
+								}
+							/>
+						))}
+						<dt className="text-muted-foreground">Options</dt>
+						<dd className="break-words font-mono text-xs leading-5">
+							{options || "none"}
+						</dd>
+						{run.preset !== null && (
+							<>
+								<dt className="text-muted-foreground">Preset</dt>
+								<dd>{run.preset}</dd>
+							</>
+						)}
+						{run.tree !== "main" && (
+							<>
+								<dt className="text-muted-foreground">Stops</dt>
+								<dd>when {run.tree} merges or is removed</dd>
+							</>
+						)}
+					</dl>
+				</Card>
+			</PageSection>
+			<PageSection title="Log" as="h3">
+				<Card>
+					<div
+						ref={log}
+						className="h-[45dvh] min-h-48 overflow-auto bg-[oklch(0.22_0.01_264)] p-3 font-mono text-[11.5px] text-[oklch(0.88_0.01_264)] leading-relaxed"
+					>
+						{lines.length === 0 ? (
+							<p className="opacity-60">Nothing logged yet.</p>
+						) : (
+							lines.map((line) => <LogLine key={line.n} text={line.text} />)
+						)}
+					</div>
+				</Card>
+			</PageSection>
 			<div className="sticky bottom-0 flex gap-2 border-t bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 				{exited ? (
 					<>
@@ -122,7 +131,7 @@ export function RigRunPage({
 					</Button>
 				)}
 			</div>
-		</section>
+		</PageSection>
 	);
 }
 

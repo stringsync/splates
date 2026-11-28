@@ -232,9 +232,93 @@ describe("reviewPending", () => {
 			),
 		).toBe(false);
 	});
+
+	it("holds an Invasive plan for review even on plain Approve until [SPLATES MERGE]", () => {
+		const invasive = taggedPlan(
+			"Clean revert: reverting restores it",
+			"Rework upload pipeline",
+			"Invasive: replaces the core upload flow",
+		);
+		expect(
+			reviewHold({
+				messages: [
+					said("agent", invasive),
+					said("user", "Approve: Rework upload pipeline"),
+				],
+			}),
+		).toBe("invasive");
+		expect(
+			pending(
+				said("agent", invasive),
+				said("user", "Approve: Rework upload pipeline"),
+			),
+		).toBe(true);
+		expect(
+			pending(
+				said("agent", invasive),
+				said("user", "Approve: Rework upload pipeline"),
+				said("user", "[SPLATES MERGE]"),
+			),
+		).toBe(false);
+	});
+
+	it("does not hold Self-contained or Targeted plans on plain Approve, and drops the Invasive hold when replaced", () => {
+		expect(
+			pending(
+				said(
+					"agent",
+					taggedPlan(
+						"Clean revert: reverting restores it",
+						"Add upload metric",
+						"Self-contained: adds beside existing handlers",
+					),
+				),
+				said("user", "Approve: Add upload metric"),
+			),
+		).toBe(false);
+		expect(
+			pending(
+				said(
+					"agent",
+					taggedPlan(
+						"Clean revert: reverting restores it",
+						"Tune upload limit",
+						"Targeted: updates one handler",
+					),
+				),
+				said("user", "Approve: Tune upload limit"),
+			),
+		).toBe(false);
+		expect(
+			pending(
+				said(
+					"agent",
+					taggedPlan(
+						"Clean revert: reverting restores it",
+						"Rework upload pipeline",
+						"Invasive: replaces the core upload flow",
+					),
+				),
+				said("user", "Approve: Rework upload pipeline"),
+				said(
+					"agent",
+					taggedPlan(
+						"Clean revert: reverting restores it",
+						"Tune upload limit",
+						"Targeted: updates one handler",
+					),
+				),
+				said("user", "Approve: Tune upload limit"),
+			),
+		).toBe(false);
+	});
 });
 
-function taggedPlan(undo: string, title = "Drop legacy records"): string {
+function taggedPlan(
+	undo: string,
+	title = "Drop legacy records",
+	invasiveness = "Targeted: updates one migration",
+): string {
 	return `## 📝 Plan: ${title}
 
 **Goal:** Remove old upload rows.
@@ -245,5 +329,6 @@ function taggedPlan(undo: string, title = "Drop legacy records"): string {
 **Tags:**
 - ${undo}
 - Small: one migration.
+- ${invasiveness}
 - Database: deletes stored rows.`;
 }

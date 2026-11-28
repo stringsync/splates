@@ -111,9 +111,7 @@ test("a queue card with no body draws no divider directly under the header", () 
 			.querySelector("ul")
 			?.parentElement?.className.match(/\b(border|rule)-t\b/) != null,
 	).toBe(false);
-	expect(container.querySelectorAll("div.border-t, div.rule-t")).toHaveLength(
-		1,
-	);
+	expect(container.querySelectorAll("footer.border-t")).toHaveLength(1);
 });
 
 test("a blockers card with no why text draws no divider on its first blocker under the header", () => {

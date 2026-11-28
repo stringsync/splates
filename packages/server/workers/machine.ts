@@ -1,6 +1,7 @@
 import type { Fs, ListeningEntry, ProcessEntry, Ps } from "core/system";
 import { prepareScratch } from "../agents";
 import { type GitResult, type GitRunner, processGit } from "../git";
+import { descendants } from "./process-host";
 
 /** A file's size, and its bytes from where the caller last read up to. */
 export interface WorkerRead {
@@ -36,8 +37,15 @@ export interface WorkerMachine extends GitRunner {
 	/**
 	 * Stops every process whose working directory is `path` or under it,
 	 * which a dev server an agent left running, reparented away from it, is.
+	 * Pass `exclude` to leave specific pids (such as the agent finishing its
+	 * turn) alone.
 	 */
-	stopUnder(path: string): Promise<void>;
+	stopUnder(path: string, exclude?: readonly number[]): Promise<void>;
+	/**
+	 * Stops each pid in `pids` and all of its descendants, skipping this
+	 * worker process and any pids listed in `exclude`.
+	 */
+	stopProcessTree(pids: number[], exclude?: readonly number[]): Promise<void>;
 }
 
 /** The machine this process runs on, as a worker answers for it. */
@@ -67,19 +75,49 @@ export class LocalWorkerMachine implements WorkerMachine {
 		return prepareScratch(this.fs, agent, cwd, this.ps.env("HOME"));
 	}
 
-	async stopUnder(path: string): Promise<void> {
+	async stopUnder(
+		path: string,
+		exclude: readonly number[] = [],
+	): Promise<void> {
 		const found = await this.ps
 			.spawnCapture(["lsof", "-a", "-d", "cwd", "-Fpn"])
 			.catch(() => null);
 		if (found === null) {
 			return;
 		}
-		const pids = cwdPids(found.stdout, path).filter(
-			(pid) => pid !== process.pid,
-		);
+		const skip = new Set<number>([this.ps.pid, ...exclude]);
+		const pids = cwdPids(found.stdout, path).filter((pid) => !skip.has(pid));
 		if (pids.length > 0) {
 			await this.ps
 				.spawn(["kill", "-TERM", ...pids.map(String)])
+				.catch(() => {});
+		}
+	}
+
+	async stopProcessTree(
+		pids: number[],
+		exclude: readonly number[] = [],
+	): Promise<void> {
+		if (pids.length === 0) {
+			return;
+		}
+		const table = await this.ps.processes().catch(() => []);
+		const skip = new Set<number>([this.ps.pid, ...exclude]);
+		const targets = new Set<number>();
+		for (const pid of pids) {
+			if (pid <= 0 || skip.has(pid)) {
+				continue;
+			}
+			targets.add(pid);
+			for (const child of descendants(table, pid)) {
+				if (child > 0 && !skip.has(child)) {
+					targets.add(child);
+				}
+			}
+		}
+		if (targets.size > 0) {
+			await this.ps
+				.spawn(["kill", "-TERM", ...[...targets].map(String)])
 				.catch(() => {});
 		}
 	}
@@ -115,7 +153,8 @@ export function cwdPids(output: string, path: string): number[] {
 		if (line.startsWith("p")) {
 			pid = Number(line.slice(1));
 		} else if (line.startsWith("n") && pid > 0) {
-			const cwd = line.slice(1);
+			// Linux appends " (deleted)" once the worktree directory is gone.
+			const cwd = line.slice(1).replace(/ \(deleted\)$/, "");
 			if (cwd === root || cwd.startsWith(`${root}/`)) {
 				pids.push(pid);
 			}

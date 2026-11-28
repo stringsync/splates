@@ -1,8 +1,10 @@
 import type { SignalOverview } from "@splates/server/signals";
 import { ChevronDownIcon, ChevronRightIcon, SearchIcon } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { PageSection } from "./page-section";
 import { ArgumentChips } from "./signal-arguments";
 import { ago } from "./signal-of";
 import { isLive, type SignalTone, statusOf } from "./signal-status";
@@ -112,55 +114,51 @@ function ProjectCard({
 		(each) => each.probe?.state === "running" || each.probe?.state === "idle",
 	).length;
 	return (
-		<section
+		<PageSection
 			aria-label={`project ${project}`}
-			className="overflow-hidden rounded-xl border bg-card shadow-xs"
+			title={project}
+			count={`${signals.length} ${signals.length === 1 ? "signal" : "signals"}${polling > 0 ? ` · ${polling} polling` : ""}`}
 		>
-			<header className="flex items-baseline gap-2.5 border-b px-4 py-3">
-				<h2 className="font-mono font-semibold text-sm">{project}</h2>
-				<span className="text-muted-foreground text-xs">
-					{signals.length} {signals.length === 1 ? "signal" : "signals"}
-					{polling > 0 && ` · ${polling} polling`}
-				</span>
-			</header>
-			<div
-				aria-hidden
-				className={cn(
-					COLUMNS,
-					"border-b px-4 pt-2 pb-1.5 text-[11px] text-muted-foreground uppercase tracking-wide max-md:hidden",
-				)}
-			>
-				<span />
-				<span>Signal</span>
-				<span>Now</span>
-				<span>Last fired</span>
-				<span>7 days</span>
-				<span>Subscribers</span>
-				<span />
-			</div>
-			<ul className="divide-y">
-				{itemsOf(project, signals).map((item) =>
-					item.kind === "signal" ? (
-						<li key={item.signal.name}>
-							<SignalRow
-								signal={item.signal}
-								href={address(item.signal.name)}
+			<Card>
+				<div
+					aria-hidden
+					className={cn(
+						COLUMNS,
+						"border-b px-4 pt-2 pb-1.5 text-[11px] text-muted-foreground uppercase tracking-wide max-md:hidden",
+					)}
+				>
+					<span />
+					<span>Signal</span>
+					<span>Now</span>
+					<span>Last fired</span>
+					<span>7 days</span>
+					<span>Subscribers</span>
+					<span />
+				</div>
+				<ul className="divide-y">
+					{itemsOf(project, signals).map((item) =>
+						item.kind === "signal" ? (
+							<li key={item.signal.name}>
+								<SignalRow
+									signal={item.signal}
+									href={address(item.signal.name)}
+									now={now}
+								/>
+							</li>
+						) : (
+							<Family
+								key={item.namespace}
+								item={item}
+								open={opened || open.has(item.namespace)}
+								onToggle={() => toggle(item.namespace)}
+								address={address}
 								now={now}
 							/>
-						</li>
-					) : (
-						<Family
-							key={item.namespace}
-							item={item}
-							open={opened || open.has(item.namespace)}
-							onToggle={() => toggle(item.namespace)}
-							address={address}
-							now={now}
-						/>
-					),
-				)}
-			</ul>
-		</section>
+						),
+					)}
+				</ul>
+			</Card>
+		</PageSection>
 	);
 }
 

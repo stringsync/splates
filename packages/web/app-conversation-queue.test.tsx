@@ -138,7 +138,7 @@ describe("App's composer queue", () => {
 		).toBeNull();
 		expect(
 			within(runningRow).getByRole("button", {
-				name: "Add comparison strip command",
+				name: /Add comparison strip command/,
 			}),
 		).toBeTruthy();
 		const queuedRow = view.getByText("#4136").closest("li") as HTMLLIElement;
@@ -187,7 +187,7 @@ describe("App's composer queue", () => {
 		expect(within(row).queryByText("done")).toBeNull();
 		await act(async () =>
 			fireEvent.click(
-				await within(row).findByRole("button", { name: "Fix upload" }),
+				await within(row).findByRole("button", { name: /Fix upload/ }),
 			),
 		);
 		expect(

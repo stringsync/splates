@@ -54,16 +54,16 @@ export function permissionOf(
 		};
 	}
 	if (permission !== null) {
-		const lane = permission[2] ?? permission[3] ?? permission[6];
+		const lane = permission[1] ?? permission[4];
 		return {
-			action: permission[1] === undefined ? "queue" : "remove-lane",
+			action: "queue",
 			lane: lane === undefined ? null : Number(lane),
 			tasks: Array.from(
-				(permission[5] ?? permission[7] ?? "").matchAll(/\d+/g),
+				(permission[3] ?? permission[5] ?? "").matchAll(/\d+/g),
 				Number,
 			),
-			...(permission[4] === undefined ? {} : { project: permission[4] }),
-			title: permission[8] || null,
+			...(permission[2] === undefined ? {} : { project: permission[2] }),
+			title: permission[6] || null,
 			body: body.replace(COMMAND_LINE, "").replace(/^\n+|\s+$/g, ""),
 		};
 	}
@@ -72,16 +72,16 @@ export function permissionOf(
 
 /**
  * A permission card an agent's reply ends with, asking the person to allow
- * what an agent never does itself: queue a lane or tasks, remove a lane, run
- * a heavy command, or grant one project reach into another. The card's buttons
+ * what an agent never does itself: queue a lane or tasks, run a heavy
+ * command, or grant one project reach into another. The card's buttons
  * act on it.
  */
 export interface PermissionProposal {
 	/**
-	 * What it asks: queue work, remove a lane with its tasks, or run a heavy
-	 * command, the whole test suite among them.
+	 * What it asks: queue work, or run a heavy command, the whole test suite
+	 * among them.
 	 */
-	action: "queue" | "remove-lane" | "run-command";
+	action: "queue" | "run-command";
 	/**
 	 * For `queue`: the other project, by its slug, whose tasks it queues;
 	 * absent for the conversation's own.
@@ -106,11 +106,11 @@ const RUN_PERMISSION = /^## 🔐 Permission: run command(?::[ \t]*(.*?))?[ \t]*$
 /** A run-command card's `Reason: busy` line: one word, on a line of its own. */
 const RUN_REASON = /^Reason:[ \t]*([A-Za-z-]+)[ \t]*$/;
 const RUN_COMMAND = /^`([^`\n]+)`[ \t]*$/;
-// `## 🔐 Permission: queue lane <n>: <name>`, `queue #<n>, #<n>: <what>`
-// (`queue <project> #<n>` for another project's tasks) or `remove lane <n>:
-// <name>`; the older `## 📥 Queue ...` titles read as the queue ones.
+// `## 🔐 Permission: queue lane <n>: <name>` or `queue #<n>, #<n>: <what>`
+// (`queue <project> #<n>` for another project's tasks); the older
+// `## 📥 Queue ...` titles read as the queue ones.
 const PERMISSION =
-	/^## (?:🔐 Permission: (?:(remove) lane (\d+)|queue (?:lane (\d+)|(?:([\w.-]+) )?(#\d+(?:,[ \t]*#\d+)*)))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
+	/^## (?:🔐 Permission: queue (?:lane (\d+)|(?:([\w.-]+) )?(#\d+(?:,[ \t]*#\d+)*))|📥 Queue (?:lane (\d+)|(#\d+(?:,[ \t]*#\d+)*)))(?::[ \t]*(.*?))?[ \t]*$/;
 /**
  * A queue card's line of the command that queues its work from a terminal,
  * `` `splates lane queue 7` ``, which the card shows on its own row.

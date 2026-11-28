@@ -144,7 +144,6 @@ export class AntigravityBackground implements Resource {
 			description: command,
 			toolCallId: id,
 			command,
-			canStop: false,
 			...(task.log === null ? {} : { outputFilePath: task.log }),
 		});
 	}

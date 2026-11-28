@@ -148,27 +148,8 @@ describe("TrustStore & TrustRoutes", () => {
 		]);
 	});
 
-	it("supports static/dynamic mode, manual dynamic set, and reset to 50 via store and HTTP routes", async () => {
+	it("supports band overrides, auto mode, reset, and legacy 0–100 migration via store and HTTP routes", async () => {
 		const routes = new TrustRoutes(store);
-		const putDynamicValue = await routes.update(
-			new Request("http://localhost/api/trust", {
-				method: "PUT",
-				body: JSON.stringify({
-					project: "/repo",
-					agent: "claude",
-					model: "Opus 4.6",
-					value: 72,
-				}),
-			}),
-		);
-		expect(putDynamicValue.status).toBe(200);
-		const dynSetBody = (await putDynamicValue.json()) as {
-			entry: { score: number; dynamicScore: number; mode: string };
-		};
-		expect(dynSetBody.entry.score).toBe(72);
-		expect(dynSetBody.entry.dynamicScore).toBe(72);
-		expect(dynSetBody.entry.mode).toBe("dynamic");
-
 		const putStatic = await routes.update(
 			new Request("http://localhost/api/trust", {
 				method: "PUT",
@@ -177,16 +158,25 @@ describe("TrustStore & TrustRoutes", () => {
 					agent: "claude",
 					model: "Opus 4.6",
 					mode: "static",
-					value: 75,
+					band: "ask-and-go",
 				}),
 			}),
 		);
 		expect(putStatic.status).toBe(200);
 		const staticBody = (await putStatic.json()) as {
-			entry: { score: number; mode: string };
+			entry: {
+				band: string;
+				earnedBand: string;
+				mode: string;
+				pinnedBand: string;
+			};
+			setting: { mode: string; band: string };
 		};
-		expect(staticBody.entry.score).toBe(75);
+		expect(staticBody.entry.band).toBe("ask-and-go");
+		expect(staticBody.entry.earnedBand).toBe("ask-and-wait");
 		expect(staticBody.entry.mode).toBe("static");
+		expect(staticBody.entry.pinnedBand).toBe("ask-and-go");
+		expect(staticBody.setting.band).toBe("ask-and-go");
 
 		const putDynamic = await routes.update(
 			new Request("http://localhost/api/trust", {
@@ -200,10 +190,11 @@ describe("TrustStore & TrustRoutes", () => {
 			}),
 		);
 		const dynamicBody = (await putDynamic.json()) as {
-			entry: { mode: string; score: number };
+			entry: { mode: string; band: string; earnedBand: string };
 		};
 		expect(dynamicBody.entry.mode).toBe("dynamic");
-		expect(dynamicBody.entry.score).toBe(72);
+		expect(dynamicBody.entry.band).toBe("ask-and-wait");
+		expect(dynamicBody.entry.earnedBand).toBe("ask-and-wait");
 
 		const putReset = await routes.update(
 			new Request("http://localhost/api/trust", {
@@ -217,11 +208,17 @@ describe("TrustStore & TrustRoutes", () => {
 			}),
 		);
 		const resetBody = (await putReset.json()) as {
-			entry: { mode: string; score: number; dynamicScore: number };
+			entry: {
+				mode: string;
+				band: string;
+				pinnedBand: string | null;
+				standing: { sessions: number };
+			};
 		};
 		expect(resetBody.entry.mode).toBe("dynamic");
-		expect(resetBody.entry.score).toBe(50);
-		expect(resetBody.entry.dynamicScore).toBe(50);
+		expect(resetBody.entry.band).toBe("ask-and-wait");
+		expect(resetBody.entry.pinnedBand).toBeNull();
+		expect(resetBody.entry.standing.sessions).toBe(0);
 
 		const listRes = await routes.list(
 			new Request("http://localhost/api/trust?project=/repo"),
@@ -252,6 +249,59 @@ describe("TrustStore & TrustRoutes", () => {
 		);
 		const decBody = (await decisionsRes.json()) as { decisions: unknown[] };
 		expect(decBody.decisions).toHaveLength(1);
+	});
+
+	it("migrates legacy numeric static settings transparently on read and save", async () => {
+		const lowKey = { project: "/repo", agent: "claude", model: "Haiku" };
+		const midKey = { project: "/repo", agent: "claude", model: "Sonnet" };
+		const highKey = { project: "/repo", agent: "claude", model: "Opus" };
+		await fs.write(
+			"/home/.splates/trust-settings.json",
+			JSON.stringify({
+				settings: {
+					"/repo\0claude\0Haiku": {
+						...lowKey,
+						mode: "static",
+						value: 60,
+						dynamicBase: 65,
+						dynamicAt: AT,
+						resetAt: null,
+						updatedAt: AT,
+					},
+					"/repo\0claude\0Sonnet": {
+						...midKey,
+						mode: "static",
+						value: 80,
+						resetAt: null,
+						updatedAt: AT,
+					},
+					"/repo\0claude\0Opus": {
+						...highKey,
+						mode: "static",
+						value: 95,
+						resetAt: null,
+						updatedAt: AT,
+					},
+				},
+			}),
+		);
+
+		const reopened = new TrustStore(new FsStorage("/home/.splates", fs));
+		expect((await reopened.entryFor(lowKey)).band).toBe("ask-and-wait");
+		expect((await reopened.entryFor(midKey)).band).toBe("ask-and-go");
+		expect((await reopened.entryFor(highKey)).band).toBe("assume");
+
+		// Saving an update persists the clean band format without legacy numeric fields.
+		await reopened.setDynamic(lowKey, "2026-11-26T00:00:00.000Z");
+		const saved = JSON.parse(
+			await fs.read("/home/.splates/trust-settings.json"),
+		) as { settings: Record<string, Record<string, unknown>> };
+		const savedLow = saved.settings["/repo\0claude\0Haiku"];
+		expect(savedLow?.band).toBe("ask-and-wait");
+		expect(savedLow?.mode).toBe("dynamic");
+		expect("value" in (savedLow ?? {})).toBe(false);
+		expect("dynamicBase" in (savedLow ?? {})).toBe(false);
+		expect("dynamicAt" in (savedLow ?? {})).toBe(false);
 	});
 
 	it("returns pending rule suggestions filtered by project", async () => {

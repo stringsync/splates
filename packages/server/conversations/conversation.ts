@@ -15,6 +15,7 @@ import { finishObservation } from "../models";
 import {
 	conversationHandOffReference,
 	handOffReference,
+	need,
 	RECONNECT,
 	taskReference,
 } from "../plans";
@@ -74,6 +75,13 @@ const RECONNECTS = 3;
 const RECONNECT_WAIT = Duration.secs(2);
 
 /**
+ * How long to wait after leaving a worktree mid-turn before sweeping processes
+ * left inside it, so the `splates merge` or `splates remove` that told us can
+ * exit cleanly first.
+ */
+const LEAVE_SWEEP_WAIT = Duration.secs(2);
+
+/**
  * One conversation with one agent. Live, it holds the agent's process; read
  * back from its log, it is what was said, and resumes on the next prompt.
  */
@@ -101,8 +109,14 @@ export class Conversation
 	private resting: Resource | null = null;
 	/** When the page last said it shows this, closer than the log keeps it; null since a restart. */
 	private lastVisit: string | null = null;
-	/** Set when it left its task's worktree mid-turn: stop once the turn ends. */
-	private leftWorktree = false;
+	/** The worktree left mid-turn: stop once the turn ends and sweep any leftover processes. */
+	private leftWorktreeDir: string | null = null;
+	/** Whether the task left this turn landed via merge, ready to archive once the turn ends. */
+	private landedForArchive = false;
+	/** Whether `finishArchiveAfterMerge` is already archiving this conversation. */
+	private archivingAfterMerge = false;
+	/** Sweeps leftover processes in a deleted worktree after leaving it mid-turn. */
+	private sweeping: Resource | null = null;
 	/** Says `[SPLATES RECONNECT]` once its wait is up; null while none is due. */
 	private reconnecting: Resource | null = null;
 	/** How many times in a row it has reconnected by itself. */
@@ -492,7 +506,7 @@ export class Conversation
 	}
 
 	/** Says `text` to the agent, with `files` (see `ConversationTurns`). */
-	prompt(
+	async prompt(
 		text: string,
 		files: Upload[] = [],
 		from?: Device,
@@ -502,6 +516,26 @@ export class Conversation
 		// plan, so only theirs is checked against the latest one.
 		if (opts.person === true && opts.told === undefined) {
 			refuseStalePlanDecision(text, this.state);
+			if (opts.archiveAfterMerge === true) {
+				const wasArmed = this.state.archiveAfterMerge === true;
+				this.landedForArchive = false;
+				if (!wasArmed) {
+					this.setArchiveAfterMerge(true);
+				}
+				try {
+					await this.say(text, files, from, opts);
+					return;
+				} catch (error) {
+					if (!wasArmed) {
+						this.setArchiveAfterMerge(false);
+					}
+					throw error;
+				}
+			}
+			if (this.state.archiveAfterMerge === true) {
+				this.landedForArchive = false;
+				this.setArchiveAfterMerge(false);
+			}
 		}
 		return this.say(text, files, from, opts);
 	}
@@ -539,6 +573,8 @@ export class Conversation
 
 	/** Stops the agent's turn for the person, and stays open for the next. */
 	cancel(): Promise<void> {
+		this.landedForArchive = false;
+		this.setArchiveAfterMerge(false);
 		return this.turns.cancel();
 	}
 
@@ -753,20 +789,34 @@ export class Conversation
 		cwd: string,
 		base: string | null = null,
 		caller: string | null = null,
+		{ merged = false }: { merged?: boolean } = {},
 	): void {
 		// A running session keeps the directory it opened in, which a merge
 		// deletes under it. Stop once its turn (or an awaited background
 		// command's wakeup turn) ends, or right away when idle with nothing
 		// awaited, so the next prompt resumes in the new directory.
-		const leaving = task === null && this.dir !== cwd;
+		const oldDir = this.dir;
+		const leftTask = task === null && this.state.task !== null;
+		const leaving = task === null && oldDir !== null && oldDir !== cwd;
 		const stopNow =
 			leaving &&
 			this.state.status === "idle" &&
 			awaited(this.state).length === 0;
-		this.leftWorktree =
+		const waitForTurn =
 			leaving &&
 			(this.state.status === "running" ||
 				(this.state.status === "idle" && awaited(this.state).length > 0));
+		const archive = merged && leftTask && this.state.archiveAfterMerge === true;
+		this.leftWorktreeDir = waitForTurn ? oldDir : null;
+		this.landedForArchive =
+			archive &&
+			(waitForTurn ||
+				this.state.status !== "idle" ||
+				awaited(this.state).length > 0);
+		if (!merged && leftTask && this.state.archiveAfterMerge === true) {
+			this.landedForArchive = false;
+			this.setArchiveAfterMerge(false);
+		}
 		this.dir = cwd;
 		this.log.write({
 			kind: "task",
@@ -781,9 +831,48 @@ export class Conversation
 			lastBase: task === null ? this.state.lastBase : base,
 			lastCaller: callerAfter(this.state, task, caller),
 		});
-		if (stopNow) {
-			void this.stop();
+		if (leaving) {
+			if (stopNow) {
+				const archiveNow = archive && !this.waitsAfterMerge();
+				if (archive && !archiveNow) {
+					this.setArchiveAfterMerge(false);
+				}
+				void (archiveNow ? this.finishArchiveAfterMerge() : this.stop()).then(
+					() => this.deps.machine.stopUnder(oldDir).catch(() => {}),
+				);
+			} else if (waitForTurn) {
+				this.sweepLeftWorktree(oldDir);
+			} else {
+				const agentPid = this.connection.pid;
+				const exclude = agentPid === null ? [] : [agentPid];
+				void this.deps.machine.stopUnder(oldDir, exclude).catch(() => {});
+			}
+		} else if (
+			archive &&
+			this.state.status === "idle" &&
+			awaited(this.state).length === 0
+		) {
+			if (this.waitsAfterMerge()) {
+				this.setArchiveAfterMerge(false);
+			} else {
+				void this.finishArchiveAfterMerge();
+			}
 		}
+	}
+
+	/**
+	 * Sweeps processes left in `dir` after a short wait so the `splates merge`
+	 * or `splates remove` that moved us off it exits cleanly first, leaving the
+	 * agent itself alive to finish its reply.
+	 */
+	private sweepLeftWorktree(dir: string): void {
+		this.sweeping?.dispose();
+		this.sweeping = this.deps.timer.setTimeout(() => {
+			this.sweeping = null;
+			const agentPid = this.connection.pid;
+			const exclude = agentPid === null ? [] : [agentPid];
+			void this.deps.machine.stopUnder(dir, exclude).catch(() => {});
+		}, LEAVE_SWEEP_WAIT);
 	}
 
 	/**
@@ -1223,6 +1312,8 @@ export class Conversation
 		this.leftRunning.dispose();
 		this.resting?.dispose();
 		this.reconnecting?.dispose();
+		this.sweeping?.dispose();
+		this.sweeping = null;
 		this.unlistenDrain?.();
 		void this.stop();
 	}
@@ -1351,8 +1442,41 @@ export class Conversation
 		this.changed();
 	}
 
+	/** Arms or clears archiving once the pending merge lands cleanly. */
+	private setArchiveAfterMerge(armed: boolean): void {
+		if ((this.state.archiveAfterMerge === true) === armed) {
+			return;
+		}
+		this.log.write({ kind: "archive-after-merge", armed });
+		if (armed) {
+			this.set({ archiveAfterMerge: true });
+		} else {
+			delete this.state.archiveAfterMerge;
+			this.changed();
+		}
+	}
+
+	/** Whether the finished reply left a card waiting on the person, holding archive back. */
+	private waitsAfterMerge(): boolean {
+		return need(null, this.state).kind === "waiting";
+	}
+
+	/** Archives once the merged task's turn finishes, preventing duplicate runs. */
+	private async finishArchiveAfterMerge(): Promise<void> {
+		if (this.archivingAfterMerge || this.state.archived) {
+			return;
+		}
+		this.archivingAfterMerge = true;
+		try {
+			await this.archive();
+		} finally {
+			this.archivingAfterMerge = false;
+		}
+	}
+
 	set(next: Partial<ConversationState>): void {
 		// Kept, so a log whose process died mid-turn reads back as cut short.
+		const wasStatus = this.state.status;
 		const running = next.status === "running";
 		if (
 			next.status !== undefined &&
@@ -1369,9 +1493,53 @@ export class Conversation
 		}
 		Object.assign(this.state, next);
 		this.changed();
-		if (next.status === "idle" && this.leftWorktree) {
-			this.leftWorktree = false;
-			void this.stop();
+		if (next.ask != null && this.state.archiveAfterMerge === true) {
+			this.landedForArchive = false;
+			this.setArchiveAfterMerge(false);
+		}
+		if (next.status === "idle" && this.leftWorktreeDir !== null) {
+			const left = this.leftWorktreeDir;
+			this.leftWorktreeDir = null;
+			this.sweeping?.dispose();
+			this.sweeping = null;
+			const armed =
+				this.landedForArchive && this.state.archiveAfterMerge === true;
+			const archive = armed && !this.waitsAfterMerge();
+			this.landedForArchive = false;
+			if (armed && !archive) {
+				this.setArchiveAfterMerge(false);
+			}
+			void (archive ? this.finishArchiveAfterMerge() : this.stop()).then(() =>
+				this.deps.machine.stopUnder(left).catch(() => {}),
+			);
+		} else if (
+			this.state.archiveAfterMerge === true &&
+			!this.archivingAfterMerge
+		) {
+			if (
+				this.landedForArchive &&
+				this.state.status === "idle" &&
+				awaited(this.state).length === 0
+			) {
+				this.landedForArchive = false;
+				if (this.waitsAfterMerge()) {
+					this.setArchiveAfterMerge(false);
+				} else {
+					void this.finishArchiveAfterMerge();
+				}
+			} else if (
+				!this.landedForArchive &&
+				this.opening === null &&
+				!this.state.messages.some((each) => each.queued) &&
+				(next.status === "stopped" ||
+					next.status === "failed" ||
+					(wasStatus === "running" &&
+						next.status === "idle" &&
+						awaited(this.state).length === 0 &&
+						!this.hasRunningMergeCommand()))
+			) {
+				this.setArchiveAfterMerge(false);
+			}
 		}
 		// An agent that asks on a worker already draining lets its place go too,
 		// and one whose turn ends on a worker being replaced moves off it.
@@ -1391,13 +1559,15 @@ export class Conversation
 		this.dispatcher.dispatch("changed");
 	}
 
+	private hasRunningMergeCommand(): boolean {
+		return this.state.background.some(
+			(each) => each.state === "running" && isMergeCommand(each.command),
+		);
+	}
+
 	/** Whether this conversation currently has an active merge under way. */
 	private async merging(): Promise<boolean> {
-		if (
-			this.state.background.some(
-				(each) => each.state === "running" && isMergeCommand(each.command),
-			)
-		) {
+		if (this.hasRunningMergeCommand()) {
 			return true;
 		}
 		const { task } = this.state;
@@ -1422,9 +1592,7 @@ export class Conversation
 				// left, does not hold it up: it ends with the agent's process.
 				// An active background merge does hold it up.
 				awaited(this.state).length === 0 &&
-				!this.state.background.some(
-					(each) => each.state === "running" && isMergeCommand(each.command),
-				) &&
+				!this.hasRunningMergeCommand() &&
 				ask === null &&
 				checkpoint === null
 			);

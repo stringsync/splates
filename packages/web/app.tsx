@@ -45,7 +45,6 @@ import { useWaiting } from "./next-waiting";
 import { Notifications } from "./notifications";
 import { useOfflineIcon } from "./offline-icon";
 import { OpenerContext, openerOf } from "./openers";
-import { PageDialogs } from "./page-dialogs";
 import { usePageMenu } from "./page-menu";
 import { PageReadings, PageReadingsContext } from "./page-readings";
 import {
@@ -61,7 +60,8 @@ import { shownProject, useProjectName } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import { searchedIn } from "./searched-in";
-import type { Settings } from "./settings";
+import { CATEGORIES, type Category, type Settings } from "./settings";
+import { SettingsPage } from "./settings-page";
 import { SetupProvider } from "./setup-state";
 import { SharedTerminals } from "./shared-terminals";
 import { WatchShipStep } from "./ship-step-pane";
@@ -241,6 +241,7 @@ export function App({
 		[go],
 	);
 	const pick = (found: Found) => {
+		setSetting(false);
 		if (found.kind === "task") {
 			openTask(found.task);
 		} else if (found.kind === "conversation") {
@@ -270,6 +271,9 @@ export function App({
 		[snapshot, talk, navigation, openConversation],
 	);
 	const [setting, setSetting] = useState(false);
+	const [settingsCategory, setSettingsCategory] = useState<Category>(
+		CATEGORIES[0],
+	);
 	const pageMenu = usePageMenu({
 		snapshot,
 		outdated,
@@ -451,7 +455,7 @@ export function App({
 																										: null
 																								}
 																								onSettings={() =>
-																									setSetting(true)
+																									setSetting((was) => !was)
 																								}
 																								onTerminal={
 																									shown === null
@@ -471,73 +475,93 @@ export function App({
 																									autoRestart={autoRestart}
 																									timer={timer}
 																								>
-																									{wide ? (
-																										<DesktopApp
-																											page={page}
-																											open={open}
-																											go={go}
-																											name={name}
-																											bodies={bodies}
-																											opening={opening}
-																											paned={paned}
-																											available={available}
-																											snapshot={snapshot}
-																											outdated={outdated}
-																											offline={offline}
-																											talk={talk}
-																											drafts={drafts}
-																											terminals={terminals}
-																											menu={pageMenu}
+																									{setting ? (
+																										<SettingsPage
+																											settings={settings}
+																											wide={wide}
+																											picked={settingsCategory}
+																											onPick={
+																												setSettingsCategory
+																											}
+																											onClose={() =>
+																												setSetting(false)
+																											}
+																											onWelcome={() => {
+																												setSetting(false);
+																												go("welcome");
+																											}}
+																											project={name}
 																										/>
 																									) : (
-																										<PhoneApp
-																											page={page}
-																											open={open}
-																											go={go}
-																											name={name}
-																											header={header}
-																											offline={offline}
-																											body={
-																												bodies === null ? (
-																													opening
-																												) : (
-																													<div
-																														className={
-																															PHONE_PAGES[page]
-																														}
-																													>
-																														{bodies[page]}
-																													</div>
-																												)
-																											}
-																											available={available}
-																											waiting={
-																												counted ? waiting : 0
-																											}
-																											snapshot={snapshot}
-																											talk={talk}
-																											drafts={drafts}
-																											terminals={terminals}
-																											pageMenu={pageMenu}
-																										/>
+																										<>
+																											{wide ? (
+																												<DesktopApp
+																													page={page}
+																													open={open}
+																													go={go}
+																													name={name}
+																													bodies={bodies}
+																													opening={opening}
+																													paned={paned}
+																													available={available}
+																													snapshot={snapshot}
+																													outdated={outdated}
+																													offline={offline}
+																													talk={talk}
+																													drafts={drafts}
+																													terminals={terminals}
+																													menu={pageMenu}
+																													onSettings={() =>
+																														setSetting(true)
+																													}
+																												/>
+																											) : (
+																												<PhoneApp
+																													page={page}
+																													open={open}
+																													go={go}
+																													name={name}
+																													header={header}
+																													offline={offline}
+																													body={
+																														bodies === null ? (
+																															opening
+																														) : (
+																															<div
+																																className={
+																																	PHONE_PAGES[
+																																		page
+																																	]
+																																}
+																															>
+																																{bodies[page]}
+																															</div>
+																														)
+																													}
+																													available={available}
+																													waiting={
+																														counted
+																															? waiting
+																															: 0
+																													}
+																													snapshot={snapshot}
+																													talk={talk}
+																													drafts={drafts}
+																													terminals={terminals}
+																													pageMenu={pageMenu}
+																													onSettings={() =>
+																														setSetting(true)
+																													}
+																												/>
+																											)}
+																											{pane}
+																										</>
 																									)}
-																									{pane}
 																									<SearchDialog
 																										handle={searchDialog}
 																										searched={searched}
 																										feed={talk}
 																										pick={pick}
-																									/>
-																									<PageDialogs
-																										settings={settings}
-																										settingsOpen={setting}
-																										onSettingsOpenChange={
-																											setSetting
-																										}
-																										onWelcome={() =>
-																											go("welcome")
-																										}
-																										project={name}
 																									/>
 																									<WelcomeLanding go={go} />
 																								</ConversationCheckpoint>

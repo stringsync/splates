@@ -1,5 +1,3 @@
-// @ts-nocheck: playwright-core is not a dependency; the path comes from PLAYWRIGHT_CORE
-
 // biome-ignore-all lint: a throwaway harness that drives the page through window globals
 
 /**
@@ -31,6 +29,7 @@ const port = 4790;
 
 const { chromium } = (await import(
 	process.env.PLAYWRIGHT_CORE ?? "playwright-core"
+	// @ts-expect-error: playwright-core is not a dependency; the path comes from PLAYWRIGHT_CORE
 )) as typeof import("playwright-core");
 
 const home = mkdtempSync(join(tmpdir(), "profile-phone-"));
@@ -182,7 +181,7 @@ await page.waitForTimeout(2000);
 const cdp = await context.newCDPSession(page);
 await cdp.send("Emulation.setCPUThrottlingRate", { rate: slowdown });
 for (const each of [open, ...quiet]) {
-	await page.evaluate((s) => (window as any).__say(null, s), each);
+	await page.evaluate((s: unknown) => (window as any).__say(null, s), each);
 }
 await page.waitForTimeout(1000);
 await cdp.send("Profiler.enable");
@@ -200,15 +199,18 @@ while (Date.now() - start < seconds * 1000) {
 	grown.parts = [
 		{ type: "text", text: `${text(1)} ${"streamed word ".repeat(words)}` },
 	];
-	await page.evaluate((delta) => (window as any).__say("delta", delta), {
-		id: OPEN,
-		changes: {},
-		removed: [],
-		messages: {
-			length: open.messages.length,
-			replace: [[open.messages.length - 1, grown]],
+	await page.evaluate(
+		(delta: unknown) => (window as any).__say("delta", delta),
+		{
+			id: OPEN,
+			changes: {},
+			removed: [],
+			messages: {
+				length: open.messages.length,
+				replace: [[open.messages.length - 1, grown]],
+			},
 		},
-	});
+	);
 	await Bun.sleep(40);
 }
 const { profile } = (await cdp.send("Profiler.stop")) as {

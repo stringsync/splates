@@ -7,9 +7,12 @@ import {
 	type AssumptionView,
 	BAND_LABELS,
 	bandOf,
+	isTrustBand,
 	KIND_LABELS,
+	type TrustBand,
 	type TrustEntry,
 	type TrustPosture,
+	type TrustStanding,
 	TrustStore,
 } from "@splates/server/trust";
 import { cli } from "core/cmd";
@@ -36,6 +39,22 @@ export function parseAgentTarget(
 	return { agent, model: modelFlag.trim() === "" ? null : modelFlag.trim() };
 }
 
+/** Formats an agent/model pair for display. */
+function modelLabel(entry: { agent: string; model: string | null }): string {
+	return entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
+}
+
+/** Formats session-bounded standing metrics compactly for CLI output. */
+export function formatStanding(standing: TrustStanding): string {
+	const sessions = `${standing.sessions} ${standing.sessions === 1 ? "session" : "sessions"}`;
+	const days = `${standing.activeDays} ${standing.activeDays === 1 ? "day" : "days"}`;
+	const parts = [sessions, days];
+	if (standing.agreement !== null) {
+		parts.push(`${standing.agreement}% agreed`);
+	}
+	return parts.join(", ");
+}
+
 /** Formats trust entries as a readable plain-text summary table. */
 export function formatTrustList(
 	entries: readonly TrustEntry[],
@@ -46,40 +65,40 @@ export function formatTrustList(
 	}
 	return entries
 		.map((entry) => {
-			const label = entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
+			const label = modelLabel(entry);
 			const mode =
 				entry.mode === "static"
-					? `static (dynamic ${entry.dynamicScore})`
-					: "dynamic";
-			const counts = `${entry.counts.kept} kept, ${entry.counts.amended} amended, ${entry.counts.overturned} overturned`;
-			const kinds = entry.kinds
-				.filter((k) => k.counts.total > 0)
-				.map((k) => `${k.kind}:${k.score}`)
-				.join(" ");
-			const breakdown = kinds === "" ? "" : `  [${kinds}]`;
+					? `pinned (earned ${BAND_LABELS[entry.earnedBand]})`
+					: "auto";
+			const standing = formatStanding(entry.standing);
+			const asking =
+				enabled && entry.asking.length > 0
+					? `  ask first on ${entry.asking.map((kind) => KIND_LABELS[kind]).join(", ")}`
+					: "";
 			const project = [basename(entry.project), entry.scope]
 				.filter(Boolean)
 				.join(" · ");
-			return `${project}  ${label}  ${entry.score}/100  ${BAND_LABELS[bandOf(entry, enabled)]}  ${mode}  (${counts})${breakdown}`;
+			return `${project}  ${label}  ${BAND_LABELS[bandOf(entry, enabled)]}  ${mode}  (${standing})${asking}`;
 		})
 		.join("\n");
 }
 
 /**
- * The `trust:` line `splates add` and `claim` print: the score, the band the
- * skill reads to ask or assume, and the kinds an overturn sent back to asking.
+ * The `trust:` line `splates add` and `claim` print: the effective band the
+ * skill reads to ask or assume, `auto` vs `pinned`, compact earned standing,
+ * and any kinds an overturn sent back to asking.
  */
 export function formatPosture(posture: TrustPosture): string {
 	const { entry, band, asking } = posture;
-	const label = entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
-	const decisions = `${entry.counts.total} decision${entry.counts.total === 1 ? "" : "s"}`;
-	const mode = entry.mode === "static" ? "static" : decisions;
-	const details = [entry.scope, mode].filter(Boolean).join(", ");
+	const label = modelLabel(entry);
+	const mode = entry.mode === "static" ? "pinned" : "auto";
+	const standing = formatStanding(entry.standing);
+	const details = [entry.scope, mode, standing].filter(Boolean).join(", ");
 	const back =
 		asking.length === 0
 			? ""
 			: `; ask first on ${asking.map((kind) => KIND_LABELS[kind]).join(", ")} (overturned)`;
-	return `  trust:    ${entry.score}/100 for ${label} (${details}): ${BAND_LABELS[band]}${back}`;
+	return `  trust:    ${BAND_LABELS[band]} for ${label} (${details})${back}`;
 }
 
 /**
@@ -117,20 +136,47 @@ export async function printTrust(
 
 /** One assumption as `splates trust assumptions` lists it. */
 export function formatAssumption(each: AssumptionView): string {
-	const label = each.model ? `${each.agent}/${each.model}` : each.agent;
+	const label = modelLabel(each);
 	const what = each.overturned
 		? `overturned: ${each.assumed} → ${each.overturned.instead}`
 		: `${each.assumed} (vs ${each.alternative})`;
 	return `${each.at.slice(0, 16).replace("T", " ")}  ${basename(each.project)}  ${label}  ${KIND_LABELS[each.kind]}  ${what}  [${each.conversation} #${each.number}]`;
 }
 
+/** Parses a trust band argument for CLI override commands. */
+export function parseTrustBand(input: string): TrustBand {
+	const normalized = input.trim().toLowerCase();
+	if (isTrustBand(normalized)) {
+		return normalized;
+	}
+	fail(
+		"usage",
+		`trust level must be "ask-and-wait", "ask-and-go", or "assume", got ${input}`,
+	);
+}
+
+/** Parses `auto` or a pinned trust band for `splates trust set`. */
+export function parseSetLevel(input: string): "auto" | TrustBand {
+	const normalized = input.trim().toLowerCase();
+	if (normalized === "auto") {
+		return "auto";
+	}
+	if (isTrustBand(normalized)) {
+		return normalized;
+	}
+	fail(
+		"usage",
+		`trust level must be "auto", "ask-and-wait", "ask-and-go", or "assume", got ${input}`,
+	);
+}
+
 /**
- * `splates trust`: inspect and manage per project × agent/model trust scores
- * and static/dynamic settings.
+ * `splates trust`: inspect and manage per project × agent/model earned trust
+ * levels and band overrides.
  */
 export const splatesTrust = cli<SplatesDeps>("trust")
 	.description(
-		"list, set, reset, and switch between static and dynamic trust scores per project and agent/model",
+		"list, set, pin, reset, and switch trust levels per project and agent/model",
 	)
 	.fallback("list");
 
@@ -138,7 +184,7 @@ splatesTrust
 	.command("list")
 	.use(repository({ needs: "read" }))
 	.description(
-		"list trust scores for this project (or every project with --all)",
+		"list trust levels for this project (or every project with --all)",
 	)
 	.option("all", z.boolean(), {
 		default: false,
@@ -209,13 +255,69 @@ splatesTrust
 	.command("set")
 	.use(repository({ needs: "read" }))
 	.description(
-		"set a model's trust value (0-100) for this project, keeping its current mode (dynamic or static); pass <agent> or <agent>/<model>",
+		"set a model to auto or pin a trust level (ask-and-wait, ask-and-go, assume) for this project; pass <agent> or <agent>/<model>",
 	)
 	.arg("target", z.string(), {
 		description: "agent or agent/model (e.g. claude/Opus 4.6)",
 	})
-	.arg("value", z.coerce.number(), {
-		description: "trust value from 0 to 100",
+	.arg("level", z.string(), {
+		description: "auto, ask-and-wait, ask-and-go, or assume",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "model name, when not given as <agent>/<model>",
+	})
+	.action(async (opts, ctx) => {
+		const { agent, model } = parseAgentTarget(opts.target, opts.model);
+		const level = parseSetLevel(opts.level);
+		const store = new TrustStore(ctx.machine);
+		const key = { project: ctx.git.root, agent, model };
+		if (level === "auto") {
+			await store.setDynamic(key);
+		} else {
+			await store.setStatic(key, level);
+		}
+		const entry = await store.entryFor(key);
+		const label = modelLabel(entry);
+		ctx.log.info(
+			entry.mode === "static"
+				? `${label} pinned to ${BAND_LABELS[entry.band]}`
+				: `${label} set to auto (${BAND_LABELS[entry.band]})`,
+		);
+	});
+
+splatesTrust
+	.command("static")
+	.use(repository({ needs: "read" }))
+	.description(
+		"pin a model to a trust level (ask-and-wait, ask-and-go, or assume)",
+	)
+	.arg("target", z.string(), {
+		description: "agent or agent/model",
+	})
+	.arg("band", z.string(), {
+		description: "trust level to pin: ask-and-wait, ask-and-go, or assume",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "model name, when not given as <agent>/<model>",
+	})
+	.action(async (opts, ctx) => {
+		const { agent, model } = parseAgentTarget(opts.target, opts.model);
+		const band = parseTrustBand(opts.band);
+		const store = new TrustStore(ctx.machine);
+		const key = { project: ctx.git.root, agent, model };
+		await store.setStatic(key, band);
+		const entry = await store.entryFor(key);
+		ctx.log.info(`${modelLabel(entry)} pinned to ${BAND_LABELS[entry.band]}`);
+	});
+
+splatesTrust
+	.command("dynamic")
+	.use(repository({ needs: "read" }))
+	.description("switch a model back to auto (earned) trust")
+	.arg("target", z.string(), {
+		description: "agent or agent/model",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -225,80 +327,18 @@ splatesTrust
 		const { agent, model } = parseAgentTarget(opts.target, opts.model);
 		const store = new TrustStore(ctx.machine);
 		const key = { project: ctx.git.root, agent, model };
-		await store.setValue(key, opts.value);
+		await store.setDynamic(key);
 		const entry = await store.entryFor(key);
-		const label = entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
-		ctx.log.info(`${label} set to ${entry.mode} ${entry.score}/100`);
-	});
-
-splatesTrust
-	.command("static")
-	.use(repository({ needs: "read" }))
-	.description(
-		"switch a model to static trust (optionally setting its 0-100 value)",
-	)
-	.arg("target", z.string(), {
-		description: "agent or agent/model",
-	})
-	.arg("value", z.string(), {
-		default: "",
-		description: "optional static trust value from 0 to 100",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "model name, when not given as <agent>/<model>",
-	})
-	.action(async (opts, ctx) => {
-		const { agent, model } = parseAgentTarget(opts.target, opts.model);
-		const value = opts.value === "" ? undefined : Number(opts.value);
-		const store = new TrustStore(ctx.machine);
-		const setting = await store.setMode(
-			{ project: ctx.git.root, agent, model },
-			"static",
-			value,
+		ctx.log.info(
+			`${modelLabel(entry)} set to auto (${BAND_LABELS[entry.band]})`,
 		);
-		const label = setting.model
-			? `${setting.agent}/${setting.model}`
-			: setting.agent;
-		ctx.log.info(`${label} set to static ${setting.value}/100`);
-	});
-
-splatesTrust
-	.command("dynamic")
-	.use(repository({ needs: "read" }))
-	.description(
-		"switch a model back to dynamic trust (optionally setting its starting 0-100 value)",
-	)
-	.arg("target", z.string(), {
-		description: "agent or agent/model",
-	})
-	.arg("value", z.string(), {
-		default: "",
-		description: "optional starting dynamic trust value from 0 to 100",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "model name, when not given as <agent>/<model>",
-	})
-	.action(async (opts, ctx) => {
-		const { agent, model } = parseAgentTarget(opts.target, opts.model);
-		const value = opts.value === "" ? undefined : Number(opts.value);
-		const store = new TrustStore(ctx.machine);
-		await store.setMode(
-			{ project: ctx.git.root, agent, model },
-			"dynamic",
-			value,
-		);
-		const entry = await store.entryFor({ project: ctx.git.root, agent, model });
-		const label = entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
-		ctx.log.info(`${label} set to dynamic (${entry.score}/100)`);
 	});
 
 splatesTrust
 	.command("reset")
 	.use(repository({ needs: "read" }))
 	.description(
-		"reset a model's trust history for this project and return to dynamic mode",
+		"reset a model's trust history for this project and return to auto mode",
 	)
 	.arg("target", z.string(), {
 		description: "agent or agent/model",
@@ -312,6 +352,7 @@ splatesTrust
 		const store = new TrustStore(ctx.machine);
 		await store.reset({ project: ctx.git.root, agent, model });
 		const entry = await store.entryFor({ project: ctx.git.root, agent, model });
-		const label = entry.model ? `${entry.agent}/${entry.model}` : entry.agent;
-		ctx.log.info(`${label} trust reset (dynamic ${entry.score}/100)`);
+		ctx.log.info(
+			`${modelLabel(entry)} trust reset (auto, ${BAND_LABELS[entry.band]})`,
+		);
 	});

@@ -8,27 +8,22 @@ export type SidebarEvents = { changed: undefined };
 const WIDTH = "splates.sidebarWidth";
 /** Where a hidden sidebar is kept hidden between visits. */
 const HIDDEN = "splates.sidebarHidden";
-/** Where folded pages are kept folded between visits. */
-const PAGES_FOLDED = "splates.sidebarPagesFolded";
-/** Where a custom height for the pages list is kept between visits. */
-const PAGES_HEIGHT = "splates.sidebarPagesHeight";
+/** Where expanded secondary workspace pages are kept between visits. */
+const MORE_PAGES = "splates.sidebarMorePages";
 
 /** In pixels: the width it starts at, `w-56`, and how far it can go. */
 export const DEFAULT_WIDTH = 224;
 export const MIN_WIDTH = 192;
 export const MAX_WIDTH = 480;
 
-/** Safety cap for a persisted custom height of the sidebar's pages list. */
-export const MAX_PAGES_HEIGHT = 600;
-
 /** How far an arrow key moves an edge. */
 const STEP = 16;
 
 /**
  * Whether the sidebar shows, how wide it is, in pixels, always within
- * `MIN_WIDTH` and `MAX_WIDTH`, and whether its pages show above the
- * conversations, at their natural height, a custom dragged height, or folded
- * away. `storage` keeps all of these for the next visit, when given.
+ * `MIN_WIDTH` and `MAX_WIDTH`, and whether secondary Workspace pages under
+ * `More` are expanded. `storage` keeps all of these for the next visit, when
+ * given.
  */
 export class Sidebar implements Eventful<SidebarEvents> {
 	private readonly dispatcher = new Dispatcher<SidebarEvents>();
@@ -36,20 +31,13 @@ export class Sidebar implements Eventful<SidebarEvents> {
 
 	width: number;
 	shown: boolean;
-	pagesShown: boolean;
-	/** Custom height of the pages list in pixels, or null for natural height. */
-	pagesHeight: number | null;
+	moreShown: boolean;
 
 	constructor(private readonly storage: Storage = new NoopStorage()) {
 		const kept = Number(storage.getItem(WIDTH) ?? Number.NaN);
 		this.width = Number.isFinite(kept) ? clamp(kept) : DEFAULT_WIDTH;
 		this.shown = (storage.getItem(HIDDEN) ?? null) === null;
-		this.pagesShown = (storage.getItem(PAGES_FOLDED) ?? null) === null;
-		const keptHeight = Number(storage.getItem(PAGES_HEIGHT) ?? Number.NaN);
-		this.pagesHeight =
-			this.pagesShown && Number.isFinite(keptHeight) && keptHeight > 0
-				? clampPagesHeight(keptHeight)
-				: null;
+		this.moreShown = storage.getItem(MORE_PAGES) === "1";
 	}
 
 	/** Hides it when shown and shows it when hidden, as its shortcut does. */
@@ -63,48 +51,15 @@ export class Sidebar implements Eventful<SidebarEvents> {
 		this.dispatcher.dispatch("changed");
 	}
 
-	/** Folds the pages away when they show and unfolds them when folded. */
-	togglePages(): void {
-		this.pagesShown = !this.pagesShown;
-		this.pagesHeight = null;
-		this.keepPagesHeight();
-		this.dispatcher.dispatch("changed");
-	}
-
-	/**
-	 * Sets the pages list height: `null` for natural full height, `<= 0` to
-	 * fold it away, or a positive pixel height.
-	 */
-	setPagesHeight(height: number | null): void {
-		const nextShown = height === null || height > 0;
-		const nextHeight =
-			height === null || height <= 0 ? null : clampPagesHeight(height);
-		if (nextShown === this.pagesShown && nextHeight === this.pagesHeight) {
-			return;
-		}
-		this.pagesShown = nextShown;
-		this.pagesHeight = nextHeight;
-		this.dispatcher.dispatch("changed");
-	}
-
-	/** Keeps the pages height/fold state for the next visit. */
-	keepPagesHeight(): void {
-		if (!this.pagesShown) {
-			this.storage.setItem(PAGES_FOLDED, "1");
-			this.storage.removeItem(PAGES_HEIGHT);
-		} else if (this.pagesHeight === null) {
-			this.storage.removeItem(PAGES_FOLDED);
-			this.storage.removeItem(PAGES_HEIGHT);
+	/** Expands or collapses the secondary Workspace pages under `More`. */
+	toggleMore(): void {
+		this.moreShown = !this.moreShown;
+		if (this.moreShown) {
+			this.storage.setItem(MORE_PAGES, "1");
 		} else {
-			this.storage.removeItem(PAGES_FOLDED);
-			this.storage.setItem(PAGES_HEIGHT, String(this.pagesHeight));
+			this.storage.removeItem(MORE_PAGES);
 		}
-	}
-
-	/** Restores the pages list to its natural full height, keeping nothing. */
-	resetPagesHeight(): void {
-		this.setPagesHeight(null);
-		this.keepPagesHeight();
+		this.dispatcher.dispatch("changed");
 	}
 
 	/** Moves the edge to `width`, as near as the range allows. */
@@ -134,10 +89,6 @@ export class Sidebar implements Eventful<SidebarEvents> {
 
 function clamp(width: number): number {
 	return Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, width)));
-}
-
-function clampPagesHeight(height: number): number {
-	return Math.round(Math.min(MAX_PAGES_HEIGHT, Math.max(1, height)));
 }
 
 /**

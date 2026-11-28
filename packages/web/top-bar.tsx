@@ -94,7 +94,7 @@ export function TopBar({
 		<>
 			<div
 				ref={restart}
-				className="flex w-20 shrink-0 items-center justify-end max-md:empty:hidden md:w-24"
+				className="flex shrink-0 items-center justify-end empty:hidden"
 			>
 				{frame?.dot !== undefined ? (
 					<RestartButton
@@ -499,10 +499,3 @@ function Kebab({
 		</DropdownMenu>
 	);
 }
-
-/**
- * How tall a conversation's page is beside a sidebar: the screen, less the
- * bar above it and the padding below.
- */
-export const BELOW_BAR =
-	"h-[calc(100dvh-var(--page-header-height,var(--top-bar-height))-1rem)]";

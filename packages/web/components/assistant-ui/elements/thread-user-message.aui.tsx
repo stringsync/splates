@@ -501,9 +501,9 @@ const UserCopy: FC = () => (
  * Room at the box's start for the mic a dictated message shows, in the top
  * corner by its first line.
  */
-const DICTATED_BOX = "ps-9";
+const DICTATED_BOX = "ps-9 max-sm:ps-10";
 const DICTATED_MIC =
-	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:top-4 max-sm:size-3.5";
+	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-4 max-sm:top-4.5 max-sm:size-3.5";
 /**
  * A message cut to four lines (twelve on a phone), fading out where it is cut,
  * and opened or closed again by a click (or Enter) when there is more than

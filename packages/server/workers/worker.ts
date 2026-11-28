@@ -43,6 +43,7 @@ export const CALL_BOUNDS: CallBounds = {
 	listening: Duration.mins(1),
 	scratch: Duration.mins(1),
 	stopUnder: Duration.mins(1),
+	stopProcessTree: Duration.mins(1),
 };
 
 /**
@@ -188,8 +189,25 @@ export class ConnectedWorker implements WorkerMachine {
 		await this.call({ method: "scratch", agent, cwd });
 	}
 
-	async stopUnder(path: string): Promise<void> {
-		await this.call({ method: "stopUnder", path });
+	async stopUnder(path: string, exclude?: readonly number[]): Promise<void> {
+		await this.call({
+			method: "stopUnder",
+			path,
+			...(exclude !== undefined && exclude.length > 0
+				? { exclude: [...exclude] }
+				: {}),
+		});
+	}
+
+	async stopProcessTree(
+		pids: number[],
+		exclude?: readonly number[],
+	): Promise<void> {
+		await this.call({
+			method: "stopProcessTree",
+			pids,
+			...(exclude === undefined ? {} : { exclude: [...exclude] }),
+		});
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

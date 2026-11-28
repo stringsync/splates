@@ -1,10 +1,12 @@
 import type { BoardSeries } from "@splates/server/stats/browser";
 import type { JSX } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "#web/components/ui/tooltip.tsx";
+import { PageSection } from "./page-section";
 import { axis, type Bucket, type Period } from "./stats-report";
 
 /** Categorical slots in styles.css, validated there. */
@@ -37,14 +39,11 @@ export function TasksByBoard({
 	// Drawn bottom up in legend order, the board with the most at the base.
 	const stacked = [...boards].reverse();
 	return (
-		<section
-			aria-label="Tasks by board"
-			className="flex min-w-0 flex-col gap-4 text-foreground"
-		>
-			<h3 className="font-medium text-xs">Tasks by board</h3>
-			<figure
+		<PageSection title="Tasks by board" as="h3" className="text-foreground">
+			<Card
+				render={<figure />}
 				aria-label="Tasks ended over the period by board"
-				className="flex flex-col gap-3 rounded-lg border p-3"
+				className="flex flex-col gap-3 p-4"
 			>
 				<figcaption className="flex flex-col gap-2">
 					<ul className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
@@ -138,8 +137,8 @@ export function TasksByBoard({
 					No board counts tasks never queued in a lane; Unknown, those that
 					ended before boards were kept.
 				</p>
-			</figure>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }
 

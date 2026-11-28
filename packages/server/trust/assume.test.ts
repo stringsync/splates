@@ -125,22 +125,22 @@ describe("assumptions and overturns", () => {
 		store = new TrustStore(new FsStorage("/home/.splates", new FakeFs()));
 	});
 
-	it("pauses every project's posture while preserving scores and model edits", async () => {
+	it("pauses every project's posture while preserving pinned bands and model edits", async () => {
 		const other = { ...KEY, project: "/other" };
-		await store.setStatic(KEY, 95);
-		await store.setStatic(other, 82);
+		await store.setStatic(KEY, "assume");
+		await store.setStatic(other, "ask-and-go");
 		const before = await store.list();
 		expect((await store.posture(KEY)).band).toBe("assume");
 		await store.setEnabled(false);
 		expect((await store.posture(KEY)).band).toBe("ask-and-wait");
 		expect((await store.posture(other)).band).toBe("ask-and-wait");
 		expect(await store.list()).toEqual(before);
-		await store.setStatic(other, 85);
+		await store.setStatic(other, "ask-and-go");
 		expect(await store.enabled()).toBe(false);
 		await store.setEnabled(true);
 		expect((await store.posture(KEY)).band).toBe("assume");
 		expect((await store.posture(other)).band).toBe("ask-and-go");
-		expect((await store.entryFor(other)).score).toBe(85);
+		expect((await store.entryFor(other)).pinnedBand).toBe("ask-and-go");
 	});
 
 	const thread = () =>

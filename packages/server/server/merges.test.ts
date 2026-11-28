@@ -167,7 +167,7 @@ describe("unapprovedWhy", () => {
 			await unapprovedWhy(project, trustAt("ask-and-wait", 59), [
 				talk(["agent", plan]),
 			]),
-		).toContain("59/100");
+		).toContain("ask and wait");
 	});
 
 	it("lets an approved plan, or ask-and-go trust, land", async () => {
@@ -184,12 +184,12 @@ describe("unapprovedWhy", () => {
 	});
 
 	it("refuses at high trust when trusted decisions are paused", async () => {
-		// Paused trust puts every agent in ask-and-wait, whatever its score.
+		// Paused trust puts every agent in ask-and-wait, whatever its earned level.
 		expect(
 			await unapprovedWhy(project, trustAt("ask-and-wait", 95), [
 				talk(["agent", plan]),
 			]),
-		).toContain("95/100");
+		).toContain("ask and wait");
 	});
 
 	it("lets a trusted agent that asked anyway land, approved or not", async () => {
@@ -274,6 +274,43 @@ describe("unapprovedWhy", () => {
 					talk(
 						["agent", tagged("Revert + cleanup: drop the table by hand")],
 						["user", "Approve: Drop legacy records"],
+					),
+				]),
+			).toBeNull();
+		});
+
+		it("holds an Invasive plan until a merge review is approved, and lets Self-contained and Targeted land", () => {
+			const tagged = (invasiveness: string) =>
+				`## 📝 Plan: Rework upload pipeline\n\n**Goal:** Replace upload flow.\n\n**Tags:**\n- Clean revert: reverting restores it\n- ${invasiveness}`;
+			const invasive = tagged("Invasive: reworks the core upload pipeline");
+			const why = unreviewedWhy([
+				talk(["agent", invasive], ["user", "Approve: Rework upload pipeline"]),
+			]);
+			expect(why).toContain("Invasive");
+			expect(why).toContain("[SPLATES MERGE]");
+			expect(
+				unreviewedWhy([
+					talk(
+						["agent", invasive],
+						["user", "Approve: Rework upload pipeline"],
+						["agent", "## 👀 Ready to merge alpha"],
+						["user", "[SPLATES MERGE]"],
+					),
+				]),
+			).toBeNull();
+			expect(
+				unreviewedWhy([
+					talk(
+						["agent", tagged("Self-contained: adds beside existing handlers")],
+						["user", "Approve: Rework upload pipeline"],
+					),
+				]),
+			).toBeNull();
+			expect(
+				unreviewedWhy([
+					talk(
+						["agent", tagged("Targeted: adjusts one handler")],
+						["user", "Approve: Rework upload pipeline"],
 					),
 				]),
 			).toBeNull();

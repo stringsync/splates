@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -23,13 +24,13 @@ import {
 	DialogTitle,
 } from "#web/components/ui/dialog.tsx";
 import { Input } from "#web/components/ui/input.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import {
 	Tabs,
 	TabsContent,
 	TabsList,
 	TabsTrigger,
 } from "#web/components/ui/tabs.tsx";
+import { LoadingState } from "#web/pending.tsx";
 import {
 	deleteRecSession,
 	openRecFolder,
@@ -38,6 +39,7 @@ import {
 	recVideoUrl,
 	renameRecSession,
 } from "./api";
+import { PageSection } from "./page-section";
 import { bytesText, clock } from "./rec-format";
 import { FailedLogs, Logs } from "./rec-session-logs";
 
@@ -70,7 +72,7 @@ export function RecSession({
 				No session named {name}. It may have been deleted.
 			</p>
 		) : (
-			<Skeleton className="h-40 w-full animate-pulse" />
+			<LoadingState label="Loading session" />
 		);
 	}
 	const seekSeconds = (seconds: number) => {
@@ -87,7 +89,7 @@ export function RecSession({
 			(error: unknown) => setProblem((error as Error).message),
 		);
 	return (
-		<section aria-label={name} className="flex min-w-0 flex-col gap-4">
+		<PageSection label={name} className="gap-4">
 			<div className="flex flex-wrap items-center gap-2">
 				<code className="font-medium text-sm">#{session.name}</code>
 				<Button
@@ -145,7 +147,7 @@ export function RecSession({
 						controls
 						preload="metadata"
 						src={recVideoUrl(session.name)}
-						className="max-h-[60vh] w-full rounded-lg border bg-black"
+						className="max-h-[60vh] w-full rounded-xl border bg-black"
 					/>
 					<Ticks session={session} seek={seek} />
 					<p className="text-muted-foreground text-xs">
@@ -246,7 +248,7 @@ export function RecSession({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</section>
+		</PageSection>
 	);
 }
 
@@ -363,48 +365,50 @@ function Moments({
 		return <p className="text-muted-foreground text-sm">No moments.</p>;
 	}
 	return (
-		<ul className="flex flex-col divide-y rounded-lg border bg-card px-3">
-			{[...session.momentList]
-				.sort((left, right) => left.start - right.start)
-				.map((moment) => {
-					const line = lineOf(moment);
-					return (
-						<li key={moment.rank} className="py-2">
-							<button
-								type="button"
-								onClick={() => seek(moment)}
-								className="flex w-full min-w-0 flex-col gap-0.5 text-left text-sm"
-							>
-								<span className="flex items-center gap-2">
-									<span className="shrink-0 font-mono tabular-nums">
-										{clock((moment.start - session.startedAt) / 1000)}
+		<Card>
+			<CardList>
+				{[...session.momentList]
+					.sort((left, right) => left.start - right.start)
+					.map((moment) => {
+						const line = lineOf(moment);
+						return (
+							<li key={moment.rank} className="px-4 py-2">
+								<button
+									type="button"
+									onClick={() => seek(moment)}
+									className="flex w-full min-w-0 flex-col gap-0.5 text-left text-sm"
+								>
+									<span className="flex items-center gap-2">
+										<span className="shrink-0 font-mono tabular-nums">
+											{clock((moment.start - session.startedAt) / 1000)}
+										</span>
+										<span className="truncate">
+											{moment.said ?? moment.pointed ?? "No words"}
+										</span>
+										<span className="ml-auto shrink-0 text-muted-foreground text-xs">
+											score {moment.score.toFixed(2)}
+										</span>
 									</span>
-									<span className="truncate">
-										{moment.said ?? moment.pointed ?? "No words"}
-									</span>
-									<span className="ml-auto shrink-0 text-muted-foreground text-xs">
-										score {moment.score.toFixed(2)}
-									</span>
-								</span>
-								{moment.signals.length > 0 && (
-									<span
-										className={`text-xs ${isErrorMoment(moment) ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
-									>
-										{[
-											...new Set(moment.signals.map((each) => each.signal)),
-										].join(", ")}
-									</span>
-								)}
-								{line !== null && (
-									<span className="truncate font-mono text-muted-foreground text-xs">
-										{line}
-									</span>
-								)}
-							</button>
-						</li>
-					);
-				})}
-		</ul>
+									{moment.signals.length > 0 && (
+										<span
+											className={`text-xs ${isErrorMoment(moment) ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
+										>
+											{[
+												...new Set(moment.signals.map((each) => each.signal)),
+											].join(", ")}
+										</span>
+									)}
+									{line !== null && (
+										<span className="truncate font-mono text-muted-foreground text-xs">
+											{line}
+										</span>
+									)}
+								</button>
+							</li>
+						);
+					})}
+			</CardList>
+		</Card>
 	);
 }
 
@@ -457,34 +461,36 @@ function Timeline({
 					</button>
 				))}
 			</div>
-			<ul className="flex flex-col divide-y rounded-lg border bg-card px-3">
-				{shown.map((entry, index) => (
-					<li
-						// biome-ignore lint/suspicious/noArrayIndexKey: entries have no id and never reorder
-						key={index}
-					>
-						<button
-							type="button"
-							onClick={() => seekTo(entry.at)}
-							className={`flex w-full min-w-0 gap-2 py-2 text-left text-sm ${
-								entry.error
-									? "border-red-600 border-l-2 pl-2 text-red-600 dark:text-red-400"
-									: ""
-							} ${entry.kind === "said" || entry.kind === "remark" ? "font-medium" : ""}`}
+			<Card>
+				<CardList>
+					{shown.map((entry, index) => (
+						<li
+							// biome-ignore lint/suspicious/noArrayIndexKey: entries have no id and never reorder
+							key={index}
 						>
-							<span className="w-12 shrink-0 pt-0.5 font-mono text-muted-foreground text-xs tabular-nums">
-								{clock(entry.at)}
-							</span>
-							<span className="min-w-0">
-								<span className="mr-1.5 rounded bg-muted px-1 text-[10px] text-muted-foreground uppercase">
-									{entry.kind}
+							<button
+								type="button"
+								onClick={() => seekTo(entry.at)}
+								className={`flex w-full min-w-0 gap-2 px-4 py-2 text-left text-sm ${
+									entry.error
+										? "border-red-600 border-l-2 pl-2 text-red-600 dark:text-red-400"
+										: ""
+								} ${entry.kind === "said" || entry.kind === "remark" ? "font-medium" : ""}`}
+							>
+								<span className="w-12 shrink-0 pt-0.5 font-mono text-muted-foreground text-xs tabular-nums">
+									{clock(entry.at)}
 								</span>
-								<span className="break-words">{entry.text}</span>
-							</span>
-						</button>
-					</li>
-				))}
-			</ul>
+								<span className="min-w-0">
+									<span className="mr-1.5 rounded bg-muted px-1 text-[10px] text-muted-foreground uppercase">
+										{entry.kind}
+									</span>
+									<span className="break-words">{entry.text}</span>
+								</span>
+							</button>
+						</li>
+					))}
+				</CardList>
+			</Card>
 		</div>
 	);
 }

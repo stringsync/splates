@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
+import type { Resource } from "core/disposable";
 import type { Logger } from "core/log";
 import { FileLock, type Fs, type Ps } from "core/system";
 import { splatesHome } from "../models";
@@ -52,7 +53,7 @@ export const PREMERGE_HOLD_MS = 3 * 60 * 1000;
  * A lock that lets its holder go after `holdMs`. `renew` it before each
  * bounded step of work, with the step's own bound when that is longer.
  */
-export class TimedLock implements PlacedLock {
+export class TimedLock implements PlacedLock, Resource {
 	// A holder that never finishes must not keep it forever; its own `release`
 	// after it has let go does nothing. The wait passes through to `inner`, the
 	// place in line it tells and the signal included.
@@ -95,7 +96,10 @@ export class TimedLock implements PlacedLock {
 		this.#timer.unref();
 	}
 
-	// vet-ignore resources-are-disposable: `Lock` names it release, as every lock splates takes does.
+	dispose(): void {
+		this.#stop();
+	}
+
 	async release(): Promise<void> {
 		this.#stop();
 		await this.inner.release();

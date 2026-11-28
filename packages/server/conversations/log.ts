@@ -268,6 +268,15 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				state.archived = entry.archived;
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
+				if (entry.archived) {
+					delete state.archiveAfterMerge;
+				}
+			} else if (entry.kind === "archive-after-merge") {
+				if (entry.armed) {
+					state.archiveAfterMerge = true;
+				} else {
+					delete state.archiveAfterMerge;
+				}
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "pin") {

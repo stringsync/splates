@@ -21,6 +21,7 @@ import {
 } from "@splates/server/board/browser";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -46,6 +47,7 @@ import { BoardMenu } from "./board-menu";
 import { saveBoard } from "./board-places";
 import { NameField, SortableRow } from "./board-row";
 import { BoardTile, SortableTile } from "./board-tile";
+import { PageSection } from "./page-section";
 
 /** Pass these operations to BoardSwitcher to create, edit, move, or delete boards. */
 export interface BoardActions {
@@ -252,9 +254,9 @@ export function BoardSwitcher({
 		);
 	};
 	const naming = (initial: string) => (
-		<div className="flex h-full min-h-28 items-center rounded-lg border bg-card p-3 shadow-sm">
+		<Card className="flex h-full min-h-28 items-center p-3">
 			<NameField initial={initial} onDone={(value) => void submit(value)} />
-		</div>
+		</Card>
 	);
 	const tile = (board: BoardRecord) =>
 		editing === board.id ? (
@@ -271,15 +273,9 @@ export function BoardSwitcher({
 		);
 	const grid =
 		"grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-2 lg:grid-cols-3";
-	const heading = (text: string) => (
-		<h3 className="pb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-			{text}
-		</h3>
-	);
 	const builtInSection =
 		mode === "index" && (builtIn !== undefined || pinned.length > 0) ? (
-			<section aria-label="Built-in boards" className="flex flex-col">
-				{heading("Built in")}
+			<PageSection title="Built in" as="h3" label="Built-in boards">
 				<ul className={grid}>
 					{builtIn}
 					{pinned.map((board) => (
@@ -288,13 +284,12 @@ export function BoardSwitcher({
 						</li>
 					))}
 				</ul>
-			</section>
+			</PageSection>
 		) : null;
 	const index = (
 		<>
 			{builtInSection}
-			<section aria-label="Your boards" className="flex flex-col">
-				{heading("Your boards")}
+			<PageSection title="Your boards" as="h3" label="Your boards">
 				<DndContext
 					sensors={sensors}
 					collisionDetection={closestCenter}
@@ -331,7 +326,7 @@ export function BoardSwitcher({
 						</ul>
 					</SortableContext>
 				</DndContext>
-			</section>
+			</PageSection>
 			{refused === null ? null : (
 				<p role="alert" className="text-destructive text-xs">
 					{refused}

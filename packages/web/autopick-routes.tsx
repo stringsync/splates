@@ -8,6 +8,7 @@ import { useReactive } from "core/react";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -58,7 +59,7 @@ export function RoutesTab({
 	};
 	const clear = () => setPicked([]);
 	return (
-		<div className="min-w-0 rounded-xl border bg-card p-3">
+		<Card className="min-w-0 p-3">
 			<div className="overflow-x-auto p-0.5">
 				<fieldset
 					disabled={saving}
@@ -156,7 +157,7 @@ export function RoutesTab({
 						: "Pick one or more cells to send them to another lineup."}
 				</p>
 			)}
-		</div>
+		</Card>
 	);
 }
 

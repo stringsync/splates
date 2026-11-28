@@ -646,4 +646,31 @@ describe("App's card answer boxes", () => {
 			within(card(view, "2")).queryByRole("button", { name: "Image 1" }),
 		).toBeNull();
 	});
+
+	it("anchors the action buttons to the bottom-right corner in a tall empty box", async () => {
+		resize(390, 844);
+		const freeform = conversation({
+			title: "Header",
+			messages: [
+				message("user", "fix the header"),
+				message("agent", "1. What looks off at 390px?"),
+			],
+		});
+		const view = await testing.openConversations([freeform]);
+		await toThread(view);
+		await clickShown(() =>
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /1 question for you/ }),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "1 question for you" }),
+		);
+		const suffix = within(sheet)
+			.getByRole("button", { name: "Dictate" })
+			.closest("div");
+		expect(suffix?.className).toContain("bottom-0");
+		expect(suffix?.className).toContain("right-0");
+		expect(suffix?.className).not.toContain("inset-y-0");
+	});
 });

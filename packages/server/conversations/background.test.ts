@@ -322,6 +322,21 @@ describe("Conversation background", () => {
 		expect(agent.stoppedBackground).toEqual([]);
 	});
 
+	it("refuses to stop one explicitly marked canStop: false", async () => {
+		leaves("b1", "bun dev", {
+			...backgroundStarted("b2", "Locked", "t-b2"),
+			canStop: false,
+		} as unknown as acp.SessionUpdate);
+		const conversation = await started();
+		await conversation.prompt("serve it");
+		await until(conversation, "idle");
+
+		expect(conversation.stopBackground("b2")).rejects.toThrow(
+			"cannot be stopped from here",
+		);
+		expect(agent.stoppedBackground).toEqual([]);
+	});
+
 	it("forgets them as its process ends, and as it reads back the log", async () => {
 		leaves("b1", "bun dev");
 		const conversation = await started();

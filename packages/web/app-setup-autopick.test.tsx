@@ -34,6 +34,9 @@ describe("App's Autopick setup", () => {
 	const openAutopick = async (todos: Snapshot["todos"] = []) => {
 		const view = await testing.open({ todos });
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		// The Setup page is a chunk fetched as it first opens.

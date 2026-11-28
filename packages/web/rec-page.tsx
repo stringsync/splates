@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -23,6 +24,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { Dispatching } from "./dispatching";
 import { HistoryRow, PLANNER_COLUMN } from "./history-row";
 import { cn } from "./lib/utils";
+import { PageSection } from "./page-section";
 import { RecCloudLogs } from "./rec-cloud-logs";
 import { bytesText } from "./rec-format";
 import { groupSources } from "./rec-groups";
@@ -271,18 +273,8 @@ function RecStart(): JSX.Element {
 			<TopBar title="Rec" />
 			<div className={cn(PLANNER_COLUMN, "gap-4")}>
 				<HistoryRow href="#rec/history" summary={summary} />
-				<div className="flex flex-col gap-1">
-					<h1 className="font-medium text-base">
-						Show an agent what went wrong
-					</h1>
-					<p className="text-muted-foreground text-sm">
-						Rec opens Chrome on a profile of its own. You browse and talk; it
-						saves what you said, where you pointed, and the console, network and
-						server logs, so an agent can act on it without watching video.
-					</p>
-				</div>
 				{state !== null && !available && (
-					<p role="alert" className="rounded-lg border p-4 text-sm">
+					<p role="alert" className="rounded-xl border p-4 text-sm">
 						Rec is not on this server's PATH. It comes with splates: install{" "}
 						<code>@stringsync/splates</code> globally (<code>bun add -g</code>)
 						so its <code>rec</code> is on the PATH, then restart the server;
@@ -307,200 +299,202 @@ function RecStart(): JSX.Element {
 						onClosed={() => recState().then(setState, () => {})}
 					/>
 				) : (
-					<div className="flex flex-col gap-4 rounded-lg border bg-card p-4">
-						<div className="grid gap-4">
-							<div className="flex flex-col gap-1.5 text-sm">
-								<label htmlFor={nameId} className="font-medium">
-									Session name
-								</label>
-								<span className="flex gap-2">
-									<Input
-										id={nameId}
-										value={name}
-										onChange={(event) => setName(event.target.value)}
-										className="flex-1 font-mono"
-									/>
-									<Button
-										type="button"
-										variant="secondary"
-										size="icon"
-										aria-label="Suggest another name"
-										disabled={!available}
-										onClick={suggest}
-									>
-										<DicesIcon />
-									</Button>
-								</span>
+					<PageSection title="New session">
+						<Card className="flex flex-col gap-4 p-4">
+							<div className="grid gap-4">
+								<div className="flex flex-col gap-1.5 text-sm">
+									<label htmlFor={nameId} className="font-medium">
+										Session name
+									</label>
+									<span className="flex gap-2">
+										<Input
+											id={nameId}
+											value={name}
+											onChange={(event) => setName(event.target.value)}
+											className="flex-1 font-mono"
+										/>
+										<Button
+											type="button"
+											variant="secondary"
+											size="icon"
+											aria-label="Suggest another name"
+											disabled={!available}
+											onClick={suggest}
+										>
+											<DicesIcon />
+										</Button>
+									</span>
+								</div>
 							</div>
-						</div>
-						<div className="flex flex-col gap-2 text-sm">
-							<span className="font-medium">Also follow</span>
-							{followed.length > 0 && (
-								<ul className="flex flex-col divide-y rounded-md border px-3">
-									{groups.map((group) => {
-										const on = group.sources.filter(
-											(each) => chosen[`docker:${each.name}`] ?? false,
-										).length;
-										const all = on === group.sources.length;
-										return (
-											<Fragment key={`group:${group.project}`}>
-												<li className="-mx-3 flex items-center gap-3 bg-muted/40 px-3 py-2">
-													<Badge variant="secondary">
-														{group.project === "" ? "Docker" : "Compose"}
-													</Badge>
-													<span className="flex-1 truncate font-medium text-xs">
-														{group.project === "" ? "Other" : group.project}
-														<span className="ml-2 font-normal text-muted-foreground">
-															{on} of {group.sources.length} on
-														</span>
-													</span>
-													<Switch
-														aria-label={`Follow every container in ${group.project === "" ? "Other" : group.project}`}
-														checked={on > 0}
-														className={
-															on > 0 && !all ? "opacity-60" : undefined
-														}
-														onCheckedChange={() =>
-															setChosen({
-																...chosen,
-																...Object.fromEntries(
-																	group.sources.map((each) => [
-																		`docker:${each.name}`,
-																		!all,
-																	]),
-																),
-															})
-														}
-													/>
-												</li>
-												{group.sources.map((each) => (
-													<li
-														key={`docker:${each.name}`}
-														className="flex items-center gap-3 py-2 pl-3"
-													>
-														<Badge variant="secondary">Docker</Badge>
-														<span className="flex-1 truncate font-mono text-xs">
-															{each.name}
+							<div className="flex flex-col gap-2 text-sm">
+								<span className="font-medium">Also follow</span>
+								{followed.length > 0 && (
+									<ul className="flex flex-col divide-y rounded-md border px-3">
+										{groups.map((group) => {
+											const on = group.sources.filter(
+												(each) => chosen[`docker:${each.name}`] ?? false,
+											).length;
+											const all = on === group.sources.length;
+											return (
+												<Fragment key={`group:${group.project}`}>
+													<li className="-mx-3 flex items-center gap-3 bg-muted/40 px-3 py-2">
+														<Badge variant="secondary">
+															{group.project === "" ? "Docker" : "Compose"}
+														</Badge>
+														<span className="flex-1 truncate font-medium text-xs">
+															{group.project === "" ? "Other" : group.project}
+															<span className="ml-2 font-normal text-muted-foreground">
+																{on} of {group.sources.length} on
+															</span>
 														</span>
 														<Switch
-															aria-label={`Follow ${each.name}`}
-															checked={chosen[`docker:${each.name}`] ?? false}
-															onCheckedChange={(next) =>
+															aria-label={`Follow every container in ${group.project === "" ? "Other" : group.project}`}
+															checked={on > 0}
+															className={
+																on > 0 && !all ? "opacity-60" : undefined
+															}
+															onCheckedChange={() =>
 																setChosen({
 																	...chosen,
-																	[`docker:${each.name}`]: next,
+																	...Object.fromEntries(
+																		group.sources.map((each) => [
+																			`docker:${each.name}`,
+																			!all,
+																		]),
+																	),
 																})
 															}
 														/>
 													</li>
-												))}
-											</Fragment>
-										);
-									})}
-									{followed
-										.filter((each) => each.kind === "file")
-										.map((each) => (
-											<li
-												key={`file:${each.name}`}
-												className="flex items-center gap-3 py-2"
-											>
-												<Badge variant="secondary">File</Badge>
-												<span className="flex-1 truncate font-mono text-xs">
-													{each.name}
-												</span>
-												<Switch
-													aria-label={`Follow ${each.name}`}
-													checked={each.on}
-													onCheckedChange={(next) =>
-														setChosen({
-															...chosen,
-															[`file:${each.name}`]: next,
-														})
-													}
-												/>
-											</li>
-										))}
-								</ul>
-							)}
-							<RecCloudLogs
-								logs={state?.logs ?? []}
-								error={state?.logsError}
-								chosen={chosen}
-								choose={(name, on) =>
-									setChosen({ ...chosen, [`logs:${name}`]: on })
-								}
-							/>
-							{state?.sourcesError !== undefined && (
-								<span className="text-muted-foreground text-xs">
-									Docker containers are not listed: {state.sourcesError}
-								</span>
-							)}
-							{adding === null ? (
-								<button
-									type="button"
-									className="w-fit text-muted-foreground text-xs hover:text-foreground"
-									onClick={() => setAdding("")}
-								>
-									+ Follow a log file
-								</button>
-							) : (
-								<form
-									className="flex gap-2"
-									onSubmit={(event) => {
-										event.preventDefault();
-										const path = adding.trim();
-										if (path !== "" && !files.includes(path)) {
-											setFiles([...files, path]);
-										}
-										setAdding(null);
-									}}
-								>
-									<Input
-										autoFocus
-										value={adding}
-										placeholder="/path/to/dev.log"
-										onChange={(event) => setAdding(event.target.value)}
-										className="font-mono"
-									/>
-									<Button type="submit" variant="secondary" size="sm">
-										Add
-									</Button>
-								</form>
-							)}
-						</div>
-						<Collapsible>
-							<CollapsibleTrigger className="text-muted-foreground text-xs hover:text-foreground">
-								Where sessions are kept
-							</CollapsibleTrigger>
-							<CollapsibleContent className="pt-1 text-muted-foreground text-xs">
-								Rec keeps 5 GB of sessions and deletes the oldest first,
-								whatever their name.
-							</CollapsibleContent>
-						</Collapsible>
-						<div className="flex items-center gap-3 border-t pt-4">
-							<span className="flex min-w-0 flex-1 flex-col gap-0.5 text-muted-foreground text-xs">
-								<span>
-									Nothing records until you press Start in Chrome's side panel
-									{state === null ? "." : ` on ${state.host}.`}
-								</span>
-								{problem !== null && (
-									<span className="text-destructive">{problem}</span>
+													{group.sources.map((each) => (
+														<li
+															key={`docker:${each.name}`}
+															className="flex items-center gap-3 py-2 pl-3"
+														>
+															<Badge variant="secondary">Docker</Badge>
+															<span className="flex-1 truncate font-mono text-xs">
+																{each.name}
+															</span>
+															<Switch
+																aria-label={`Follow ${each.name}`}
+																checked={chosen[`docker:${each.name}`] ?? false}
+																onCheckedChange={(next) =>
+																	setChosen({
+																		...chosen,
+																		[`docker:${each.name}`]: next,
+																	})
+																}
+															/>
+														</li>
+													))}
+												</Fragment>
+											);
+										})}
+										{followed
+											.filter((each) => each.kind === "file")
+											.map((each) => (
+												<li
+													key={`file:${each.name}`}
+													className="flex items-center gap-3 py-2"
+												>
+													<Badge variant="secondary">File</Badge>
+													<span className="flex-1 truncate font-mono text-xs">
+														{each.name}
+													</span>
+													<Switch
+														aria-label={`Follow ${each.name}`}
+														checked={each.on}
+														onCheckedChange={(next) =>
+															setChosen({
+																...chosen,
+																[`file:${each.name}`]: next,
+															})
+														}
+													/>
+												</li>
+											))}
+									</ul>
 								)}
-							</span>
-							<Button type="button" variant="ghost" size="sm" onClick={reset}>
-								Reset
-							</Button>
-							<Button
-								className="rounded-md bg-destructive px-4 text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
-								variant="destructive"
-								disabled={!available || opening || name.trim() === ""}
-								onClick={open}
-							>
-								<Circle className="size-3 fill-current" />
-								Rec
-							</Button>
-						</div>
-					</div>
+								<RecCloudLogs
+									logs={state?.logs ?? []}
+									error={state?.logsError}
+									chosen={chosen}
+									choose={(name, on) =>
+										setChosen({ ...chosen, [`logs:${name}`]: on })
+									}
+								/>
+								{state?.sourcesError !== undefined && (
+									<span className="text-muted-foreground text-xs">
+										Docker containers are not listed: {state.sourcesError}
+									</span>
+								)}
+								{adding === null ? (
+									<button
+										type="button"
+										className="w-fit text-muted-foreground text-xs hover:text-foreground"
+										onClick={() => setAdding("")}
+									>
+										+ Follow a log file
+									</button>
+								) : (
+									<form
+										className="flex gap-2"
+										onSubmit={(event) => {
+											event.preventDefault();
+											const path = adding.trim();
+											if (path !== "" && !files.includes(path)) {
+												setFiles([...files, path]);
+											}
+											setAdding(null);
+										}}
+									>
+										<Input
+											autoFocus
+											value={adding}
+											placeholder="/path/to/dev.log"
+											onChange={(event) => setAdding(event.target.value)}
+											className="font-mono"
+										/>
+										<Button type="submit" variant="secondary" size="sm">
+											Add
+										</Button>
+									</form>
+								)}
+							</div>
+							<Collapsible>
+								<CollapsibleTrigger className="text-muted-foreground text-xs hover:text-foreground">
+									Where sessions are kept
+								</CollapsibleTrigger>
+								<CollapsibleContent className="pt-1 text-muted-foreground text-xs">
+									Rec keeps 5 GB of sessions and deletes the oldest first,
+									whatever their name.
+								</CollapsibleContent>
+							</Collapsible>
+							<div className="flex items-center gap-3 border-t pt-4">
+								<span className="flex min-w-0 flex-1 flex-col gap-0.5 text-muted-foreground text-xs">
+									<span>
+										Nothing records until you press Start in Chrome's side panel
+										{state === null ? "." : ` on ${state.host}.`}
+									</span>
+									{problem !== null && (
+										<span className="text-destructive">{problem}</span>
+									)}
+								</span>
+								<Button type="button" variant="ghost" size="sm" onClick={reset}>
+									Reset
+								</Button>
+								<Button
+									className="rounded-md bg-destructive px-4 text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
+									variant="destructive"
+									disabled={!available || opening || name.trim() === ""}
+									onClick={open}
+								>
+									<Circle className="size-3 fill-current" />
+									Rec
+								</Button>
+							</div>
+						</Card>
+					</PageSection>
 				)}
 				<RecKeys />
 			</div>

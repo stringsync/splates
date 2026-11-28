@@ -45,13 +45,13 @@ describe("followAppearance", () => {
 		root.append(meta);
 		const { media, set } = device();
 		followAppearance(settings, root, media);
-		expect(meta.content).toBe("#f3f4f7");
+		expect(meta.content).toBe("#fafafa");
 
 		set(true);
-		expect(meta.content).toBe("#1d1f23");
+		expect(meta.content).toBe("#18181b");
 
 		await settings.set("appearance.theme", "light");
-		expect(meta.content).toBe("#f3f4f7");
+		expect(meta.content).toBe("#fafafa");
 	});
 
 	it("draws iOS's launch image in the theme's background, once a theme", async () => {
@@ -67,10 +67,10 @@ describe("followAppearance", () => {
 		};
 		const { media, set } = device();
 		followAppearance(settings, root, media, draw);
-		expect(link.getAttribute("href")).toBe("data:image/png;#f3f4f7");
+		expect(link.getAttribute("href")).toBe("data:image/png;#fafafa");
 
 		set(true);
-		expect(link.getAttribute("href")).toBe("data:image/png;#1d1f23");
-		expect(drawn).toEqual(["#f3f4f7", "#1d1f23"]);
+		expect(link.getAttribute("href")).toBe("data:image/png;#18181b");
+		expect(drawn).toEqual(["#fafafa", "#18181b"]);
 	});
 });

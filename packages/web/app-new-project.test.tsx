@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { act, cleanup, conversation, fireEvent, Testing } from "./testing";
+import {
+	act,
+	cleanup,
+	conversation,
+	fireEvent,
+	Testing,
+	within,
+} from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
 function visit(url: string): void {
@@ -59,7 +66,11 @@ describe("App's New, by project", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New" })),
+			fireEvent.click(
+				within(view.getByRole("tablist")).getByRole("button", {
+					name: "New conversation",
+				}),
+			),
 		);
 
 		expect(testing.visited).toEqual([]);

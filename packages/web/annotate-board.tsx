@@ -1,8 +1,9 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Position, Rect } from "core/geometry";
 import { useReactive } from "core/react";
-import { Undo2Icon, XIcon } from "lucide-react";
+import { Undo2Icon } from "lucide-react";
 import {
+	type CSSProperties,
 	type JSX,
 	type KeyboardEvent,
 	type PointerEvent,
@@ -10,7 +11,6 @@ import {
 	useEffect,
 	useRef,
 	useState,
-	useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
 import { Button } from "#web/components/ui/button.tsx";
@@ -19,8 +19,15 @@ import { useTouch } from "#web/hooks/use-touch.ts";
 import { useViewport } from "#web/hooks/use-viewport.ts";
 import { cn } from "#web/lib/utils.ts";
 import { NoteBar, ToolDock } from "./annotate-phone";
-import { LIGHT, TOOLS } from "./annotate-tools";
+import { TOOLS } from "./annotate-tools";
 import type { Annotation } from "./annotation";
+import {
+	LIGHTBOX_ACTION,
+	LIGHTBOX_POPUP_CLASS,
+	LightboxHeader,
+	NARROW,
+	useNarrow,
+} from "./lightbox-shell";
 import { MarkList } from "./mark-notes";
 import { NoteSheet } from "./note-sheet";
 
@@ -34,9 +41,7 @@ const SLOP = 10;
  */
 const MARGIN = { most: 120, share: 0.12, phone: 16 };
 
-/** Below Tailwind's `sm`: a phone, where the tools dock at the foot. */
-const NARROW = "(max-width: 639.98px)";
-
+/** Standalone annotator popup, sharing the unified lightbox shell and top bar. */
 export function AnnotateBoard({
 	annotation,
 	onDone,
@@ -47,14 +52,103 @@ export function AnnotateBoard({
 	finalFocus: RefObject<HTMLElement | null> | undefined;
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
+	const style = useAnnotatePopupStyle();
+	return (
+		<DialogPrimitive.Popup
+			data-slot="annotate"
+			ref={popup}
+			initialFocus={popup}
+			finalFocus={finalFocus}
+			onKeyDown={(event) => handleAnnotateKeyDown(event, annotation, onDone)}
+			// A click on the margin around the board keeps what is drawn, as Done
+			// does: the popup covers the backdrop.
+			onClick={(event) => {
+				if (event.target === event.currentTarget) {
+					onDone();
+				}
+			}}
+			style={style}
+			className={LIGHTBOX_POPUP_CLASS}
+		>
+			<AnnotateContent annotation={annotation} onDone={onDone} />
+		</DialogPrimitive.Popup>
+	);
+}
+
+/** Keyboard shortcut handler for `annotation` inside the lightbox popup. */
+export function handleAnnotateKeyDown(
+	event: KeyboardEvent,
+	annotation: Annotation,
+	onDone: () => void,
+): void {
+	// A field's keys are its own: typing a note never picks a tool, undoes or
+	// deletes a mark, or finishes (the note field handles its own Enter).
+	if (
+		event.target instanceof HTMLElement &&
+		event.target.closest("input, textarea, select, [contenteditable]") !== null
+	) {
+		return;
+	}
+	const picked = TOOLS.find((each) => each.key === event.key.toLowerCase());
+	if (event.key === "Enter") {
+		// Enter on a button or a field is theirs; anywhere else it is Done.
+		if (
+			!(event.target instanceof HTMLElement) ||
+			!event.target.closest("button, a, input, textarea, select")
+		) {
+			event.preventDefault();
+			onDone();
+		}
+	} else if ((event.metaKey || event.ctrlKey) && event.key === "z") {
+		event.preventDefault();
+		annotation.undo();
+	} else if (
+		picked !== undefined &&
+		!(event.metaKey || event.ctrlKey || event.altKey)
+	) {
+		event.preventDefault();
+		annotation.use(picked.tool);
+	} else if (
+		(event.key === "Backspace" || event.key === "Delete") &&
+		annotation.selected !== null
+	) {
+		event.preventDefault();
+		annotation.remove(annotation.selected);
+	}
+}
+
+/** Style for the popup while annotating on a phone so the virtual keyboard keeps the note bar visible. */
+export function useAnnotatePopupStyle(): CSSProperties | undefined {
+	const narrow = useNarrow();
+	const viewport = useViewport();
+	if (!narrow) {
+		return undefined;
+	}
+	return {
+		top: viewport.top,
+		height: viewport.height,
+		paddingBottom: viewport.keyboard
+			? 0
+			: "max(0.75rem, env(safe-area-inset-bottom))",
+	};
+}
+
+/**
+ * The unified markup surface rendered inside either `AnnotateBoard` or the
+ * `Lightbox` when switching from View to Mark up in place.
+ */
+export function AnnotateContent({
+	annotation,
+	onDone,
+}: {
+	annotation: Annotation;
+	onDone: () => void;
+}): JSX.Element {
 	const stage = useRef<HTMLDivElement>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const view = useView(annotation, stage);
 	const touch = useTouch();
 	const narrow = useNarrow();
-	// On a phone the board fits what the keyboard leaves, so the note bar sits
-	// on it and the image shrinks to stay in sight.
-	const viewport = useViewport();
 	const note = useRef<HTMLTextAreaElement>(null);
 	/** The marks and the picked one when the press began. */
 	const pressed = useRef({ marks: 0, selected: null as number | null });
@@ -103,171 +197,116 @@ export function AnnotateBoard({
 	};
 	/** How far off a mark a press may land and still pick it: 10px on screen. */
 	const slop = (): number => (view === null ? 0 : SLOP / view.scale);
-	const onKeyDown = (event: KeyboardEvent) => {
-		// A field's keys are its own: typing a note never picks a tool, undoes or
-		// deletes a mark, or finishes (the note field handles its own Enter).
-		if (
-			event.target instanceof HTMLElement &&
-			event.target.closest("input, textarea, select, [contenteditable]") !==
-				null
-		) {
-			return;
-		}
-		const picked = TOOLS.find((each) => each.key === event.key.toLowerCase());
-		if (event.key === "Enter") {
-			// Enter on a button or a field is theirs; anywhere else it is Done.
-			if (
-				!(event.target instanceof HTMLElement) ||
-				!event.target.closest("button, a, input, textarea, select")
-			) {
-				event.preventDefault();
-				onDone();
-			}
-		} else if ((event.metaKey || event.ctrlKey) && event.key === "z") {
-			event.preventDefault();
-			annotation.undo();
-		} else if (
-			picked !== undefined &&
-			!(event.metaKey || event.ctrlKey || event.altKey)
-		) {
-			event.preventDefault();
-			annotation.use(picked.tool);
-		} else if (
-			(event.key === "Backspace" || event.key === "Delete") &&
-			selected !== null
-		) {
-			event.preventDefault();
-			annotation.remove(selected);
-		}
-	};
 
 	return (
-		<DialogPrimitive.Popup
-			data-slot="annotate"
-			ref={popup}
-			initialFocus={popup}
-			finalFocus={finalFocus}
-			onKeyDown={onKeyDown}
-			// A click on the margin around the board keeps what is drawn, as Done
-			// does: the popup covers the backdrop.
-			onClick={(event) => {
-				if (event.target === event.currentTarget) {
-					onDone();
-				}
-			}}
-			style={
-				narrow
-					? {
-							top: viewport.top,
-							height: viewport.height,
-							paddingBottom: viewport.keyboard
-								? 0
-								: "max(1rem, env(safe-area-inset-bottom))",
-						}
-					: undefined
-			}
-			className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col items-center gap-3 px-3 pt-[max(0.5rem,env(safe-area-inset-top))] pb-4 text-white max-sm:bg-neutral-950 sm:gap-4 sm:px-8 sm:pt-4 sm:pb-8 outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
-		>
+		<>
 			<DialogPrimitive.Title className="sr-only">
 				Mark up {annotation.original.name}
 			</DialogPrimitive.Title>
-			<div className="flex w-full max-w-3xl items-center gap-1 sm:gap-2">
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label="close"
-					// Keeps what is drawn, as Done does: only Clear throws marks away.
-					onClick={onDone}
-					className={LIGHT}
-				>
-					<XIcon />
-				</Button>
-				{narrow && (
-					<span className="flex-1 text-center font-semibold text-[15px]">
-						Mark up
-					</span>
-				)}
-				{!narrow && (
-					<fieldset
-						aria-label="tool"
-						className="flex rounded-lg bg-white/10 p-0.5"
-					>
-						{TOOLS.map((each) => (
-							<Button
-								key={each.tool}
-								variant="ghost"
-								size="sm"
-								aria-pressed={tool === each.tool}
-								aria-keyshortcuts={each.key.toUpperCase()}
-								title={`${each.label} (${each.key.toUpperCase()})`}
-								onClick={() => annotation.use(each.tool)}
-								className={cn(
-									LIGHT,
-									tool === each.tool && "bg-white! text-black! hover:bg-white!",
-								)}
-							>
-								{each.icon}
-								<span className="max-sm:sr-only">{each.label}</span>
-								{!touch && (
-									<Kbd
-										aria-hidden
-										className={cn(
-											"max-sm:hidden",
-											tool === each.tool
-												? "bg-black/10 text-black/60"
-												: "bg-white/15 text-white/70",
-										)}
-									>
-										{each.key.toUpperCase()}
-									</Kbd>
-								)}
-							</Button>
-						))}
-					</fieldset>
-				)}
-				{!narrow && (
-					<span className="min-w-0 flex-1 truncate px-2 text-center text-sm text-white/70">
-						Drag to draw, click to pin
-					</span>
-				)}
-				<div className="ml-auto flex items-center gap-1">
-					{!narrow && (
-						<>
-							<Button
-								variant="ghost"
-								size="sm"
-								disabled={marks.length === 0}
-								onClick={() => annotation.undo()}
-								aria-label="Undo"
-								className={LIGHT}
-							>
-								<Undo2Icon />
-								<span className="max-sm:hidden">Undo</span>
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								disabled={marks.length === 0}
-								onClick={() => annotation.clear()}
-								className={LIGHT}
-							>
-								Clear
-							</Button>
-						</>
-					)}
-					<Button
-						size="sm"
-						onClick={onDone}
-						className="ml-1 max-sm:rounded-full max-sm:px-4 bg-white text-black hover:bg-white/85 sm:ml-2"
-					>
-						Done
-					</Button>
-				</div>
-			</div>
-			<div className="relative flex min-h-0 w-full flex-1 flex-col gap-3 sm:flex-row sm:gap-4">
+			<LightboxHeader
+				title={narrow ? "Mark up" : annotation.original.name}
+				meta={
+					!narrow ? (
+						<span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-white/70 text-xs">
+							Mark up
+						</span>
+					) : undefined
+				}
+				center={
+					!narrow ? (
+						<fieldset
+							aria-label="tool"
+							className="flex rounded-lg bg-white/10 p-0.5"
+						>
+							{TOOLS.map((each) => (
+								<Button
+									key={each.tool}
+									variant="ghost"
+									size="sm"
+									aria-pressed={tool === each.tool}
+									aria-keyshortcuts={each.key.toUpperCase()}
+									title={`${each.label} (${each.key.toUpperCase()})`}
+									onClick={() => annotation.use(each.tool)}
+									className={cn(
+										LIGHTBOX_ACTION,
+										tool === each.tool &&
+											"bg-white! text-black! hover:bg-white!",
+									)}
+								>
+									{each.icon}
+									<span>{each.label}</span>
+									{!touch && (
+										<Kbd
+											aria-hidden
+											className={cn(
+												tool === each.tool
+													? "bg-black/10 text-black/60"
+													: "bg-white/15 text-white/70",
+											)}
+										>
+											{each.key.toUpperCase()}
+										</Kbd>
+									)}
+								</Button>
+							))}
+						</fieldset>
+					) : undefined
+				}
+				actions={
+					<>
+						{!narrow && (
+							<>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={marks.length === 0}
+									onClick={() => annotation.undo()}
+									aria-label="Undo"
+									className={LIGHTBOX_ACTION}
+								>
+									<Undo2Icon />
+									<span>Undo</span>
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={marks.length === 0}
+									onClick={() => annotation.clear()}
+									className={LIGHTBOX_ACTION}
+								>
+									Clear
+								</Button>
+							</>
+						)}
+						<Button
+							size="sm"
+							onClick={onDone}
+							className={cn(
+								"mx-0.5 bg-white text-black hover:bg-white/85",
+								narrow && "h-10 rounded-full px-4.5 font-semibold text-sm",
+							)}
+						>
+							Done
+						</Button>
+					</>
+				}
+				showClose={!narrow}
+				// Keeps what is drawn, as Done does: only Clear throws marks away.
+				onClose={onDone}
+			/>
+			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape and Enter are handled on the dialog popup */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: clicking dimmed stage margin around canvas closes */}
+			<div
+				onClick={(event) => {
+					if (event.target === event.currentTarget) {
+						onDone();
+					}
+				}}
+				className="relative flex min-h-0 w-full flex-1 flex-col gap-3 px-3 pt-3 pb-3 sm:flex-row sm:gap-4 sm:px-6 sm:pt-4 sm:pb-6"
+			>
 				<div
 					ref={stage}
-					// A click past the frame falls through to the popup, which closes.
+					// A click past the frame falls through to the container, which closes.
 					className="pointer-events-none relative min-h-0 min-w-0 flex-1"
 				>
 					<canvas
@@ -334,28 +373,16 @@ export function AnnotateBoard({
 			</div>
 			{narrow && <NoteBar annotation={annotation} field={note} />}
 			{narrow && selected === null && (
-				<>
+				<div className="flex shrink-0 flex-col gap-2 px-3 pt-1">
 					{marks.length === 0 && (
-						<p className="shrink-0 text-center text-sm text-white/50">
+						<p className="text-center text-sm text-white/50">
 							Drag to draw, tap to pin
 						</p>
 					)}
 					<ToolDock annotation={annotation} />
-				</>
+				</div>
 			)}
-		</DialogPrimitive.Popup>
-	);
-}
-
-/** Whether the window is a phone's width, following it as it resizes. */
-function useNarrow(): boolean {
-	return useSyncExternalStore(
-		(changed) => {
-			const query = matchMedia(NARROW);
-			query.addEventListener("change", changed);
-			return () => query.removeEventListener("change", changed);
-		},
-		() => matchMedia(NARROW).matches,
+		</>
 	);
 }
 

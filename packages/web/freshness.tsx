@@ -1,6 +1,6 @@
 import { useReactive } from "core/react";
 import { Duration } from "core/time";
-import { LoaderCircleIcon, WifiOffIcon } from "lucide-react";
+import { WifiOffIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -19,10 +19,10 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "#web/components/ui/popover.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { cn } from "#web/lib/utils.ts";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Feed } from "./feed";
+import { LoadingState, Spinner } from "./pending";
 import { SIGN_IN } from "./sign-in";
 
 /** Whether the page is catching up with the server, without blocking input. */
@@ -156,7 +156,7 @@ export function RefreshStatus({
 					aria-label="Refreshing"
 					className="flex text-muted-foreground"
 				>
-					<LoaderCircleIcon aria-hidden className="motion-safe:animate-spin" />
+					<Spinner aria-hidden />
 					<span className="sr-only">{title}</span>
 				</span>
 			</PopoverTrigger>
@@ -174,15 +174,8 @@ export function RefreshStatus({
 }
 
 /** Widths of each placeholder row's name, project and preview, in rems. */
-const INBOX_ROWS = [
-	{ name: "w-44", project: "w-14", preview: "w-64" },
-	{ name: "w-32", project: "w-16", preview: "w-52" },
-	{ name: "w-52", project: "w-12", preview: "w-60" },
-	{ name: "w-36", project: "w-14", preview: "w-44" },
-];
-
 /**
- * Shows placeholder inbox rows until the first listing arrives.
+ * Shows a spinner until the first listing arrives.
  * Pass `className` to fit the inbox layout.
  */
 export function InboxLoading({
@@ -190,41 +183,11 @@ export function InboxLoading({
 }: {
 	className?: string;
 }): JSX.Element {
-	return (
-		<div
-			role="status"
-			aria-label="Loading inbox"
-			className={cn("flex flex-col", className)}
-		>
-			<span className="sr-only">Loading inbox…</span>
-			<ul aria-hidden className="flex flex-col">
-				{INBOX_ROWS.map((row, index) => (
-					<li
-						// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
-						key={index}
-						className="flex min-h-16 items-center gap-3 py-2.5 pr-4 pl-4"
-					>
-						<Skeleton className="size-10 shrink-0 rounded-full" />
-						<span className="flex min-w-0 flex-1 flex-col gap-2">
-							<span className="flex items-center gap-2">
-								<Skeleton className={cn("h-4 max-w-[60%] flex-1", row.name)} />
-								<Skeleton className={cn("ml-auto h-3 shrink-0", row.project)} />
-								<Skeleton className="h-3 w-8 shrink-0" />
-							</span>
-							<Skeleton className={cn("h-3.5 max-w-[85%]", row.preview)} />
-						</span>
-					</li>
-				))}
-			</ul>
-		</div>
-	);
+	return <LoadingState label="Loading inbox" className={className} />;
 }
 
-/** Widths of each placeholder row's name, in rems. */
-const LIST_ROWS = ["w-28", "w-20", "w-32", "w-24"];
-
 /**
- * Shows placeholder sidebar rows until conversations have loaded.
+ * Shows a spinner until conversations have loaded.
  * Pass `className` to fit the sidebar layout.
  */
 export function ListLoading({
@@ -236,21 +199,13 @@ export function ListLoading({
 		<div
 			role="status"
 			aria-label="Loading conversations"
-			className={cn("flex flex-col", className)}
+			className={cn(
+				"flex min-w-0 items-center gap-2 px-3 py-1.5 text-left text-muted-foreground text-xs",
+				className,
+			)}
 		>
-			<span className="sr-only">Loading conversations…</span>
-			<ul aria-hidden className="flex flex-col">
-				{LIST_ROWS.map((name, index) => (
-					<li
-						// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
-						key={index}
-						className="flex items-center gap-2 py-1.5 pr-2 pl-3"
-					>
-						<Skeleton className="size-3.5 shrink-0 rounded-full" />
-						<Skeleton className={cn("h-3.5", name)} />
-					</li>
-				))}
-			</ul>
+			<Spinner className="size-3.5 shrink-0" />
+			<span className="min-w-0 flex-1 truncate">Loading conversations…</span>
 		</div>
 	);
 }
@@ -307,9 +262,7 @@ export function OfflineBanner({
 					retry();
 				}}
 			>
-				{retrying && (
-					<LoaderCircleIcon aria-hidden className="motion-safe:animate-spin" />
-				)}
+				{retrying && <Spinner aria-hidden />}
 				{retrying ? "Retrying…" : "Retry"}
 			</Button>
 		</div>

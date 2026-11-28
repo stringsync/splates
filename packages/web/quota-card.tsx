@@ -19,6 +19,7 @@ import {
 	QuotaWarning,
 	saidAt,
 } from "./plan-limits";
+import { WidgetCard } from "./widget-card";
 
 /**
  * The current model family's quota limits as a widget card beside an open
@@ -81,21 +82,19 @@ export function QuotaCard({
 		return null;
 	}
 	return (
-		<section
-			aria-label="quota limits"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
-		>
-			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm">
+		<WidgetCard
+			label="quota limits"
+			icon={
 				<AgentMark agent={conversation.agent} className="size-4 shrink-0" />
-				<span className="min-w-0 flex-1 truncate">{agent} quota</span>
-				<QuotaWarning limits={limits} now={now} className="-mr-1" />
-				{at !== null && (
-					<span className="shrink-0 font-normal text-muted-foreground text-xs">
-						{ago(at, now)}
-					</span>
-				)}
-			</h3>
+			}
+			title={`${agent} quota`}
+			aside={
+				<>
+					<QuotaWarning limits={limits} now={now} className="-mr-1" />
+					{at !== null && ago(at, now)}
+				</>
+			}
+		>
 			<ul className="flex flex-col gap-2 px-3 pt-0.5 pb-2">
 				{limits.map((limit) => {
 					const row = limitRow(limit, now);
@@ -127,7 +126,7 @@ export function QuotaCard({
 					);
 				})}
 			</ul>
-		</section>
+		</WidgetCard>
 	);
 }
 

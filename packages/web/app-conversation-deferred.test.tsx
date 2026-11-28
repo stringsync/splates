@@ -111,17 +111,35 @@ describe("App's Blocked card", () => {
 		);
 	});
 
-	it("says all blockers are queued once none is left for the person to queue", async () => {
+	it("shows waiting styling and queued/running row indicators once no blocker needs queuing", async () => {
 		const { card } = await openCard(deferring, {
 			todos: board.todos.map((each) =>
 				each.id === 812 ? { ...each, stage: "queued" as const } : each,
 			),
 			lanes: [],
 		});
-		expect(card.textContent).toContain("Starts automatically");
+		expect(card.textContent).toContain("Waiting on blockers");
+		expect(card.textContent).not.toContain("Starts automatically");
+		expect(card.querySelector("header .bg-info.animate-pulse")).not.toBeNull();
+		expect(card.textContent).toContain("queued");
+		expect(within(card).getByRole("img", { name: "queued" })).toBeTruthy();
 		expect(
 			within(card).queryByRole("button", { name: /^Queue \d/ }),
 		).toBeNull();
+	});
+
+	it("shows a spinner and running label for a blocker being worked on", async () => {
+		const { card } = await openCard(deferring, {
+			todos: board.todos.map((each) =>
+				each.id === 812 ? { ...each, takenBy: "other-task" } : each,
+			),
+			lanes: [],
+		});
+		expect(card.textContent).toContain("Waiting on blockers");
+		expect(card.textContent).toContain("running");
+		expect(
+			within(card).getByRole("img", { name: "being worked on" }),
+		).toBeTruthy();
 	});
 
 	it("lists an older deferral's outside wait as a note that holds nothing back", async () => {
@@ -151,7 +169,7 @@ describe("App's Blocked card", () => {
 			queuedAll.view.getByRole("img", { name: "deferred" }),
 		);
 		expect(quiet.innerHTML).toContain("mark-ellipsis");
-		expect(queuedAll.view.getByText("Waiting on blockers")).toBeTruthy();
+		expect(queuedAll.view.getAllByText("Waiting on blockers")).toHaveLength(2);
 	});
 
 	it("offers no archive bar for a blocked task, whose conversation the menu archives", async () => {

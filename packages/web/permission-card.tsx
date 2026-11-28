@@ -6,14 +6,12 @@ import {
 	CircleCheckIcon,
 	HourglassIcon,
 	ListPlusIcon,
-	Trash2Icon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { ActionCard } from "./action-card";
-import { answered, dropLane, queueLane, queueTodo, scoped } from "./api";
+import { answered, queueLane, queueTodo, scoped } from "./api";
 import { Board } from "./board";
-import { laneDropped } from "./board-expectations";
 import { InMessage } from "./card-reply";
 import { Panel, Row } from "./card-task-rows";
 import {
@@ -30,9 +28,9 @@ import { SplatesEvent } from "./splates-event";
 import { QueueToggle, stageOf } from "./todo-queue";
 
 /**
- * Shows what an agent asks you to allow, such as queueing work, removing a
- * lane with its tasks, or running the whole test suite. Pressing its
- * button is your own action; the agent never acts on it as a reply.
+ * Shows what an agent asks you to allow, such as queueing work or running the
+ * whole test suite. Pressing its button is your own action; the agent never
+ * acts on it as a reply.
  */
 export const PermissionUI = makeAssistantDataUI<{
 	permission: PermissionProposal;
@@ -55,8 +53,6 @@ export function PermissionCard({
 	proposal: PermissionProposal;
 }): JSX.Element {
 	switch (proposal.action) {
-		case "remove-lane":
-			return <RemoveLaneCard proposal={proposal} />;
 		case "run-command":
 			return <RunCommandCard proposal={proposal} />;
 		case "queue":
@@ -83,65 +79,6 @@ function SupersededQueue({
 				],
 			}}
 		/>
-	);
-}
-
-/** Removing a lane with its tasks, which are kept to restore. */
-function RemoveLaneCard({
-	proposal,
-}: {
-	proposal: PermissionProposal;
-}): JSX.Element {
-	const board = useContext(Board);
-	const expect = useExpectSnapshot();
-	const id = proposal.lane as number;
-	const lane = board.lanes.find((each) => each.id === id) ?? null;
-	const name = lane?.name ?? proposal.title ?? `lane ${id}`;
-	const todos = board.todos.filter((todo) => todo.lane === id);
-	const done = board.linked && lane === null;
-	return (
-		<ActionCard
-			label={`remove ${name}`}
-			Icon={Trash2Icon}
-			title={done ? `Removed lane ${name}` : `Remove lane ${name}`}
-			body={proposal.body}
-			action={{
-				verb: "Remove now",
-				VerbIcon: Trash2Icon,
-				done: "Removed",
-				command: `splates lane remove ${id}`,
-				run: () => expect(laneDropped(id), dropLane(id)),
-				failed: "Not removed",
-			}}
-			done={done}
-			gone={null}
-			note={todos.length === 0 ? undefined : "Its tasks are kept to restore."}
-			tone="destructive"
-		>
-			{!done && (
-				<Panel
-					ruled={proposal.body !== ""}
-					heading={
-						todos.length === 0
-							? "No tasks go with it."
-							: todos.length === 1
-								? "Its 1 task goes with it."
-								: `Its ${todos.length} tasks go with it.`
-					}
-				>
-					{todos.map((todo) => (
-						<Row
-							key={todo.id}
-							todo={todo}
-							Icon={Trash2Icon}
-							status={stageOf(todo)}
-							tone="destructive"
-							onOpen={board.open}
-						/>
-					))}
-				</Panel>
-			)}
-		</ActionCard>
 	);
 }
 

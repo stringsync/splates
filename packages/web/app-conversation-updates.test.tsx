@@ -69,6 +69,9 @@ describe("App's question cards when splates tells the agent of a task's end", ()
 				.getAllByRole("button", { pressed: true })
 				.map((each) => each.textContent),
 		).toEqual(["bA badge"]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^Next$/ })),
+		);
 		expect(
 			(view.getByRole("button", { name: "Send" }) as HTMLButtonElement)
 				.disabled,
@@ -77,11 +80,11 @@ describe("App's question cards when splates tells the agent of a task's end", ()
 
 	it("answers them where the agent asks them again, with what was written", async () => {
 		await act(async () => testing.say(told(message("agent", report))));
-		// Asked again, it opens on its first question.
-		const next = await waitFor(() =>
-			view.getByRole("button", { name: /^Next$/ }),
+		// Asked again, it opens on its first question; Review & send follows question 2.
+		const review = await waitFor(() =>
+			view.getByRole("button", { name: "review and send" }),
 		);
-		await act(async () => fireEvent.click(next));
+		await act(async () => fireEvent.click(review));
 
 		await waitFor(() =>
 			expect(view.getAllByRole("button", { name: "Send" })).toHaveLength(1),

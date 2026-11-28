@@ -95,15 +95,15 @@ describe("directory trust", () => {
 
 	it("keeps settings independent and routes future decisions away from removed scopes", async () => {
 		const store = trust();
-		await store.setStatic(KEY, 84, START);
+		await store.setStatic(KEY, "ask-and-go", START);
 		await store.addScope(KEY.project, " packages/web ", START);
 		await store.record(decision("scoped", { files: ["packages/web/app.ts"] }));
-		await store.setStatic(DEEP, 95, ANSWER);
-		expect((await store.entryFor(KEY)).score).toBe(84);
-		expect((await store.entryFor(DEEP)).score).toBe(95);
+		await store.setStatic(DEEP, "assume", ANSWER);
+		expect((await store.entryFor(KEY)).band).toBe("ask-and-go");
+		expect((await store.entryFor(DEEP)).band).toBe("assume");
 		await store.reset(DEEP, REMOVE);
 		expect((await store.entryFor(DEEP)).mode).toBe("dynamic");
-		expect((await store.entryFor(DEEP)).score).toBe(50);
+		expect((await store.entryFor(DEEP)).band).toBe("ask-and-wait");
 		expect((await store.entryFor(DEEP)).counts.total).toBe(0);
 		await store.removeScope(KEY.project, DEEP.scope, REMOVE);
 		await store.record(
@@ -113,7 +113,9 @@ describe("directory trust", () => {
 		expect((await store.list()).map((each) => each.scope)).toEqual([undefined]);
 		expect((await store.entryFor(KEY)).counts.total).toBe(1);
 		expect(await store.decisions({ scope: DEEP.scope })).toHaveLength(1);
-		expect(store.setStatic(DEEP, 90)).rejects.toThrow("no longer declared");
+		expect(store.setStatic(DEEP, "assume")).rejects.toThrow(
+			"no longer declared",
+		);
 	});
 
 	it("can manage scopes before a project has decision history", async () => {

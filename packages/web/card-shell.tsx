@@ -16,7 +16,27 @@ import { cn } from "#web/lib/utils.ts";
 import { WIDE } from "./app-nav";
 import { CardSection } from "./card-section";
 import { Markdown } from "./markdown";
+import { Sheeted, useInSheet, useSheeted } from "./phone-sheets";
 import { TaskOnto } from "./task-onto";
+
+export {
+	CardFooter,
+	type CardFooterAction,
+	type CardFooterActionTone,
+	type CardFooterProps,
+} from "./card-footer";
+
+/** Mobile sheet presentation options for `CardShell`. */
+export type CardSheetOption =
+	| boolean
+	| {
+			title?: string;
+			action?: string;
+			/** Open in a sheet even when not waiting on a reply. Defaults to true. */
+			always?: boolean;
+			/** Whether this card is waiting on user action (`NeedsYouBar`). Defaults to false. */
+			waiting?: boolean;
+	  };
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what
@@ -29,20 +49,7 @@ import { TaskOnto } from "./task-onto";
  */
 export const CARD_SPACE = "my-6 @max-md:my-4";
 
-export function CardShell({
-	label,
-	Icon,
-	title,
-	tone = "neutral",
-	task,
-	base = null,
-	aside,
-	folded = false,
-	centerHeader = false,
-	foldable = false,
-	ringed = true,
-	children,
-}: {
+export function CardShell(props: {
 	label: string;
 	Icon: LucideIcon;
 	title: ReactNode;
@@ -63,8 +70,65 @@ export function CardShell({
 	 * card that marks the part of it with the focus instead.
 	 */
 	ringed?: boolean;
+	/**
+	 * Opt into mobile sheet presentation inside `PhoneSheets`: collapses to a
+	 * single-line `ThreadBar` on mobile and opens the full card in a sheet.
+	 */
+	sheet?: CardSheetOption;
 	children?: ReactNode;
 }): JSX.Element {
+	const sheeted = useSheeted();
+	const inSheet = useInSheet();
+	const { label, Icon, title, tone = "neutral", aside, sheet = false } = props;
+	if (sheet && sheeted && !inSheet) {
+		const config = typeof sheet === "object" ? sheet : {};
+		const sheetTitle =
+			config.title ?? (typeof title === "string" ? title : label);
+		return (
+			<Sheeted
+				title={sheetTitle}
+				subtitle={aside}
+				Icon={Icon}
+				tone={tone}
+				action={config.action ?? "Open"}
+				always={config.always ?? true}
+				waiting={config.waiting ?? false}
+			>
+				<CardFrame {...props} />
+			</Sheeted>
+		);
+	}
+	return <CardFrame {...props} />;
+}
+
+function CardFrame({
+	label,
+	Icon,
+	title,
+	tone = "neutral",
+	task,
+	base = null,
+	aside,
+	folded = false,
+	centerHeader = false,
+	foldable = false,
+	ringed = true,
+	children,
+}: {
+	label: string;
+	Icon: LucideIcon;
+	title: ReactNode;
+	tone?: Tone;
+	task?: string;
+	base?: string | null;
+	aside?: ReactNode;
+	folded?: boolean;
+	centerHeader?: boolean;
+	foldable?: boolean;
+	ringed?: boolean;
+	children?: ReactNode;
+}): JSX.Element {
+	const inSheet = useInSheet();
 	// Folded again whenever `folded` turns on, opened whenever it turns off;
 	// the header toggles it in between.
 	const [open, setOpen] = useState(!folded);
@@ -81,7 +145,7 @@ export function CardShell({
 		CARD_SPACE,
 		ringed && ["focus-within:ring-3", TONES[tone].focus],
 	);
-	const header = (
+	const header = inSheet ? null : (
 		<Header
 			Icon={Icon}
 			title={title}
@@ -94,7 +158,7 @@ export function CardShell({
 			ruled={children !== undefined}
 		/>
 	);
-	if (collapsible) {
+	if (collapsible && !inSheet) {
 		return (
 			<Collapsible
 				open={open}
@@ -115,7 +179,7 @@ export function CardShell({
 	}
 	return (
 		<section aria-label={label} data-card className={frame}>
-			<header>{header}</header>
+			{header !== null && <header>{header}</header>}
 			{children}
 		</section>
 	);
@@ -168,11 +232,11 @@ export const TONES: Record<
 		icon: "text-orange-600 dark:text-orange-400",
 		focus: "focus-within:border-orange-500/50 focus-within:ring-orange-500/15",
 	},
-	// Steps are purple: the work is the user's, by hand.
+	// Steps are violet: matches `StepsBody` and `StepsPopped` for user-driven steps.
 	steps: {
-		header: "bg-purple-500/15",
-		icon: "text-purple-400 dark:text-purple-300",
-		focus: "focus-within:border-purple-500/50 focus-within:ring-purple-500/15",
+		header: "bg-violet-500/[0.08]",
+		icon: "text-violet-600 dark:text-violet-400",
+		focus: "focus-within:border-violet-500/50 focus-within:ring-violet-500/15",
 	},
 	// Plans are indigo: proposals awaiting approval.
 	plan: {
@@ -250,8 +314,8 @@ function Header({
 	return (
 		<div
 			className={cn(
-				// Tighter in a narrow thread, as on a phone.
-				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:px-3 @max-md:py-2",
+				// Uniform 16px horizontal padding on phone and desktop, slightly tighter vertical rhythm on narrow threads.
+				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:py-2",
 				!centered && "@max-md:items-start",
 				ruled && (folded ? "group-data-[open]/card:border-b" : "border-b"),
 				TONES[tone].header,
@@ -344,7 +408,7 @@ export function CardBody({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-0 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5",
+				"flex flex-col gap-0 px-4 py-3.5 @max-md:py-2.5",
 				className,
 			)}
 		>
@@ -386,7 +450,7 @@ function CardMarkdown({
 		<Markdown
 			text={text}
 			className={cn(
-				"px-4 py-3.5 text-sm leading-relaxed @max-md:px-3 @max-md:py-2.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
+				"px-4 py-3.5 text-sm leading-relaxed @max-md:py-2.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
 				"[&_h4]:mt-4 [&_h4]:mb-1 [&_h4:first-child]:mt-0 [&_h4]:font-semibold [&_h4]:text-sm [&_h4]:normal-case [&_h4]:tracking-normal [&_h4]:opacity-100",
 				lead &&
 					"[&_p:first-child]:font-medium [&_p:first-child]:first-letter:uppercase",

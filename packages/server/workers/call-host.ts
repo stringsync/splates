@@ -90,7 +90,10 @@ export class WorkerCallHost implements Resource {
 			case "exists":
 				return await this.machine.exists(request.path);
 			case "stopUnder":
-				await this.machine.stopUnder(request.path);
+				await this.machine.stopUnder(request.path, request.exclude);
+				return null;
+			case "stopProcessTree":
+				await this.machine.stopProcessTree(request.pids, request.exclude);
 				return null;
 			case "scratch":
 				await this.machine.scratch(request.agent, request.cwd);
@@ -150,6 +153,13 @@ export const CallRequest = z.discriminatedUnion("method", [
 		id: z.number().int(),
 		method: z.literal("stopUnder"),
 		path: z.string(),
+		exclude: z.array(z.number().int().positive()).optional(),
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("stopProcessTree"),
+		pids: z.array(z.number().int().positive()),
+		exclude: z.array(z.number().int().positive()).optional(),
 	}),
 	z.object({
 		id: z.number().int(),

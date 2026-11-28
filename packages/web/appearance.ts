@@ -4,7 +4,7 @@ import type { Settings } from "./settings";
  * The page's background in each theme, `--background` in styles.css as hex,
  * which the browser paints its own bar in around an installed app.
  */
-const THEME_COLORS = { light: "#f3f4f7", dark: "#1d1f23" } as const;
+const THEME_COLORS = { light: "#fafafa", dark: "#18181b" } as const;
 
 /**
  * Keeps `root` wearing the theme `settings` hold, following `device` on System,

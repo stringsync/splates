@@ -2,6 +2,7 @@ import { useReactive } from "core/react";
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import { type CannedGroup, canned } from "./canned-responses";
 
@@ -33,7 +34,7 @@ export function CannedEditor(): JSX.Element {
 			</div>
 			{groups.map((group, gi) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: edited in place by position
-				<div key={gi} className="flex flex-col gap-2 rounded-md border p-3">
+				<Card key={gi} className="flex flex-col gap-2 rounded-2xl p-4">
 					<div className="flex items-center gap-1">
 						<Input
 							aria-label="Group name"
@@ -142,7 +143,7 @@ export function CannedEditor(): JSX.Element {
 					>
 						<PlusIcon /> Add reply
 					</Button>
-				</div>
+				</Card>
 			))}
 			<Button
 				variant="outline"

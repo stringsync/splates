@@ -19,6 +19,7 @@ export { attach } from "./attach";
 export type { Attachment } from "./attachments";
 export { Attachments, readFiles } from "./attachments";
 export { DIAGRAM_REQUEST } from "./diagrams";
+export { externalHtmlRefs, htmlTitleOf, isValidHtml } from "./html";
 export type {
 	InlineMediaRef,
 	InlineMediaScanOptions,
@@ -26,6 +27,7 @@ export type {
 } from "./media";
 export {
 	capturedFileName,
+	findInlineHtml,
 	findInlineMedia,
 	mediaExtension,
 	ownsConversationAttached,
@@ -40,3 +42,9 @@ export {
 	deleteVersion,
 	removeNamed,
 } from "./routes";
+export {
+	formatInlineArtifactRef,
+	isHtmlArtifactName,
+	parseInlineArtifactRef,
+	viewerOf,
+} from "./viewers";

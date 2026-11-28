@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { AgentSettings, matchesAgentSettings } from "./agent-settings";
-import { Settings } from "./settings";
-import { SettingsDialog } from "./settings-dialog";
+import { type Category, Settings } from "./settings";
+import { SettingsPage } from "./settings-page";
 import { cleanup, fireEvent, render, waitFor } from "./testing";
 
 function fakeSettingsServer() {
@@ -63,7 +63,7 @@ describe("AgentSettings", () => {
 		});
 	});
 
-	it("shows Agents in SettingsDialog and matches settings search", () => {
+	it("shows Agents in SettingsPage and matches settings search", () => {
 		globalThis.fetch = fakeSettingsServer().fakeFetch;
 
 		expect(matchesAgentSettings("Agents", "")).toBe(true);
@@ -72,16 +72,34 @@ describe("AgentSettings", () => {
 		expect(matchesAgentSettings("Appearance", "agents")).toBe(false);
 
 		const settings = new Settings(localStorage);
+		let picked: Category = "Appearance";
 		const view = render(
-			<SettingsDialog
+			<SettingsPage
 				settings={settings}
-				open={true}
-				onOpenChange={() => {}}
+				wide={true}
+				picked={picked}
+				onPick={(next) => {
+					picked = next;
+				}}
+				onClose={() => {}}
 				onWelcome={() => {}}
 				project="mono"
 			/>,
 		);
 		fireEvent.click(view.getByRole("button", { name: "Agents" }));
+		view.rerender(
+			<SettingsPage
+				settings={settings}
+				wide={true}
+				picked={picked}
+				onPick={(next) => {
+					picked = next;
+				}}
+				onClose={() => {}}
+				onWelcome={() => {}}
+				project="mono"
+			/>,
+		);
 		expect(view.getByText("Agents may queue tasks themselves")).toBeTruthy();
 	});
 });

@@ -1,12 +1,10 @@
-import {
-	CircleCheckIcon,
-	ExternalLinkIcon,
-	LoaderCircleIcon,
-} from "lucide-react";
+import { CircleCheckIcon, ExternalLinkIcon } from "lucide-react";
 import { type JSX, useId, useState } from "react";
 import { Button, buttonVariants } from "./components/ui/button";
+import { Card, CardContent } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { cn } from "./lib/utils";
+import { Spinner } from "./pending";
 import type { StepPrompt } from "./ship-run-summary";
 
 /** Every prompt button is the size of the Ships page's Next, easy on a phone. */
@@ -30,94 +28,93 @@ export function ShipPromptCard({
 }): JSX.Element {
 	const { prompt } = open;
 	return (
-		<section
-			aria-label={`${target}: ${open.does} needs you`}
-			className="flex flex-col gap-2 rounded-lg border bg-card p-3"
-		>
-			<div className="flex items-baseline gap-2">
-				<span className="min-w-0 flex-1 truncate font-semibold text-sm">
-					{target}
+		<Card render={<section />} aria-label={`${target}: ${open.does} needs you`}>
+			<CardContent className="flex flex-col gap-2">
+				<div className="flex items-baseline gap-2">
+					<span className="min-w-0 flex-1 truncate font-semibold text-sm">
+						{target}
+					</span>
+					<span className="shrink-0 rounded border border-foreground/50 px-1.5 text-[11px]">
+						needs you
+					</span>
+				</div>
+				<span className="-mt-1.5 font-semibold text-muted-foreground text-xs uppercase">
+					{prompt.kind === "link"
+						? `Sign in at ${hostOf(prompt.url)}`
+						: open.does}
 				</span>
-				<span className="shrink-0 rounded border border-foreground/50 px-1.5 text-[11px]">
-					needs you
-				</span>
-			</div>
-			<span className="-mt-1.5 font-semibold text-muted-foreground text-xs uppercase">
-				{prompt.kind === "link"
-					? `Sign in at ${hostOf(prompt.url)}`
-					: open.does}
-			</span>
-			{prompt.kind === "confirm" && (
-				<>
-					<p className="break-words text-sm">{prompt.question}</p>
-					<div className="flex gap-2">
+				{prompt.kind === "confirm" && (
+					<>
+						<p className="break-words text-sm">{prompt.question}</p>
+						<div className="flex gap-2">
+							<Button
+								variant="outline"
+								className={cn(PROMPT_BUTTON, "flex-1")}
+								disabled={answering}
+								onClick={() => onAnswer(false)}
+							>
+								No, stop
+							</Button>
+							<Button
+								className={cn(PROMPT_BUTTON, "flex-1")}
+								disabled={answering}
+								onClick={() => onAnswer(true)}
+							>
+								Yes
+							</Button>
+						</div>
+					</>
+				)}
+				{prompt.kind === "link" && (
+					<>
+						<p className="text-sm">{open.does}</p>
+						<a
+							href={outsideApp(prompt.url)}
+							target="_blank"
+							rel="noreferrer"
+							className={cn(buttonVariants(), PROMPT_BUTTON)}
+						>
+							Open sign-in link
+							<ExternalLinkIcon aria-hidden />
+						</a>
+						{prompt.code !== undefined && (
+							<>
+								<p className="text-muted-foreground text-xs">
+									Check the page shows this code:
+								</p>
+								<p className="rounded-md border border-dashed py-2 text-center font-mono font-semibold text-2xl tracking-[0.2em]">
+									{prompt.code}
+								</p>
+							</>
+						)}
+						<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+							<Spinner aria-hidden className="size-3.5 animate-spin" />
+							Waiting for you to finish signing in…
+						</p>
+						<p className="text-muted-foreground text-xs">
+							Signed in but landed elsewhere, as happens when you were logged
+							out? Tap the link above again: the site can drop the sign-in step
+							after a fresh login.
+						</p>
 						<Button
 							variant="outline"
-							className={cn(PROMPT_BUTTON, "flex-1")}
-							disabled={answering}
-							onClick={() => onAnswer(false)}
-						>
-							No, stop
-						</Button>
-						<Button
-							className={cn(PROMPT_BUTTON, "flex-1")}
+							className={PROMPT_BUTTON}
 							disabled={answering}
 							onClick={() => onAnswer(true)}
 						>
-							Yes
+							I've signed in
 						</Button>
-					</div>
-				</>
-			)}
-			{prompt.kind === "link" && (
-				<>
-					<p className="text-sm">{open.does}</p>
-					<a
-						href={outsideApp(prompt.url)}
-						target="_blank"
-						rel="noreferrer"
-						className={cn(buttonVariants(), PROMPT_BUTTON)}
-					>
-						Open sign-in link
-						<ExternalLinkIcon aria-hidden />
-					</a>
-					{prompt.code !== undefined && (
-						<>
-							<p className="text-muted-foreground text-xs">
-								Check the page shows this code:
-							</p>
-							<p className="rounded-md border border-dashed py-2 text-center font-mono font-semibold text-2xl tracking-[0.2em]">
-								{prompt.code}
-							</p>
-						</>
-					)}
-					<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
-						<LoaderCircleIcon aria-hidden className="size-3.5 animate-spin" />
-						Waiting for you to finish signing in…
-					</p>
-					<p className="text-muted-foreground text-xs">
-						Signed in but landed elsewhere, as happens when you were logged out?
-						Tap the link above again: the site can drop the sign-in step after a
-						fresh login.
-					</p>
-					<Button
-						variant="outline"
-						className={PROMPT_BUTTON}
-						disabled={answering}
-						onClick={() => onAnswer(true)}
-					>
-						I've signed in
-					</Button>
-				</>
-			)}
-			{prompt.kind === "ask" && (
-				<AskForm
-					question={prompt.question}
-					answering={answering}
-					onAnswer={onAnswer}
-				/>
-			)}
-		</section>
+					</>
+				)}
+				{prompt.kind === "ask" && (
+					<AskForm
+						question={prompt.question}
+						answering={answering}
+						onAnswer={onAnswer}
+					/>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
 

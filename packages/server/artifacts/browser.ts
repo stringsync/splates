@@ -1,1 +1,6 @@
-export { viewerOf } from "./viewers";
+export {
+	formatInlineArtifactRef,
+	isHtmlArtifactName,
+	parseInlineArtifactRef,
+	viewerOf,
+} from "./viewers";

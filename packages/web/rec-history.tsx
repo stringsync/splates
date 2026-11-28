@@ -5,9 +5,11 @@ import type {
 } from "@splates/server/rec/browser";
 import { ChevronRightIcon, SearchIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
+import { LoadingState } from "#web/pending.tsx";
 import { recSessions, searchRecSessions } from "./api";
+import { PageSection } from "./page-section";
 import { bytesText, clock } from "./rec-format";
 
 const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -47,7 +49,7 @@ export function RecHistory(): JSX.Element {
 	const recent = shown.filter((each) => Date.now() - each.startedAt < WEEK);
 	const earlier = shown.filter((each) => !recent.includes(each));
 	return (
-		<section aria-label="history" className="flex flex-col gap-4">
+		<PageSection label="history" className="gap-4">
 			<div className="relative">
 				<SearchIcon
 					aria-hidden
@@ -67,7 +69,7 @@ export function RecHistory(): JSX.Element {
 						Rec's sessions could not be read. Is rec installed?
 					</p>
 				) : (
-					<Skeleton className="h-5 w-full animate-pulse" />
+					<LoadingState label="Loading sessions" />
 				)
 			) : shown.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
@@ -82,7 +84,7 @@ export function RecHistory(): JSX.Element {
 				</>
 			)}
 			{store !== null && <Usage store={store} />}
-		</section>
+		</PageSection>
 	);
 }
 
@@ -122,40 +124,41 @@ function Group({
 		return null;
 	}
 	return (
-		<div className="flex flex-col gap-1">
-			<h2 className="font-medium text-muted-foreground text-xs">{title}</h2>
-			<ul className="flex flex-col divide-y rounded-lg border bg-card px-3">
-				{sessions.map((each) => (
-					<li key={each.name} aria-label={each.name} className="py-2">
-						<a
-							href={`#rec/${encodeURIComponent(each.name)}`}
-							className="flex min-w-0 flex-col gap-0.5 text-sm"
-						>
-							<span className="flex min-w-0 items-center gap-2">
-								<span className="truncate font-medium font-mono">
-									{each.name}
+		<PageSection title={title}>
+			<Card>
+				<CardList>
+					{sessions.map((each) => (
+						<li key={each.name} aria-label={each.name} className="px-4 py-2">
+							<a
+								href={`#rec/${encodeURIComponent(each.name)}`}
+								className="flex min-w-0 flex-col gap-0.5 text-sm"
+							>
+								<span className="flex min-w-0 items-center gap-2">
+									<span className="truncate font-medium font-mono">
+										{each.name}
+									</span>
+									<span className="shrink-0 text-muted-foreground text-xs">
+										{each.moments} {each.moments === 1 ? "moment" : "moments"} ·{" "}
+										{clock(each.length)} · {bytesText(each.size)}
+									</span>
+									<time
+										dateTime={new Date(each.startedAt).toISOString()}
+										className="ml-auto shrink-0 text-muted-foreground"
+									>
+										{age(new Date(each.startedAt).toISOString())} ago
+									</time>
+									<ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
 								</span>
-								<span className="shrink-0 text-muted-foreground text-xs">
-									{each.moments} {each.moments === 1 ? "moment" : "moments"} ·{" "}
-									{clock(each.length)} · {bytesText(each.size)}
-								</span>
-								<time
-									dateTime={new Date(each.startedAt).toISOString()}
-									className="ml-auto shrink-0 text-muted-foreground"
-								>
-									{age(new Date(each.startedAt).toISOString())} ago
-								</time>
-								<ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
-							</span>
-							{each.topSaid !== undefined && (
-								<span className="truncate text-muted-foreground text-xs">
-									“{each.topSaid}”
-								</span>
-							)}
-						</a>
-					</li>
-				))}
-			</ul>
-		</div>
+								{each.topSaid !== undefined && (
+									<span className="truncate text-muted-foreground text-xs">
+										“{each.topSaid}”
+									</span>
+								)}
+							</a>
+						</li>
+					))}
+				</CardList>
+			</Card>
+		</PageSection>
 	);
 }

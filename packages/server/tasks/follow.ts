@@ -27,6 +27,7 @@ export async function follow(
 	{
 		from,
 		base,
+		ended,
 	}: {
 		/** The task being left; given, the conversation moves only out of it. */
 		from?: string;
@@ -35,6 +36,8 @@ export async function follow(
 		 * record names it, so the server can tell a part from a task to follow.
 		 */
 		base?: string;
+		/** How `from` ended when `task` is null (`merged` or `removed`). */
+		ended?: "merged" | "removed";
 	} = {},
 ): Promise<void> {
 	const id = ps.env("SPLATES_CONVERSATION");
@@ -49,7 +52,12 @@ export async function follow(
 			method: "PUT",
 			// The server refuses a write from any other origin than its own.
 			headers: { "content-type": "application/json", origin: url },
-			body: JSON.stringify({ task, from, base }),
+			body: JSON.stringify({
+				task,
+				from,
+				base,
+				...(ended === undefined ? {} : { ended }),
+			}),
 			signal: AbortSignal.timeout(SERVER_WAIT_MS),
 		});
 		if (!response.ok) {

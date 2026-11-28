@@ -4,13 +4,11 @@ import type { PlanCard, Question, TaskReport } from "@splates/server/plans";
 import { isUpdate } from "@splates/server/plans/browser";
 import type { Event } from "@splates/server/records";
 import { isEscalation } from "@splates/server/records/browser";
-import { bandOf } from "@splates/server/trust/browser";
-import { type JSX, useContext } from "react";
-import { InMessage, textOf } from "./card-reply";
+import type { JSX } from "react";
+import { InMessage, textOf, useCardReply } from "./card-reply";
 import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCards } from "./question-cards";
 import { questionHeading } from "./question-heading";
-import { decisionsFor, type ThreadTrust, TrustContext } from "./trust-widget";
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
@@ -83,12 +81,7 @@ export function MessageQuestions({
 	});
 	const stamp = useAuiState((state) => state.message.metadata.custom.at);
 	const sheeted = useSheeted();
-	const thread = useContext(TrustContext);
-	const trust = decisionsFor(
-		thread,
-		message,
-		questions.map((each) => each.text),
-	);
+	const { reply, sent, askedAgain } = useCardReply();
 	// Gone ahead on: anything after the plan, in its message or a later one,
 	// shows the agent carried on without the person's word.
 	const followed = useAuiState((state) => {
@@ -102,12 +95,13 @@ export function MessageQuestions({
 				state.message.index < state.thread.messages.length - 1)
 		);
 	});
-	const running = useAuiState(
-		(state) => state.message.status?.type === "running",
-	);
-	const wentAhead = followed
-		? (trusted ?? (running ? trustedNow(thread) : null))
-		: null;
+	const wentAhead = followed ? (trusted ?? null) : null;
+	const awaitingPlan =
+		plan !== null &&
+		sent === null &&
+		!askedAgain &&
+		reply !== null &&
+		wentAhead === null;
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	const cards = (paged: boolean) => (
 		<QuestionCards
@@ -119,8 +113,6 @@ export function MessageQuestions({
 			earlier={before === "" ? [] : before.split("\n")}
 			paged={paged}
 			stepped
-			trust={trust}
-			agent={thread.agent}
 			wentAhead={wentAhead}
 		/>
 	);
@@ -130,7 +122,10 @@ export function MessageQuestions({
 		return cards(false);
 	}
 	return (
-		<Sheeted {...questionHeading(questions.length, escalation, count, plan)}>
+		<Sheeted
+			{...questionHeading(questions.length, escalation, count, plan)}
+			subtitle={awaitingPlan ? "Awaiting approval" : undefined}
+		>
 			{cards(sheeted)}
 		</Sheeted>
 	);
@@ -147,18 +142,4 @@ function draftName(message: string, questions: Question[]): string {
 /** The questions an escalation it records asks; null for any other event. */
 function escalatedQuestions(event: Event): Question[] | null {
 	return isEscalation(event) && !event.review ? event.questions : null;
-}
-
-/**
- * The trust the agent has now, when it lets it go ahead on a plan unapproved
- * (ask-and-go or above, with trusted decisions on): for a turn still
- * running, before the server keeps its own as the turn ends.
- */
-function trustedNow(thread: ThreadTrust): PlanTrusted | null {
-	const read = thread.trust;
-	if (read === null) {
-		return null;
-	}
-	const band = bandOf(read.entry, read.enabled !== false);
-	return band === "ask-and-wait" ? null : { band, score: read.entry.score };
 }

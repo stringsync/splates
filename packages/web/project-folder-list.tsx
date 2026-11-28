@@ -9,6 +9,7 @@ import {
 import { Kbd } from "#web/components/ui/kbd.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { RowIcon } from "./agent-icons";
+import { BlockerPill } from "./conversation-item";
 import { Lanes, reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Rows } from "./list-rows";
 import { isDisconnected, Mark } from "./mark";
@@ -16,6 +17,7 @@ import { ProjectEmpty } from "./project-controls";
 import { type Folder, folderKey } from "./project-folders";
 import { QueuedRows } from "./queued-rows";
 import { automaticWait } from "./row-status";
+import type { BlockerSource, HighlightedBlockers } from "./sidebar-blockers";
 import { TaskIcon } from "./task-icon";
 
 /** Draws a row of `folder`'s. */
@@ -39,6 +41,9 @@ export function ProjectList({
 	beneath,
 	onNew,
 	onOpen,
+	open = null,
+	highlights,
+	onHoverChange,
 }: {
 	folders: Folder[];
 	folded: ReadonlySet<string>;
@@ -49,6 +54,12 @@ export function ProjectList({
 	onNew: (folder: Folder) => void;
 	/** Opens a queued task's page, at its address. */
 	onOpen: (address: string) => void;
+	/** The open address in the desktop sidebar, to mark a selected queued row. */
+	open?: string | null;
+	/** Active blocker highlights in the desktop sidebar. */
+	highlights?: HighlightedBlockers;
+	/** Reports pointer hover over a queued row in the desktop sidebar. */
+	onHoverChange?: (source: BlockerSource, hovered: boolean) => void;
 }): JSX.Element {
 	return (
 		<div className="flex flex-col gap-3">
@@ -99,7 +110,13 @@ export function ProjectList({
 									/>
 								</InLanes>
 							)}
-							<QueuedRows folder={folder} onOpen={onOpen} />
+							<QueuedRows
+								folder={folder}
+								open={open}
+								highlights={highlights}
+								onHoverChange={onHoverChange}
+								onOpen={onOpen}
+							/>
 						</CollapsibleContent>
 					</Collapsible>
 				);
@@ -121,6 +138,8 @@ export function ForeignItem({
 	agent,
 	hint,
 	nested,
+	blockerId = null,
+	onHoverChange,
 	onOpen,
 }: {
 	row: Needing;
@@ -128,6 +147,10 @@ export function ForeignItem({
 	agent: string | null;
 	hint: string | null;
 	nested: boolean;
+	/** The blocker task number this conversation holds for the hovered or selected blocked row. */
+	blockerId?: number | null;
+	/** Called when pointer hover enters or leaves this row in the desktop sidebar. */
+	onHoverChange?: (hovered: boolean) => void;
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -138,7 +161,14 @@ export function ForeignItem({
 		<button
 			type="button"
 			data-row
+			data-blocker-id={blockerId ?? undefined}
 			onClick={onOpen}
+			onMouseEnter={
+				onHoverChange === undefined ? undefined : () => onHoverChange(true)
+			}
+			onMouseLeave={
+				onHoverChange === undefined ? undefined : () => onHoverChange(false)
+			}
 			title={conversation?.task ?? undefined}
 			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05] active:bg-foreground/[0.08]"
 		>
@@ -154,7 +184,7 @@ export function ForeignItem({
 			<span className="flex min-w-0 flex-1 items-center gap-1.5">
 				<span
 					className={cn(
-						"min-w-0 truncate text-sm",
+						"min-w-0 truncate text-[13px]",
 						(nested || (conversation !== null && unnamed(conversation))) &&
 							"text-muted-foreground italic",
 					)}
@@ -165,17 +195,20 @@ export function ForeignItem({
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : (
-				<Mark
-					signal={automaticWait(conversation) !== null}
-					starting={conversation?.status === "starting"}
-					picking={conversation?.picking}
-					queued={conversation?.heldForTask != null}
-					need={need}
-					reported={conversation === null ? null : reportedAs(conversation)}
-					unread={conversation?.unread ?? false}
-					subagent={nested}
-					disconnected={isDisconnected(conversation)}
-				/>
+				<>
+					{blockerId !== null && <BlockerPill id={blockerId} subtle />}
+					<Mark
+						signal={automaticWait(conversation) !== null}
+						starting={conversation?.status === "starting"}
+						picking={conversation?.picking}
+						queued={conversation?.heldForTask != null}
+						need={need}
+						reported={conversation === null ? null : reportedAs(conversation)}
+						unread={conversation?.unread ?? false}
+						subagent={nested}
+						disconnected={isDisconnected(conversation)}
+					/>
+				</>
 			)}
 		</button>
 	);

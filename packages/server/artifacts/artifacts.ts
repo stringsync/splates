@@ -3,7 +3,9 @@ import { type IdProvider, UuidProvider } from "core/id";
 import type { Config } from "../config";
 import { fail } from "../exit";
 import type { Collection, Storage } from "../storage";
+import { htmlTitleOf } from "./html";
 import type { ArtifactRoom } from "./room";
+import { viewerOf } from "./viewers";
 
 /**
  * A conversation's artifacts: their bytes, in `<id>/artifacts/` among the
@@ -175,6 +177,8 @@ export class Artifacts {
 	private async keep(file: ArtifactFile): Promise<ArtifactVersion> {
 		const name = file.name.trim();
 		const stored = `${this.ids.next()}-${safe(name)}`;
+		const title =
+			viewerOf(file.mimeType) === "page" ? htmlTitleOf(file.bytes) : null;
 		await this.files.writeBytes(stored, file.bytes);
 		await this.deps.record({
 			type: "add",
@@ -183,6 +187,7 @@ export class Artifacts {
 			mimeType: file.mimeType,
 			bytes: file.bytes.length,
 			addedAt: this.deps.now(),
+			...(title === null ? {} : { title }),
 		});
 		const added = this.find(name);
 		return added.versions[added.versions.length - 1] as ArtifactVersion;
@@ -248,6 +253,8 @@ export interface ArtifactVersion {
 	/** Its size. */
 	bytes: number;
 	addedAt: string;
+	/** The HTML `<title>` extracted when added, when present. */
+	title?: string;
 	/** When and why its bytes were deleted, its record kept; null while they are kept. */
 	gone: { at: string; why: ArtifactGone } | null;
 }

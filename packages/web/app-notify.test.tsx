@@ -53,7 +53,7 @@ describe("App's settings and notifications", () => {
 		return {
 			view,
 			runs,
-			dialog: view.getByRole("dialog", { name: "Settings" }),
+			panel: view.getByRole("region", { name: "Settings" }),
 		};
 	};
 
@@ -70,10 +70,10 @@ describe("App's settings and notifications", () => {
 		);
 
 	it("opens from the header or with ⌘, showing one category at a time, the one picked kept", async () => {
-		const { view, dialog } = await settings();
+		const { view, panel } = await settings();
 		expect(
 			within(
-				within(dialog).getByRole("navigation", { name: "setting categories" }),
+				within(panel).getByRole("navigation", { name: "setting categories" }),
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
@@ -87,15 +87,15 @@ describe("App's settings and notifications", () => {
 			"Shortcuts",
 			"Canned replies",
 		]);
-		expect(within(dialog).getByRole("group", { name: "Theme" })).toBeTruthy();
+		expect(within(panel).getByRole("group", { name: "Theme" })).toBeTruthy();
 
-		await page(dialog, "Notifications");
-		expect(within(dialog).queryByRole("group", { name: "Theme" })).toBeNull();
-		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
+		await page(panel, "Notifications");
+		expect(within(panel).queryByRole("group", { name: "Theme" })).toBeNull();
+		expect(within(panel).getAllByRole("switch")).toHaveLength(6);
 
-		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
 		await waitFor(() =>
-			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull(),
+			expect(view.queryByRole("region", { name: "Settings" })).toBeNull(),
 		);
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
@@ -104,16 +104,16 @@ describe("App's settings and notifications", () => {
 				metaKey: true,
 			}),
 		);
-		const reopened = view.getByRole("dialog", { name: "Settings" });
+		const reopened = view.getByRole("region", { name: "Settings" });
 		expect(within(reopened).getAllByRole("switch").length).toBeGreaterThan(0);
 		expect(within(reopened).queryByRole("group", { name: "Theme" })).toBeNull();
 	});
 
 	it("records a shortcut, taking it from the one that had it, and unsets one", async () => {
-		const { view, dialog } = await settings();
-		await page(dialog, "Shortcuts");
+		const { view, panel } = await settings();
+		await page(panel, "Shortcuts");
 		const field = (name: string) =>
-			within(dialog).getByRole("button", { name: new RegExp(`^${name}: `) });
+			within(panel).getByRole("button", { name: new RegExp(`^${name}: `) });
 		const record = async (name: string, keys: KeyboardEventInit) => {
 			await act(async () => fireEvent.click(field(name)));
 			expect(field(name).getAttribute("aria-label")).toBe(
@@ -158,11 +158,11 @@ describe("App's settings and notifications", () => {
 		expect(field("Fullscreen").getAttribute("aria-label")).toBe(
 			"Fullscreen: none",
 		);
-		expect(within(dialog).getByText("Was Fullscreen's")).toBeTruthy();
+		expect(within(panel).getByText("Was Fullscreen's")).toBeTruthy();
 
-		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
 		await waitFor(() =>
-			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull(),
+			expect(view.queryByRole("region", { name: "Settings" })).toBeNull(),
 		);
 		await search({ key: "k", code: "KeyK", metaKey: true });
 		expect(searching()).toBeNull();
@@ -178,7 +178,7 @@ describe("App's settings and notifications", () => {
 			}),
 		);
 		const again = await waitFor(() =>
-			view.getByRole("dialog", { name: "Settings" }),
+			view.getByRole("region", { name: "Settings" }),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -203,27 +203,27 @@ describe("App's settings and notifications", () => {
 	});
 
 	it("keeps only the settings a search matches, marking the words", async () => {
-		const { dialog } = await settings();
+		const { panel } = await settings();
 		await act(async () =>
-			fireEvent.change(within(dialog).getByRole("searchbox"), {
+			fireEvent.change(within(panel).getByRole("searchbox"), {
 				target: { value: "sound" },
 			}),
 		);
 
-		expect(within(dialog).getAllByRole("listitem")).toHaveLength(1);
-		expect(dialog.querySelector("mark")?.textContent).toBe("sound");
+		expect(within(panel).getAllByRole("listitem")).toHaveLength(1);
+		expect(panel.querySelector("mark")?.textContent).toBe("sound");
 
 		await act(async () =>
-			fireEvent.change(within(dialog).getByRole("searchbox"), {
+			fireEvent.change(within(panel).getByRole("searchbox"), {
 				target: { value: "zebra" },
 			}),
 		);
-		expect(dialog.textContent).toContain("No settings match “zebra”");
+		expect(panel.textContent).toContain("No settings match “zebra”");
 	});
 
 	it("picks the theme among its choices, keeping them for the next visit", async () => {
-		const { dialog } = await settings();
-		const theme = within(dialog).getByRole("group", { name: "Theme" });
+		const { panel } = await settings();
+		const theme = within(panel).getByRole("group", { name: "Theme" });
 		expect(within(theme).getByRole("radio", { name: "System" })).toHaveProperty(
 			"checked",
 			true,
@@ -248,15 +248,13 @@ describe("App's settings and notifications", () => {
 			"splates.settings",
 			JSON.stringify({ "notifications.sound": true }),
 		);
-		const { dialog } = await settings();
-		await page(dialog, "Notifications");
-		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
+		const { panel } = await settings();
+		await page(panel, "Notifications");
+		const sound = within(panel).getByRole("switch", { name: "Play a sound" });
 		expect(sound.getAttribute("aria-checked")).toBe("false");
 
 		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("switch", { name: "Notify me" }),
-			),
+			fireEvent.click(within(panel).getByRole("switch", { name: "Notify me" })),
 		);
 
 		await waitFor(() =>
@@ -265,20 +263,18 @@ describe("App's settings and notifications", () => {
 	});
 
 	it("turns notifications on, then notifies of an agent that comes to wait, opening it on a click", async () => {
-		const { view, runs, dialog } = await settings();
-		await page(dialog, "Notifications");
-		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
+		const { view, runs, panel } = await settings();
+		await page(panel, "Notifications");
+		const sound = within(panel).getByRole("switch", { name: "Play a sound" });
 		expect(sound.hasAttribute("data-disabled")).toBe(true);
 
 		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("switch", { name: "Notify me" }),
-			),
+			fireEvent.click(within(panel).getByRole("switch", { name: "Notify me" })),
 		);
 		await waitFor(() =>
 			expect(sound.hasAttribute("data-disabled")).toBe(false),
 		);
-		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await act(async () => fireEvent.keyDown(window, { key: "Escape" }));
 
 		// vet-ignore fakes-over-mocks: jsdom has no document focus to fake; the file already spied before this task
 		const away = spyOn(document, "hasFocus").mockReturnValue(false);

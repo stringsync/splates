@@ -8,23 +8,25 @@ import {
 import type { ConversationState } from "@splates/server/conversations";
 import {
 	CheckIcon,
-	CircleCheckIcon,
+	ClockIcon,
 	ListPlusIcon,
+	type LucideIcon,
 	MinusIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { queueTodo } from "./api";
 import { blockedFix, useApplyFix } from "./blocked-fix";
 import { Board } from "./board";
+import { CardFooter } from "./card-footer";
 import { CardShell, type Tone } from "./card-shell";
 import { lastReport } from "./conversation-names";
 import { useActs } from "./deferred-acts";
 import { deferredTask, linkedBlockers, TASK_STATUS } from "./deferred-body";
 import { ElsewhereMention } from "./markdown";
-import { Refusal } from "./refusal";
+import { Spinner } from "./pending";
+import { PulsingDot } from "./signal-card";
 
 /**
  * The card of a blocked task, whether it is queued on the board or set aside
@@ -97,10 +99,29 @@ export function DeferredBody({
 		));
 	const hasWhy = deferred !== undefined && deferred.why !== "";
 	const hasBody = hasWhy || blockers.length > 0;
+	const statusNote =
+		task.takenBy !== null ? (
+			<>
+				Started in{" "}
+				<button
+					type="button"
+					className="underline"
+					onClick={() => board.openTask(task.takenBy as string)}
+				>
+					{task.takenBy}
+				</button>
+			</>
+		) : left === 0 ? (
+			"Every blocker is done."
+		) : count > 0 ? (
+			`#${task.id} can start once its blockers are queued and done.`
+		) : (
+			`#${task.id} starts automatically once every blocker is done. Nothing needs you.`
+		);
 	return (
-		<div className="flex flex-col text-sm">
+		<div className="flex flex-1 flex-col text-sm">
 			{hasWhy && (
-				<p className="px-4 py-3 leading-relaxed @max-md:px-3 @max-md:py-2.5">
+				<p className="px-4 py-3 leading-relaxed @max-md:py-2.5">
 					{deferred.why}
 				</p>
 			)}
@@ -114,7 +135,7 @@ export function DeferredBody({
 				{rows("needs you")}
 				{rows("in progress")}
 				{foldDone ? (
-					<li className="rule-t px-4 py-2 text-muted-foreground text-xs @max-md:px-3">
+					<li className="rule-t px-4 py-2 text-muted-foreground text-xs">
 						<CheckIcon
 							aria-hidden
 							className="me-2 inline size-3.5 text-success"
@@ -129,7 +150,7 @@ export function DeferredBody({
 				<ul
 					aria-label="older notes"
 					className={cn(
-						"flex flex-col gap-1 px-4 py-2.5 text-muted-foreground text-xs @max-md:px-3",
+						"flex flex-col gap-1 px-4 py-2.5 text-muted-foreground text-xs",
 						hasBody && "rule-t",
 					)}
 				>
@@ -146,54 +167,35 @@ export function DeferredBody({
 					))}
 				</ul>
 			)}
-			<div
-				className={cn(
-					"flex flex-wrap items-center gap-2 bg-muted/40 px-4 py-2 @max-md:px-3",
-					(hasBody || legacy.length > 0) && "border-foreground/10 border-t",
-				)}
-			>
-				<p className="min-w-0 flex-1 text-muted-foreground text-xs">
-					{task.takenBy !== null ? (
-						<>
-							Started in{" "}
-							<button
-								type="button"
-								className="underline"
-								onClick={() => board.openTask(task.takenBy as string)}
-							>
-								{task.takenBy}
-							</button>
-						</>
-					) : left === 0 ? (
-						"Every blocker is done."
-					) : count > 0 ? (
-						`#${task.id} can start once its blockers are queued and done.`
-					) : (
-						`#${task.id} starts automatically once every blocker is done. Nothing needs you.`
-					)}
-				</p>
-				{count > 0 && (
-					<Button
-						size="sm"
-						disabled={pending.has("all")}
-						onClick={() =>
-							void act("all", async () => {
-								if (fix?.kind === "queue") {
-									await apply(task, fix);
-									return;
-								}
-								for (const each of unqueued) {
-									await queueTodo(each.id, true);
-								}
-							})
-						}
-					>
-						<ListPlusIcon data-icon="inline-start" />
-						{count === 1 ? "Queue 1 blocker" : `Queue ${count} blockers`}
-					</Button>
-				)}
-			</div>
-			<Refusal refusal={refusal} className="px-4 pb-2" />
+			<CardFooter
+				note={statusNote}
+				sheetNote={statusNote}
+				refusal={refusal}
+				className={!hasBody && legacy.length === 0 ? "border-t-0" : undefined}
+				actions={
+					count > 0
+						? [
+								{
+									label:
+										count === 1 ? "Queue 1 blocker" : `Queue ${count} blockers`,
+									Icon: ListPlusIcon,
+									primary: true,
+									disabled: pending.has("all"),
+									onClick: () =>
+										void act("all", async () => {
+											if (fix?.kind === "queue") {
+												await apply(task, fix);
+												return;
+											}
+											for (const each of unqueued) {
+												await queueTodo(each.id, true);
+											}
+										}),
+								},
+							]
+						: []
+				}
+			/>
 		</div>
 	);
 }
@@ -223,19 +225,19 @@ export function useBlockedNeedsYou(
 /**
  * The look of a blocked task's card: what its header says and shows. A task
  * with a blocker nobody has queued asks for the person; once every blocker
- * is queued or landed, nothing is asked.
+ * is queued or landed, it waits with a pulsing blue dot on a neutral header.
  */
 export function blockersLook(
 	blockers: readonly TaskBlocker[],
 	task: TaskRecord,
-): { title: string; Icon: typeof TriangleAlertIcon; tone: Tone } {
+): { title: string; Icon: LucideIcon; tone: Tone } {
 	const open = blockers.filter((each) => !cleared(each));
 	const unqueued = open.filter((each) => groupOf(each) === "needs you");
 	if (task.takenBy === null && open.length > 0 && unqueued.length === 0) {
 		return {
-			title: "Starts automatically",
-			Icon: CircleCheckIcon,
-			tone: "success",
+			title: "Waiting on blockers",
+			Icon: PulsingDot as LucideIcon,
+			tone: "neutral",
 		};
 	}
 	return { title: "Blocked", Icon: TriangleAlertIcon, tone: "warning" };
@@ -255,27 +257,36 @@ export function blockersOf(
 	return linkedBlockers(task, board);
 }
 
-/** One blocker's row: a mark for its state, its name, where it stands, and the one action it takes. */
+/** One blocker's row: a mark for its state, its name, where it stands, and its status. */
 function BlockerRow({ blocker }: { blocker: TaskBlocker }): JSX.Element {
 	const board = useContext(Board);
 	const group = groupOf(blocker);
 	const status = blocker.status;
-	// Two marks only: a dash for a blocker nobody has queued, the one the
-	// person acts on, and a check for one that is handled (queued, running,
-	// landed, removed or another project's); the tooltip names which.
-	const needsYou = group === "needs you" && blocker.status === "available";
-	const Mark = needsYou ? MinusIcon : CheckIcon;
+	// A dash for an unqueued blocker needing action, a muted clock/spinner for
+	// queued/running blockers, and a check only once landed; the tooltip names which.
+	const needsYou = group === "needs you" && status === "available";
+	const working = status === "working";
+	const queued = status === "queued";
+	const Mark = needsYou
+		? MinusIcon
+		: working
+			? Spinner
+			: queued
+				? ClockIcon
+				: CheckIcon;
 	const said = needsYou ? "not queued" : (TASK_STATUS[status] ?? status);
+	const rowStatus = working ? "running" : queued ? "queued" : null;
 	const own = blocker.project === undefined;
 	return (
 		<li
 			className={cn(
-				"flex items-center gap-3 rule-t px-4 py-2 @max-md:px-3",
+				"flex items-center gap-3 rule-t px-4 py-2",
 				group === "done" && "text-muted-foreground",
 			)}
 		>
 			<Mark
 				role="img"
+				aria-hidden={undefined}
 				aria-label={said}
 				className={cn(
 					"size-4 shrink-0",
@@ -312,6 +323,11 @@ function BlockerRow({ blocker }: { blocker: TaskBlocker }): JSX.Element {
 					</span>
 				)}
 			</div>
+			{rowStatus !== null && (
+				<span className="shrink-0 text-muted-foreground text-xs">
+					{rowStatus}
+				</span>
+			)}
 		</li>
 	);
 }

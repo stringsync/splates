@@ -5,9 +5,11 @@ import type {
 } from "@splates/server/spend";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { formatMoney, nameOf } from "./billing-sums";
 import { credAddress } from "./page-address";
+import { PageSection } from "./page-section";
 
 /** Lists agent plan subscriptions and billed providers, with controls to set plans or retry failed pulls. */
 export function Sources({
@@ -37,12 +39,14 @@ export function Sources({
 	);
 	const currency = sources?.currency ?? "USD";
 	return (
-		<section aria-label="billing sources" className="flex flex-col gap-2">
-			<h3 className="flex items-baseline gap-2 font-medium text-sm">
-				Billing sources
+		<PageSection
+			as="h3"
+			aria-label="billing sources"
+			title="Billing sources"
+			aside={
 				<span
 					role={pulling ? "status" : undefined}
-					className="font-normal text-muted-foreground text-xs"
+					className="text-muted-foreground text-xs"
 				>
 					{pulling
 						? "Pulling…"
@@ -50,35 +54,38 @@ export function Sources({
 							? `pulled ${new Date(sources.pulledAt).toLocaleTimeString()}`
 							: ""}
 				</span>
-			</h3>
+			}
+		>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					Could not read billing sources: {error}
 				</p>
 			)}
 			{(plans.length > 0 || providers.length > 0) && (
-				<ul className="divide-y rounded-lg border bg-card">
-					{plans.map((plan) => (
-						<PlanRow
-							key={`plan:${plan.provider}`}
-							plan={plan}
-							currency={currency}
-							saving={savingPlan === plan.provider}
-							onSave={onSavePlan}
-							onClear={onClearPlan}
-						/>
-					))}
-					{providers.map((each) => (
-						<SourceRow
-							key={each.provider}
-							source={each}
-							pulling={pulling}
-							onPull={onPull}
-						/>
-					))}
-				</ul>
+				<Card>
+					<CardList>
+						{plans.map((plan) => (
+							<PlanRow
+								key={`plan:${plan.provider}`}
+								plan={plan}
+								currency={currency}
+								saving={savingPlan === plan.provider}
+								onSave={onSavePlan}
+								onClear={onClearPlan}
+							/>
+						))}
+						{providers.map((each) => (
+							<SourceRow
+								key={each.provider}
+								source={each}
+								pulling={pulling}
+								onPull={onPull}
+							/>
+						))}
+					</CardList>
+				</Card>
 			)}
-		</section>
+		</PageSection>
 	);
 }
 

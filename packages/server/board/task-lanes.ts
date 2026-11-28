@@ -16,6 +16,12 @@ export interface LaneQueueOptions {
 	only?: readonly number[];
 }
 
+/** How `dropLane` removes a lane. */
+export interface DropLaneOptions {
+	/** Refuse a lane that still holds tasks. */
+	emptyOnly?: boolean;
+}
+
 /**
  * Creates, changes and removes the lanes of a `Tasks`, moves tasks between
  * them, and queues the tasks of a lane. Each change is atomic.
@@ -197,10 +203,7 @@ export class TaskLanes {
 	}
 
 	/** Removes lane `id`, putting its tasks back in Backlog. */
-	async dropLane(
-		id: number,
-		opts: { emptyOnly?: boolean } = {},
-	): Promise<void> {
+	async dropLane(id: number, opts: DropLaneOptions = {}): Promise<void> {
 		protectBacklog(id);
 		await this.tasks.locked(async () => {
 			if (opts.emptyOnly) {
@@ -213,7 +216,7 @@ export class TaskLanes {
 			if (opts.emptyOnly && states.some((state) => state.lane === id)) {
 				fail(
 					"usage",
-					`lane ${id} contains tasks: an agent can remove only an empty lane; ask the person with a remove-lane permission card`,
+					`lane ${id} contains tasks: an agent can remove only an empty lane; only the user removes a lane with tasks`,
 					{ lane: id },
 				);
 			}

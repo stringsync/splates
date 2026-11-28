@@ -30,7 +30,7 @@ describe("supersedeQueues", () => {
 
 	test("ignores other permission actions", () => {
 		expect(
-			folded([card({ lane: 3 }), card({ lane: 3, action: "remove-lane" })]),
+			folded([card({ lane: 3 }), card({ lane: 3, action: "run-command" })]),
 		).toEqual([false, false]);
 	});
 });

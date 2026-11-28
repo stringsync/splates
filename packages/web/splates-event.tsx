@@ -162,8 +162,6 @@ export interface SplatesEventView {
 	since?: string | null;
 	/** The one thing the person can do about it, when there is one. */
 	act?: Act | null;
-	/** A shield badge of what it did to trust, last on the line, when it moved it. */
-	trust?: ReactNode;
 }
 
 /**
@@ -285,7 +283,6 @@ function Line({
 			) : (
 				act !== null && <Action act={act} />
 			)}
-			{event.trust}
 		</p>
 	);
 }

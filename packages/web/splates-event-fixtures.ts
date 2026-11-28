@@ -1,8 +1,5 @@
-import type { ScoredDecision } from "@splates/server/trust";
-import { createElement, type ReactNode } from "react";
 import { assumedEvent, overturnedEvent } from "./assumed-line";
 import type { Named, SplatesEventView } from "./splates-event";
-import { TrustBadge } from "./trust-widget";
 import type { WaitRequest } from "./wait-request";
 
 /** One thing in the fixture thread: a turn of the person's or the agent's, or splates's. */
@@ -131,17 +128,13 @@ export function fixtureThread(now: number): FixtureItem[] {
 		},
 		{
 			kind: "event",
-			event: {
-				...overturnedEvent("Backoff: linear → exponential", at(-1)),
-				trust: trustBadge([-6]),
-			},
+			event: overturnedEvent("Backoff: linear → exponential", at(-1)),
 		},
 		{
 			kind: "event",
 			event: {
 				words: ["Questions answered"],
 				act: { label: "Show", run: () => {} },
-				trust: trustBadge([3, 1]),
 			},
 		},
 		{
@@ -149,7 +142,6 @@ export function fixtureThread(now: number): FixtureItem[] {
 			event: {
 				words: ["Plan approved"],
 				act: { label: "Show", run: () => {} },
-				trust: trustBadge([2, -2]),
 			},
 		},
 		{
@@ -157,7 +149,6 @@ export function fixtureThread(now: number): FixtureItem[] {
 			event: {
 				words: ["Removed", task("drag-cards")],
 				at: at(-1),
-				trust: trustBadge([-3]),
 			},
 		},
 		{
@@ -175,25 +166,3 @@ const task = (name: string): Extract<Named, { kind: "task" }> => ({
 	kind: "task",
 	task: name,
 });
-
-/** The badge of decisions moving trust by `deltas`, as an event line ends with it. */
-function trustBadge(deltas: readonly number[]): ReactNode {
-	const decisions = deltas.map(
-		(delta, at): ScoredDecision => ({
-			id: `fixture:${at}`,
-			at: "2026-01-01T00:00:00Z",
-			project: "/work",
-			agent: "claude",
-			model: null,
-			kind: "defaults",
-			source: "question",
-			outcome: delta < 0 ? "overturned" : "kept",
-			subject: "Fixture",
-			conversation: null,
-			task: null,
-			delta,
-			after: 70,
-		}),
-	);
-	return createElement(TrustBadge, { decisions });
-}

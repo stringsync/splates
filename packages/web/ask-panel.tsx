@@ -8,10 +8,14 @@ import type {
 	Answer as CardAnswer,
 	Question as PlanQuestion,
 } from "@splates/server/plans";
+import { CheckIcon, KeyRoundIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
-import { PermissionGrant } from "#web/components/assistant-ui/elements/permission-grant.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import { Kbd } from "#web/components/ui/kbd.tsx";
+import { useTouch } from "#web/hooks/use-touch.ts";
+import { CardFooter } from "./card-footer";
 import { ReplyContext } from "./card-reply";
+import { CardShell } from "./card-shell";
 import { answerConversation } from "./conversation-api";
 import type { Drafts } from "./drafts";
 import { useExpect, usePendingConversation } from "./expecting";
@@ -90,9 +94,9 @@ function commandOf(conversation: ConversationState, id: string): string | null {
 }
 
 /**
- * A permission, through assistant-ui's grant: Deny, This session, and Always
- * stand for ACP's reject, allow once, and allow always, and digits 1 to 3
- * pick them in that order.
+ * A tool permission prompt on the standard warning `CardShell` + `CardFooter`:
+ * Deny, This session, and Always stand for ACP's reject, allow once, and allow
+ * always, and digits 1 to 3 pick them in that order.
  */
 function Permission({
 	ask,
@@ -109,6 +113,7 @@ function Permission({
 	send: (answer: Answer) => Promise<unknown>;
 	keys: boolean;
 }): JSX.Element {
+	const touch = useTouch();
 	const grant = (scope: "denied" | "session" | "always") => {
 		const kinds = {
 			denied: ["reject_once", "reject_always"],
@@ -143,16 +148,58 @@ function Permission({
 		return () => removeEventListener("keydown", pick);
 	});
 	return (
-		<PermissionGrant
-			aria-label="permission"
-			capability={ask.title}
-			command={command}
-			requester={agent}
-			reach={[`in ${where}`]}
-			scope="pending"
-			onGrant={grant}
-			className="max-w-none"
-		/>
+		<CardShell
+			label="permission"
+			Icon={KeyRoundIcon}
+			title="Permission requested"
+			tone="warning"
+			aside={
+				<span className="text-muted-foreground text-xs">
+					{agent} · in {where}
+				</span>
+			}
+		>
+			{command == null ? (
+				<p className="mx-4 mt-3 mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap font-medium text-sm [overflow-wrap:anywhere]">
+					{ask.title}
+				</p>
+			) : (
+				<pre className="mx-4 mt-3 mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded bg-muted px-3 py-2 font-mono text-sm">
+					<code>{command}</code>
+				</pre>
+			)}
+			<p className="px-4 pb-3 text-muted-foreground text-xs">
+				Grants access in {where}.
+			</p>
+			<CardFooter
+				note={
+					keys && !touch ? (
+						<span className="flex items-center gap-1">
+							<Kbd>1</Kbd>
+							<Kbd>2</Kbd>
+							<Kbd>3</Kbd>
+						</span>
+					) : undefined
+				}
+				actions={[
+					{
+						label: "Deny",
+						tone: "destructive",
+						onClick: () => grant("denied"),
+					},
+					{
+						label: "This session",
+						onClick: () => grant("session"),
+					},
+					{
+						label: "Always",
+						Icon: CheckIcon,
+						primary: true,
+						onClick: () => grant("always"),
+					},
+				]}
+			/>
+		</CardShell>
 	);
 }
 

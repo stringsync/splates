@@ -202,11 +202,17 @@ Cap upload retries
 			["Quiet", "possibly stuck"],
 			["Busy", "working"],
 		]);
+		const stuckMark = view.getByRole("status", { name: "possibly stuck" });
+		expect(stuckMark.getAttribute("title")).toStartWith(
+			"Possibly stuck: no activity for ",
+		);
+		expect(stuckMark.querySelector(".animate-spin")).toBeNull();
+		expect(stuckMark.querySelector(".text-warning")).not.toBeNull();
 		expect(
 			view
-				.getByRole("status", { name: "possibly stuck" })
-				.getAttribute("title"),
-		).toStartWith("Possibly stuck: no activity for ");
+				.getByRole("status", { name: "working" })
+				.querySelector(".animate-spin"),
+		).not.toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "More for Busy" })),

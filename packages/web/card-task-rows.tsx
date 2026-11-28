@@ -19,7 +19,7 @@ export function Panel({
 	return (
 		<div className={cn(ruled && "rule-t", "text-sm")}>
 			{heading !== undefined && (
-				<p className="px-4 pt-2.5 pb-1 text-muted-foreground text-xs @max-md:px-3">
+				<p className="px-4 pt-2.5 pb-1 text-muted-foreground text-xs">
 					{heading}
 				</p>
 			)}
@@ -68,7 +68,7 @@ export function Row({
 	return (
 		<li
 			className={cn(
-				"flex items-center gap-2 rule-t px-4 py-1.5 first:border-t-0 first:bg-none @max-md:px-3",
+				"flex items-center gap-2 rule-t px-4 py-1.5 first:border-t-0 first:bg-none",
 				row,
 			)}
 		>

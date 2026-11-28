@@ -148,10 +148,12 @@ export function AgentMark({
 	agent,
 	name,
 	className,
+	style,
 }: {
 	agent: string;
 	name?: string;
 	className?: string;
+	style?: React.CSSProperties;
 }): JSX.Element {
 	const hidden = name === undefined;
 	if (hasColors(agent)) {
@@ -161,6 +163,7 @@ export function AgentMark({
 				aria-label={name}
 				aria-hidden={hidden || undefined}
 				viewBox="0 0 24 24"
+				style={style}
 				className={cn("size-4 shrink-0", className)}
 			>
 				<ColoredMark agent={agent} />
@@ -168,7 +171,7 @@ export function AgentMark({
 		);
 	}
 	return hidden ? (
-		<BotIcon aria-hidden className={cn("size-4", className)} />
+		<BotIcon aria-hidden style={style} className={cn("size-4", className)} />
 	) : (
 		<AgentIcon agent={agent} name={name} className={className} />
 	);

@@ -1,3 +1,4 @@
+import { parseInlineArtifactRef } from "@splates/server/artifacts/browser";
 import { ChevronRightIcon, Maximize2Icon } from "lucide-react";
 import {
 	Children,
@@ -9,6 +10,7 @@ import {
 } from "react";
 import { fileUrl } from "./api";
 import { useImagePreviewsExpanded } from "./image-previews";
+import { InlineHtmlArtifact } from "./inline-artifact";
 import { ITEM, type Shown, useLightbox } from "./lightbox";
 
 /** The recordings a todo or a task may hold, by extension; `dev.ts` serves them. */
@@ -34,6 +36,16 @@ export function Media({
 	src?: string;
 	alt?: string;
 }): JSX.Element {
+	const artifact = parseInlineArtifactRef(src);
+	if (artifact !== null) {
+		return (
+			<InlineHtmlArtifact
+				name={artifact.name}
+				version={artifact.version}
+				alt={alt}
+			/>
+		);
+	}
 	return <Gallery items={[{ src, alt }]} />;
 }
 
@@ -53,7 +65,14 @@ export function Gallery({
 	const [sizes, setSizes] = useState<Readonly<Record<string, string>>>({});
 	const expanded = useImagePreviewsExpanded();
 	const { open, lightbox } = useLightbox();
-	const local = items.filter((item) => item.src.startsWith("/"));
+	const artifacts = items.flatMap((item) => {
+		const parsed = parseInlineArtifactRef(item.src);
+		return parsed === null ? [] : [{ ...parsed, alt: item.alt }];
+	});
+	const nonArtifacts = items.filter(
+		(item) => parseInlineArtifactRef(item.src) === null,
+	);
+	const local = nonArtifacts.filter((item) => item.src.startsWith("/"));
 	const held = local.filter((item) => !failed.has(item.src));
 	const lost = local.filter((item) => failed.has(item.src));
 	const shown = held.map(
@@ -89,7 +108,16 @@ export function Gallery({
 	};
 	return (
 		<>
-			{items
+			{artifacts.map((item, at) => (
+				<InlineHtmlArtifact
+					// biome-ignore lint/suspicious/noArrayIndexKey: an embed list never reorders
+					key={`${item.name}:${item.version}:${at}`}
+					name={item.name}
+					version={item.version}
+					alt={item.alt}
+				/>
+			))}
+			{nonArtifacts
 				.filter((item) => !item.src.startsWith("/"))
 				.map((item) => (
 					<Alt key={item.src} alt={item.alt} />

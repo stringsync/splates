@@ -12,11 +12,11 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
-import { cn } from "#web/lib/utils.ts";
-import { ENDINGS, TONES } from "./card-shell";
+import { CardFooter } from "./card-footer";
+import { ENDINGS } from "./card-shell";
 import { lastReport } from "./conversation-names";
 import { tierOf } from "./event-tier";
+import { ThreadBar } from "./thread-bar";
 
 /**
  * Putting the conversation away once its last word reports a task that is
@@ -122,20 +122,18 @@ export function CardArchive({
 		return null;
 	}
 	return (
-		<footer
+		<CardFooter
 			ref={footer}
-			className="flex justify-end gap-2 border-t bg-muted/20 px-4 py-2.5"
-		>
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={offer.archive}
-				className="gap-1.5 bg-background"
-			>
-				<ArchiveIcon data-icon="inline-start" />
-				Archive
-			</Button>
-		</footer>
+			actions={[
+				{
+					label: "Archive",
+					Icon: ArchiveIcon,
+					tone: "outline",
+					primary: true,
+					onClick: offer.archive,
+				},
+			]}
+		/>
 	);
 }
 
@@ -148,23 +146,25 @@ export function ArchiveBar({ offer }: { offer: ArchiveOffer }): JSX.Element {
 	const { report, archive } = offer;
 	const { title, Icon, tone } = ENDINGS[report.ending];
 	return (
-		<section
-			aria-label="archive"
-			className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-sm shadow-xs"
-		>
-			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 truncate">
-				{title} <span className="font-mono text-xs">{report.task}</span>
-			</span>
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={archive}
-				className="ml-auto gap-1.5 bg-background"
-			>
-				<ArchiveIcon data-icon="inline-start" />
-				Archive
-			</Button>
+		<section aria-label="archive">
+			<ThreadBar
+				Icon={Icon}
+				iconTone={tone}
+				label={
+					<>
+						{title}
+						{report.task !== "" && (
+							<>
+								{" "}
+								<span className="font-mono text-xs">{report.task}</span>
+							</>
+						)}
+					</>
+				}
+				cta="Archive"
+				ctaKind="action"
+				onPress={archive}
+			/>
 		</section>
 	);
 }

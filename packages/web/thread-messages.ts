@@ -1,4 +1,5 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import { parseInlineArtifactRef } from "@splates/server/artifacts/browser";
 import type {
 	ConversationState,
 	Message,
@@ -479,12 +480,24 @@ function convert(
 		!settled &&
 		message.stopped === undefined &&
 		message.interrupted === undefined;
+	const embedded = embeddedArtifacts(message);
+	const visibleEvents =
+		embedded.size === 0
+			? events
+			: events.filter(
+					(event) =>
+						!(
+							event.action === "artifact add" &&
+							event.reason === null &&
+							embedded.has(`${event.name}\0${event.version}`)
+						),
+				);
 	const all = stretchesOf(
 		message,
 		began,
 		going,
 		now,
-		events,
+		visibleEvents,
 		waiting,
 		cut || message.stopped !== undefined || message.interrupted !== undefined,
 		cards.map((card) => {
@@ -563,6 +576,25 @@ function convert(
 					]),
 		],
 	};
+}
+
+/** Artifacts already embedded inline in `message`'s text via auto-capture. */
+function embeddedArtifacts(message: Message): Set<string> {
+	const found = new Set<string>();
+	for (const part of message.parts) {
+		if (part.type !== "text" || !part.text.includes("#splates-artifact=")) {
+			continue;
+		}
+		for (const match of part.text.matchAll(
+			/!\[[^\]]*\]\((?:<)?(#splates-artifact=[^)\s>]+)(?:>)?/g,
+		)) {
+			const parsed = parseInlineArtifactRef(match[1] ?? "");
+			if (parsed !== null) {
+				found.add(`${parsed.name}\0${parsed.version}`);
+			}
+		}
+	}
+	return found;
 }
 
 /**

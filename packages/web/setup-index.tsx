@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import type { JSX } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
+import { PageSection } from "./page-section";
 
 /** Ids of the agent setup areas, to show first, in this order. */
 export const AGENT_JOURNEYS = ["claude", "codex", "kimi", "antigravity"];
@@ -35,28 +37,32 @@ export function SetupIndex({
 	return (
 		<nav
 			aria-label="setup areas"
-			className="mx-auto flex w-full max-w-2xl flex-col gap-10"
+			className="mx-auto flex w-full max-w-2xl flex-col gap-6"
 		>
 			{(heading === undefined ? ordered(areas) : [[...areas]]).map(
 				(group, at) => (
-					<div key={group[0]?.id} className="flex flex-col gap-2">
-						<h2 className="px-3 font-medium text-muted-foreground text-sm">
-							{heading ??
-								(at === 0 && group[0] && AGENT_JOURNEYS.includes(group[0].id)
-									? "Run agents"
-									: "Set up more")}
-						</h2>
-						<ul className="flex flex-col gap-0.5">
-							{group.map((area) => (
-								<AreaRow
-									key={area.id}
-									area={area}
-									onSelect={onSelect}
-									onUndo={onUndo}
-								/>
-							))}
-						</ul>
-					</div>
+					<PageSection
+						key={group[0]?.id}
+						title={
+							heading ??
+							(at === 0 && group[0] && AGENT_JOURNEYS.includes(group[0].id)
+								? "Run agents"
+								: "Set up more")
+						}
+					>
+						<Card>
+							<CardList>
+								{group.map((area) => (
+									<AreaRow
+										key={area.id}
+										area={area}
+										onSelect={onSelect}
+										onUndo={onUndo}
+									/>
+								))}
+							</CardList>
+						</Card>
+					</PageSection>
 				),
 			)}
 		</nav>
@@ -96,11 +102,11 @@ function AreaRow({
 	const warned = area.steps.some((step) => step.warning !== null);
 	const done = area.complete && !warned;
 	return (
-		<li className="group flex items-center gap-1 rounded-lg pr-2 hover:bg-muted/60 has-[:focus-visible]:bg-muted/60">
+		<li className="group flex items-center gap-1 pr-2 hover:bg-muted/60 has-[:focus-visible]:bg-muted/60">
 			<button
 				type="button"
 				aria-label={`Set up ${area.title}`}
-				className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 rounded-lg px-3 py-3.5 text-left outline-none"
+				className="flex min-w-0 flex-1 cursor-pointer items-start gap-4 px-4 py-3.5 text-left outline-none"
 				onClick={() => onSelect(area.id)}
 			>
 				<AreaMark done={done} warned={warned} started={area.done > 0} />

@@ -4,12 +4,14 @@ import { useReactive } from "core/react";
 import { PlusIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import { Input } from "#web/components/ui/input.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { useWide } from "./app-nav";
 import { LineupPicks } from "./autopick-lineup-picks";
 import { LINEUP_LOOKS, LineupDot, pickNames } from "./autopick-looks";
 import type { RulesEditor } from "./autopick-rules";
+import { PageSection } from "./page-section";
 import { Refusal, useRefusal } from "./refusal";
 
 /** Edit Autopick lineups; Apply saves one lineup and Cancel drops its edits. */
@@ -29,9 +31,9 @@ export function LineupsTab({ editor }: { editor: RulesEditor }): JSX.Element {
 		setOpen(null);
 	};
 	return (
-		<section aria-label="Lineups" className="flex flex-col gap-3">
-			<div className="flex items-center justify-between gap-3">
-				<h2 className="font-semibold">Lineups</h2>
+		<PageSection
+			title="Lineups"
+			aside={
 				<Button
 					variant="outline"
 					size="sm"
@@ -41,11 +43,10 @@ export function LineupsTab({ editor }: { editor: RulesEditor }): JSX.Element {
 					<PlusIcon data-icon="inline-start" />
 					New lineup
 				</Button>
-			</div>
-			<p className="text-muted-foreground text-sm">
-				First choice first. The next pick steps in when a plan runs low.
-			</p>
-			<div className="divide-y overflow-hidden rounded-xl border bg-card">
+			}
+			description="First choice first. The next pick steps in when a plan runs low."
+		>
+			<Card className="divide-y">
 				{lineups.map((lineup) => (
 					<section key={lineup.id} aria-label={`Lineup ${lineup.name}`}>
 						<div className="flex items-center gap-3 px-4 py-3">
@@ -108,9 +109,9 @@ export function LineupsTab({ editor }: { editor: RulesEditor }): JSX.Element {
 						)}
 					</section>
 				))}
-			</div>
+			</Card>
 			<Refusal refusal={refusal} />
-		</section>
+		</PageSection>
 	);
 }
 

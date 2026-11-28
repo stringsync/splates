@@ -10,6 +10,7 @@ import { cn } from "#web/lib/utils.ts";
 import { labelOf, shelves, useOpenArtifact } from "./artifact-open";
 import { deleteArtifactVersion } from "./conversation-api";
 import { FileIcon } from "./file-chip";
+import { WidgetCard } from "./widget-card";
 
 /**
  * The artifacts a conversation keeps, as a card beside its thread: click a
@@ -31,15 +32,7 @@ export function ArtifactsCard({
 	}
 	const { listed, hidden } = shelves(artifacts);
 	return (
-		<section
-			aria-label="artifacts"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
-		>
-			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">
-				<FilesIcon />
-				Artifacts
-			</h3>
+		<WidgetCard label="artifacts" Icon={FilesIcon} title="Artifacts">
 			{listed.length > 0 ? (
 				<ul aria-label="listed artifacts">
 					{listed.map(({ name, version }) => (
@@ -85,7 +78,7 @@ export function ArtifactsCard({
 					))}
 				</ul>
 			)}
-		</section>
+		</WidgetCard>
 	);
 }
 

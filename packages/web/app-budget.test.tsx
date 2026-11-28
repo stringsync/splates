@@ -18,6 +18,9 @@ describe("App's budget", () => {
 	const openBudget = async () => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		return view;

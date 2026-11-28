@@ -123,7 +123,7 @@ export const PAGE_AREAS: Record<Page, PageArea> = {
 		area: "trust",
 		Icon: ShieldCheckIcon,
 		description:
-			"How much each model can decide without asking. Ships, spending, deletions and security always ask.",
+			"Earned autonomy by project and model. Ships, spending, deletions, and security always ask.",
 		scope: "everywhere",
 		compact: false,
 	},

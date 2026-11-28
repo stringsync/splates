@@ -1,7 +1,9 @@
 import type { Avoided } from "@splates/server/autopick";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import { autopickAvoided, clearAvoided } from "./autopick-api";
+import { PageSection } from "./page-section";
 
 /**
  * The models Autopick is passing over for now: the provider errors that
@@ -24,14 +26,11 @@ export function AutopickAvoided(): JSX.Element | null {
 		return null;
 	}
 	return (
-		<section
-			aria-label="Avoided models"
-			className="flex flex-col gap-2 rounded-md border p-3"
+		<PageSection
+			label="Avoided models"
+			title={`Avoiding ${rows.length} ${rows.length === 1 ? "model" : "models"}`}
 		>
-			<h3 className="text-sm">
-				Avoiding {rows.length} {rows.length === 1 ? "model" : "models"}
-			</h3>
-			<ul className="flex flex-col gap-3 text-sm">
+			<Card render={<ul />} className="flex flex-col gap-3 p-4 text-sm">
 				{rows.map((row) => (
 					<li
 						key={`${row.agent}/${row.model ?? ""}`}
@@ -63,7 +62,7 @@ export function AutopickAvoided(): JSX.Element | null {
 						</Button>
 					</li>
 				))}
-			</ul>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }

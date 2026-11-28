@@ -55,48 +55,58 @@ export function MergeBadge({
 				{minutes(now - queue.since)}
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80 gap-2 p-2">
-				<p className="px-2 pt-1 pb-1 font-medium text-muted-foreground text-xs">
-					Merges
-				</p>
-				{queue.batches.map((batch) => (
-					<section
-						key={batch[0]?.task}
-						aria-label="Testing together"
-						className="rounded-md border border-info/25 bg-info/5 py-1"
-					>
-						<p className="flex items-center gap-1.5 px-2 py-1 font-medium text-info text-xs">
-							<span aria-hidden className="size-1.5 rounded-full bg-info" />
-							Testing together · {batch.length} tasks
-						</p>
-						<ol aria-label="Tasks testing together" className="flex flex-col">
-							{batch.map((merge) => (
-								<MergeRow
-									key={merge.task}
-									merge={merge}
-									now={now}
-									onOpen={openMerge}
-								/>
-							))}
-						</ol>
-					</section>
-				))}
-				{queue.batches.length > 0 && queue.waiting.length > 0 && (
-					<p className="px-2 text-muted-foreground text-xs">
-						Waiting for a gate
-					</p>
-				)}
-				<ol aria-label="Merges" className="flex flex-col">
-					{queue.separate.map((merge) => (
-						<MergeRow
-							key={merge.task}
-							merge={merge}
-							now={now}
-							onOpen={openMerge}
-						/>
-					))}
-				</ol>
+				<MergeQueueDetails queue={queue} now={now} onOpen={openMerge} />
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+/** The active and queued merges list shown inside a status popover. */
+function MergeQueueDetails({
+	queue,
+	now,
+	onOpen,
+}: {
+	queue: MergeQueue;
+	now: number;
+	onOpen: (merge: QueuedMerge) => void;
+}): JSX.Element {
+	return (
+		<>
+			<p className="px-2 pt-1 pb-1 font-medium text-muted-foreground text-xs">
+				Merges
+			</p>
+			{queue.batches.map((batch) => (
+				<section
+					key={batch[0]?.task}
+					aria-label="Testing together"
+					className="rounded-md border border-info/25 bg-info/5 py-1"
+				>
+					<p className="flex items-center gap-1.5 px-2 py-1 font-medium text-info text-xs">
+						<span aria-hidden className="size-1.5 rounded-full bg-info" />
+						Testing together · {batch.length} tasks
+					</p>
+					<ol aria-label="Tasks testing together" className="flex flex-col">
+						{batch.map((merge) => (
+							<MergeRow
+								key={merge.task}
+								merge={merge}
+								now={now}
+								onOpen={onOpen}
+							/>
+						))}
+					</ol>
+				</section>
+			))}
+			{queue.batches.length > 0 && queue.waiting.length > 0 && (
+				<p className="px-2 text-muted-foreground text-xs">Waiting for a gate</p>
+			)}
+			<ol aria-label="Merges" className="flex flex-col">
+				{queue.separate.map((merge) => (
+					<MergeRow key={merge.task} merge={merge} now={now} onOpen={onOpen} />
+				))}
+			</ol>
+		</>
 	);
 }
 

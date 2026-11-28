@@ -18,6 +18,9 @@ describe("App's creds", () => {
 	const openCreds = async (creds: CredRequest[]) => {
 		const view = await testing.open({ creds });
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
 		);
 		return view;
@@ -26,6 +29,12 @@ describe("App's creds", () => {
 	it("dots Creds in the menu while a request waits, and counts nothing", async () => {
 		const view = await testing.open({ creds: [REQUEST] });
 
+		expect(
+			view.getByRole("button", { name: /More pages need attention/ }),
+		).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		const tab = view.getByRole("tab", { name: /Creds/ });
 		expect(
 			within(tab).getByRole("img", { name: "creds requested" }),
@@ -38,6 +47,9 @@ describe("App's creds", () => {
 			creds: [{ ...REQUEST, status: "saved" }],
 		});
 
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		const tab = view.getByRole("tab", { name: /Creds/ });
 		expect(
 			within(tab).queryByRole("img", { name: "creds requested" }),

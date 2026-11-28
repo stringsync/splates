@@ -117,6 +117,10 @@ export interface Folder {
 	 * last, for the list to draw under its agents; empty where the board is not known.
 	 */
 	queue: Queued[];
+	/** The project's root path, to match cross-project blockers. */
+	root?: string;
+	/** The board's tasks where known, for resolving which conversations hold blockers. */
+	todos?: readonly TaskRecord[];
 	/** Why the project's queue failed to check on its last sweep; null while healthy. */
 	queueError: string | null;
 }
@@ -161,7 +165,7 @@ function atWork(tree: Nested<Needing>): boolean {
 
 function folder(
 	project: string | null,
-	{ repo, trunk, tasks, conversations, todos, queueError }: Here,
+	{ root, repo, trunk, tasks, conversations, todos, queueError }: Here,
 	laneNames: readonly LaneRecord[] | null,
 	lanesTaken: Readonly<Record<string, number>> | null,
 	here: boolean,
@@ -176,6 +180,7 @@ function folder(
 	const shown = (of: Nested<Needing>[]) => shownIn(of);
 	return {
 		project,
+		root,
 		name: repo,
 		here,
 		trunk,
@@ -183,6 +188,7 @@ function folder(
 		lanesTaken,
 		tasks,
 		conversations,
+		todos: todos ?? [],
 		trees: shown(trees),
 		hosting: hostsAtWork(trees),
 		waiting: shown(waiting),

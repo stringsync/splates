@@ -597,6 +597,61 @@ describe("dev conversations", () => {
 		expect(said[1]).toContain("[SPLATES CHECKPOINT]");
 	});
 
+	it("archives after a merge finishes when prompted with archiveAfterMerge", async () => {
+		await withAlpha();
+		const release = Promise.withResolvers<void>();
+		let turn = 0;
+		agent.turn = async (client, sessionId) => {
+			turn += 1;
+			if (turn === 1) {
+				await client.sessionUpdate({
+					sessionId,
+					update: say("## 📝 Plan: alpha\n\nImplement alpha."),
+				});
+				return "end_turn";
+			}
+			await release.promise;
+			await client.sessionUpdate({
+				sessionId,
+				update: say("## ✅ Merged alpha onto main\n\nMerged alpha."),
+			});
+			return "end_turn";
+		};
+		const id = await start(port, "alpha");
+		const conversation = await conversations.find(id);
+		await eventually(async () => conversation.state.status === "idle", 2_000);
+		await conversation.prompt("plan it", [], undefined, { person: true });
+		await eventually(async () => conversation.state.status === "idle", 2_000);
+
+		const form = new FormData();
+		form.set("text", "Approve: alpha");
+		form.set("archiveAfterMerge", "true");
+		const prompted = fetch(
+			`http://127.0.0.1:${port}/api/conversations/${id}/prompt`,
+			{
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${port}` },
+				body: form,
+			},
+		);
+		await eventually(
+			async () => conversation.state.status === "running",
+			2_000,
+		);
+		expect(conversation.state.archiveAfterMerge).toBe(true);
+
+		const moved = await json(port, `/api/conversations/${id}/task`, "PUT", {
+			task: null,
+			from: "alpha",
+			ended: "merged",
+		});
+		expect(moved.status).toBe(200);
+		release.resolve();
+		expect((await prompted).status).toBe(200);
+		await eventually(async () => conversation.state.archived, 2_000);
+		expect(conversation.state.archiveAfterMerge).toBeUndefined();
+	});
+
 	it("refuses a start from another site", async () => {
 		const response = await fetch(
 			`http://127.0.0.1:${server.port}/api/conversations`,

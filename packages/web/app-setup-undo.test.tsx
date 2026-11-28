@@ -31,6 +31,9 @@ describe("App's setup undo", () => {
 	const openSetup = async (journey: string | null = "Agents") => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Setup$/ })),
 		);
 		if (journey !== null) {

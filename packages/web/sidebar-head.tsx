@@ -3,6 +3,7 @@ import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { type JSX, useEffect, useRef } from "react";
 import { useShortcutLabel } from "#web/hooks/use-shortcut.ts";
 import { cn } from "#web/lib/utils.ts";
+import { BuddyLogo } from "./brand-logo";
 import { ProjectSwitcher } from "./projects";
 import type { Sidebar } from "./sidebar";
 import { BarButton } from "./top-bar";
@@ -44,10 +45,11 @@ export function SidebarHead({
 		<header
 			ref={ref}
 			className={cn(
-				"fixed top-0 left-0 z-50 flex h-(--top-bar-height) max-w-(--sidebar-width) items-center gap-2 pr-2 pl-6",
-				shown && "w-(--sidebar-width)",
+				"fixed top-2 left-0 z-50 flex h-(--top-bar-height) max-w-(--sidebar-width) items-center gap-2 pr-2 pl-4",
+				shown ? "w-(--sidebar-width)" : "left-2",
 			)}
 		>
+			<BuddyLogo className="size-6.5" />
 			<ProjectSwitcher
 				name={name}
 				path={false}

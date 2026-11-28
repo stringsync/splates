@@ -15,7 +15,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Skeleton } from "#web/components/ui/skeleton.tsx";
 import { RulesEditor } from "./autopick-rules";
 import {
 	agentFor,
@@ -32,6 +31,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { ReadFailed, StillWaiting } from "./countdown";
 import { Markdown } from "./markdown";
 import type { Move, SetupOpen } from "./page-address";
+import { Spinner } from "./pending";
 import { RouteTrail } from "./route-trail";
 import {
 	autopickBrowserSteps,
@@ -143,37 +143,17 @@ export function SetupPage({
 }
 
 /**
- * Shown while setup is read, which takes a few seconds the first time: the
- * index's grouped rows, each a title, a progress line and a chevron.
+ * Shown while setup is read, which takes a few seconds the first time.
  */
 function SetupLoading(): JSX.Element {
 	return (
 		<div role="status" className="flex flex-col gap-4">
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<p className="text-muted-foreground text-sm">Reading your setup…</p>
+				<p className="flex items-center gap-2 text-muted-foreground text-sm">
+					<Spinner className="size-4" />
+					Reading your setup…
+				</p>
 				<StillWaiting />
-			</div>
-			<div aria-hidden className="flex flex-col gap-6">
-				{[3, 2].map((rows) => (
-					<ul
-						key={rows}
-						className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card"
-					>
-						{Array.from({ length: rows }, (_, index) => (
-							<li
-								// biome-ignore lint/suspicious/noArrayIndexKey: fixed, never reordered
-								key={index}
-								className="flex min-h-16 items-center gap-3 px-4"
-							>
-								<span className="flex flex-1 flex-col gap-2">
-									<Skeleton className="h-4 w-40" />
-									<Skeleton className="h-3 w-24" />
-								</span>
-								<Skeleton className="size-4 rounded-full" />
-							</li>
-						))}
-					</ul>
-				))}
 			</div>
 		</div>
 	);

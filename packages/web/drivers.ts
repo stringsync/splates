@@ -65,9 +65,7 @@ function firstText(element: HTMLElement): string | undefined {
 export async function toThread(view: ConversationsView): Promise<void> {
 	const sheet = await waitFor(() => view.getByRole("dialog"));
 	await act(async () =>
-		fireEvent.click(
-			within(sheet).getByRole("button", { name: "Conversation" }),
-		),
+		fireEvent.click(within(sheet).getByRole("button", { name: "Close" })),
 	);
 	await waitFor(() => {
 		if (view.queryByRole("dialog") !== null) {
@@ -91,7 +89,11 @@ export async function newWith(
 	agent: string,
 ): Promise<void> {
 	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "New" })),
+		fireEvent.click(
+			within(view.getByRole("tablist")).getByRole("button", {
+				name: "New conversation",
+			}),
+		),
 	);
 	await act(async () =>
 		fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),

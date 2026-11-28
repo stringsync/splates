@@ -1,6 +1,8 @@
-"use client";
+import { Spinner } from "#web/pending.tsx";
 
-import { CheckIcon, Loader2Icon } from "lucide-react";
+("use client");
+
+import { CheckIcon } from "lucide-react";
 import { type ComponentProps, useState } from "react";
 import { cn } from "#web/lib/utils.ts";
 import { clamp } from "../utils/range";
@@ -232,7 +234,7 @@ export function OptionList({
 								aria-hidden
 								className="flex h-5 w-3.5 shrink-0 items-center justify-center"
 							>
-								<Loader2Icon className="text-foreground/45 size-3.5" />
+								<Spinner className="text-foreground/45 size-3.5" />
 							</span>
 						) : null}
 						<OptionText option={option} />

@@ -7,6 +7,7 @@ import type {
 import { ChevronRightIcon } from "lucide-react";
 import { type CSSProperties, type JSX, useEffect, useState } from "react";
 import { Badge } from "#web/components/ui/badge.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -29,6 +30,7 @@ import { cellKeyLabel, pickedCell } from "./autopick-rules";
 import { ScorecardEvidence } from "./autopick-scorecard-evidence";
 import { ReadFailed, ReadingNow } from "./countdown";
 import { ModelProviderMark } from "./model-provider-mark";
+import { PageSection } from "./page-section";
 import { PERIODS } from "./stats-report";
 
 type ScoreRead = { scores: AutopickScores } | { error: string };
@@ -69,9 +71,9 @@ export function AutopickScorecard({
 	}, [request, rules]);
 
 	return (
-		<section aria-label="Scorecard" className="flex min-w-0 flex-col gap-3">
-			<div className="flex items-center justify-between gap-3">
-				<h3 className="font-semibold text-sm">Scorecard</h3>
+		<PageSection
+			title="Scorecard"
+			aside={
 				<Select
 					value={period}
 					items={PERIODS.map(({ id, label }) => ({ value: id, label }))}
@@ -95,7 +97,8 @@ export function AutopickScorecard({
 						</SelectGroup>
 					</SelectContent>
 				</Select>
-			</div>
+			}
+		>
 			<OverrideReview />
 			{read === null ? (
 				<ReadingNow label="Reading Autopick scorecard…" />
@@ -114,7 +117,7 @@ export function AutopickScorecard({
 				</p>
 			) : (
 				<>
-					<ul className="divide-y overflow-hidden rounded-xl border bg-card">
+					<Card render={<ul />} className="divide-y">
 						{Array.from(scoreEntries(read.scores), ([key, entry]) => (
 							<ScoreRow
 								key={key}
@@ -123,7 +126,7 @@ export function AutopickScorecard({
 								onCell={onCell}
 							/>
 						))}
-					</ul>
+					</Card>
 					{read.scores.rows.length > 0 && (
 						<p className="text-muted-foreground text-xs">
 							{read.scores.rows.reduce((total, row) => total + row.tasks, 0)}{" "}
@@ -133,7 +136,7 @@ export function AutopickScorecard({
 					)}
 				</>
 			)}
-		</section>
+		</PageSection>
 	);
 }
 
@@ -164,9 +167,10 @@ function scoreEntries({
 }
 
 const VERDICTS = {
-	weak: { label: "Underpowered", tone: "--destructive" },
-	strong: { label: "Overpowered", tone: "--warning" },
+	weak: { label: "Underpowered", tone: "--warning" },
+	strong: { label: "Overpowered", tone: "--info" },
 	fine: { label: "Good fit", tone: "--success" },
+	sparse: { label: "Not enough data", tone: "--muted-foreground" },
 } as const;
 
 function ScoreRow({
@@ -181,15 +185,15 @@ function ScoreRow({
 	const pick = row === null ? history : row;
 	const cell = pickedCell(pick);
 	const lineup = lineups.find((each) => each.id === pick.lineup);
-	const verdict =
-		row === null || row.verdict === "sparse" ? null : VERDICTS[row.verdict];
+	const verdict = row === null ? null : VERDICTS[row.verdict];
 	return (
 		<li>
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(
 						"group flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left text-sm",
-						verdict === null && "text-muted-foreground",
+						(row === null || row.verdict === "sparse") &&
+							"text-muted-foreground",
 					)}
 				>
 					<span className="flex min-w-0 flex-1 flex-col gap-1">

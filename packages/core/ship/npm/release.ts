@@ -136,6 +136,34 @@ export function release(opts: ReleaseOptions): Step[] {
 		(await view(ctx, opts.package, "version")) ?? "";
 
 	/**
+	 * Waits until npm serves `pkg@version`, since npm says a newly published
+	 * version "may take a few minutes to become available".
+	 */
+	const waitForVersion = async (
+		ctx: Ctx,
+		pkg: string,
+		version: string,
+	): Promise<boolean> => {
+		const spec = `${pkg}@${version}`;
+		const attempts = opts.waitAttempts ?? PUBLISH_WAIT_ATTEMPTS;
+		const delay = opts.waitDelay ?? PUBLISH_WAIT_DELAY;
+		for (let attempt = 0; attempt < attempts; attempt++) {
+			if (attempt > 0 && delay > 0) {
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
+			if (
+				await ok(
+					ctx,
+					`npm view --prefer-online ${quote(spec)} version | grep -q .`,
+				)
+			) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	/**
 	 * Whether npm's latest version was published by the GitHub workflow, which
 	 * only happens once npm trusts it: `npm trust list` needs a one-time
 	 * password even to read, so this is how a release avoids asking for a login
@@ -248,13 +276,28 @@ export function release(opts: ReleaseOptions): Step[] {
 				const state = await read();
 				const dir = inMirror(state.dir);
 				await sync(ctx);
+				const pins = opts.pins
+					? Object.fromEntries(
+							Object.entries(opts.pins).filter(
+								([, version]) => !UNRESOLVED_UPSTREAM.test(version),
+							),
+						)
+					: undefined;
+				const hasPins = pins !== undefined && Object.keys(pins).length > 0;
 				await ctx.sh(
-					`bun core/packages/core/ship/npm/cli.ts mirror ${quote(state.dir)} ${quote(checkout)} ${quote(state.version)}${(opts.keep ?? []).map((glob) => ` ${quote(glob)}`).join("")}${opts.omit ? ` --omit ${quote(JSON.stringify(opts.omit))}` : ""}${opts.pins ? ` --pins ${quote(JSON.stringify(opts.pins))}` : ""}${opts.fold ? ` --fold ${quote(JSON.stringify(opts.fold))}` : ""}${opts.scope === "package" ? " --package-only" : ""}`,
+					`bun core/packages/core/ship/npm/cli.ts mirror ${quote(state.dir)} ${quote(checkout)} ${quote(state.version)}${(opts.keep ?? []).map((glob) => ` ${quote(glob)}`).join("")}${opts.omit ? ` --omit ${quote(JSON.stringify(opts.omit))}` : ""}${hasPins ? ` --pins ${quote(JSON.stringify(pins))}` : ""}${opts.fold ? ` --fold ${quote(JSON.stringify(opts.fold))}` : ""}${opts.scope === "package" ? " --package-only" : ""}`,
 				);
+				for (const [name, version] of Object.entries(pins ?? {})) {
+					if (!(await waitForVersion(ctx, name, version))) {
+						throw new Error(
+							`Pinned dependency ${name}@${version} did not appear on npm`,
+						);
+					}
+				}
 				const env = `export SHIP_VERSION=${quote(state.version)}`;
 				const hook = (command: string) =>
 					ctx.sh(`cd ${quote(checkout)} && ${env} && ${command}`);
-				await ctx.sh(`cd ${quote(checkout)} && bun install`);
+				await ctx.sh(`cd ${quote(checkout)} && bun install --no-cache`);
 				if (opts.prepare) {
 					await hook(opts.prepare);
 				}
@@ -345,6 +388,7 @@ export function release(opts: ReleaseOptions): Step[] {
 			},
 			run: async (ctx) => {
 				const { sha, version } = await read();
+				let workflowError: unknown;
 				try {
 					await ctx.sh(
 						`gh workflow run ${quote(WORKFLOW_FILE)} -R ${quote(opts.repository)} -f ref=${quote(sha as string)}`,
@@ -353,18 +397,19 @@ export function release(opts: ReleaseOptions): Step[] {
 						`sleep 5 && id=$(gh run list -R ${quote(opts.repository)} --workflow ${quote(WORKFLOW_FILE)} --limit 1 --json databaseId --jq '.[0].databaseId') && gh run watch "$id" -R ${quote(opts.repository)} --exit-status`,
 					);
 				} catch (error) {
-					// An earlier run may have published this version already,
-					// which makes this one fail with "cannot publish over"; the
-					// version being out is the goal. npm says a new version "may
-					// take a few minutes to become available", so wait for its
-					// view to catch up before calling the run a failure.
-					const out = await ok(
-						ctx,
-						`for i in $(seq 1 24); do npm view --prefer-online ${quote(`${opts.package}@${version}`)} version | grep -q . && exit 0; sleep 5; done; exit 1`,
-					);
-					if (!out) {
-						throw error;
+					workflowError = error;
+				}
+				// npm says a new version "may take a few minutes to become
+				// available": wait for the registry to serve it before
+				// advancing downstream targets (or, on a workflow failure like
+				// "cannot publish over", before treating the run as failed).
+				if (!(await waitForVersion(ctx, opts.package, version))) {
+					if (workflowError !== undefined) {
+						throw workflowError;
 					}
+					throw new Error(
+						`${opts.package}@${version} did not appear on npm after publishing`,
+					);
 				}
 				ctx.update(`Published ${opts.package}@${version}`);
 				ctx.released(version);
@@ -467,6 +512,10 @@ interface ReleaseBaseOptions {
 	dependencies?: readonly string[];
 	/** Milliseconds before the first retry of a failed registry query, doubling after (default 2000). */
 	retryDelay?: number;
+	/** Milliseconds between polls waiting for a newly published version to appear on npm (default 5000). */
+	waitDelay?: number;
+	/** Maximum polls waiting for a newly published version to appear on npm (default 60). */
+	waitAttempts?: number;
 	/** Where the mirror checkout and in-progress state live (default: `$XDG_CACHE_HOME/core-ship/npm` or `~/.cache/core-ship/npm`). */
 	cacheDir?: string;
 }
@@ -490,6 +539,10 @@ const UNRESOLVED_UPSTREAM = /^the version (.+) releases$/;
 
 /** How many times a registry query that fails other than with E404 is tried. */
 const QUERY_ATTEMPTS = 3;
+
+/** Polls and interval (5 minutes total) waiting for a newly published version to appear on npm. */
+const PUBLISH_WAIT_ATTEMPTS = 60;
+const PUBLISH_WAIT_DELAY = 5000;
 
 /** Persistent cache outside `tmpdir()` (so OS temp cleanup never reaps it) and outside mono. */
 function defaultCacheDir(): string {

@@ -189,6 +189,9 @@ describe("App's projects", () => {
 	it("goes back to the project left on the browser's back", async () => {
 		const view = await testing.open({ repo: "wren" });
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Creds/ })),
 		);
 		await waitFor(() => expect(location.hash).toBe("#creds"));

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardHeader } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AgentBrand } from "./agent-icons";
 import {
@@ -29,8 +30,8 @@ import { ReadFailed, ReadingNow } from "./countdown";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { useReading } from "./page-readings";
+import { PageSection } from "./page-section";
 import { pendingRow, usePendingWrites, useShowPending } from "./pending";
-import { PHONE_HEADING } from "./phone-rows";
 import {
 	ago,
 	antigravityPlanLimits,
@@ -75,15 +76,10 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 		<section aria-label="billing" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Billing" />
 			<SpendSection planLimits={<PlanSection talk={talk} />} />
-			<div className="flex min-w-0 flex-col gap-4">
-				<header className="flex flex-wrap items-center gap-2">
-					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
-						vet budgets
-					</h2>
-					<span className="text-muted-foreground text-xs">
-						Input tokens a check may spend here, on this device.
-					</span>
-				</header>
+			<PageSection
+				title="vet budgets"
+				description="Input tokens a check may spend here, on this device."
+			>
 				{error !== null && (
 					<ReadFailed error={error} onRetry={() => void reading.refresh()} />
 				)}
@@ -113,7 +109,7 @@ export function BillingPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 						))}
 					</ul>
 				)}
-			</div>
+			</PageSection>
 		</section>
 	);
 }
@@ -182,15 +178,12 @@ function RoleCard({
 	// a model that spends nothing asks nothing already
 	const pausable = role.spend !== null && role.spend !== "nothing";
 	return (
-		<li
+		<Card
+			render={<li />}
 			aria-label={`${role.role} budget`}
-			{...pendingRow(
-				writes.pending(),
-				showPending,
-				"overflow-hidden rounded-xl border bg-card shadow-xs",
-			)}
+			{...pendingRow(writes.pending(), showPending)}
 		>
-			<header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3">
+			<CardHeader render={<header />}>
 				<div className="flex min-w-0 flex-col">
 					<span className="flex items-baseline gap-2">
 						<code className="font-medium font-mono text-[13px]">
@@ -245,7 +238,7 @@ function RoleCard({
 						<PencilIcon /> Edit
 					</Button>
 				</div>
-			</header>
+			</CardHeader>
 			<ModelList models={models} />
 			<div className="flex flex-col gap-3 px-4 py-3">
 				{role.paused !== null && (
@@ -327,7 +320,7 @@ function RoleCard({
 								: `From ${home(role.from)}.`}
 				</p>
 			</div>
-		</li>
+		</Card>
 	);
 }
 
@@ -429,15 +422,11 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 	// Codex, Kimi and Antigravity are asked for their limits as the page opens.
 	useEffect(() => void talk.refreshLimits(), [talk]);
 	return (
-		<div className="flex min-w-0 flex-col gap-4">
-			<header className="flex flex-wrap items-center gap-2">
-				<h3 className={cn("font-medium text-sm", PHONE_HEADING)}>
-					Plan limits
-				</h3>
-				<span className="text-muted-foreground text-xs">
-					As each agent last said, from any project.
-				</span>
-			</header>
+		<PageSection
+			as="h3"
+			title="Plan limits"
+			description="As each agent last said, from any project."
+		>
 			<ul className="flex flex-col gap-4">
 				{PLANS.map(({ agent, name }) => {
 					const raw = limitsOf(agents, conversations, agent);
@@ -445,10 +434,11 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 						agent === "antigravity" ? antigravityPlanLimits(raw) : raw;
 					const at = saidAt(limits) ?? saidAt(raw);
 					return (
-						<li
+						<Card
+							render={<li />}
 							key={agent}
 							aria-label={`${name} plan`}
-							className="rounded-xl border bg-card px-4 py-3 shadow-xs"
+							className="px-4 py-3"
 						>
 							<div className="flex flex-wrap items-baseline gap-x-2">
 								<AgentBrand agent={agent} name={name} className="text-sm" />
@@ -471,11 +461,11 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 									className="mt-2 px-0 [&>h3]:sr-only"
 								/>
 							)}
-						</li>
+						</Card>
 					);
 				})}
 			</ul>
-		</div>
+		</PageSection>
 	);
 }
 

@@ -1,5 +1,6 @@
 import type { PlanView, SpendReport } from "@splates/server/spend";
 import type { JSX, ReactNode } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	apiTotal,
 	missingPlans,
@@ -47,9 +48,10 @@ export function Headline({
 			? null
 			: pace + total.expected + sum(upcoming).expected;
 	return (
-		<section
+		<Card
+			render={<section />}
 			aria-label="total"
-			className="flex flex-col gap-4 rounded-xl border bg-card px-5 py-5 shadow-xs"
+			className="flex flex-col gap-4 px-5 py-5"
 		>
 			<div className="flex flex-wrap items-end gap-x-10 gap-y-4">
 				<div className="flex flex-col gap-1">
@@ -133,7 +135,7 @@ export function Headline({
 					)}
 				</div>
 			)}
-		</section>
+		</Card>
 	);
 }
 

@@ -8,7 +8,6 @@ import {
 import { type JSX, useContext, useState } from "react";
 import { ReplyContext, textOf } from "./card-reply";
 import { type Act, SplatesEvent, type SplatesEventView } from "./splates-event";
-import { overturnDecisions, TrustBadge, TrustContext } from "./trust-widget";
 
 /** What a `data-assumed` part carries: one Assumed line and its number in the conversation. */
 export interface AssumedData extends Assumed {
@@ -120,27 +119,13 @@ export function overturnOf(
 	};
 }
 
-/**
- * The line an overturn draws in place of the user's message, ending with
- * what it did to trust once its decision is read.
- */
+/** The line an overturn draws in place of the user's message. */
 export function OverturnedLine({
-	number,
 	words,
 	at = null,
 }: {
-	/** Which assumption it overturned, as `[SPLATES OVERTURN <n>]` numbers it. */
-	number: number;
 	words: string;
 	at?: string | null;
 }): JSX.Element {
-	const decisions = overturnDecisions(useContext(TrustContext), number, words);
-	return (
-		<SplatesEvent
-			event={{
-				...overturnedEvent(words, at),
-				trust: decisions.length > 0 && <TrustBadge decisions={decisions} />,
-			}}
-		/>
-	);
+	return <SplatesEvent event={overturnedEvent(words, at)} />;
 }

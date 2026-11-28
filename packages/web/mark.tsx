@@ -5,7 +5,7 @@ import {
 	CircleSlashIcon,
 	GitMergeIcon,
 	HourglassIcon,
-	Loader2Icon,
+	LoaderCircleIcon,
 	type LucideIcon,
 	StarIcon,
 	TriangleAlertIcon,
@@ -16,6 +16,7 @@ import { cn } from "#web/lib/utils.ts";
 import { waitsOn } from "./conversation-names";
 import { Dot } from "./dot";
 import { placeInLine } from "./merge-place";
+import { Spinner } from "./pending";
 import { type Quiet, quietTitle } from "./quiet";
 
 /** Whether a conversation has no live or starting agent process (excluding queued-to-start holds). */
@@ -258,14 +259,13 @@ export function Mark({
 	}
 	if (quiet !== null && need.kind !== "idle") {
 		return (
-			<span
+			<Glyph
+				icon={LoaderCircleIcon}
 				role="status"
 				aria-label="possibly stuck"
 				title={quietTitle(quiet)}
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<Loader2Icon className="size-3.5 text-warning" />
-			</span>
+				color="text-warning"
+			/>
 		);
 	}
 	return (
@@ -274,7 +274,7 @@ export function Mark({
 			aria-label="working"
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
-			<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
+			<Spinner className="size-3.5 animate-spin text-foreground/60" />
 		</span>
 	);
 }

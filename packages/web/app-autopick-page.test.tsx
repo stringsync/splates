@@ -438,6 +438,9 @@ describe("App's Autopick page", () => {
 				{ target: { value: "70" } },
 			),
 		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		const back = () => view.getByRole("tab", { name: /Stats/ });
 		const unloading = new Event("beforeunload", { cancelable: true });
 		window.dispatchEvent(unloading);

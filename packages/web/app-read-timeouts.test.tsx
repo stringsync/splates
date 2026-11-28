@@ -23,6 +23,11 @@ describe("App's reads that never answer", () => {
 	/** Opens the page at its `tab`, as a person does from the sidebar. */
 	const openTab = async (tab: RegExp) => {
 		const view = await testing.open();
+		if (view.queryByRole("tab", { name: tab }) === null) {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+			);
+		}
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: tab })),
 		);

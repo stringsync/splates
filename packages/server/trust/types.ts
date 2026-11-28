@@ -75,16 +75,14 @@ export type TrustMode = "dynamic" | "static";
 /** Stored per project × agent/model trust setting in `~/.splates/trust-settings.json`. */
 export interface TrustSetting extends TrustKey {
 	mode: TrustMode;
-	/** Static trust value (0–100), used when `mode === "static"`. */
-	value: number;
-	/** Manually set dynamic starting value (0–100), applied from `dynamicAt` onward. */
-	dynamicBase?: number | null;
-	/** ISO timestamp when `dynamicBase` was set; earlier decisions do not pull the score away from it. */
-	dynamicAt?: string | null;
+	/** Pinned trust band when `mode === "static"`, or null when never pinned. */
+	band: TrustBand | null;
 	/** ISO timestamp of the last reset; decisions before this are ignored. */
 	resetAt: string | null;
 	/** ISO timestamp when this setting was last updated. */
 	updatedAt: string;
+	/** @deprecated Legacy numeric static value (0–100); migrated to `band` on read and omitted on save. */
+	value?: number;
 }
 
 /** Counts of recorded decision outcomes. */
@@ -93,6 +91,22 @@ export interface DecisionCounts {
 	amended: number;
 	overturned: number;
 	total: number;
+}
+
+/** Session-bounded standing metrics behind a model's earned trust level. */
+export interface TrustStanding {
+	/** Counted sessions since `resetAt` (at most 1 per conversation). */
+	sessions: number;
+	/** Distinct `YYYY-MM-DD` calendar dates across counted sessions since `resetAt`. */
+	activeDays: number;
+	/** Rounded 0–100 agreement percentage over the last 25 counted sessions, or null when 0. */
+	agreement: number | null;
+	/** Consecutive newest counted sessions with zero broken-trust incidents. */
+	cleanStreak: number;
+	/** Total broken-trust incidents in the last 5 counted sessions. */
+	brokenInLast5: number;
+	/** Total broken-trust incidents in the last 10 counted sessions. */
+	brokenInLast10: number;
 }
 
 /** Trust score and counts for one decision kind. */
@@ -104,18 +118,29 @@ export interface TrustKindBreakdown {
 
 /** Computed trust summary for one project × agent/model. */
 export interface TrustEntry extends TrustKey {
-	/** Effective trust (0–100): static value when static, dynamic score when dynamic. */
-	score: number;
-	/** Always-computed dynamic score (0–100) from decisions since `resetAt`. */
-	dynamicScore: number;
+	/** Effective trust band: pinned band when static, earned band when dynamic. */
+	band: TrustBand;
+	/** Always-computed earned trust band from counted sessions since `resetAt`. */
+	earnedBand: TrustBand;
 	mode: TrustMode;
-	/** Stored static value (0–100), or null if never set. */
-	staticValue: number | null;
+	/** Stored pinned band, or null if never pinned. */
+	pinnedBand: TrustBand | null;
+	/** Session-bounded standing metrics since `resetAt`. */
+	standing: TrustStanding;
+	/** Kinds an overturned assumption sent back to asking, whatever the band. */
+	asking: DecisionKind[];
 	resetAt: string | null;
 	counts: DecisionCounts;
-	kinds: TrustKindBreakdown[];
 	/** ISO timestamp of the most recent decision or setting update, or null. */
 	lastAt: string | null;
+	/** @deprecated Legacy 0–100 score derived from `band`, kept until #4649 and #4650 migrate. */
+	score: number;
+	/** @deprecated Legacy 0–100 dynamic score derived from `earnedBand`, kept until #4649 and #4650 migrate. */
+	dynamicScore: number;
+	/** @deprecated Legacy 0–100 static value derived from `pinnedBand`, kept until #4649 and #4650 migrate. */
+	staticValue: number | null;
+	/** @deprecated Legacy per-kind breakdown, kept until #4649 and #4650 migrate. */
+	kinds: TrustKindBreakdown[];
 }
 
 /** How an agent at a given trust treats a reversible call. */

@@ -1,5 +1,5 @@
 import type { AreaProgress } from "@splates/server/setup";
-import { FlagIcon, Loader2Icon, PlusIcon } from "lucide-react";
+import { FlagIcon, PlusIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -9,10 +9,13 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { Checkbox } from "#web/components/ui/checkbox.tsx";
+import { cn } from "#web/lib/utils.ts";
 import { useWide } from "./app-nav";
+import { BuddyLogo } from "./brand-logo";
 import { ShortcutSettings, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Move } from "./page-address";
 import type { Page } from "./page-route";
+import { LoadingState, Spinner } from "./pending";
 import { SetupContext } from "./setup-state";
 import { TopBar } from "./top-bar";
 
@@ -58,7 +61,7 @@ export function WelcomePage({
 			</WelcomeGroup>
 			{(shown === null || left.length > 0) && (
 				<WelcomeGroup heading="Suggested next" loading={reading}>
-					{shown === null && <WelcomeSkeleton />}
+					{shown === null && <WelcomeLoading />}
 					{left.map((area) => (
 						<WelcomeRow
 							key={area.id}
@@ -90,7 +93,7 @@ function WelcomeGroup({
 			<h2 className="flex items-center gap-3 px-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 				{heading}
 				{loading && (
-					<Loader2Icon
+					<Spinner
 						role="img"
 						aria-label="checking setup"
 						className="size-3.5 animate-spin"
@@ -142,23 +145,28 @@ function WelcomeRow({
 	);
 }
 
-/** Placeholder rows while the first read of setup, with nothing kept from an earlier one, is out. */
-function WelcomeSkeleton(): JSX.Element {
+/** A spinner while the first read of setup, with nothing kept from an earlier one, is out. */
+function WelcomeLoading(): JSX.Element {
 	return (
-		<>
-			{[0, 1].map((at) => (
-				<li key={at} aria-hidden className="flex items-center gap-4 px-3 py-3">
-					<span className="size-5 animate-pulse rounded bg-muted" />
-					<span className="h-5 w-48 animate-pulse rounded bg-muted" />
-				</li>
-			))}
-		</>
+		<li>
+			<LoadingState label="Checking setup" />
+		</li>
 	);
 }
 
-/** The app's icon, the plate the installed app and its tab wear. */
+/** The app's icon, the stacked-plate buddy worn by the installed app and browser tab. */
 function PlateIcon({ className }: { className?: string }): JSX.Element {
-	return <img src="/icon-192.png" alt="" className={className} />;
+	return (
+		<div
+			aria-hidden="true"
+			className={cn(
+				"flex items-center justify-center border border-foreground/10 bg-gradient-to-b from-card to-background shadow-xs",
+				className,
+			)}
+		>
+			<BuddyLogo className="size-11" />
+		</div>
+	);
 }
 
 /** How many areas the page suggests at a time. */

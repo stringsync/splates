@@ -6,8 +6,11 @@ import {
 } from "@splates/server/plans/browser";
 import {
 	BookIcon,
+	BoxIcon,
+	CrosshairIcon,
 	DatabaseIcon,
 	DollarSignIcon,
+	FlameIcon,
 	FlaskConicalIcon,
 	GlobeIcon,
 	Layers2Icon,
@@ -28,6 +31,7 @@ import {
 } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#web/lib/utils.ts";
+import { CardSection } from "./card-section";
 import { CardBody } from "./card-shell";
 import { Markdown } from "./markdown";
 
@@ -35,8 +39,8 @@ export { type PlanField, type PlanTag, planFields, planTags };
 
 /**
  * A plan's body. The Goal leads in larger type; Details and any other field
- * follow under small labels, Details as rows when each bullet leads with a
- * bold action; Tags list each tag with its icon and reason. A body
+ * follow under `CardSection` labels, Details as rows when each bullet leads
+ * with a bold action; Tags list each tag with its icon and reason. A body
  * with no fields draws as plain markdown.
  */
 export function PlanBody({ text }: { text: string }): JSX.Element {
@@ -48,11 +52,12 @@ export function PlanBody({ text }: { text: string }): JSX.Element {
 	const others = plan.fields.filter((field) => field !== goal);
 	return (
 		<>
-			<div className="flex flex-col gap-4 px-4 py-3.5 @max-md:px-3 @max-md:py-2.5">
-				{plan.lead !== "" && <Markdown text={plan.lead} className={PROSE} />}
+			<div className="flex flex-col gap-0 px-4 py-3.5 @max-md:py-2.5">
+				{plan.lead !== "" && (
+					<Markdown text={plan.lead} className={cn(PROSE, "pb-4")} />
+				)}
 				{goal !== undefined && (
-					<section aria-label="Goal">
-						<Label>Goal</Label>
+					<CardSection label="Goal" title="Goal" ruled={plan.lead !== ""}>
 						<Markdown
 							text={goal.body}
 							className={cn(
@@ -60,15 +65,16 @@ export function PlanBody({ text }: { text: string }): JSX.Element {
 								"font-medium text-[0.95rem] text-foreground",
 							)}
 						/>
-					</section>
+					</CardSection>
 				)}
 				{others.map((field, i) => (
-					<section
+					<CardSection
 						// biome-ignore lint/suspicious/noArrayIndexKey: labels may repeat
 						key={i}
-						aria-label={field.label}
+						label={field.label}
+						title={field.label}
+						ruled={goal !== undefined || plan.lead !== "" || i > 0}
 					>
-						<Label>{field.label}</Label>
 						{/^tags$/i.test(field.label) ? (
 							<PlanTags tags={planTags(field.body)} />
 						) : (
@@ -77,7 +83,7 @@ export function PlanBody({ text }: { text: string }): JSX.Element {
 								className={cn(PROSE, leadsWithActions(field.body) && ROWS)}
 							/>
 						)}
-					</section>
+					</CardSection>
 				))}
 			</div>
 			{plan.rest !== "" && <CardBody text={plan.rest} />}
@@ -125,55 +131,57 @@ export function leadsWithActions(body: string): boolean {
 const ROWS =
 	"text-muted-foreground [&_li]:border-t [&_li]:py-2 [&_li:first-child]:border-t-0 [&_li:first-child]:pt-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:list-none [&_ul]:space-y-0 [&_ul]:pl-0";
 
-function Label({ children }: { children: string }): JSX.Element {
-	return (
-		<h3 className="mb-1.5 font-semibold text-[0.7rem] text-muted-foreground uppercase tracking-[0.08em]">
-			{children}
-		</h3>
-	);
-}
-
-type Tone = "good" | "warn" | "bad" | "area" | "agent";
+type Tone = "good" | "warn" | "bad" | "muted";
 
 const TONES: Record<Tone, string> = {
 	good: "text-emerald-600 dark:text-emerald-400",
 	warn: "text-amber-600 dark:text-amber-400",
 	bad: "text-red-600 dark:text-red-400",
-	area: "text-sky-600 dark:text-sky-400",
-	agent: "text-violet-600 dark:text-violet-400",
+	muted: "text-muted-foreground",
 };
 
-/** The fixed set of plan tags, by lowercased name, with its icon and tone. */
+/**
+ * The fixed set of plan tags (plus legacy multi-word aliases for existing
+ * threads), by lowercased name, with each tag's icon and semantic tone.
+ */
 const TAGS: Record<string, { icon: LucideIcon; tone: Tone }> = {
-	"clean revert": { icon: Undo2Icon, tone: "good" },
-	"revert + cleanup": { icon: WrenchIcon, tone: "warn" },
+	reversible: { icon: Undo2Icon, tone: "muted" },
+	"clean revert": { icon: Undo2Icon, tone: "muted" },
+	cleanup: { icon: WrenchIcon, tone: "muted" },
+	"revert + cleanup": { icon: WrenchIcon, tone: "muted" },
 	"one-way": { icon: LockIcon, tone: "bad" },
 	small: { icon: SquareIcon, tone: "good" },
 	medium: { icon: Layers2Icon, tone: "warn" },
 	complex: { icon: LayersIcon, tone: "bad" },
-	"ui only": { icon: MonitorIcon, tone: "area" },
-	cli: { icon: TerminalIcon, tone: "area" },
-	server: { icon: ServerIcon, tone: "area" },
-	database: { icon: DatabaseIcon, tone: "area" },
-	"full stack": { icon: GlobeIcon, tone: "area" },
-	devops: { icon: SettingsIcon, tone: "area" },
-	evals: { icon: FlaskConicalIcon, tone: "agent" },
-	skill: { icon: BookIcon, tone: "agent" },
-	library: { icon: PackageIcon, tone: "area" },
+	"self-contained": { icon: BoxIcon, tone: "muted" },
+	targeted: { icon: CrosshairIcon, tone: "muted" },
+	invasive: { icon: FlameIcon, tone: "bad" },
+	ui: { icon: MonitorIcon, tone: "muted" },
+	"ui only": { icon: MonitorIcon, tone: "muted" },
+	cli: { icon: TerminalIcon, tone: "muted" },
+	server: { icon: ServerIcon, tone: "muted" },
+	database: { icon: DatabaseIcon, tone: "muted" },
+	fullstack: { icon: GlobeIcon, tone: "muted" },
+	"full stack": { icon: GlobeIcon, tone: "muted" },
+	devops: { icon: SettingsIcon, tone: "muted" },
+	evals: { icon: FlaskConicalIcon, tone: "muted" },
+	skill: { icon: BookIcon, tone: "muted" },
+	library: { icon: PackageIcon, tone: "muted" },
 	breaking: { icon: TriangleAlertIcon, tone: "bad" },
 	security: { icon: ShieldIcon, tone: "bad" },
+	paid: { icon: DollarSignIcon, tone: "warn" },
 	"costs money": { icon: DollarSignIcon, tone: "warn" },
 };
 
 /** A tag's look: the fixed set's, matched with or without "until …" after it, or a plain tag. */
-function tagLook(name: string): { icon: LucideIcon; tone: string } {
+export function tagLook(name: string): { icon: LucideIcon; tone: string } {
 	const key = name.toLowerCase().replace(/\s+until\b.*$/, "");
 	const known = TAGS[key];
 	return known === undefined
-		? { icon: TagIcon, tone: "text-muted-foreground" }
+		? { icon: TagIcon, tone: TONES.muted }
 		: { icon: known.icon, tone: TONES[known.tone] };
 }
 
 /** Inline code in a plan stays on one line, never split at a dash. */
 const PROSE =
-	"max-w-prose text-sm leading-relaxed [&_:not(pre)>code]:whitespace-nowrap [&_ul]:space-y-1.5";
+	"text-sm leading-relaxed [&_:not(pre)>code]:whitespace-nowrap [&_ul]:space-y-1.5";

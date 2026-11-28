@@ -48,7 +48,7 @@ describe("App's asks and settings, pending until the server says so", () => {
 			},
 		]);
 		// Still there, with the server's word, though busy.
-		const card = view.getByRole("generic", { name: "permission" });
+		const card = view.getByRole("region", { name: "permission" });
 		expect(card.closest("[aria-busy]")?.getAttribute("aria-busy")).toBe("true");
 
 		testing.refuseWrites = { reason: "usage", message: "locked" };
@@ -56,7 +56,7 @@ describe("App's asks and settings, pending until the server says so", () => {
 		await waitFor(() =>
 			expect(
 				view
-					.getByRole("generic", { name: "permission" })
+					.getByRole("region", { name: "permission" })
 					.closest("[aria-busy]")
 					?.getAttribute("aria-busy"),
 			).toBe("false"),

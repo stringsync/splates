@@ -56,4 +56,11 @@ describe("TimedLock", () => {
 		await Bun.sleep(40);
 		expect(calls).toEqual(["acquire", "release"]);
 	});
+
+	it("clears its hold timer on dispose", async () => {
+		await lock.acquire();
+		lock.dispose();
+		await Bun.sleep(40);
+		expect(calls).toEqual(["acquire"]);
+	});
 });

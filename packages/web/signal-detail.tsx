@@ -3,7 +3,6 @@ import {
 	ChevronRightIcon,
 	CircleStopIcon,
 	EllipsisIcon,
-	LoaderCircleIcon,
 	PencilIcon,
 	PlayIcon,
 	PlusIcon,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { Button, buttonVariants } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -41,6 +41,7 @@ import { AutomationDraft } from "./automation-draft";
 import { AutomationForm } from "./automation-form";
 import { addAutomation } from "./automations-api";
 import { ClockMeaning } from "./clock-meaning";
+import { Spinner } from "./pending";
 import { CheckDots } from "./probe-checks";
 import { ArgumentTable } from "./signal-arguments";
 import { Glance } from "./signal-glance";
@@ -192,7 +193,7 @@ export function SignalDetail({
 										className="h-11 shrink-0 sm:h-8"
 									>
 										{pollingNow ? (
-											<LoaderCircleIcon aria-hidden className="animate-spin" />
+											<Spinner aria-hidden className="animate-spin" />
 										) : (
 											<PlayIcon />
 										)}
@@ -313,7 +314,7 @@ function Fold({
 	children: ReactNode;
 }): JSX.Element {
 	return (
-		<Collapsible className="rounded-xl border bg-card shadow-xs">
+		<Card render={<Collapsible />}>
 			<CollapsibleTrigger
 				aria-label={label}
 				className="group flex min-h-12 w-full items-center gap-2.5 rounded-xl px-4 py-3 text-left text-sm hover:bg-muted/30"
@@ -335,7 +336,7 @@ function Fold({
 			<CollapsibleContent className="border-t px-4 pt-3 pb-4 sm:pl-10">
 				{children}
 			</CollapsibleContent>
-		</Collapsible>
+		</Card>
 	);
 }
 

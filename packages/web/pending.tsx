@@ -1,6 +1,7 @@
 import { Duration, SystemTimer, type Timer } from "core/time";
 import { LoaderCircleIcon } from "lucide-react";
 import {
+	type ComponentProps,
 	createContext,
 	type JSX,
 	useCallback,
@@ -56,6 +57,46 @@ export function pendingRow(
 	};
 }
 
+/**
+ * The one loading spinner every pending state in the app uses, so its icon
+ * and motion stay the same everywhere. Still when the user prefers less motion.
+ */
+export function Spinner({
+	className,
+	...props
+}: ComponentProps<typeof LoaderCircleIcon>): JSX.Element {
+	return (
+		<LoaderCircleIcon
+			aria-hidden
+			{...props}
+			className={cn("animate-spin motion-reduce:animate-none", className)}
+		/>
+	);
+}
+
+/** The spinner and a quiet label, for a page or list that is still loading. */
+export function LoadingState({
+	label,
+	className,
+}: {
+	label: string;
+	className?: string;
+}): JSX.Element {
+	return (
+		<div
+			role="status"
+			aria-label={label}
+			className={cn(
+				"flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm",
+				className,
+			)}
+		>
+			<Spinner className="size-4" />
+			<span>{label}…</span>
+		</div>
+	);
+}
+
 /** A spinner for a button or menu item with a write pending, faded in with `shown`. */
 export function PendingSpinner({
 	shown,
@@ -65,10 +106,9 @@ export function PendingSpinner({
 	className?: string;
 }): JSX.Element {
 	return (
-		<LoaderCircleIcon
-			aria-hidden
+		<Spinner
 			className={cn(
-				"animate-spin transition-opacity duration-200",
+				"transition-opacity duration-200",
 				shown ? "opacity-100" : "opacity-0",
 				className,
 			)}

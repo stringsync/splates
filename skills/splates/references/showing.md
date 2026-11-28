@@ -65,9 +65,22 @@ mock.
 
 **Deliver screenshots before asking for visual review.** A tool preview is
 visible to you, not to the user. To capture, use the browser tool when you
-have one; otherwise headless Chrome from Bash (`"/Applications/Google
-Chrome.app/Contents/MacOS/Google Chrome" --headless=new --screenshot=out.png
---window-size=720,480 file:///…`), or any installed Chromium.
+have one; otherwise run headless Chrome (or any installed Chromium) from Bash
+with an isolated temporary `--user-data-dir` and a short timeout (use
+`timeout 20` on Linux where `timeout` is installed, or `perl` on macOS),
+since a bare run without `--user-data-dir` hangs when Chrome is already open on
+the default profile:
+
+```sh
+(
+  profile=$(mktemp -d) || exit 1
+  trap 'rm -rf "$profile"' EXIT
+  perl -e 'alarm shift; exec @ARGV' 20 \
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+    --headless=new --user-data-dir="$profile" \
+    --screenshot=/abs/path/out.png --window-size=720,480 file:///…
+)
+```
 
 Save the capture outside the worktree and write it into your reply as standard
 Markdown, `![what](/abs/path.png)`, by absolute path and outside a code block.
@@ -132,10 +145,15 @@ or simulation when it is one.
 An artifact is a file the user will come back for after the task is gone: a
 screenshot or recording of the finished work, an HTML page, a generated
 document. It belongs to the conversation, not the task, and the `splates
-server` page lists the conversation's artifacts beside its thread. It opens an
-image or recording in its lightbox and an HTML page in a frame that runs its
-scripts but loads nothing else, so make a page one file with its styles,
-scripts and images inline; anything else is offered as a download.
+server` page lists the conversation's artifacts beside its thread. HTML
+artifacts also appear inline in the conversation thread (as a clickable bar
+while collapsed, or as a live sandboxed frame when the conversation's Inline
+previews toggle is expanded), and local HTML embeds (`![title](/abs/path.html)`)
+auto-capture into the conversation's artifacts too. The frame runs inline
+scripts but blocks external network, script, and stylesheet requests, so make a
+page one self-contained file with its styles, scripts, and images inline
+(`splates artifact add` warns if external references are detected); anything
+else is offered as a download.
 
 - `splates artifact add <file>` keeps one, named for its basename, or
   `--name <name>` for another. Adding a name the conversation already holds

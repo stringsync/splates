@@ -67,7 +67,7 @@ describe("GitRunCheckouts", () => {
 		await env.gitCli(env.root, "commit", "-qm", "drop a");
 		await commit("a.txt", "three");
 		const fix = (await env.gitCli(env.root, "rev-parse", "HEAD")).trim();
-		await expect(made.apply("r1", start, fix)).rejects.toThrow();
+		expect(made.apply("r1", start, fix)).rejects.toThrow();
 		const path = made.path("r1");
 		expect((await env.gitCli(path, "status", "--porcelain")).trim()).toBe("");
 		expect((await env.gitCli(path, "rev-parse", "HEAD")).trim()).toBe(start);
@@ -76,7 +76,7 @@ describe("GitRunCheckouts", () => {
 	it("fails to ready a checkout whose postCheckout fails, leaving none", async () => {
 		const made = checkouts("exit 3");
 		const start = await made.head();
-		await expect(made.ready("r1", start)).rejects.toThrow("exited 3");
+		expect(made.ready("r1", start)).rejects.toThrow("exited 3");
 		expect(await env.fs.exists(made.path("r1"))).toBe(false);
 	});
 });

@@ -4,7 +4,7 @@ import {
 	ArrowDownIcon,
 	CircleIcon,
 	CircleSlashIcon,
-	LoaderCircleIcon,
+	type LucideIcon,
 	ScaleIcon,
 	SquareIcon,
 } from "lucide-react";
@@ -17,7 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { CardFooter } from "./card-footer";
 import { CardShell } from "./card-shell";
 import { cancelEval } from "./conversation-api";
 import { judgeDisplay } from "./eval-judge";
@@ -30,7 +30,7 @@ import {
 } from "./eval-report-card";
 import { useNow } from "./hooks/use-now";
 import { cn } from "./lib/utils";
-import { PendingSpinner, useShowPending } from "./pending";
+import { Spinner, useShowPending } from "./pending";
 
 /**
  * The evals a conversation's agent ran, so `EvalRunUI` can draw each in the
@@ -89,17 +89,18 @@ export function EvalLiveCard({
 		<div data-slot="eval-live">
 			<CardShell
 				label={label}
-				Icon={running ? LoaderCircleIcon : CircleSlashIcon}
+				Icon={running ? (Spinner as LucideIcon) : CircleSlashIcon}
 				title={label}
 				tone={running ? "eval" : "neutral"}
 				ringed={false}
+				sheet={{ title: label, action: "Open" }}
 				aside={
 					<span className="text-[11.5px] text-muted-foreground">
 						{aside.join(" · ")}
 					</span>
 				}
 			>
-				<h3 className="m-0 px-4 pt-3 pb-2.5 font-bold text-[15.5px] leading-[1.3] @max-md:px-3">
+				<h3 className="m-0 px-4 pt-3 pb-2.5 font-bold text-[15.5px] leading-[1.3]">
 					{live.group !== null && (
 						<span className="font-medium text-muted-foreground">
 							<Coded text={`${live.group} `} />
@@ -118,7 +119,7 @@ export function EvalLiveCard({
 									role="status"
 									className="inline-flex items-center gap-1.5 self-start text-[12.5px] text-muted-foreground"
 								>
-									<LoaderCircleIcon
+									<Spinner
 										aria-hidden
 										className="size-[13px] shrink-0 animate-spin"
 									/>
@@ -129,7 +130,7 @@ export function EvalLiveCard({
 					</FollowingTranscript>
 					<section
 						aria-label="Checks"
-						className="rule-t flex flex-col gap-2 px-4 py-3 @max-md:px-3 @xl:border-t-0 @xl:[background-image:none]"
+						className="rule-t flex flex-col gap-2 px-4 py-3 @xl:border-t-0 @xl:[background-image:none]"
 					>
 						<ul className="m-0 flex list-none flex-col gap-2 p-0">
 							{live.checks.map((check) => (
@@ -152,13 +153,27 @@ export function EvalLiveCard({
 					</section>
 				</div>
 				{cancelled ? (
-					<div className="flex flex-wrap items-center gap-2 rule-t px-4 py-2.5 text-xs @max-md:px-3">
-						<CircleSlashIcon aria-hidden className="size-3.5 shrink-0" />
-						Cancelled by you
-						{live.cancelled !== null &&
-							` at ${elapsed(Math.max(0, Math.round((live.cancelled - live.startedAt) / 1000)))}`}{" "}
-						· the agent was told
-					</div>
+					<CardFooter
+						note={
+							<span className="inline-flex items-center gap-2 text-foreground">
+								<CircleSlashIcon aria-hidden className="size-3.5 shrink-0" />
+								Cancelled by you
+								{live.cancelled !== null &&
+									` at ${elapsed(Math.max(0, Math.round((live.cancelled - live.startedAt) / 1000)))}`}{" "}
+								· the agent was told
+							</span>
+						}
+						sheetNote={
+							<span className="inline-flex items-center gap-2 text-foreground">
+								<CircleSlashIcon aria-hidden className="size-3.5 shrink-0" />
+								Cancelled by you
+								{live.cancelled !== null &&
+									` at ${elapsed(Math.max(0, Math.round((live.cancelled - live.startedAt) / 1000)))}`}{" "}
+								· the agent was told
+							</span>
+						}
+						actions={[]}
+					/>
 				) : (
 					running &&
 					live.cancellable &&
@@ -290,42 +305,32 @@ function CancelRow({
 	const busy = sending || cancelling;
 	const showBusy = useShowPending(busy);
 	return (
-		<div className="flex flex-wrap items-center justify-end gap-2 rule-t px-4 py-2.5 @max-md:px-3">
-			{refused !== null && (
-				<span role="alert" className="mr-auto text-destructive text-xs">
-					{refused}
-				</span>
-			)}
-			<Button
-				size="sm"
-				variant="outline"
-				disabled={busy}
-				onClick={() => {
-					setSending(true);
-					setRefused(null);
-					onCancel().then(
-						() => setSending(false),
-						(error: unknown) => {
-							setSending(false);
-							setRefused(
-								error instanceof Error ? error.message : "Not cancelled",
-							);
-						},
-					);
-				}}
-				className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-			>
-				{busy && showBusy ? (
-					<PendingSpinner shown />
-				) : (
-					<SquareIcon
-						data-icon="inline-start"
-						className="size-3 fill-current text-destructive"
-					/>
-				)}
-				{cancelling ? "Cancelling" : "Cancel eval"}
-			</Button>
-		</div>
+		<CardFooter
+			refusal={refused}
+			actions={[
+				{
+					label: cancelling ? "Cancelling" : "Cancel eval",
+					Icon: busy && showBusy ? (Spinner as LucideIcon) : SquareIcon,
+					tone: "outline",
+					primary: true,
+					disabled: busy,
+					busy: busy && showBusy,
+					onClick: () => {
+						setSending(true);
+						setRefused(null);
+						onCancel().then(
+							() => setSending(false),
+							(error: unknown) => {
+								setSending(false);
+								setRefused(
+									error instanceof Error ? error.message : "Not cancelled",
+								);
+							},
+						);
+					},
+				},
+			]}
+		/>
 	);
 }
 

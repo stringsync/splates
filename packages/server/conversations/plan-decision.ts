@@ -1,12 +1,18 @@
 import { fail } from "../exit";
-import { MERGE, type PlanCard, planHasOneWayTag, stretches } from "../plans";
+import {
+	MERGE,
+	type PlanCard,
+	planHasInvasiveTag,
+	planHasOneWayTag,
+	stretches,
+} from "../plans";
 import { planDecision } from "./decision";
 import type { ConversationState, Message } from "./state";
 
 export { type PlanAction, planDecision } from "./decision";
 
-/** Why a conversation holds its merge for review: Approve & review or a One-way plan. */
-export type ReviewHold = "review" | "one-way";
+/** Why a conversation holds its merge for review: Approve & review, a One-way plan, or an Invasive plan. */
+export type ReviewHold = "review" | "one-way" | "invasive";
 
 /** Refuses the person's decision on a plan that is no longer the latest. A
  * card includes its title and timestamp so a reply from another tab cannot
@@ -80,8 +86,8 @@ function latestPlan(message: Message): PlanCard | null {
 /**
  * Why a conversation holds its task from merging until a merge review is
  * approved (`[SPLATES MERGE]`): either the latest approval was Approve &
- * review, or the latest plan carries the One-way Undo tag and no merge
- * review approval has come since. Null when neither holds.
+ * review, or the latest plan carries the One-way or Invasive tag and no merge
+ * review approval has come since. Null when none holds.
  */
 export function reviewHold(
 	state: Pick<ConversationState, "messages">,
@@ -101,13 +107,21 @@ export function reviewHold(
 		return null;
 	}
 	const plan = latestPlan(state.messages[planned] as Message);
-	if (plan === null || !planHasOneWayTag(plan.body)) {
+	if (plan === null) {
+		return null;
+	}
+	const hold = planHasOneWayTag(plan.body)
+		? "one-way"
+		: planHasInvasiveTag(plan.body)
+			? "invasive"
+			: null;
+	if (hold === null) {
 		return null;
 	}
 	const reviewed = state.messages
 		.slice(planned + 1)
 		.some((message) => approvesMerge(message));
-	return reviewed ? null : "one-way";
+	return reviewed ? null : hold;
 }
 
 /**

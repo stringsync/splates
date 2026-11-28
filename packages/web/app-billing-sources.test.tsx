@@ -76,6 +76,9 @@ describe("App's billing sources", () => {
 	it("links a missing cred to the Creds page, shows a failed pull on its row, and the rate date", async () => {
 		const view = await testing.open();
 		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
+		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
 		const link = await waitFor(() =>
@@ -106,6 +109,9 @@ describe("App's billing sources", () => {
 
 	it("pulls again on Retry, and the row shows how it went", async () => {
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);
@@ -157,6 +163,9 @@ describe("App's billing sources", () => {
 			],
 		};
 		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^More \(/ })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("tab", { name: /Billing/ })),
 		);

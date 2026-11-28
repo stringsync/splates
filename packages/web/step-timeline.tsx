@@ -1,7 +1,8 @@
-import { CheckIcon, CircleIcon, Loader2Icon, XIcon } from "lucide-react";
+import { CheckIcon, CircleIcon, XIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { cn } from "#web/lib/utils.ts";
 import type { Standing } from "./merge-checklist";
+import { Spinner } from "./pending";
 
 /** The rail every timeline in the app shares: its steps, joined by a line. */
 export function StepTimeline({
@@ -136,7 +137,7 @@ export function Mark({
 	}
 	if (standing === "running") {
 		return (
-			<Loader2Icon
+			<Spinner
 				className={cn("shrink-0 animate-spin text-muted-foreground", className)}
 			/>
 		);

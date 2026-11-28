@@ -62,4 +62,28 @@ describe("Board index and board header", () => {
 		expect(view.getByRole("button", { name: "Website actions" })).toBeTruthy();
 		expect(view.getByRole("button", { name: "Default actions" })).toBeTruthy();
 	});
+	it("shows the inline naming field inside a card when adding a board", async () => {
+		const added: string[] = [];
+		const view = render(
+			<BoardSwitcher
+				mode="index"
+				boards={boards}
+				current={1}
+				tasks={[]}
+				onPick={() => {}}
+				actions={{
+					...actions,
+					addBoard: async (name) => {
+						added.push(name);
+					},
+				}}
+			/>,
+		);
+		fireEvent.click(view.getByRole("button", { name: "Add board" }));
+		const field = view.getByRole("textbox", { name: "Board name" });
+		expect(field.closest('[data-slot="card"]')).not.toBeNull();
+		fireEvent.change(field, { target: { value: "Roadmap" } });
+		fireEvent.click(view.getByRole("button", { name: "Save" }));
+		await waitFor(() => expect(added).toEqual(["Roadmap"]));
+	});
 });

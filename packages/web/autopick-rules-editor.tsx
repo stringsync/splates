@@ -2,6 +2,7 @@ import { useReactive } from "core/react";
 
 import { type JSX, useEffect, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card } from "#web/components/ui/card.tsx";
 import {
 	Field,
 	FieldDescription,
@@ -13,6 +14,7 @@ import { LineupsTab } from "./autopick-lineups";
 import { RoutesTab } from "./autopick-routes";
 import type { RulesEditor } from "./autopick-rules";
 import { ReadingNow } from "./countdown";
+import { PageSection } from "./page-section";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -67,14 +69,11 @@ export function RulesEditorView({
 			<fieldset disabled={saving} className="min-w-0">
 				<LineupsTab editor={editor} />
 			</fieldset>
-			<section
-				aria-label="Route assignments"
-				className="flex min-w-0 flex-col gap-3"
+			<PageSection
+				label="Route assignments"
+				title="Routes"
+				description="Select cells to assign them to a lineup."
 			>
-				<h2 className="font-semibold">Routes</h2>
-				<p className="text-muted-foreground text-sm">
-					Select cells to assign them to a lineup.
-				</p>
 				<RoutesTab
 					key={mark ?? ""}
 					editor={editor}
@@ -82,12 +81,11 @@ export function RulesEditorView({
 					counts={counts}
 					onLog={onLog}
 				/>
-			</section>
-			<section aria-label="Settings" className="flex min-w-0 flex-col gap-3">
-				<h2 className="font-semibold">Settings</h2>
-				<p className="text-muted-foreground text-sm">
-					Confidence, plan limits and the holdout.
-				</p>
+			</PageSection>
+			<PageSection
+				title="Settings"
+				description="Confidence, plan limits and the holdout."
+			>
 				<fieldset disabled={saving} className="flex min-w-0 flex-col gap-4">
 					<Threshold editor={editor} />
 					<Pacing editor={editor} />
@@ -110,7 +108,7 @@ export function RulesEditorView({
 					</Button>
 				</fieldset>
 				<Refusal refusal={refusal} />
-			</section>
+			</PageSection>
 		</div>
 	);
 }
@@ -119,22 +117,24 @@ export function RulesEditorView({
 function Threshold({ editor }: { editor: RulesEditor }): JSX.Element {
 	const percent = useReactive(editor, (each) => each.percent, ["changed"]);
 	return (
-		<Field className="rounded-xl border bg-card p-4">
-			<FieldLabel htmlFor="auto-pick-threshold">
-				How sure the judge has to be, in percent
-			</FieldLabel>
-			<div>
-				<PercentInput
-					id="auto-pick-threshold"
-					value={percent}
-					onCommit={(value) => editor.setPercent(value)}
-				/>
-			</div>
-			<FieldDescription>
-				Below it, the task's kind or difficulty counts as Unsure, and it takes
-				that row or column.
-			</FieldDescription>
-		</Field>
+		<Card>
+			<Field className="p-4">
+				<FieldLabel htmlFor="auto-pick-threshold">
+					How sure the judge has to be, in percent
+				</FieldLabel>
+				<div>
+					<PercentInput
+						id="auto-pick-threshold"
+						value={percent}
+						onCommit={(value) => editor.setPercent(value)}
+					/>
+				</div>
+				<FieldDescription>
+					Below it, the task's kind or difficulty counts as Unsure, and it takes
+					that row or column.
+				</FieldDescription>
+			</Field>
+		</Card>
 	);
 }
 
@@ -142,9 +142,9 @@ function Threshold({ editor }: { editor: RulesEditor }): JSX.Element {
 function Pacing({ editor }: { editor: RulesEditor }): JSX.Element {
 	const pace = useReactive(editor, (each) => each.pace, ["changed"]);
 	return (
-		<section
-			aria-label="When a plan runs low"
-			className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+		<Card
+			render={<section aria-label="When a plan runs low" />}
+			className="flex flex-col gap-4 p-4"
 		>
 			<h3 className="font-medium text-sm">When a plan runs low</h3>
 			<Field orientation="horizontal">
@@ -191,7 +191,7 @@ function Pacing({ editor }: { editor: RulesEditor }): JSX.Element {
 					not. When every pick is past it, the least used is picked.
 				</FieldDescription>
 			</Field>
-		</section>
+		</Card>
 	);
 }
 
@@ -202,9 +202,9 @@ function Pacing({ editor }: { editor: RulesEditor }): JSX.Element {
 function HoldingOut({ editor }: { editor: RulesEditor }): JSX.Element {
 	const holdout = useReactive(editor, (each) => each.holdout, ["changed"]);
 	return (
-		<section
-			aria-label="Holdout"
-			className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+		<Card
+			render={<section aria-label="Holdout" />}
+			className="flex flex-col gap-4 p-4"
 		>
 			<h3 className="font-medium text-sm">Holdout</h3>
 			<Field orientation="horizontal">
@@ -236,7 +236,7 @@ function HoldingOut({ editor }: { editor: RulesEditor }): JSX.Element {
 					quality for knowing; its conversation says so, with an Undo.
 				</FieldDescription>
 			</Field>
-		</section>
+		</Card>
 	);
 }
 

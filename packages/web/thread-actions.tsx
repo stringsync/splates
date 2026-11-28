@@ -140,7 +140,7 @@ export function useThreadActions(
 				]
 			: []),
 		{
-			label: "Image previews",
+			label: "Inline previews",
 			icon: <ImageIcon />,
 			detail: (
 				<span className="flex items-center gap-1.5">

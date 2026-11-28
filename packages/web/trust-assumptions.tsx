@@ -1,8 +1,16 @@
 import type { ProjectRef } from "@splates/server/conversations";
 import type { AssumptionView } from "@splates/server/trust";
 import { KIND_LABELS, overturnMessage } from "@splates/server/trust/browser";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import {
+	type CSSProperties,
+	type JSX,
+	useCallback,
+	useEffect,
+	useState,
+} from "react";
+import { Badge } from "#web/components/ui/badge.tsx";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardList } from "#web/components/ui/card.tsx";
 import { AgentMark } from "./agent-icons";
 import {
 	type AssumptionsPage,
@@ -72,48 +80,47 @@ export function TrustAssumptions({
 				)
 			) : log.total === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					No assumptions yet. Agents at 90 trust or more make reversible calls
+					No assumptions yet. Agents at Assume level make reversible calls
 					themselves, and each shows here.
 				</p>
 			) : (
 				<>
-					<ul
-						aria-label="assumptions"
-						className="divide-y overflow-hidden rounded-xl border bg-card"
-					>
-						{log.assumptions.map((each) => (
-							<AssumptionRow
-								key={each.id}
-								assumption={each}
-								slug={slugOf(each.project)}
-								now={now}
-								onOverturn={(slug) =>
-									act(async () => {
-										await promptConversation(
-											each.conversation,
-											overturnMessage(
-												each.number,
-												each.assumed,
-												each.alternative,
-											),
-											[],
-											false,
-											undefined,
-											undefined,
-											slug,
-										);
-									})
-								}
-								onMarkWrong={() => act(() => markAssumptionWrong(each.id))}
-								onFollowUp={(slug) =>
-									act(async () => {
-										await queueFollowUp(slug, each);
-										await markAssumptionWrong(each.id);
-									})
-								}
-							/>
-						))}
-					</ul>
+					<Card>
+						<CardList aria-label="assumptions">
+							{log.assumptions.map((each) => (
+								<AssumptionRow
+									key={each.id}
+									assumption={each}
+									slug={slugOf(each.project)}
+									now={now}
+									onOverturn={(slug) =>
+										act(async () => {
+											await promptConversation(
+												each.conversation,
+												overturnMessage(
+													each.number,
+													each.assumed,
+													each.alternative,
+												),
+												[],
+												false,
+												undefined,
+												undefined,
+												slug,
+											);
+										})
+									}
+									onMarkWrong={() => act(() => markAssumptionWrong(each.id))}
+									onFollowUp={(slug) =>
+										act(async () => {
+											await queueFollowUp(slug, each);
+											await markAssumptionWrong(each.id);
+										})
+									}
+								/>
+							))}
+						</CardList>
+					</Card>
 					<nav
 						aria-label="pages"
 						className="flex items-center justify-between gap-3 text-sm"
@@ -182,12 +189,16 @@ function AssumptionRow({
 				<div className="flex flex-wrap items-center gap-1.5 text-xs">
 					<AgentMark agent={assumption.agent} />
 					<span className="font-medium">{modelName(assumption)}</span>
-					<Pill>{projectName(assumption.project)}</Pill>
-					<Pill>{KIND_LABELS[assumption.kind]}</Pill>
+					<Badge variant="outline">{projectName(assumption.project)}</Badge>
+					<Badge variant="outline">{KIND_LABELS[assumption.kind]}</Badge>
 					{overturned !== null && (
-						<span className="rounded-full bg-destructive/12 px-2 py-px font-medium text-destructive">
+						<Badge
+							variant="outline"
+							className="scorecard-verdict"
+							style={{ "--verdict": "var(--destructive)" } as CSSProperties}
+						>
 							Overturned
-						</span>
+						</Badge>
 					)}
 					<span className="text-muted-foreground">
 						{ago(overturned?.at ?? assumption.at, now)}
@@ -262,13 +273,5 @@ function AssumptionRow({
 				</div>
 			)}
 		</li>
-	);
-}
-
-function Pill({ children }: { children: string }): JSX.Element {
-	return (
-		<span className="rounded-full border px-2 py-px text-muted-foreground">
-			{children}
-		</span>
 	);
 }

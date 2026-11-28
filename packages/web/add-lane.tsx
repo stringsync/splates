@@ -1,13 +1,15 @@
 import { useDroppable } from "@dnd-kit/core";
 import type { TaskRecord } from "@splates/server/board";
-import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { type FormEvent, type JSX, useState } from "react";
 import { Button } from "#web/components/ui/button.tsx";
+import { Card, CardContent } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { addLane } from "./api";
 import { laneAdded } from "./board-expectations";
 import { useExpectSnapshot } from "./expecting";
 import { columnId } from "./lanes";
+import { Spinner } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -76,6 +78,78 @@ export function AddLane({
 			}
 		});
 	};
+	const form = (
+		<form onSubmit={save} className="flex flex-col gap-2">
+			{naming && (
+				<p className="truncate px-1 text-muted-foreground text-xs">
+					A lane for #{naming.id} {naming.subject}
+				</p>
+			)}
+			<input
+				// biome-ignore lint/a11y/noAutofocus: it opens because "Add another lane" was just pressed, or a card dropped here, to type its name
+				autoFocus={!empty}
+				aria-label="new lane name"
+				disabled={submitting}
+				placeholder={empty ? "Lane name" : "Enter lane name"}
+				value={name}
+				onChange={(event) => setName(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === "Escape") {
+						close();
+					}
+				}}
+				className="h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			/>
+			<Refusal refusal={refusal} />
+			<div className="flex items-center gap-1">
+				<Button
+					type="submit"
+					size="sm"
+					disabled={name.trim() === "" || submitting}
+					aria-busy={submitting}
+					className="pointer-coarse:h-10 pointer-coarse:px-3"
+				>
+					{submitting && <Spinner aria-hidden className="animate-spin" />}
+					{empty ? "Create lane" : "Add lane"}
+				</Button>
+				{!empty && (
+					<Button
+						type="button"
+						size="icon-sm"
+						variant="ghost"
+						aria-label="stop adding a lane"
+						onClick={close}
+						className="pointer-coarse:size-10"
+					>
+						<XIcon />
+					</Button>
+				)}
+			</div>
+		</form>
+	);
+	if (empty && !dragging) {
+		return (
+			<Card
+				render={<section />}
+				ref={setNodeRef}
+				aria-label="new lane"
+				className={cn(
+					"w-96 max-w-full shrink-0 snap-start self-start transition-colors max-md:w-full max-md:snap-always",
+					isOver && "bg-primary/10 ring-2 ring-primary/40",
+				)}
+			>
+				<CardContent className="flex flex-col gap-4 p-5">
+					<div className="flex flex-col gap-1">
+						<h2 className="font-semibold">Create your first lane</h2>
+						<p className="text-muted-foreground text-sm">
+							Organize related tasks in a lane.
+						</p>
+					</div>
+					{form}
+				</CardContent>
+			</Card>
+		);
+	}
 	return (
 		<section
 			ref={setNodeRef}
@@ -84,9 +158,7 @@ export function AddLane({
 				"w-80 shrink-0 snap-start max-md:w-full max-md:snap-always rounded-xl transition-colors",
 				dragging
 					? "border-2 border-dashed p-3"
-					: empty
-						? "w-96 max-w-full self-start border bg-card p-5"
-						: (open || naming) && "bg-muted/70 p-2 dark:bg-muted/30",
+					: (open || naming) && "bg-muted/70 p-2 dark:bg-muted/30",
 				isOver && "bg-primary/10 ring-2 ring-primary/40",
 			)}
 		>
@@ -95,64 +167,8 @@ export function AddLane({
 					<PlusIcon aria-hidden className="size-4" />
 					Drop here to start a lane
 				</p>
-			) : empty || open || naming ? (
-				<form onSubmit={save} className="flex flex-col gap-2">
-					{empty && (
-						<div className="mb-2 flex flex-col gap-1">
-							<h2 className="font-semibold">Create your first lane</h2>
-							<p className="text-muted-foreground text-sm">
-								Organize related tasks in a lane.
-							</p>
-						</div>
-					)}
-					{naming && (
-						<p className="truncate px-1 text-muted-foreground text-xs">
-							A lane for #{naming.id} {naming.subject}
-						</p>
-					)}
-					<input
-						// biome-ignore lint/a11y/noAutofocus: it opens because "Add another lane" was just pressed, or a card dropped here, to type its name
-						autoFocus={!empty}
-						aria-label="new lane name"
-						disabled={submitting}
-						placeholder={empty ? "Lane name" : "Enter lane name"}
-						value={name}
-						onChange={(event) => setName(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Escape") {
-								close();
-							}
-						}}
-						className="h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					/>
-					<Refusal refusal={refusal} />
-					<div className="flex items-center gap-1">
-						<Button
-							type="submit"
-							size="sm"
-							disabled={name.trim() === "" || submitting}
-							aria-busy={submitting}
-							className="pointer-coarse:h-10 pointer-coarse:px-3"
-						>
-							{submitting && (
-								<LoaderCircleIcon aria-hidden className="animate-spin" />
-							)}
-							{empty ? "Create lane" : "Add lane"}
-						</Button>
-						{!empty && (
-							<Button
-								type="button"
-								size="icon-sm"
-								variant="ghost"
-								aria-label="stop adding a lane"
-								onClick={close}
-								className="pointer-coarse:size-10"
-							>
-								<XIcon />
-							</Button>
-						)}
-					</div>
-				</form>
+			) : open || naming ? (
+				form
 			) : (
 				<button
 					type="button"

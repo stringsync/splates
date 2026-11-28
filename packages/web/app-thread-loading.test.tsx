@@ -344,15 +344,19 @@ describe("Opening complete conversation history", () => {
 			]);
 			await act(async () => release());
 			const childThread = within(view.getByRole("region", { name: "History" }));
-			const originLink = await childThread.findByText("Origin conversation");
-			fireEvent.click(originLink);
+			const banner = await childThread.findByText(
+				/Queued by Origin conversation/,
+			);
+			fireEvent.click(banner);
+			const chainDialog = await view.findByRole("dialog");
+			fireEvent.click(within(chainDialog).getByText("Origin conversation"));
 			const originThread = within(
 				await view.findByRole("region", { name: "Origin conversation" }),
 			);
 			const bar = await originThread.findByRole("status", {
 				name: "queued tasks",
 			});
-			expect(bar.textContent).toContain("#1 Follow-up eval");
+			expect(bar.textContent).toContain("Queued #1");
 			expect(originThread.getByText("Turn 1")).toBeTruthy();
 			await waitFor(() => expect(scrolled).toContain(bar));
 		} finally {

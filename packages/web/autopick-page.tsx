@@ -27,6 +27,7 @@ import { RulesEditorView } from "./autopick-rules-editor";
 import { autopickRuns } from "./autopick-runs";
 import { AutopickScorecard } from "./autopick-scorecard";
 import { guardNavigation } from "./navigation-guard";
+import { PageSection } from "./page-section";
 import { TopBar } from "./top-bar";
 
 /**
@@ -105,12 +106,7 @@ export function AutopickPage({
 					counts={counts}
 					onLog={showLog}
 				/>
-				<section
-					ref={history}
-					aria-label="Pick history"
-					className="flex min-w-0 flex-col gap-3"
-				>
-					<h2 className="font-semibold">Pick history</h2>
+				<PageSection ref={history} title="Pick history">
 					<Collapsible
 						open={logOpen}
 						onOpenChange={setLogOpen}
@@ -145,8 +141,8 @@ export function AutopickPage({
 							/>
 						</CollapsibleContent>
 					</Collapsible>
-					<AutopickScorecard rules={saved ?? editor.draft} onCell={showLog} />
-				</section>
+				</PageSection>
+				<AutopickScorecard rules={saved ?? editor.draft} onCell={showLog} />
 			</section>
 			<Dialog
 				open={leaving !== null}

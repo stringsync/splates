@@ -33,7 +33,7 @@ describe("follow", () => {
 		});
 
 		await follow({ ps, log, send }, "alpha");
-		await follow({ ps, log, send }, null, { from: "alpha" });
+		await follow({ ps, log, send }, null, { from: "alpha", ended: "merged" });
 		await follow({ ps, log, send }, "part", { base: "task/alpha" });
 
 		expect(sent).toEqual([
@@ -45,7 +45,7 @@ describe("follow", () => {
 			{
 				url: "http://localhost:4270/api/conversations/c1/task",
 				origin: "http://localhost:4270",
-				body: { task: null, from: "alpha" },
+				body: { task: null, from: "alpha", ended: "merged" },
 			},
 			{
 				url: "http://localhost:4270/api/conversations/c1/task",

@@ -86,7 +86,7 @@ export function HeldBlockers({ task }: { task: TaskRecord }): JSX.Element {
 	// What blocks it as the server takes the whole list.
 	const held = task.blockedBy;
 	return (
-		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:px-3 @max-md:pb-2.5">
+		<div className="flex flex-col gap-2 px-4 pb-3.5 text-sm @max-md:pb-2.5">
 			{blockers.length > 0 && (
 				<CardSection label="to unblock" title="To unblock" ruled={false}>
 					<ol className="flex flex-col gap-2">

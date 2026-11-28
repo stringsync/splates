@@ -80,6 +80,7 @@ export function StepsCard({
 				title={title}
 				tone="steps"
 				folded
+				sheet={{ title, action: "Open" }}
 				aside={
 					<span className="flex items-center gap-2">
 						<span className="text-muted-foreground text-xs">
@@ -101,6 +102,11 @@ export function StepsCard({
 			Icon={ListChecksIcon}
 			title={title}
 			tone="steps"
+			sheet={{
+				title,
+				action: finished !== null ? "Open" : "Review",
+				waiting: finished === null,
+			}}
 			aside={
 				<span className="flex items-center gap-2">
 					<span className="text-muted-foreground text-xs tabular-nums">

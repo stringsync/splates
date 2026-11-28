@@ -201,40 +201,6 @@ describe("App's permission card", () => {
 		).toBeTruthy();
 	});
 
-	it("shows what removing a lane takes with it, and Remove now removes it from the page", async () => {
-		const removing = conversation({
-			title: "Billing",
-			messages: [
-				message(
-					"agent",
-					[
-						"## 🔐 Permission: remove lane 3: Billing export",
-						"",
-						"`splates lane remove 3`",
-						"",
-						"Nothing in it is wanted now.",
-					].join("\n"),
-				),
-			],
-		});
-		const view = await testing.openConversations([removing], undefined, board);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "remove Billing export" }),
-		);
-		expect(card.textContent).toContain("Its 2 tasks go with it.");
-		expect(card.textContent).toContain("Write the CSV");
-		expect(
-			within(card).getByRole("button", { name: "copy splates lane remove 3" }),
-		).toBeTruthy();
-
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: /Remove now/ })),
-		);
-
-		expect(testing.posts.at(-1)).toMatchObject({ method: "DELETE" });
-		expect(testing.posts.at(-1)?.path).toContain("/api/lanes/3");
-	});
-
 	it("queues another project's tasks through that project, from its own board", async () => {
 		const view = await testing.openConversations(
 			[cartAsking],

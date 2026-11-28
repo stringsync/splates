@@ -5,19 +5,20 @@ import {
 	CheckIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
+	type LucideIcon,
 	RadarIcon,
 	RefreshCwIcon,
 	TimerOffIcon,
 	UnplugIcon,
 } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
+import { CardFooter } from "./card-footer";
 import { CardBody, CardShell, type Tone } from "./card-shell";
 import { stopSignalProbe } from "./conversation-api";
 import { useNow } from "./hooks/use-now";
-import { PendingSpinner, useShowPending } from "./pending";
+import { Spinner, useShowPending } from "./pending";
 import { ProbeChecks, ScriptToggle } from "./probe-checks";
-import { Refusal, useRefusal } from "./refusal";
+import { useRefusal } from "./refusal";
 import { ProbeCards, SignalWaits } from "./signal-contexts";
 import { overlaps, probeId, timeLeft } from "./signal-of";
 
@@ -48,11 +49,22 @@ export function ProbeCard({ probe }: { probe: SignalProbe }): JSX.Element {
 			"Not stopped",
 		);
 	};
+	const title = header(probe.name);
+	const endedNote = !on ? (
+		<span className="flex items-center gap-1 text-foreground text-xs">
+			{probe.state === "raised" ? (
+				<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
+			) : (
+				<BanIcon className="size-3.5" />
+			)}
+			{ENDED[probe.state]}
+		</span>
+	) : undefined;
 	return (
 		<CardShell
 			label={`poll script ${probe.name}`}
 			Icon={Icon}
-			title={header(probe.name)}
+			title={title}
 			tone={tone}
 			ringed={false}
 			aside={
@@ -65,36 +77,29 @@ export function ProbeCard({ probe }: { probe: SignalProbe }): JSX.Element {
 		>
 			<CardBody text={probe.description} />
 			<ProbeChecks probe={probe} now={now} />
-			<div className="rule-t px-4 py-2.5 @max-md:px-3">
-				<ScriptToggle script={probe.script}>
-					{on ? (
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={busy}
-							onClick={stop}
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-						>
-							{busy && showBusy ? (
-								<PendingSpinner shown />
-							) : (
-								<BanIcon data-icon="inline-start" />
-							)}
-							Stop polling
-						</Button>
-					) : (
-						<span className="flex items-center gap-1 text-xs">
-							{probe.state === "raised" ? (
-								<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
-							) : (
-								<BanIcon className="size-3.5" />
-							)}
-							{ENDED[probe.state]}
-						</span>
-					)}
-				</ScriptToggle>
+			<div className="rule-t px-4 py-2">
+				<ScriptToggle script={probe.script} />
 			</div>
-			<Refusal refusal={refusal} />
+			<CardFooter
+				note={endedNote}
+				sheetNote={endedNote}
+				refusal={refusal}
+				actions={
+					on
+						? [
+								{
+									label: "Stop polling",
+									Icon: busy && showBusy ? (Spinner as LucideIcon) : BanIcon,
+									tone: "outline",
+									primary: true,
+									disabled: busy,
+									busy: busy && showBusy,
+									onClick: stop,
+								},
+							]
+						: []
+				}
+			/>
 		</CardShell>
 	);
 }

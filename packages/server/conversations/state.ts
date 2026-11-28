@@ -97,6 +97,11 @@ export interface ConversationState {
 	 * is not archived.
 	 */
 	archivedWith: string | null;
+	/**
+	 * Armed when a plan approval opts into archiving after merge: archives the
+	 * conversation once the task lands cleanly without mid-build interruptions.
+	 */
+	archiveAfterMerge?: true;
 	/** Kept atop the list, archived or not, until unpinned. */
 	pinned: boolean;
 	/**

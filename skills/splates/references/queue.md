@@ -159,8 +159,8 @@ model: links say what lands first. Place a task:
   can be queued and worked, never renamed or removed.
 
 `splates task update <id> --lane <n>` moves a task. Agents may `splates lane
-add` and `lane remove` empty lanes; removing one with tasks needs the user's
-remove-lane card ([reporting.md](reporting.md)).
+add` and `lane remove` empty lanes; only the user removes a lane that holds
+tasks.
 
 **Design first.** A lane the user will meet as a look or an interaction (a
 page, a component, a flow) opens with a `Design: <what>` task whose goal is

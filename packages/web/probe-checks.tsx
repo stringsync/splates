@@ -22,7 +22,7 @@ export function ProbeChecks({
 	const last = probe.runs.at(-1);
 	const broke = last !== undefined && errored(last);
 	return (
-		<div className="px-4 pb-3 @max-md:px-3">
+		<div className="px-4 pb-3">
 			<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-muted-foreground text-xs">
 				<span>
 					{on ? "Checking" : "Checked"} every {everyOf(probe.everyMs)}

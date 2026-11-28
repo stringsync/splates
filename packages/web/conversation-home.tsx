@@ -18,7 +18,6 @@ import {
 import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#web/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#web/composing.tsx";
-import { cn } from "#web/lib/utils.ts";
 import { useAdapters } from "./adapters";
 import { AgentBrand } from "./agent-icons";
 import { AgentPicker } from "./agent-picker";
@@ -74,7 +73,7 @@ import { Refusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
 import type { AgentSwitch } from "./setting-sheet";
 import type { Terminals } from "./terminals";
-import { BELOW_BAR, TopBar } from "./top-bar";
+import { TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
 
 /** How many tasks the home screen offers to pick back up. */
@@ -420,7 +419,7 @@ export function Home({
 		<section
 			ref={section}
 			aria-label="new conversation"
-			className={cn(BELOW_BAR, "flex min-h-0 min-w-0 flex-col gap-3")}
+			className="flex min-h-0 min-w-0 flex-1 flex-col gap-3"
 		>
 			<TopBar
 				title={
@@ -490,9 +489,12 @@ export function Home({
 											aria-label="pick back up"
 											className="mt-4 flex flex-col gap-1 px-2"
 										>
-											<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-												Pick back up
-											</h3>
+											{
+												// vet-ignore splates-page-section-card: orphaned tasks list inside conversation home, not a PageSection
+												<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+													Pick back up
+												</h3>
+											}
 											<ul className="flex flex-col">
 												{orphans.map((each) => (
 													<li key={each.task}>

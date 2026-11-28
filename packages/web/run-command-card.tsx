@@ -7,17 +7,23 @@ import {
 	recOf,
 	retryOf,
 } from "@splates/server/plans/browser";
-import { BanIcon, CheckIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
+import {
+	BanIcon,
+	CheckIcon,
+	type LucideIcon,
+	RotateCcwIcon,
+	TerminalIcon,
+} from "lucide-react";
 import { type JSX, useRef, useState } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import { CardBox, useCardDictationTurn } from "./card-box";
+import { CardFooter } from "./card-footer";
 import { useCardReply, useKept } from "./card-reply";
 import { CardSection } from "./card-section";
 import { CardBody, CardShell } from "./card-shell";
 import { useEnterDoes } from "./enter-while-taking";
 import { useNow } from "./hooks/use-now";
 import { MachineStats, useLiveMachine } from "./machine";
-import { PendingSpinner, useShowPending } from "./pending";
+import { Spinner, useShowPending } from "./pending";
 import { Refusal, useRefusal } from "./refusal";
 import { grantRetry, Untold } from "./retry-grant";
 import { SplatesEvent } from "./splates-event";
@@ -132,11 +138,29 @@ export function RunCommandCard({
 			</>
 		);
 	}
+	const title = proposal.title ?? "Run a command";
+	const statusNote =
+		choice !== null ? (
+			<span className="flex items-center gap-1 text-xs">
+				{choice === RUN_ALLOWED ? (
+					<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
+				) : (
+					<BanIcon className="size-3.5" />
+				)}
+				{choice === RUN_ALLOWED
+					? retry !== null
+						? "Granted"
+						: auto
+							? "Auto-allowed: the machine was no longer busy"
+							: "Allowed"
+					: "Denied"}
+			</span>
+		) : undefined;
 	return (
 		<CardShell
 			label={retry !== null ? "retry merge" : "run command"}
 			Icon={retry !== null ? RotateCcwIcon : TerminalIcon}
-			title={proposal.title ?? "Run a command"}
+			title={title}
 			tone={choice === RUN_ALLOWED ? "success" : "warning"}
 		>
 			<pre className="mx-4 mt-3 mb-2 whitespace-pre-wrap break-words rounded bg-muted px-3 py-2 text-sm">
@@ -175,57 +199,40 @@ export function RunCommandCard({
 			) : choice !== null && note.trim() !== "" ? (
 				<CardBody text={`> **Anything else?**\n\n${note}`} />
 			) : null}
-			<div className="flex flex-wrap items-center justify-end gap-2 rule-t px-4 py-2.5 @max-md:[&>a]:h-11 @max-md:[&>a]:flex-1 @max-md:[&>span.mr-auto]:basis-full">
-				{choice !== null ? (
-					<span className="flex items-center gap-1 text-xs">
-						{choice === RUN_ALLOWED ? (
-							<CheckIcon className="size-3.5 text-success" strokeWidth={3} />
-						) : (
-							<BanIcon className="size-3.5" />
-						)}
-						{choice === RUN_ALLOWED
-							? retry !== null
-								? "Granted"
-								: auto
-									? "Auto-allowed: the machine was no longer busy"
-									: "Allowed"
-							: "Denied"}
-					</span>
-				) : (
-					<>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={send === null || busy !== null}
-							onClick={() => turn(() => answer(RUN_DENIED, "Not denied"))}
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:text-base"
-						>
-							{busy === RUN_DENIED && showBusy ? (
-								<PendingSpinner shown />
-							) : (
-								<BanIcon data-icon="inline-start" />
-							)}
-							Deny
-						</Button>
-						<Button
-							size="sm"
-							disabled={send === null || busy !== null}
-							onClick={() => turn(() => answer(RUN_ALLOWED, "Not allowed"))}
-							className="gap-1.5 in-data-sheet:h-11 in-data-sheet:flex-1 in-data-sheet:text-base"
-						>
-							{busy === RUN_ALLOWED && showBusy ? (
-								<PendingSpinner shown />
-							) : retry !== null ? (
-								<RotateCcwIcon data-icon="inline-start" />
-							) : (
-								<CheckIcon data-icon="inline-start" />
-							)}
-							{retry !== null ? "Grant attempts" : "Allow"}
-						</Button>
-					</>
-				)}
-			</div>
-			<Refusal refusal={refusal} />
+			<CardFooter
+				note={statusNote}
+				sheetNote={statusNote}
+				refusal={refusal}
+				actions={
+					choice !== null
+						? []
+						: [
+								{
+									label: "Deny",
+									Icon:
+										busy === RUN_DENIED && showBusy
+											? (Spinner as LucideIcon)
+											: BanIcon,
+									disabled: send === null || busy !== null,
+									busy: busy === RUN_DENIED && showBusy,
+									onClick: () => turn(() => answer(RUN_DENIED, "Not denied")),
+								},
+								{
+									label: retry !== null ? "Grant attempts" : "Allow",
+									Icon:
+										busy === RUN_ALLOWED && showBusy
+											? (Spinner as LucideIcon)
+											: retry !== null
+												? RotateCcwIcon
+												: CheckIcon,
+									primary: true,
+									disabled: send === null || busy !== null,
+									busy: busy === RUN_ALLOWED && showBusy,
+									onClick: () => turn(() => answer(RUN_ALLOWED, "Not allowed")),
+								},
+							]
+				}
+			/>
 		</CardShell>
 	);
 }

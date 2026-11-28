@@ -1,4 +1,5 @@
 import type { Flag } from "@splates/server/agents";
+import { isHtmlArtifactName } from "@splates/server/artifacts/browser";
 import type {
 	Compaction,
 	Message,
@@ -355,7 +356,11 @@ function placed(
 	return [...out, ...left.map((each) => each.piece)];
 }
 
-/** `pieces` with each wait's end folded into its beginning, so it is one line that changes. */
+/**
+ * `pieces` with each wait's end folded into its beginning, so it is one line
+ * that changes, and repeated HTML artifact adds for the same name in one turn
+ * folded so only the newest version shows inline.
+ */
 function folded(pieces: Piece[]): Piece[] {
 	const out: Piece[] = [];
 	for (const piece of pieces) {
@@ -364,11 +369,29 @@ function folded(pieces: Piece[]): Piece[] {
 		const began = event === null ? undefined : beganWith(out, event);
 		if (event !== null && began !== undefined) {
 			began.also = [...(began.also ?? []), event];
-		} else {
-			out.push(
-				!Array.isArray(piece) && piece.type === "event" ? { ...piece } : piece,
-			);
+			continue;
 		}
+		if (
+			event !== null &&
+			event.action === "artifact add" &&
+			event.reason === null &&
+			isHtmlArtifactName(event.name)
+		) {
+			const prior = out.findIndex(
+				(each) =>
+					!Array.isArray(each) &&
+					each.type === "event" &&
+					each.event.action === "artifact add" &&
+					each.event.reason === null &&
+					each.event.name === event.name,
+			);
+			if (prior !== -1) {
+				out.splice(prior, 1);
+			}
+		}
+		out.push(
+			!Array.isArray(piece) && piece.type === "event" ? { ...piece } : piece,
+		);
 	}
 	return out;
 }

@@ -1,11 +1,12 @@
 import type { UnusedQuotaPlan, UnusedQuotaReport } from "@splates/server/spend";
 import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
+import { Card } from "#web/components/ui/card.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { unusedQuota } from "./api";
 import { colorOf, nameOf, shortDay, useMoney } from "./billing-sums";
 import { Meter } from "./meter";
-import { PHONE_HEADING } from "./phone-rows";
+import { PageSection } from "./page-section";
 
 type Lookback = 28 | 90;
 
@@ -77,17 +78,15 @@ export function UnusedQuota({
 			: null;
 
 	return (
-		<section aria-label="unused quota" className="flex min-w-0 flex-col gap-3">
-			<header className="flex flex-wrap items-center gap-2">
-				<h3 className={cn("font-medium text-sm", PHONE_HEADING)}>
-					Unused quota
-				</h3>
-				<span className="text-muted-foreground text-xs">
-					Ranked by unused subscription value · weekly resets
-				</span>
+		<PageSection
+			as="h3"
+			aria-label="unused quota"
+			title="Unused quota"
+			description="Ranked by unused subscription value · weekly resets"
+			aside={
 				<fieldset
 					aria-label="unused quota window"
-					className="ml-auto flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+					className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
 				>
 					{LOOKBACKS.map((each) => (
 						<button
@@ -106,9 +105,9 @@ export function UnusedQuota({
 						</button>
 					))}
 				</fieldset>
-			</header>
-
-			<div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+			}
+		>
+			<Card>
 				<div className="flex flex-wrap items-end justify-between gap-4 border-b px-5 py-4">
 					{report.pricedPlans > 0 ? (
 						<div className="flex flex-col gap-0.5 tabular-nums">
@@ -167,8 +166,8 @@ export function UnusedQuota({
 						/>
 					))}
 				</ul>
-			</div>
-		</section>
+			</Card>
+		</PageSection>
 	);
 }
 

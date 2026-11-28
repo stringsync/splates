@@ -26,8 +26,11 @@ export {
 	ASSUME_AT,
 	askingKinds,
 	BAND_LABELS,
+	bandFromLegacyScore,
 	bandOf,
+	isTrustBand,
 	KEPT_TO_ASSUME_AGAIN,
+	legacyScoreOfBand,
 	WAIT_BELOW,
 } from "./band";
 export { classifyQuestion, hasImage } from "./classify";
@@ -36,12 +39,18 @@ export {
 	CAUTIOUS_Z,
 	countDecisions,
 	DECAY_HALF_LIFE,
+	type EarnedTrust,
+	evaluateTrust,
+	groupSessions,
 	NEUTRAL_TRUST,
 	outcomeWeights,
 	PRIOR_ALPHA,
 	PRIOR_BETA,
+	pinnedBandOf,
 	scoreDecisions,
 	summarizeTrust,
+	TRUST_MILESTONES,
+	type TrustSession,
 } from "./score";
 export type {
 	AssumptionView,
@@ -60,5 +69,6 @@ export type {
 	TrustMode,
 	TrustPosture,
 	TrustSetting,
+	TrustStanding,
 } from "./types";
 export { DECISION_KINDS, trustKey } from "./types";

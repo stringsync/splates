@@ -18,7 +18,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Button } from "#web/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -30,6 +29,7 @@ import { readAgentChain } from "./api";
 import { arriveAtQueued } from "./arrivals";
 import { Board } from "./board";
 import { queuedAddress } from "./conversation-address";
+import { ThreadBar } from "./thread-bar";
 
 /** How often a conversation in a chain asks the server for the chain again. */
 const REFRESH_MS = 15_000;
@@ -164,17 +164,13 @@ function ChainDialog({
 	);
 }
 
-/** The look of a slim bar in the thread, as the chain banner and queued bars share it. */
-export const SLIM_BAR =
-	"flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm transition-shadow duration-300";
-
 /** Where a chain task opens: its conversation, or its queued page while it waits. */
 function addressOf(node: ChainNode): string {
 	return node.conversation ?? queuedAddress(node.id);
 }
 
 /** "#14", "#14 and #15", or "#14, #15 and 2 more". */
-function listed(nodes: readonly ChainNode[]): string {
+function listed(nodes: readonly { id: number }[]): string {
 	const ids = nodes.map((node) => `#${node.id}`);
 	if (ids.length <= 2) {
 		return ids.join(" and ");
@@ -183,9 +179,9 @@ function listed(nodes: readonly ChainNode[]): string {
 }
 
 /**
- * The inline slim bar where an agent enqueued tasks in a conversation, matching
- * `ChainBanner`'s look with clickable links to each queued task and a View
- * button for the connected conversations tree.
+ * The inline bar where an agent enqueued tasks in a conversation, using the
+ * shared `ThreadBar` (`Queued #4626, #4627 and 2 more` + ghost `View ›`) and
+ * opening the connected conversations tree dialog on click.
  */
 export function QueuedBar({
 	tasks,
@@ -214,49 +210,36 @@ export function QueuedBar({
 		}
 		board.open(id);
 	};
+	const firstTask = tasks[0];
+	const onPress =
+		shared?.chain != null
+			? shared.openTree
+			: firstTask !== undefined && tasks.length === 1
+				? () => openTask(firstTask.id)
+				: undefined;
 	return (
-		<section
+		<div
 			role="status"
 			aria-label="queued tasks"
 			data-queued-tasks={tasks.map((task) => task.id).join(",")}
-			className={cn("my-4", SLIM_BAR, arrived && "ring-2 ring-primary/60")}
+			className="my-4"
 		>
-			<BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-			<div className="min-w-0 flex-1">
-				<p>Queued</p>
-				<ul className="flex flex-col items-start">
-					{tasks.map((task) => (
-						<li key={task.id}>
-							<button
-								type="button"
-								data-queued-task={task.id}
-								className="text-left underline"
-								onClick={() => openTask(task.id)}
-							>
-								#{task.id} {task.subject}
-							</button>
-						</li>
-					))}
-				</ul>
-			</div>
-			{shared?.chain != null && (
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-7 shrink-0"
-					onClick={shared.openTree}
-				>
-					View
-				</Button>
-			)}
-		</section>
+			<ThreadBar
+				Icon={BotIcon}
+				iconTone="neutral"
+				label={`Queued ${listed(tasks)}`}
+				cta={onPress !== undefined ? "View" : undefined}
+				onPress={onPress}
+				className={arrived ? "ring-2 ring-primary/60" : undefined}
+			/>
+		</div>
 	);
 }
 
 /**
  * The banner atop a conversation in a task chain, saying what it is connected
- * to, whose View opens the whole tree and the chain's budget in a dialog.
- * Nothing for a conversation in no chain.
+ * to on a single-line `ThreadBar`, whose click opens the whole tree and the
+ * chain's budget in a dialog. Nothing for a conversation in no chain.
  */
 export function ChainBanner({
 	conversation,
@@ -285,57 +268,18 @@ export function ChainBanner({
 		self === undefined
 			? undefined
 			: chain.nodes.find((node) => node.id === parentOf(self));
-	const openParent = (targetConversation: string | null, address: string) => {
-		if (self !== undefined && targetConversation !== null) {
-			arriveAtQueued(targetConversation, self.id);
-		}
-		onOpen(address);
-	};
-	const link = (
-		text: string,
-		targetConversation: string | null,
-		address: string,
-	) => (
-		<button
-			type="button"
-			className="underline"
-			onClick={() => openParent(targetConversation, address)}
-		>
-			{text}
-		</button>
-	);
+	const label = isRoot
+		? `Queued ${listed(queued)}`
+		: `Queued by ${by === undefined ? chain.root.title : `#${by.id} ${by.title}`}${queued.length > 0 ? ` · queued ${queued.length} more` : ""}`;
 	return (
-		<section
-			role="status"
-			aria-label="task chain"
-			className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm md:mx-2"
-		>
-			<BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-			<p className="min-w-0 flex-1">
-				{isRoot ? (
-					<>Queued {listed(queued)}</>
-				) : (
-					<>
-						Queued by{" "}
-						{by === undefined
-							? link(
-									chain.root.title,
-									chain.root.conversation,
-									chain.root.conversation,
-								)
-							: link(`#${by.id} ${by.title}`, by.conversation, addressOf(by))}
-						{queued.length > 0 && <> · queued {queued.length} more</>}
-					</>
-				)}
-			</p>
-			<Button
-				variant="outline"
-				size="sm"
-				className="h-7 shrink-0"
-				onClick={() => (usesShared ? shared.openTree() : setOpen(true))}
-			>
-				View
-			</Button>
+		<div role="status" aria-label="task chain" className="md:mx-2">
+			<ThreadBar
+				Icon={BotIcon}
+				iconTone="neutral"
+				label={label}
+				cta="View"
+				onPress={() => (usesShared ? shared.openTree() : setOpen(true))}
+			/>
 			{!usesShared && (
 				<ChainDialog
 					open={open}
@@ -345,7 +289,7 @@ export function ChainBanner({
 					onOpen={onOpen}
 				/>
 			)}
-		</section>
+		</div>
 	);
 }
 
@@ -382,6 +326,13 @@ function ChainTree({
 }): JSX.Element {
 	const rows = chainRows(chain.nodes);
 	const out = share(chain) >= 1;
+	const self = chain.nodes.find((node) => node.conversation === current);
+	const openAddress = (targetConversation: string | null, address: string) => {
+		if (self !== undefined && targetConversation !== null) {
+			arriveAtQueued(targetConversation, self.id);
+		}
+		onOpen(address);
+	};
 	return (
 		<div className="flex flex-col text-sm">
 			<div className="flex flex-col gap-1 px-5 pt-5 pb-3">
@@ -421,7 +372,9 @@ function ChainTree({
 					<TreeButton
 						depth={0}
 						current={chain.root.conversation === current}
-						onClick={() => onOpen(chain.root.conversation)}
+						onClick={() =>
+							openAddress(chain.root.conversation, chain.root.conversation)
+						}
 					>
 						<span className="size-2 shrink-0 rounded-full bg-foreground" />
 						<span className="min-w-0 flex-1 truncate">{chain.root.title}</span>
@@ -435,7 +388,7 @@ function ChainTree({
 						key={row.kind === "task" ? row.node.id : `more-${row.under}`}
 						row={row}
 						current={current}
-						onOpen={onOpen}
+						onOpen={openAddress}
 					/>
 				))}
 			</ul>
@@ -476,7 +429,7 @@ function ChainRowView({
 }: {
 	row: ChainRow;
 	current: string;
-	onOpen: (address: string) => void;
+	onOpen: (targetConversation: string | null, address: string) => void;
 }): JSX.Element {
 	if (row.kind === "more") {
 		return (
@@ -496,7 +449,7 @@ function ChainRowView({
 			<TreeButton
 				depth={row.depth}
 				current={you}
-				onClick={() => onOpen(addressOf(node))}
+				onClick={() => onOpen(node.conversation, addressOf(node))}
 			>
 				<span
 					className={cn("size-2 shrink-0 rounded-full", DOT[node.status])}

@@ -1,12 +1,6 @@
 import type { Snapshot } from "@splates/server/tasks";
 import { useReactive } from "core/react";
-import {
-	type CSSProperties,
-	type JSX,
-	type ReactNode,
-	useEffect,
-	useState,
-} from "react";
+import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
 import { Tabs, TabsContent } from "#web/components/ui/tabs.tsx";
 import { cn } from "#web/lib/utils.ts";
 import { AppStatus } from "./app-header";
@@ -31,13 +25,11 @@ import { TopBar, TopBarFrame } from "./top-bar";
  */
 const DESKTOP_PAGES: Record<Page, string> = {
 	boards: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
-	// As tall as the window under its header band, so the board's scrollbar sits
-	// on the window's bottom edge.
-	todos:
-		"flex h-[calc(100dvh-var(--page-header-height,var(--top-bar-height)))] min-w-0 flex-none flex-col px-4 pt-3.5",
+	// As tall as the inset panel under its header band, so the board's scrollbar
+	// sits on the panel's bottom edge.
+	todos: "flex min-h-0 flex-col px-4 pt-3.5",
 	// A board too, as tall and as wide.
-	tasks:
-		"flex h-[calc(100dvh-var(--page-header-height,var(--top-bar-height)))] min-w-0 flex-none flex-col px-4 pt-3.5",
+	tasks: "flex min-h-0 flex-col px-4 pt-3.5",
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	ships: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// Rigs in one column, as on a phone.
@@ -54,8 +46,12 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	welcome: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-5 pb-8",
 	// A thread reaches across its right padding, so its scrollbar sits at the
 	// window's edge (`--thread-bleed-end`).
-	conversations: "min-w-0 px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
+	conversations:
+		"flex min-h-0 flex-col px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
 };
+
+/** Full-viewport workspaces that manage their own scrolling inside the inset panel. */
+const FULL_VIEWPORT_PAGES = new Set<Page>(["conversations", "todos", "tasks"]);
 
 /**
  * The app laid out for a wide screen. Render it with the `page` to show and
@@ -77,6 +73,7 @@ export function DesktopApp({
 	drafts,
 	terminals,
 	menu,
+	onSettings,
 }: {
 	page: Page;
 	/** The conversation open, by its address, or null. */
@@ -100,6 +97,7 @@ export function DesktopApp({
 	drafts: Drafts;
 	terminals: Terminals;
 	menu: PageMenu;
+	onSettings: () => void;
 }): JSX.Element {
 	const [sidebar] = useState(() => new Sidebar(localStorage));
 	const { width, shown } = useReactive(
@@ -113,27 +111,13 @@ export function DesktopApp({
 			? false
 			: sidebar.toggle(),
 	);
-	useShortcut("shortcuts.sidebarPages", () => sidebar.togglePages());
+	useShortcut("shortcuts.sidebarPages", () => sidebar.toggleMore());
 	const { unreachable, reason } = useFreshness();
 	const { restartBusy } = useCheckpoint();
 	// Where each page's integrated header band and any banner under it go.
 	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const [bannerSlot, setBannerSlot] = useState<HTMLElement | null>(null);
-	const [headerHeight, setHeaderHeight] = useState<number | null>(null);
-	useEffect(() => {
-		if (slot === null) {
-			return;
-		}
-		const measure = () => {
-			if (slot.offsetHeight > 0) {
-				setHeaderHeight(slot.offsetHeight);
-			}
-		};
-		measure();
-		const resized = new ResizeObserver(measure);
-		resized.observe(slot);
-		return () => resized.disconnect();
-	}, [slot]);
+	const fullViewport = bodies !== null && FULL_VIEWPORT_PAGES.has(page);
 	const area =
 		bodies !== null && page !== "conversations" && page !== "welcome"
 			? pageArea(page)
@@ -165,37 +149,19 @@ export function DesktopApp({
 				value={page}
 				onValueChange={(value) => go(value as Page)}
 				orientation="vertical"
-				// Clear of the sidebar.
+				// Neutral sidebar frame around the rounded inset main panel.
 				className={cn(
-					"min-h-dvh flex-col gap-0",
-					shown && "pl-(--sidebar-width)",
+					"h-dvh flex-col gap-0 overflow-hidden bg-sidebar p-2",
+					shown ? "pl-(--sidebar-width)" : "pl-2",
 					paned && BESIDE_PANE,
 				)}
 				style={
 					{
 						"--sidebar-width": `${width}px`,
-						...(headerHeight !== null
-							? { "--page-header-height": `${headerHeight}px` }
-							: {}),
 					} as CSSProperties
 				}
 			>
 				<SidebarHead name={name} sidebar={sidebar} />
-				{/* Welcome, saved runs, and loading use the slim toolbar. */}
-				<header
-					ref={setSlot}
-					data-page-area={area?.area}
-					className={cn(
-						"z-30 shrink-0",
-						area === null
-							? cn(
-									"sticky top-0 flex h-(--top-bar-height) items-center gap-1 bg-background pr-2 pl-4",
-									!shown && "pl-(--top-bar-start)",
-								)
-							: "page-header-band sticky top-0 min-h-(--top-bar-height)",
-					)}
-				/>
-				<div ref={setBannerSlot} className="contents" />
 				<AppNav
 					available={available}
 					snapshot={snapshot}
@@ -207,27 +173,51 @@ export function DesktopApp({
 					terminals={terminals}
 					drafts={drafts}
 					sidebar={sidebar}
+					onSettings={onSettings}
 				/>
-				{bodies === null ? (
-					<>
-						{/* Bare, for the status and the page menu it ends with. */}
-						<TopBar title="" />
-						{opening}
-					</>
-				) : (
-					// Every page, those out of the nav, as Setup, too.
-					(Object.keys(DESKTOP_PAGES) as Page[])
-						.filter((value) => value !== "conversations" || available)
-						.map((value) => (
-							<TabsContent
-								key={value}
-								value={value}
-								className={DESKTOP_PAGES[value]}
-							>
-								{bodies[value]}
-							</TabsContent>
-						))
-				)}
+				<div
+					data-desktop-panel
+					className={cn(
+						"flex min-h-0 min-w-0 flex-1 flex-col rounded-[14px] border border-foreground/[0.07] bg-background",
+						fullViewport ? "overflow-hidden" : "overflow-y-auto",
+					)}
+				>
+					{/* Welcome, saved runs, and loading use the slim toolbar. */}
+					<header
+						ref={setSlot}
+						data-page-area={area?.area}
+						className={cn(
+							"z-30 shrink-0",
+							area === null
+								? cn(
+										"sticky top-0 flex h-(--top-bar-height) items-center gap-1 bg-background pr-2 pl-4",
+										!shown && "pl-(--top-bar-start)",
+									)
+								: "page-header-band sticky top-0 min-h-(--top-bar-height)",
+						)}
+					/>
+					<div ref={setBannerSlot} className="contents" />
+					{bodies === null ? (
+						<>
+							{/* Bare, for the status and the page menu it ends with. */}
+							<TopBar title="" />
+							{opening}
+						</>
+					) : (
+						// Every page, those out of the nav, as Setup, too.
+						(Object.keys(DESKTOP_PAGES) as Page[])
+							.filter((value) => value !== "conversations" || available)
+							.map((value) => (
+								<TabsContent
+									key={value}
+									value={value}
+									className={DESKTOP_PAGES[value]}
+								>
+									{bodies[value]}
+								</TabsContent>
+							))
+					)}
+				</div>
 			</Tabs>
 		</TopBarFrame>
 	);

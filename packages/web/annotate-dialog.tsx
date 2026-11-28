@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { type JSX, type RefObject, useRef } from "react";
 import { AnnotateBoard } from "./annotate-board";
 import type { Annotation } from "./annotation";
+import { LIGHTBOX_BACKDROP_CLASS } from "./lightbox-shell";
 
 /**
  * The image at the size of the window, to mark up: a drag draws a box or an
@@ -45,7 +46,7 @@ export function Annotate({
 			<DialogPrimitive.Portal>
 				<DialogPrimitive.Backdrop
 					forceRender
-					className="fixed inset-0 z-50 bg-black/85 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+					className={LIGHTBOX_BACKDROP_CLASS}
 				/>
 				{last.current !== null && (
 					<AnnotateBoard

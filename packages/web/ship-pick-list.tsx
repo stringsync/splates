@@ -9,6 +9,7 @@ import type {
 } from "@splates/server/ship";
 import type { JSX } from "react";
 import { Badge } from "./components/ui/badge";
+import { Card, CardList } from "./components/ui/card";
 import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
 import {
@@ -17,6 +18,7 @@ import {
 } from "./components/ui/native-select";
 import { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 import { cn } from "./lib/utils";
+import { PageSection } from "./page-section";
 import { BumpToggle } from "./ship-bump-toggle";
 
 /**
@@ -123,115 +125,120 @@ export function ShipPickList({
 	return (
 		<div className="flex flex-col gap-5">
 			{[...groups].map(([group, members]) => (
-				<section key={group} aria-label={group}>
-					<h3 className="mb-1.5 px-0.5 font-semibold text-sm">
-						{group}
-						<span className="ml-2 font-normal text-muted-foreground text-xs">
-							{members.length} {members.length === 1 ? "target" : "targets"}
-						</span>
-					</h3>
-					<ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-						{members.map((target) => {
-							const { name } = target.plan;
-							const picked = picks.has(name);
-							const choice = picks.get(name) ?? null;
-							const versioned = target.plan.versioned === true;
-							const deploy = target.plan.bump === undefined && !versioned;
-							const count = unshipped[name];
-							const now = current[name];
-							const follows = target.plan.follows;
-							const versions = shippable[name] ?? [];
-							const own = picked
-								? ownNotes({
-										choice,
-										now,
-										versions,
-										follows,
-										released:
-											follows === undefined
-												? undefined
-												: followedVersion(follows, served, picks),
-									})
-								: [];
-							const notes = [
-								deploy ? "deploy" : undefined,
-								now !== undefined ? `current ${now}` : undefined,
-								count === undefined ? undefined : sinceLastShip(count),
-								...own,
-								loadingDetails ? "loading" : undefined,
-							].filter((note) => note !== undefined);
-							return (
-								<li
-									key={name}
-									className="flex min-h-14 transition-colors hover:bg-muted/50 flex-wrap items-center gap-x-3 px-3.5"
-								>
-									<Checkbox
-										checked={picked}
-										onCheckedChange={() => toggle(target)}
-										aria-label={name}
-									/>
-									{/* The name is the line's wide tap target; the checkbox is what a keyboard or reader uses. */}
-									<span
-										aria-hidden="true"
-										onClick={() => toggle(target)}
-										className={cn(
-											"flex min-w-0 flex-1 cursor-pointer select-none items-center self-stretch py-3 text-sm",
-											picked ? "font-semibold" : "font-medium",
-										)}
+				<PageSection
+					key={group}
+					label={group}
+					as="h3"
+					title={group}
+					count={`${members.length} ${members.length === 1 ? "target" : "targets"}`}
+					className="gap-1.5"
+				>
+					<Card>
+						<CardList>
+							{members.map((target) => {
+								const { name } = target.plan;
+								const picked = picks.has(name);
+								const choice = picks.get(name) ?? null;
+								const versioned = target.plan.versioned === true;
+								const deploy = target.plan.bump === undefined && !versioned;
+								const count = unshipped[name];
+								const now = current[name];
+								const follows = target.plan.follows;
+								const versions = shippable[name] ?? [];
+								const own = picked
+									? ownNotes({
+											choice,
+											now,
+											versions,
+											follows,
+											released:
+												follows === undefined
+													? undefined
+													: followedVersion(follows, served, picks),
+										})
+									: [];
+								const notes = [
+									deploy ? "deploy" : undefined,
+									now !== undefined ? `current ${now}` : undefined,
+									count === undefined ? undefined : sinceLastShip(count),
+									...own,
+									loadingDetails ? "loading" : undefined,
+								].filter((note) => note !== undefined);
+								return (
+									<li
+										key={name}
+										className="flex min-h-14 transition-colors hover:bg-muted/50 flex-wrap items-center gap-x-3 px-3.5"
 									>
-										<span className="flex min-w-0 flex-col">
-											<span className="flex min-w-0 items-center gap-2">
-												<span className="truncate">{name}</span>
-												{picked &&
-													typeof choice === "object" &&
-													choice !== null &&
-													"follow" in choice && (
-														<Badge variant="secondary">follows {follows}</Badge>
+										<Checkbox
+											checked={picked}
+											onCheckedChange={() => toggle(target)}
+											aria-label={name}
+										/>
+										{/* The name is the line's wide tap target; the checkbox is what a keyboard or reader uses. */}
+										<span
+											aria-hidden="true"
+											onClick={() => toggle(target)}
+											className={cn(
+												"flex min-w-0 flex-1 cursor-pointer select-none items-center self-stretch py-3 text-sm",
+												picked ? "font-semibold" : "font-medium",
+											)}
+										>
+											<span className="flex min-w-0 flex-col">
+												<span className="flex min-w-0 items-center gap-2">
+													<span className="truncate">{name}</span>
+													{picked &&
+														typeof choice === "object" &&
+														choice !== null &&
+														"follow" in choice && (
+															<Badge variant="secondary">
+																follows {follows}
+															</Badge>
+														)}
+												</span>
+												<span
+													className={cn(
+														"min-h-4 truncate font-normal text-xs",
+														count !== undefined && count > 100
+															? "text-warning"
+															: "text-muted-foreground",
 													)}
-											</span>
-											<span
-												className={cn(
-													"min-h-4 truncate font-normal text-xs",
-													count !== undefined && count > 100
-														? "text-warning"
-														: "text-muted-foreground",
-												)}
-											>
-												{notes.join(" · ")}
+												>
+													{notes.join(" · ")}
+												</span>
 											</span>
 										</span>
-									</span>
-									{follows !== undefined
-										? picked && (
-												<FollowChoice
-													target={target}
-													choice={choice}
-													versions={versions}
-													onChoice={(to) => choose(name, to)}
-												/>
-											)
-										: versioned
+										{follows !== undefined
 											? picked && (
-													<VersionChoice
+													<FollowChoice
 														target={target}
 														choice={choice}
+														versions={versions}
 														onChoice={(to) => choose(name, to)}
 													/>
 												)
-											: !deploy &&
-												picked &&
-												typeof choice === "string" && (
-													<BumpToggle
-														name={name}
-														bump={choice}
-														onBump={(to) => choose(name, to)}
-													/>
-												)}
-								</li>
-							);
-						})}
-					</ul>
-				</section>
+											: versioned
+												? picked && (
+														<VersionChoice
+															target={target}
+															choice={choice}
+															onChoice={(to) => choose(name, to)}
+														/>
+													)
+												: !deploy &&
+													picked &&
+													typeof choice === "string" && (
+														<BumpToggle
+															name={name}
+															bump={choice}
+															onBump={(to) => choose(name, to)}
+														/>
+													)}
+									</li>
+								);
+							})}
+						</CardList>
+					</Card>
+				</PageSection>
 			))}
 		</div>
 	);

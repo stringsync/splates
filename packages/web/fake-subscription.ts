@@ -1,5 +1,7 @@
+import type { Resource } from "core/disposable";
+
 /** A push subscription for a test, made with the key it was given. */
-export class FakeSubscription {
+export class FakeSubscription implements Resource {
 	unsubscribed = false;
 	readonly options: { applicationServerKey: ArrayBuffer };
 
@@ -18,8 +20,12 @@ export class FakeSubscription {
 		return { endpoint: this.endpoint, keys: { p256dh: "BKey", auth: "auth" } };
 	}
 
-	async unsubscribe(): Promise<boolean> {
+	dispose(): void {
 		this.unsubscribed = true;
+	}
+
+	async unsubscribe(): Promise<boolean> {
+		this.dispose();
 		return true;
 	}
 }

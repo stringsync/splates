@@ -167,12 +167,6 @@ describe("stretches", () => {
 				"",
 				"Two fixes to uploads.",
 				"",
-				"## 🔐 Permission: remove lane 5: Old ideas",
-				"",
-				"`splates lane remove 5`",
-				"",
-				"Nothing in it is wanted.",
-				"",
 				"## 🔐 Permission: queue #12, #14",
 				"",
 				"Two fixes to uploads.",
@@ -203,16 +197,6 @@ describe("stretches", () => {
 			{
 				type: "permission",
 				permission: {
-					action: "remove-lane",
-					lane: 5,
-					tasks: [],
-					title: "Old ideas",
-					body: "Nothing in it is wanted.",
-				},
-			},
-			{
-				type: "permission",
-				permission: {
 					action: "queue",
 					lane: null,
 					tasks: [12, 14],
@@ -221,6 +205,13 @@ describe("stretches", () => {
 				},
 			},
 		]);
+	});
+
+	it("leaves a remove-lane permission heading as words, since that card is gone", () => {
+		const text =
+			"## 🔐 Permission: remove lane 5: Old ideas\n\n`splates lane remove 5`\n\nNothing in it is wanted.";
+
+		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
 	it("reads another project's queue card", () => {

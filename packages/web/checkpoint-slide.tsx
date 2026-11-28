@@ -1,7 +1,8 @@
-import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
+import { CheckIcon, PowerIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { DialogTitle } from "#web/components/ui/dialog.tsx";
 import { cn } from "#web/lib/utils.ts";
+import { Spinner } from "./pending";
 import type { ProjectConversation } from "./project-api";
 
 /** How a checkpoint stands. */
@@ -167,9 +168,7 @@ function StepIcon({ state }: { state: Step["state"] }): JSX.Element {
 		case "done":
 			return <CheckIcon aria-hidden className="size-3.5 text-success" />;
 		case "now":
-			return (
-				<Loader2Icon aria-hidden className="size-3.5 text-muted-foreground" />
-			);
+			return <Spinner aria-hidden className="size-3.5 text-muted-foreground" />;
 		case "todo":
 			return (
 				<span

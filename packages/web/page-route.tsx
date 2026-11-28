@@ -109,6 +109,7 @@ export const PAGES: {
 	Icon: LucideIcon;
 	shortcut?: ShortcutKey;
 	scope: "project" | "everywhere";
+	primary?: boolean;
 }[] = [
 	{
 		value: "boards",
@@ -116,6 +117,7 @@ export const PAGES: {
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
 		scope: "project",
+		primary: true,
 	},
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon, scope: "project" },
 	{
@@ -130,13 +132,20 @@ export const PAGES: {
 		Icon: ChartColumnIcon,
 		scope: "everywhere",
 	},
-	{ value: "ships", label: "Ships", Icon: ShipIcon, scope: "everywhere" },
+	{
+		value: "ships",
+		label: "Ships",
+		Icon: ShipIcon,
+		scope: "everywhere",
+		primary: true,
+	},
 	{ value: "rigs", label: "Rigs", Icon: HardHatIcon, scope: "project" },
 	{
 		value: "signals",
 		label: "Signals",
 		Icon: RadioIcon,
 		scope: "everywhere",
+		primary: true,
 	},
 	{
 		value: "trust",
@@ -144,7 +153,13 @@ export const PAGES: {
 		Icon: ShieldCheckIcon,
 		scope: "everywhere",
 	},
-	{ value: "rec", label: "Rec", Icon: VideoIcon, scope: "everywhere" },
+	{
+		value: "rec",
+		label: "Rec",
+		Icon: VideoIcon,
+		scope: "everywhere",
+		primary: true,
+	},
 	{ value: "billing", label: "Billing", Icon: GaugeIcon, scope: "everywhere" },
 	{ value: "setup", label: "Setup", Icon: ListChecksIcon, scope: "everywhere" },
 ];
@@ -173,7 +188,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	"auto-pick": "min-w-0 px-4 pt-4 pb-6",
 	setup: "min-w-0 px-4 pt-4 pb-6",
 	welcome: "min-w-0 px-4 pt-4 pb-6",
-	conversations: "min-h-0 flex-1",
+	conversations: "flex min-h-0 flex-1 flex-col",
 };
 
 /**

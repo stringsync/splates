@@ -6,12 +6,12 @@ import type {
 } from "@splates/server/plans/browser";
 import { BotIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
-import { cn } from "#web/lib/utils.ts";
 import { Board } from "./board";
 import { InMessage } from "./card-reply";
-import { SLIM_BAR, useQueuedTree } from "./chain-card";
+import { useQueuedTree } from "./chain-card";
 import { FinishedReferences } from "./finished-references";
 import { useQuotaReserve } from "./quota-reserve";
+import { ThreadBar } from "./thread-bar";
 
 /** Renders the tasks or lane an agent queued, with a way back to their conversations. */
 export const AgentQueuedUI = makeAssistantDataUI<{ queued: Queued }>({
@@ -177,28 +177,27 @@ function QueuedTaskBar({
 				? queuedStatus(todo)
 				: "waiting: quota reserve";
 	return (
-		<li
-			data-queued-task={id}
-			className={cn(SLIM_BAR, ringed && "ring-2 ring-primary/60")}
-		>
-			<BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-			<span className="shrink-0 text-muted-foreground tabular-nums">#{id}</span>
-			{open === null ? (
-				<span className="min-w-0 flex-1 truncate">{subject}</span>
-			) : (
-				<span className="flex min-w-0 flex-1">
-					<button
-						type="button"
-						onClick={open}
-						className="min-w-0 cursor-pointer truncate rounded text-left underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						{subject}
-					</button>
-				</span>
-			)}
-			{status !== null && (
-				<span className="shrink-0 text-muted-foreground text-xs">{status}</span>
-			)}
+		<li data-queued-task={id}>
+			<ThreadBar
+				Icon={BotIcon}
+				iconTone="neutral"
+				cta={open === null ? undefined : "Open"}
+				onPress={open ?? undefined}
+				className={ringed ? "ring-2 ring-primary/60" : undefined}
+				label={
+					<span className="flex min-w-0 items-baseline gap-1.5">
+						<span className="shrink-0 text-muted-foreground tabular-nums">
+							#{id}
+						</span>
+						<span className="min-w-0 truncate">{subject}</span>
+						{status !== null && (
+							<span className="shrink-0 text-muted-foreground text-xs">
+								· <span>{status}</span>
+							</span>
+						)}
+					</span>
+				}
+			/>
 		</li>
 	);
 }

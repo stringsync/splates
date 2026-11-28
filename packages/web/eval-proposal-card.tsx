@@ -55,6 +55,11 @@ export function EvalProposalCard({
 				tone="eval"
 				// Asking, each question marks itself while it has the focus.
 				ringed={children === undefined}
+				sheet={
+					children === undefined
+						? { title: headerTitle, action: "Open" }
+						: false
+				}
 				aside={
 					id !== null ? (
 						<span className="font-mono text-[11.5px] text-muted-foreground">
@@ -63,7 +68,7 @@ export function EvalProposalCard({
 					) : undefined
 				}
 			>
-				<div className="px-4 py-3.5 @max-md:px-3 @max-md:py-3">
+				<div className="px-4 py-3.5 @max-md:py-3">
 					<h2 className="m-0 font-bold text-[18px] leading-[1.28] tracking-[-0.015em]">
 						<Coded text={title} />
 					</h2>
@@ -114,7 +119,7 @@ function EvalStage({ rows }: { rows: StageRow[] }): JSX.Element {
 	return (
 		<section
 			aria-label="Starting state"
-			className="flex flex-col gap-1.5 border-y bg-muted/40 px-4 py-2.5 text-[13px] @max-md:px-3 dark:bg-muted/20 [&_code]:[overflow-wrap:anywhere]"
+			className="flex flex-col gap-1.5 border-y bg-muted/40 px-4 py-2.5 text-[13px] dark:bg-muted/20 [&_code]:[overflow-wrap:anywhere]"
 		>
 			{rows.map(({ label, Icon, value }) => (
 				<div
@@ -158,7 +163,7 @@ function EvalScript({ turns }: { turns: EvalScriptTurn[] }): JSX.Element {
 	return (
 		<figure
 			aria-label="Example conversation"
-			className="m-0 flex flex-col gap-3 px-4 py-3.5 @max-md:px-3"
+			className="m-0 flex flex-col gap-3 px-4 py-3.5"
 		>
 			{turns.map((turn, index) => {
 				if (turn.role === "user") {
@@ -290,7 +295,7 @@ export function EvalChecks({
 	return (
 		<section
 			aria-label="Checks"
-			className="rule-t flex flex-col gap-2 px-4 pt-3 pb-3.5 text-[13px] @max-md:px-3 [&_code]:[overflow-wrap:anywhere]"
+			className="rule-t flex flex-col gap-2 px-4 pt-3 pb-3.5 text-[13px] [&_code]:[overflow-wrap:anywhere]"
 		>
 			<ul className="m-0 flex list-none flex-col gap-2 p-0">
 				{checks.map((check) => (

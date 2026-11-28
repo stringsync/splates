@@ -53,16 +53,16 @@ describe("App on a touch device", () => {
 			"main",
 			"Terminal",
 			"Hand to a new agent",
-			"Image previewsCollapsed",
+			"Inline previewsCollapsed",
 			"Show timestamps",
 			"Archive",
 		]);
 
 		await act(async () => fireEvent.click(await menuItem(view, "Settings")));
-		const dialog = view.getByRole("dialog", { name: "Settings" });
+		const panel = view.getByRole("region", { name: "Settings" });
 		expect(
 			within(
-				within(dialog).getByRole("navigation", { name: "setting categories" }),
+				within(panel).getByRole("navigation", { name: "setting categories" }),
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
